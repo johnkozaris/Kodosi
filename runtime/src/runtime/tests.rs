@@ -2237,13 +2237,28 @@ async fn a_terminal_that_needs_its_person_waits_for_a_look_unless_someone_watche
     watching.cancel();
     assert!(!show(&mut runtime, ProgramState::Working));
     assert!(show(&mut runtime, ProgramState::Blocked));
-    let mut notices = 0;
+    let mut listed = None;
+    let mut calls = Vec::new();
     while let Ok(event) = events.try_recv() {
-        if event.event.kind() == "term.attention" {
-            notices += 1;
+        match event.event {
+            crate::protocol::EventBody::SessionsSnapshot { mut sessions } => {
+                listed = sessions.pop();
+            }
+            crate::protocol::EventBody::TerminalAttention { .. } => {
+                let entry = listed.as_ref().expect("the list comes before the call");
+                assert!(entry.attention);
+                calls.push(entry.waiting);
+            }
+            _ => {}
         }
     }
-    assert_eq!(notices, 2);
+    assert_eq!(
+        calls,
+        [
+            Some(crate::terminal::Waiting::Done),
+            Some(crate::terminal::Waiting::Blocked)
+        ]
+    );
 }
 
 #[tokio::test]

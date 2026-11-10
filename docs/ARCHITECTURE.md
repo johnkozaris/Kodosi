@@ -87,7 +87,9 @@ starts at its final width. The view in focus sets the size of its terminal. When
 leaves, the focused view whose size the terminal had before sets it again. Input from a
 view is a person's; input from the `kodosi` command stops with a message while a person
 types in the terminal. When a terminal stops working or starts to wait while no client
-shows it, the host marks it until a client shows it.
+shows it, the host marks it until a client shows it. The runtime sends the list of
+terminals with the mark and the new state first, and then the call for that terminal, so a
+client alerts with the state that the call is about.
 
 The runtime says in each list of terminals whether a terminal's program works, what the
 terminal waits with and what the program does in words, and each client shows that. The

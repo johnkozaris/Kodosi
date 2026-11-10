@@ -1476,6 +1476,7 @@ impl Runtime {
     fn publish_catalog(&mut self) {
         let mut entries = self.entries();
         let mut activity = HashMap::with_capacity(entries.len());
+        let mut called = Vec::new();
         for entry in &entries {
             let before = self.activity.get(&entry.id).copied();
             let away = matches!(
@@ -1487,8 +1488,8 @@ impl Runtime {
             let stopped = !away && known && was_working && !entry.working;
             let waits =
                 entry.waiting.is_some() && before.map(|before| before.wait) != Some(entry.waiting);
-            if (stopped || waits) && Activity::calls(entry) {
-                self.notice(&entry.id);
+            if (stopped || waits) && Activity::calls(entry) && self.mark(&entry.id) {
+                called.push(entry.id.clone());
             }
             activity.insert(
                 entry.id.clone(),
@@ -1504,6 +1505,9 @@ impl Runtime {
             entry.attention = self.attention.contains(&entry.id);
         }
         self.emit(json!({"type":"sessions.snapshot", "sessions":entries}));
+        for id in called {
+            self.call(&id);
+        }
     }
 
     fn watched(&self, id: &str) -> bool {
@@ -1588,11 +1592,18 @@ impl Runtime {
         }
     }
 
-    fn notice(&mut self, id: &str) {
+    /// Marks a terminal for its person, unless someone watches it now.
+    fn mark(&mut self, id: &str) -> bool {
         if self.watched(id) {
-            return;
+            return false;
         }
         self.attention.insert(id.to_owned());
+        true
+    }
+
+    /// Calls the person of a marked terminal. The terminal list goes first, so that an app has
+    /// the state that the call is about.
+    fn call(&self, id: &str) {
         self.emit(json!({"type":"term.attention", "sessionId":id}));
     }
 
@@ -3453,9 +3464,9 @@ impl Runtime {
                     .get(&id)
                     .is_some_and(|local| Activity::calls(&local.entry));
                 let id = id.to_string();
-                if calls && !self.attention.contains(&id) {
-                    self.notice(&id);
+                if calls && !self.attention.contains(&id) && self.mark(&id) {
                     self.publish_catalog();
+                    self.call(&id);
                 }
             }
             #[cfg(feature = "host")]
