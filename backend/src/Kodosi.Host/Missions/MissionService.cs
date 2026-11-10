@@ -154,7 +154,7 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
         await RequireMissionCapacityAsync(body.UserId, ct);
         var people = await RoomMembership.PeopleOf(db, id, invited: true).CountAsync(ct);
         var most = (await plans.LimitsAsync(db, mission.OwnerUserId, ct)).RoomPeople;
-        if (people >= most) throw ApiException.OverLimit("roomPeople", most, $"This room can have at most {Limits.Count(most, "person", "people")}, with its open invitations.");
+        if (people >= most) throw TooManyPeople(most);
         db.MissionInvitations.Add(new MissionInvitation { Id = Limits.Id(body.Id, "Invitation ID"), MissionId = id, UserId = body.UserId, InviterUserId = userId, CreatedAt = clock.GetUtcNow() });
         await db.SaveChangesAsync(ct);
         await AppendKeysAsync(mission, keys, ct);
@@ -226,6 +226,9 @@ public sealed partial class MissionService(KodosiDbContext db, ConnectionDirecto
     }
 
     private async Task NotifyAsync(Guid id, CancellationToken ct) => connections.Notify(await MemberIdsAsync(id, ct), "missions", id);
+
+    private static ApiException TooManyPeople(int most) =>
+        ApiException.OverLimit("roomPeople", most, $"This room can have at most {Limits.Count(most, "person", "people")}, with its open invitations.");
 
     public sealed record CreateMission(Guid Id, string Name, bool Dosi = false);
     public sealed record RenameMission(string Name);

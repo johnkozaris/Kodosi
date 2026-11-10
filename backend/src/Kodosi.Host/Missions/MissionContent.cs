@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Kodosi.Data;
 using Kodosi.Devices;
+using Kodosi.Plans;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 
@@ -112,10 +113,15 @@ public sealed partial class MissionService
         var (version, epoch, userId) = (state.Version, state.Epoch, state.AuthorId);
         if (state.RoomId != room.Id || state.OwnerUserId != room.OwnerUserId || version != room.KeyVersion + 1)
             throw ApiException.Conflict("Room keys changed; refresh before retrying.");
-        var members = state.Members.Keys.ToHashSet();
-        if (!members.SetEquals(await MemberIdsAsync(room.Id, ct, invited: true)))
-            throw ApiException.Conflict("Room membership changed; refresh before retrying.");
         var previous = room.KeyVersion == 0 ? null : await db.MissionKeyStates.AsNoTracking().SingleAsync(x => x.MissionId == room.Id && x.Version == room.KeyVersion, ct);
+        HashSet<Guid> oldMembers = previous is null ? [] : ReadBody<KeyStateBody>(previous.Body).Members.Keys.ToHashSet();
+        var members = state.Members.Keys.ToHashSet();
+        var people = await MemberIdsAsync(room.Id, ct, invited: true);
+        var deleted = members.Except(people).ToArray();
+        if (!members.IsSupersetOf(people) || !oldMembers.IsSupersetOf(deleted)
+            || (deleted.Length != 0 && await db.Users.AnyAsync(x => deleted.Contains(x.Id), ct)))
+            throw ApiException.Conflict("Room membership changed; refresh before retrying.");
+        if (members.Count > PlanLimits.Safety.RoomPeople) throw TooManyPeople(PlanLimits.Safety.RoomPeople);
         if (previous is null)
         {
             if (userId != room.OwnerUserId || epoch != 1 || state.PreviousHash != "")
@@ -125,7 +131,6 @@ public sealed partial class MissionService
         {
             if (state.PreviousHash != Convert.ToHexStringLower(SHA256.HashData(previous.Body))
                 || epoch < previous.Epoch || epoch > previous.Epoch + 1) throw ApiException.Conflict("Room key history changed.");
-            var oldMembers = ReadBody<KeyStateBody>(previous.Body).Members.Keys.ToHashSet();
             var added = members.Except(oldMembers).ToArray();
             var removed = oldMembers.Except(members).ToArray();
             if (userId != room.OwnerUserId && (added.Length != 0 || removed.Any(x => x != userId))) throw ApiException.Forbidden();
