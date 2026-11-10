@@ -150,6 +150,18 @@ test("typing in a block that shows more than once in a changed snapshot comes ba
   expect(waiting.loaded(snapshot, state, "none")).toEqual({ steps: [], lost: "y" });
 });
 
+test("typing in a line that others filled or removed never lands in another line like it", () => {
+  const doc = docOf(["p", "Plan"], ["a", ""], ["r", "Risks"], ["b", ""]);
+  const lastLine = doc.content.size - 1;
+  for (const snapshot of [
+    docOf(["p", "Plan"], ["a", ""], ["r", "Risks"], ["b", "Budget is fine"]),
+    docOf(["p", "Plan"], ["a", ""], ["r", "Risks"]),
+  ]) {
+    const { waiting, state } = copyOf(doc, (state) => typed(state, "Late supplier", lastLine));
+    expect(waiting.loaded(snapshot, state, "none")).toEqual({ steps: [], lost: "Late supplier" });
+  }
+});
+
 test("a refused batch does not come again, and the text that waited shows", () => {
   const doc = docOf(["a", "ab"]);
   const { waiting, state } = copyOf(doc, (state) => typed(typed(state, "x", 2), "y", 1));

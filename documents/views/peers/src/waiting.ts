@@ -68,6 +68,44 @@ function placeOf(doc: ProseNode, [from, to]: Range, snapshot: ProseNode): number
   return place;
 }
 
+/** Where `block` is in `doc`, when it shows there once. */
+function onlyPlaceOf(doc: ProseNode, block: ProseNode): number | null {
+  let place: number | null = null;
+  let count = 0;
+  doc.forEach((child, _offset, index) => {
+    if (alike(child, block)) {
+      count++;
+      place = index;
+    }
+  });
+  return count === 1 ? place : null;
+}
+
+/** Where the block `index` of `base` is in `snapshot`, when it shows once in both. */
+function anchorOf(base: ProseNode, index: number, snapshot: ProseNode): number | null {
+  const block = base.child(index);
+  return onlyPlaceOf(base, block) === index ? onlyPlaceOf(snapshot, block) : null;
+}
+
+/**
+ * Whether the blocks `range` of `base`, at `at` in `snapshot`, stay after the nearest block before
+ * them and before the nearest block after them that show once in both.
+ */
+function anchored(base: ProseNode, [first, end]: Range, snapshot: ProseNode, at: number): boolean {
+  for (let index = first - 1; index >= 0; index--) {
+    const there = anchorOf(base, index, snapshot);
+    if (there !== null) {
+      if (there >= at) return false;
+      break;
+    }
+  }
+  for (let index = end; index < base.childCount; index++) {
+    const there = anchorOf(base, index, snapshot);
+    if (there !== null) return there >= at + end - first;
+  }
+  return true;
+}
+
 function startOf(doc: ProseNode, block: number): number {
   let pos = 0;
   for (let index = 0; index < block; index++) pos += doc.child(index).nodeSize;
@@ -108,7 +146,7 @@ function rebase(steps: readonly Step[], docs: readonly ProseNode[], over: Transf
 function onto(typed: Transform, from: number, [first, end]: Range, snapshot: ProseNode) {
   const base = typed.docs[from] ?? typed.doc;
   const at = placeOf(base, [first, end], snapshot);
-  if (at === null) return null;
+  if (at === null || !anchored(base, [first, end], snapshot, at)) return null;
   const blocks = end - first;
   const over = new Transform(base);
   const after = snapshot.slice(startOf(snapshot, at + blocks));
