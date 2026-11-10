@@ -40,9 +40,11 @@ public final class CanvasStore {
     /// The parts of each canvas that a person closed on this device, with the newest change in
     /// each part then. A part opens again when it changes.
     private var closed: [String: [CanvasSection: UInt64]] = [:]
-    /// The stamp of the newest show of each terminal's agent that this device opened, or that
-    /// came before this device saw the terminal.
+    /// The time of the newest show of each terminal's agent that this device opened, or the start
+    /// of the app: a show from before opens nothing.
     private var opened: [String: UInt64] = [:]
+    /// When the app started, in milliseconds since 1970.
+    private let started: UInt64
     @ObservationIgnored private var stored: [Stored: Data] = [:]
     @ObservationIgnored private var storedOrder: [Stored] = []
     @ObservationIgnored private var reading: [Stored: Task<(UInt64, Data), any Error>] = [:]
@@ -51,8 +53,9 @@ public final class CanvasStore {
     /// The terminals that ran in the last list. A link of a terminal that runs again joins at once.
     @ObservationIgnored private var running: Set<String> = []
 
-    public init(commands: CommandSink) {
+    public init(commands: CommandSink, started: UInt64 = UInt64(Date.now.timeIntervalSince1970 * 1000)) {
         self.commands = commands
+        self.started = started
     }
 
     /// A link to the live picture of a terminal's browser.
@@ -83,10 +86,9 @@ public final class CanvasStore {
             firstSeen[session.id] = session.canvas?.newest?.changed ?? 0
         }
         for session in sessions where opened[session.id] == nil {
-            opened[session.id] = session.canvas?.open?.at ?? 0
+            opened[session.id] = started
         }
         firstSeen = firstSeen.filter { ids.contains($0.key) }
-        opened = opened.filter { ids.contains($0.key) }
         marks = marks.filter { ids.contains($0.key) }
         for session in sessions {
             if opening.contains(session.id), session.canvas?.browser != nil {
@@ -169,7 +171,7 @@ public final class CanvasStore {
 
     /// Whether the agent of a terminal showed something that this device did not open yet.
     public func showsNew(_ session: RuntimeSession) -> Bool {
-        guard let open = session.canvas?.open, open.at > (opened[session.id] ?? 0) else { return false }
+        guard let open = session.canvas?.open, open.at > (opened[session.id] ?? started) else { return false }
         return session.canvas?.shown(open.key) != nil
     }
 
@@ -187,7 +189,7 @@ public final class CanvasStore {
     /// does not open it again.
     private func settle(_ session: RuntimeSession) {
         if let at = session.canvas?.open?.at {
-            opened[session.id] = max(opened[session.id] ?? 0, at)
+            opened[session.id] = max(opened[session.id] ?? started, at)
         }
     }
 

@@ -69,7 +69,7 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
 }
 
 @Test @MainActor func `a canvas opens once at each show of its agent, and not at a show from before`() throws {
-    let store = CanvasStore(commands: CommandSink())
+    let store = CanvasStore(commands: CommandSink(), started: 6)
     let shown = { (at: UInt64, key: String) in
         try terminal(canvas: [
             "sequence": .uint(at), "items": .array([item("plan.md", changed: 5), item("compare.html", changed: 4)]),
@@ -92,6 +92,25 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     let gone = try shown(9, "gone.md")
     store.observe([gone])
     #expect(!store.showsNew(gone))
+}
+
+@Test @MainActor func `a terminal whose canvas comes later opens only a show from after the start`() throws {
+    let store = CanvasStore(commands: CommandSink(), started: 100)
+    let shown = { (at: UInt64) in
+        try terminal(canvas: [
+            "sequence": .uint(at), "items": .array([item("plan.md", changed: 5)]),
+            "open": .object(["key": .string("/tmp/work/plan.md"), "at": .uint(at)]),
+        ])
+    }
+    try store.observe([terminal(canvas: nil)])
+    let old = try shown(90)
+    store.observe([old])
+    #expect(!store.openShown(old))
+    let fresh = try shown(120)
+    try store.observe([terminal(canvas: nil)])
+    store.observe([fresh])
+    #expect(store.openShown(fresh))
+    #expect(!store.openShown(fresh))
 }
 
 @Test func `a point of the view becomes a point of the browser`() {

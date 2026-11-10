@@ -248,7 +248,7 @@ private slots:
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
+        kodosi::CanvasModel model(commands, sessions, 6);
         const auto id = test::id(1);
         const auto files = QStringLiteral("files");
         const auto show = [&](int at, const QString& name) {
@@ -273,6 +273,27 @@ private slots:
         QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
         show(10, QStringLiteral("gone.md"));
         QVERIFY(!model.showsNew(id));
+        QVERIFY(!model.openShown(id));
+    }
+
+    void aTerminalWhoseCanvasComesLaterOpensOnlyAShowFromAfterTheStart()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions, 100);
+        const auto id = test::id(1);
+        const auto show = [&](int at) {
+            auto shown = canvas(at, { item(QStringLiteral("plan.md"), 5) });
+            shown.insert(QStringLiteral("open"),
+                QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.md") }, { QStringLiteral("at"), at } });
+            sessions.apply(test::snapshot({ terminal(shown) }));
+        };
+        sessions.apply(test::snapshot({ test::session(1) }));
+        show(90);
+        QVERIFY(!model.openShown(id));
+        sessions.apply(test::snapshot({ test::session(1) }));
+        show(120);
+        QVERIFY(model.openShown(id));
         QVERIFY(!model.openShown(id));
     }
 

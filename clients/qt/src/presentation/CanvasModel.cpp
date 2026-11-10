@@ -61,10 +61,11 @@ QString oneLine(const QString& text)
 }
 }
 
-CanvasModel::CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions, QObject* parent)
+CanvasModel::CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions, quint64 started, QObject* parent)
     : QObject(parent)
     , m_commands(commands)
     , m_sessions(sessions)
+    , m_started(started)
 {
     connect(&sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &CanvasModel::observe);
 }
@@ -132,7 +133,7 @@ void CanvasModel::observe()
             m_firstSeen.insert(id, newest);
         }
         if (!m_opened.contains(id))
-            m_opened.insert(id, lastShow(id).value_or(Show {}).at);
+            m_opened.insert(id, m_started);
         const auto canvas = m_sessions.session(id).value_or(SessionCatalogModel::Session {}).canvas;
         const auto sequence = number(canvas.value(QStringLiteral("sequence")));
         if (!m_sequences.contains(id) || m_sequences.value(id) != sequence) {
@@ -152,7 +153,6 @@ void CanvasModel::observe()
     }
     const auto gone = [&ids](const QString& id) { return !ids.contains(id); };
     m_firstSeen.removeIf([&](const auto& entry) { return gone(entry.key()); });
-    m_opened.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_marks.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_sequences.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_picks.removeIf([&](const auto& entry) { return gone(entry.key()); });
@@ -339,7 +339,7 @@ void CanvasModel::saw(const QString& sessionId, const QString& key)
 bool CanvasModel::showsNew(const QString& sessionId) const
 {
     const auto show = lastShow(sessionId);
-    if (!show || !m_opened.contains(sessionId) || show->at <= m_opened.value(sessionId))
+    if (!show || show->at <= m_opened.value(sessionId, m_started))
         return false;
     const auto entries = shown(sessionId);
     return std::ranges::find(entries, show->key, &Shown::key) != entries.end();
@@ -359,7 +359,7 @@ bool CanvasModel::openShown(const QString& sessionId)
 void CanvasModel::settle(const QString& sessionId)
 {
     if (const auto show = lastShow(sessionId))
-        m_opened.insert(sessionId, std::max(m_opened.value(sessionId), show->at));
+        m_opened.insert(sessionId, std::max(m_opened.value(sessionId, m_started), show->at));
 }
 
 void CanvasModel::remove(const QString& sessionId, const QString& key)

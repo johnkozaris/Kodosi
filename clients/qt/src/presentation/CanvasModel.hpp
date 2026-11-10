@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QDateTime>
 #include <QHash>
 #include <QImage>
 #include <QJsonObject>
@@ -41,7 +42,9 @@ public:
         int windows = 0;
     };
 
-    CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions, QObject* parent = nullptr);
+    // `started` is when the app started, in milliseconds since 1970: a show from before opens nothing.
+    CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions,
+        quint64 started = static_cast<quint64>(QDateTime::currentMSecsSinceEpoch()), QObject* parent = nullptr);
 
     [[nodiscard]] int revision() const { return m_revision; }
     // What Settings › Browser shows: the last status of this computer, the part of a download of
@@ -177,9 +180,10 @@ private:
     QHash<QString, QString> m_picks;
     QHash<QString, QString> m_lastFiles;
     QHash<QString, QHash<QString, quint64>> m_closed;
-    // The stamp of the newest show of each terminal's agent that this device opened, or that came
-    // before this device saw the terminal.
+    // The time of the newest show of each terminal's agent that this device opened, or the start
+    // of the app.
     QHash<QString, quint64> m_opened;
+    quint64 m_started = 0;
     QSet<QString> m_opening;
     QSet<QString> m_shelves;
     QHash<QString, Stored> m_stored;

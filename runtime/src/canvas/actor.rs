@@ -545,10 +545,12 @@ impl Actor {
             showing.shown.first().map(|shown| shown.key.clone())
         };
         if let Some(key) = key {
-            self.open = Some(CanvasOpen {
-                key,
-                at: self.stamp.next(),
-            });
+            let at = self
+                .open
+                .as_ref()
+                .map_or(0, |open| open.at + 1)
+                .max(crate::identity::now_ms());
+            self.open = Some(CanvasOpen { key, at });
         }
         self.publish();
         let Some(browser) = browser else {
