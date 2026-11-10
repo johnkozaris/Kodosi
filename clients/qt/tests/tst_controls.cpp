@@ -30,7 +30,70 @@ private slots:
     void leavingTerminalsLeavesNoDeferredWork();
     void missionCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
+    void theSharedBrowserPictureStopsWhileTheWindowIsAway();
 };
+
+void ControlsTest::theSharedBrowserPictureStopsWhileTheWindowIsAway()
+{
+    class Commands final : public kodosi::CommandDispatcher {
+    public:
+        QStringList types;
+        Result send(QByteArrayView bytes) override
+        {
+            types.append(QJsonDocument::fromJson(bytes.toByteArray()).object().value(QStringLiteral("type")).toString());
+            return {};
+        }
+    } commands;
+    QTemporaryDir directory;
+    const auto ini = [&directory](const char* name) {
+        return std::make_unique<QSettings>(directory.filePath(QLatin1String(name)), QSettings::IniFormat);
+    };
+    kodosi::AppearanceModel appearance(ini("appearance.ini"),
+        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
+    kodosi::DesktopStateModel desktop(ini("desktop.ini"));
+    kodosi::DesktopSettings settings(ini("settings.ini"));
+    kodosi::SessionCatalogModel sessions;
+    kodosi::Workspace workspace(commands, sessions, desktop, settings);
+    kodosi::CanvasModel canvas(commands, sessions);
+    kodosi::CanvasDocuments documents(commands, sessions);
+    kodosi::DesktopFileIntegration files;
+    kodosi::qml::AppearanceModelForeign::instance = &appearance;
+    kodosi::qml::DesktopStateModelForeign::instance = &desktop;
+    kodosi::qml::DesktopSettingsForeign::instance = &settings;
+    kodosi::qml::SessionCatalogModelForeign::instance = &sessions;
+    kodosi::qml::AppStateForeign::instance = &workspace;
+    kodosi::qml::AccountModelForeign::instance = &workspace.account();
+    kodosi::qml::PeopleModelForeign::instance = &workspace.people();
+    kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::CanvasModelForeign::instance = &canvas;
+    kodosi::qml::CanvasDocumentsForeign::instance = &documents;
+    kodosi::qml::DesktopFileIntegrationForeign::instance = &files;
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        import Kodosi 1.0
+        Window {
+            width: 640; height: 480; visible: true
+            CanvasBrowser {
+                anchors.fill: parent
+                sessionId: "0198aaaa-0000-7000-8000-000000000001"
+                browser: ({ state: "awake" })
+            }
+        }
+    )", {});
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    std::unique_ptr<QObject> root(component.create());
+    QVERIFY2(root, qPrintable(component.errorString()));
+    QCOMPARE(commands.types, QStringList { QStringLiteral("document.open") });
+    auto* theme = engine.singletonInstance<QObject*>("Kodosi", "KodosiTheme");
+    QVERIFY(theme);
+    theme->setProperty("shown", false);
+    QCOMPARE(commands.types, (QStringList { QStringLiteral("document.open"), QStringLiteral("document.close") }));
+    theme->setProperty("shown", true);
+    QCOMPARE(commands.types.size(), 3);
+    QCOMPARE(commands.types.last(), QStringLiteral("document.open"));
+}
 
 void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
 {
