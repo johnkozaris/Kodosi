@@ -139,21 +139,6 @@ impl Documents {
             .unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Saves each open document now, and waits until the file holds its changes.
-    pub async fn flush(&self) {
-        let open: Vec<_> = self
-            .lock()
-            .values()
-            .map(|open| open.commands.clone())
-            .collect();
-        for commands in open {
-            let (done, finished) = tokio::sync::oneshot::channel();
-            if commands.send(Command::Flush { done }).await.is_ok() {
-                drop(finished.await);
-            }
-        }
-    }
-
     /// Saves and closes each document, and leaves no journal behind.
     pub async fn close(&self) {
         let open: Vec<_> = self.lock().drain().map(|(_, open)| open.commands).collect();

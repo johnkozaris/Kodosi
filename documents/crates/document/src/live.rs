@@ -200,10 +200,6 @@ impl<F: Format> Document<F> {
         self.saved_rev
     }
 
-    pub fn epoch(&self) -> u64 {
-        self.epoch
-    }
-
     pub fn first_rev(&self) -> Rev {
         self.first_rev
     }

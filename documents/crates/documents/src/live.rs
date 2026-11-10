@@ -8,7 +8,6 @@ pub trait Live: Send {
     fn rev(&self) -> Rev;
     fn saved_rev(&self) -> Rev;
     fn first_rev(&self) -> Rev;
-    fn epoch(&self) -> u64;
     fn seqs(&self) -> HashMap<String, u64>;
     fn is_empty(&self) -> bool;
     fn asset(&self, hash: &Hash) -> Option<Arc<[u8]>>;
@@ -29,10 +28,6 @@ impl<F: Format> Live for Document<F> {
 
     fn first_rev(&self) -> Rev {
         Self::first_rev(self)
-    }
-
-    fn epoch(&self) -> u64 {
-        Self::epoch(self)
     }
 
     fn seqs(&self) -> HashMap<String, u64> {

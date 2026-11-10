@@ -5,6 +5,5 @@ export type { Peer } from "./generated/Peer";
 export type { RefusedReason } from "./generated/RefusedReason";
 export type { ToClient } from "./generated/ToClient";
 export type { ToDocument } from "./generated/ToDocument";
-export type { Viewer } from "./generated/Viewer";
 
 export const CONTRACT = 2;

@@ -19,9 +19,8 @@ pub type Rev = u64;
 pub type Seq = u64;
 
 /// A person or an agent, as the host names them. Each view of one person has the same `id`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
 pub struct Viewer {
     pub id: String,
     pub name: String,

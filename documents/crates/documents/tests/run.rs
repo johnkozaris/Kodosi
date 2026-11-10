@@ -154,7 +154,7 @@ async fn two_viewers_share_one_order_and_the_file_gets_it() {
     change(&ana, 1, 0, "a1", "from ana").await;
     assert!(matches!(message(&mut ben).await, ToClient::Changed(_)));
     assert!(matches!(message(&mut ana).await, ToClient::Changed(_)));
-    rig.documents.flush().await;
+    rig.documents.close().await;
     assert_eq!(file_value(&rig.file, "a1").as_deref(), Some("from ana"));
     assert!(matches!(
         message(&mut ana).await,

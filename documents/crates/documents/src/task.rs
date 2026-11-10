@@ -41,9 +41,6 @@ pub(crate) enum Command {
         waiting: Arc<AtomicUsize>,
     },
     Input(Input),
-    Flush {
-        done: oneshot::Sender<()>,
-    },
     Close {
         done: oneshot::Sender<()>,
     },
@@ -245,11 +242,6 @@ impl Task {
                         self.pipes.remove(pipe);
                     }
                     effects.extend(self.document.step(input));
-                }
-                Command::Flush { done } => {
-                    self.run_effects(std::mem::take(&mut effects)).await;
-                    self.save().await;
-                    let _sent = done.send(());
                 }
                 Command::Close { done } => {
                     self.run_effects(std::mem::take(&mut effects)).await;
