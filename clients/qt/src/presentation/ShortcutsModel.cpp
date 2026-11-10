@@ -1,5 +1,8 @@
 #include "presentation/ShortcutsModel.hpp"
 
+#include <QKeyEvent>
+#include <QtGui/private/qkeymapper_p.h>
+
 #include <algorithm>
 #include <ranges>
 #include <utility>
@@ -90,18 +93,11 @@ void ShortcutsModel::store(const QString& action, const QStringList& keys)
         m_settings->setValue(settingsKey(action), keys);
 }
 
-/// Many layouts send Ctrl+{ for Ctrl+Shift+[, so a shortcut lists both.
 QVariantMap ShortcutsModel::keys() const
 {
     QVariantMap map;
-    for (const auto& action : actions()) {
-        auto keys = keysOf(action.id);
-        if (keys.contains(QStringLiteral("Ctrl+Shift+[")))
-            keys.append(QStringLiteral("Ctrl+{"));
-        if (keys.contains(QStringLiteral("Ctrl+Shift+]")))
-            keys.append(QStringLiteral("Ctrl+}"));
-        map.insert(action.id, keys);
-    }
+    for (const auto& action : actions())
+        map.insert(action.id, keysOf(action.id));
     return map;
 }
 
@@ -193,10 +189,15 @@ void ShortcutsModel::reset()
     emit keysChanged();
 }
 
-/// The text of a pressed key, or nothing for a key that a program should get.
-QString ShortcutsModel::sequence(const int key, const int modifiers)
+QString ShortcutsModel::sequence(const QKeyEvent& event)
 {
-    switch (key) {
+    return sequence(event.keyCombination(), QKeyMapper::possibleKeys(&event));
+}
+
+/// The text of a pressed key as the shortcuts match it, or nothing for a key that a program should get.
+QString ShortcutsModel::sequence(const QKeyCombination pressed, const QList<QKeyCombination>& possible)
+{
+    switch (pressed.key()) {
     case Qt::Key_Control:
     case Qt::Key_Shift:
     case Qt::Key_Alt:
@@ -209,12 +210,13 @@ QString ShortcutsModel::sequence(const int key, const int modifiers)
     default:
         break;
     }
-    const auto flags = Qt::KeyboardModifiers(modifiers)
+    const auto flags = pressed.keyboardModifiers()
         & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier | Qt::MetaModifier);
-    const auto function = key >= Qt::Key_F1 && key <= Qt::Key_F35;
+    const auto function = pressed.key() >= Qt::Key_F1 && pressed.key() <= Qt::Key_F35;
     if (!function && (flags & ~Qt::KeyboardModifiers(Qt::ShiftModifier)) == Qt::NoModifier)
         return {};
-    return QKeySequence(QKeyCombination(flags, Qt::Key(key))).toString(QKeySequence::PortableText);
+    const auto key = possible.isEmpty() ? pressed.key() : possible.first().key();
+    return QKeySequence(QKeyCombination(flags, key)).toString(QKeySequence::PortableText);
 }
 
 }

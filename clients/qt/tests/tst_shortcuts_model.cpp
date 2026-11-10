@@ -84,21 +84,35 @@ private slots:
         QCOMPARE(keysOf(model, QStringLiteral("close")), QStringList(QStringLiteral("Ctrl+Shift+W")));
     }
 
-    void bracketsListTheKeyThatTheLayoutSends()
+    void eachKeyOfAnActionIsOneShortcut()
     {
         QTemporaryDir dir;
         ShortcutsModel model(settingsIn(dir));
-        QVERIFY(keysOf(model, QStringLiteral("previousTerminal")).contains(QStringLiteral("Ctrl+{")));
-        QVERIFY(keysOf(model, QStringLiteral("nextTerminal")).contains(QStringLiteral("Ctrl+}")));
+        QCOMPARE(keysOf(model, QStringLiteral("previousTerminal")),
+            (QStringList { QStringLiteral("Ctrl+Shift+["), QStringLiteral("Ctrl+Shift+Left"), QStringLiteral("Ctrl+PgUp"),
+                QStringLiteral("Ctrl+Shift+Tab") }));
+        QCOMPARE(keysOf(model, QStringLiteral("nextTerminal")),
+            (QStringList { QStringLiteral("Ctrl+Shift+]"), QStringLiteral("Ctrl+Shift+Right"), QStringLiteral("Ctrl+PgDown"),
+                QStringLiteral("Ctrl+Tab") }));
+    }
+
+    void aPressedKeyIsRecordedAsTheShortcutsMatchIt()
+    {
+        const auto held = Qt::ControlModifier | Qt::ShiftModifier;
+        QCOMPARE(ShortcutsModel::sequence(held | Qt::Key_BraceLeft, { held | Qt::Key_BracketLeft, Qt::ControlModifier | Qt::Key_BraceLeft }),
+            QStringLiteral("Ctrl+Shift+["));
+        QCOMPARE(ShortcutsModel::sequence(held | Qt::Key_Backtab, { held | Qt::Key_Tab }), QStringLiteral("Ctrl+Shift+Tab"));
+        QCOMPARE(ShortcutsModel::sequence(held | Qt::Key_Exclam, { held | Qt::Key_1, Qt::ControlModifier | Qt::Key_Exclam }),
+            QStringLiteral("Ctrl+Shift+1"));
+        QCOMPARE(ShortcutsModel::sequence(held | Qt::Key_T, {}), QStringLiteral("Ctrl+Shift+T"));
     }
 
     void plainKeysStayWithTheTerminal()
     {
-        QCOMPARE(ShortcutsModel::sequence(Qt::Key_A, Qt::NoModifier), QString());
-        QCOMPARE(ShortcutsModel::sequence(Qt::Key_A, Qt::ShiftModifier), QString());
-        QCOMPARE(ShortcutsModel::sequence(Qt::Key_Control, Qt::ControlModifier), QString());
-        QCOMPARE(ShortcutsModel::sequence(Qt::Key_F5, Qt::NoModifier), QStringLiteral("F5"));
-        QCOMPARE(ShortcutsModel::sequence(Qt::Key_T, Qt::ControlModifier | Qt::ShiftModifier), QStringLiteral("Ctrl+Shift+T"));
+        QCOMPARE(ShortcutsModel::sequence(QKeyCombination(Qt::Key_A), { Qt::Key_A }), QString());
+        QCOMPARE(ShortcutsModel::sequence(Qt::ShiftModifier | Qt::Key_A, { Qt::ShiftModifier | Qt::Key_A }), QString());
+        QCOMPARE(ShortcutsModel::sequence(Qt::ControlModifier | Qt::Key_Control, {}), QString());
+        QCOMPARE(ShortcutsModel::sequence(QKeyCombination(Qt::Key_F5), { Qt::Key_F5 }), QStringLiteral("F5"));
     }
 };
 
