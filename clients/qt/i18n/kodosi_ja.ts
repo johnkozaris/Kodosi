@@ -3658,6 +3658,10 @@
         <translation>ターミナルに再接続できませんでした。</translation>
     </message>
     <message>
+        <source>%1 started by hand doesn&apos;t see Kodosi. Start it from Kodosi next time.</source>
+        <translation>手動で起動した %1 は Kodosi を認識できません。次回は Kodosi から起動してください。</translation>
+    </message>
+    <message>
         <source>%1 joined</source>
         <translation>%1 さんが参加しました</translation>
     </message>

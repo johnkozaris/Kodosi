@@ -527,6 +527,58 @@
         }
       }
     },
+    "%@ started by hand doesn't see Kodosi. Start it from Kodosi next time." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wurde von Hand gestartet und sieht Kodosi nicht. Starte es nächstes Mal über Kodosi."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το %@ ξεκίνησε χειροκίνητα και δεν βλέπει το Kodosi. Την επόμενη φορά, ξεκινήστε το από το Kodosi."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ se inició a mano y no ve Kodosi. La próxima vez, inícialo desde Kodosi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ lancé à la main ne voit pas Kodosi. La prochaine fois, lancez-le depuis Kodosi."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ avviato a mano non vede Kodosi. La prossima volta avvialo da Kodosi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手動で起動した %@ は Kodosi を認識できません。次回は Kodosi から起動してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "직접 시작한 %@은(는) Kodosi를 볼 수 없어요. 다음에는 Kodosi에서 시작하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手动启动的 %@ 无法识别 Kodosi。下次请从 Kodosi 启动。"
+          }
+        }
+      }
+    },
     "%@ wants to use your account." : {
       "localizations" : {
         "de" : {

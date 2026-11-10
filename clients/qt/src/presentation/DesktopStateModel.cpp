@@ -262,6 +262,13 @@ void DesktopStateModel::clearError()
         emit lastErrorChanged();
     }
 }
+void DesktopStateModel::noteOutside(const QString& id)
+{
+    if (m_notedOutside.contains(id))
+        return;
+    m_notedOutside.append(id);
+    emit notedOutsideChanged();
+}
 void DesktopStateModel::switchAccount(const QString& userId)
 {
     saveStage();
@@ -289,6 +296,8 @@ void DesktopStateModel::switchAccount(const QString& userId)
     m_computers.clear();
     m_departures.clear();
     m_closing.clear();
+    m_notedOutside.clear();
+    emit notedOutsideChanged();
 }
 void DesktopStateModel::noteClosing(const QString& id)
 {
@@ -399,6 +408,8 @@ void DesktopStateModel::reconcile()
             unstageSession(id);
     }
     m_closing.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); });
+    if (m_notedOutside.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); }) > 0)
+        emit notedOutsideChanged();
     reconcileCanvas();
     followPins();
     const auto followed = follow();

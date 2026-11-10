@@ -3658,6 +3658,10 @@
         <translation>终端无法重新连接。</translation>
     </message>
     <message>
+        <source>%1 started by hand doesn&apos;t see Kodosi. Start it from Kodosi next time.</source>
+        <translation>手动启动的 %1 无法识别 Kodosi。下次请从 Kodosi 启动。</translation>
+    </message>
+    <message>
         <source>%1 joined</source>
         <translation>%1 已加入</translation>
     </message>

@@ -110,32 +110,41 @@ computer with its own credentials. See [Security](SECURITY.md) and the
 
 ## Agents
 
-Each terminal has Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`. The launcher passes
-it to Claude Code and Codex, and Copilot CLI reads it from the host's `agents` folder
-through `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`. A host types the new room messages that name
-one of its terminals with `@` into the agent in that terminal, as one line with who wrote
-it and from where. `kodosi terminal message <terminal> "text"` sends such a line to an
-agent on any computer, as a terminal control. The terminal types a message only while
-its agent reports a state other than waiting for a person and nobody types there, and
-Enter follows as a key of its own.
+Each terminal has Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`. Claude Code and
+Copilot CLI find the note and Kodosi's skills through the terminal's variables, so they
+get them also when a person starts them there by hand. The launcher gives the note to
+Codex on its command line, its only way in; when the host sees a Codex in front that a
+person started without it, the terminal says so to the apps of its computer. A host types
+the new room messages that name one of its terminals with `@` into the agent in that
+terminal, as one line with who wrote it and from where.
+`kodosi terminal message <terminal> "text"` sends such a line to an agent on any computer,
+as a terminal control. The terminal types a message only while its agent reports a state
+other than waiting for a person and nobody types there, and Enter follows as a key of its
+own.
 
-The host also writes a plugin folder with the `kodosi`, `kodosi-canvas` and
-`kodosi-documents` skills in its `agents` folder at each start. Claude Code finds it
-through `CLAUDE_CODE_PLUGIN_DIRS`, after the person's own folders, and the launcher gives
-it to Copilot CLI with `--plugin-dir`.
-Other agents can read a skill with `kodosi skill`. Kodosi writes nothing into an agent's
-own folders, so an agent outside a Kodosi terminal does not change.
+The host also writes a plugin folder in its `agents` folder at each start, with the
+`kodosi`, `kodosi-canvas` and `kodosi-documents` skills and a hook that gives Claude Code
+the note at the start of each session with `kodosi skill context`. Claude Code finds the
+plugin through `CLAUDE_CODE_PLUGIN_DIRS`, and Copilot CLI finds its skills through
+`COPILOT_SKILLS_DIRS` and the note, an instructions file for every path in the `agents`
+folder, through `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`, each after the person's own folders. Other agents can
+read a skill with `kodosi skill`. Kodosi writes nothing into an agent's own folders, so an
+agent outside a Kodosi terminal does not change.
 
 ## Canvas
 
 The host keeps the canvas of each terminal: the files that an agent showed with
 `kodosi show <file>`, by path, each with a revision. Once a second, while the canvas has
-files, it compares their size and change time, and a change gives a new revision.
-Markdown, text and data files become pages with the style of the skill's page template.
-The list goes with the terminal's state to each client and to each device on the
-terminal's encrypted channel. An app asks for the content of one revision with
-`canvas.request` and gets it in parts of 256 KiB, so a device of another computer reads
-it over the same channel. Each app keeps what it read by revision.
+files, it compares their size and change time, and a change gives a new revision. Each show
+also names what it showed, a file or the browser, with the canvas's stamp. An app opens its
+canvas there once for each stamp, while the terminal is in front or when it comes to the
+front; the stamp that it finds when it first sees a terminal counts as opened.
+`kodosi show <address>`, and an HTML page that loads from the network, open in the shared
+browser with agent-browser's `open`. Markdown, text and data files become pages with the
+style of the skill's page template. The list goes with the terminal's state to each client
+and to each device on the terminal's encrypted channel. An app asks for the content of one
+revision with `canvas.request` and gets it in parts of 256 KiB, so a device of another
+computer reads it over the same channel. Each app keeps what it read by revision.
 
 A person adds a file with `canvas.request` in parts too. The host writes the parts beside
 the file's place in the terminal's folder, so an agent never sees a part of it, and a new

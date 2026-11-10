@@ -3671,6 +3671,10 @@
         <translation>Το τερματικό δεν μπόρεσε να επανασυνδεθεί.</translation>
     </message>
     <message>
+        <source>%1 started by hand doesn&apos;t see Kodosi. Start it from Kodosi next time.</source>
+        <translation>Το %1 ξεκίνησε χειροκίνητα και δεν βλέπει το Kodosi. Την επόμενη φορά, ξεκινήστε το από το Kodosi.</translation>
+    </message>
+    <message>
         <source>%1 joined</source>
         <translation>Μπήκε ο χρήστης %1</translation>
     </message>

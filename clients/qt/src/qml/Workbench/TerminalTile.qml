@@ -689,6 +689,59 @@ Item {
                 }
             }
         }
+        Item {
+            id: outsideNote
+
+            readonly property bool shown: root.session.programOutside === true
+                && Models.DesktopState.notedOutside.indexOf(root.sessionId) < 0
+
+            Layout.fillWidth: true
+            Layout.leftMargin: 5
+            Layout.rightMargin: 5
+            Layout.bottomMargin: 5
+            implicitHeight: Math.max(34, outsideRow.implicitHeight + 8)
+            visible: shown
+            opacity: shown ? 1 : 0
+            objectName: root.objectName + ".outside"
+
+            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade; easing.type: Easing.OutCubic } }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: KodosiTheme.radiusSm
+                color: KodosiTheme.terminalRaised
+            }
+            RowLayout {
+                id: outsideRow
+
+                anchors.fill: parent
+                anchors.leftMargin: 12
+                anchors.rightMargin: 6
+                spacing: 8
+
+                PlainLabel {
+                    Layout.fillWidth: true
+                    objectName: outsideNote.objectName + ".text"
+                    Accessible.id: objectName
+                    text: qsTr("%1 started by hand doesn't see Kodosi. Start it from Kodosi next time.")
+                        .arg(Models.DesktopSettings.agentLabel(root.session.program || ""))
+                    color: KodosiTheme.terminalInkMuted
+                    font.pixelSize: KodosiTheme.fontFootnote
+                    wrapMode: Text.WordWrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                }
+                KIconButton {
+                    objectName: outsideNote.objectName + ".dismiss"
+                    Accessible.id: objectName
+                    Accessible.name: qsTr("Dismiss")
+                    glyph: "close"
+                    size: 22
+                    onTerminal: true
+                    onClicked: Models.DesktopState.noteOutside(root.sessionId)
+                }
+            }
+        }
     }
     Rectangle {
         anchors.fill: parent

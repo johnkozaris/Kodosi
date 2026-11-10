@@ -2081,11 +2081,11 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
     let zsh = Path::new("/bin/zsh");
     assert_eq!(
         restore::usual_line("copilot", zsh).unwrap(),
-        "copilot --plugin-dir \"$KODOSI_PLUGIN_DIR\" --resume"
+        "copilot --resume"
     );
     assert_eq!(
         restore::usual_line("claude", zsh).unwrap(),
-        "claude --append-system-prompt \"$KODOSI_AGENT_CONTEXT\" --resume"
+        "claude --resume"
     );
     assert_eq!(restore::usual_line("vim", zsh), None);
     let home = Path::new("/home/ana");
@@ -2103,9 +2103,7 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
     );
     assert_eq!(
         line(Agent::Claude, &claude, Some(id)).unwrap(),
-        format!(
-            "claude --model opus --effort high --append-system-prompt \"$KODOSI_AGENT_CONTEXT\" --resume {id}"
-        )
+        format!("claude --model opus --effort high --resume {id}")
     );
     let codex = restart(
         Agent::Codex,
@@ -2195,9 +2193,7 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
     .await;
     assert_eq!(
         copilot,
-        format!(
-            "copilot --model claude-opus-5.5 --reasoning-effort max --plugin-dir \"$KODOSI_PLUGIN_DIR\" --resume={id}"
-        )
+        format!("copilot --model claude-opus-5.5 --reasoning-effort max --resume={id}")
     );
     let codex = stopping(
         "codex",
@@ -2453,9 +2449,7 @@ async fn terminals_come_back_after_the_host_stopped_once_an_app_asks() {
     assert!(command.starts_with("env CLAUDE_CONFIG_DIR="), "{command}");
     assert_eq!(
         saved[0]["line"],
-        format!(
-            "{command} --append-system-prompt \"$KODOSI_AGENT_CONTEXT\" --resume {CONVERSATION}"
-        )
+        format!("{command} --resume {CONVERSATION}")
     );
     assert!(saved[1].get("line").is_none());
 

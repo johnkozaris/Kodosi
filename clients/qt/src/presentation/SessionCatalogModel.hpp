@@ -30,6 +30,7 @@ public:
         QString title;
         QString program;
         int programAccount = -1;
+        bool programOutside = false;
         QString programState;
         QString programKind;
         QString programTitle;

@@ -51,12 +51,26 @@ struct Item {
 }
 
 /// A file that the canvas can show.
-struct Examined {
+pub(super) struct Examined {
     path: PathBuf,
     kind: CanvasKind,
     view: Option<DocumentView>,
     seen: Seen,
-    loads: Option<String>,
+    /// The first address that a page loads from the network.
+    pub loads: Option<String>,
+}
+
+impl Examined {
+    pub(super) fn name(&self) -> String {
+        name_of(&self.path)
+    }
+
+    /// The address of the file, for the shared browser.
+    pub(super) fn address(&self) -> Option<String> {
+        reqwest::Url::from_file_path(&self.path)
+            .ok()
+            .map(String::from)
+    }
 }
 
 struct Snapshot {
@@ -67,6 +81,7 @@ struct Snapshot {
 }
 
 pub(super) struct Shown {
+    pub key: String,
     pub name: String,
     pub loads: Option<String>,
 }
@@ -82,9 +97,22 @@ pub(super) struct Files {
     snapshot: Option<Snapshot>,
 }
 
+/// Checks each file before the canvas shows any of them.
+pub(super) async fn examine_all(paths: Vec<PathBuf>) -> Result<Vec<Examined>, Text> {
+    let mut checked = Vec::with_capacity(paths.len());
+    for path in paths {
+        checked.push(examine(path).await?);
+    }
+    Ok(checked)
+}
+
 impl Files {
     pub(super) fn is_empty(&self) -> bool {
         self.items.is_empty()
+    }
+
+    pub(super) fn contains(&self, key: &str) -> bool {
+        self.items.iter().any(|item| item.listed.key == key)
     }
 
     pub(super) fn items(&self) -> Vec<CanvasItem> {
@@ -92,15 +120,7 @@ impl Files {
     }
 
     /// Puts each file on the canvas, or brings it to the front. The newest comes first.
-    pub(super) async fn show(
-        &mut self,
-        paths: Vec<PathBuf>,
-        stamp: &Stamp,
-    ) -> Result<Showing, Text> {
-        let mut checked = Vec::with_capacity(paths.len());
-        for path in paths {
-            checked.push(examine(path).await?);
-        }
+    pub(super) fn show(&mut self, files: Vec<Examined>, stamp: &Stamp) -> Showing {
         let mut shown = Vec::new();
         for Examined {
             path,
@@ -108,7 +128,7 @@ impl Files {
             view,
             seen,
             loads,
-        } in checked
+        } in files
         {
             let key = key_of(&path);
             let name = name_of(&path);
@@ -141,15 +161,19 @@ impl Files {
                     seen: Some(seen),
                 },
             };
+            shown.push(Shown {
+                key: item.listed.key.clone(),
+                name,
+                loads,
+            });
             self.items.insert(0, item);
-            shown.push(Shown { name, loads });
         }
         let dropped = self
             .items
             .drain(MOST_ITEMS.min(self.items.len())..)
             .map(|item| item.listed.name)
             .collect();
-        Ok(Showing { shown, dropped })
+        Showing { shown, dropped }
     }
 
     /// Brings back the files of a terminal that returns. A file that is gone shows as missing.

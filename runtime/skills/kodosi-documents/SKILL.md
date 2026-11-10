@@ -13,8 +13,8 @@ text file keeps its line endings and its byte order mark.
 A text file of more than 10,000 lines or 512 KB is too long to edit live: `kodosi doc` says
 so, and you edit it with your own tools.
 
-Show a file on the canvas with `kodosi show <file>`, and tell the person why they should
-look.
+Show a file with `kodosi show <file>`: the canvas opens with it for the people of the
+terminal. Say in one line why they should look.
 
 ## Commands
 

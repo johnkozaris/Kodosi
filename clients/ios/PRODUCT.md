@@ -33,7 +33,8 @@ provider conversations stay on the computer.
   mouse. A drag scrolls the terminal, or the program when it uses the mouse. A tap on the
   name of your own terminal in its bar renames it.
 - The canvas key in a terminal's bar opens the canvas full screen with the keys of its
-  parts in the bar. A long press on a key closes its part, and the plus key opens a closed
+  parts in the bar, and it opens by itself at what the agent shows while the terminal is
+  open. A long press on a key closes its part, and the plus key opens a closed
   part or the browser, or adds a file. The files are tabs over the file, each with the key
   that takes it off the canvas, or all as cards, and a long press on one has Save a Copy,
   Ask about this and Remove from canvas. Documents, sheets, presentations, PDFs and text

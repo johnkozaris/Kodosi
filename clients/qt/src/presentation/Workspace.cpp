@@ -1,5 +1,6 @@
 #include "presentation/Workspace.hpp"
 #include "runtime/RuntimeBridge.hpp"
+#include "presentation/CanvasModel.hpp"
 #include "presentation/DesktopSettings.hpp"
 #include "presentation/DesktopStateModel.hpp"
 #include "presentation/SessionCatalogModel.hpp"
@@ -114,6 +115,51 @@ void Workspace::reportVisible()
             { { QStringLiteral("sessionIds"), QJsonArray::fromStringList(visible.first) },
                 { QStringLiteral("watching"), visible.second } }))
         m_reportedVisible = visible;
+}
+
+void Workspace::attachCanvas(CanvasModel& canvas)
+{
+    m_canvas = &canvas;
+    // Queued, so that the canvas opens after a change that moves the front, not in the middle of it.
+    connect(&m_sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &Workspace::openShownCanvas,
+        Qt::QueuedConnection);
+    connect(&m_sessions, &SessionCatalogModel::visibleChanged, this, &Workspace::openShownCanvas, Qt::QueuedConnection);
+    for (const auto signal : { &DesktopStateModel::activeViewChanged, &DesktopStateModel::stagedSessionIdsChanged,
+             &DesktopStateModel::selectedSessionIdChanged, &DesktopStateModel::stageLayoutModeChanged })
+        connect(&m_desktop, signal, this, &Workspace::openShownCanvas, Qt::QueuedConnection);
+    connect(&m_missions, &MissionsModel::selectionChanged, this, &Workspace::openShownCanvas, Qt::QueuedConnection);
+    connect(&m_missions, &MissionsModel::presentationChanged, this, &Workspace::openShownCanvas, Qt::QueuedConnection);
+}
+
+QString Workspace::frontSessionId() const
+{
+    const auto staged = m_desktop.stagedSessionIds();
+    const auto selected = m_desktop.selectedSessionId();
+    QString front;
+    if (m_desktop.activeView() == DesktopStateModel::Sessions) {
+        if (staged.contains(selected))
+            front = selected;
+        else if (m_desktop.stageLayoutMode() == DesktopStateModel::Grid && staged.size() == 1)
+            front = staged.first();
+    } else if (m_desktop.activeView() == DesktopStateModel::Missions) {
+        const auto room = m_missions.presentation();
+        const auto shown = room.value(QStringLiteral("terminal")).toString();
+        if (room.value(QStringLiteral("section")).toInt() == 0 && staged.contains(shown)
+            && m_missions.sessionIds().contains(shown))
+            front = shown;
+    }
+    return m_sessions.visible().contains(front) ? front : QString {};
+}
+
+void Workspace::openShownCanvas()
+{
+    const auto id = frontSessionId();
+    if (id.isEmpty() || !m_canvas || !m_canvas->openShown(id))
+        return;
+    if (m_desktop.activeView() == DesktopStateModel::Missions)
+        m_missions.setPresentation(QStringLiteral("showsCanvas"), true);
+    else
+        m_desktop.openCanvas(id);
 }
 
 void Workspace::clearError()

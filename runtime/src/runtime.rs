@@ -604,6 +604,8 @@ enum Completion {
         id: Uuid,
         group: Option<u32>,
         account: Option<u8>,
+        agent: crate::agents::Agent,
+        outside: bool,
     },
     BackendClient {
         command: Command,
@@ -1593,6 +1595,7 @@ impl Runtime {
         let home = self.config.home.clone();
         self.spawn(async move {
             let foreground = terminal.foreground(variable).await.unwrap_or_default();
+            let outside = agent.outside(&foreground.arguments);
             let account = match agent.account_folder(&home, foreground.variable) {
                 Some(folder) => launcher.account_of(agent, &folder).await,
                 None => None,
@@ -1601,6 +1604,8 @@ impl Runtime {
                 id,
                 group: foreground.group,
                 account,
+                agent,
+                outside,
             }
         });
     }
@@ -2916,6 +2921,7 @@ impl Runtime {
             } else {
                 shared.and_then(|status| status.account)
             },
+            program_outside: false,
             prompt: false,
             repository: false,
             title: previous.and_then(|entry| entry.title.clone()),
@@ -3036,6 +3042,7 @@ impl Runtime {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.program.clone_from(&program);
                     local.entry.program_account = None;
+                    local.entry.program_outside = false;
                     self.publish_catalog();
                     self.find_account(id, program.as_deref());
                 }

@@ -3671,6 +3671,10 @@
         <translation>Das Terminal konnte sich nicht erneut verbinden.</translation>
     </message>
     <message>
+        <source>%1 started by hand doesn&apos;t see Kodosi. Start it from Kodosi next time.</source>
+        <translation>%1 wurde von Hand gestartet und sieht Kodosi nicht. Starte es nächstes Mal über Kodosi.</translation>
+    </message>
+    <message>
         <source>%1 joined</source>
         <translation>%1 ist beigetreten</translation>
     </message>

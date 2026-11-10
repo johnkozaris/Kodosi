@@ -3658,6 +3658,10 @@
         <translation>터미널에 다시 연결하지 못했어요.</translation>
     </message>
     <message>
+        <source>%1 started by hand doesn&apos;t see Kodosi. Start it from Kodosi next time.</source>
+        <translation>직접 시작한 %1은(는) Kodosi를 볼 수 없어요. 다음에는 Kodosi에서 시작하세요.</translation>
+    </message>
+    <message>
         <source>%1 joined</source>
         <translation>%1 님이 들어왔어요</translation>
     </message>

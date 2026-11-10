@@ -600,7 +600,8 @@ fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String
                 .map(|folders| (crate::agents::CLAUDE_PLUGINS, folders)),
         );
         variables.extend(
-            crate::agents::plugin_dir(notes).map(|folder| (crate::agents::PLUGIN_VARIABLE, folder)),
+            crate::agents::skill_dirs(notes)
+                .map(|folders| (crate::agents::COPILOT_SKILLS, folders)),
         );
     }
     variables
