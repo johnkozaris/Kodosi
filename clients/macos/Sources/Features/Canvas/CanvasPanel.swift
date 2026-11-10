@@ -4,11 +4,12 @@ import KodosiDesign
 import SwiftUI
 
 /// Where the canvases of the shown terminals open: the space in which their keys move between
-/// a terminal's header and its canvas, the terminal whose canvas is open, and how to open one.
+/// a terminal's header and its canvas, the terminal whose canvas is open, and how to open one at
+/// a part.
 struct CanvasPlace {
     var flight: Namespace.ID?
     var open: String?
-    var show: @MainActor (RuntimeSession, CanvasSection?) -> Void = { _, _ in }
+    var show: @MainActor (RuntimeSession, CanvasSection) -> Void = { _, _ in }
 }
 
 extension EnvironmentValues {
@@ -207,7 +208,7 @@ struct CanvasPanel: View {
                 deps.canvas.show(section, in: session)
             } close: { section in
                 deps.canvas.close(section, in: session)
-                if deps.canvas.sections(session).isEmpty {
+                if !deps.canvas.showsSomething(session) {
                     hide()
                 }
             } open: { section in

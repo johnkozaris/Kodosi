@@ -106,9 +106,10 @@ final class WorkbenchState {
     }
 
     private let defaults: UserDefaults
+    private let canvas: CanvasStore
     private var accountKey: String?
     private var restoredIds: [String] = []
-    /// The terminal whose canvas a person opened before it had anything, so it opens when it comes.
+    /// The terminal whose canvas a person opened before it had anything to show, so it opens when it has.
     private var awaitedCanvas: String?
     /// The terminals whose canvas was open when the person went to another terminal, so it opens again when they come back.
     private var canvasesLeftOpen: Set<String> = []
@@ -119,8 +120,9 @@ final class WorkbenchState {
     @ObservationIgnored private var pinOrigins: [String: (owner: String?, host: String?)] = [:]
     @ObservationIgnored private var unfolding: Task<Void, Never>?
 
-    init(defaults: UserDefaults) {
+    init(defaults: UserDefaults, canvas: CanvasStore = CanvasStore(commands: CommandSink())) {
         self.defaults = defaults
+        self.canvas = canvas
         sidebarCollapsed = defaults.bool(forKey: "sidebar.collapsed")
         dosiOpen = defaults.bool(forKey: "dosi.open")
         if let width = defaults.object(forKey: "sidebar.width") as? Double {
@@ -207,40 +209,6 @@ final class WorkbenchState {
             followCanvas(to: id)
         }
         save()
-    }
-
-    /// Shows a terminal alone on the stage with its canvas beside it, now or when the canvas comes.
-    func openCanvas(_ id: String) {
-        selectedSessionId = id
-        focusedSessionId = id
-        canvasesLeftOpen.remove(id)
-        if known[id]?.canvas != nil {
-            canvasSessionId = id
-            awaitedCanvas = nil
-        } else {
-            awaitedCanvas = id
-        }
-    }
-
-    /// Hides the canvas. Its terminal stays alone on the stage.
-    func hideCanvas() {
-        canvasSessionId = nil
-        canvasWide = false
-    }
-
-    /// With a canvas open, another terminal comes with its own canvas, or alone. A terminal whose
-    /// canvas the person left open comes back with it.
-    private func followCanvas(to id: String) {
-        guard canvasSessionId != id else { return }
-        let back = canvasesLeftOpen.remove(id) != nil
-        if let open = canvasSessionId {
-            canvasesLeftOpen.insert(open)
-        }
-        if known[id]?.canvas != nil, back || canvasSessionId != nil {
-            canvasSessionId = id
-        } else {
-            hideCanvas()
-        }
     }
 
     func dismissSession(_ id: String) {
@@ -355,10 +323,10 @@ final class WorkbenchState {
         }
         followPins(sessions, current: current, restarted: restarted)
         known = current
-        if let id = canvasSessionId, current[id]?.canvas == nil {
+        if let id = canvasSessionId, current[id].map(canvas.showsSomething) != true {
             hideCanvas()
         }
-        if let id = awaitedCanvas, current[id]?.canvas != nil {
+        if let id = awaitedCanvas, current[id].map(canvas.showsSomething) == true {
             awaitedCanvas = nil
             if focusedSessionId == id {
                 canvasSessionId = id
@@ -472,6 +440,43 @@ extension WorkbenchState {
         stagedSessionIds.remove(at: from)
         stagedSessionIds.insert(id, at: to)
         save()
+    }
+
+    /// Shows a terminal alone on the stage with its canvas beside it, at a part or else at something, now or when the canvas has something to show.
+    func openCanvas(_ id: String, at section: CanvasSection? = nil) {
+        selectedSessionId = id
+        focusedSessionId = id
+        canvasesLeftOpen.remove(id)
+        if let session = known[id] {
+            canvas.open(session, at: section)
+        }
+        if known[id].map(canvas.showsSomething) == true {
+            canvasSessionId = id
+            awaitedCanvas = nil
+        } else {
+            awaitedCanvas = id
+        }
+    }
+
+    /// Hides the canvas. Its terminal stays alone on the stage.
+    func hideCanvas() {
+        canvasSessionId = nil
+        canvasWide = false
+    }
+
+    /// With a canvas open, another terminal comes with its own canvas when it has something to show
+    /// on this device, or alone. A terminal whose canvas the person left open comes back with it.
+    private func followCanvas(to id: String) {
+        guard canvasSessionId != id else { return }
+        let back = canvasesLeftOpen.remove(id) != nil
+        if let open = canvasSessionId {
+            canvasesLeftOpen.insert(open)
+        }
+        if known[id].map(canvas.showsSomething) == true, back || canvasSessionId != nil {
+            canvasSessionId = id
+        } else {
+            hideCanvas()
+        }
     }
 }
 
