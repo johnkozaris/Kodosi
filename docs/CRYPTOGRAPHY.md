@@ -62,9 +62,9 @@ each field carries its length.
   the video and input of the shared browser travel in this channel, so the backend sees
   only their sizes and timing.
 - **Calls.** A device opens the same channel to another computer of its own account to
-  list that computer's agents and folders and start a terminal there. The caller accepts
-  only that device's approved key; the host admits only verified, non-recovery devices of
-  its own account and answers only those requests.
+  list that computer's agents, its folders and the folders of its terminals, and to start
+  a terminal there. The caller accepts only that device's approved key; the host admits
+  only verified, non-recovery devices of its own account and answers only those requests.
 - **Terminal rooms.** The device that puts a terminal into a room, or takes it out, signs
   the change with a sequence and the hash of the newest key state of the room that it read.
   The host takes a room for its terminal only with the signature of an approved device of

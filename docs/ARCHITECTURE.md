@@ -93,9 +93,10 @@ host is connected.
 
 A device can call another computer of the same person whose host is connected. The call
 is an end-to-end encrypted channel like a view, but to the host itself. The caller sends
-the launcher's requests (agents and choices, folders, a new terminal) as desktop
-commands, and the host answers them as one more client. The host takes calls only from
-the person's own approved devices and runs no other command.
+the launcher's requests (agents and choices, folders, a new terminal) and a request for
+the folders of that computer's terminals as desktop commands, and the host answers them
+as one more client. The host takes calls only from the person's own approved devices and
+runs no other command.
 
 ## Backend and rooms
 

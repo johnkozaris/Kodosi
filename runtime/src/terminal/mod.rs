@@ -45,6 +45,7 @@ pub use types::{
     TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry, TerminalSize,
 };
 
+pub(crate) use types::is_valid_folder;
 #[cfg(test)]
 pub(crate) use types::snapshot_limits;
 

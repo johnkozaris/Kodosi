@@ -38,6 +38,7 @@ mod dosi;
 mod messages;
 #[cfg(feature = "host")]
 mod restore;
+mod terminal_folders;
 
 #[cfg(test)]
 mod tests;
@@ -683,6 +684,11 @@ enum Completion {
         command: Command,
         result: Result<Value>,
     },
+    TerminalFolders {
+        device: String,
+        asked: BTreeSet<Uuid>,
+        result: Result<Value>,
+    },
     Checkpoint {
         reply: oneshot::Sender<Result<crate::network::CheckpointCut>>,
         result: Result<crate::network::CheckpointCut>,
@@ -1065,6 +1071,7 @@ struct Runtime {
     room_latest: HashMap<String, u64>,
     room_seen: Option<(String, BTreeMap<String, u64>)>,
     reconnect: HashMap<Uuid, Reconnect>,
+    folder_asks: HashMap<String, terminal_folders::FolderAsk>,
     link_connects: u64,
     #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
@@ -1210,6 +1217,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         room_latest: HashMap::new(),
         room_seen: None,
         reconnect: HashMap::new(),
+        folder_asks: HashMap::new(),
         link_connects: 0,
         #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
@@ -1692,7 +1700,7 @@ impl Runtime {
                     }
                 }
                 _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); }
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); }
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); self.ask_folders(); }
             }
         }
         requests.close();
@@ -2393,6 +2401,7 @@ impl Runtime {
         }
         self.views.clear();
         self.reconnect.clear();
+        self.folder_asks.clear();
         self.listed.clear();
         self.remotes.clear();
         self.starting.clear();
@@ -2723,6 +2732,7 @@ impl Runtime {
         }
         self.publish_catalog();
         self.started_remotes();
+        self.ask_folders();
     }
 
     fn started_remotes(&mut self) {
@@ -2781,6 +2791,9 @@ impl Runtime {
             self.reconnect_now(id);
         }
         self.publish_catalog();
+        if returned {
+            self.ask_folders();
+        }
     }
 
     fn host_online(&self, id: Uuid) -> bool {

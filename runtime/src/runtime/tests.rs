@@ -680,6 +680,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             opening: HashMap::new(),
             views: HashMap::new(),
             reconnect: HashMap::new(),
+            folder_asks: HashMap::new(),
             link_connects: 0,
             #[cfg(feature = "host")]
             publishing: BTreeSet::new(),
@@ -956,6 +957,38 @@ async fn another_device_gets_answers_only_to_the_choices_of_a_new_terminal() {
             (Some(refused), Some(asked.as_str()))
         );
     }
+    drop(caller);
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
+#[cfg(feature = "host")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn another_device_gets_the_folder_of_each_terminal_of_this_computer() {
+    let runtime = TestRuntime::new().await;
+    let (id, _) = runtime.create().await;
+    let caller = runtime.handle.command_client();
+    let asked = Uuid::now_v7().to_string();
+    let answer = caller
+        .answer_call(json!({"type":"session.folders","requestId":asked}))
+        .await;
+    assert_eq!(answer["type"], "session.result", "{answer}");
+    assert_eq!(answer["requestId"], asked.as_str());
+    let sessions = runtime
+        .handle
+        .snapshot()
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|event| serde_json::to_value(event).unwrap())
+        .find(|event| event["type"] == "sessions.snapshot")
+        .unwrap();
+    let folder = &sessions["sessions"][0]["workingDir"];
+    assert!(folder.is_string(), "{sessions}");
+    assert_eq!(
+        answer["folders"],
+        json!([{"sessionId": id, "workingDir": folder}])
+    );
     drop(caller);
     runtime.shutdown().await;
     drop(runtime);
@@ -2041,6 +2074,226 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
     runtime.network_event(notice(false, "done"));
     assert_eq!(shown(&runtime), (None, None, None, None));
     assert_eq!(runtime.remotes[&id].status, SessionStatus::Offline);
+}
+
+fn sign_in(runtime: &mut Runtime, enrolled: bool) {
+    runtime.network.assume_identity(crate::network::Identity {
+        user_id: "owner".to_owned(),
+        device_id: "this-device".to_owned(),
+        display_name: "You".to_owned(),
+        enrolled,
+    });
+    runtime.scope.user = Some("owner".to_owned());
+}
+
+fn my_terminal(computer: &str) -> RemoteSession {
+    RemoteSession {
+        owner_user_id: "owner".to_owned(),
+        owner_name: "You".to_owned(),
+        host_device_id: computer.to_owned(),
+        host_name: computer.to_owned(),
+        ..remote_session(Uuid::now_v7(), Uuid::now_v7())
+    }
+}
+
+fn asking(runtime: &Runtime) -> Vec<&str> {
+    let mut computers = runtime
+        .folder_asks
+        .iter()
+        .filter(|(_, ask)| ask.asking)
+        .map(|(computer, _)| computer.as_str())
+        .collect::<Vec<_>>();
+    computers.sort_unstable();
+    computers
+}
+
+fn folders_from(runtime: &Runtime, computer: &str, asked: &[Uuid], folders: Value) -> Job {
+    let mut answer = json!({"type":"session.result","requestId":Uuid::now_v7().to_string(),"operation":"session.folders"});
+    answer["folders"] = folders;
+    Job {
+        scope: runtime.scope.clone(),
+        completion: Completion::TerminalFolders {
+            device: computer.to_owned(),
+            asked: asked.iter().copied().collect(),
+            result: Ok(answer),
+        },
+    }
+}
+
+#[tokio::test]
+async fn a_device_asks_its_other_computers_that_are_online_for_the_folders_of_their_terminals() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, false);
+    let (api, web) = (my_terminal("laptop"), my_terminal("laptop"));
+    let away = RemoteSession {
+        online: false,
+        ..my_terminal("desk")
+    };
+    let friends = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let mut listed = vec![api.clone(), web.clone(), away.clone(), friends];
+    let nobody = Vec::<&str>::new();
+    runtime.replace_remotes(listed.clone());
+    assert_eq!(
+        asking(&runtime),
+        nobody,
+        "a device that is not approved asks nobody"
+    );
+
+    sign_in(&mut runtime, true);
+    runtime.replace_remotes(listed.clone());
+    assert_eq!(asking(&runtime), ["laptop"]);
+    runtime.ask_folders();
+    assert_eq!(
+        runtime.jobs.len(),
+        1,
+        "one call at a time for each computer"
+    );
+    {
+        let unanswered = timeout(Duration::from_secs(30), runtime.jobs.join_next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(matches!(&unanswered.completion,
+            Completion::TerminalFolders { device, asked, result: Err(_) }
+                if device == "laptop" && *asked == BTreeSet::from([api.id, web.id])));
+        runtime.complete(unanswered);
+    }
+    assert_eq!(
+        asking(&runtime),
+        nobody,
+        "a computer that did not answer waits"
+    );
+    runtime.folder_asks.get_mut("laptop").unwrap().retry = Some(Instant::now());
+    runtime.ask_folders();
+    assert_eq!(asking(&runtime), ["laptop"]);
+    runtime.jobs.shutdown().await;
+
+    runtime.complete(folders_from(
+        &runtime,
+        "laptop",
+        &[api.id, web.id],
+        json!([{"sessionId":api.id,"workingDir":"/srv/api"}]),
+    ));
+    assert_eq!(
+        runtime.remotes[&api.id].working_dir.as_deref(),
+        Some("/srv/api")
+    );
+    assert_eq!(
+        asking(&runtime),
+        nobody,
+        "a terminal that its computer gives no folder for is not asked for again"
+    );
+    runtime.replace_remotes(listed.clone());
+    assert_eq!(asking(&runtime), nobody);
+
+    listed.push(my_terminal("laptop"));
+    runtime.replace_remotes(listed);
+    assert_eq!(
+        asking(&runtime),
+        ["laptop"],
+        "a new terminal is asked for at once"
+    );
+    let generation = runtime.network.generation();
+    runtime.network_event(BackendEvent {
+        generation,
+        user_id: Some("owner".to_owned()),
+        event: json!({"type":"network.terminal","sessionId":away.id,
+            "incarnationId":away.incarnation_id,"online":true,"status":null}),
+    });
+    assert_eq!(asking(&runtime), ["desk", "laptop"]);
+    runtime.jobs.shutdown().await;
+}
+
+#[tokio::test]
+async fn folders_from_another_computer_fill_only_its_terminals_and_an_open_view_keeps_its_own() {
+    let (mut runtime, _root) = registry_fixture();
+    sign_in(&mut runtime, true);
+    let (api, web, desk) = (
+        my_terminal("laptop"),
+        my_terminal("laptop"),
+        my_terminal("desk"),
+    );
+    let friends = RemoteSession {
+        host_device_id: "laptop".to_owned(),
+        ..remote_session(Uuid::now_v7(), Uuid::now_v7())
+    };
+    runtime.replace_remotes(vec![
+        api.clone(),
+        web.clone(),
+        desk.clone(),
+        friends.clone(),
+    ]);
+    runtime.jobs.shutdown().await;
+    let folder =
+        |runtime: &Runtime, remote: &RemoteSession| runtime.remotes[&remote.id].working_dir.clone();
+    for refused in [
+        json!([{"sessionId":api.id,"workingDir":"srv/api"}]),
+        json!([{"sessionId":api.id,"workingDir":"/srv/a\u{0}pi"}]),
+        json!([{"sessionId":api.id,"workingDir":format!("/{}", "a".repeat(4096))}]),
+        json!([{"sessionId":"api","workingDir":"/srv/api"}]),
+        json!(
+            (0..=MAX_SESSIONS)
+                .map(|_| json!({"sessionId":Uuid::now_v7(),"workingDir":"/srv"}))
+                .collect::<Vec<_>>()
+        ),
+    ] {
+        runtime.complete(folders_from(&runtime, "laptop", &[api.id], refused));
+        assert_eq!(folder(&runtime, &api), None);
+    }
+
+    runtime.complete(folders_from(
+        &runtime,
+        "laptop",
+        &[api.id, web.id],
+        json!([
+            {"sessionId":api.id,"workingDir":"/srv/api"},
+            {"sessionId":web.id,"workingDir":r"C:\srv\web"},
+            {"sessionId":desk.id,"workingDir":"/srv/desk"},
+            {"sessionId":friends.id,"workingDir":"/home/friend"},
+        ]),
+    ));
+    assert_eq!(folder(&runtime, &api).as_deref(), Some("/srv/api"));
+    assert_eq!(folder(&runtime, &web).as_deref(), Some(r"C:\srv\web"));
+    assert_eq!(folder(&runtime, &desk), None);
+    assert_eq!(folder(&runtime, &friends), None);
+
+    let (connection, _requests, _updates) = crate::network::test_remote_connection(web.clone());
+    runtime.connections.insert(
+        web.id,
+        RemoteTerminal::spawn(connection, runtime.changes.clone()),
+    );
+    runtime.change(SessionChange::Metadata {
+        id: web.id,
+        incarnation: web.incarnation_id,
+        instance_id: runtime.connections[&web.id].instance_id,
+        metadata: crate::terminal::TerminalMetadata {
+            directory: Some("/srv/web/docs".to_owned()),
+            ..Default::default()
+        },
+    });
+    runtime.complete(folders_from(
+        &runtime,
+        "laptop",
+        &[],
+        json!([{"sessionId":web.id,"workingDir":"/srv/web"}]),
+    ));
+    assert_eq!(folder(&runtime, &web).as_deref(), Some("/srv/web/docs"));
+
+    let list = Command::ListSessionFolders {
+        request_id: Uuid::now_v7().to_string(),
+    };
+    runtime
+        .expect_answer(&list, Uuid::now_v7(), CancellationToken::new())
+        .unwrap();
+    let mut events = runtime.events.subscribe();
+    runtime.apply(&list).unwrap();
+    let answer = serde_json::to_value(events.try_recv().unwrap()).unwrap();
+    assert_eq!(
+        answer["folders"],
+        json!([]),
+        "a device gives no folders of the terminals of other computers"
+    );
 }
 
 #[cfg(feature = "host")]

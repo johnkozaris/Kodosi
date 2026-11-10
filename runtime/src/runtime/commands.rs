@@ -139,6 +139,11 @@ impl Runtime {
             }
             #[cfg(not(feature = "host"))]
             Command::RestoreSessions { .. } => self.result(command),
+            Command::ListSessionFolders { .. } => {
+                let mut value = super::answer(command, Ok(()));
+                value["folders"] = json!(self.session_folders());
+                self.emit(value);
+            }
             #[cfg(not(feature = "host"))]
             Command::CreateSession { .. } => {
                 return Err(Error::Refused(text!("This device cannot start terminals.")));
@@ -1468,6 +1473,12 @@ impl Runtime {
                     self.error(&command, &error);
                 }
             }
+            Completion::TerminalFolders {
+                device,
+                asked,
+                result,
+            } if current => self.folders_answered(&device, asked, result),
+            Completion::TerminalFolders { .. } => {}
             Completion::Checkpoint { reply, result } => {
                 drop(reply.send(if current { result } else { Err(Error::Stale) }));
             }
