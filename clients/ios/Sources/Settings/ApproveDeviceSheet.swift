@@ -18,7 +18,11 @@ struct ApproveDeviceSheet: View {
     }
 
     private var confirmingLabel: String? {
-        if case let .confirming(label) = account.approval { label } else { nil }
+        if case let .confirming(label) = account.approval {
+            label
+        } else {
+            nil
+        }
     }
 
     var body: some View {
@@ -59,7 +63,8 @@ struct ApproveDeviceSheet: View {
             }
         }
         .confirmationDialog(Text("Approve \(confirmingLabel ?? "")?"), isPresented: Binding(get: { confirmingLabel != nil }, set: { _ in }),
-                            titleVisibility: .visible) {
+                            titleVisibility: .visible)
+        {
             Button("Approve") { account.confirmApproval() }
                 .accessibilityIdentifier("settings.devices.confirmApprove")
             Button("Cancel", role: .cancel) { account.finishApproval() }

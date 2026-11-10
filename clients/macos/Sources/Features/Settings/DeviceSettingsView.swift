@@ -155,7 +155,8 @@ struct DeviceSettingsView: View {
             }
         } message: { Text(revoke?.removalMessage(hasRecoveryKey: deps.account.hasRecoveryKey) ?? "") }
         .confirmationDialog(Text("Approve \(confirmingLabel ?? "")?"), isPresented: Binding(get: { confirmingLabel != nil }, set: { _ in }),
-                            titleVisibility: .visible) {
+                            titleVisibility: .visible)
+        {
             Button("Approve") { deps.account.confirmApproval() }
                 .accessibilityIdentifier("settings.devices.confirmApprove")
             Button("Cancel", role: .cancel) { deps.account.finishApproval() }
@@ -204,7 +205,11 @@ struct DeviceSettingsView: View {
     }
 
     private var confirmingLabel: String? {
-        if case let .confirming(label) = deps.account.approval { label } else { nil }
+        if case let .confirming(label) = deps.account.approval {
+            label
+        } else {
+            nil
+        }
     }
 
     private func approve() {
