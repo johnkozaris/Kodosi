@@ -7,7 +7,6 @@ pub trait Live: Send {
     fn step(&mut self, input: Input) -> Vec<Effect>;
     fn rev(&self) -> Rev;
     fn saved_rev(&self) -> Rev;
-    fn first_rev(&self) -> Rev;
     fn seqs(&self) -> HashMap<String, u64>;
     fn is_empty(&self) -> bool;
     fn asset(&self, hash: &Hash) -> Option<Arc<[u8]>>;
@@ -24,10 +23,6 @@ impl<F: Format> Live for Document<F> {
 
     fn saved_rev(&self) -> Rev {
         Self::saved_rev(self)
-    }
-
-    fn first_rev(&self) -> Rev {
-        Self::first_rev(self)
     }
 
     fn seqs(&self) -> HashMap<String, u64> {

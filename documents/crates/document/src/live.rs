@@ -200,10 +200,6 @@ impl<F: Format> Document<F> {
         self.saved_rev
     }
 
-    pub fn first_rev(&self) -> Rev {
-        self.first_rev
-    }
-
     pub fn seqs(&self) -> &HashMap<String, Seq> {
         &self.seqs
     }

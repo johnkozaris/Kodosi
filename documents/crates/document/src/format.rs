@@ -92,6 +92,25 @@ pub struct GuideField {
     pub does: String,
 }
 
+#[must_use]
+pub fn guide_op(name: &str, does: &str, fields: Vec<GuideField>) -> GuideOp {
+    GuideOp {
+        name: name.to_owned(),
+        does: does.to_owned(),
+        fields,
+    }
+}
+
+#[must_use]
+pub fn guide_field(name: &str, kind: &str, required: bool, does: &str) -> GuideField {
+    GuideField {
+        name: name.to_owned(),
+        kind: kind.to_owned(),
+        required,
+        does: does.to_owned(),
+    }
+}
+
 /// Each op of a format, for agents.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

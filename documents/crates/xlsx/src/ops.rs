@@ -1,4 +1,4 @@
-use document::{Guide, GuideField, GuideOp, Ordered, Refused};
+use document::{Guide, Ordered, Refused, guide_field as field, guide_op as op};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as Json, json};
 
@@ -64,23 +64,6 @@ pub enum Op {
     RemoveSheet {
         sheet: String,
     },
-}
-
-fn field(name: &str, kind: &str, required: bool, does: &str) -> GuideField {
-    GuideField {
-        name: name.to_owned(),
-        kind: kind.to_owned(),
-        required,
-        does: does.to_owned(),
-    }
-}
-
-fn op(name: &str, does: &str, fields: Vec<GuideField>) -> GuideOp {
-    GuideOp {
-        name: name.to_owned(),
-        does: does.to_owned(),
-        fields,
-    }
 }
 
 pub(crate) fn guide() -> Guide {

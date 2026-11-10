@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use document::{Assets, Guide, GuideField, GuideOp, Ordered, Refused};
+use document::{Assets, Guide, Ordered, Refused, guide_field as field, guide_op as op};
 use lopdf::{Document, Object};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -50,23 +50,6 @@ pub enum Op {
         page: u32,
         rects: Vec<[f64; 4]>,
     },
-}
-
-fn field(name: &str, kind: &str, required: bool, does: &str) -> GuideField {
-    GuideField {
-        name: name.to_owned(),
-        kind: kind.to_owned(),
-        required,
-        does: does.to_owned(),
-    }
-}
-
-fn op(name: &str, does: &str, fields: Vec<GuideField>) -> GuideOp {
-    GuideOp {
-        name: name.to_owned(),
-        does: does.to_owned(),
-        fields,
-    }
 }
 
 pub(crate) fn guide() -> Guide {

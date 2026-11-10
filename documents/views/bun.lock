@@ -51,7 +51,6 @@
       "version": "0.1.0",
       "dependencies": {
         "@documents/client": "workspace:*",
-        "@documents/contract": "workspace:*",
         "@documents/docx": "workspace:*",
         "@documents/pdf": "workspace:*",
         "@documents/plain": "workspace:*",

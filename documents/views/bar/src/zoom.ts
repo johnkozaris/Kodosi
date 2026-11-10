@@ -4,10 +4,10 @@ import { commandKey, keys, type ZoomPart, zoomOf } from "./parts";
 export type Fitting = "width" | "page";
 
 /** What sets the size of the pages: a way to fit them, or a scale that the person chose. */
-export type Sizing = Fitting | number;
+type Sizing = Fitting | number;
 
 /** A view of pages that a zoom sizes. */
-export interface Zoomable {
+interface Zoomable {
   /** The part that scrolls. A pinch over it zooms around the pointer. */
   area: HTMLElement;
   /** The space inside the area that keeps its size at each scale. */

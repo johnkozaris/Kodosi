@@ -7,7 +7,6 @@
   "exports": "./src/index.ts",
   "dependencies": {
     "@documents/client": "workspace:*",
-    "@documents/contract": "workspace:*",
     "@documents/xlsx": "workspace:*",
     "@documents/pdf": "workspace:*",
     "@documents/pptx": "workspace:*",

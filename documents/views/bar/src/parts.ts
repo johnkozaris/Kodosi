@@ -195,7 +195,7 @@ export function panelKey(options: {
   });
 }
 
-export interface Toggle {
+interface Toggle {
   label: string;
   icon: IconNode;
   shortcut?: string;
@@ -242,7 +242,7 @@ export interface Choice<V extends string> {
   shortcut?: string;
 }
 
-export interface Segments<V extends string> {
+interface Segments<V extends string> {
   element: HTMLElement;
   show(value: V | null, enabled?: boolean): void;
 }
@@ -297,7 +297,7 @@ export function segmentsOf<V extends string>(
   };
 }
 
-export interface Picker {
+interface Picker {
   element: HTMLButtonElement;
   show(text: string, enabled?: boolean, look?: Partial<CSSStyleDeclaration>): void;
 }
@@ -330,7 +330,7 @@ export function pickerOf(options: {
   };
 }
 
-export interface Stepper {
+interface Stepper {
   element: HTMLElement;
   show(value: string, canShrink: boolean, canGrow: boolean): void;
 }

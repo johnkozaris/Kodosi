@@ -1,4 +1,4 @@
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
 
 const JSON: u8 = 0;
@@ -29,7 +29,7 @@ pub struct Size {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum ToWindow {
+pub(crate) enum ToWindow {
     Watch { size: Size },
     Ack { frame: u32 },
     Keyframe,
@@ -44,7 +44,7 @@ pub enum ToWindow {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum Input {
+pub(crate) enum Input {
     Mouse {
         action: MouseAction,
         x: f64,
@@ -106,7 +106,7 @@ pub enum Input {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum MouseAction {
+pub(crate) enum MouseAction {
     Press,
     Release,
     Move,
@@ -115,7 +115,7 @@ pub enum MouseAction {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum MouseButton {
+pub(crate) enum MouseButton {
     #[default]
     None,
     Left,
@@ -125,7 +125,7 @@ pub enum MouseButton {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum KeyAction {
+pub(crate) enum KeyAction {
     Down,
     Up,
 }
@@ -223,22 +223,22 @@ pub struct Download {
 /// One encoded picture. The data is H.264 in Annex B form, and it depends on the frames since
 /// the last key frame of this viewer.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Frame {
-    pub id: u32,
-    pub key: bool,
-    pub timestamp: u64,
-    pub data: Bytes,
+pub(crate) struct Frame {
+    pub(crate) id: u32,
+    pub(crate) key: bool,
+    pub(crate) timestamp: u64,
+    pub(crate) data: Bytes,
 }
 
 /// What a window sends to a viewer.
 #[derive(Debug, Clone, PartialEq)]
-pub enum ToViewer {
+pub(crate) enum ToViewer {
     Frame(Frame),
     State(Box<State>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Malformed;
+pub(crate) struct Malformed;
 
 impl std::fmt::Display for Malformed {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -249,11 +249,12 @@ impl std::fmt::Display for Malformed {
 impl std::error::Error for Malformed {}
 
 impl ToWindow {
-    pub fn encode(&self) -> Bytes {
+    #[cfg(test)]
+    pub(crate) fn encode(&self) -> Bytes {
         json_message(self)
     }
 
-    pub fn decode(message: &[u8]) -> Result<Self, Malformed> {
+    pub(crate) fn decode(message: &[u8]) -> Result<Self, Malformed> {
         match message.split_first() {
             Some((&JSON, body)) => serde_json::from_slice(body).map_err(|_| Malformed),
             _ => Err(Malformed),
@@ -262,14 +263,15 @@ impl ToWindow {
 }
 
 impl ToViewer {
-    pub fn encode(&self) -> Bytes {
+    pub(crate) fn encode(&self) -> Bytes {
         match self {
             Self::Frame(frame) => frame.encode(),
             Self::State(state) => json_message(state),
         }
     }
 
-    pub fn decode(message: &[u8]) -> Result<Self, Malformed> {
+    #[cfg(test)]
+    pub(crate) fn decode(message: &[u8]) -> Result<Self, Malformed> {
         match message.split_first() {
             Some((&JSON, body)) => serde_json::from_slice(body)
                 .map(Self::State)
@@ -291,7 +293,10 @@ impl Frame {
         message.freeze()
     }
 
+    #[cfg(test)]
     fn decode(mut message: &[u8]) -> Result<Self, Malformed> {
+        use bytes::Buf as _;
+
         if message.len() < FRAME_HEADER {
             return Err(Malformed);
         }
