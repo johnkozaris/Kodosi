@@ -29,11 +29,10 @@ struct RoomMembersSection: View {
     }
 
     private func row(_ member: MissionMemberEntry) -> some View {
-        let name = member.personName
         let me = member.userId == model.rooms.userId
         let removable = owner && !member.isOwner
-        return ListRow(title: me ? String(localized: "\(name) (you)") : name, subtitle: "@\(member.handle)") {
-            PersonAvatar(name: name, key: member.userId, size: 28, isSelf: me)
+        return ListRow(title: member.listedName(you: model.rooms.userId), subtitle: "@\(member.handle)") {
+            PersonAvatar(name: member.personName, key: member.userId, size: 28, isSelf: me)
         } trailing: {
             if member.isOwner {
                 Tag(text: String(localized: "Owner"))

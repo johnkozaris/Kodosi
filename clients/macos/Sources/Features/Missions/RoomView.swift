@@ -285,10 +285,11 @@ struct RoomPeoplePopover: View {
                             Text(name).appTextStyle(.body).foregroundStyle(theme.colors.ink).lineLimit(1)
                             Spacer(minLength: 8)
                             Button(sent ? "Invited" : "Invite") { invite(friend) }
-                                .buttonStyle(.kodosi(sent ? .ghost : .tinted, size: .small)).disabled(sent)
+                                .buttonStyle(.kodosi(sent ? .ghost : .tinted, size: .small)).disabled(sent || friend.identityChanged)
                                 .accessibilityIdentifier("room.invite.\(friend.handle)")
                         }
                         .padding(.horizontal, 8).frame(height: 38)
+                        .help(friend.identityChanged ? String(localized: "Their identity changed. Trust them in Friends first.") : "")
                     }
                 }
             }
@@ -303,7 +304,7 @@ struct RoomPeoplePopover: View {
         return HStack(spacing: 10) {
             PersonAvatar(name: name, key: member.userId, size: 26, isSelf: member.userId == deps.account.userId)
             VStack(alignment: .leading, spacing: 0) {
-                Text(member.userId == deps.account.userId ? String(localized: "\(name) (you)") : name)
+                Text(member.listedName(you: deps.account.userId))
                     .appTextStyle(.body).foregroundStyle(theme.colors.ink).lineLimit(1)
                 Text(verbatim: "@\(member.handle)").appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
             }
