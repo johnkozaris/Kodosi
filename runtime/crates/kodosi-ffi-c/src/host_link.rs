@@ -547,6 +547,7 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
             TerminalFrame::InputAck {
                 accepted,
                 ended,
+                shown,
                 message,
             } => {
                 {
@@ -555,7 +556,7 @@ async fn read_frames<R: tokio::io::AsyncRead + Unpin>(
                         waiting.bytes -= size;
                     }
                 }
-                if !accepted && !ended {
+                if !accepted && !ended && !shown {
                     pending.system_error(
                         state,
                         &json!(kodosi_runtime::text!(

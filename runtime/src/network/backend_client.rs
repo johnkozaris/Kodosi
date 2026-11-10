@@ -69,6 +69,7 @@ pub(crate) struct Inner {
     restoring: std::sync::Mutex<Option<crate::protocol::AuthRestoringReason>>,
     credential_location: CredentialLocation,
     pub(crate) friends_changed: tokio::sync::Notify,
+    retry: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
     app_login: std::sync::Mutex<Option<AppLogin>>,
     rooms: Mutex<rooms::RoomCache>,
@@ -166,6 +167,7 @@ impl BackendClient {
                 restoring: std::sync::Mutex::new(None),
                 credential_location,
                 friends_changed: tokio::sync::Notify::new(),
+                retry: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
                 app_login: std::sync::Mutex::new(None),
                 rooms: Mutex::new(rooms::RoomCache::default()),
@@ -175,6 +177,12 @@ impl BackendClient {
 
     pub fn generation(&self) -> u64 {
         self.inner.generation.load(Ordering::Acquire)
+    }
+
+    /// Tries to reach the server now rather than after the wait between tries.
+    pub(crate) fn retry_now(&self) {
+        self.inner.retry.notify_one();
+        self.inner.link.retry_now();
     }
 
     pub(crate) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
@@ -228,23 +236,25 @@ impl BackendClient {
             loop {
                 tokio::select! {
                     ()=this.inner.shutdown.cancelled()=>break,
-                    _=tick.tick()=>{
-                        let Ok(_operation)=this.inner.operations.try_lock() else {continue;};
-                        let result=if this.identity().is_some() {
-                            this.refresh().await
-                        }else if this.inner.restore_pending.load(Ordering::Acquire) {
-                            this.restore_saved(this.generation()).await
-                        }else{
-                            Ok(())
-                        };
-                        match this.sign_in_kept(result).await {
-                            Ok(()) => failure.worked(),
-                            Err(error) if error.user_facing() && failure.new_failure(&error) => {
-                                tracing::warn!(%error, "the account was not refreshed; it will be tried again");
-                            }
-                            Err(_) => {}
-                        }
+                    _=tick.tick()=>{}
+                    ()=this.inner.retry.notified()=>{}
+                }
+                let Ok(_operation) = this.inner.operations.try_lock() else {
+                    continue;
+                };
+                let result = if this.identity().is_some() {
+                    this.refresh().await
+                } else if this.inner.restore_pending.load(Ordering::Acquire) {
+                    this.restore_saved(this.generation()).await
+                } else {
+                    Ok(())
+                };
+                match this.sign_in_kept(result).await {
+                    Ok(()) => failure.worked(),
+                    Err(error) if error.user_facing() && failure.new_failure(&error) => {
+                        tracing::warn!(%error, "the account was not refreshed; it will be tried again");
                     }
+                    Err(_) => {}
                 }
             }
         });

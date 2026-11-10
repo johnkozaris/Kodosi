@@ -209,6 +209,14 @@ impl Runtime {
                 self.emit(json!({"type":"mission.show", "missionId":mission_id}));
                 self.result(command);
             }
+            Command::RetryConnection { .. } => {
+                self.network.retry_now();
+                for retry in self.reconnect.values_mut() {
+                    retry.failures = 0;
+                    retry.next = tokio::time::Instant::now();
+                }
+                self.result(command);
+            }
             command if command.is_dosi() => self.dosi_command(command)?,
             Command::SeeMission {
                 mission_id,
@@ -1349,12 +1357,50 @@ impl Runtime {
         }
         let current = self.in_scope(&job.scope);
         match job.completion {
+            #[cfg(feature = "host")]
             Completion::Input { result } => {
                 if current
                     && let Err(error) = result
                     && !matches!(error, Error::Stopped | Error::NotFound)
                 {
                     self.emit(json!({"type":"system.error", "message":text!("The terminal did not confirm the input, and Kodosi did not send it again ({error}).", error = error.text())}));
+                }
+            }
+            Completion::Typed {
+                session,
+                number,
+                reply,
+                result,
+            } => {
+                if let Some(waiting) = self.typing.get_mut(&session) {
+                    *waiting = waiting.saturating_sub(1);
+                    if *waiting == 0 {
+                        self.typing.remove(&session);
+                    }
+                }
+                if current {
+                    match &result {
+                        Ok(()) => {
+                            if self.unsent.get(&session).is_none_or(|last| number > *last) {
+                                self.clear_input_notice(session);
+                            }
+                        }
+                        Err(Error::Unsent(_)) => self.note_unsent_input(session),
+                        Err(_) => {}
+                    }
+                }
+                match reply {
+                    Some(reply) => {
+                        drop(reply.send(if current { result } else { Err(Error::Stale) }));
+                    }
+                    None => {
+                        if current
+                            && let Err(error) = result
+                            && !matches!(error, Error::Stopped | Error::NotFound | Error::Unsent(_))
+                        {
+                            self.emit(json!({"type":"system.error", "message":text!("The terminal did not confirm the input, and Kodosi did not send it again ({error}).", error = error.text())}));
+                        }
+                    }
                 }
             }
             Completion::Initialized(result) => {

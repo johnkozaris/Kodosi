@@ -41,6 +41,15 @@ extension AppDependencies {
         session.sign(unseen: session.attention)
     }
 
+    /// A terminal of another computer that Kodosi cannot reach because Kodosi is offline.
+    func unreachable(_ session: RuntimeSession) -> Bool {
+        session.kind == .remote && !account.online && session.connectionState != .blocked
+    }
+
+    func statusLabel(of session: RuntimeSession) -> String {
+        unreachable(session) ? String(localized: "Offline") : session.statusLabel
+    }
+
     func rename(_ session: RuntimeSession, to name: String) {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name), name != session.name else { return }

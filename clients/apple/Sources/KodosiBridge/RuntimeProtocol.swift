@@ -38,6 +38,14 @@ public struct RuntimeEvent: Decodable, Sendable {
         }
         return try value.decode(as: type)
     }
+
+    /// The refreshes that an app asks for by itself. Their failure is no news to the person: the
+    /// runtime refreshes again when the connection is back.
+    public static let refreshes: Set<String> = ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "mission.list"]
+
+    public var failedRefresh: Bool {
+        type.hasSuffix(".error") && Self.refreshes.contains(string("operation") ?? "")
+    }
 }
 
 public enum RuntimeError: LocalizedError, Equatable {

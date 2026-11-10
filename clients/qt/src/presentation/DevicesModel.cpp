@@ -85,6 +85,15 @@ bool DevicesModel::hasRecoveryKey() const
     return false;
 }
 
+bool DevicesModel::hasOtherDevices() const
+{
+    return std::ranges::any_of(m_devices, [this](const QVariant& device) {
+        const auto entry = device.toMap();
+        return entry.value(QStringLiteral("deviceId")).toString() != m_selfDeviceId
+            && !entry.value(QStringLiteral("recoveryKey")).toBool();
+    });
+}
+
 QVariantList DevicesModel::computers() const
 {
     QVariantList computers;

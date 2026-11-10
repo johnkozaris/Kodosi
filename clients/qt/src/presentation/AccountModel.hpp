@@ -22,6 +22,8 @@ class AccountModel final : public QObject {
     Q_PROPERTY(QString signInPage READ signInPage NOTIFY loginChanged)
     Q_PROPERTY(bool deleting READ deleting NOTIFY deletionChanged)
     Q_PROPERTY(QString deletionUri READ deletionUri NOTIFY deletionChanged)
+    // Whether Kodosi reaches the server. A short drop, such as when the computer wakes, keeps it online.
+    Q_PROPERTY(bool online READ online NOTIFY onlineChanged)
 
 public:
     explicit AccountModel(Workspace& workspace);
@@ -37,17 +39,21 @@ public:
     QString signInPage() const { return m_signInPage; }
     bool deleting() const { return m_deleting; }
     QString deletionUri() const { return m_deletionUri; }
+    bool online() const { return m_online; }
 
     Q_INVOKABLE void login();
     Q_INVOKABLE void cancelLogin();
     Q_INVOKABLE void logout();
     Q_INVOKABLE void deleteAccount();
     Q_INVOKABLE void cancelDeletion();
+    // Reaches for the server and the terminals of other computers now.
+    Q_INVOKABLE void retryConnection();
 
 signals:
     void accountChanged();
     void loginChanged();
     void deletionChanged();
+    void onlineChanged();
     void signInPageReady(const QString& page);
     void browserAnswered();
 
@@ -65,9 +71,11 @@ private:
     std::optional<std::uint64_t> m_epoch;
     bool m_finalizing = true;
     bool m_deleting = false;
+    bool m_online = true;
 
     void reset();
     void endDeletion();
     void receivePlace(const QJsonObject& event);
+    void setOnline(bool value);
 };
 }

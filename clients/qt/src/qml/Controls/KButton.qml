@@ -20,14 +20,16 @@ Button {
     property bool compact: false
     property bool large: false
     property bool working: false
+    property bool onTerminal: false
     readonly property real radius: compact ? KodosiTheme.radiusSm : large ? KodosiTheme.radiusTile : KodosiTheme.radiusMd
     readonly property bool lit: hovered && enabled
-    readonly property color foreground: !enabled ? KodosiTheme.inkFaint
+    readonly property color ink: onTerminal ? KodosiTheme.terminalInk : KodosiTheme.ink
+    readonly property color foreground: !enabled ? (onTerminal ? KodosiTheme.terminalInkFaint : KodosiTheme.inkFaint)
         : variant === KButton.Primary ? KodosiTheme.accentInk
         : variant === KButton.Tinted ? KodosiTheme.accentStrong
         : variant === KButton.Danger ? KodosiTheme.danger
-        : variant === KButton.Ghost && !hovered ? KodosiTheme.inkMuted
-        : KodosiTheme.ink
+        : variant === KButton.Ghost && !hovered ? (onTerminal ? KodosiTheme.terminalInkMuted : KodosiTheme.inkMuted)
+        : ink
 
     activeFocusOnTab: true
     hoverEnabled: true
@@ -90,7 +92,7 @@ Button {
             anchors.fill: parent
             visible: root.variant === KButton.Ghost
             radius: root.radius
-            color: KodosiTheme.alpha(KodosiTheme.ink, !root.enabled ? 0 : root.pressed ? 0.13 : root.hovered ? 0.08 : 0)
+            color: KodosiTheme.alpha(root.ink, !root.enabled ? 0 : root.pressed ? 0.13 : root.hovered ? 0.08 : 0)
 
             Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
         }
@@ -100,6 +102,7 @@ Button {
         objectName: "control.keyboardFocus"
         Accessible.id: objectName
         active: root.visualFocus && root.enabled
-        color: root.variant === KButton.Primary ? KodosiTheme.accentInk : KodosiTheme.accentStrong
+        color: root.variant === KButton.Primary ? KodosiTheme.accentInk
+            : root.onTerminal ? KodosiTheme.terminalAccentStrong : KodosiTheme.accentStrong
     }
 }

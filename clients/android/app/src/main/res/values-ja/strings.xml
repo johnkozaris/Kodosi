@@ -36,6 +36,7 @@
     <string name="no_other_device">ほかにデバイスがありません</string>
     <string name="not_connected">未接続</string>
     <string name="nothing_matches">一致するものがありません。</string>
+    <string name="offline">オフライン</string>
     <string name="opening_sign_in">サインインを開いています</string>
     <string name="other_account">Kodosi が別のアカウント宛ての応答を受け取りました。</string>
     <string name="reconnecting">再接続中</string>
@@ -70,6 +71,7 @@
     <string name="terminal_invalid_control">ターミナルが無効な制御フレームを受信しました。再試行して再接続してください。</string>
     <string name="terminal_not_available">このターミナルは利用できません</string>
     <string name="terminal_opens_when_back">コンピュータがオンラインに戻ると、ターミナルが開きます。</string>
+    <string name="terminal_opens_when_connection_back">接続が戻ると、ターミナルが開きます。</string>
     <string name="terminals">ターミナル</string>
     <string name="terminals_empty_message">コンピュータの Kodosi でターミナルを起動するか、フレンドに共有してもらってください。ここに表示され、作業を見守ったりエージェントに答えたりできます。</string>
     <string name="terminals_empty_title">ターミナルは自分のコンピュータで動きます</string>

@@ -3,14 +3,30 @@ import KodosiDesign
 import SwiftUI
 
 /// The title of a terminal in its bar: its mark, its name with the sign of what it needs, and
-/// where it runs or what it does. The title of your own terminal is a key that renames it.
+/// where it runs or what it does, or that Kodosi is offline with a key that tries again. The title
+/// of your own terminal is a key that renames it.
 struct TerminalTitle: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
     let sign: StatusSign.Form?
+    let unreachable: Bool
     let rename: (() -> Void)?
+    let reconnect: () -> Void
 
     var body: some View {
+        HStack(spacing: 10) {
+            title
+            if unreachable, session.isConnected {
+                Button("Try again", action: reconnect)
+                    .buttonStyle(.kodosi(.tinted, size: .small))
+                    .fixedSize()
+                    .accessibilityIdentifier("terminal.header.retry")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var title: some View {
         if let rename {
             Button(action: rename) { label.frame(minHeight: 44).contentShape(Rectangle()) }
                 .buttonStyle(PressScaleStyle(scale: 0.97))
@@ -56,7 +72,10 @@ struct TerminalTitle: View {
 
     @ViewBuilder
     private var caption: some View {
-        if session.isConnected, session.status == .reconnecting {
+        if unreachable {
+            Text("Offline")
+                .foregroundStyle(theme.colors.caution)
+        } else if session.isConnected, session.status == .reconnecting {
             Text("Reconnecting")
                 .foregroundStyle(theme.colors.caution)
                 .shimmer()

@@ -6,6 +6,7 @@ import SwiftUI
 /// is in trouble. Without `showsFolder`, for a list in folders, its line names its agent rather
 /// than its folder.
 struct TerminalListCard: View {
+    @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     let session: RuntimeSession
     let sign: StatusSign.Form?
@@ -15,9 +16,18 @@ struct TerminalListCard: View {
     var badged = true
     let open: () -> Void
 
+    /// Whether the line under the name says how the terminal connects rather than what it does.
+    private var saysState: Bool {
+        session.isTroubled || session.connectionState == .connecting || session.status != .running
+    }
+
     var body: some View {
         TerminalCard(session: session, rested: session.canOpen ? .awake : .asleep, badged: badged, muted: !session.canOpen, open: open) {
-            TerminalCaption(session: session, fallback: (showsFolder ? session.folderName : nil) ?? session.agent.label)
+            if saysState, model.unreachable(session) {
+                Text("Offline").foregroundStyle(theme.colors.caution).lineLimit(1)
+            } else {
+                TerminalCaption(session: session, fallback: (showsFolder ? session.folderName : nil) ?? session.agent.label)
+            }
         } accessory: {
             HStack(spacing: 8) {
                 if !viewers.isEmpty {
@@ -27,7 +37,7 @@ struct TerminalListCard: View {
                     StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
                 } else if session.isTroubled {
                     Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
-                        .accessibilityLabel(Text(session.statusLabel))
+                        .accessibilityLabel(Text(model.statusLabel(of: session)))
                 } else if showsOwner, !session.isOwner, let owner = session.ownerName {
                     PersonAvatar(name: owner, key: session.ownerUserId, size: 20)
                 }

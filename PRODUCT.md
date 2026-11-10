@@ -95,6 +95,11 @@ from another device with a note that Dosi is off there.
   typed or asked during the drop goes out once when the connection is back. A terminal
   that cannot connect says so on its tile, not in a message that stays after the
   connection is back.
+- When the device cannot reach the server for longer than a short drop, Kodosi is offline.
+  The terminals of the device keep working and say nothing of it. A terminal of another
+  computer says Offline, keeps its last screen and has Try again, which connects at once,
+  and so does the launcher where it would start a terminal on another computer. Input that
+  Kodosi did not send shows on its terminal until new input goes through, not in messages.
 - When the computer of a terminal is offline, the terminal says so, keeps its last screen,
   takes no input and opens again when that computer is back. The person can hide it from
   their own lists until then, or close it for everyone when the computer is back. A

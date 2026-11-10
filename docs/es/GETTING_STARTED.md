@@ -244,7 +244,9 @@ El comando `kodosi` trabaja con los mismos terminales que la app, y la app muest
 Comprueba que el ordenador del terminal está en línea, con Kodosi abierto, y que el terminal
 sigue compartido. Un dispositivo nuevo puede necesitar aprobación, y un amigo con la identidad
 cambiada puede necesitar verificación en Amigos. Después de perder la conexión, Kodosi vuelve
-a mostrar el estado actual. Cuando Kodosi dice que un ordenador está sin conexión, sus
+a mostrar el estado actual. Cuando un terminal de otro ordenador dice Sin conexión, este
+dispositivo no llega al servidor: comprueba su red. Kodosi se vuelve a conectar solo, y
+Reintentar conecta al momento. Cuando Kodosi dice que un ordenador está sin conexión, sus
 terminales se vuelven a abrir cuando vuelve, salvo que hayan terminado allí. Para quitar un
 terminal así de tu lista, selecciona su X. Ocultar hasta que vuelva lo muestra de nuevo cuando
 vuelve el ordenador, y Cerrar para siempre lo cierra entonces. Si Kodosi dice que no está

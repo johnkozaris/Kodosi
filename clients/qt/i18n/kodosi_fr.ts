@@ -94,6 +94,14 @@
         <translation>Ordinateur</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Hors ligne</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Réessayer</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Fermer</translation>
     </message>
@@ -3262,6 +3270,10 @@
         <translation>Ordinateur distant</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Hors ligne</translation>
+    </message>
+    <message>
         <source>Not connected</source>
         <translation>Non connecté</translation>
     </message>
@@ -3619,6 +3631,10 @@
         <translation>Ordinateur distant</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Hors ligne</translation>
+    </message>
+    <message>
         <source>Reconnecting</source>
         <translation>Reconnexion</translation>
     </message>
@@ -3721,6 +3737,10 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>Le terminal s&apos;ouvrira quand son ordinateur sera de nouveau en ligne.</translation>
+    </message>
+    <message>
+        <source>The terminal opens when the connection is back.</source>
+        <translation>Le terminal s&apos;ouvrira quand la connexion sera rétablie.</translation>
     </message>
     <message>
         <source>This terminal is not available</source>

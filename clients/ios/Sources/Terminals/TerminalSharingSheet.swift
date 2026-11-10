@@ -130,8 +130,8 @@ struct TerminalSharingSheet: View {
     }
 
     private func hostState(_ session: RuntimeSession) -> String? {
-        if session.status == .offline {
-            return session.statusLabel
+        if session.status == .offline || model.unreachable(session) {
+            return model.statusLabel(of: session)
         }
         return session.isConnected ? nil : session.message ?? session.statusLabel
     }

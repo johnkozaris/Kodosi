@@ -36,6 +36,7 @@
     <string name="no_other_device">No tengo otro dispositivo</string>
     <string name="not_connected">Sin conexión</string>
     <string name="nothing_matches">No hay coincidencias.</string>
+    <string name="offline">Sin conexión</string>
     <string name="opening_sign_in">Abriendo el inicio de sesión</string>
     <string name="other_account">Kodosi ha recibido una respuesta para otra cuenta.</string>
     <string name="reconnecting">Reconectando</string>
@@ -70,6 +71,7 @@
     <string name="terminal_invalid_control">El terminal ha recibido una trama de control no válida. Reinténtalo para reconectar.</string>
     <string name="terminal_not_available">Este terminal no está disponible</string>
     <string name="terminal_opens_when_back">El terminal se abrirá cuando su ordenador vuelva.</string>
+    <string name="terminal_opens_when_connection_back">El terminal se abrirá cuando vuelva la conexión.</string>
     <string name="terminals">Terminales</string>
     <string name="terminals_empty_message">Inicia un terminal en Kodosi en tu ordenador o pide a un amigo que comparta uno. Aparecerá aquí para que sigas su trabajo y respondas a sus agentes.</string>
     <string name="terminals_empty_title">Tus terminales se ejecutan en tus ordenadores</string>

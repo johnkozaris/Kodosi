@@ -22,7 +22,20 @@ class RuntimeEvent(val type: String, val accountUserId: String?, val accountEpoc
 
     operator fun get(key: String): JsonElement? = payload[key]
 
+    /** Whether this is the failure of a refresh that the app asks for by itself. It is no news to
+     *  the person: the runtime refreshes again when the connection is back. */
+    val failedRefresh: Boolean
+        get() = type.endsWith(".error") && string("operation") in REFRESHES
+
     companion object {
+        private val REFRESHES =
+            setOf(
+                "session.list",
+                "auth.refresh",
+                "friends.refresh",
+                "devices.refresh",
+                "mission.list"
+            )
         fun parse(bytes: ByteArray): RuntimeEvent {
             val fields = RuntimeJson.parseToJsonElement(bytes.decodeToString()) as? JsonObject
                 ?: throw InvalidEvent("an event is not an object")

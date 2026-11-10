@@ -93,6 +93,15 @@ struct AppModelTests {
         #expect(model.notices.current?.message == "Try again.")
     }
 
+    @Test func `a refresh that the app asked for by itself fails without a notice`() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        for operation in RuntimeEvent.refreshes {
+            let area = operation.prefix(while: { $0 != "." })
+            try deliver("\(area).error", ["operation": operation, "message": "Kodosi cannot reach the server."])
+        }
+        #expect(model.notices.current == nil)
+    }
+
     @Test func `a failed friend request of this app shows its error`() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         #expect(model.people.add("kodosi:nobody:00ff"))
@@ -147,6 +156,22 @@ struct AppModelTests {
         _ = model.terminals.live.session(for: "s1")
         try deliver("session.picture", ["sessionId": "s1", "state": "sending", "sent": 3, "total": 10])
         #expect(model.terminals.live.picture(for: "s1")?.sent == 3)
+    }
+
+    @Test func `while Kodosi is offline a terminal of another computer says Offline, unless it has no access`() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        var reconnecting = terminalEntry("reconnecting", state: "working")
+        reconnecting["status"] = "reconnecting"
+        var away = terminalEntry("away", state: "idle", connection: "offline")
+        away["status"] = "offline"
+        try deliver("sessions.snapshot", ["sessions": [reconnecting, away, terminalEntry("locked", state: "idle", connection: "blocked")]])
+        let terminals = try ["reconnecting", "away", "locked"].map { try #require(model.terminals.session($0)) }
+        #expect(terminals.map(model.statusLabel(of:)) == ["Reconnecting", "Studio is offline", "No access"])
+        try deliver("connection.state", ["online": false])
+        #expect(terminals.map(model.statusLabel(of:)) == ["Offline", "Offline", "No access"])
+        try deliver("connection.result", ["requestId": "retry", "operation": "connection.retry"])
+        try deliver("connection.state", ["online": true])
+        #expect(terminals.map(model.statusLabel(of:)) == ["Reconnecting", "Studio is offline", "No access"])
     }
 
     @Test func `the computer that answered last answers Dosi, or else the first that runs Kodosi`() throws {

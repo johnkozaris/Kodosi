@@ -243,7 +243,9 @@ Il comando `kodosi` lavora sugli stessi terminali dell'app, e l'app mostra cosa 
 Controlla che il computer del terminale sia online, con Kodosi aperto, e che il terminale sia
 ancora condiviso. Un nuovo dispositivo può richiedere un'approvazione, e un amico con
 un'identità cambiata può richiedere una verifica in Amici. Dopo una connessione persa, Kodosi
-mostra di nuovo lo stato attuale. Quando Kodosi dice che un computer è offline, i suoi
+mostra di nuovo lo stato attuale. Quando un terminale di un altro computer dice Offline,
+questo dispositivo non raggiunge il server: controlla la sua rete. Kodosi si riconnette da
+solo, e Riprova si connette subito. Quando Kodosi dice che un computer è offline, i suoi
 terminali si riaprono quando torna, a meno che non siano terminati lì. Per togliere un
 terminale del genere dalla tua lista, seleziona la sua X. Nascondi finché non torna lo mostra
 di nuovo quando il computer torna, e Chiudi per sempre lo chiude in quel momento. Se Kodosi

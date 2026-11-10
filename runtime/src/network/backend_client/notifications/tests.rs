@@ -253,3 +253,26 @@ async fn a_friend_list_that_fails_its_check_is_told_and_the_other_changes_still_
     );
     assert_eq!(told[0]["message"], json!(broken().text()));
 }
+
+#[test]
+fn the_device_link_waits_longer_after_each_failure_and_tries_early_only_once() {
+    use terminal_connections::Wait;
+    let mut retry = Retry::default();
+    assert!(retry.hurries());
+    retry.waited(Wait::Full);
+    assert_eq!(retry.delay, 2);
+    retry.waited(Wait::Wanted);
+    assert_eq!(retry.delay, 4);
+    assert!(!retry.hurries());
+    retry.waited(Wait::Full);
+    assert!(retry.hurries());
+    for _ in 0..4 {
+        retry.waited(Wait::Full);
+    }
+    assert_eq!(retry.delay, 15);
+    retry.waited(Wait::Slept);
+    assert_eq!(retry, Retry::default());
+    retry.waited(Wait::Wanted);
+    retry.waited(Wait::Asked);
+    assert_eq!(retry, Retry::default());
+}

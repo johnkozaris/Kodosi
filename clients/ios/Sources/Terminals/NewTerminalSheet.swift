@@ -67,6 +67,15 @@ struct NewTerminalSheet: View {
             Group {
                 if let launcher {
                     form(launcher)
+                } else if !model.account.online, model.account.hasOtherDevices {
+                    EmptyState(title: "Offline") {
+                        IconTile(symbol: "wifi.slash", tint: TileTint.graphite, size: 56)
+                    } actions: {
+                        Button("Try again") { model.account.retryConnection() }
+                            .buttonStyle(.kodosi(.secondary, size: .small))
+                            .accessibilityIdentifier("terminals.new.unreachable.retry")
+                    }
+                    .accessibilityIdentifier("terminals.new.unreachable")
                 } else {
                     EmptyState(title: "No computer is online", message: "Open Kodosi on one of your computers to start a terminal on it.") {
                         IconTile(symbol: "laptopcomputer", tint: TileTint.graphite, size: 56)

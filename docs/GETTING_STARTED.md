@@ -238,8 +238,10 @@ does.
 Make sure that the computer of the terminal is online, with Kodosi open, and that the
 terminal is still shared. A new device can need approval, and a friend with a changed
 identity can need verification in Friends. After a lost connection, Kodosi shows the
-current state again. When Kodosi says that a computer is offline, its terminals open
-again when it is back, unless they ended there. To take such a terminal out of your list,
+current state again. When a terminal of another computer says Offline, this device cannot
+reach the server: check its network. Kodosi connects again by itself, and Try again
+connects at once. When Kodosi says that a computer is offline, its terminals open again
+when it is back, unless they ended there. To take such a terminal out of your list,
 select its X. Hide until it's back shows it again when the computer is back, and Close
 forever closes it then. If Kodosi says that it is not sure your input arrived, look at
 the terminal before you type the command again.

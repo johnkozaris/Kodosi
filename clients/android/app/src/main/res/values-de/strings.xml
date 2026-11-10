@@ -36,6 +36,7 @@
     <string name="no_other_device">Ich habe kein anderes Gerät</string>
     <string name="not_connected">Nicht verbunden</string>
     <string name="nothing_matches">Keine Treffer.</string>
+    <string name="offline">Offline</string>
     <string name="opening_sign_in">Anmeldung wird geöffnet</string>
     <string name="other_account">Kodosi hat eine Antwort für ein anderes Konto erhalten.</string>
     <string name="reconnecting">Verbindung wird wiederhergestellt</string>
@@ -70,6 +71,7 @@
     <string name="terminal_invalid_control">Das Terminal hat einen ungültigen Steuer-Frame erhalten. Versuche es erneut, um wieder zu verbinden.</string>
     <string name="terminal_not_available">Dieses Terminal ist nicht verfügbar</string>
     <string name="terminal_opens_when_back">Das Terminal öffnet sich, sobald sein Computer wieder da ist.</string>
+    <string name="terminal_opens_when_connection_back">Das Terminal öffnet sich, sobald die Verbindung wieder da ist.</string>
     <string name="terminals">Terminals</string>
     <string name="terminals_empty_message">Starte ein Terminal in Kodosi auf deinem Computer oder bitte einen Freund, eins zu teilen. Es erscheint hier, damit du seine Arbeit verfolgen und seinen Agents antworten kannst.</string>
     <string name="terminals_empty_title">Deine Terminals laufen auf deinen Computern</string>

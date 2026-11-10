@@ -25,8 +25,8 @@ use super::{
 use crate::{
     Error, Result,
     network::{
-        CONTROL_TIMEOUT, CheckpointCut, RemoteConnection, RemoteControl, RemoteUpdate,
-        TerminalControl,
+        CONTROL_TIMEOUT, CheckpointCut, RECONNECT_WAIT, RemoteConnection, RemoteControl,
+        RemoteUpdate, TerminalControl,
     },
     protocol::PictureState,
     text::Text,
@@ -36,7 +36,6 @@ const CONTROL_CAPACITY: usize = 64;
 const PICTURES_WAITING: usize = 8;
 const INPUT_BUDGET: usize = 4 * 1024 * 1024;
 const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(5);
-const RECONNECT_WAIT: Duration = Duration::from_secs(10);
 const MERGED_INPUT_BYTES: usize = 64 * 1024;
 
 #[derive(Clone)]

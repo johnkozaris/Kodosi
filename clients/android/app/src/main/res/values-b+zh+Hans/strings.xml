@@ -36,6 +36,7 @@
     <string name="no_other_device">我没有其他设备</string>
     <string name="not_connected">未连接</string>
     <string name="nothing_matches">没有匹配项。</string>
+    <string name="offline">离线</string>
     <string name="opening_sign_in">正在打开登录页面</string>
     <string name="other_account">Kodosi 收到了另一个账号的响应。</string>
     <string name="reconnecting">正在重新连接</string>
@@ -70,6 +71,7 @@
     <string name="terminal_invalid_control">终端收到了无效的控制帧。请重试以重新连接。</string>
     <string name="terminal_not_available">此终端不可用</string>
     <string name="terminal_opens_when_back">电脑重新上线后，终端会打开。</string>
+    <string name="terminal_opens_when_connection_back">连接恢复后，终端会打开。</string>
     <string name="terminals">终端</string>
     <string name="terminals_empty_message">在电脑上的 Kodosi 中启动一个终端，或请好友共享一个。它会显示在这里，方便你关注它的工作并回复它的 Agent。</string>
     <string name="terminals_empty_title">你的终端运行在你的电脑上</string>

@@ -46,12 +46,15 @@ mod participant;
 pub(crate) use calls::{Answering, answer as answer_calls};
 pub(crate) use calls::{Lines, ask as ask_computer};
 pub(crate) use channel::ChannelKeys;
-pub(crate) use link::Link;
+pub(crate) use link::{Link, Wait};
 
 pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 pub(crate) const STABLE_CONNECTION: Duration = Duration::from_mins(1);
 pub(crate) const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
+/// How long a short drop lasts: a terminal of another computer holds what the person types,
+/// and Kodosi counts as online.
+pub(crate) const RECONNECT_WAIT: Duration = Duration::from_secs(10);
 pub(crate) fn input_not_sent() -> crate::text::Text {
     text!("Kodosi did not send some of your last input.")
 }

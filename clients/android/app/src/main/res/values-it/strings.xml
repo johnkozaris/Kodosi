@@ -36,6 +36,7 @@
     <string name="no_other_device">Non ho altri dispositivi</string>
     <string name="not_connected">Non connesso</string>
     <string name="nothing_matches">Nessun risultato.</string>
+    <string name="offline">Offline</string>
     <string name="opening_sign_in">Apertura della pagina di accesso</string>
     <string name="other_account">Kodosi ha ricevuto una risposta per un altro account.</string>
     <string name="reconnecting">Riconnessione in corso</string>
@@ -70,6 +71,7 @@
     <string name="terminal_invalid_control">Il terminale ha ricevuto un frame di controllo non valido. Riprova per riconnetterlo.</string>
     <string name="terminal_not_available">Questo terminale non è disponibile</string>
     <string name="terminal_opens_when_back">Il terminale si aprirà quando il suo computer tornerà online.</string>
+    <string name="terminal_opens_when_connection_back">Il terminale si aprirà quando tornerà la connessione.</string>
     <string name="terminals">Terminali</string>
     <string name="terminals_empty_message">Avvia un terminale in Kodosi sul tuo computer o chiedi a un amico di condividerne uno. Comparirà qui, così puoi seguirne il lavoro e rispondere ai suoi agenti.</string>
     <string name="terminals_empty_title">I tuoi terminali girano sui tuoi computer</string>

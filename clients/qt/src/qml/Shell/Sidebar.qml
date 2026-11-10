@@ -1037,9 +1037,11 @@ Item {
                                 readonly property bool unseen: Models.Sessions.attention.indexOf(sessionId) >= 0
                                 readonly property bool renaming: root.renamingId === sessionId && sessionId.length > 0
                                 readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
+                                readonly property bool unreachable: session.kind === "remote" && !Models.Account.online && session.connectionState !== "blocked"
                                 readonly property string detail: session.kind === "remote" && session.status === "offline"
-                                    ? qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer"))
-                                    : session.activity || (session.kind === "remote" && session.connectionState !== "connected" ? (session.message || qsTr("Not connected")) : "")
+                                    ? (unreachable ? qsTr("Offline") : qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer")))
+                                    : session.activity || (session.kind === "remote" && session.connectionState !== "connected"
+                                        ? (unreachable ? qsTr("Offline") : session.message || qsTr("Not connected")) : "")
                                 readonly property bool connected: session.connectionState === "local" || session.connectionState === "connected"
                                 readonly property bool troubled: session.connectionState === "blocked" || session.status === "offline"
                                     || (session.connectionState === "offline" && !!session.message)

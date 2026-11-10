@@ -146,7 +146,7 @@ class AppModel(private val application: Application) {
             val message = event.string("message") ?: words.didNotWork
             if (event.type == "system.error" && !account.state.value.authResolved) {
                 fail(message)
-            } else if (!account.absorb(event, message)) {
+            } else if (!account.absorb(event, message) && !event.failedRefresh) {
                 notify(message)
             }
             return
@@ -164,6 +164,8 @@ class AppModel(private val application: Application) {
             }
 
             "devices" -> account.receiveDevices(event)
+
+            "connection" -> account.receiveConnection(event)
 
             "sessions", "session" -> terminals.receive(event)
         }

@@ -13,10 +13,12 @@ pub(super) const REFRESH: u8 = 7;
 
 #[derive(Debug)]
 pub enum TerminalFrame {
-    /// The answer to one input. `ended` tells that the input reached a terminal that is gone.
+    /// The answer to one input. `ended` tells that the input reached a terminal that is gone, and
+    /// `shown` that the terminal says itself that the input did not go out.
     InputAck {
         accepted: bool,
         ended: bool,
+        shown: bool,
         message: Option<crate::text::Text>,
     },
     Checkpoint {
@@ -67,6 +69,7 @@ pub fn input_ack_frame(result: &Result<()>) -> Result<Vec<u8>> {
     frame.extend(serde_json::to_vec(&json!({
         "accepted": result.is_ok(),
         "ended": matches!(result, Err(Error::Stopped | Error::NotFound)),
+        "shown": matches!(result, Err(Error::Unsent(_))),
         "message": result.as_ref().err().map(Error::text),
     }))?);
     Ok(frame)
@@ -111,6 +114,7 @@ pub async fn read_terminal<R: AsyncRead + Unpin>(
                     .and_then(Value::as_bool)
                     .ok_or_else(|| Error::Invalid("invalid input acknowledgement".into()))?,
                 ended: value.get("ended").and_then(Value::as_bool).unwrap_or(false),
+                shown: value.get("shown").and_then(Value::as_bool).unwrap_or(false),
                 message: value
                     .get("message")
                     .and_then(|message| serde_json::from_value(message.clone()).ok()),

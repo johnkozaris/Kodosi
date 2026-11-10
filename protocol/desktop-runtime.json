@@ -395,6 +395,48 @@
               }
             ]
           },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "connection.retry"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "deviceId": {
             "type": "string"
           },
@@ -6132,6 +6174,114 @@
           "accountUserId",
           "accountEpoch",
           "type"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "type": {
+            "const": "connection.state"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "online"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "connection.result"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "connection.error"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "operation",
+          "message"
         ],
         "type": "object"
       },

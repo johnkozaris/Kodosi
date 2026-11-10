@@ -13,6 +13,29 @@ async fn command_reader_rejects_large_prefix_before_allocating() {
 }
 
 #[tokio::test]
+async fn an_input_that_its_terminal_reports_itself_is_acknowledged_as_shown() {
+    let (mut writer, reader) = tokio::io::duplex(1024);
+    let mut reader = FrameReader::new(reader);
+    let answers: [(Result<()>, bool); 2] = [
+        (Err(Error::Unsent(crate::text::Text::plain("lost"))), true),
+        (Err(Error::Busy), false),
+    ];
+    for (result, shown_by_terminal) in answers {
+        write_frame(&mut writer, &input_ack_frame(&result).unwrap())
+            .await
+            .unwrap();
+        let TerminalFrame::InputAck {
+            accepted, shown, ..
+        } = read_terminal(&mut reader).await.unwrap()
+        else {
+            panic!("expected an input acknowledgement");
+        };
+        assert!(!accepted);
+        assert_eq!(shown, shown_by_terminal);
+    }
+}
+
+#[tokio::test]
 async fn frames_roundtrip_and_oversized_prefix_is_rejected() {
     let (mut a, b) = tokio::io::duplex(512);
     let mut b = FrameReader::new(b);

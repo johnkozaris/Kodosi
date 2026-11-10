@@ -121,7 +121,16 @@ struct SessionTileView: View {
 
     @ViewBuilder
     private var terminal: some View {
-        if !session.isConnected {
+        if !session.isConnected, deps.unreachable(session) {
+            TerminalStateCard(
+                symbol: "wifi.slash", title: String(localized: "Offline"),
+                message: String(localized: "The terminal opens when the connection is back."), working: false,
+            ) {
+                Button("Try again") { deps.account.retryConnection() }
+                    .buttonStyle(.kodosi(.primary))
+                    .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).unreachable.retry")
+            }
+        } else if !session.isConnected {
             let away = session.status == .offline && session.connectionState != .blocked
             TerminalStateCard(
                 symbol: session.connectionState == .blocked ? "lock" : "wifi.slash",

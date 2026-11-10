@@ -60,6 +60,8 @@ pub enum Error {
     Invalid(String),
     Refused(text::Text),
     Text(text::Text),
+    /// Input that a terminal of another computer did not get. Its terminal says so.
+    Unsent(text::Text),
     HostBusy(text::Text),
     HostOutdated {
         kind: HostKind,
@@ -78,7 +80,9 @@ impl Error {
             Self::NotFound => text!("This terminal is not available."),
             Self::Stale => text!("The terminal or the account changed. Try again."),
             Self::Invalid(words) | Self::Other(words) => text::Text::plain(words.clone()),
-            Self::Refused(text) | Self::Text(text) | Self::HostBusy(text) => text.clone(),
+            Self::Refused(text) | Self::Text(text) | Self::Unsent(text) | Self::HostBusy(text) => {
+                text.clone()
+            }
             Self::HostOutdated { .. } => {
                 text!("Kodosi was updated, but its host still runs the earlier version.")
             }

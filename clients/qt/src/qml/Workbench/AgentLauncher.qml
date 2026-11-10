@@ -25,6 +25,7 @@ ColumnLayout {
         return computers.some(entry => entry.deviceId === wanted) ? wanted : ""
     }
     readonly property string computerName: (computers.find(entry => entry.deviceId === computer) || {}).label || qsTr("This computer")
+    readonly property bool offline: !Models.Account.online && Models.Devices.hasOtherDevices
     readonly property var launcher: computer.length > 0 ? Models.Launcher.remote : Models.Launcher
     readonly property var places: launcher.places
     readonly property var choice: root.launcher.choice
@@ -554,7 +555,7 @@ ColumnLayout {
             }
             Row {
                 anchors.right: parent.right
-                anchors.rightMargin: root.computers.length > 0 || root.inSheet ? 6 : 12
+                anchors.rightMargin: root.computers.length > 0 || root.offline || root.inSheet ? 6 : 12
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.verticalCenterOffset: 2
                 spacing: 5
@@ -626,8 +627,43 @@ ColumnLayout {
                 }
                 PlainLabel {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.computers.length === 0 || root.roomName.length > 0
-                    text: root.computers.length > 0 ? "·" : root.roomName.length > 0 ? qsTr("This computer") + "  ·" : qsTr("This computer")
+                    visible: root.computers.length === 0
+                    text: qsTr("This computer")
+                    color: KodosiTheme.terminalInkMuted
+                    font.pixelSize: KodosiTheme.fontFootnote
+                }
+                PlainLabel {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.offline
+                    text: "·"
+                    color: KodosiTheme.terminalInkMuted
+                    font.pixelSize: KodosiTheme.fontFootnote
+                }
+                PlainLabel {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.offline
+                    objectName: "launcher.offline"
+                    Accessible.id: objectName
+                    text: qsTr("Offline")
+                    color: KodosiTheme.terminalCaution
+                    font.pixelSize: KodosiTheme.fontFootnote
+                }
+                KButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.offline
+                    compact: true
+                    onTerminal: true
+                    variant: KButton.Ghost
+                    text: qsTr("Try again")
+                    objectName: "launcher.offline.retry"
+                    Accessible.id: objectName
+
+                    onClicked: Models.Account.retryConnection()
+                }
+                PlainLabel {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: root.roomName.length > 0
+                    text: "·"
                     color: KodosiTheme.terminalInkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                 }

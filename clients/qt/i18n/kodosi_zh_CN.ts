@@ -94,6 +94,14 @@
         <translation>电脑</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>离线</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>重试</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
@@ -3250,6 +3258,10 @@
         <translation>远程电脑</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>离线</translation>
+    </message>
+    <message>
         <source>Not connected</source>
         <translation>未连接</translation>
     </message>
@@ -3606,6 +3618,10 @@
         <translation>远程电脑</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>离线</translation>
+    </message>
+    <message>
         <source>Reconnecting</source>
         <translation>正在重新连接</translation>
     </message>
@@ -3708,6 +3724,10 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>电脑重新上线后，终端会打开。</translation>
+    </message>
+    <message>
+        <source>The terminal opens when the connection is back.</source>
+        <translation>连接恢复后，终端会打开。</translation>
     </message>
     <message>
         <source>This terminal is not available</source>
