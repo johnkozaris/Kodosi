@@ -137,7 +137,7 @@ impl Files {
                 Some(at) => {
                     let mut item = self.items.remove(at);
                     if item.seen.as_ref() != Some(&seen) {
-                        item.listed.revision += 1;
+                        item.listed.revision = changed;
                     }
                     item.listed.view = view;
                     item.listed.bytes = seen.bytes;
@@ -152,7 +152,7 @@ impl Files {
                         name: name.clone(),
                         kind,
                         view,
-                        revision: 1,
+                        revision: changed,
                         bytes: seen.bytes,
                         changed,
                         missing: false,
@@ -173,6 +173,7 @@ impl Files {
             .drain(MOST_ITEMS.min(self.items.len())..)
             .map(|item| item.listed.name)
             .collect();
+        self.forget_unlisted_snapshot();
         Showing { shown, dropped }
     }
 
@@ -184,15 +185,16 @@ impl Files {
             if self.items.iter().any(|item| item.listed.key == key) {
                 continue;
             }
+            let changed = stamp.next();
             self.items.push(Item {
                 listed: CanvasItem {
                     key,
                     name: name_of(&path),
                     kind,
                     view: super::view_of(&path),
-                    revision: 1,
+                    revision: changed,
                     bytes: 0,
-                    changed: stamp.next(),
+                    changed,
                     missing: false,
                 },
                 path,
@@ -221,8 +223,9 @@ impl Files {
                 }
                 Some(seen) if item.seen.as_ref() != Some(&seen) => {
                     if item.seen.is_some() || item.listed.missing {
-                        item.listed.revision += 1;
-                        item.listed.changed = stamp.next();
+                        let changed = stamp.next();
+                        item.listed.revision = changed;
+                        item.listed.changed = changed;
                     }
                     item.listed.view = view_of(&item.path, seen.bytes).await;
                     item.listed.bytes = seen.bytes;
@@ -248,12 +251,15 @@ impl Files {
         let before = self.items.len();
         self.items
             .retain(|item| !keys.is_empty() && !keys.contains(&item.listed.key));
-        self.snapshot = self.snapshot.take().filter(|snapshot| {
-            self.items
-                .iter()
-                .any(|item| item.listed.key == snapshot.key)
-        });
+        self.forget_unlisted_snapshot();
         before - self.items.len()
+    }
+
+    fn forget_unlisted_snapshot(&mut self) {
+        self.snapshot = self
+            .snapshot
+            .take()
+            .filter(|snapshot| self.contains(&snapshot.key));
     }
 
     /// One part of an item's content. Every part of one revision comes from one copy of the file.

@@ -102,6 +102,7 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
     let stamp = Stamp::default();
     let mut files = Files::default();
     show(&mut files, vec![plan.clone()], &stamp).await.unwrap();
+    let first = files.items()[0].revision;
     show(&mut files, vec![shot.clone()], &stamp).await.unwrap();
     let names = |files: &Files| {
         files
@@ -113,11 +114,11 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
     assert_eq!(names(&files), ["shot.png", "plan.md"]);
     show(&mut files, vec![plan.clone()], &stamp).await.unwrap();
     assert_eq!(names(&files), ["plan.md", "shot.png"]);
-    assert_eq!(files.items()[0].revision, 1);
+    assert_eq!(files.items()[0].revision, first);
 
     std::fs::write(&plan, "# Plan\n\nMore words.").unwrap();
     assert!(files.check(&stamp).await);
-    assert_eq!(files.items()[0].revision, 2);
+    assert!(files.items()[0].revision > first);
     assert!(!files.check(&stamp).await);
 
     std::fs::remove_file(&shot).unwrap();
@@ -358,6 +359,51 @@ async fn the_canvas_keeps_the_newest_items() {
     assert_eq!(files.remove(&[key]), 1);
     assert_eq!(files.remove(&[]), MOST_ITEMS - 1);
     assert!(files.is_empty());
+}
+
+#[tokio::test]
+async fn a_file_that_comes_back_gets_a_new_revision_with_its_new_content() {
+    let folder = tempfile::tempdir().unwrap();
+    let report = folder.path().join("report.md");
+    std::fs::write(&report, "# Old report").unwrap();
+    let stamp = Stamp::default();
+    let mut files = Files::default();
+    let newest = async |files: &mut Files| {
+        let item = files.items()[0].clone();
+        let CanvasAnswer::Part { data, .. } =
+            files.read(&item.key, item.revision, 0).await.unwrap()
+        else {
+            panic!("expected a part");
+        };
+        let page = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .unwrap();
+        (item.revision, String::from_utf8(page).unwrap())
+    };
+    show(&mut files, vec![report.clone()], &stamp)
+        .await
+        .unwrap();
+    let key = files.items()[0].key.clone();
+    let (first, page) = newest(&mut files).await;
+    assert!(page.contains("Old report"), "{page}");
+
+    for number in 0..MOST_ITEMS {
+        let other = folder.path().join(format!("{number}.txt"));
+        std::fs::write(&other, "x").unwrap();
+        show(&mut files, vec![other], &stamp).await.unwrap();
+    }
+    assert!(!files.contains(&key));
+    std::fs::write(&report, "# New report").unwrap();
+    show(&mut files, vec![report.clone()], &stamp)
+        .await
+        .unwrap();
+    let (second, page) = newest(&mut files).await;
+    assert!(second > first);
+    assert!(page.contains("New report"), "{page}");
+
+    assert_eq!(files.remove(std::slice::from_ref(&key)), 1);
+    show(&mut files, vec![report], &stamp).await.unwrap();
+    assert!(files.items()[0].revision > second);
 }
 
 #[tokio::test]
