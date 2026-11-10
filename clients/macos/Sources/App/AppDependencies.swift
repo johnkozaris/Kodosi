@@ -202,6 +202,7 @@ final class AppDependencies {
     }
 
     func retryStartup() {
+        errorMessage = nil
         appState = .launching
         shutdownProcess { [weak self] in
             guard let self else { return }
@@ -235,12 +236,11 @@ final class AppDependencies {
         runtimeHandle.stop(completion: completion)
     }
 
-    private func failRuntime(_ message: String) {
-        guard case .error = appState else {
-            errorMessage = message
-            present(.error(message))
+    func failRuntime(_ message: String) {
+        if case .error = appState {
             return
         }
+        present(.error(message))
     }
 
     func session(_ id: String) -> RuntimeSession? {
@@ -266,15 +266,17 @@ final class AppDependencies {
         }
     }
 
-    func activateSession(_ id: String, inRoom roomId: String? = nil) {
+    /// Brings a terminal to the stage, and says whether it is there.
+    @discardableResult
+    func activateSession(_ id: String, inRoom roomId: String? = nil) -> Bool {
         guard stageHasRoom(for: id) else {
             errorMessage = String(localized: "Six terminals are open. Minimize one to open another.")
-            return
+            return false
         }
         if let current = session(id) {
             guard current.canOpen else {
                 errorMessage = String(localized: "This terminal is not available. Check that its computer is on.")
-                return
+                return false
             }
             makeRoom(for: id)
             workbench.showSession(id, inRoom: roomId)
@@ -282,12 +284,13 @@ final class AppDependencies {
                 roomView(roomId).selectedTerminal = id
             }
             reportVisible()
-            guard current.kind == .remote else { return }
-        } else {
-            guard account.userId != nil else { return }
+            if current.kind == .remote, activationTasks[id] == nil {
+                openRemote(id, inRoom: roomId)
+            }
+        } else if account.userId != nil, activationTasks[id] == nil {
+            openRemote(id, inRoom: roomId)
         }
-        guard activationTasks[id] == nil else { return }
-        openRemote(id, inRoom: roomId)
+        return workbench.stagedSessionIds.contains(id)
     }
 
     func dismissSession(_ id: String) {

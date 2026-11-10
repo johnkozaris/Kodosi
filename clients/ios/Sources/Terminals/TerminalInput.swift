@@ -58,18 +58,20 @@ struct TerminalKeyboard {
         hardware = connected
     }
 
-    mutating func terminalFocused(_ focused: Bool) {
-        typing = focused
-        if !focused, !writing {
+    mutating func terminalFocused(_ focused: Bool, allowed: Bool = true) {
+        if typing, !focused, allowed, !writing {
             wanted = false
         }
+        typing = focused
     }
 
     mutating func terminalGone() {
         typing = false
     }
 
-    mutating func composerClosed() {
-        writing = false
+    /// The composer lost the keyboard. When the lock took it, the person still writes, and the
+    /// composer gets the keyboard back after the unlock.
+    mutating func composerClosed(locked: Bool = false) {
+        writing = locked
     }
 }

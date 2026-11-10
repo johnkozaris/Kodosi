@@ -239,7 +239,7 @@ struct IssuePicker: View {
             .padding(.horizontal, 8).frame(height: 34).contentShape(Rectangle()).hoverRow()
         }
         .buttonStyle(.plain).disabled(adding != nil)
-        .accessibilityIdentifier("room.issue.number.\(number)")
+        .accessibilityIdentifier("room.issue.number.\(number).\(AccessibilityIdentifier.token(repository.id))")
     }
 
     private func row(_ issue: RoomIssue, in repository: RoomRepository) -> some View {

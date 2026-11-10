@@ -55,7 +55,7 @@ struct SessionTileHeader: View {
             }
             Color.clear.frame(minWidth: 4, maxWidth: .infinity).titleBarGap()
             if deps.workbench.dosiOn, let (item, question) = deps.dosi.question(forTerminal: session) {
-                DosiKeys(item: item, question: question).transition(AnyTransition.pop)
+                DosiKeys(sessionId: session.id, item: item, question: question).transition(AnyTransition.pop)
             }
             status
             AvatarStack(people: viewers, size: 20, limit: 3, ring: theme.colors.terminal)
@@ -244,6 +244,7 @@ private struct TerminalActions: View {
 
 struct DosiKeys: View {
     @Environment(AppDependencies.self) private var deps
+    let sessionId: String
     let item: DosiItem
     let question: DosiQuestion
 
@@ -258,7 +259,7 @@ struct DosiKeys: View {
                 ForEach(question.options, id: \.self) { option in
                     Button(option) { deps.answerDosi(item, [option]) }
                         .buttonStyle(.kodosi(.secondary, size: .small))
-                        .accessibilityIdentifier("dosi.keys.\(AccessibilityIdentifier.token(option))")
+                        .accessibilityIdentifier("dosi.keys.\(AccessibilityIdentifier.token(option)).\(AccessibilityIdentifier.token(sessionId))")
                 }
             } else {
                 Button("Answer") { deps.workbench.openDosi() }.buttonStyle(.kodosi(.tinted, size: .small))

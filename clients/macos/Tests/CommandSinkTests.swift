@@ -99,6 +99,32 @@ import Testing
     #expect(app.errorMessage == "Try again.")
 }
 
+@Test @MainActor func `a late answer to a request that its caller left shows nowhere`() async throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "LeftRequest"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    var sent: [[String: JSONValue]] = []
+    app.commandSink.transport = { data in
+        if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(fields)
+        }
+        return 0
+    }
+    try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
+    let listing = Task { try await app.commandSink.request("folders.list", ["requestId": .string("folders")]) }
+    await settle { !sent.contains { $0["type"] == .string("folders.list") } }
+    listing.cancel()
+    do {
+        _ = try await listing.value
+        Issue.record("A caller that left must not wait for the answer")
+    } catch { #expect(error is CancellationError) }
+    try app.receive(runtimeEvent("folders.error", fields: [
+        "requestId": .string("folders"), "operation": .string("folders.list"), "message": .string("Studio is away."),
+    ]))
+    #expect(app.errorMessage == nil)
+}
+
 @Test @MainActor func `a failed friend request of this app shows its error`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "FriendRequestError"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)

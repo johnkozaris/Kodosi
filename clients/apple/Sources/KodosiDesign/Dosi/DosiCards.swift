@@ -40,7 +40,7 @@ struct DosiWaiting: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("dosi.waiting")
+        .accessibilityIdentifier("dosi.waiting.\(AccessibilityIdentifier.token(item.id))")
     }
 
     private var line: some View {
@@ -55,7 +55,7 @@ struct DosiWaiting: View {
     private var key: some View {
         Button { place.dosi.takeBack(item) } label: { Text("Do not send", bundle: .module) }
             .buttonStyle(.kodosi(.ghost, size: .small))
-            .accessibilityIdentifier("dosi.waiting.remove")
+            .accessibilityIdentifier("dosi.waiting.remove.\(AccessibilityIdentifier.token(item.id))")
     }
 }
 
@@ -141,18 +141,18 @@ struct DosiQuestionCard: View {
                 ForEach(question.options, id: \.self) { option in
                     Button(option) { choose(option) }
                         .buttonStyle(.kodosi(question.multiple && picked.contains(option) ? .tinted : .secondary, size: .small))
-                        .accessibilityIdentifier("dosi.answer.\(AccessibilityIdentifier.token(option))")
+                        .accessibilityIdentifier("dosi.answer.\(AccessibilityIdentifier.token(option)).\(AccessibilityIdentifier.token(item.id))")
                 }
             }
             HStack(spacing: 6) {
                 TextField(String(localized: "Something else", bundle: .module), text: $own)
                     .textFieldStyle(WellTextFieldStyle(radius: Radius.sm, compact: true))
                     .onSubmit(send)
-                    .accessibilityIdentifier("dosi.answer.own")
+                    .accessibilityIdentifier("dosi.answer.own.\(AccessibilityIdentifier.token(item.id))")
                 if question.multiple || !words.isEmpty {
                     Button(action: send) { Text("Send", bundle: .module) }
                         .buttonStyle(.kodosi(.primary, size: .small)).disabled(choices.isEmpty)
-                        .accessibilityIdentifier("dosi.answer.send")
+                        .accessibilityIdentifier("dosi.answer.send.\(AccessibilityIdentifier.token(item.id))")
                         .transition(AnyTransition.pop)
                 }
             }

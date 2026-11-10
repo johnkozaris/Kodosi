@@ -3,6 +3,7 @@ import Foundation
 import KodosiBridge
 import SwiftUI
 import Testing
+import UIKit
 
 struct SettingsTests {
     @Test(arguments: [
@@ -61,6 +62,27 @@ struct SettingsTests {
         lock.sceneChanged(to: .active, now: left.addingTimeInterval(1))
         await settle()
         #expect(questions == 2)
+    }
+
+    @Test @MainActor func `the lock covers what Kodosi presents and takes the keys only while it is locked`() throws {
+        let scene = try #require(UIApplication.shared.connectedScenes.lazy.compactMap { $0 as? UIWindowScene }.first)
+        let main = UIWindow(windowScene: scene)
+        main.rootViewController = UIViewController()
+        main.makeKeyAndVisible()
+        defer { main.isHidden = true }
+        let field = UITextField()
+        main.addSubview(field)
+        let anchor = LockAnchor()
+        main.addSubview(anchor)
+        anchor.show({ UIViewController() }, locked: false)
+        let cover = try #require(anchor.shown)
+        #expect(!cover.isHidden && cover.windowLevel > .alert)
+        #expect(main.isKeyWindow && field.becomeFirstResponder())
+        anchor.show({ UIViewController() }, locked: true)
+        #expect(cover.isKeyWindow && !field.isFirstResponder)
+        anchor.show(nil, locked: false)
+        #expect(cover.isHidden && anchor.shown == nil)
+        #expect(main.isKeyWindow)
     }
 
     @Test func `device code is complete with twelve symbols`() {

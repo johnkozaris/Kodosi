@@ -104,7 +104,7 @@ struct CanvasScreen: View {
                         }
                     } else if let session, let current {
                         CanvasItemView(session: session, shown: current, store: store, frames: frames, pages: model.terminals.documentPages,
-                                       typing: typing, ask: ask(current, in: session))
+                                       typing: typing && !model.lock.locked, ask: ask(current, in: session))
                             .id(current.key)
                     } else if store.opensBrowser(sessionId) {
                         Spinner(size: 22)

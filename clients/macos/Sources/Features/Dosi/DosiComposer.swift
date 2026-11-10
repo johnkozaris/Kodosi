@@ -24,7 +24,7 @@ struct DosiComposer: View {
                     Image(systemName: "clock").font(.system(size: 9, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
                     Text(queued.text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
                     Spacer(minLength: 2)
-                    IconButton(title: "Do not send", symbol: "xmark", identifier: "dosi.queued.remove", size: 20) {
+                    IconButton(title: "Do not send", symbol: "xmark", identifier: "dosi.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 20) {
                         dosi.unqueue(queued)
                     }
                 }
