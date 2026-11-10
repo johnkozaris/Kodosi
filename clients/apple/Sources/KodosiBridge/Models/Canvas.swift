@@ -5,8 +5,7 @@ public struct Canvas: Decodable, Equatable, Sendable {
     public let sequence: UInt64
     public let items: [CanvasItem]
     public let browser: CanvasBrowser?
-    /// What the agent showed last with `kodosi show`, or the browser that its first
-    /// `kodosi browser` command started, which each device opens once.
+    /// Where the canvas opened last for the people of the terminal, which each device opens once.
     public let open: CanvasOpen?
 
     public init(sequence: UInt64, items: [CanvasItem], browser: CanvasBrowser?, open: CanvasOpen? = nil) {

@@ -117,12 +117,14 @@ from another device with a note that Dosi is off there.
   PDF, a document, a sheet or a presentation, or an address, such as the app that it runs,
   in the shared browser. A page that loads from the network opens in the shared browser too.
   The canvas then opens at it on each device where the terminal is in front, or when the
-  person comes to the terminal, once, and only for a show after the app there started. The
-  agent's first use of the shared browser opens the canvas at it the same way. A person adds
-  a file with Add a File or a drop, on any device: it goes into the terminal's folder on the
-  terminal's computer, a taken name gets a number, and the limit is 32 MB. The canvas shows
-  the newest first and keeps 20. When a file changes, each device shows the new version.
-  Save a Copy keeps a copy on the device.
+  person comes to the terminal, once, and only for a show after the app there started. It
+  opens the same way when the agent uses the shared browser, or a file on the canvas
+  changes, after a minute without that, so a canvas that a person closed stays closed while
+  the agent goes on. A change that people make in a live document does not open it. A person
+  adds a file with Add a File or a drop, on any device: it goes into the terminal's folder on
+  the terminal's computer, a taken name gets a number, and the limit is 32 MB. The canvas
+  shows the newest first and keeps 20. When a file changes, each device shows the new
+  version. Save a Copy keeps a copy on the device.
 - A document (.docx), sheet (.xlsx), presentation (.pptx), PDF or text file (.txt, .json,
   .yaml, .yml, .toml or .xml) on the canvas is live. The people and agents of the terminal
   edit it at the same time, each sees where the others are, and each edit reaches all of

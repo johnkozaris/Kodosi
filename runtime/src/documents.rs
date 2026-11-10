@@ -76,6 +76,23 @@ impl DocumentHost {
     pub(crate) async fn close(&self) {
         self.documents.close().await;
     }
+
+    pub(crate) fn is_open(&self, path: &Path) -> bool {
+        self.documents.is_open(path)
+    }
+}
+
+/// The file that an agent's `kodosi doc` command changes, if it changes one.
+pub(crate) fn changed_file(folder: &Path, arguments: &[String]) -> Option<PathBuf> {
+    let words = std::iter::once("doc".to_owned()).chain(arguments.iter().cloned());
+    match DocumentCommand::try_parse_from(words)
+        .ok()?
+        .command
+        .rooted(folder)
+    {
+        Command::Apply(apply) => Some(apply.file),
+        _ => None,
+    }
 }
 
 /// The ends of a document's pipe, which end when either side lets go.

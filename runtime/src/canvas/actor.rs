@@ -14,10 +14,10 @@ use super::{
     attach::{Part, Uploads},
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
-    files::{self, Files, Showing, Stamp, key_of},
+    files::{self, Files, QUIET, Showing, Stamp, key_of},
     render::{self, RenderArguments},
 };
-use crate::documents::{DocumentHost, path_of};
+use crate::documents::{DocumentHost, changed_file, path_of};
 use crate::text::Text;
 
 const JOBS: usize = 64;
@@ -79,6 +79,9 @@ enum Job {
     Downloaded {
         path: PathBuf,
     },
+    Edited {
+        path: PathBuf,
+    },
     Restore {
         paths: Vec<PathBuf>,
         address: Option<String>,
@@ -132,7 +135,9 @@ impl CanvasHandle {
             sharing,
             browsers: services.browsers,
             agent_browser: services.agent_browser,
+            documents: services.documents.clone(),
             browser: None,
+            browsed: None,
             open: None,
         };
         tokio::spawn(actor.run());
@@ -257,7 +262,12 @@ impl CanvasHandle {
         if arguments.first().is_some_and(|word| word == "render") {
             return self.render(viewer, &folder, arguments).await;
         }
-        self.documents.run(&viewer, &folder, arguments).await
+        let changes = changed_file(&folder, &arguments);
+        let answer = self.documents.run(&viewer, &folder, arguments).await;
+        if let (Some(path), CanvasAnswer::Text { code: 0, .. }) = (changes, &answer) {
+            drop(self.jobs.try_send(Job::Edited { path }));
+        }
+        answer
     }
 
     /// Draws each page of a file in this terminal's browser, as people see it, and saves the
@@ -349,7 +359,10 @@ struct Actor {
     sharing: watch::Receiver<bool>,
     browsers: BrowserHost,
     agent_browser: PathBuf,
+    documents: DocumentHost,
     browser: Option<(Arc<Browser>, watch::Receiver<CanvasBrowser>)>,
+    /// When the agent's last browser command came.
+    browsed: Option<tokio::time::Instant>,
     open: Option<CanvasOpen>,
 }
 
@@ -377,7 +390,15 @@ impl Actor {
                     }
                 }
                 _ = check.tick(), if !self.files.is_empty() => {
-                    if self.files.check(&self.stamp).await {
+                    let checked = self.files.check(&self.stamp).await;
+                    if let Some(key) = checked
+                        .after_quiet
+                        .into_iter()
+                        .find(|key| !self.documents.is_open(&path_of(key)))
+                    {
+                        self.open_at(key);
+                    }
+                    if checked.any {
                         self.publish();
                     }
                 }
@@ -444,9 +465,10 @@ impl Actor {
                     return;
                 }
                 let browser = self.browser();
-                if starts {
+                if starts || self.browsed.is_none_or(|at| at.elapsed() >= QUIET) {
                     self.open_at(BROWSER_PIPE.to_owned());
                 }
+                self.browsed = Some(tokio::time::Instant::now());
                 self.publish();
                 tokio::spawn(async move {
                     drop(reply.send(browser.run(folder, arguments, &terminal, agent).await));
@@ -485,6 +507,13 @@ impl Actor {
                     }
                 }
                 self.publish();
+            }
+            Job::Edited { path } => {
+                let key = key_of(&kodosi_os::fs::canonicalize(&path).unwrap_or(path));
+                if self.files.touch(&key) {
+                    self.open_at(key);
+                    self.publish();
+                }
             }
             Job::Restore {
                 paths,
