@@ -16,7 +16,7 @@ private func item(_ name: String, changed: UInt64, revision: UInt64 = 1, missing
     return .object(fields)
 }
 
-private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", canvas: [String: JSONValue]?) throws -> RuntimeSession {
+private func terminalFields(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", canvas: [String: JSONValue]?) -> [String: JSONValue] {
     var fields: [String: JSONValue] = [
         "id": .string(id), "incarnationId": .string(UUIDv7.generate()),
         "kind": .string("local"), "name": .string("checkout"), "program": .string("claude"),
@@ -24,7 +24,11 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
         "connectionState": .string("local"), "sharedWith": .array([]),
     ]
     fields["canvas"] = canvas.map(JSONValue.object)
-    return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
+    return fields
+}
+
+private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", canvas: [String: JSONValue]?) throws -> RuntimeSession {
+    try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(terminalFields(id, canvas: canvas)))
 }
 
 @Test func `a canvas lists its items, newest first, and then the browser`() throws {
@@ -246,20 +250,36 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     #expect(workbench.canvasSessionId == browsing.id)
 }
 
-@Test @MainActor func `a canvas opens by itself once, for a terminal alone on the stage`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasArrival"))
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.switchAccount(nil)
-    let empty = try terminal(canvas: nil)
-    _ = workbench.reconcile([empty])
-    workbench.showSession(empty.id)
-    let first = try terminal(canvas: ["sequence": .uint(1), "items": .array([item("plan.md", changed: 1)])])
-    _ = workbench.reconcile([first])
-    #expect(workbench.canvasSessionId == first.id)
-    workbench.hideCanvas()
-    _ = workbench.reconcile([empty])
-    _ = workbench.reconcile([first])
-    #expect(workbench.canvasSessionId == nil)
+@Test @MainActor func `the stage opens a canvas that comes later only at a show from after the start`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasShown"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    app.windowShown = { true }
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
+    var fields = terminalFields(canvas: nil)
+    func snapshot(_ canvas: [String: JSONValue]?) throws {
+        fields["canvas"] = canvas.map(JSONValue.object)
+        try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object(fields)])]))
+    }
+    try snapshot(nil)
+    let id = try #require(app.sessions.first?.id)
+    app.workbench.showSession(id)
+    try snapshot([
+        "sequence": .uint(1), "items": .array([item("plan.md", changed: 1)]),
+        "open": .object(["key": .string("/tmp/work/plan.md"), "at": .uint(1)]),
+    ])
+    #expect(app.workbench.canvasSessionId == nil)
+    let later = UInt64(Date.now.timeIntervalSince1970 * 1000) + 60000
+    try snapshot([
+        "sequence": .uint(2), "items": .array([item("plan.md", changed: 1)]),
+        "browser": .object(["state": .string("starting"), "changed": .uint(2), "width": .uint(1280), "height": .uint(720)]),
+        "open": .object(["key": .string(CanvasShown.browserKey), "at": .uint(later)]),
+    ])
+    #expect(app.workbench.canvasSessionId == id)
+    let session = try #require(app.sessions.first)
+    #expect(app.canvas.current(session)?.key == CanvasShown.browserKey)
 }
 
 @Test func `ask about this types one line for the person to finish`() throws {

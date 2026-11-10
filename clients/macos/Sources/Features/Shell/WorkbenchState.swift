@@ -108,8 +108,8 @@ final class WorkbenchState {
     private let defaults: UserDefaults
     private var accountKey: String?
     private var restoredIds: [String] = []
-    /// The terminals whose canvas a person hid, so it does not open by itself again.
-    private var hiddenCanvases: Set<String> = []
+    /// The terminal whose canvas a person opened before it had anything, so it opens when it comes.
+    private var awaitedCanvas: String?
     /// The terminals whose canvas was open when the person went to another terminal, so it opens again when they come back.
     private var canvasesLeftOpen: Set<String> = []
     private var savedStage: [String] = []
@@ -213,21 +213,17 @@ final class WorkbenchState {
     func openCanvas(_ id: String) {
         selectedSessionId = id
         focusedSessionId = id
-        hiddenCanvases.remove(id)
         canvasesLeftOpen.remove(id)
         if known[id]?.canvas != nil {
             canvasSessionId = id
+            awaitedCanvas = nil
+        } else {
+            awaitedCanvas = id
         }
     }
 
     /// Hides the canvas. Its terminal stays alone on the stage.
     func hideCanvas() {
-        guard let id = canvasSessionId else { return }
-        hiddenCanvases.insert(id)
-        endCanvas()
-    }
-
-    private func endCanvas() {
         canvasSessionId = nil
         canvasWide = false
     }
@@ -243,7 +239,7 @@ final class WorkbenchState {
         if known[id]?.canvas != nil, back || canvasSessionId != nil {
             canvasSessionId = id
         } else {
-            endCanvas()
+            hideCanvas()
         }
     }
 
@@ -252,7 +248,7 @@ final class WorkbenchState {
         stagedSessionIds.removeAll { $0 == id }
         canvasesLeftOpen.remove(id)
         if canvasSessionId == id {
-            endCanvas()
+            hideCanvas()
         }
         if selectedSessionId == id {
             selectedSessionId = stagedSessionIds.first
@@ -318,7 +314,7 @@ final class WorkbenchState {
         stagedSessionIds.removeAll()
         canvasSessionId = nil
         canvasWide = false
-        hiddenCanvases = []
+        awaitedCanvas = nil
         canvasesLeftOpen = []
         selectedSessionId = nil
         focusedSessionId = nil
@@ -358,17 +354,16 @@ final class WorkbenchState {
             }
         }
         followPins(sessions, current: current, restarted: restarted)
-        let shownFirst = sessions.filter { known[$0.id] != nil && known[$0.id]?.canvas == nil && $0.canvas != nil }.map(\.id)
         known = current
         if let id = canvasSessionId, current[id]?.canvas == nil {
-            endCanvas()
+            hideCanvas()
         }
-        if let id = selectedSessionId, shownFirst.contains(id), canvasSessionId == nil, !hiddenCanvases.contains(id),
-           section == .sessions, focusedSessionId == id || stagedSessionIds == [id]
-        {
-            openCanvas(id)
+        if let id = awaitedCanvas, current[id]?.canvas != nil {
+            awaitedCanvas = nil
+            if focusedSessionId == id {
+                canvasSessionId = id
+            }
         }
-        hiddenCanvases.formIntersection(current.keys)
         notedOutside.formIntersection(current.keys)
         canvasesLeftOpen.formIntersection(current.keys)
         closing.formIntersection(current.keys)

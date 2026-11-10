@@ -51,7 +51,8 @@ pub struct Canvas {
     pub open: Option<CanvasOpen>,
 }
 
-/// What the agent showed last with `kodosi show`: an item by its key, or the browser.
+/// What the agent showed last with `kodosi show`, an item by its key or the browser, or the
+/// browser that its first `kodosi browser` command started.
 ///
 /// `at` is when, in milliseconds since 1970 on the terminal's computer. Each device opens its
 /// canvas there once, and only for a show after the device's app started.

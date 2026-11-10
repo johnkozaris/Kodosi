@@ -30,6 +30,8 @@ type Reply = oneshot::Sender<Result<CanvasAnswer, Text>>;
 pub(crate) struct CanvasServices {
     pub(crate) documents: DocumentHost,
     pub(crate) browsers: BrowserHost,
+    /// The agent-browser that runs the agents' browser commands.
+    pub(crate) agent_browser: PathBuf,
 }
 
 impl CanvasServices {
@@ -37,6 +39,7 @@ impl CanvasServices {
         Self {
             documents: DocumentHost::new(data_root),
             browsers: BrowserHost::new(data_root, isolated),
+            agent_browser: browser::agent_browser(),
         }
     }
 
@@ -128,6 +131,7 @@ impl CanvasHandle {
             own_jobs: jobs.downgrade(),
             sharing,
             browsers: services.browsers,
+            agent_browser: services.agent_browser,
             browser: None,
             open: None,
         };
@@ -344,6 +348,7 @@ struct Actor {
     own_jobs: mpsc::WeakSender<Job>,
     sharing: watch::Receiver<bool>,
     browsers: BrowserHost,
+    agent_browser: PathBuf,
     browser: Option<(Arc<Browser>, watch::Receiver<CanvasBrowser>)>,
     open: Option<CanvasOpen>,
 }
@@ -433,11 +438,15 @@ impl Actor {
                 agent,
                 reply,
             } => {
-                if let Some(missing) = browser::missing().filter(|_| self.browser.is_none()) {
+                let starts = self.browser.is_none();
+                if let Some(missing) = browser::missing(&self.agent_browser).filter(|_| starts) {
                     drop(reply.send(Err(missing)));
                     return;
                 }
                 let browser = self.browser();
+                if starts {
+                    self.open_at(BROWSER_PIPE.to_owned());
+                }
                 self.publish();
                 tokio::spawn(async move {
                     drop(reply.send(browser.run(folder, arguments, &terminal, agent).await));
@@ -514,12 +523,12 @@ impl Actor {
         } = show;
         if address.is_some()
             && self.browser.is_none()
-            && let Some(missing) = browser::missing()
+            && let Some(missing) = browser::missing(&self.agent_browser)
         {
             drop(reply.send(Err(missing)));
             return;
         }
-        let can_browse = self.browser.is_some() || browser::missing().is_none();
+        let can_browse = self.browser.is_some() || browser::missing(&self.agent_browser).is_none();
         let examined = match files::examine_all(paths).await {
             Ok(examined) => examined,
             Err(problem) => {
@@ -548,12 +557,7 @@ impl Actor {
             showing.shown.first().map(|shown| shown.key.clone())
         };
         if let Some(key) = key {
-            let at = self
-                .open
-                .as_ref()
-                .map_or(0, |open| open.at + 1)
-                .max(crate::identity::now_ms());
-            self.open = Some(CanvasOpen { key, at });
+            self.open_at(key);
         }
         self.publish();
         let Some(browser) = browser else {
@@ -673,6 +677,16 @@ impl Actor {
             .map(|(browser, _)| Arc::clone(browser))
     }
 
+    /// Opens the canvas at `key` for the people of the terminal, later than each open before.
+    fn open_at(&mut self, key: String) {
+        let at = self
+            .open
+            .as_ref()
+            .map_or(0, |open| open.at + 1)
+            .max(crate::identity::now_ms());
+        self.open = Some(CanvasOpen { key, at });
+    }
+
     fn browser(&mut self) -> Arc<Browser> {
         if let Some(browser) = self.existing() {
             return browser;
@@ -691,7 +705,7 @@ impl Actor {
                     })
                 },
             },
-            Places::of(&self.data_root),
+            Places::of(&self.data_root, self.agent_browser.clone()),
             self.browsers.clone(),
             self.stamp.clone(),
         );

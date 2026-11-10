@@ -371,6 +371,46 @@ async fn a_browser_that_came_back_asleep_keeps_its_page_for_the_next_start() {
 }
 
 #[tokio::test]
+async fn the_agent_command_that_starts_the_browser_opens_the_canvas_at_it() {
+    let folder = tempfile::tempdir().unwrap();
+    let services = crate::canvas::CanvasServices {
+        agent_browser: folder.path().join("agent-browser"),
+        ..crate::canvas::CanvasServices::new(folder.path(), true)
+    };
+    std::fs::write(&services.agent_browser, "").unwrap();
+    let spawn = || CanvasHandle::spawn(uuid::Uuid::now_v7(), folder.path(), services.clone());
+    // Kodosi refuses this command, so no agent-browser runs.
+    let browse = async |canvas: &CanvasHandle| {
+        canvas
+            .browse(
+                folder.path().to_owned(),
+                vec!["close".to_owned(), "--all".to_owned()],
+                "Ivory Moose".to_owned(),
+                None,
+            )
+            .await
+    };
+
+    let canvas = spawn();
+    assert!(browse(&canvas).await.is_err());
+    let first = canvas.current().unwrap().open.unwrap();
+    assert_eq!(first.key, BROWSER_PIPE);
+    assert!(browse(&canvas).await.is_err());
+    assert_eq!(canvas.current().unwrap().open, Some(first));
+
+    let restored = spawn();
+    restored.restore(
+        Vec::new(),
+        Some("https://example.com/report".to_owned()),
+        uuid::Uuid::now_v7(),
+    );
+    assert!(browse(&restored).await.is_err());
+    let back = restored.current().unwrap();
+    assert!(back.browser.is_some());
+    assert_eq!(back.open, None);
+}
+
+#[tokio::test]
 async fn the_canvas_keeps_the_newest_items() {
     let folder = tempfile::tempdir().unwrap();
     let stamp = Stamp::default();
@@ -566,7 +606,7 @@ async fn a_browser_ends_at_once_while_kodosi_browser_comes() {
             shared: tokio::sync::watch::channel(false).1,
             show: Box::new(|_| {}),
         },
-        Places::of(folder.path()),
+        Places::of(folder.path(), browser::agent_browser()),
         host,
         Stamp::default(),
     );
