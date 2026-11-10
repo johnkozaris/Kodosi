@@ -1,6 +1,8 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using Kodosi.Data;
 using Kodosi.Missions;
+using Kodosi.Plans;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -188,4 +190,71 @@ public sealed class RoomContentTests(PostgresFixture postgres)
         Assert.Equal(409, changed.Status);
         Assert.Equal(1, (await store.Db.RoomRecipientKeys.SingleAsync(x => x.DeviceId == bob.Device.Id, ct)).PublicKey[0]);
     }
+
+    [Fact]
+    public async Task TheNextKeysOfARoomKeepAMemberWhoseAccountWasDeletedButNoOtherPerson()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner"); var bob = await store.UserAsync("bob"); var carol = await store.UserAsync("carol");
+        var dave = await store.UserAsync("dave");
+        var room = Guid.CreateVersion7();
+        await store.Missions.CreateAsync(owner.User.Id, new(room, "Workspace"), ct);
+        store.Db.MissionMembers.AddRange(new MissionMember { MissionId = room, UserId = bob.User.Id }, new MissionMember { MissionId = room, UserId = carol.User.Id });
+        await store.Db.SaveChangesAsync(ct);
+        Guid[] members = [owner.User.Id, bob.User.Id, carol.User.Id];
+        async Task<string> StoreAsync(TestUser author, long version, long epoch, string previous, Guid[] named, TestUser[] recipients)
+        {
+            var state = KeyState(room, owner, author, version, epoch, previous, named, recipients);
+            await store.Missions.StoreKeysAsync(room, author.User.Id, Signed(author, state), ct);
+            return Convert.ToHexStringLower(SHA256.HashData(state));
+        }
+        var history = await StoreAsync(owner, 1, 1, "", members, [owner, bob, carol]);
+        await store.Accounts.DeleteSignedInAsync(carol.User, DateTimeOffset.UtcNow, ct);
+
+        history = await StoreAsync(owner, 2, 2, history, members, [owner, bob]);
+        foreach (var other in new[] { dave.User.Id, Guid.CreateVersion7() })
+        {
+            var refused = await Assert.ThrowsAsync<ApiException>(() => StoreAsync(owner, 3, 2, history, [.. members, other], [owner, bob]));
+            Assert.Equal(409, refused.Status);
+        }
+        await StoreAsync(bob, 3, 2, history, members, [owner, bob]);
+    }
+
+    [Fact]
+    public async Task ARoomKeyStateNamesNoMorePeopleThanARoomCanHave()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var store = await TestStore.CreateAsync(postgres);
+        var owner = await store.UserAsync("owner"); var bob = await store.UserAsync("bob");
+        await store.Friends.MutateAsync(owner.User.Id, "bob", "send", ct);
+        await store.Friends.MutateAsync(bob.User.Id, "owner", "accept", ct);
+        var room = Guid.CreateVersion7();
+        await store.Missions.CreateAsync(owner.User.Id, new(room, "Workspace"), ct);
+        Guid[] members = [owner.User.Id, .. Enumerable.Range(1, PlanLimits.Safety.RoomPeople - 1).Select(_ => Guid.CreateVersion7())];
+        var first = KeyState(room, owner, owner, 1, 1, "", members, [owner]);
+        store.Db.MissionKeyStates.Add(new MissionKeyState { MissionId = room, Version = 1, Epoch = 1, Body = first, Signature = new byte[IdentityWireFormat.MlDsa65SignatureLength] });
+        (await store.Db.Missions.SingleAsync(x => x.Id == room, ct)).KeyVersion = 1;
+        await store.Db.SaveChangesAsync(ct);
+
+        var next = KeyState(room, owner, owner, 2, 1, Convert.ToHexStringLower(SHA256.HashData(first)), [.. members, bob.User.Id], [owner, bob]);
+        var refused = await Assert.ThrowsAsync<ApiException>(() =>
+            store.Missions.InviteAsync(room, owner.User.Id, new(Guid.CreateVersion7(), bob.User.Id, Signed(owner, next)), ct));
+        Assert.Equal(("roomPeople", PlanLimits.Safety.RoomPeople), (refused.Limit, refused.Most));
+        store.Db.ChangeTracker.Clear();
+        Assert.Empty(await store.Db.MissionInvitations.ToListAsync(ct));
+    }
+
+    private static byte[] KeyState(Guid room, TestUser owner, TestUser author, long version, long epoch, string previousHash, Guid[] members,
+        TestUser[] recipients) => JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        roomId = room, ownerUserId = owner.User.Id, authorId = author.User.Id, deviceId = author.Device.Id,
+        version, epoch, createdAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), previousHash,
+        members = members.ToDictionary(x => x, _ => new { }),
+        recipients = recipients.Select(x => new { userId = x.User.Id, deviceId = x.Device.Id, kemCiphertext = "AA==", @sealed = new { nonce = "AA==", ciphertext = "AA==" } }),
+        previousKey = (object?)null
+    }, TestJson.Options);
+
+    private static MissionService.RoomKeyWrite Signed(TestUser author, byte[] state) =>
+        new(author.Device.Id, Convert.ToBase64String(state), Convert.ToBase64String(author.Fixture.Sign(Proofs.Tagged("kodosi-room-state-v1"u8, state))));
 }
