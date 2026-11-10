@@ -13,7 +13,7 @@ let package = Package(
     name: "KodosiApple",
     defaultLocalization: "en",
     platforms: [
-        .macOS("26.4"),
+        .macOS("26.0"),
         .iOS("26.0"),
     ],
     products: [

@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="../../LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Apache License 2.0"></a>
-  <a href="#kodosi-herunterladen"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 oder neuer auf Apple silicon"></a>
+  <a href="#kodosi-herunterladen"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26 oder neuer auf Apple silicon"></a>
   <a href="#kodosi-herunterladen"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#kodosi-herunterladen"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="Windows 11 24H2 oder neuer auf x64"></a>
   <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 oder neuer auf iPhone und iPad"></a>
@@ -92,7 +92,7 @@ mit X25519, sodass der Dienst sie nicht lesen kann. [Sicherheit](SECURITY.md)
   <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/Herunterladen-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Kodosi für Windows herunterladen"></a>
 </p>
 
-- **Mac** (Apple silicon, macOS 26.4 oder neuer): Öffne das Disk-Image und bewege Kodosi in
+- **Mac** (Apple silicon, macOS 26 oder neuer): Öffne das Disk-Image und bewege Kodosi in
   den Ordner „Programme“, oder führe `brew install --cask johnkozaris/tap/kodosi` aus. Die
   App aktualisiert sich selbst.
 - **Linux** (x86-64, Ubuntu 24.04 oder Debian 13 oder neuer): Installiere das Debian-Paket.

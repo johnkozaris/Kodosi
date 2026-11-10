@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Apache License 2.0"></a>
-  <a href="#get-kodosi"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26.4 or later on Apple silicon"></a>
+  <a href="#get-kodosi"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26 or later on Apple silicon"></a>
   <a href="#get-kodosi"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#get-kodosi"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="Windows 11 24H2 or later on x64"></a>
   <a href="clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 or later on iPhone and iPad"></a>
@@ -88,7 +88,7 @@ read them. [Security](docs/SECURITY.md)
   <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/Download-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Download Kodosi for Windows"></a>
 </p>
 
-- **Mac** (Apple silicon, macOS 26.4 or later): open the disk image and move Kodosi to
+- **Mac** (Apple silicon, macOS 26 or later): open the disk image and move Kodosi to
   Applications, or run `brew install --cask johnkozaris/tap/kodosi`. The app updates
   itself.
 - **Linux** (x86-64, Ubuntu 24.04 or Debian 13 or later): install the Debian package. It

@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="../../LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Apache License 2.0"></a>
-  <a href="#kodosi-받기"><img src="https://img.shields.io/badge/macOS-26.4%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="Apple silicon의 macOS 26.4 이상"></a>
+  <a href="#kodosi-받기"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="Apple silicon의 macOS 26 이상"></a>
   <a href="#kodosi-받기"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#kodosi-받기"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="x64의 Windows 11 24H2 이상"></a>
   <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iPhone과 iPad의 iOS 26 이상"></a>
@@ -87,7 +87,7 @@ ML-KEM-768과 X25519를 함께 써서 종단 간 암호화하므로 서비스는
   <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Windows용 Kodosi 다운로드"></a>
 </p>
 
-- **Mac**(Apple silicon, macOS 26.4 이상): 디스크 이미지를 열고 Kodosi를 응용 프로그램으로
+- **Mac**(Apple silicon, macOS 26 이상): 디스크 이미지를 열고 Kodosi를 응용 프로그램으로
   옮기거나 `brew install --cask johnkozaris/tap/kodosi`를 실행하세요. 앱은 스스로
   업데이트돼요.
 - **Linux**(x86-64, Ubuntu 24.04 또는 Debian 13 이상): Debian 패키지를 설치하세요. Kodosi apt
