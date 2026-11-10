@@ -4,6 +4,7 @@
 #include "terminal/TerminalRasterizer.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 
+#include <QClipboard>
 #include <QFont>
 #include <QJsonObject>
 #include <QMimeData>
@@ -291,7 +292,7 @@ private:
     void presentFailure(GhosttyTerminalKernel::Failure failure);
     [[nodiscard]] TerminalSurfaceIdentity surfaceIdentity() const;
     void sendText(const QString& text);
-    void pasteClipboard();
+    void pasteClipboard(QClipboard::Mode mode = QClipboard::Clipboard);
     void applyClipboard(const TerminalClipboardOperations& operations);
     [[nodiscard]] bool sendKey(QKeyEvent* event, TerminalKeyAction action);
     [[nodiscard]] bool enqueueInput(QByteArray bytes);
@@ -318,7 +319,7 @@ private:
     [[nodiscard]] TerminalSelectionPointer selectionPointer(const QPoint& cell, const QPointF& position) const;
     void pressSelection(const QMouseEvent* event, const QPoint& cell);
     void dragSelection(const QPointF& position, Qt::KeyboardModifiers modifiers);
-    [[nodiscard]] bool copySelection();
+    [[nodiscard]] bool copySelection(QClipboard::Mode mode = QClipboard::Clipboard);
     [[nodiscard]] bool sendMouseEvent(
         TerminalMouseAction action,
         TerminalMouseButton button,

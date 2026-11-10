@@ -507,6 +507,7 @@ private slots:
     void terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents();
     void terminalViewPastesClipboardThroughBoundedAuthority();
     void terminalViewTracksShiftInsertPasteReleaseExactly();
+    void aSelectionGoesToTheSelectionClipboardThatAMiddleClickAndShiftInsertPaste();
     void terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads();
     void terminalProgramsReadTheClipboardOnlyWhenAllowed();
     void terminalViewWheelUpdatesFrameWithoutPtyInput();
@@ -2339,9 +2340,10 @@ void TerminalKernelTest::terminalViewTracksShiftInsertPasteReleaseExactly()
         QStringLiteral("paste-release-incarnation")));
     makeTerminalReady(registry, subscription);
 
-    QGuiApplication::clipboard()->setText(
+    auto* clipboard = QGuiApplication::clipboard();
+    clipboard->setText(
         QStringLiteral("shift-insert"),
-        QClipboard::Clipboard);
+        clipboard->supportsSelection() ? QClipboard::Selection : QClipboard::Clipboard);
     QKeyEvent pastePress(
         QEvent::KeyPress,
         Qt::Key_Insert,
@@ -2364,6 +2366,61 @@ void TerminalKernelTest::terminalViewTracksShiftInsertPasteReleaseExactly()
     QCoreApplication::sendEvent(&view, &unrelatedVRelease);
     QVERIFY(!unrelatedVRelease.isAccepted());
     QCOMPARE(dispatcher.inputCommands.size(), 1);
+}
+
+void TerminalKernelTest::aSelectionGoesToTheSelectionClipboardThatAMiddleClickAndShiftInsertPaste()
+{
+    auto* clipboard = QGuiApplication::clipboard();
+    if (!clipboard->supportsSelection()) {
+        QSKIP("This platform has no selection clipboard.");
+    }
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("selection-paste"),
+        QStringLiteral("selection-paste-subscription"),
+        100,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("selection-paste-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        5,
+        30,
+        checkpointFor(QByteArrayLiteral("hello brave world"), 30, 5),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+    clipboard->setText(QStringLiteral("clipboard"), QClipboard::Clipboard);
+
+    const auto cell = view.terminalCellSize() * view.viewportScale();
+    const QPointF onBrave(cell.width() * 8.5, cell.height() * 0.5);
+    const auto send = [&](const QEvent::Type type, const Qt::MouseButton button, const quint64 at) {
+        const bool down = type != QEvent::MouseButtonRelease;
+        QMouseEvent event(type, onBrave, onBrave, button, down ? button : Qt::NoButton, Qt::NoModifier);
+        event.setTimestamp(at);
+        QCoreApplication::sendEvent(&view, &event);
+    };
+    send(QEvent::MouseButtonPress, Qt::LeftButton, 1000);
+    send(QEvent::MouseButtonRelease, Qt::LeftButton, 1010);
+    send(QEvent::MouseButtonPress, Qt::LeftButton, 1100);
+    send(QEvent::MouseButtonDblClick, Qt::LeftButton, 1100);
+    send(QEvent::MouseButtonRelease, Qt::LeftButton, 1110);
+    QCOMPARE(clipboard->text(QClipboard::Selection), QStringLiteral("brave"));
+
+    send(QEvent::MouseButtonPress, Qt::MiddleButton, 3000);
+    send(QEvent::MouseButtonRelease, Qt::MiddleButton, 3010);
+    QKeyEvent shiftInsert(QEvent::KeyPress, Qt::Key_Insert, Qt::ShiftModifier, QString {});
+    QCoreApplication::sendEvent(&view, &shiftInsert);
+    QCOMPARE(dispatcher.inputCommands, (QVector<QByteArray> {QByteArrayLiteral("brave"), QByteArrayLiteral("brave")}));
 }
 
 void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads()

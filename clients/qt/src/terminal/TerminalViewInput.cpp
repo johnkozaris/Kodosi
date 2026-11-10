@@ -316,6 +316,12 @@ bool isPasteShortcut(const QKeyEvent* event)
     return terminalShortcut || platformShortcut;
 }
 
+QClipboard::Mode selectionOrClipboard()
+{
+    const auto* clipboard = QGuiApplication::clipboard();
+    return clipboard != nullptr && clipboard->supportsSelection() ? QClipboard::Selection : QClipboard::Clipboard;
+}
+
 }
 
 void TerminalView::setAppKeys(const QList<QKeySequence>& keys)
@@ -384,7 +390,7 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
             m_pasteShortcutKey = event->key();
         }
         if (m_canSendInput && !event->isAutoRepeat()) {
-            pasteClipboard();
+            pasteClipboard(event->key() == Qt::Key_Insert ? selectionOrClipboard() : QClipboard::Clipboard);
         }
         event->accept();
         return;
@@ -548,6 +554,11 @@ void TerminalView::mousePressEvent(QMouseEvent* event)
         event->accept();
         return;
     }
+    if (event->button() == Qt::MiddleButton && selectionOrClipboard() == QClipboard::Selection) {
+        pasteClipboard(QClipboard::Selection);
+        event->accept();
+        return;
+    }
     if (event->button() != Qt::LeftButton) {
         QQuickItem::mousePressEvent(event);
         return;
@@ -639,6 +650,9 @@ void TerminalView::mouseReleaseEvent(QMouseEvent* event)
         m_registry->releaseSelection(surfaceIdentity());
     }
     m_selecting = false;
+    if (selectionOrClipboard() == QClipboard::Selection) {
+        (void)copySelection(QClipboard::Selection);
+    }
     event->accept();
 }
 
@@ -746,7 +760,7 @@ void TerminalView::sendText(const QString& text)
     (void)enqueueInput(text.toUtf8());
 }
 
-void TerminalView::pasteClipboard()
+void TerminalView::pasteClipboard(const QClipboard::Mode mode)
 {
     if (!interactionAvailable() || !m_canSendInput || m_registry == nullptr || m_runtime == nullptr
         || !m_terminalReady) {
@@ -756,9 +770,9 @@ void TerminalView::pasteClipboard()
     if (clipboard == nullptr) {
         return;
     }
-    auto text = clipboard->text(QClipboard::Clipboard).toUtf8();
+    auto text = clipboard->text(mode).toUtf8();
     if (text.isEmpty()) {
-        if (const auto* mime = clipboard->mimeData(QClipboard::Clipboard); mime != nullptr) {
+        if (const auto* mime = clipboard->mimeData(mode); mime != nullptr) {
             pastePicture(*mime);
         }
         return;
@@ -1215,7 +1229,7 @@ void TerminalView::answerClipboardRead(const bool allowed)
     }
 }
 
-bool TerminalView::copySelection()
+bool TerminalView::copySelection(const QClipboard::Mode mode)
 {
     if (m_registry == nullptr) {
         return false;
@@ -1228,7 +1242,7 @@ bool TerminalView::copySelection()
     if (text->isEmpty()) {
         return false;
     }
-    QGuiApplication::clipboard()->setText(*text, QClipboard::Clipboard);
+    QGuiApplication::clipboard()->setText(*text, mode);
     return true;
 }
 
