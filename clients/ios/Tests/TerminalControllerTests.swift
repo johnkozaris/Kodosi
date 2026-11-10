@@ -80,17 +80,15 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func `background stops watching and tells the host`() throws {
+    @Test func `background stops watching and tells the host`() {
         let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
         controller.appear(active: true)
-        try deliver("term.bell", ["sessionId": "s1"])
-        #expect(controller.bells == 1)
+        #expect(model.terminals.watchingSessionId == "s1")
         controller.setActive(false)
         #expect(model.terminals.watchingSessionId == nil)
         #expect(log.fields(of: "session.visible").last?["sessionIds"] as? [String] == [])
-        try deliver("term.bell", ["sessionId": "s1"])
-        #expect(controller.bells == 1)
         controller.setActive(true)
+        #expect(model.terminals.watchingSessionId == "s1")
         #expect(log.fields(of: "session.visible").last?["sessionIds"] as? [String] == ["s1"])
         controller.disappear()
     }

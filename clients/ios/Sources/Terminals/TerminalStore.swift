@@ -12,7 +12,6 @@ final class TerminalStore {
     private(set) var listed = false
     @ObservationIgnored private var listing: String?
     private(set) var revision = 0
-    private(set) var bells: [String: Int] = [:]
     var watchingSessionId: String? {
         didSet {
             guard watchingSessionId != oldValue else { return }
@@ -53,7 +52,6 @@ final class TerminalStore {
         self.userId = userId
         sessions = []
         canvas.observe([])
-        bells = [:]
         loaded = false
         listed = false
         listing = nil
@@ -94,9 +92,6 @@ final class TerminalStore {
             try receiveSnapshot(event)
         case "session.result":
             settleList(event)
-        case "term.bell":
-            guard let id = event.string("sessionId"), watchingSessionId == id else { return }
-            bells[id, default: 0] += 1
         case "document.frame", "document.closed":
             canvas.receive(event)
         case "session.picture":
@@ -118,7 +113,6 @@ final class TerminalStore {
         sessions = received
         canvas.observe(received)
         loaded = true
-        bells = bells.filter { ids.contains($0.key) }
         for value in received {
             if let old = before[value.id], old.incarnationId != value.incarnationId {
                 focus.releaseSession(sessionId: value.id)
