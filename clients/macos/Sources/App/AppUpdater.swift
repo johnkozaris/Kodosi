@@ -43,6 +43,15 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
         controller.checkForUpdates(nil)
     }
 
+    func checkInBackground() {
+        guard configured, !waiting else { return }
+        controller.updater.checkForUpdatesInBackground()
+    }
+
+    var actionTitle: String {
+        waiting ? String(localized: "Restart to Update") : String(localized: "Check for Updates")
+    }
+
     func restart() {
         guard let install else { return check() }
         restarting = true

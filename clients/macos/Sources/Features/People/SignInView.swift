@@ -14,8 +14,13 @@ struct SignInView: View {
             TogetherArt()
         } actions: {
             VStack(spacing: 12) {
-                Button(restoring == nil ? deps.signInPrompt ?? String(localized: "Sign in") : String(localized: "Try again")) { deps.beginSignIn() }
-                    .buttonStyle(.kodosi(.primary, size: .large)).accessibilityIdentifier("account.signIn")
+                if deps.account.restoring == "updateRequired", deps.updater.configured {
+                    Button(deps.updater.actionTitle) { deps.updater.restart() }
+                        .buttonStyle(.kodosi(.primary, size: .large)).accessibilityIdentifier("account.update")
+                } else {
+                    Button(restoring == nil ? deps.signInPrompt ?? String(localized: "Sign in") : String(localized: "Try again")) { deps.beginSignIn() }
+                        .buttonStyle(.kodosi(.primary, size: .large)).accessibilityIdentifier("account.signIn")
+                }
                 Label("Encrypted end to end", systemImage: "lock.fill").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
             }
         }
