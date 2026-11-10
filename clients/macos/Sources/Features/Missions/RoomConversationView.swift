@@ -71,15 +71,12 @@ struct RoomConversationView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if deps.rooms.snapshots[roomId]?.hasOlder == true, let first = messages.first {
-                        Button {
+                        RoomEarlierKey(loading: state.loading, identifier: "room.messages.earlier") {
                             Task { await deps.rooms.read(roomId, before: first.sequence); proxy.scrollTo(first.id, anchor: .top) }
-                        } label: { Label("Earlier messages", systemImage: "arrow.up") }
-                            .buttonStyle(.kodosi(.ghost, size: .small)).frame(maxWidth: .infinity)
-                            .accessibilityIdentifier("room.messages.earlier").disabled(state.loading).padding(.bottom, 10)
+                        }
+                        .padding(.bottom, 10)
                     } else if deps.rooms.snapshots[roomId]?.historyTrimmed == true, !messages.isEmpty {
-                        Text("Kodosi removed the oldest messages to make space for new ones.")
-                            .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                            .frame(maxWidth: .infinity).padding(.bottom, 10)
+                        RoomTrimmedNote().padding(.bottom, 10)
                     }
                     ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                         let previous = index > 0 ? messages[index - 1] : nil
@@ -113,13 +110,10 @@ struct RoomConversationView: View {
             }
             .overlay(alignment: .bottom) {
                 if !state.followsLatest {
-                    Button {
+                    RoomLatestKey(unread: state.unread, identifier: "room.messages.latest") {
                         withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
-                    } label: {
-                        Label(state.unread > 0 ? String(localized: "\(state.unread) new") : String(localized: "Latest"), systemImage: "arrow.down")
                     }
-                    .buttonStyle(.kodosi(state.unread > 0 ? .primary : .secondary, size: .small)).padding(10)
-                    .accessibilityIdentifier("room.messages.latest")
+                    .padding(10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }

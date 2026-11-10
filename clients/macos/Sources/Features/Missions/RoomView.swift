@@ -106,12 +106,8 @@ struct RoomHeader: View {
                     Text(detail.mission.name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
                         .contentTransition(.interpolate)
                 }
-                HStack(spacing: 5) {
-                    Image(systemName: "lock.fill").font(.system(size: 8, weight: .semibold))
-                    Text(verbatim: "\(Counted.people(detail.members.count)) · \(Counted.terminals(sessions.count))").contentTransition(.numericText())
-                }
-                .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
-                .help("Kodosi encrypts everything in this room end to end.")
+                RoomFacts(people: detail.members.count, terminals: sessions.count)
+                    .help("Kodosi encrypts everything in this room end to end.")
             }
             .layoutPriority(1)
             Color.clear.frame(minWidth: 8, maxWidth: .infinity).titleBarGap()
@@ -189,12 +185,9 @@ struct RoomHeader: View {
     }
 
     private var dockItems: [DockItem] {
-        let tasks = deps.rooms.snapshots[roomId]?.tasks ?? []
-        let open = tasks.filter { !$0.closed }.count
-        return [
+        [
             DockItem(id: 0, title: String(localized: "Terminals"), symbol: "apple.terminal", count: sessions.count),
-            DockItem(id: 1, title: String(localized: "Tasks"), symbol: "checklist", count: open,
-                     progress: tasks.isEmpty ? nil : Double(tasks.count - open) / Double(tasks.count), fresh: state.fresh.contains(.tasks)),
+            .roomTasks(id: 1, tasks: deps.rooms.snapshots[roomId]?.tasks ?? [], fresh: state.fresh.contains(.tasks)),
             DockItem(id: 2, title: String(localized: "Repositories"), symbol: "shippingbox",
                      count: deps.rooms.snapshots[roomId]?.repositories.count ?? 0, fresh: state.fresh.contains(.repositories)),
         ]

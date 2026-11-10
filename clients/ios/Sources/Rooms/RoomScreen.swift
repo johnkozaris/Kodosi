@@ -106,8 +106,6 @@ struct RoomScreen: View {
 
     private func dock(sections: [RoomSection], selection: RoomSection, select: @escaping (RoomSection) -> Void) -> some View {
         let state = rooms.view(roomId)
-        let tasks = rooms.snapshots[roomId]?.tasks ?? []
-        let open = tasks.filter { !$0.closed }.count
         let terminals = model.terminals.sessions.filter { $0.missionId == roomId }.count
         let items = sections.map { section in
             switch section {
@@ -115,8 +113,7 @@ struct RoomScreen: View {
                 DockItem(id: section.rawValue, title: String(localized: "Conversation"), symbol: "bubble.left.and.bubble.right",
                          count: state.unread)
             case .tasks:
-                DockItem(id: section.rawValue, title: String(localized: "Tasks"), symbol: "checklist", count: open,
-                         progress: tasks.isEmpty ? nil : Double(tasks.count - open) / Double(tasks.count), fresh: state.fresh.contains(.tasks))
+                DockItem.roomTasks(id: section.rawValue, tasks: rooms.snapshots[roomId]?.tasks ?? [], fresh: state.fresh.contains(.tasks))
             case .terminals:
                 DockItem(id: section.rawValue, title: String(localized: "Terminals"), symbol: "apple.terminal", count: terminals)
             }
@@ -178,7 +175,6 @@ struct RoomScreen: View {
 private struct RoomHeader: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
-    @ScaledMetric(relativeTo: .caption) private var lock: CGFloat = 8
     let mission: MissionEntry
 
     var body: some View {
@@ -191,15 +187,7 @@ private struct RoomHeader: View {
                     .appTextStyle(.headline)
                     .foregroundStyle(theme.colors.ink)
                     .lineLimit(1)
-                HStack(spacing: 5) {
-                    Image(systemName: "lock.fill").font(.system(size: lock, weight: .semibold))
-                    Text(verbatim: [people.map(Counted.people), Counted.terminals(terminals)].compactMap(\.self).joined(separator: " · "))
-                        .contentTransition(.numericText())
-                }
-                .appTextStyle(.caption)
-                .fontWeight(.regular)
-                .foregroundStyle(theme.colors.inkFaint)
-                .lineLimit(1)
+                RoomFacts(people: people, terminals: terminals)
             }
         }
         .accessibilityElement(children: .combine)

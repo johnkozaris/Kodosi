@@ -51,11 +51,15 @@ struct RoomConversation: View {
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if snapshot.hasOlder, let first = messages.first {
-                    earlier(before: first, state: state)
+                    RoomEarlierKey(loading: state.loading, identifier: "rooms.messages.earlier") {
+                        Task {
+                            await rooms.read(roomId, before: first.sequence)
+                            position.scrollTo(id: first.id, anchor: .top)
+                        }
+                    }
+                    .padding(.bottom, 8)
                 } else if snapshot.historyTrimmed, !messages.isEmpty {
-                    Text("Kodosi removed the oldest messages to make space for new ones.")
-                        .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-                        .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.bottom, 8)
+                    RoomTrimmedNote().padding(.bottom, 8)
                 }
                 ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                     RoomMessageRow(
@@ -105,7 +109,12 @@ struct RoomConversation: View {
         }
         .overlay(alignment: .bottom) {
             if !state.followsLatest {
-                latest(unread: unread, state: state)
+                RoomLatestKey(unread: unread, identifier: "rooms.messages.latest") {
+                    state.followsLatest = true
+                    withAnimation(theme.motion.soft) { position.scrollTo(edge: .bottom) }
+                }
+                .padding(.bottom, 10)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(theme.motion.spring, value: state.followsLatest)
@@ -135,35 +144,5 @@ struct RoomConversation: View {
     private func show(_ section: RoomSection, in screen: RoomScreenState) {
         screen.section = section
         screen.shownSection = section
-    }
-
-    private func earlier(before first: RoomMessage, state: RoomViewState) -> some View {
-        Button {
-            Task {
-                await rooms.read(roomId, before: first.sequence)
-                position.scrollTo(id: first.id, anchor: .top)
-            }
-        } label: {
-            Label(state.loading ? "Loading…" : "Earlier messages", systemImage: "arrow.up")
-        }
-        .buttonStyle(.kodosi(.ghost, size: .small))
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 8)
-        .disabled(state.loading)
-        .accessibilityIdentifier("rooms.messages.earlier")
-    }
-
-    private func latest(unread: Int, state: RoomViewState) -> some View {
-        Button {
-            state.followsLatest = true
-            withAnimation(theme.motion.soft) { position.scrollTo(edge: .bottom) }
-        } label: {
-            Label(unread > 0 ? String(localized: "\(unread) new") : String(localized: "Latest"), systemImage: "arrow.down")
-                .contentTransition(.numericText())
-        }
-        .buttonStyle(.kodosi(unread > 0 ? .primary : .secondary, size: .small))
-        .padding(.bottom, 10)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .accessibilityIdentifier("rooms.messages.latest")
     }
 }
