@@ -36,6 +36,16 @@ public sealed class Device
     public bool Revoked { get; set; }
 }
 
+public sealed class PushToken
+{
+    public string DeviceId { get; set; } = "";
+    public Guid UserId { get; set; }
+    public string Platform { get; set; } = "";
+    public string Token { get; set; } = "";
+    public string? Environment { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
 public sealed class DeviceList
 {
     public Guid UserId { get; set; }

@@ -20,6 +20,7 @@ final class AppModel {
     let rooms: RoomStore
     let people: PeopleStore
     let dosi: DosiStore
+    let push: PushNotifications
     /// The computer that the person picked to answer Dosi on this device.
     var dosiDevice: String?
 
@@ -44,6 +45,7 @@ final class AppModel {
         rooms = RoomStore(commands: commands)
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
+        push = PushNotifications(commands: commands)
         commands.onFailure = { [notices] message in notices.show(message) }
         account.notify = { [notices] message in notices.show(message) }
         rooms.notify = { [notices] message in notices.show(message) }

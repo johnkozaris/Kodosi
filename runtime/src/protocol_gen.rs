@@ -640,6 +640,9 @@ mod tests {
                     *field = replacement;
                 }
             }
+            if object["type"] == "push.register" {
+                object["token"] = json!("ab".repeat(32));
+            }
             let command: protocol::CommandEnvelope = serde_json::from_value(value.clone())
                 .unwrap_or_else(|error| panic!("{value}: {error}"));
             assert!(matches(&schema, &serde_json::to_value(command).unwrap()));

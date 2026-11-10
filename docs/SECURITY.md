@@ -45,12 +45,14 @@ of Kodosi's updates and the download has the SHA-256 that the feed gives.
 
 The service sees account and device records, room membership, room and terminal
 metadata, each terminal's agent and state (such as working or waiting for an approval,
-never its text), routing fields, timing and ciphertext sizes. Encryption does not hide
-this metadata or prevent an outage. A device that you remove loses access from then on.
-After you remove a lost or stolen device, make a new recovery key to keep that device
-out. When someone starts fresh on your account while you have devices, it waits a day
-and your devices show it, so that you can stop it. GitHub and Gitea credentials stay on
-your computer.
+never its text), routing fields, timing and ciphertext sizes. Push notifications to your
+iPhone, iPad or Android device go through Apple's or Google's push service, which sees
+the IDs of the terminal and its computer, the agent, the place of the agent's account and
+the state, never names or text. Encryption does not hide this metadata or prevent an
+outage. A device that you remove loses access from then on. After you remove a lost or
+stolen device, make a new recovery key to keep that device out. When someone starts fresh
+on your account while you have devices, it waits a day and your devices show it, so that
+you can stop it. GitHub and Gitea credentials stay on your computer.
 
 Deleting an account removes its devices, recovery data, friends, sharing and owned
 rooms; messages in other people's rooms stay without an account. For 30 days the service

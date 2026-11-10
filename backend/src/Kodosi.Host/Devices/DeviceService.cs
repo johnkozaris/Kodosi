@@ -144,6 +144,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         var removed = await db.Devices.Where(x => x.UserId == userId && !x.Revoked && !retained.Contains(x.Id)).ToListAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         foreach (var device in removed) device.Revoked = true;
+        await db.PushTokens.Where(x => x.UserId == userId && !retained.Contains(x.DeviceId)).ExecuteDeleteAsync(ct);
         UpdateList(current, next, bytes, signature);
         var affected = removed.Count == 0 ? [] : await InvalidateUserSessionsAsync(userId, removed, ct);
         await db.SaveChangesAsync(ct);

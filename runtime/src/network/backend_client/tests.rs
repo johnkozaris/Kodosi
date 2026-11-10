@@ -678,6 +678,43 @@ async fn friends_kept_at(
 }
 
 #[tokio::test]
+async fn a_phone_gives_its_push_token_and_takes_it_back_before_it_signs_out() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let mut replies = vec![compatible_server()];
+    replies.extend(device_session_replies());
+    replies.extend([
+        (204, Value::Null),
+        (
+            404,
+            json!({"error": "The requested resource is unavailable."}),
+        ),
+        (204, Value::Null),
+    ]);
+    let server = scripted_backend(listener, replies);
+    let (_root, network, _user) = signed_in_at(&address).await;
+    let token = "0f".repeat(32);
+    network
+        .execute(
+            "push.register",
+            json!({"requestId": REQUEST, "platform": "apns", "token": token, "environment": "production"}),
+        )
+        .await
+        .unwrap();
+    network.execute("push.unregister", request()).await.unwrap();
+    network.execute("auth.logout", request()).await.unwrap();
+    let requests = server.await.unwrap();
+    let registered = requests[3]
+        .strip_prefix("PUT /api/me/push-token HTTP/1.1 ")
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(registered).unwrap(),
+        json!({"platform": "apns", "token": token, "environment": "production"})
+    );
+    assert_eq!(requests[4..], ["DELETE /api/me/push-token HTTP/1.1"; 2]);
+}
+
+#[tokio::test]
 async fn starting_fresh_on_an_account_with_devices_waits_and_keeps_the_identity() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = format!("http://{}", listener.local_addr().unwrap());

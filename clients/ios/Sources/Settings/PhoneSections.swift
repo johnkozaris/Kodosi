@@ -53,6 +53,34 @@ private extension TerminalAppearance.TextSize {
     }
 }
 
+/// Whether this device gets a notification when one of the person's own terminals waits,
+/// finishes or fails.
+struct NotificationsSection: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        let denied = model.push.permission == .denied
+        ListGroup(title: "Notifications") {
+            SwitchRow(String(localized: "Your terminals"),
+                      subtitle: denied ? String(localized: "Turn on notifications for Kodosi in Settings")
+                          : String(localized: "When one waits for you, finishes or fails"),
+                      symbol: "bell.badge", tint: TileTint.orange,
+                      isOn: Binding(get: { model.push.enabled && !denied }, set: { on in
+                          if on, denied, let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                              openURL(url)
+                          } else {
+                              model.push.enabled = on
+                          }
+                      }))
+                      .accessibilityIdentifier("settings.notifications")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            model.push.register()
+        }
+    }
+}
+
 /// Kodosi's lock on this device, with the proof that this device has.
 struct PrivacySection: View {
     @Environment(AppModel.self) private var model

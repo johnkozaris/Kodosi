@@ -45,6 +45,7 @@ device-build: xcode-gen
         -scheme KodosiMobile \
         -configuration Release \
         -destination 'generic/platform=iOS' \
+        -allowProvisioningUpdates \
         build
 
 # Lint and test the iPhone and iPad app, build it for devices, then check its translations.

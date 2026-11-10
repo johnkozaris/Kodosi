@@ -94,6 +94,14 @@ The host also sends each terminal's agent and state, unencrypted and without its
 to the backend, which shows the newest to everyone who can open the terminal while the
 host is connected.
 
+The iPhone, iPad and Android apps give the backend a push token of their device. When the
+state that a host reports for a terminal turns into waiting, done or failed, and the
+terminal still has that state 15 seconds later, the backend sends a push through Apple's or
+Google's push service to each device of the terminal's owner that gave a token. The first
+state that a host reports after it connects sends none. A push carries only the IDs of the
+terminal and its computer, the agent, the place of the agent's account and the state, so
+Apple and Google see no more, and the app shows the names that it knows.
+
 A device can call another computer of the same person whose host is connected. The call
 is an end-to-end encrypted channel like a view, but to the host itself. The caller sends
 the launcher's requests (agents and choices, folders, a new terminal) and a request for

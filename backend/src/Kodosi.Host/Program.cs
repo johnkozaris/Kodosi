@@ -6,6 +6,7 @@ using Kodosi.Devices;
 using Kodosi.Friends;
 using Kodosi.Missions;
 using Kodosi.Plans;
+using Kodosi.Push;
 using Kodosi.Security;
 using Kodosi.Sessions;
 using Kodosi.TerminalConnections;
@@ -20,6 +21,7 @@ builder.Services.AddDbContextPool<KodosiDbContext>((services, options) => option
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(services => PlanCatalog.From(services.GetRequiredService<IConfiguration>()));
 builder.Services.AddSingleton(services => AccountDeletionSettings.From(services.GetRequiredService<IConfiguration>()));
+builder.Services.AddSingleton(services => PushSettings.From(services.GetRequiredService<IConfiguration>()));
 builder.Services.AddSingleton<AccountGate>();
 builder.Services.AddSingleton<DeviceSessions>();
 builder.Services.AddSingleton<ConnectionDirectory>();
@@ -33,6 +35,11 @@ builder.Services.AddHostedService<DataCleanup>();
 builder.Services.AddHostedService<ServerReport>();
 builder.Services.AddHttpClient(nameof(AccountDeletionFeed), client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHostedService<AccountDeletionFeed>();
+builder.Services.AddSingleton<TerminalAlerts>();
+builder.Services.AddSingleton<PushDelivery>();
+builder.Services.AddHostedService<PushNotices>();
+builder.Services.AddHttpClient(nameof(Apns), client => client.Timeout = TimeSpan.FromSeconds(15)).RemoveAllLoggers();
+builder.Services.AddHttpClient(nameof(Fcm), client => client.Timeout = TimeSpan.FromSeconds(15)).RemoveAllLoggers();
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<DeviceService>();
@@ -40,6 +47,7 @@ builder.Services.AddScoped<FriendService>();
 builder.Services.AddScoped<NameChecks>();
 builder.Services.AddScoped<MissionService>();
 builder.Services.AddScoped<SessionService>();
+builder.Services.AddScoped<PushTokens>();
 builder.Services.ConfigureHttpJsonOptions(options => StrictJson.Configure(options.SerializerOptions));
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -56,6 +64,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 var app = builder.Build();
 app.Services.GetRequiredService<PlanCatalog>();
+app.Services.GetRequiredService<PushSettings>();
 if (args is ["migrate"])
 {
     await using var migration = app.Services.CreateAsyncScope();
@@ -76,7 +85,7 @@ app.MapGet("/health/ready", async (KodosiDbContext db, ConnectionLease lease, Ca
     lease.Held && await db.Database.CanConnectAsync(ct) ? Results.Ok(ContractVersions.Report()) : Results.StatusCode(StatusCodes.Status503ServiceUnavailable))
     .DisableRateLimiting();
 var api = app.MapGroup("").AddEndpointFilter<AdmissionFilter>();
-api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions();
+api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions(); api.MapPush();
 app.MapTerminalConnections();
 app.Run();
 

@@ -21,7 +21,7 @@
     "feed": "every 15 seconds the server reads DELETE_ACCOUNT user events and DELETE USER admin events of the last day with a client that has only the realm-management role view-events, and deletes the Kodosi account of each subject; after a start it reads 30 days",
     "direct": "without Auth:AccountDeletion, deletionUri is null and DELETE /api/me deletes the account after a sign-in of at most 15 minutes; with it, DELETE /api/me answers 409",
     "recentSignIn": "DELETE /api/me and a new reset with POST /api/me/identity/reset need a sign-in of at most 15 minutes, which is the auth_time claim of the token; a refreshed token keeps the time of its sign-in, and the server refuses a token without auth_time with 403",
-    "removed": "the account, its devices, device lists, links and recovery data, its friend list and friendships, its terminals and their sharing, the rooms it owns with their content, its room memberships and invitations",
+    "removed": "the account, its devices and their push tokens, device lists, links and recovery data, its friend list and friendships, its terminals and their sharing, the rooms it owns with their content, its room memberships and invitations",
     "kept": "the room items it wrote in rooms of other people stay without an account",
     "afterwards": "for 30 days the server keeps the issuer and subject and answers 410 to a token without auth_time or with an auth_time that is not after the deletion; a later sign-in starts a new account; the periodic cleanup removes older records"
   },
@@ -125,6 +125,17 @@
     "inviteText": "kodosi:<handle>:<identity root in 64 hexadecimal characters>",
     "hint": "the friend list from the server gives identityIncarnationId for each friend so that a device can show a changed identity early; the hint is not trusted"
   },
+  "push": {
+    "token": "PUT /api/me/push-token takes {platform, token, environment} of the device that sends it and replaces the device's token: platform apns with 64 to 200 hexadecimal digits and environment development or production, or platform fcm with 1 to 4096 printable ASCII characters and no environment; another device that had the same token loses it; DELETE /api/me/push-token removes it",
+    "off": "without the Push settings of a platform, the server sends nothing on it and PUT answers 404 for it",
+    "removed": "with its device when the device is removed or starts fresh, with the account, and when APNs answers 410, or 400 with BadDeviceToken or DeviceTokenNotForTopic, or FCM answers 404 UNREGISTERED, or 400 INVALID_ARGUMENT for the token",
+    "when": "when the state that the host of a terminal reports on a live connection changes into blocked, done or error, the server waits 15 seconds and, if the terminal still has that state, sends one push to each token of the terminal's owner; the first status after the host connects sends nothing; each terminal has one waiting push, with its newest status; an account gets at most 120 pushes in an hour",
+    "apns": "HTTP/2 to api.push.apple.com, or api.sandbox.push.apple.com for a development token, with an ES256 provider token of Push:Apns that lasts 50 minutes; apns-topic Push:Apns:Topic, apns-push-type alert, apns-priority 10 for blocked and 5 otherwise, apns-collapse-id the terminal ID, apns-expiration one hour later; {aps: {alert: {loc-key, loc-args}, sound: default, mutable-content: 1, thread-id: the terminal ID, interruption-level: time-sensitive for blocked and active otherwise, relevance-score: 1.0 for blocked and 0.5 otherwise, category: kodosi.terminal, badge: the owner's terminals that are blocked}, kodosi: {terminal, computer: the host's device ID, agent: the program or null, account: the place of the agent's account or null, state, kind or null}}",
+    "sentences": "loc-key is %@ asks for permission, %@ asks you a question or %@ needs you to sign in for blocked with the kind permission, question or auth, %@ waits for you for blocked without a kind, %@ finished for done and %@ failed for error, and loc-args is the name of the agent: Claude Code, Codex, Copilot CLI, Cursor, Gemini CLI or OpenCode; for another or no agent, A terminal takes the place of %@ and loc-args is absent; the app has the words of each loc-key",
+    "fcm": "HTTP v1 POST https://fcm.googleapis.com/v1/projects/{Push:Fcm:ProjectId}/messages:send with an access token that the service account of Push:Fcm gets with a signed RS256 assertion for the scope https://www.googleapis.com/auth/firebase.messaging; {message: {token, data: {terminal, computer, agent, account, state, kind}, android: {priority: HIGH for blocked and NORMAL otherwise, collapse_key: the terminal ID, ttl: 3600s}}}, where each data value is a string and an absent one is left out",
+    "retries": "5xx, 429 and network failures are tried 3 times with backoff",
+    "privacy": "a push carries identifiers and the state, never names, folders or terminal text"
+  },
   "routes": {
     "accounts": [
       "GET /api/me",
@@ -198,9 +209,13 @@
       "PUT /api/missions/{id}/keys",
       "GET /api/missions/{id}/content",
       "PUT /api/missions/{id}/content/{itemId}"
+    ],
+    "push": [
+      "PUT /api/me/push-token",
+      "DELETE /api/me/push-token"
     ]
   },
-  "backendSecrets": "the client secret of Auth:AccountDeletion when it is set, and the device sessions in memory; the server relays TLS records between a host device and a viewer device, holds no terminal key and keeps room keys only as devices wrapped them, so it reads no terminal traffic or room content",
+  "backendSecrets": "the client secret of Auth:AccountDeletion, the APNs key and the FCM service account of Push when they are set, and the device sessions in memory; the server relays TLS records between a host device and a viewer device, holds no terminal key and keeps room keys only as devices wrapped them, so it reads no terminal traffic or room content",
   "dosi": {
     "room": "POST /api/missions with dosi: true makes the person's one Dosi room; another Dosi room of the same person answers 409",
     "list": "GET /api/missions leaves the Dosi room out of missions and gives its ID as dosi, or null",

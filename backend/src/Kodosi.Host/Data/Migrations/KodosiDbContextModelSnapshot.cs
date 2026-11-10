@@ -444,6 +444,43 @@ namespace Kodosi.Data.Migrations
                     b.ToTable("mission_members", (string)null);
                 });
 
+            modelBuilder.Entity("Kodosi.Data.PushToken", b =>
+                {
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Environment")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("DeviceId");
+
+                    b.HasIndex("Token");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Token"), "hash");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("push_tokens", (string)null);
+                });
+
             modelBuilder.Entity("Kodosi.Data.RoomRecipientKey", b =>
                 {
                     b.Property<string>("DeviceId")
@@ -769,6 +806,21 @@ namespace Kodosi.Data.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kodosi.Data.PushToken", b =>
+                {
+                    b.HasOne("Kodosi.Data.Device", null)
+                        .WithOne()
+                        .HasForeignKey("Kodosi.Data.PushToken", "DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Kodosi.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
