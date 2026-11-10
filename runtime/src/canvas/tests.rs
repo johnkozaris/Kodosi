@@ -4,8 +4,10 @@ use base64::Engine as _;
 use serde_json::json;
 
 use super::{
-    BrowserAct, BrowserDoingKind, BrowserPoint, CanvasAnswer, CanvasHandle, CanvasKind,
-    CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES, browser,
+    BROWSER_PIPE, BrowserAct, BrowserDoingKind, BrowserPoint, BrowserState, CanvasAnswer,
+    CanvasHandle, CanvasKind, CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES,
+    browser::{self, Browser, Places, Terminal},
+    engine::BrowserHost,
     files::{Files, Showing, Stamp, examine_all},
     is_address, kind_of, page,
 };
@@ -102,6 +104,7 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
     let stamp = Stamp::default();
     let mut files = Files::default();
     show(&mut files, vec![plan.clone()], &stamp).await.unwrap();
+    let first = files.items()[0].revision;
     show(&mut files, vec![shot.clone()], &stamp).await.unwrap();
     let names = |files: &Files| {
         files
@@ -113,11 +116,11 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
     assert_eq!(names(&files), ["shot.png", "plan.md"]);
     show(&mut files, vec![plan.clone()], &stamp).await.unwrap();
     assert_eq!(names(&files), ["plan.md", "shot.png"]);
-    assert_eq!(files.items()[0].revision, 1);
+    assert_eq!(files.items()[0].revision, first);
 
     std::fs::write(&plan, "# Plan\n\nMore words.").unwrap();
     assert!(files.check(&stamp).await);
-    assert_eq!(files.items()[0].revision, 2);
+    assert!(files.items()[0].revision > first);
     assert!(!files.check(&stamp).await);
 
     std::fs::remove_file(&shot).unwrap();
@@ -342,6 +345,32 @@ async fn showing_opens_the_canvas_at_the_first_file_until_that_file_goes() {
 }
 
 #[tokio::test]
+async fn a_browser_that_came_back_asleep_keeps_its_page_for_the_next_start() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::canvas::CanvasServices::new(folder.path(), true),
+    );
+    let page = "https://example.com/report";
+    canvas.restore(Vec::new(), Some(page.to_owned()), uuid::Uuid::now_v7());
+    canvas
+        .state()
+        .wait_for(|canvas| canvas.browser.is_some())
+        .await
+        .unwrap();
+    assert_eq!(canvas.address().as_deref(), Some(page));
+
+    canvas
+        .request(CanvasRequest::Remove {
+            keys: vec![BROWSER_PIPE.to_owned()],
+        })
+        .await
+        .unwrap();
+    assert_eq!(canvas.address(), None);
+}
+
+#[tokio::test]
 async fn the_canvas_keeps_the_newest_items() {
     let folder = tempfile::tempdir().unwrap();
     let stamp = Stamp::default();
@@ -358,6 +387,51 @@ async fn the_canvas_keeps_the_newest_items() {
     assert_eq!(files.remove(&[key]), 1);
     assert_eq!(files.remove(&[]), MOST_ITEMS - 1);
     assert!(files.is_empty());
+}
+
+#[tokio::test]
+async fn a_file_that_comes_back_gets_a_new_revision_with_its_new_content() {
+    let folder = tempfile::tempdir().unwrap();
+    let report = folder.path().join("report.md");
+    std::fs::write(&report, "# Old report").unwrap();
+    let stamp = Stamp::default();
+    let mut files = Files::default();
+    let newest = async |files: &mut Files| {
+        let item = files.items()[0].clone();
+        let CanvasAnswer::Part { data, .. } =
+            files.read(&item.key, item.revision, 0).await.unwrap()
+        else {
+            panic!("expected a part");
+        };
+        let page = base64::engine::general_purpose::STANDARD
+            .decode(data)
+            .unwrap();
+        (item.revision, String::from_utf8(page).unwrap())
+    };
+    show(&mut files, vec![report.clone()], &stamp)
+        .await
+        .unwrap();
+    let key = files.items()[0].key.clone();
+    let (first, page) = newest(&mut files).await;
+    assert!(page.contains("Old report"), "{page}");
+
+    for number in 0..MOST_ITEMS {
+        let other = folder.path().join(format!("{number}.txt"));
+        std::fs::write(&other, "x").unwrap();
+        show(&mut files, vec![other], &stamp).await.unwrap();
+    }
+    assert!(!files.contains(&key));
+    std::fs::write(&report, "# New report").unwrap();
+    show(&mut files, vec![report.clone()], &stamp)
+        .await
+        .unwrap();
+    let (second, page) = newest(&mut files).await;
+    assert!(second > first);
+    assert!(page.contains("New report"), "{page}");
+
+    assert_eq!(files.remove(std::slice::from_ref(&key)), 1);
+    show(&mut files, vec![report], &stamp).await.unwrap();
+    assert!(files.items()[0].revision > second);
 }
 
 #[tokio::test]
@@ -476,6 +550,41 @@ fn the_browser_keeps_its_session_and_hides_what_an_agent_types() {
     );
     assert_eq!(words(&["fill", "@e3", "secret"]), "fill");
     assert_eq!(words(&["click", "@e2", "--new-tab"]), "click @e2");
+}
+
+#[tokio::test]
+async fn a_browser_ends_at_once_while_kodosi_browser_comes() {
+    let folder = tempfile::tempdir().unwrap();
+    let host = BrowserHost::new(folder.path(), true);
+    let Some(download) = host.hold_downloads().await else {
+        return;
+    };
+    let browser = Browser::start(
+        Terminal {
+            id: uuid::Uuid::now_v7(),
+            folder: tokio::sync::watch::channel(folder.path().to_owned()).1,
+            shared: tokio::sync::watch::channel(false).1,
+            show: Box::new(|_| {}),
+        },
+        Places::of(folder.path()),
+        host,
+        Stamp::default(),
+    );
+    let mut state = browser.state();
+    let waking = tokio::spawn({
+        let browser = std::sync::Arc::clone(&browser);
+        async move { browser.act(BrowserAct::Wake).await }
+    });
+    state
+        .wait_for(|state| state.state == BrowserState::Starting)
+        .await
+        .unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5), browser.end())
+        .await
+        .expect("the browser ended while Kodosi Browser came");
+    waking.abort();
+    assert!(waking.await.unwrap_err().is_cancelled());
+    drop(download);
 }
 
 #[test]

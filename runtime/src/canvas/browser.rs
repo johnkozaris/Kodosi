@@ -211,6 +211,12 @@ impl Browser {
         self.activity(|activity| activity.address = address);
     }
 
+    /// The web page that the browser opens when it wakes: the last one that it showed, or the
+    /// one of [`Self::reopen_at`].
+    pub(super) fn page(&self) -> Option<String> {
+        self.activity(|activity| activity.address.clone())
+    }
+
     fn activity<T>(&self, use_it: impl FnOnce(&mut Activity) -> T) -> T {
         use_it(
             &mut self
@@ -229,11 +235,17 @@ impl Browser {
     }
 
     /// The window of this terminal, opened if it is not open. Kodosi Browser comes the first
-    /// time here, and the canvas shows how far that is.
+    /// time here, and the canvas shows how far that is. A browser that ended opens no window.
     async fn window(self: &Arc<Self>) -> Result<Window, Text> {
-        let mut open = self.window.lock().await;
-        if let Some(window) = open.as_ref().filter(|window| window.is_open()) {
-            return Ok(window.clone());
+        let open = self
+            .window
+            .lock()
+            .await
+            .as_ref()
+            .filter(|window| window.is_open())
+            .cloned();
+        if let Some(window) = open {
+            return Ok(window);
         }
         self.change(|state| {
             state.state = BrowserState::Starting;
@@ -245,6 +257,13 @@ impl Browser {
             .await
             .map_err(|problem| self.problem(problem))?;
         self.change(|state| state.getting = None);
+        let mut open = self.window.lock().await;
+        if let Some(window) = open.as_ref().filter(|window| window.is_open()) {
+            return Ok(window.clone());
+        }
+        if self.closed.is_cancelled() {
+            return Err(text!("The terminal of this canvas closed."));
+        }
         let place = Place {
             profile: self.profile(),
             window: self.terminal.id.to_string(),
@@ -506,11 +525,16 @@ impl Browser {
         });
     }
 
+    /// Closes the window for good, and no window opens after it. The profile stays.
+    pub(super) async fn end(&self) {
+        self.closed.cancel();
+        self.sleep().await;
+    }
+
     /// Closes the window for good, with the profile of a shared terminal and what agent-browser
     /// keeps of the session.
     pub(super) async fn remove(&self) {
-        self.closed.cancel();
-        self.sleep().await;
+        self.end().await;
         if *self.terminal.shared.borrow()
             && let Err(problem) = self
                 .host

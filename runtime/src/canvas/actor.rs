@@ -102,6 +102,7 @@ pub(crate) struct Show {
 pub(crate) struct CanvasHandle {
     jobs: mpsc::Sender<Job>,
     state: watch::Receiver<Canvas>,
+    page: watch::Receiver<Option<String>>,
     folder: watch::Sender<PathBuf>,
     shared: watch::Sender<bool>,
     documents: DocumentHost,
@@ -111,6 +112,7 @@ impl CanvasHandle {
     pub(crate) fn spawn(id: Uuid, data_root: &Path, services: CanvasServices) -> Self {
         let (jobs, receiver) = mpsc::channel(JOBS);
         let (published, state) = watch::channel(Canvas::default());
+        let (last_page, page) = watch::channel(None);
         let (folder, current_folder) = watch::channel(PathBuf::new());
         let (shared, sharing) = watch::channel(false);
         let actor = Actor {
@@ -118,6 +120,7 @@ impl CanvasHandle {
             data_root: data_root.to_owned(),
             jobs: receiver,
             published,
+            page: last_page,
             stamp: Stamp::default(),
             files: Files::default(),
             uploads: Uploads::default(),
@@ -132,6 +135,7 @@ impl CanvasHandle {
         Self {
             jobs,
             state,
+            page,
             folder,
             shared,
             documents: services.documents,
@@ -294,20 +298,13 @@ impl CanvasHandle {
         self.ask(|reply| Job::Request { request, reply }).await
     }
 
-    /// Brings back the files and the browser of the terminal that this one replaces.
-    /// The web address of the page that the browser shows.
+    /// The web page that the browser opens when it wakes, which also opens when the terminal
+    /// comes back: the last one that it showed, or the one that it came back with.
     pub(crate) fn address(&self) -> Option<String> {
-        self.state
-            .borrow()
-            .browser
-            .as_ref()?
-            .tabs
-            .iter()
-            .find(|tab| tab.active)
-            .map(|tab| tab.url.clone())
-            .filter(|address| address.starts_with("http"))
+        self.page.borrow().clone()
     }
 
+    /// Brings back the files and the browser of the terminal that this one replaces.
     pub(crate) fn restore(&self, paths: Vec<PathBuf>, address: Option<String>, from: Uuid) {
         drop(self.jobs.try_send(Job::Restore {
             paths,
@@ -339,6 +336,7 @@ struct Actor {
     data_root: PathBuf,
     jobs: mpsc::Receiver<Job>,
     published: watch::Sender<Canvas>,
+    page: watch::Sender<Option<String>>,
     stamp: Stamp,
     files: Files,
     uploads: Uploads,
@@ -394,6 +392,11 @@ impl Actor {
     }
 
     fn publish(&self) {
+        self.page.send_replace(
+            self.browser
+                .as_ref()
+                .and_then(|(browser, _)| browser.page()),
+        );
         let open = self.open.clone().filter(|open| {
             if open.key == BROWSER_PIPE {
                 self.browser.is_some()
@@ -706,7 +709,7 @@ impl Actor {
             if remove {
                 browser.remove().await;
             } else {
-                browser.sleep().await;
+                browser.end().await;
             }
         } else if remove {
             let profile = browser::own_profile(&self.data_root, self.id);

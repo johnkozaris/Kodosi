@@ -611,6 +611,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
 fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let root = tempfile::tempdir().unwrap();
     let config = Config::isolated(&kodosi_os::fs::canonicalize(root.path()).unwrap()).unwrap();
+    let room_seen = room_seen::RoomSeen::load(&config.data_root);
     let network = BackendClient::new(BackendConfig {
         api_url: config.backend_url.clone(),
         issuer: config.oidc_issuer.clone(),
@@ -700,7 +701,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             attention: BTreeSet::new(),
             activity: HashMap::new(),
             room_latest: HashMap::new(),
-            room_seen: None,
+            room_seen,
         },
         root,
     )
@@ -832,6 +833,58 @@ async fn input_to_a_terminal_that_is_gone_shows_no_error_and_other_lost_input_do
             .unwrap()
             .starts_with("The terminal did not confirm the input")
     );
+}
+
+#[tokio::test]
+async fn a_request_to_a_terminal_that_ended_hears_that_the_terminal_is_gone() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let scope = runtime.scope.clone();
+    let (session_id, incarnation) = (Uuid::now_v7().to_string(), Uuid::now_v7().to_string());
+    let input = Command::Input {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: session_id.clone(),
+        expected_runtime_incarnation_id: incarnation.clone(),
+        text: "ls".to_owned(),
+        enter: true,
+    };
+    let read = Command::Read {
+        request_id: Uuid::now_v7().to_string(),
+        session_id,
+        expected_runtime_incarnation_id: incarnation,
+        history: false,
+    };
+    let client = Uuid::now_v7();
+    for command in [&input, &read] {
+        runtime
+            .expect_answer(command, client, CancellationToken::new())
+            .unwrap();
+    }
+    let ended = |completion| Job {
+        scope: scope.clone(),
+        completion,
+    };
+    runtime.complete(ended(Completion::Terminal {
+        command: input,
+        result: Err(Error::Stopped),
+    }));
+    runtime.complete(ended(Completion::Read {
+        command: read,
+        result: Err(Error::Stopped),
+    }));
+    let answers: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| {
+            let mut event = serde_json::to_value(event).unwrap();
+            crate::text::render(&mut event, crate::text::Language::English);
+            (event["type"].clone(), event["message"].clone())
+        })
+        .collect();
+    let gone = (
+        json!("session.error"),
+        json!("This terminal is not available."),
+    );
+    assert_eq!(answers, [gone.clone(), gone]);
+    assert!(runtime.answers().is_empty());
 }
 
 #[tokio::test]
@@ -1807,6 +1860,49 @@ async fn remote_demand_is_released_only_by_its_consumer() {
 }
 
 #[tokio::test]
+async fn a_view_that_goes_while_it_connects_is_answered_and_a_waiting_close_goes_on() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (user, epoch) = (runtime.scope.user.clone(), runtime.scope.epoch);
+    let envelope = |command| CommandEnvelope {
+        account_user_id: user.clone(),
+        account_epoch: epoch,
+        computer: None,
+        command,
+    };
+    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let open = open_remote(id);
+    let close = Command::CloseSession {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: id.to_string(),
+        expected_runtime_incarnation_id: remote.incarnation_id.to_string(),
+    };
+    for command in [&open, &close] {
+        runtime.command(&envelope(command.clone()), consumer, lifetime.clone());
+    }
+    assert_eq!(runtime.opening[&id].commands, [open.clone(), close.clone()]);
+
+    let leave = Command::DisconnectRemote {
+        session_id: id.to_string(),
+        request_id: Uuid::now_v7().to_string(),
+    };
+    runtime.command(&envelope(leave.clone()), consumer, lifetime);
+    let answered: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .filter(|event| event.event.is_answer())
+        .filter_map(|event| event.event.request_id().map(str::to_owned))
+        .collect();
+    assert_eq!(answered, [open.request_id(), leave.request_id()]);
+    assert_eq!(runtime.opening[&id].commands, std::slice::from_ref(&close));
+    assert_eq!(
+        runtime.answers().keys().collect::<Vec<_>>(),
+        [close.request_id()]
+    );
+}
+
+#[tokio::test]
 async fn remote_recovery_preserves_only_open_current_incarnations() {
     let (mut runtime, _root) = registry_fixture();
     let id = Uuid::now_v7();
@@ -1972,7 +2068,8 @@ async fn a_room_stays_unread_until_its_person_sees_what_others_wrote() {
     assert!(unread(&runtime));
     runtime.see_room(&room, 3).unwrap();
     assert!(!unread(&runtime));
-    runtime.room_seen = None;
+    runtime.room_seen.saved().await;
+    runtime.room_seen = room_seen::RoomSeen::load(&runtime.network.inner.config.data_root);
     assert_eq!(runtime.seen_rooms().unwrap()[&room], 3);
 }
 
@@ -2463,8 +2560,8 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
 }
 
 #[cfg(feature = "host")]
-#[test]
-fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
+#[tokio::test]
+async fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
     let root = tempfile::tempdir().unwrap();
     let saved = |name: &str| restore::Saved {
         id: Uuid::now_v7(),
@@ -2477,16 +2574,19 @@ fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         browser: None,
     };
     let (first, second) = (saved("first"), saved("second"));
-    restore::Restore::load(root.path()).save(vec![first.clone()]);
-    restore::Restore::load(root.path()).save(vec![second.clone()]);
+    for live in [first.clone(), second.clone()] {
+        let mut host = restore::Restore::load(root.path());
+        host.save(vec![live]);
+        host.saved().await;
+    }
     let mut opened_by_an_app = restore::Restore::load(root.path());
     assert_eq!(opened_by_an_app.take(), vec![first, second]);
     assert_eq!(opened_by_an_app.take(), Vec::new());
 }
 
 #[cfg(feature = "host")]
-#[test]
-fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
+#[tokio::test]
+async fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
     assert_eq!(restore::newest_lines(b"one\r\ntwo\r\nthree", 9), b"three");
     assert_eq!(restore::newest_lines(b"one\r\ntwo", 8), b"one\r\ntwo");
     assert_eq!(restore::newest_lines(b"one long line", 4), b"");
@@ -2504,6 +2604,7 @@ fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
     };
     let mut restore = restore::Restore::load(root.path());
     restore.save(vec![saved.clone()]);
+    restore.saved().await;
     let ended = restore.screen_file(Uuid::now_v7());
     std::fs::create_dir_all(ended.parent().unwrap()).unwrap();
     std::fs::write(&ended, b"ended").unwrap();

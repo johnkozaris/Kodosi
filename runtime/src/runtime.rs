@@ -38,6 +38,8 @@ mod dosi;
 mod messages;
 #[cfg(feature = "host")]
 mod restore;
+mod room_seen;
+mod saver;
 mod terminal_folders;
 
 #[cfg(test)]
@@ -1069,7 +1071,7 @@ struct Runtime {
     attention: BTreeSet<String>,
     activity: HashMap<String, Activity>,
     room_latest: HashMap<String, u64>,
-    room_seen: Option<(String, BTreeMap<String, u64>)>,
+    room_seen: room_seen::RoomSeen,
     reconnect: HashMap<Uuid, Reconnect>,
     folder_asks: HashMap<String, terminal_folders::FolderAsk>,
     link_connects: u64,
@@ -1119,6 +1121,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         isolated: config.isolated,
     })?;
     let network_events = network.events();
+    let room_seen = room_seen::RoomSeen::load(&config.data_root);
     let scope = Scope {
         user: None,
         epoch: std::time::SystemTime::now()
@@ -1215,7 +1218,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         attention: BTreeSet::new(),
         activity: HashMap::new(),
         room_latest: HashMap::new(),
-        room_seen: None,
+        room_seen,
         reconnect: HashMap::new(),
         folder_asks: HashMap::new(),
         link_connects: 0,
@@ -1746,6 +1749,9 @@ impl Runtime {
         crate::canvas::close_left(&self.config.data_root).await;
         #[cfg(feature = "host")]
         remove_pictures(&self.config.data_root).await;
+        #[cfg(feature = "host")]
+        self.restore.saved().await;
+        self.room_seen.saved().await;
         self.network.shutdown().await;
     }
 
@@ -2362,10 +2368,14 @@ impl Runtime {
         }
     }
 
+    /// Answers a request with its error. Work on a terminal that ended stops with `Stopped`, so
+    /// its answer says that the terminal is not available.
     fn error(&self, command: &Command, error: &Error) {
-        if !matches!(error, Error::Stopped) {
-            self.emit(answer(command, Err(error)));
-        }
+        let error = match error {
+            Error::Stopped => &Error::NotFound,
+            error => error,
+        };
+        self.emit(answer(command, Err(error)));
     }
 
     fn result(&self, command: &Command) {
@@ -2407,7 +2417,6 @@ impl Runtime {
         self.starting.clear();
         self.cached_events.clear();
         self.room_latest.clear();
-        self.room_seen = None;
         #[cfg(feature = "host")]
         self.mentions.clear();
         self.latest_auth = None;
@@ -2521,23 +2530,7 @@ impl Runtime {
 
     fn seen_rooms(&mut self) -> Option<&mut BTreeMap<String, u64>> {
         let user = self.scope.user.clone()?;
-        if self
-            .room_seen
-            .as_ref()
-            .is_none_or(|(owner, _)| *owner != user)
-        {
-            let seen = self.network.rooms_seen(&user);
-            self.room_seen = Some((user, seen));
-        }
-        self.room_seen.as_mut().map(|(_, seen)| seen)
-    }
-
-    fn remember_seen(&self) {
-        if let Some((user, seen)) = &self.room_seen
-            && let Err(error) = self.network.remember_seen(user, seen)
-        {
-            tracing::warn!(%error, "could not save which room messages were seen");
-        }
+        Some(self.room_seen.of(user))
     }
 
     fn with_unread(&mut self, mut snapshot: Value) -> Value {
@@ -2593,7 +2586,7 @@ impl Runtime {
             && !seen.contains_key(&id)
         {
             seen.insert(id, latest);
-            self.remember_seen();
+            self.room_seen.save();
         }
         self.publish_rooms();
     }
@@ -2606,7 +2599,7 @@ impl Runtime {
             return Ok(());
         }
         seen.insert(room.to_owned(), sequence);
-        self.remember_seen();
+        self.room_seen.save();
         self.publish_rooms();
         Ok(())
     }
