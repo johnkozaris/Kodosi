@@ -1,8 +1,8 @@
 const SPINNER: std::ops::RangeInclusive<char> = '\u{2800}'..='\u{28ff}';
-#[cfg(feature = "host")]
 const MARKS: [char; 8] = [
     '\u{2733}', '\u{2722}', '\u{2736}', '\u{273b}', '\u{273d}', '\u{b7}', '\u{25cf}', '\u{25cb}',
 ];
+const MAX_WORDS_CHARS: usize = 512;
 
 pub(crate) fn title_spins(title: &str) -> bool {
     title
@@ -21,13 +21,18 @@ pub(crate) fn titles_look_same(left: Option<&str>, right: Option<&str>) -> bool 
     }
 }
 
-#[cfg(feature = "host")]
+/// The words of a title for people to read: without the spinner or the status mark before
+/// them, and without characters that hide or reorder text.
+pub(crate) fn title_words(title: &str) -> Option<String> {
+    super::status::display_text(words(title), MAX_WORDS_CHARS)
+}
+
 fn words(title: &str) -> &str {
     title.trim_start_matches(|mark: char| {
         SPINNER.contains(&mark) || MARKS.contains(&mark) || mark.is_whitespace()
     })
 }
 
-#[cfg(all(test, feature = "host"))]
+#[cfg(test)]
 #[path = "title_tests.rs"]
 mod tests;

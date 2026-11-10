@@ -221,10 +221,13 @@ func terminalEntry(
 ) -> [String: Any] {
     var entry: [String: Any] = [
         "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",
-        "programStatus": ["state": state], "name": id, "isOwner": owner, "status": "running",
+        "programStatus": ["state": state], "working": state == "working", "name": id, "isOwner": owner, "status": "running",
         "attention": false, "hidden": false, "connectionState": connection, "sharedWith": [], "hostName": host, "hostDeviceId": "device-\(host)",
         "ownerUserId": owner ? "user-1" : "user-2", "ownerName": owner ? "Me" : "Maria",
     ]
+    if ["blocked", "done", "error"].contains(state) {
+        entry["waiting"] = state
+    }
     if let room {
         entry["missionId"] = room.id
         entry["missionName"] = room.name

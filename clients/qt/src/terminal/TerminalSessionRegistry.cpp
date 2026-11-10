@@ -877,12 +877,9 @@ void TerminalSessionRegistry::receiveControl(TerminalControl control) noexcept
                 &TerminalSessionRegistry::Listener::resizeCompleted,
                 outcome);
         }
-    } else if (type == QStringLiteral("term.bell") || type == QStringLiteral("term.title")
-        || type == QStringLiteral("term.attention")) {
+    } else if (type == QStringLiteral("term.bell") || type == QStringLiteral("term.attention")) {
         const auto sessionId = object.value(QStringLiteral("sessionId"));
-        const auto title = object.value(QStringLiteral("title"));
-        if (!sessionId.isString() || sessionId.toString() != control.subscription.sessionId
-            || (type == QStringLiteral("term.title") && !title.isNull() && !title.isString())) {
+        if (!sessionId.isString() || sessionId.toString() != control.subscription.sessionId) {
             publishFailureToAll({GhosttyTerminalKernel::Failure::Code::GhosttyRejected,
                 QStringLiteral("Terminal effect fields are invalid.")});
             return;

@@ -198,7 +198,7 @@ public struct RoomCard<Detail: View>: View {
                                 AgentMark(session: session, size: 18, activity: session.mark(rested: .awake))
                             }
                         }
-                        Text(sessions.contains(where: \.isWorking) ? String(localized: "Working", bundle: .module) : Counted.terminals(sessions.count))
+                        Text(sessions.contains(where: \.working) ? String(localized: "Working", bundle: .module) : Counted.terminals(sessions.count))
                             .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                     }
                 }

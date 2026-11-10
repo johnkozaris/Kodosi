@@ -447,23 +447,24 @@ private slots:
         QCOMPARE(unread(), 0);
     }
 
-    void aTitleThatOnlyAnimatesKeepsTheViews()
+    void aListThatSaysTheSameKeepsTheViews()
     {
         Fixture f;
-        const auto titled = [](const QString& title) {
+        const auto shown = [](const QString& activity) {
             auto entry = test::session(1);
-            entry.insert(QStringLiteral("title"), title);
+            entry.insert(QStringLiteral("working"), true);
+            entry.insert(QStringLiteral("activity"), activity);
             return test::snapshot({ entry });
         };
-        f.workspace.apply(titled(QStringLiteral("\u280b Reading the logs")), 0);
+        f.workspace.apply(shown(QStringLiteral("Reading the logs")), 0);
         QSignalSpy views(&f.sessions, &kodosi::SessionCatalogModel::folderGroupsChanged);
         QSignalSpy applied(&f.sessions, &kodosi::SessionCatalogModel::authoritativeSnapshotApplied);
-        f.workspace.apply(titled(QStringLiteral("\u2819 Reading the logs")), 0);
+        f.workspace.apply(shown(QStringLiteral("Reading the logs")), 0);
         QCOMPARE(views.count(), 0);
         QCOMPARE(applied.count(), 1);
         QCOMPARE(f.sessions.sessions().first().toMap().value(QStringLiteral("activity")).toString(), QStringLiteral("Reading the logs"));
         QVERIFY(f.sessions.sessions().first().toMap().value(QStringLiteral("working")).toBool());
-        f.workspace.apply(titled(QStringLiteral("\u2819 Writing the fix")), 0);
+        f.workspace.apply(shown(QStringLiteral("Writing the fix")), 0);
         QCOMPARE(views.count(), 1);
         QCOMPARE(f.sessions.sessions().first().toMap().value(QStringLiteral("activity")).toString(), QStringLiteral("Writing the fix"));
     }
@@ -539,7 +540,7 @@ private slots:
         Fixture f;
         auto local = test::session(1);
         local.insert(QStringLiteral("workingDir"), QStringLiteral("/repo/project"));
-        local.insert(QStringLiteral("title"), QStringLiteral("GitHub Copilot"));
+        local.insert(QStringLiteral("activity"), QStringLiteral("GitHub Copilot"));
         auto remote = test::session(2, true, false);
         remote.insert(QStringLiteral("workingDir"), QStringLiteral("/host/project"));
         remote.insert(QStringLiteral("ownerName"), QStringLiteral("Ana"));
@@ -806,14 +807,18 @@ private slots:
         QCOMPARE(f.commands.values.last().value(QStringLiteral("agent")).toObject(),
             QJsonObject({ { QStringLiteral("agent"), QStringLiteral("claude") } }));
     }
-    void aProgramStatusReportIsTheStateOfItsTerminal()
+    void aTerminalShowsTheStateThatTheRuntimeGives()
     {
         Fixture f;
-        const auto reported = [](const int number, const QJsonObject& status, const QString& title = {}) {
+        const auto shown = [](const int number, const QJsonObject& status, const bool working, const QString& waiting = {},
+                               const QString& activity = {}) {
             auto session = test::session(number);
             session.insert(QStringLiteral("programStatus"), status);
-            if (!title.isEmpty())
-                session.insert(QStringLiteral("title"), title);
+            session.insert(QStringLiteral("working"), working);
+            if (!waiting.isEmpty())
+                session.insert(QStringLiteral("waiting"), waiting);
+            if (!activity.isEmpty())
+                session.insert(QStringLiteral("activity"), activity);
             return session;
         };
         const auto field = [&](const int number, const QString& name) {
@@ -821,21 +826,23 @@ private slots:
         };
         const auto activity = [&](const int number) { return field(number, QStringLiteral("activity")).toString(); };
         const auto sign = [&](const int number) { return field(number, QStringLiteral("sign")).toString(); };
+        const QString blocked = QStringLiteral("blocked");
         f.workspace.apply(test::snapshot({
-            reported(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 40}}, QStringLiteral("Build")),
-            reported(2, {{QStringLiteral("state"), QStringLiteral("idle")}}, QStringLiteral("\u2802 Build")),
+            shown(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 40}}, true, {}, QStringLiteral("Build")),
+            shown(2, {{QStringLiteral("state"), QStringLiteral("idle")}}, false, {}, QStringLiteral("Build")),
         }), 0);
-        QVERIFY(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("working")).toBool());
-        QVERIFY(!f.sessions.presentationForSession(test::id(2)).value(QStringLiteral("working")).toBool());
+        QVERIFY(field(1, QStringLiteral("working")).toBool());
+        QVERIFY(!field(2, QStringLiteral("working")).toBool());
         QCOMPARE(activity(2), QStringLiteral("Build"));
         QCOMPARE(field(1, QStringLiteral("progress")).toInt(), 40);
         QCOMPARE(field(2, QStringLiteral("progress")).toInt(), -1);
         QVERIFY(sign(1).isEmpty());
 
         f.workspace.apply(test::snapshot({
-            reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")},
-                {QStringLiteral("title"), QStringLiteral("Review")}, {QStringLiteral("message"), QStringLiteral("Allow the command?")}}),
-            reported(2, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("question")}}),
+            shown(1, {{QStringLiteral("state"), blocked}, {QStringLiteral("kind"), QStringLiteral("permission")},
+                {QStringLiteral("title"), QStringLiteral("Review")}, {QStringLiteral("message"), QStringLiteral("Allow the command?")}},
+                false, blocked, QStringLiteral("Review: Allow the command?")),
+            shown(2, {{QStringLiteral("state"), blocked}, {QStringLiteral("kind"), QStringLiteral("question")}}, false, blocked),
         }), 0);
         QVERIFY(!field(1, QStringLiteral("working")).toBool());
         QCOMPARE(activity(1), QStringLiteral("Review: Allow the command?"));
@@ -845,26 +852,28 @@ private slots:
         QVERIFY(field(1, QStringLiteral("asks")).toBool());
 
         f.workspace.apply(test::snapshot({
-            reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("permission")}}),
-            reported(2, {{QStringLiteral("state"), QStringLiteral("error")}}),
+            shown(1, {{QStringLiteral("state"), blocked}, {QStringLiteral("kind"), QStringLiteral("permission")}}, false, blocked),
+            shown(2, {{QStringLiteral("state"), QStringLiteral("error")}}, false, QStringLiteral("error")),
         }), 0);
         QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(2), QStringLiteral("failed"));
         QVERIFY(!field(2, QStringLiteral("asks")).toBool());
 
         f.workspace.apply(test::snapshot({
-            reported(1, {{QStringLiteral("state"), QStringLiteral("blocked")}, {QStringLiteral("kind"), QStringLiteral("auth")}}),
-            reported(2, {{QStringLiteral("state"), QStringLiteral("done")}}),
+            shown(1, {{QStringLiteral("state"), blocked}, {QStringLiteral("kind"), QStringLiteral("auth")}}, false, blocked),
+            shown(2, {{QStringLiteral("state"), QStringLiteral("done")}}, false, QStringLiteral("done")),
         }), 0);
         QCOMPARE(sign(1), QStringLiteral("key"));
         QCOMPARE(sign(2), QStringLiteral("done"));
         f.workspace.apply(test::snapshot({
-            reported(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 101}}),
+            shown(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 101}}, true),
         }), 0);
         QCOMPARE(sign(2), QStringLiteral("done"));
 
-        f.workspace.apply(test::snapshot({ reported(1, {{QStringLiteral("state"), QStringLiteral("dance")}}) }), 0);
-        QCOMPARE(f.sessions.session(test::id(2))->programState, QStringLiteral("done"));
+        f.workspace.apply(test::snapshot({ shown(1, {{QStringLiteral("state"), QStringLiteral("dance")}}, false) }), 0);
+        QCOMPARE(f.sessions.session(test::id(2))->waiting, QStringLiteral("done"));
+        f.workspace.apply(test::snapshot({ shown(1, {{QStringLiteral("state"), QStringLiteral("done")}}, false, QStringLiteral("dance")) }), 0);
+        QCOMPARE(f.sessions.session(test::id(2))->waiting, QStringLiteral("done"));
     }
     void aTerminalNamesWhereItsProgramRunsAndWhetherAsRoot()
     {
@@ -916,11 +925,11 @@ private slots:
         auto asking = closed(1);
         asking.insert(QStringLiteral("programStatus"),
             QJsonObject { { QStringLiteral("state"), QStringLiteral("blocked") }, { QStringLiteral("kind"), QStringLiteral("question") } });
+        asking.insert(QStringLiteral("waiting"), QStringLiteral("blocked"));
         auto working = closed(2);
         working.insert(QStringLiteral("programStatus"), QJsonObject { { QStringLiteral("state"), QStringLiteral("working") } });
-        auto titled = closed(3);
-        titled.insert(QStringLiteral("title"), QStringLiteral("\u2802 Build"));
-        f.workspace.apply(test::snapshot({ asking, working, titled }), 0);
+        working.insert(QStringLiteral("working"), true);
+        f.workspace.apply(test::snapshot({ asking, working, closed(3) }), 0);
         const auto field = [&](const int number, const QString& name) {
             return f.sessions.presentationForSession(test::id(number)).value(name);
         };

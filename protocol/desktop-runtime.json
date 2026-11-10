@@ -7549,6 +7549,16 @@
             "items": {
               "additionalProperties": false,
               "properties": {
+                "activity": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "attention": {
                   "type": "boolean"
                 },
@@ -8389,6 +8399,29 @@
                     }
                   ]
                 },
+                "waiting": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "const": "blocked"
+                        },
+                        {
+                          "const": "done"
+                        },
+                        {
+                          "const": "error"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "working": {
+                  "type": "boolean"
+                },
                 "workingDir": {
                   "anyOf": [
                     {
@@ -8405,6 +8438,7 @@
                 "connectedUsers",
                 "prompt",
                 "repository",
+                "working",
                 "id",
                 "incarnationId",
                 "kind",
@@ -13578,42 +13612,6 @@
               }
             ]
           },
-          "sessionId": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "type": {
-            "const": "term.title"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "sessionId",
-          "title"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "body": {
             "type": "string"
           },
@@ -13644,7 +13642,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 84,
+  "protocolVersion": 85,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

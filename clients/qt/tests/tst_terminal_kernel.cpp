@@ -486,7 +486,7 @@ private slots:
     void remoteGridFitsAndMapsAccessibleMouseCoordinates();
     void terminalViewPreservesControlAndEscapeKeys();
     void modifierKeysWithControlTextSendNothing();
-    void runtimeBellAndTitleKeepTerminalAvailable();
+    void runtimeBellKeepsTerminalAvailable();
     void attentionAndUnknownControlsKeepTerminalAvailable();
     void hiddenAndDisabledTerminalRejectsInputAndCancelsRetries();
     void terminalControlsStayBoundedAndFenceReattachment();
@@ -608,7 +608,7 @@ void TerminalKernelTest::modifierKeysWithControlTextSendNothing()
     window.hide();
 }
 
-void TerminalKernelTest::runtimeBellAndTitleKeepTerminalAvailable()
+void TerminalKernelTest::runtimeBellKeepsTerminalAvailable()
 {
     kodosi::TerminalSessionRegistry registry;
     FakeTerminalDispatcher dispatcher;
@@ -619,10 +619,8 @@ void TerminalKernelTest::runtimeBellAndTitleKeepTerminalAvailable()
     makeTerminalReady(registry, subscription);
     QSignalSpy errors(&view, &kodosi::TerminalView::terminalError);
     registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.bell","sessionId":"session"})")});
-    registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.title","sessionId":"session","title":"Building project"})")});
     QCOMPARE(errors.count(), 0);
     QVERIFY(view.terminalReady());
-    registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.title","sessionId":"session","title":null})")});
     registry.receiveControl({subscription, QByteArrayLiteral(R"({"type":"term.bell","sessionId":"wrong"})")});
     QTRY_COMPARE(errors.count(), 1);
 }

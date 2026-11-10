@@ -27,14 +27,17 @@ public:
         QString id;
         QString incarnationId;
         QString name;
-        QString title;
         QString program;
         int programAccount = -1;
         bool programOutside = false;
         QVariantMap programSettings;
         QVariantMap programLive;
         QVariantMap programPending;
-        QString programState;
+        // What the runtime says of the program: whether it works, what the terminal waits with
+        // (blocked, done or error), and what it does in words.
+        bool working = false;
+        QString waiting;
+        QString activity;
         QString programKind;
         QString programTitle;
         QString programMessage;
@@ -134,12 +137,9 @@ private:
     [[nodiscard]] static std::optional<QVariantMap> decodeAgentSettings(const QJsonValue& value);
     [[nodiscard]] static std::optional<QVariantMap> decodeAgentLive(const QJsonValue& value);
     [[nodiscard]] static PresentationSession presentation(const Session& session);
-    [[nodiscard]] static bool isWorking(const Session& session);
-    [[nodiscard]] static QString waitState(const Session& session);
     [[nodiscard]] static QString sign(const Session& session);
     [[nodiscard]] static QString signLabel(const Session& session);
     [[nodiscard]] static QString report(const Session& session);
-    [[nodiscard]] static QString activity(const Session& session);
     [[nodiscard]] static QString placeLabel(const Session& session);
     [[nodiscard]] QVariantMap fields(const Session& session) const;
     [[nodiscard]] bool samePresentation(const QVector<Session>& before, const QVector<Session>& after) const;

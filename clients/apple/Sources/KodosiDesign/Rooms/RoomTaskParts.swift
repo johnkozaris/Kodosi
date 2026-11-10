@@ -24,7 +24,7 @@ public struct RoomTaskChips: View {
                     Tag(text: "#\(issue.number)", symbol: "smallcircle.filled.circle")
                 }
                 if let terminal {
-                    Tag(text: terminal.name, symbol: "apple.terminal", tone: terminal.isWorking ? .accent : .neutral)
+                    Tag(text: terminal.name, symbol: "apple.terminal", tone: terminal.working ? .accent : .neutral)
                 }
                 if let note {
                     Tag(text: note, symbol: "text.quote", tone: .ready)

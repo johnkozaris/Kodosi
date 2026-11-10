@@ -212,7 +212,7 @@ extension AppDependencies {
             if let old = previous[value.id], old.incarnationId != value.incarnationId {
                 terminalFocus.releaseSession(sessionId: value.id)
             }
-            if !value.attention || value.waitState == nil {
+            if !value.attention || value.waiting == nil {
                 terminalNotifications.withdrawAlert(value.id)
             }
         }

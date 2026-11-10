@@ -36,7 +36,8 @@ import Testing
     let request = try #require(requestId)
     let entry: JSONValue = .object([
         "id": .string(id), "incarnationId": .string(incarnation), "kind": .string("local"), "name": .string("Test"),
-        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("local"),
+        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
+        "connectionState": .string("local"),
         "sharedWith": .array([]),
     ])
     try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([entry])]))
@@ -51,31 +52,31 @@ import Testing
     #expect(app.terminalManager.session(for: id) === managed)
 }
 
-@Test @MainActor func `a new frame of a title spinner changes nothing on screen`() throws {
+@Test @MainActor func `a terminal list that says the same changes nothing on screen`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "SpinnerFrame"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     app.commandSink.transport = { _ in 0 }
     try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
-    func snapshot(title: String) throws {
+    func snapshot(activity: String) throws {
         try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object([
             "id": .string("01992e43-53db-7040-8e02-f6ebf4149b28"), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
-            "kind": .string("local"), "name": .string("Amber Wren"), "title": .string(title), "isOwner": .bool(true),
-            "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
+            "kind": .string("local"), "name": .string("Amber Wren"), "activity": .string(activity), "isOwner": .bool(true),
+            "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
+            "connectionState": .string("local"), "sharedWith": .array([]),
         ])])]))
     }
-    try snapshot(title: "\u{280B} Draft the release notes")
+    try snapshot(activity: "Draft the release notes")
     var changed = false
     withObservationTracking {
         _ = app.sessions
     } onChange: {
         MainActor.assumeIsolated { changed = true }
     }
-    try snapshot(title: "\u{2819} Draft the release notes")
+    try snapshot(activity: "Draft the release notes")
     #expect(!changed)
-    #expect(app.sessions.first?.isWorking == true)
-    try snapshot(title: "\u{2819} Ship the release")
+    try snapshot(activity: "Ship the release")
     #expect(changed)
     #expect(app.sessions.first?.activity == "Ship the release")
 }

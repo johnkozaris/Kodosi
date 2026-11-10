@@ -21,7 +21,8 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     var fields: [String: JSONValue] = [
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
         "kind": .string(kind), "name": .string("Terminal"),
-        "isOwner": .bool(owner), "status": .string(status), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string(connection),
+        "isOwner": .bool(owner), "status": .string(status), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
+        "connectionState": .string(connection),
         "sharedWith": .array([]),
     ]
     fields["workingDir"] = directory.map(JSONValue.string)
@@ -173,118 +174,62 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(SessionComputerGroup.groups([windows]).flatMap(\.folders).map(\.name) == ["project"])
 }
 
-@Test func `provider title does not replace the sidebar name`() throws {
-    let session = try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode([
-        "id": JSONValue.string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
-        "kind": .string("local"), "name": .string("Green Gecko"), "title": .string("GitHub Copilot"),
-        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
-        "connectionState": .string("local"), "sharedWith": .array([]),
-    ]))
-    #expect(session.name == "Green Gecko")
-    #expect(session.activity == "GitHub Copilot")
-    #expect(!session.isWorking)
-}
-
-@Test func `terminal title spinner marks an agent at work`() throws {
-    func session(title: String?) throws -> RuntimeSession {
+@Test func `a terminal shows the state that the runtime gives`() throws {
+    func session(
+        working: Bool = false, waiting: String? = nil, activity: String? = nil, status: [String: JSONValue]? = nil,
+        kind: String = "local", connection: String = "local",
+    ) throws -> RuntimeSession {
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
-            "kind": .string("local"), "name": .string("Amber Wren"), "program": .string("claude"),
-            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
-            "connectionState": .string("local"), "sharedWith": .array([]),
+            "kind": .string(kind), "name": .string("Amber Wren"), "program": .string("claude"),
+            "isOwner": .bool(kind == "local"), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
+            "connectionState": .string(connection), "sharedWith": .array([]), "working": .bool(working),
         ]
-        if let title {
-            fields["title"] = .string(title)
-        }
-        return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
-    }
-    let working = try session(title: "\u{2810} Draft the release notes")
-    #expect(working.isWorking)
-    #expect(working.activity == "Draft the release notes")
-    #expect(working.agent == .claude)
-    let resting = try session(title: "\u{2733} Draft the release notes")
-    #expect(!resting.isWorking)
-    #expect(resting.activity == "Draft the release notes")
-    #expect(try session(title: "Amber Wren").activity == nil)
-    #expect(try session(title: nil).activity == nil)
-    #expect(try !session(title: nil).isWorking)
-}
-
-@Test func `a program status report is the state of its terminal`() throws {
-    func session(title: String? = nil, status: [String: JSONValue]) throws -> RuntimeSession {
-        var fields: [String: JSONValue] = [
-            "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
-            "kind": .string("local"), "name": .string("Amber Wren"), "program": .string("claude"),
-            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
-            "connectionState": .string("local"), "sharedWith": .array([]),
-            "programStatus": .object(status),
-        ]
-        if let title {
-            fields["title"] = .string(title)
-        }
-        return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
-    }
-    let working = try session(title: "Draft the release notes", status: ["state": .string("working"), "progress": .int(40)])
-    #expect(working.isWorking)
-    #expect(!working.needsUser)
-    #expect(working.waitState == nil)
-    #expect(working.activity == "Draft the release notes")
-    #expect(working.progress == 40)
-    #expect(working.mark(rested: .asleep) == .progress(40))
-    #expect(working.sign(unseen: false) == nil)
-    #expect(try session(status: ["state": .string("working")]).mark(rested: .asleep) == .working)
-    let idle = try session(title: "\u{2810} Draft the release notes", status: ["state": .string("idle"), "app": .string("claude-code")])
-    #expect(!idle.isWorking)
-    #expect(idle.mark(rested: .asleep) == .asleep)
-    #expect(idle.sign(unseen: false) == nil)
-    #expect(idle.sign(unseen: true) == .changed)
-    #expect(idle.activity == "Draft the release notes")
-    let approval = try session(status: ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")])
-    #expect(approval.needsUser)
-    #expect(approval.waitState == .blocked)
-    #expect(!approval.isWorking)
-    #expect(approval.activity == "Allow the command?")
-    #expect(approval.mark(rested: .asleep) == .asleep)
-    #expect(approval.sign(unseen: false) == .hand)
-    let task = try session(status: ["state": .string("blocked"), "kind": .string("question"), "title": .string("Review the plan")])
-    #expect(task.activity == "Review the plan")
-    #expect(task.sign(unseen: true) == .question)
-    let signIn = try session(status: ["state": .string("blocked"), "kind": .string("auth")])
-    #expect(signIn.activity == nil)
-    #expect(signIn.sign(unseen: false) == .key)
-    #expect(try session(status: ["state": .string("blocked")]).sign(unseen: false) == .hand)
-    let failed = try session(title: "Deploy", status: ["state": .string("error")])
-    #expect(failed.waitState == .error)
-    #expect(failed.activity == "Deploy")
-    #expect(failed.sign(unseen: true) == .failed)
-    #expect(failed.sign(unseen: false) == nil)
-    let done = try session(title: "Deploy", status: ["state": .string("done")])
-    #expect(done.waitState == .done)
-    #expect(done.activity == "Deploy")
-    #expect(done.mark(rested: .awake) == .awake)
-    #expect(done.sign(unseen: true) == .done)
-    #expect(done.sign(unseen: false) == nil)
-}
-
-@Test func `a room terminal that is not open here shows the status of its host`() throws {
-    func session(title: String? = nil, status: [String: JSONValue]?) throws -> RuntimeSession {
-        var fields: [String: JSONValue] = [
-            "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
-            "kind": .string("remote"), "name": .string("Amber Wren"), "program": .string("claude"),
-            "isOwner": .bool(false), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
-            "connectionState": .string("offline"), "sharedWith": .array([]),
-        ]
-        fields["title"] = title.map(JSONValue.string)
+        fields["waiting"] = waiting.map(JSONValue.string)
+        fields["activity"] = activity.map(JSONValue.string)
         fields["programStatus"] = status.map(JSONValue.object)
         return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
     }
-    let asking = try session(status: ["state": .string("blocked"), "kind": .string("question")])
-    #expect(asking.needsUser)
-    #expect(asking.mark(rested: .asleep) == .asleep)
-    #expect(asking.sign(unseen: false) == .question)
-    #expect(asking.alert == nil)
-    #expect(try session(status: ["state": .string("working")]).isWorking)
-    #expect(try !session(title: "\u{2810} Draft the release notes", status: nil).isWorking)
+    let working = try session(working: true, activity: "Draft the release notes")
+    #expect(working.name == "Amber Wren")
+    #expect(working.activity == "Draft the release notes")
+    #expect(working.agent == .claude)
+    #expect(working.mark(rested: .asleep) == .working)
+    #expect(working.sign(unseen: false) == nil)
+    let resting = try session()
+    #expect(resting.activity == nil)
+    #expect(resting.mark(rested: .asleep) == .asleep)
+    #expect(resting.sign(unseen: false) == nil)
+    #expect(resting.sign(unseen: true) == .changed)
+    let measured = try session(working: true, status: ["state": .string("working"), "progress": .int(40)])
+    #expect(!measured.needsUser)
+    #expect(measured.progress == 40)
+    #expect(measured.mark(rested: .asleep) == .progress(40))
+    let approval = try session(
+        waiting: "blocked", activity: "Allow the command?",
+        status: ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")],
+    )
+    #expect(approval.needsUser)
+    #expect(approval.mark(rested: .asleep) == .asleep)
+    #expect(approval.sign(unseen: false) == .hand)
+    #expect(approval.alert == "Allow the command?")
+    #expect(try session(waiting: "blocked", status: ["state": .string("blocked"), "kind": .string("question")]).sign(unseen: true) == .question)
+    #expect(try session(waiting: "blocked", status: ["state": .string("blocked"), "kind": .string("auth")]).sign(unseen: false) == .key)
+    #expect(try session(waiting: "blocked", status: ["state": .string("blocked")]).sign(unseen: false) == .hand)
+    let failed = try session(waiting: "error", status: ["state": .string("error")])
+    #expect(failed.sign(unseen: true) == .failed)
+    #expect(failed.sign(unseen: false) == nil)
+    let done = try session(waiting: "done", status: ["state": .string("done")])
+    #expect(done.mark(rested: .awake) == .awake)
+    #expect(done.sign(unseen: true) == .done)
+    #expect(done.sign(unseen: false) == nil)
+    #expect(done.alert == "Done")
+    let elsewhere = try session(
+        waiting: "blocked", status: ["state": .string("blocked"), "kind": .string("question")], kind: "remote", connection: "offline",
+    )
+    #expect(elsewhere.needsUser)
+    #expect(elsewhere.sign(unseen: false) == .question)
+    #expect(elsewhere.alert == nil)
 }
 
 @Test func `a terminal names where its program runs and whether as root`() throws {
@@ -292,7 +237,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         var fields: [String: JSONValue] = [
             "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
             "kind": .string("local"), "name": .string("Amber Wren"),
-            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
+            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
             "connectionState": .string("local"), "sharedWith": .array([]),
         ]
         fields["context"] = context.map(JSONValue.object)
