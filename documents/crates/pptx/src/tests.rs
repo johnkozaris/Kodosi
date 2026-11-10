@@ -446,6 +446,115 @@ fn a_new_text_box_reads_back_as_it_is_and_keeps_what_people_did_with_it() {
     );
 }
 
+/// A text box as the presentation view adds one.
+fn view_text_box(id: &str) -> Value {
+    json!({
+        "id": id,
+        "name": "Text box",
+        "kind": "shape",
+        "x": 1_000_000,
+        "y": 1_000_000,
+        "width": 3_000_000,
+        "height": 900_000,
+        "geometry": "rect",
+        "text": {
+            "type": "doc",
+            "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Note" }] }],
+        },
+        "order": 0,
+    })
+}
+
+fn apply_change(model: &mut Model, change: Change) -> Result<Change, Refused> {
+    Pptx::apply(model, change, &[], &mut Assets::default())
+}
+
+#[test]
+fn a_slide_or_a_shape_takes_only_an_id_that_a_file_can_hold() {
+    let file = deck();
+    let mut model = read(&file);
+    for slide in ["5c1f0d8e-0b6e-4f39-9d3c-1d0e2b7c9a41", "255", "2147483648"] {
+        let change = Change::AddSlide {
+            slide: slide.to_owned(),
+            position: 2.0,
+        };
+        let refused = apply_change(&mut model, change);
+        assert!(matches!(refused, Err(Refused::Invalid(_))), "{slide}");
+    }
+    let change = Change::AddShape {
+        slide: "256".to_owned(),
+        shape: view_text_box("9e0a2c44-77b1-4c63-a1f5-0f6d4e2b8c13"),
+    };
+    assert!(matches!(
+        apply_change(&mut model, change),
+        Err(Refused::Invalid(_))
+    ));
+    let slide = "734017113".to_owned();
+    let change = Change::AddSlide {
+        slide: slide.clone(),
+        position: 2.0,
+    };
+    apply_change(&mut model, change).unwrap();
+    let change = Change::AddShape {
+        slide: slide.clone(),
+        shape: view_text_box("402193877"),
+    };
+    apply_change(&mut model, change).unwrap();
+    let with_slide = saved(&model, &file);
+    let changes = Pptx::compare(&model, &read(&with_slide));
+    assert!(changes.is_empty(), "{changes:?}");
+    apply_ops(
+        &mut model,
+        vec![Op::SetText {
+            slide,
+            shape: "402193877".to_owned(),
+            text: "Note by Ana".to_owned(),
+        }],
+    );
+    let again = read(&saved(&model, &with_slide));
+    assert_eq!(
+        listing(&again)["slides"][2]["shapes"][0]["text"],
+        "Note by Ana"
+    );
+    assert_eq!(listing(&again)["slides"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn a_new_shape_takes_an_id_that_no_shape_of_its_slide_holds_in_a_group_too() {
+    let group = concat!(
+        r#"<p:grpSp><p:nvGrpSpPr><p:cNvPr id="4" name="Group 3"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>"#,
+        r#"<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="10" cy="10"/><a:chOff x="0" y="0"/><a:chExt cx="10" cy="10"/></a:xfrm></p:grpSpPr>"#,
+        r#"<p:sp><p:nvSpPr><p:cNvPr id="5" name="Inner"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr/></p:sp></p:grpSp>"#,
+    );
+    let slide = slide_xml("First").replace("</p:spTree>", &format!("{group}</p:spTree>"));
+    let file = with_parts(&deck(), &[("ppt/slides/slide1.xml", &slide)]);
+    let mut model = read(&file);
+    apply_ops(
+        &mut model,
+        vec![Op::AddTextBox {
+            slide: "256".to_owned(),
+            text: "Note".to_owned(),
+            x: 10.0,
+            y: 10.0,
+            width: 100.0,
+            height: 50.0,
+        }],
+    );
+    let xml = part(&saved(&model, &file), "ppt/slides/slide1.xml");
+    assert_eq!(xml.matches(r#"<p:cNvPr id="5""#).count(), 1);
+    assert!(xml.contains(r#"<p:cNvPr id="6" name="Text 6"/>"#));
+}
+
+#[test]
+fn a_new_slide_takes_a_free_id_when_the_highest_is_the_last_that_a_file_can_hold() {
+    let presentation = part(&deck(), "ppt/presentation.xml")
+        .replace(r#"<p:sldId id="257""#, r#"<p:sldId id="2147483647""#);
+    let file = with_parts(&deck(), &[("ppt/presentation.xml", &presentation)]);
+    let mut model = read(&file);
+    apply_ops(&mut model, vec![Op::AddSlide { after: None }]);
+    assert_eq!(listing(&model)["slides"][2]["id"], "257");
+}
+
 #[test]
 fn an_order_carries_over_when_a_write_stacks_shapes_anew() {
     let file = deck();

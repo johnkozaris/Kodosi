@@ -41,7 +41,11 @@ fn numbers(document: &Document, object: &Object) -> Option<Vec<f64>> {
 }
 
 /// A page's own value, or the one that it inherits from its parents.
-fn inherited<'d>(document: &'d Document, page: &'d Dictionary, key: &[u8]) -> Option<&'d Object> {
+pub(crate) fn inherited<'d>(
+    document: &'d Document,
+    page: &'d Dictionary,
+    key: &[u8],
+) -> Option<&'d Object> {
     let mut current = page;
     for _ in 0..MOST_FIELD_DEPTH {
         if let Ok(value) = current.get(key) {

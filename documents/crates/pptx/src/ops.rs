@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use text::{Fragment, Node, Slice, Step};
 
-use crate::model::{Change, Model, Query, Shape, ShapeFields, schema};
+use crate::model::{Change, Model, Query, SLIDE_IDS, Shape, ShapeFields, number_in, schema};
 
 const EMU_PER_POINT: i64 = 12_700;
 const SMALL_TEXT: usize = 8;
@@ -385,25 +385,33 @@ fn first_position(model: &Model) -> f64 {
 }
 
 fn new_shape_id(model: &Model, slide: &str, taken: u64) -> Result<String, String> {
-    let highest = model
+    let last = model
         .slide(slide)
         .ok_or_else(|| format!("There is no slide {slide}."))?
-        .shapes
-        .iter()
-        .filter_map(|shape| shape.id.parse::<u64>().ok())
-        .max()
-        .unwrap_or(1);
-    Ok((highest + taken + 1).to_string())
+        .last_shape;
+    Ok((last + taken + 1).to_string())
 }
 
+/// The number after the highest slide id, or the lowest free one when the highest is the last
+/// that a file can hold.
 fn new_slide_id(model: &Model, taken: u64) -> String {
-    let highest = model
+    let used: Vec<u64> = model
         .slides
         .iter()
-        .filter_map(|slide| slide.id.parse::<u64>().ok())
+        .filter_map(|slide| number_in(&slide.id, &SLIDE_IDS))
+        .collect();
+    let next = used
+        .iter()
         .max()
-        .unwrap_or(255);
-    (highest + taken + 1).to_string()
+        .map_or(*SLIDE_IDS.start(), |highest| highest + 1)
+        + taken;
+    if SLIDE_IDS.contains(&next) {
+        return next.to_string();
+    }
+    SLIDE_IDS
+        .filter(|id| !used.contains(id))
+        .nth(usize::try_from(taken).unwrap_or(usize::MAX))
+        .map_or_else(String::new, |id| id.to_string())
 }
 
 #[expect(clippy::too_many_lines, reason = "one arm for each op")]

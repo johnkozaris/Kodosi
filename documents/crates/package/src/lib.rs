@@ -240,7 +240,8 @@ pub fn rewrite(file: &[u8], parts: &Parts) -> Result<Vec<u8>, PackageError> {
     Ok(writer.finish().map_err(broken)?.into_inner())
 }
 
-/// Text for XML content.
+/// Text for XML content. The characters that XML 1.0 cannot hold, such as most control
+/// characters, go.
 pub fn escape(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for letter in text.chars() {
@@ -249,7 +250,13 @@ pub fn escape(text: &str) -> String {
             '<' => escaped.push_str("&lt;"),
             '>' => escaped.push_str("&gt;"),
             '"' => escaped.push_str("&quot;"),
-            letter => escaped.push(letter),
+            '\t'
+            | '\n'
+            | '\r'
+            | '\u{20}'..='\u{D7FF}'
+            | '\u{E000}'..='\u{FFFD}'
+            | '\u{10000}'..='\u{10FFFF}' => escaped.push(letter),
+            _ => {}
         }
     }
     escaped
@@ -343,5 +350,13 @@ mod tests {
     #[test]
     fn text_is_escaped() {
         assert_eq!(escape(r#"a<b & "c""#), "a&lt;b &amp; &quot;c&quot;");
+    }
+
+    #[test]
+    fn characters_that_xml_cannot_hold_go() {
+        assert_eq!(
+            escape("Page 1\n\u{c}Page 2\u{1b}[0m\u{0}\u{b}\u{fffe}\tend\r\u{1f600}"),
+            "Page 1\nPage 2[0m\tend\r\u{1f600}"
+        );
     }
 }

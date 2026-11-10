@@ -193,7 +193,7 @@ fn do_work(model: &Model, work: &PageWork) -> Result<Vec<u8>, Refused> {
             .map_err(pdf_failed)
         }
         PageWork::Redact { page, rects } => {
-            redact::redact(&model.file, page_object(model, page)?, rects).map_err(pdf_failed)
+            redact::redact(&model.file, page_object(model, page)?, rects).map_err(Refused::Invalid)
         }
     }
 }

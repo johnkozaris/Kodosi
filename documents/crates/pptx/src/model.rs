@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::HashMap, ops::RangeInclusive, sync::LazyLock};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -15,6 +15,21 @@ static SCHEMA: LazyLock<Schema> = LazyLock::new(|| {
 
 pub(crate) fn schema() -> &'static Schema {
     &SCHEMA
+}
+
+/// The ids that a file can give a slide.
+pub(crate) const SLIDE_IDS: RangeInclusive<u64> = 256..=2_147_483_647;
+/// The ids that a file can give a shape.
+pub(crate) const SHAPE_IDS: RangeInclusive<u64> = 0..=4_294_967_295;
+/// The id of the shape tree of a new slide, which holds all its shapes.
+pub(crate) const ROOT_SHAPE: u64 = 1;
+
+/// The number of an id that a file can hold: digits alone, in the range of its kind.
+pub(crate) fn number_in(id: &str, range: &RangeInclusive<u64>) -> Option<u64> {
+    if id.is_empty() || !id.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    id.parse().ok().filter(|number| range.contains(number))
 }
 
 /// The .pptx format.
@@ -58,6 +73,9 @@ pub struct Slide {
     pub background: Option<String>,
     /// The look that the text of a new shape takes from the master.
     pub text_look: Value,
+    /// The highest id that a shape of the slide has held, in a group too, so that a new shape
+    /// takes another one.
+    pub last_shape: u64,
 }
 
 /// The live copy of a .pptx file.

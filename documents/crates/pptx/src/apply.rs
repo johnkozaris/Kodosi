@@ -3,7 +3,10 @@ use serde_json::Value;
 use text::{Node, Step};
 
 use crate::{
-    model::{Change, Model, Shape, ShapeFields, Slide, schema},
+    model::{
+        Change, Model, ROOT_SHAPE, SHAPE_IDS, SLIDE_IDS, Shape, ShapeFields, Slide, number_in,
+        schema,
+    },
     ops,
 };
 
@@ -137,6 +140,11 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
             model.sort_slides();
         }
         Change::AddSlide { slide, position } => {
+            if number_in(slide, &SLIDE_IDS).is_none() {
+                return Err(Refused::Invalid(format!(
+                    "A slide id is a number from 256 to 2147483647, and {slide} is not."
+                )));
+            }
             if model.slide(slide).is_some() {
                 return Err(Refused::Invalid(format!(
                     "The slide {slide} is there already."
@@ -154,6 +162,7 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
                 behind: Vec::new(),
                 background: None,
                 text_look,
+                last_shape: ROOT_SHAPE,
             });
             model.sort_slides();
         }
@@ -167,6 +176,12 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
         }
         Change::AddShape { slide, shape } => {
             let mut shape = Shape::from_snapshot(shape).map_err(Refused::Invalid)?;
+            let number = number_in(&shape.id, &SHAPE_IDS).ok_or_else(|| {
+                Refused::Invalid(format!(
+                    "A shape id is a number from 0 to 4294967295, and {} is not.",
+                    shape.id
+                ))
+            })?;
             let target = model.slide_mut(slide).ok_or_else(|| no_slide(slide))?;
             if target.shapes.iter().any(|known| known.id == shape.id) {
                 return Err(Refused::Invalid(format!(
@@ -177,6 +192,7 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
             if shape.text.is_some() && shape.look.is_null() {
                 shape.look.clone_from(&target.text_look);
             }
+            target.last_shape = target.last_shape.max(number);
             target.shapes.push(shape);
         }
         Change::RemoveShape { slide, shape } => {

@@ -7,7 +7,7 @@ use serde_json::Value;
 use text::{Mark, Node};
 
 use crate::{
-    model::{Model, Shape, Slide, schema},
+    model::{Model, ROOT_SHAPE, Shape, Slide, schema},
     read::{self, PRESENTATION, RunLook, local, run_look},
 };
 
@@ -450,12 +450,13 @@ fn new_slide_xml(out: &Out<'_>, slide: &Slide) -> Result<String, String> {
     Ok(format!(
         concat!(
             r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="{drawing}" xmlns:r="{relationship}" xmlns:p="{main}">"#,
-            r#"<p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>{shapes}</p:spTree></p:cSld>"#,
+            r#"<p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="{root}" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>{shapes}</p:spTree></p:cSld>"#,
             r#"<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"#,
         ),
         drawing = DRAWING,
         relationship = RELATIONSHIPS,
         main = PRESENTATION_MAIN,
+        root = ROOT_SHAPE,
         shapes = shapes,
     ))
 }

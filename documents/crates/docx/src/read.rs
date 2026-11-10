@@ -501,7 +501,7 @@ impl<'input> Reader<'_, 'input> {
         drawing: Xml<'_, 'input>,
         marks: &[Mark],
     ) -> Result<Node, text::Failed> {
-        let raw = self.keep(self.xml_of(run));
+        let raw = self.keep(&self.picture_run(run, drawing));
         let picture = drawing
             .descendants()
             .find(|node| node.has_tag_name((DRAWING_MAIN, "blip")))
@@ -521,7 +521,7 @@ impl<'input> Reader<'_, 'input> {
         let Some(bytes) = picture else {
             return node(
                 "inlineOpaque",
-                json!({ "raw": raw, "text": all_text(run) }),
+                json!({ "raw": raw, "text": all_text(drawing) }),
                 Vec::new(),
             );
         };
@@ -542,6 +542,30 @@ impl<'input> Reader<'_, 'input> {
             })),
             Fragment::default(),
             marks.to_vec(),
+        )
+    }
+
+    /// The run of a picture with that picture alone, as the run's words and its other pictures
+    /// are nodes of their own.
+    fn picture_run(&self, run: Xml<'_, 'input>, drawing: Xml<'_, 'input>) -> String {
+        let xml = self.xml_of(run);
+        let alone = run
+            .children()
+            .filter(Xml::is_element)
+            .all(|child| child == drawing || is_word(child, "rPr"));
+        let (Some(first), Some(last)) = (run.first_child(), run.last_child()) else {
+            return xml.to_owned();
+        };
+        if alone {
+            return xml.to_owned();
+        }
+        let start = run.range().start;
+        let properties = word_child(run, "rPr").map_or("", |properties| self.xml_of(properties));
+        format!(
+            "{}{properties}{}{}",
+            &xml[..first.range().start - start],
+            self.xml_of(drawing),
+            &xml[last.range().end - start..],
         )
     }
 
