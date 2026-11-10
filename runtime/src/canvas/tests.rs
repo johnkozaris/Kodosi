@@ -4,8 +4,8 @@ use base64::Engine as _;
 use serde_json::json;
 
 use super::{
-    BrowserAct, BrowserDoingKind, BrowserPoint, BrowserState, CanvasAnswer, CanvasHandle,
-    CanvasKind, CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES,
+    BROWSER_PIPE, BrowserAct, BrowserDoingKind, BrowserPoint, BrowserState, CanvasAnswer,
+    CanvasHandle, CanvasKind, CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES,
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
     files::{Files, Showing, Stamp, examine_all},
@@ -342,6 +342,32 @@ async fn showing_opens_the_canvas_at_the_first_file_until_that_file_goes() {
         .await
         .unwrap();
     assert_eq!(canvas.current().unwrap().open, None);
+}
+
+#[tokio::test]
+async fn a_browser_that_came_back_asleep_keeps_its_page_for_the_next_start() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::canvas::CanvasServices::new(folder.path(), true),
+    );
+    let page = "https://example.com/report";
+    canvas.restore(Vec::new(), Some(page.to_owned()), uuid::Uuid::now_v7());
+    canvas
+        .state()
+        .wait_for(|canvas| canvas.browser.is_some())
+        .await
+        .unwrap();
+    assert_eq!(canvas.address().as_deref(), Some(page));
+
+    canvas
+        .request(CanvasRequest::Remove {
+            keys: vec![BROWSER_PIPE.to_owned()],
+        })
+        .await
+        .unwrap();
+    assert_eq!(canvas.address(), None);
 }
 
 #[tokio::test]

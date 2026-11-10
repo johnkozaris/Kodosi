@@ -211,6 +211,12 @@ impl Browser {
         self.activity(|activity| activity.address = address);
     }
 
+    /// The web page that the browser opens when it wakes: the last one that it showed, or the
+    /// one of [`Self::reopen_at`].
+    pub(super) fn page(&self) -> Option<String> {
+        self.activity(|activity| activity.address.clone())
+    }
+
     fn activity<T>(&self, use_it: impl FnOnce(&mut Activity) -> T) -> T {
         use_it(
             &mut self
