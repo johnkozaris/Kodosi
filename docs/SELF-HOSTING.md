@@ -62,6 +62,24 @@ seconds. Give it a confidential client with only a service account and the
 | `Auth__AccountDeletion__ClientSecret` | Client secret |
 | `Auth__AccountDeletion__AdminUrl` | Optional Keycloak admin address (HTTPS or loopback HTTP) when the public one refuses `/admin` |
 
+## Push notifications
+
+The backend sends a push notification to a person's iPhone, iPad and Android devices when
+one of their terminals starts to wait, finishes or fails. Without these settings it sends
+none. Set those of Apple, of Google or both. Apple delivers only to the apps of the team
+that owns the key, and Google only to the apps of the Firebase project:
+
+| Variable | Value |
+| --- | --- |
+| `Push__Apns__TeamId` | Apple team ID |
+| `Push__Apns__KeyId` | Key ID of the APNs authentication key |
+| `Push__Apns__PrivateKey` | Text of the key's `.p8` file |
+| `Push__Apns__Topic` | Bundle ID of the iPhone and iPad app, `com.kodosi.mobile` |
+| `Push__Fcm__ProjectId` | Firebase project ID |
+| `Push__Fcm__ServiceAccount` | JSON text of a Google service account that may send Firebase Cloud Messaging messages |
+
+A part of either set, or a key that does not load, stops the backend at start.
+
 ## Plans
 
 Without plans, an account can have 10 devices, own 64 rooms of 64 members, share a

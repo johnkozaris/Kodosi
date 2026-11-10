@@ -149,6 +149,20 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    #[serde(rename = "push.register")]
+    RegisterPush {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        platform: PushPlatform,
+        token: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        environment: Option<PushEnvironment>,
+    },
+    #[serde(rename = "push.unregister")]
+    UnregisterPush {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "friends.refresh")]
     RefreshFriends {
         #[serde(rename = "requestId")]
@@ -812,6 +826,20 @@ pub struct StartSize {
     pub cell_height_pixels: u32,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum PushPlatform {
+    Apns,
+    Fcm,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum PushEnvironment {
+    Development,
+    Production,
+}
+
 /// A browser of this computer whose sign-ins Settings › Browser can copy.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1042,6 +1070,17 @@ pub enum EventBody {
     },
     #[serde(rename = "devices.error")]
     DevicesError {
+        request_id: String,
+        operation: String,
+        message: Text,
+    },
+    #[serde(rename = "push.result")]
+    PushResult {
+        request_id: String,
+        operation: String,
+    },
+    #[serde(rename = "push.error")]
+    PushError {
         request_id: String,
         operation: String,
         message: Text,
@@ -1560,6 +1599,8 @@ impl EventBody {
             | Self::FriendsError { request_id, .. }
             | Self::DevicesResult { request_id, .. }
             | Self::DevicesError { request_id, .. }
+            | Self::PushResult { request_id, .. }
+            | Self::PushError { request_id, .. }
             | Self::SessionResult { request_id, .. }
             | Self::SessionError { request_id, .. }
             | Self::RoomResult { request_id, .. }
@@ -1610,6 +1651,8 @@ impl EventBody {
             Self::DeviceLinkSelfResolved { .. } => "devices.link.selfResolved",
             Self::DevicesResult { .. } => "devices.result",
             Self::DevicesError { .. } => "devices.error",
+            Self::PushResult { .. } => "push.result",
+            Self::PushError { .. } => "push.error",
             Self::SessionsSnapshot { .. } => "sessions.snapshot",
             Self::SessionShow { .. } => "session.show",
             Self::SessionPicture { .. } => "session.picture",
@@ -1692,6 +1735,7 @@ fn validated_command<'de, D: Deserializer<'de>>(
 }
 
 impl Command {
+    #[expect(clippy::too_many_lines, reason = "one name for every command")]
     pub fn operation(&self) -> &'static str {
         match self {
             Self::Login { .. } => "auth.login.start",
@@ -1711,6 +1755,8 @@ impl Command {
             Self::CancelReset { .. } => "devices.reset.cancel",
             Self::CreateRecoveryKey { .. } => "devices.recovery.create",
             Self::UseRecoveryKey { .. } => "devices.recovery.use",
+            Self::RegisterPush { .. } => "push.register",
+            Self::UnregisterPush { .. } => "push.unregister",
             Self::RefreshFriends { .. } => "friends.refresh",
             Self::RequestFriend { .. } => "friends.request.send",
             Self::AcceptFriend { .. } => "friends.request.accept",
@@ -1824,6 +1870,7 @@ impl Command {
         )
     }
 
+    #[expect(clippy::too_many_lines, reason = "one arm for every command")]
     pub fn request_id(&self) -> &str {
         match self {
             Self::Resize { identity, .. } => &identity.request_id,
@@ -1844,6 +1891,8 @@ impl Command {
             | Self::CancelReset { request_id, .. }
             | Self::CreateRecoveryKey { request_id }
             | Self::UseRecoveryKey { request_id, .. }
+            | Self::RegisterPush { request_id, .. }
+            | Self::UnregisterPush { request_id }
             | Self::RefreshFriends { request_id }
             | Self::RequestFriend { request_id, .. }
             | Self::AcceptFriend { request_id, .. }
@@ -2364,6 +2413,12 @@ impl Command {
         self.validate_canvas()?;
         match self {
             Self::RevokeDevice { device_id, .. } => text(device_id, "deviceId", 1024)?,
+            Self::RegisterPush {
+                platform,
+                token,
+                environment,
+                ..
+            } => push_token(*platform, token, *environment)?,
             Self::CancelReset { reset_id, .. } => parse_id(reset_id).map(drop)?,
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
             Self::CheckDevice { code, .. } | Self::ApproveDevice { code, .. } => {
@@ -2564,6 +2619,33 @@ fn writing(value: &str, label: &str, maximum: usize) -> Result<()> {
     Ok(())
 }
 
+fn push_token(
+    platform: PushPlatform,
+    token: &str,
+    environment: Option<PushEnvironment>,
+) -> Result<()> {
+    let refusal = match (platform, environment) {
+        (PushPlatform::Apns, None) => {
+            "An APNs token needs the environment development or production."
+        }
+        (PushPlatform::Apns, Some(_))
+            if !(64..=200).contains(&token.len())
+                || !token.bytes().all(|byte| byte.is_ascii_hexdigit()) =>
+        {
+            "An APNs token has 64 to 200 hexadecimal digits."
+        }
+        (PushPlatform::Fcm, Some(_)) => "An FCM token has no environment.",
+        (PushPlatform::Fcm, None)
+            if !(1..=4096).contains(&token.len())
+                || !token.bytes().all(|byte| matches!(byte, b' '..=b'~')) =>
+        {
+            "An FCM token has 1 to 4096 printable ASCII characters."
+        }
+        _ => return Ok(()),
+    };
+    Err(Error::Invalid(refusal.to_owned()))
+}
+
 fn agent_start(start: &AgentStart) -> Result<()> {
     if let Some(account) = &start.account {
         text(account, "account", 128)?;
@@ -2727,6 +2809,7 @@ mod tests {
         value
     }
 
+    #[expect(clippy::too_many_lines, reason = "one sample of every command")]
     fn commands() -> Vec<Value> {
         let mut values = [
             "auth.login.start",
@@ -2746,6 +2829,7 @@ mod tests {
             "session.restore",
             "session.folders",
             "mission.list",
+            "push.unregister",
         ]
         .into_iter()
         .map(|kind| json!({"type":kind,"requestId":ID}))
@@ -2759,6 +2843,8 @@ mod tests {
             json!({"type":"devices.link.check","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.link.approve","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.recovery.use","requestId":ID,"key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
+            json!({"type":"push.register","requestId":ID,"platform":"apns","token":"0f".repeat(32),"environment":"production"}),
+            json!({"type":"push.register","requestId":ID,"platform":"fcm","token":"fcm:token-1"}),
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
             json!({"type":"friends.block","username":"example","requestId":ID}),
             json!({"type":"friends.unblock","username":"example","requestId":ID}),
@@ -2850,7 +2936,44 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 70);
+        assert_eq!(kinds.len(), 72);
+    }
+
+    #[test]
+    fn a_push_token_has_the_form_and_environment_of_its_platform() {
+        let register = |platform: &str, token: &str, environment: Option<&str>| {
+            let mut value =
+                json!({"type":"push.register","requestId":ID,"platform":platform,"token":token});
+            if let Some(environment) = environment {
+                value["environment"] = json!(environment);
+            }
+            serde_json::from_value::<CommandEnvelope>(envelope(value))
+        };
+        let apple = "0F".repeat(32);
+        assert!(register("apns", &apple, Some("development")).is_ok());
+        assert!(register("apns", &"a".repeat(200), Some("production")).is_ok());
+        assert!(register("fcm", "fcm:token-1", None).is_ok());
+        for operation in ["push.register", "push.unregister"] {
+            let answer = json!({"type":"push.result","requestId":ID,"operation":operation});
+            assert!(Event::new(None, 0, answer).unwrap().event.is_answer());
+        }
+        for (platform, token, environment) in [
+            ("apns", apple.clone(), None),
+            ("apns", apple, Some("staging")),
+            ("apns", "a".repeat(63), Some("production")),
+            ("apns", "a".repeat(201), Some("production")),
+            ("apns", "g".repeat(64), Some("production")),
+            ("fcm", "fcm:token-1".to_owned(), Some("production")),
+            ("fcm", String::new(), None),
+            ("fcm", "f".repeat(4097), None),
+            ("fcm", "fcm\ttoken".to_owned(), None),
+            ("gcm", "fcm:token-1".to_owned(), None),
+        ] {
+            assert!(
+                register(platform, &token, environment).is_err(),
+                "{platform} {token:?} {environment:?}"
+            );
+        }
     }
 
     #[test]

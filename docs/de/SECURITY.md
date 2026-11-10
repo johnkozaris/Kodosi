@@ -49,6 +49,9 @@ Download den SHA-256 hat, den der Feed angibt.
 Der Dienst sieht Konto- und Gerätedaten, Raummitgliedschaften, Metadaten von Räumen und
 Terminals, den Agent und den Zustand jedes Terminals (etwa arbeitet oder wartet auf eine
 Freigabe, nie seinen Text), Routing-Felder, Zeitpunkte und die Größen der Chiffretexte.
+Push-Benachrichtigungen an dein iPhone, iPad oder Android-Gerät laufen über den Push-Dienst
+von Apple oder Google, der die IDs des Terminals und seines Computers, den Agent, die Position
+des Agent-Kontos und den Zustand sieht, nie Namen oder Text.
 Verschlüsselung verbirgt diese Metadaten nicht und verhindert keinen Ausfall. Ein Gerät, das
 du entfernst, verliert ab dann den Zugriff. Nachdem du ein verlorenes oder gestohlenes Gerät
 entfernt hast, erstelle einen neuen Wiederherstellungsschlüssel, um dieses Gerät draußen zu

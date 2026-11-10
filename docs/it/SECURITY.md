@@ -48,7 +48,10 @@ feed.
 Il servizio vede i dati di account e dispositivi, i membri delle stanze, i metadati di stanze
 e terminali, l'agente e lo stato di ogni terminale (ad esempio al lavoro o in attesa di
 un'approvazione, mai il suo testo), i campi di instradamento, i tempi e le dimensioni del
-testo cifrato. La crittografia non nasconde questi metadati e non evita un'interruzione del
+testo cifrato. Le notifiche push al tuo iPhone, iPad o dispositivo Android passano dal
+servizio push di Apple o di Google, che vede gli ID del terminale e del suo computer,
+l'agente, la posizione dell'account dell'agente e lo stato, mai nomi o testo. La
+crittografia non nasconde questi metadati e non evita un'interruzione del
 servizio. Un dispositivo che rimuovi perde l'accesso da quel momento. Dopo aver rimosso un
 dispositivo perso o rubato, crea una nuova chiave di recupero per tenerlo fuori. Quando
 qualcuno ricomincia da zero sul tuo account mentre hai dei dispositivi, si attende un giorno

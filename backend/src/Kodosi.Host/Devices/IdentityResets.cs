@@ -73,6 +73,7 @@ public sealed partial class DeviceService
             throw ApiException.Forbidden("An existing trusted device must approve this device.");
         var devices = await db.Devices.Where(x => x.UserId == userId && !x.Revoked).ToListAsync(ct);
         foreach (var device in devices) device.Revoked = true;
+        await db.PushTokens.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
         if (await db.DeviceLists.SingleOrDefaultAsync(x => x.UserId == userId, ct) is { } list) db.DeviceLists.Remove(list);
         await db.FriendLists.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
         await db.DeviceLinks.Where(x => x.UserId == userId && x.State == "pending")

@@ -7,6 +7,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<User> Users => Set<User>();
     public DbSet<DeletedAccount> DeletedAccounts => Set<DeletedAccount>();
     public DbSet<Device> Devices => Set<Device>();
+    public DbSet<PushToken> PushTokens => Set<PushToken>();
     public DbSet<DeviceList> DeviceLists => Set<DeviceList>();
     public DbSet<DeviceLink> DeviceLinks => Set<DeviceLink>();
     public DbSet<IdentityReset> IdentityResets => Set<IdentityReset>();
@@ -55,6 +56,18 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.SignerDeviceId).HasMaxLength(256);
             e.HasIndex(x => x.UserId);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<PushToken>(e =>
+        {
+            e.ToTable("push_tokens"); e.HasKey(x => x.DeviceId);
+            e.Property(x => x.DeviceId).HasMaxLength(256);
+            e.Property(x => x.Platform).HasMaxLength(8);
+            e.Property(x => x.Token).HasMaxLength(4096);
+            e.Property(x => x.Environment).HasMaxLength(16);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.Token).HasMethod("hash");
+            e.HasOne<Device>().WithOne().HasForeignKey<PushToken>(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<DeviceList>(e =>
         {

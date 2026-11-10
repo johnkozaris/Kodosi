@@ -50,7 +50,10 @@ téléchargement a le SHA-256 indiqué par le flux.
 Le service voit les données des comptes et des appareils, les membres des salons, les
 métadonnées des salons et des terminaux, l'agent et l'état de chaque terminal (par exemple en
 cours ou en attente d'une approbation, jamais son texte), les champs de routage, les horaires
-et la taille des textes chiffrés. Le chiffrement ne cache pas ces métadonnées et n'empêche pas
+et la taille des textes chiffrés. Les notifications push vers votre iPhone, iPad ou appareil
+Android passent par le service push d'Apple ou de Google, qui voit les identifiants du
+terminal et de son ordinateur, l'agent, la place du compte de l'agent et l'état, jamais de
+noms ni de texte. Le chiffrement ne cache pas ces métadonnées et n'empêche pas
 une panne. Un appareil que vous retirez perd l'accès dès ce moment. Après avoir retiré un
 appareil perdu ou volé, créez une nouvelle clé de récupération pour garder cet appareil
 dehors. Quand quelqu'un repart de zéro sur votre compte alors que vous avez des appareils,

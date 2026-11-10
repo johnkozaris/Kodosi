@@ -47,7 +47,10 @@ el SHA-256 que indica el feed.
 El servicio ve los registros de cuentas y dispositivos, los miembros de las salas, los
 metadatos de salas y terminales, el agente y el estado de cada terminal (como trabajando o
 esperando una aprobación, nunca su texto), los campos de enrutamiento, los tiempos y los
-tamaños del texto cifrado. El cifrado no oculta estos metadatos ni evita una caída del
+tamaños del texto cifrado. Las notificaciones push a tu iPhone, iPad o dispositivo Android
+pasan por el servicio push de Apple o de Google, que ve los ID del terminal y de su
+ordenador, el agente, la posición de la cuenta del agente y el estado, nunca nombres ni
+texto. El cifrado no oculta estos metadatos ni evita una caída del
 servicio. Un dispositivo que quitas pierde el acceso desde ese momento. Después de quitar un
 dispositivo perdido o robado, crea una clave de recuperación nueva para mantenerlo fuera.
 Cuando alguien empieza de cero en tu cuenta mientras tienes dispositivos, eso espera un día y

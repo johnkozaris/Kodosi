@@ -500,6 +500,7 @@ impl BackendClient {
                 });
             }
             "auth.logout" => {
+                self.unregister_push_before_sign_out().await;
                 self.logout().await?;
                 events.push(json!({"type":"auth.required","reason":"signedOut"}));
             }
@@ -582,6 +583,8 @@ impl BackendClient {
             "devices.recovery.use" => {
                 events.extend(self.use_recovery_key(wire::text(&args, "key")?).await?);
             }
+            "push.register" => self.register_push(&args).await?,
+            "push.unregister" => self.unregister_push().await?,
             "room.command" => events.extend(self.room_command(&args).await?),
             "friends.refresh" => events.push(self.friend_event().await?),
             operation if operation.starts_with("friends.") => {
@@ -1417,6 +1420,7 @@ mod device_identity;
 mod enrollment;
 mod friends;
 mod notifications;
+mod push;
 mod recovery;
 mod rooms;
 mod terminal_close;

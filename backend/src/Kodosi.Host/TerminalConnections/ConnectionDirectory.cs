@@ -16,6 +16,7 @@ public sealed class ConnectionDirectory
     private readonly ConcurrentDictionary<Guid, Pipe> pipes = new();
 
     internal event Action<Guid>? HostChanged;
+    internal event Action<TerminalReport>? Reported;
 
     public ConnectionDirectory() : this(RelayBudget.ServerBytes) { }
 
@@ -26,6 +27,15 @@ public sealed class ConnectionDirectory
     public (bool Online, TerminalStatus? Status) Live(Guid sessionId)
     {
         lock (sync) return hosted.TryGetValue(sessionId, out var live) && live.Host.Connection.IsOpen ? (true, live.Status) : (false, null);
+    }
+
+    internal int Blocked(Guid userId)
+    {
+        lock (sync)
+            return accounts.TryGetValue(userId, out var devices)
+                ? devices.Values.Where(entry => entry.Connection.IsOpen)
+                    .Sum(entry => entry.Hosted.Count(sessionId => hosted[sessionId].Status?.State == "blocked"))
+                : 0;
     }
 
     internal (int Devices, int Pipes, int Hosted) Counts()
@@ -118,7 +128,7 @@ public sealed class ConnectionDirectory
                 if (live.Host == entry && live.IncarnationId == session.IncarnationId) return;
                 EndPipesLocked(live.Pipes, 409, "This terminal was replaced.", afterUnlock);
                 live.Host.Hosted.Remove(session.Id);
-                live.Host = entry; live.IncarnationId = session.IncarnationId; live.Status = null;
+                live.Host = entry; live.IncarnationId = session.IncarnationId; live.Status = null; live.Reported = false;
             }
             else
             {
@@ -133,13 +143,18 @@ public sealed class ConnectionDirectory
 
     internal void Share(DeviceConnection connection, Guid sessionId, Guid incarnationId, TerminalStatus? status)
     {
+        TerminalReport report;
         lock (sync)
         {
-            if (!hosted.TryGetValue(sessionId, out var live) || live.Host.Connection != connection || live.IncarnationId != incarnationId
-                || live.Status == status) return;
+            if (!hosted.TryGetValue(sessionId, out var live) || live.Host.Connection != connection || live.IncarnationId != incarnationId) return;
+            var first = !live.Reported;
+            live.Reported = true;
+            if (live.Status == status) return;
+            report = new TerminalReport(sessionId, connection.UserId, connection.DeviceId, live.Status, status, first);
             live.Status = status;
         }
         HostChanged?.Invoke(sessionId);
+        Reported?.Invoke(report);
     }
 
     internal void Unhost(DeviceConnection connection, Guid sessionId)
@@ -340,6 +355,7 @@ public sealed class ConnectionDirectory
         public Guid IncarnationId { get; set; } = incarnationId;
         public Entry Host { get; set; } = host;
         public TerminalStatus? Status { get; set; }
+        public bool Reported { get; set; }
         public HashSet<Guid> Pipes { get; } = [];
     }
 
