@@ -24,6 +24,7 @@ import { EditorView } from "@tiptap/pm/view";
 import Konva from "konva";
 import { Plus, TextCursorInput, Trash2, Undo2 } from "lucide";
 import { collab, receiveTransaction, sendableSteps } from "prosemirror-collab";
+import { newId } from "./ids";
 import {
   type Link,
   layOut,
@@ -649,7 +650,7 @@ class PptxEditor implements Editor, Pictures {
     const slide = this.slide();
     if (!slide) return;
     const shape: Shape = {
-      id: crypto.randomUUID(),
+      id: newId(slide.shapes.map((known) => known.id)),
       name: "Text box",
       kind: "shape",
       placeholder: null,
@@ -682,7 +683,7 @@ class PptxEditor implements Editor, Pictures {
     const index = deck.slides.findIndex((slide) => slide.id === this.current);
     const change: Change = {
       kind: "addSlide",
-      slide: crypto.randomUUID(),
+      slide: newId(deck.slides.map((slide) => slide.id)),
       position: this.positionAt(index + 1),
     };
     this.showChange(change);

@@ -7,7 +7,7 @@ use serde_json::{Map, Value, json};
 use sha2::{Digest as _, Sha256};
 use text::{Fragment, Mark, Node};
 
-use crate::model::{Model, Shape, Slide, schema};
+use crate::model::{Model, SHAPE_IDS, Shape, Slide, number_in, schema};
 
 pub(crate) const PRESENTATION: &str = "ppt/presentation.xml";
 const LAYOUT_KIND: &str = "slideLayout";
@@ -619,6 +619,15 @@ fn slide_ids(
         .collect()
 }
 
+/// The highest id of a shape on a slide, in a group too.
+fn last_shape(root: Xml<'_, '_>) -> u64 {
+    root.descendants()
+        .filter(|node| node.is_element() && node.tag_name().name() == "cNvPr")
+        .filter_map(|node| number_in(node.attribute("id")?, &SHAPE_IDS))
+        .max()
+        .unwrap_or(0)
+}
+
 fn inherited(master: Option<&str>, layout: Option<&str>) -> Inherited {
     let [title, body, other] = master.map(text_styles).unwrap_or_default();
     Inherited {
@@ -726,6 +735,7 @@ pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable
             behind,
             background,
             text_look: inherited.text_look(None, None),
+            last_shape: last_shape(parsed.root_element()),
         });
     }
     model.theme = theme_of(&mut package, first_master.as_deref());
