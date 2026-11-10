@@ -40,12 +40,12 @@ Item {
     SequentialAnimation {
         id: glow
         PauseAnimation { duration: root.delay }
-        OpacityAnimator { target: glint; from: 0; to: 0.4; duration: 140; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
-        OpacityAnimator { target: glint; from: 0.4; to: 0; duration: 500; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+        NumberAnimation { target: glint; property: "opacity"; from: 0; to: 0.4; duration: 140; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+        NumberAnimation { target: glint; property: "opacity"; from: 0.4; to: 0; duration: 500; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
     }
     ParallelAnimation {
         id: pulse
-        ScaleAnimator { target: ring; from: 1; to: 1.5; duration: 600; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
-        OpacityAnimator { target: ring; from: 0.9; to: 0; duration: 600; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+        NumberAnimation { target: ring; property: "scale"; from: 1; to: 1.5; duration: 600; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
+        NumberAnimation { target: ring; property: "opacity"; from: 0.9; to: 0; duration: 600; easing.type: Easing.BezierSpline; easing.bezierCurve: KodosiTheme.outCurve }
     }
 }

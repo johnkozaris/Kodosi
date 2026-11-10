@@ -22,8 +22,8 @@ Item {
         loops: Animation.Infinite
         alwaysRunToEnd: true
         PauseAnimation { duration: 520 }
-        OpacityAnimator { target: block; from: 1; to: 0.2; duration: 90 }
+        NumberAnimation { target: block; property: "opacity"; from: 1; to: 0.2; duration: 90 }
         PauseAnimation { duration: 420 }
-        OpacityAnimator { target: block; from: 0.2; to: 1; duration: 90 }
+        NumberAnimation { target: block; property: "opacity"; from: 0.2; to: 1; duration: 90 }
     }
 }

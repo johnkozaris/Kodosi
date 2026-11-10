@@ -44,9 +44,9 @@ Item {
     }
     SequentialAnimation {
         id: flash
-        OpacityAnimator { target: rim; from: 0; to: 1; duration: 120 }
+        NumberAnimation { target: rim; property: "opacity"; from: 0; to: 1; duration: 120 }
         PauseAnimation { duration: 300 }
-        OpacityAnimator { target: rim; from: 1; to: 0; duration: 900; easing.type: Easing.InOutCubic }
+        NumberAnimation { target: rim; property: "opacity"; from: 1; to: 0; duration: 900; easing.type: Easing.InOutCubic }
     }
     Item {
         anchors.top: parent.top

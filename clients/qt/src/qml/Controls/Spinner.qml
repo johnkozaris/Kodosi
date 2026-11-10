@@ -33,7 +33,7 @@ Item {
         anchors.fill: parent
         preferredRendererType: Shape.CurveRenderer
 
-        RotationAnimator on rotation {
+        NumberAnimation on rotation {
             from: 0
             to: 360
             duration: 800
