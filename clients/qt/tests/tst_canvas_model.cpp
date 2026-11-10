@@ -491,6 +491,27 @@ private slots:
         QCOMPARE(model.browserProblem(), QStringLiteral("The profile could not go."));
         QVERIFY(!model.browserDone().contains(QStringLiteral("clear")));
     }
+
+    void theBrowserWorkOfAStoppedRuntimeEnds()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions);
+        model.openBrowserSettings();
+        model.getBrowser();
+        QCOMPARE(model.browserWork(), QStringLiteral("engine"));
+        const auto step = commands.values.last().value(QStringLiteral("requestId"));
+        QSignalSpy changed(&model, &kodosi::CanvasModel::browserChanged);
+        model.reset();
+        QVERIFY(model.browserWork().isEmpty());
+        QCOMPARE(changed.size(), 1);
+        model.applyBrowser({ { QStringLiteral("type"), QStringLiteral("browser.result") },
+            { QStringLiteral("operation"), QStringLiteral("browser.get") }, { QStringLiteral("requestId"), step } });
+        QCOMPARE(changed.size(), 1);
+        model.getBrowser();
+        QCOMPARE(model.browserWork(), QStringLiteral("engine"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.get"));
+    }
 };
 
 QTEST_MAIN(CanvasModelTest)
