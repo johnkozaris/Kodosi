@@ -688,7 +688,7 @@ impl BackendClient {
                         .get("missionId")
                         .and_then(Value::as_str)
                         .map(|room| {
-                            Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))
+                            Uuid::parse_str(room).map_err(|_| invalid("Invalid project identity."))
                         })
                         .transpose()?;
                     let history = if let Some(room) = room {
@@ -961,7 +961,7 @@ impl BackendClient {
                             Some(json!({"keys":keys})),
                         )
                     }
-                    _ => return Err(invalid("Unsupported room operation.")),
+                    _ => return Err(invalid("Unsupported project operation.")),
                 }
             }
         };
@@ -999,7 +999,7 @@ impl BackendClient {
             })
             .and_then(|item| item["missionId"].as_str())
             .ok_or_else(|| Error::Text(text!("This invitation is unavailable.")))?;
-        let room = Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity."))?;
+        let room = Uuid::parse_str(room).map_err(|_| invalid("Invalid project identity."))?;
         let keys = self
             .prepare_room_membership(credentials, room, None, Some(&credentials.user_id))
             .await?;

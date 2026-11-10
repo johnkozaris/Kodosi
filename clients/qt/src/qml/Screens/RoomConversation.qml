@@ -505,7 +505,7 @@ Item {
                             if (text !== (root.presentation.message || ""))
                                 Models.Missions.setPresentation("message", text);
                         }
-                        placeholderText: qsTr("Message the room")
+                        placeholderText: qsTr("Message the project")
                         color: KodosiTheme.ink
                         placeholderTextColor: KodosiTheme.inkFaint
                         selectionColor: KodosiTheme.accent
@@ -519,7 +519,7 @@ Item {
                         background: null
                         objectName: "room.message.input"
                         Accessible.id: objectName
-                        Accessible.name: qsTr("Message the room")
+                        Accessible.name: qsTr("Message the project")
                         Keys.onPressed: event => {
                             const choosing = root.suggestions.length > 0;
                             if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {

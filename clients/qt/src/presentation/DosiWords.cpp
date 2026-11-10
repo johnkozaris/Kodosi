@@ -80,7 +80,7 @@ QString DosiWords::target(const QVariantMap& where)
     if (kind == QStringLiteral("terminals"))
         return tr("the terminals");
     if (kind == QStringLiteral("rooms"))
-        return tr("the rooms");
+        return tr("the projects");
     return where.value(QStringLiteral("value")).toString();
 }
 

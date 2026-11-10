@@ -1067,7 +1067,7 @@ async fn a_room_that_this_device_cannot_read_stops_a_parting_only_when_the_other
     };
     let (without, with) = (Uuid::now_v7(), Uuid::now_v7());
     let other = Uuid::now_v7().to_string();
-    let missing = (404, json!({"error": "Room keys are missing."}));
+    let missing = (404, json!({"error": "Project keys are missing."}));
     let server = scripted_backend(
         listener,
         vec![

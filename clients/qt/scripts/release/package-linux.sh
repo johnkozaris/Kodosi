@@ -69,7 +69,7 @@ cat >"$stage/arch/.PKGINFO" <<EOF
 pkgname = kodosi-bin
 pkgbase = kodosi-bin
 pkgver = ${version}-1
-pkgdesc = Shared terminals and rooms for people and their coding agents
+pkgdesc = Shared terminals and projects for people and their coding agents
 url = https://kodosi.com
 builddate = ${epoch}
 packager = Kodosi Release <support@kodosi.com>

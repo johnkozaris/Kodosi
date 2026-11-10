@@ -58,7 +58,7 @@ bool DesktopFileIntegration::requestDirectory(const QString& purpose, const QStr
     clearError();
     auto* dialog = new QFileDialog;
     m_dialog = dialog;
-    dialog->setWindowTitle(tr("Choose a project folder"));
+    dialog->setWindowTitle(tr("Choose a folder"));
     dialog->setAccessibleName(dialog->windowTitle());
     dialog->setFileMode(QFileDialog::Directory);
     dialog->setOption(QFileDialog::ShowDirsOnly, true);

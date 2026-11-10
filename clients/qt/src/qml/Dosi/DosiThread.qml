@@ -566,7 +566,7 @@ Item {
             spacing: 6
 
             Repeater {
-                model: [qsTr("What needs me?"), qsTr("Sum up my rooms"), qsTr("Tell me when my terminals finish")]
+                model: [qsTr("What needs me?"), qsTr("Sum up my projects"), qsTr("Tell me when my terminals finish")]
 
                 KButton {
                     id: ask

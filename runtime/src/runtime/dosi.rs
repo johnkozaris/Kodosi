@@ -305,7 +305,7 @@ impl Runtime {
                 .find(|mission| mission.get("id").and_then(Value::as_str) == Some(id))?
                 .get("name")?
                 .as_str()
-                .map(|name| format!("the room \"{name}\""))
+                .map(|name| format!("the project \"{name}\""))
         });
         match (terminal, room) {
             (Some(terminal), Some(room)) => Some(format!(

@@ -2,23 +2,23 @@
 
 [English](../SECURITY.md) · **Deutsch** · [Ελληνικά](../el/SECURITY.md) · [Español](../es/SECURITY.md) · [Français](../fr/SECURITY.md) · [Italiano](../it/SECURITY.md) · [日本語](../ja/SECURITY.md) · [한국어](../ko/SECURITY.md) · [简体中文](../zh-Hans/SECURITY.md)
 
-Deine Geräte verschlüsseln den Terminal-Verkehr und die Inhalte der Räume Ende-zu-Ende.
+Deine Geräte verschlüsseln den Terminal-Verkehr und die Inhalte der Projekte Ende-zu-Ende.
 Private Schlüssel bleiben auf den Geräten. Das Backend leitet Verbindungen weiter und
-speichert verschlüsselte Raumdaten; es führt nie Befehle aus und sieht nie ihren Klartext.
+speichert verschlüsselte Projektdaten; es führt nie Befehle aus und sieht nie ihren Klartext.
 Das [Verschlüsselungsdesign](../CRYPTOGRAPHY.md) (Englisch) beschreibt das Bedrohungsmodell,
 die Mechanismen und die bekannten Grenzen; noch hat es keine unabhängige Stelle geprüft.
 
 ## Was Teilen erlaubt
 
 Wer ein Terminal teilt, gibt die volle Kontrolle mit den Betriebssystemrechten des
-Host-Benutzers. Ein Terminal in einem Raum geht an die Freunde seines Eigentümers in diesem
-Raum, auch an Freunde, die später beitreten. Wenn du einen Freund entfernst, verliert er
-deine Terminals, und jeder von euch verlässt die Räume, die dem anderen gehören. Wenn du
+Host-Benutzers. Ein Terminal in einem Projekt geht an die Freunde seines Eigentümers in diesem
+Projekt, auch an Freunde, die später beitreten. Wenn du einen Freund entfernst, verliert er
+deine Terminals, und jeder von euch verlässt die Projekte, die dem anderen gehören. Wenn du
 eine Person blockierst, geschieht dasselbe, und sie kann dir keine Freundschaftsanfragen
 senden. Ein geteiltes Terminal läuft als du: Die Personen darin können auch `kodosi` als du
 ausführen und deine Dateien auf diesem Computer lesen und ändern. Teile es also nur mit
 Personen, denen du diesen Computer anvertraust. Kodosi vertraut allen, die ein Terminal oder
-einen Raum teilen, sowie den Programmen und Agents in ihren Terminals, und schränkt nicht
+ein Projekt teilen, sowie den Programmen und Agents in ihren Terminals, und schränkt nicht
 ein, was sie tun. Jedes deiner freigegebenen Geräte steuert all deine Terminals und kann
 neue auf deinen anderen Computern starten, auf denen Kodosi läuft. Von jedem deiner Geräte aus kannst du Dosi auf deinen Computern schreiben, und Dosi handelt dort genauso, wie wenn du direkt am Computer schreibst. Ein Gerät, das du entfernst, kann Dosi nicht mehr schreiben.
 
@@ -46,7 +46,7 @@ Download den SHA-256 hat, den der Feed angibt.
 
 ## Was der Dienst sieht
 
-Der Dienst sieht Konto- und Gerätedaten, Raummitgliedschaften, Metadaten von Räumen und
+Der Dienst sieht Konto- und Gerätedaten, Projektmitgliedschaften, Metadaten von Projekten und
 Terminals, den Agent und den Zustand jedes Terminals (etwa arbeitet oder wartet auf eine
 Freigabe, nie seinen Text), Routing-Felder, Zeitpunkte und die Größen der Chiffretexte.
 Push-Benachrichtigungen an dein iPhone, iPad oder Android-Gerät laufen über den Push-Dienst
@@ -60,7 +60,7 @@ Tag, und deine Geräte zeigen es an, damit du es stoppen kannst. Zugangsdaten f�
 Gitea bleiben auf deinem Computer.
 
 Wer ein Konto löscht, entfernt seine Geräte, Wiederherstellungsdaten, Freunde, geteilten
-Terminals und eigenen Räume; Nachrichten in Räumen anderer bleiben ohne Konto stehen. 30 Tage lang behält
+Terminals und eigenen Projekte; Nachrichten in Projekten anderer bleiben ohne Konto stehen. 30 Tage lang behält
 der Dienst Aussteller und Subjekt der gelöschten Anmeldung, um ältere Tokens abzuweisen.
 
 ## Einen Download prüfen

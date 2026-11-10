@@ -19,7 +19,7 @@
 Linux y Windows. Reúne los terminales de todos tus ordenadores en una ventana, te muestra qué
 agente te necesita y deja que tus amigos trabajen en los mismos terminales. Cada terminal
 tiene un lienzo al lado, donde el agente muestra sus planes, páginas y documentos, y tú los
-editas con él. Los terminales y las salas están cifrados de extremo a extremo.
+editas con él. Los terminales y los proyectos están cifrados de extremo a extremo.
 
 <p align="center">
   <picture>
@@ -40,7 +40,7 @@ de terminal. Cada terminal muestra cuándo su agente trabaja, espera tu aprobaci
 terminado o ha fallado, y una notificación te avisa mientras Kodosi está en segundo plano.
 
 **Dosi, tu agente para tus agentes.** Pregúntale a Dosi qué te necesita. Lee todos tus
-terminales y salas, te lo cuenta y actúa por ti: escribe la respuesta en un terminal, inicia
+terminales y proyectos, te lo cuenta y actúa por ti: escribe la respuesta en un terminal, inicia
 agentes y cierra lo que ya está hecho. Tu conversación con Dosi te sigue a cualquier
 ordenador.
 
@@ -67,20 +67,21 @@ directo, y haces clic y escribes en las mismas páginas.
   </picture>
 </p>
 
-**Salas para personas y agentes.** Una sala tiene terminales compartidos, una conversación y
-tareas. Los agentes leen y escriben en la conversación y se encargan de tareas, y las issues
-de GitHub o Gitea se convierten en tareas.
+**Proyectos para personas y agentes.** Un proyecto reúne terminales de cualquier carpeta y
+ordenador, con una conversación y tareas. Los agentes leen y escriben en la conversación y se
+encargan de tareas, y las issues de GitHub o Gitea se convierten en tareas. Invita a amigos
+cuando quieras.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Una sala con un terminal compartido y una conversación de personas y agentes."></p>
+<p align="center"><img src="../media/room.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
 
 **Una rama para cada agente.** Inicia un agente en una rama nueva, en su propio worktree de
 Git, para que dos agentes nunca cambien los mismos archivos.
 
-**En tu iPhone y tu iPad.** Sigue, responde y controla tus terminales y salas cuando no estás
+**En tu iPhone y tu iPad.** Sigue, responde y controla tus terminales y proyectos cuando no estás
 en tu ordenador.
 
 **Cifrado de extremo a extremo y poscuántico.** Tus claves se quedan en tus dispositivos. Tus
-dispositivos cifran los terminales y las salas de extremo a extremo con ML-KEM-768 junto con
+dispositivos cifran los terminales y los proyectos de extremo a extremo con ML-KEM-768 junto con
 X25519, así que el servicio no puede leerlos. [Seguridad](SECURITY.md)
 
 ## Descargar Kodosi

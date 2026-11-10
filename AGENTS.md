@@ -6,7 +6,7 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
 ## Projects
 
 - `runtime/`: the Rust runtime, `kodosi` CLI and C API. It owns terminals, identity,
-  encryption and rooms; a terminal's host owns its process and state. The iOS app uses
+  encryption and projects; a terminal's host owns its process and state. The iOS app uses
   the viewer build (`--no-default-features`), which hosts nothing.
 - `backend/`: ASP.NET Core service that stores metadata and relays encrypted traffic.
   It reads only each terminal's agent and state, never its text. Run one serving
@@ -35,7 +35,7 @@ Read `PRODUCT.md` first. Before changing a client's interface, read that client'
 - Keep full terminal control. Don't add permission tiers, sandboxing or agent workflow
   machinery. Programs in a terminal get what Ghostty gives them, such as clipboard
   writes; don't add limits that Ghostty does not have.
-- Sharing is trust. Don't restrict what the people in a shared terminal or room, or
+- Sharing is trust. Don't restrict what the people in a shared terminal or project, or
   their agents, can do there. Prompt injection is the agent provider's concern; protect
   against the network, the backend and people without access.
 - Leave provider execution, permissions, settings and conversations with the provider.

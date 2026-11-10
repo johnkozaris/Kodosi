@@ -39,7 +39,7 @@ cask "kodosi" do
 
   url "$url"
   name "Kodosi"
-  desc "Shared terminals and rooms for people and their coding agents"
+  desc "Shared terminals and projects for people and their coding agents"
   homepage "https://kodosi.com"
 
   livecheck do

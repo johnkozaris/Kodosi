@@ -263,7 +263,7 @@ struct DosiWelcome: View {
 
     static let asks = [
         String(localized: "What needs me?", bundle: .module),
-        String(localized: "Sum up my rooms", bundle: .module),
+        String(localized: "Sum up my projects", bundle: .module),
         String(localized: "Tell me when my terminals finish", bundle: .module),
     ]
 }

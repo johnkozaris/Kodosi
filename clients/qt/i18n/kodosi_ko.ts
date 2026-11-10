@@ -599,8 +599,8 @@
         <translation>터미널</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>방</translation>
+        <source>Projects</source>
+        <translation>프로젝트</translation>
     </message>
     <message>
         <source>Friends</source>
@@ -623,16 +623,16 @@
         <translation>대화 이어가기</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>새 방</translation>
+        <source>New project</source>
+        <translation>새 프로젝트</translation>
     </message>
     <message>
         <source>Settings</source>
         <translation>설정</translation>
     </message>
     <message>
-        <source>Go to a terminal, a room or a person</source>
-        <translation>터미널, 방 또는 사람으로 이동</translation>
+        <source>Go to a terminal, a project or a person</source>
+        <translation>터미널, 프로젝트 또는 사람으로 이동</translation>
     </message>
     <message>
         <source>Nothing matches.</source>
@@ -733,8 +733,8 @@
         <translation>중지</translation>
     </message>
     <message>
-        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
-        <translation>이 컴퓨터는 %1 이후에 새로 시작할 수 있어요. 그때까지 다른 기기에서 중지할 수 있어요. 다른 기기가 아직 있다면 대신 그 기기에서 이 컴퓨터를 승인하세요. 친구와 방을 그대로 유지할 수 있어요.</translation>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and projects.</source>
+        <translation>이 컴퓨터는 %1 이후에 새로 시작할 수 있어요. 그때까지 다른 기기에서 중지할 수 있어요. 다른 기기가 아직 있다면 대신 그 기기에서 이 컴퓨터를 승인하세요. 친구와 프로젝트를 그대로 유지할 수 있어요.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -793,8 +793,8 @@
         <translation>%1을(를) 승인할까요?</translation>
     </message>
     <message>
-        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
-        <translation>승인하면 그 기기가 내 모든 터미널, 방, 친구를 쓸 수 있어요. 그 기기를 직접 가지고 있을 때만 승인하세요.</translation>
+        <source>It can then use all your terminals, projects and friends. Approve it only if you hold that device.</source>
+        <translation>승인하면 그 기기가 내 모든 터미널, 프로젝트, 친구를 쓸 수 있어요. 그 기기를 직접 가지고 있을 때만 승인하세요.</translation>
     </message>
     <message>
         <source>Make a new recovery key?</source>
@@ -837,8 +837,8 @@
         <translation>새로 시작</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>다른 기기는 이 컴퓨터에서 다시 승인할 때까지 접근할 수 없어요. 친구가 나를 다시 신뢰해야 하고, 방도 다시 만들어야 해요. 계정에 기기가 있으면 이 컴퓨터는 하루를 기다려야 해요. 다른 기기나 복구 키가 있다면 취소하고 그것을 사용하세요. 친구와 방을 그대로 유지할 수 있어요.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
+        <translation>다른 기기는 이 컴퓨터에서 다시 승인할 때까지 접근할 수 없어요. 친구가 나를 다시 신뢰해야 하고, 프로젝트도 다시 만들어야 해요. 계정에 기기가 있으면 이 컴퓨터는 하루를 기다려야 해요. 다른 기기나 복구 키가 있다면 취소하고 그것을 사용하세요. 친구와 프로젝트를 그대로 유지할 수 있어요.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1116,13 +1116,13 @@
         <translation>새 터미널</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>새 방</translation>
+        <source>New project</source>
+        <translation>새 프로젝트</translation>
     </message>
     <message numerus="yes">
-        <source>%n more rooms</source>
+        <source>%n more projects</source>
         <translation>
-            <numerusform>방 %n개 더</numerusform>
+            <numerusform>프로젝트 %n개 더</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -1210,8 +1210,8 @@
         <translation>내가 봐야 할 게 있어?</translation>
     </message>
     <message>
-        <source>Sum up my rooms</source>
-        <translation>내 방들을 요약해 줘</translation>
+        <source>Sum up my projects</source>
+        <translation>내 프로젝트들을 요약해 줘</translation>
     </message>
     <message>
         <source>Tell me when my terminals finish</source>
@@ -1565,8 +1565,8 @@
         <translation>모든 터미널</translation>
     </message>
     <message>
-        <source>the rooms</source>
-        <translation>모든 방</translation>
+        <source>the projects</source>
+        <translation>모든 프로젝트</translation>
     </message>
     <message>
         <source>working on</source>
@@ -1858,12 +1858,12 @@
         <translation>계정 삭제</translation>
     </message>
     <message>
-        <source>Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.</source>
-        <translation>Kodosi가 내 기기, 친구, 공유를 삭제해요. 다른 방에 쓴 글은 그대로 남아요.</translation>
+        <source>Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there.</source>
+        <translation>Kodosi가 내 기기, 친구, 공유를 삭제해요. 다른 프로젝트에 쓴 글은 그대로 남아요.</translation>
     </message>
     <message>
-        <source>These rooms close for everyone in them: %1.</source>
-        <translation>다음 방은 모든 참여자에게 닫혀요: %1.</translation>
+        <source>These projects close for everyone in them: %1.</source>
+        <translation>다음 프로젝트는 모든 참여자에게 닫혀요: %1.</translation>
     </message>
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
@@ -1877,8 +1877,8 @@
         <translation>대화 이어가기</translation>
     </message>
     <message>
-        <source>All projects</source>
-        <translation>모든 프로젝트</translation>
+        <source>All folders</source>
+        <translation>모든 폴더</translation>
     </message>
     <message>
         <source>Close</source>
@@ -1901,8 +1901,8 @@
         <translation>이어가기 전에 여기서 내용을 볼 수 있어요.</translation>
     </message>
     <message>
-        <source>Choose another project, or switch the agent.</source>
-        <translation>다른 프로젝트를 고르거나 에이전트를 바꾸세요.</translation>
+        <source>Choose another folder, or switch the agent.</source>
+        <translation>다른 폴더를 고르거나 에이전트를 바꾸세요.</translation>
     </message>
     <message>
         <source>Show less</source>
@@ -2110,12 +2110,12 @@
 <context>
     <name>MissionsView</name>
     <message>
-        <source>Rooms are for working together</source>
-        <translation>방에서 함께 작업하세요</translation>
+        <source>Work in projects</source>
+        <translation>프로젝트에서 작업하기</translation>
     </message>
     <message>
-        <source>Share terminals, talk, and hand off tasks with people and agents.</source>
-        <translation>터미널을 공유하고, 대화하고, 사람과 에이전트에게 작업을 넘기세요.</translation>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>프로젝트는 어느 폴더와 컴퓨터의 터미널이든 작업, 저장소와 함께 모아요. 친구는 원할 때 초대하세요.</translation>
     </message>
     <message>
         <source>Sign in</source>
@@ -2126,17 +2126,13 @@
         <translation>이 기기 승인</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>방</translation>
-    </message>
-    <message>
-        <source>A room keeps people, agents and terminals in one place.</source>
-        <translation>방에는 사람, 에이전트, 터미널이 한곳에 모여요.</translation>
+        <source>Projects</source>
+        <translation>프로젝트</translation>
     </message>
     <message numerus="yes">
-        <source>%n rooms</source>
+        <source>%n projects</source>
         <translation>
-            <numerusform>방 %n개</numerusform>
+            <numerusform>프로젝트 %n개</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -2146,16 +2142,16 @@
         </translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>새 방</translation>
+        <source>New project</source>
+        <translation>새 프로젝트</translation>
     </message>
     <message>
-        <source>More rooms exist. Use Go to… to find them.</source>
-        <translation>다른 방도 있어요. &apos;이동…&apos;으로 찾아보세요.</translation>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>다른 프로젝트도 있어요. &apos;이동…&apos;으로 찾아보세요.</translation>
     </message>
     <message>
-        <source>Some rooms are not shown</source>
-        <translation>일부 방은 표시되지 않아요</translation>
+        <source>Some projects are not shown</source>
+        <translation>일부 프로젝트는 표시되지 않아요</translation>
     </message>
     <message>
         <source>%1 invited you</source>
@@ -2200,20 +2196,20 @@
         </translation>
     </message>
     <message>
-        <source>Make your first room</source>
-        <translation>첫 방 만들기</translation>
+        <source>Make your first project</source>
+        <translation>첫 프로젝트 만들기</translation>
     </message>
     <message>
-        <source>Room name</source>
-        <translation>방 이름</translation>
+        <source>Project name</source>
+        <translation>프로젝트 이름</translation>
     </message>
     <message>
         <source>Cancel</source>
         <translation>취소</translation>
     </message>
     <message>
-        <source>Create room</source>
-        <translation>방 만들기</translation>
+        <source>Create project</source>
+        <translation>프로젝트 만들기</translation>
     </message>
 </context>
 <context>
@@ -2383,8 +2379,8 @@
         <translation>차단</translation>
     </message>
     <message>
-        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
-        <translation>이 사람은 나에게 친구 요청을 보낼 수 없어요. 친구라면 서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요.</translation>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
+        <translation>이 사람은 나에게 친구 요청을 보낼 수 없어요. 친구라면 서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 프로젝트에서 나가요.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2395,8 +2391,8 @@
         <translation>제거</translation>
     </message>
     <message>
-        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
-        <translation>서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 프로젝트에서 나가요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요.</translation>
     </message>
 </context>
 <context>
@@ -2499,8 +2495,8 @@
 <context>
     <name>RoomContent</name>
     <message>
-        <source>Room name</source>
-        <translation>방 이름</translation>
+        <source>Project name</source>
+        <translation>프로젝트 이름</translation>
     </message>
     <message numerus="yes">
         <source>%n people</source>
@@ -2527,16 +2523,16 @@
         <translation>저장소</translation>
     </message>
     <message>
-        <source>Room action failed</source>
-        <translation>방 동작을 실행하지 못했어요</translation>
+        <source>Project action failed</source>
+        <translation>프로젝트 동작을 실행하지 못했어요</translation>
     </message>
     <message>
-        <source>Room members</source>
-        <translation>방 멤버</translation>
+        <source>Project members</source>
+        <translation>프로젝트 멤버</translation>
     </message>
     <message>
-        <source>In this room</source>
-        <translation>이 방에서</translation>
+        <source>In this project</source>
+        <translation>이 프로젝트에서</translation>
     </message>
     <message>
         <source>%1 (you)</source>
@@ -2547,8 +2543,8 @@
         <translation>소유자</translation>
     </message>
     <message>
-        <source>Remove %1 from the room</source>
-        <translation>%1 님을 방에서 내보내기</translation>
+        <source>Remove %1 from the project</source>
+        <translation>%1 님을 프로젝트에서 내보내기</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2573,8 +2569,8 @@
         </translation>
     </message>
     <message>
-        <source>Room options</source>
-        <translation>방 옵션</translation>
+        <source>Project options</source>
+        <translation>프로젝트 옵션</translation>
     </message>
     <message>
         <source>Rename</source>
@@ -2589,12 +2585,12 @@
         <translation>새로고침</translation>
     </message>
     <message>
-        <source>Delete room…</source>
-        <translation>방 삭제…</translation>
+        <source>Delete project…</source>
+        <translation>프로젝트 삭제…</translation>
     </message>
     <message>
-        <source>Leave room…</source>
-        <translation>방 나가기…</translation>
+        <source>Leave project…</source>
+        <translation>프로젝트 나가기…</translation>
     </message>
     <message>
         <source>Share with %1</source>
@@ -2625,16 +2621,16 @@
         <translation>아직 여기에 터미널이 없어요</translation>
     </message>
     <message>
-        <source>Add one. Your friends in the room get full control.</source>
-        <translation>터미널을 추가해 보세요. 방에 있는 친구들이 전체 권한을 가져요.</translation>
+        <source>Add one. Your friends in the project get full control.</source>
+        <translation>터미널을 추가해 보세요. 프로젝트에 있는 친구들이 전체 권한을 가져요.</translation>
     </message>
     <message>
         <source>Open a terminal</source>
         <translation>터미널 열기</translation>
     </message>
     <message>
-        <source>The room did not load</source>
-        <translation>방을 불러오지 못했어요</translation>
+        <source>The project did not load</source>
+        <translation>프로젝트를 불러오지 못했어요</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2645,8 +2641,8 @@
         <translation>대화 크기 조절</translation>
     </message>
     <message>
-        <source>Remove from room</source>
-        <translation>방에서 제거</translation>
+        <source>Remove from project</source>
+        <translation>프로젝트에서 제거</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -2670,7 +2666,7 @@
     </message>
     <message>
         <source>You lose its terminals, conversation and tasks.</source>
-        <translation>이 방의 터미널, 대화, 작업에 접근할 수 없게 돼요.</translation>
+        <translation>이 프로젝트의 터미널, 대화, 작업에 접근할 수 없게 돼요.</translation>
     </message>
 </context>
 <context>
@@ -2774,8 +2770,8 @@
         <translation>사람이나 터미널 멘션</translation>
     </message>
     <message>
-        <source>Message the room</source>
-        <translation>방에 메시지 보내기</translation>
+        <source>Message the project</source>
+        <translation>프로젝트에 메시지 보내기</translation>
     </message>
     <message>
         <source>Send message</source>
@@ -2824,8 +2820,8 @@
 <context>
     <name>RoomShareDialog</name>
     <message>
-        <source>the room</source>
-        <translation>방</translation>
+        <source>the project</source>
+        <translation>프로젝트</translation>
     </message>
     <message>
         <source>Share %1 with %2?</source>
@@ -3107,8 +3103,8 @@
         <translation>로그인</translation>
     </message>
     <message>
-        <source>A room</source>
-        <translation>방</translation>
+        <source>A project</source>
+        <translation>프로젝트</translation>
     </message>
     <message>
         <source>Friends</source>
@@ -3138,8 +3134,8 @@
         <translation>승인 필요</translation>
     </message>
     <message>
-        <source>Rooms and terminals</source>
-        <translation>방과 터미널</translation>
+        <source>Projects and terminals</source>
+        <translation>프로젝트와 터미널</translation>
     </message>
     <message>
         <source>Show sidebar</source>
@@ -3154,8 +3150,8 @@
         <translation>새 터미널(%1)</translation>
     </message>
     <message>
-        <source>Back to terminals and rooms</source>
-        <translation>터미널과 방으로 돌아가기</translation>
+        <source>Back to terminals and projects</source>
+        <translation>터미널과 프로젝트로 돌아가기</translation>
     </message>
     <message>
         <source>Grid view</source>
@@ -3178,12 +3174,12 @@
         <translation>사이드바 가리기</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>방</translation>
+        <source>Projects</source>
+        <translation>프로젝트</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>새 방</translation>
+        <source>New project</source>
+        <translation>새 프로젝트</translation>
     </message>
     <message>
         <source>Approve this device to work together</source>
@@ -3210,8 +3206,8 @@
         <translation>새 메시지</translation>
     </message>
     <message>
-        <source>More rooms exist. Use Go to… to find them.</source>
-        <translation>다른 방도 있어요. &apos;이동…&apos;으로 찾아보세요.</translation>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>다른 프로젝트도 있어요. &apos;이동…&apos;으로 찾아보세요.</translation>
     </message>
     <message>
         <source>Terminals</source>
@@ -3662,8 +3658,8 @@
         <translation>세부 정보</translation>
     </message>
     <message>
-        <source>Remove from room</source>
-        <translation>방에서 제거</translation>
+        <source>Remove from project</source>
+        <translation>프로젝트에서 제거</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -3953,8 +3949,8 @@
 <context>
     <name>kodosi::ConversationHistoryModel</name>
     <message>
-        <source>Choose a conversation from this project.</source>
-        <translation>이 프로젝트의 대화를 고르세요.</translation>
+        <source>Choose a conversation from this folder.</source>
+        <translation>이 폴더의 대화를 고르세요.</translation>
     </message>
     <message>
         <source>The provider returned an unexpected response.</source>
@@ -3965,8 +3961,8 @@
         <translation>대화 목록이 표시 한도에 도달했어요.</translation>
     </message>
     <message>
-        <source>A conversation did not match this project.</source>
-        <translation>이 대화는 이 프로젝트의 대화가 아니에요.</translation>
+        <source>A conversation did not match this folder.</source>
+        <translation>이 대화는 이 폴더의 대화가 아니에요.</translation>
     </message>
     <message>
         <source>The conversation preview exceeded its page limit.</source>
@@ -3980,8 +3976,8 @@
         <translation>폴더 선택기가 이미 열려 있어요.</translation>
     </message>
     <message>
-        <source>Choose a project folder</source>
-        <translation>프로젝트 폴더 선택</translation>
+        <source>Choose a folder</source>
+        <translation>폴더 선택</translation>
     </message>
     <message>
         <source>Choose a readable local folder.</source>

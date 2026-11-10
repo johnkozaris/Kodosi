@@ -21,10 +21,10 @@ visual system. The Linux and Windows app follows this app.
   one: this Mac, then your other computers, then each friend with the friend's face. A
   friend's terminal that you have not opened has no folder yet and shows directly under
   the friend. The + of a folder on this Mac or on another computer of yours starts a
-  terminal there. A small square on a terminal's mark has the color of its room, or is
+  terminal there. A small square on a terminal's mark has the color of its project, or is
   grey when the terminal is shared with people. Pinned terminals stay at the top. A
   folder or a computer folds with the triangle after its name. A repository folder offers
-  a terminal on a new branch. Go to (⌘K) finds terminals, rooms, people and actions, and
+  a terminal on a new branch. Go to (⌘K) finds terminals, projects, people and actions, and
   the key beside it switches the stage between the grid and single view. You rename a
   terminal in place, in the sidebar or with a click on its name in its header.
 - Drag a terminal by its header onto another terminal to take its place in the grid, or
@@ -34,18 +34,19 @@ visual system. The Linux and Windows app follows this app.
   look. Faces show who else has a terminal open.
 - Hidden terminals keep their place and take no input. Sizing is automatic, and keys
   such as Ctrl-C keep their shell meaning.
-- One share sheet puts a terminal in a room or shares it with friends. When you drag your
-  terminal onto a room, Kodosi asks first. You remove it again from its tab in the room.
+- One share sheet puts a terminal in a project or shares it with friends. When you drag
+  your terminal onto a project, Kodosi asks first. You remove it again from its tab in the
+  project.
 - The actions key in a terminal's header starts an agent while the shell waits at its
-  prompt, and has Share, Open Browser, Details and, in a room, Remove from room.
+  prompt, and has Share, Open Browser, Details and, in a project, Remove from project.
 
 ## Canvas
 
 A key of the canvas in a terminal's header opens the canvas beside the terminal, which is
-then alone on the stage; in a room, it opens beside the room's terminal. The terminal in
-front is the one in single view, the selected one on the stage or the only one there, or the
-one that a room shows. Drag the gap between them to share the width. More room gives the
-canvas the stage and zooms the terminal out into its corner, where it stays live; a click on
+then alone on the stage; in a project, it opens beside the project's terminal. The terminal
+in front is the one in single view, the selected one on the stage or the only one there, or
+the one that a project shows. Drag the gap between them to share the width. More room gives
+the canvas the stage and zooms the terminal out into its corner, where it stays live; a click on
 it puts them side by side again. Hide canvas leaves the terminal alone.
 
 The files are tabs over the file, and the key with their count shows them all as cards.
@@ -70,16 +71,16 @@ person when a program in a terminal needs one. When macOS quits Kodosi to open i
 with a permission that the person turns on from Settings, or to log out, restart or shut
 down, Kodosi quits without asking, and its terminals start again when it opens.
 
-## Rooms
+## Projects
 
-The conversation stays beside the room's terminals, tasks and repositories. "@"
+The conversation stays beside the project's terminals, tasks and repositories. "@"
 mentions a person or a terminal, and a terminal mention opens it. A message can become a
 task. When you hide the conversation, it folds into a key in the header that shows who
 wrote last and how many messages are new.
 
 To link a repository, pick the checkout of one of your terminals or one of your GitHub
 repositories, or paste an address. Connect GitHub opens a terminal for `gh auth login`.
-In the Tasks tab, you add the newest open issues of the room's repositories, or any issue
+In the Tasks tab, you add the newest open issues of the project's repositories, or any issue
 by its number, and a new task can open an issue.
 
 ## Friends
@@ -90,7 +91,7 @@ each terminal that you share with them, so add only a person that you trust comp
 ## Dosi
 
 Dosi opens from its line at the bottom of the sidebar or with ⌘J, and the sidebar widens
-for it, with the terminals and rooms as chips above the conversation. On a computer with no
+for it, with the terminals and projects as chips above the conversation. On a computer with no
 agent, the line reads Set up Dosi, and the line and ⌘J open Settings › Dosi. Esc returns to the
 list, ⌘. stops Dosi, and New chat asks first. A question waits in the conversation with a
 button for each answer and a field for your own words. A question about a terminal also

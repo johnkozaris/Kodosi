@@ -2,9 +2,9 @@
 
 [English](../SECURITY.md) · [Deutsch](../de/SECURITY.md) · [Ελληνικά](../el/SECURITY.md) · [Español](../es/SECURITY.md) · **Français** · [Italiano](../it/SECURITY.md) · [日本語](../ja/SECURITY.md) · [한국어](../ko/SECURITY.md) · [简体中文](../zh-Hans/SECURITY.md)
 
-Vos appareils chiffrent le trafic des terminaux et le contenu des salons de bout en bout. Les
+Vos appareils chiffrent le trafic des terminaux et le contenu des projets de bout en bout. Les
 clés privées restent sur les appareils. Le backend achemine les connexions et stocke les
-données chiffrées des salons ; il n'exécute jamais de commandes et n'en voit jamais le texte
+données chiffrées des projets ; il n'exécute jamais de commandes et n'en voit jamais le texte
 en clair. La [conception du chiffrement](../CRYPTOGRAPHY.md) (en anglais) décrit le modèle de
 menaces, les mécanismes et les limites connues ; aucun organisme indépendant ne l'a encore
 auditée.
@@ -12,14 +12,14 @@ auditée.
 ## Ce que donne le partage
 
 Partager un terminal donne le contrôle total, avec les privilèges système de l'utilisateur de
-l'hôte. Un terminal dans un salon va aux amis de son propriétaire dans ce salon, y compris
+l'hôte. Un terminal dans un projet va aux amis de son propriétaire dans ce projet, y compris
 aux amis qui le rejoignent plus tard. Quand vous retirez un ami, il perd vos terminaux, et
-chacun de vous quitte les salons de l'autre. Bloquer une personne fait de même, et elle ne
+chacun de vous quitte les projets de l'autre. Bloquer une personne fait de même, et elle ne
 peut pas vous envoyer de demandes d'ami. Un terminal partagé s'exécute en votre nom : les
 personnes qui y ont accès peuvent aussi exécuter `kodosi` en votre nom et lire et modifier
 vos fichiers sur cet ordinateur ; ne le partagez donc qu'avec des personnes à qui vous
 confiez cet ordinateur. Kodosi fait confiance à toutes les personnes qui partagent un
-terminal ou un salon, ainsi qu'aux programmes et aux agents de leurs terminaux, et ne limite
+terminal ou un projet, ainsi qu'aux programmes et aux agents de leurs terminaux, et ne limite
 pas ce qu'ils font. Chacun de vos appareils approuvés contrôle tous vos terminaux et peut en
 lancer de nouveaux sur vos autres ordinateurs qui exécutent Kodosi. Depuis n'importe lequel de vos appareils, vous pouvez écrire à Dosi sur vos ordinateurs, et Dosi y agit comme lorsque vous lui écrivez sur l'ordinateur même. Un appareil que vous retirez ne peut plus écrire à Dosi.
 
@@ -47,8 +47,8 @@ téléchargement a le SHA-256 indiqué par le flux.
 
 ## Ce que voit le service
 
-Le service voit les données des comptes et des appareils, les membres des salons, les
-métadonnées des salons et des terminaux, l'agent et l'état de chaque terminal (par exemple en
+Le service voit les données des comptes et des appareils, les membres des projets, les
+métadonnées des projets et des terminaux, l'agent et l'état de chaque terminal (par exemple en
 cours ou en attente d'une approbation, jamais son texte), les champs de routage, les horaires
 et la taille des textes chiffrés. Les notifications push vers votre iPhone, iPad ou appareil
 Android passent par le service push d'Apple ou de Google, qui voit les identifiants du
@@ -61,7 +61,7 @@ cela attend un jour et vos appareils l'affichent, pour que vous puissiez l'arrê
 identifiants GitHub et Gitea restent sur votre ordinateur.
 
 Supprimer un compte retire ses appareils, ses données de récupération, ses amis, ses partages
-et les salons dont il est propriétaire ; les messages dans les salons des autres restent, sans
+et les projets dont il est propriétaire ; les messages dans les projets des autres restent, sans
 compte. Pendant 30 jours, le service garde l'émetteur et le sujet de la connexion supprimée
 pour refuser les anciens jetons.
 

@@ -412,11 +412,11 @@ fn known_refusal(words: &str) -> Option<Text> {
 fn plan_limit(limit: &str, most: u64) -> Option<Text> {
     Some(match limit {
         "rooms" => text!(
-            "You own the most rooms that you can own ({most}). Delete a room to make a new one.",
+            "You own the most projects that you can own ({most}). Delete a project to make a new one.",
             most = most
         ),
         "roomPeople" => text!(
-            "This room has the most people that it can have ({most}), with its open invitations.",
+            "This project has the most people that it can have ({most}), with its open invitations.",
             most = most
         ),
         "sharePeople" => text!(
@@ -453,17 +453,17 @@ fn backend_refusals() -> Vec<Text> {
         text!("Dosi already has a conversation."),
         text!("Invalid device code."),
         text!("Invite an accepted friend."),
-        text!("Leave a room before you join or make another."),
-        text!("Leave the room to leave its shared terminals."),
+        text!("Leave a project before you join or make another."),
+        text!("Leave the project to leave its shared terminals."),
         text!("No Kodosi account has this user name."),
         text!("Only the computer that hosts a terminal can add it."),
         text!("Only the computer that hosts this terminal can change it."),
         text!("Only the owner can change this terminal."),
-        text!("Refresh the room before changing its members."),
+        text!("Refresh the project before changing its members."),
         text!("Remove the current recovery key first."),
-        text!("Room keys changed; refresh before posting."),
-        text!("Room keys changed; refresh before retrying."),
-        text!("Room membership changed; refresh before retrying."),
+        text!("Project keys changed; refresh before posting."),
+        text!("Project keys changed; refresh before retrying."),
+        text!("Project membership changed; refresh before retrying."),
         text!("Share a terminal only with accepted friends."),
         text!("Sign in again to delete your account."),
         text!("Sign in again to start fresh on this device."),
@@ -477,10 +477,10 @@ fn backend_refusals() -> Vec<Text> {
         text!("The device connection closed."),
         text!("The friend list changed on another device."),
         text!("The host is offline."),
-        text!("The owner cannot leave the room. Delete it instead."),
+        text!("The owner cannot leave the project. Delete it instead."),
         text!("The requested change conflicts with current state."),
-        text!("The room has reached its item limit."),
-        text!("The room of this terminal changed; refresh before retrying."),
+        text!("The project has reached its item limit."),
+        text!("The project of this terminal changed; refresh before retrying."),
         text!("The server could not check this terminal; try again."),
         text!("The server has reached its limit of terminal connections."),
         text!("The sharing of this terminal changed; refresh before retrying."),
@@ -494,15 +494,15 @@ fn backend_refusals() -> Vec<Text> {
         text!("This person does not take friend requests from you."),
         text!("This person has the most friends that they can have."),
         text!("This person has too many open friend requests. Try again later."),
-        text!("This person has too many open room invitations."),
+        text!("This person has too many open project invitations."),
         text!(
-            "This room is full, because its tasks and repositories use all of its space. Make a new room to continue."
+            "This project is full, because its tasks and repositories use all of its space. Make a new project to continue."
         ),
-        text!("This room item changed; refresh before retrying."),
+        text!("This project item changed; refresh before retrying."),
         text!("This terminal is no longer available."),
         text!("This terminal is not shared with you."),
         text!(
-            "This terminal is shared with its room. Remove it from the room to share it with friends."
+            "This terminal is shared with its project. Remove it from the project to share it with friends."
         ),
         text!("This terminal was replaced."),
         text!("Too many connected participants."),
@@ -545,11 +545,11 @@ mod refusal_tests {
             "Dieses Terminal ist nicht mehr verfügbar."
         );
         let unknown =
-            backend_text(&serde_json::json!({"error": "Invalid room signature."})).unwrap();
+            backend_text(&serde_json::json!({"error": "Invalid project signature."})).unwrap();
         assert!(
             unknown
                 .in_language(Language::German)
-                .ends_with(" (Invalid room signature.)")
+                .ends_with(" (Invalid project signature.)")
         );
     }
 

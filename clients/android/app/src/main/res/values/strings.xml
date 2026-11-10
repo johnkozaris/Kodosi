@@ -66,7 +66,7 @@
     <string name="sign_question">Needs your answer</string>
     <string name="signing_in">Signing in</string>
     <string name="start_fresh">Start fresh</string>
-    <string name="start_fresh_message">Your other devices lose access until you approve them again from this phone. Friends confirm your identity again, and you make your rooms again. If you have a recovery key, cancel and use it: you keep your friends and rooms.</string>
+    <string name="start_fresh_message">Your other devices lose access until you approve them again from this phone. Friends confirm your identity again, and you make your projects again. If you have a recovery key, cancel and use it: you keep your friends and projects.</string>
     <string name="start_fresh_title">Start fresh on this phone?</string>
     <string name="starting_fresh">Starting fresh</string>
     <string name="storage_failed">Kodosi could not prepare its storage.</string>
@@ -80,12 +80,12 @@
     <string name="terminals">Terminals</string>
     <string name="terminals_empty_message">Start a terminal in Kodosi on your computer, or ask a friend to share one. It shows up here, so you can follow its work and answer its agents.</string>
     <string name="terminals_empty_title">Your terminals run on your computers</string>
-    <string name="trust_message">Kodosi encrypts your terminals and rooms end to end. A device you already trust gives this phone its keys.</string>
+    <string name="trust_message">Kodosi encrypts your terminals and projects end to end. A device you already trust gives this phone its keys.</string>
     <string name="trust_title">Trust this phone</string>
     <string name="try_again">Try again</string>
     <string name="use_recovery_key">Use my recovery key</string>
     <string name="waiting_for_approval">Waiting for approval</string>
     <string name="waiting_for_sign_in_page">Waiting for the sign-in page</string>
-    <string name="welcome_message">See what your agents do, answer them, and talk with your rooms. Your terminals keep running on your computers.</string>
+    <string name="welcome_message">See what your agents do, answer them, and talk in your projects. Your terminals keep running on your computers.</string>
     <string name="welcome_title">Your terminals, with you</string>
 </resources>

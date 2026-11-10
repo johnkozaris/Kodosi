@@ -134,7 +134,7 @@ impl RoomCache {
         let cached = self
             .rooms
             .get(&room)
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?;
         items
             .iter()
             .try_for_each(|item| content.take(cached, room, item, &credentials.user_id))
@@ -152,7 +152,7 @@ impl RoomCache {
         let cached = self
             .rooms
             .get(&room)
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?;
         let content = self.contents.get_mut(&room).ok_or(Error::Stale)?;
         for item in items {
             content.take(cached, room, item, &credentials.user_id)?;
@@ -181,7 +181,7 @@ impl RoomCache {
         Ok(self
             .contents
             .get_mut(&room)
-            .ok_or_else(|| Error::Text(text!("The room is not loaded.")))?
+            .ok_or_else(|| Error::Text(text!("The project is not loaded.")))?
             .show(room))
     }
 
@@ -190,7 +190,7 @@ impl RoomCache {
         let content = self
             .contents
             .get(&room)
-            .ok_or_else(|| Error::Text(text!("The room is not loaded.")))?;
+            .ok_or_else(|| Error::Text(text!("The project is not loaded.")))?;
         Ok(content.view(room, Vec::new(), content.has_older))
     }
 
@@ -210,7 +210,7 @@ impl RoomCache {
                 let key = cached.keys.get(&state.state.epoch)?.clone();
                 Some((state.state.version, state.state.epoch, key))
             })
-            .ok_or_else(|| Error::Text(text!("Room keys are still arriving.")))
+            .ok_or_else(|| Error::Text(text!("Project keys are still arriving.")))
     }
 }
 
@@ -257,7 +257,7 @@ impl Content {
                 }
             }
             Payload::Dosi { .. } | Payload::DosiInstructions { .. } => {}
-            _ => return Err(invalid("Room content has a different type.")),
+            _ => return Err(invalid("Project content has a different type.")),
         }
         Ok(())
     }
@@ -455,7 +455,7 @@ impl BackendClient {
             )
             .await?;
         if bundle.user_id != user {
-            return Err(invalid("The room identity belongs to another user."));
+            return Err(invalid("The project identity belongs to another user."));
         }
         Ok(bundle)
     }
@@ -554,7 +554,7 @@ impl BackendClient {
             };
             for key in keys {
                 if key.user_id != *user {
-                    return Err(invalid("A room key belongs to another user."));
+                    return Err(invalid("A project key belongs to another user."));
                 }
                 let Some(device) = identity.devices.get(&key.device_id) else {
                     continue;
@@ -567,7 +567,7 @@ impl BackendClient {
                 let signature = identity::pins::decode(&key.signature, 3309)?;
                 ML_DSA_65
                     .verify_sig(&device.sig_public_key, &preimage, &signature)
-                    .map_err(|_| invalid("The room recipient key is not authentic."))?;
+                    .map_err(|_| invalid("The project recipient key is not authentic."))?;
                 recipients.push(key);
             }
         }
@@ -606,7 +606,7 @@ impl BackendClient {
     ) -> Result<()> {
         if owner != credentials.user_id {
             return Err(invalid(
-                "The room owner needs to open this room once to prepare its conversation.",
+                "The project owner needs to open this project once to prepare its conversation.",
             ));
         }
         let detail: Value = self
@@ -623,7 +623,7 @@ impl BackendClient {
         if users.is_empty() {
             for member in detail["members"]
                 .as_array()
-                .ok_or_else(|| invalid("Room members are missing."))?
+                .ok_or_else(|| invalid("Project members are missing."))?
             {
                 users.push(wire::text(member, "userId")?.to_owned());
             }
@@ -689,7 +689,7 @@ impl BackendClient {
                 .state
                 .members
                 .get(owner)
-                .ok_or_else(|| invalid("Room owner identity is missing."))?
+                .ok_or_else(|| invalid("Project owner identity is missing."))?
                 .root();
         }
         if let Some(saved) = self
@@ -737,13 +737,13 @@ impl BackendClient {
                 )
                 .await?;
             if history.version < after {
-                return Err(invalid("The server returned an older room."));
+                return Err(invalid("The server returned an older project."));
             }
             if history.version == 0 {
                 initialization_attempts += 1;
                 if initialization_attempts > 3 {
                     return Err(Error::Text(text!(
-                        "The room changed during setup. Open it again."
+                        "The project changed during setup. Open it again."
                     )));
                 }
                 let members = if self.inner.rooms.lock().await.dosi == Some(room) {
@@ -759,7 +759,7 @@ impl BackendClient {
                 .room_anchor(credentials, room, &cached, &history.owner_user_id)
                 .await?;
             if history.states.is_empty() && history.version > after {
-                return Err(invalid("Room key history is incomplete."));
+                return Err(invalid("Project key history is incomplete."));
             }
             for signed in history.states {
                 let verified = room_crypto::verify_state(
@@ -775,7 +775,7 @@ impl BackendClient {
                             && history.owner_user_id == credentials.user_id =>
                     {
                         invalid(
-                            "You made this room before you started fresh. Delete it and make a new room.",
+                            "You made this project before you started fresh. Delete it and make a new project.",
                         )
                     }
                     error => error,
@@ -795,7 +795,7 @@ impl BackendClient {
                 break;
             }
             if cached.states.len() > 16_384 {
-                return Err(invalid("The room key history exceeds its limit."));
+                return Err(invalid("The project key history exceeds its limit."));
             }
         }
         self.remember_room(credentials, room, cached).await
@@ -805,7 +805,7 @@ impl BackendClient {
         let path = self.inner.config.data_root.join("network/room-heads.json");
         let heads = match std::fs::read(&path) {
             Ok(bytes) if bytes.len() <= 1024 * 1024 => serde_json::from_slice(&bytes)?,
-            Ok(_) => return Err(invalid("Saved room history exceeds its limit.")),
+            Ok(_) => return Err(invalid("Saved project history exceeds its limit.")),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
             Err(error) => return Err(error.into()),
         };
@@ -828,7 +828,7 @@ impl BackendClient {
         let current = cached
             .states
             .last_key_value()
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?
             .1;
         if let Some(newer) = cache.rooms.get(&room).filter(|kept| {
             kept.states
@@ -850,7 +850,7 @@ impl BackendClient {
                     .get(&head.version)
                     .is_some_and(|state| state.hash != head.hash)
         }) {
-            return Err(invalid("The room history changed unexpectedly."));
+            return Err(invalid("The project history changed unexpectedly."));
         }
         known.insert(
             room,
@@ -899,7 +899,7 @@ impl BackendClient {
             &mut Lookups::default(),
         )
         .await?
-        .ok_or_else(|| invalid("The room membership did not change."))
+        .ok_or_else(|| invalid("The project membership did not change."))
     }
 
     /// Takes the room state that this device signed and the server accepted, so the server
@@ -921,7 +921,7 @@ impl BackendClient {
             .rooms
             .get(&room)
             .cloned()
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?;
         let anchor = self
             .room_anchor(credentials, room, &cached, &state.owner_user_id)
             .await?;
@@ -958,12 +958,12 @@ impl BackendClient {
         let previous = cached
             .states
             .last_key_value()
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?
             .1;
         let prior_key = cached
             .keys
             .get(&previous.state.epoch)
-            .ok_or_else(|| Error::Text(text!("Room keys are still arriving on this device.")))?;
+            .ok_or_else(|| Error::Text(text!("Project keys are still arriving on this device.")))?;
         let created = identity::now_ms().max(previous.state.created_at_ms);
         let mut standing = self
             .room_standing(credentials, previous, created, lookups)
@@ -1057,7 +1057,7 @@ impl BackendClient {
             let current = &cached
                 .states
                 .last_key_value()
-                .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
+                .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?
                 .1
                 .state;
             if !current.members.contains_key(&credentials.user_id)
@@ -1146,7 +1146,7 @@ impl BackendClient {
             .states
             .last_key_value()
             .map(|(_, newest)| newest.hash.clone())
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))
     }
 
     /// Whether the key states of a room that this device reads hold the state with this hash.
@@ -1175,16 +1175,16 @@ impl BackendClient {
         let state = &cached
             .states
             .last_key_value()
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?
             .1
             .state;
         if !state.members.contains_key(&credentials.user_id) {
-            return Err(invalid("This device's person is no longer in the room."));
+            return Err(invalid("This device's person is no longer in the project."));
         }
         let anchor = state
             .members
             .get(user)
-            .ok_or_else(|| Error::Text(text!("This person is no longer in the room.")))?
+            .ok_or_else(|| Error::Text(text!("This person is no longer in the project.")))?
             .root()?;
         if user != credentials.user_id {
             let friend = self.fetch_identity_with(credentials, user).await?;
@@ -1210,20 +1210,20 @@ impl BackendClient {
             || content.author_id != item.user_id
             || content.device_id != item.device_id
         {
-            return Err(invalid("Room content has inconsistent identity."));
+            return Err(invalid("Project content has inconsistent identity."));
         }
         let state = cached
             .states
             .get(&content.key_version)
-            .ok_or_else(|| invalid("Room content keys are missing."))?;
+            .ok_or_else(|| invalid("Project content keys are missing."))?;
         if state.state.epoch != content.epoch {
-            return Err(invalid("Room content refers to another key."));
+            return Err(invalid("Project content refers to another key."));
         }
         let author = state
             .identities
             .get(&content.author_id)
             .and_then(|identity| identity.devices.get(&content.device_id))
-            .ok_or_else(|| invalid("The room content author is unavailable."))?;
+            .ok_or_else(|| invalid("The project content author is unavailable."))?;
         room_crypto::verify_signature(
             room_crypto::CONTENT_DOMAIN,
             &bytes,
@@ -1233,7 +1233,7 @@ impl BackendClient {
         let key = cached
             .keys
             .get(&content.epoch)
-            .ok_or_else(|| Error::Text(text!("Room history keys are still arriving.")))?;
+            .ok_or_else(|| Error::Text(text!("Project history keys are still arriving.")))?;
         Ok(serde_json::from_slice(&content.decrypt(key)?)?)
     }
 
@@ -1287,7 +1287,7 @@ impl BackendClient {
                     break;
                 }
                 if next <= after {
-                    return Err(invalid("Room history did not advance."));
+                    return Err(invalid("Project history did not advance."));
                 }
                 after = next;
             }
@@ -1331,7 +1331,7 @@ impl BackendClient {
             let last = page.items.last().map(|item| item.sequence);
             let next = if page.has_more {
                 last.filter(|last| *last > after)
-                    .ok_or_else(|| invalid("Room history did not advance."))?
+                    .ok_or_else(|| invalid("Project history did not advance."))?
             } else {
                 last.unwrap_or(after).max(page.sequence)
             };

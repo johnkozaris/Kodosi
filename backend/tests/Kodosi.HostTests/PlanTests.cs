@@ -93,10 +93,10 @@ public sealed class PlanTests(PostgresFixture postgres)
         await BefriendAsync(store, alice.User.Id, bob.User.Id); await BefriendAsync(store, alice.User.Id, carol.User.Id);
         var room = Guid.CreateVersion7();
         await store.Missions.CreateAsync(alice.User.Id, new(room, "Workspace"), ct);
-        await RefusedAsync("You own 1 room, the most that you can own. Delete a room to make a new one.",
+        await RefusedAsync("You own 1 project, the most that you can own. Delete a project to make a new one.",
             () => store.Missions.CreateAsync(alice.User.Id, new(Guid.CreateVersion7(), "Second"), ct));
         await store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), bob.User.Id), ct);
-        await RefusedAsync("This room can have at most 2 people, with its open invitations.",
+        await RefusedAsync("This project can have at most 2 people, with its open invitations.",
             () => store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), carol.User.Id), ct));
         var terminal = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
         await store.Sessions.CreateAsync(alice.User.Id, alice.Approved, new(terminal, incarnation, "Shell", alice.Device.Id, "Mac", null), ct);
@@ -194,7 +194,7 @@ public sealed class PlanTests(PostgresFixture postgres)
         foreach (var id in new[] { Guid.CreateVersion7(), Guid.CreateVersion7() })
             await store.Missions.PutContentAsync(tasks, id, bob.User.Id, Item(bob, tasks, id, "task"), ct);
         var full = Guid.CreateVersion7();
-        await RefusedAsync("This room is full, because its tasks and repositories use all of its space. Make a new room to continue.",
+        await RefusedAsync("This project is full, because its tasks and repositories use all of its space. Make a new project to continue.",
             () => store.Missions.PutContentAsync(tasks, full, bob.User.Id, Item(bob, tasks, full, "task"), ct));
         store.Db.ChangeTracker.Clear();
         Assert.Equal(2, await store.Db.MissionItems.CountAsync(x => x.MissionId == tasks, ct));
@@ -216,7 +216,7 @@ public sealed class PlanTests(PostgresFixture postgres)
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
         Assert.Equal(["error", "limit", "most"], body.EnumerateObject().Select(x => x.Name));
-        Assert.Equal("You own 1 room, the most that you can own. Delete a room to make a new one.", body.GetProperty("error").GetString());
+        Assert.Equal("You own 1 project, the most that you can own. Delete a project to make a new one.", body.GetProperty("error").GetString());
         Assert.Equal("rooms", body.GetProperty("limit").GetString());
         Assert.Equal(1, body.GetProperty("most").GetInt64());
     }

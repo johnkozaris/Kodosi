@@ -18,7 +18,7 @@ struct RoomTerminals: View {
             if sessions.isEmpty {
                 EmptyState(
                     title: "No terminals here yet",
-                    message: "Share one of your terminals with this room. Your friends in the room get full control.",
+                    message: "Share one of your terminals with this project. Your friends in the project get full control.",
                 ) {
                     TerminalGhost()
                 } actions: {
@@ -37,7 +37,7 @@ struct RoomTerminals: View {
                             HStack(spacing: 10) { slots(mine) }
                             VStack(spacing: 10) { slots(mine) }
                         }
-                        Text("In a room, each terminal goes to the friends of its owner. They can type, resize and close it.")
+                        Text("In a project, each terminal goes to the friends of its owner. They can type, resize and close it.")
                             .appTextStyle(.caption).fontWeight(.regular)
                             .foregroundStyle(theme.colors.inkFaint)
                             .padding(.leading, 4)
@@ -117,7 +117,7 @@ struct RoomTerminals: View {
         .contextMenu {
             if session.isOwner {
                 Button(role: .destructive) { move(session, to: nil) } label: {
-                    Label("Remove from room", systemImage: "minus.circle")
+                    Label("Remove from project", systemImage: "minus.circle")
                 }
             }
         }

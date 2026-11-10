@@ -59,10 +59,10 @@ struct RoomScreen: View {
         if leaving {
             Color.clear
         } else if rooms.departed.contains(roomId) {
-            EmptyState(title: "You are no longer in this room", message: "It ended, or someone removed you.") {
+            EmptyState(title: "You are no longer in this project", message: "It ended, or someone removed you.") {
                 RoomSigil(key: roomId, size: 56)
             } actions: {
-                Button("Back to rooms") { dismiss() }
+                Button("Back to projects") { dismiss() }
                     .buttonStyle(.kodosi(.primary))
                     .accessibilityIdentifier("rooms.departed.back")
             }
@@ -133,7 +133,7 @@ struct RoomScreen: View {
             ToolbarItem(placement: .principal) {
                 Button { screen.showsInfo = true } label: { RoomHeader(mission: mission) }
                     .buttonStyle(PressScaleStyle(scale: 0.97))
-                    .accessibilityHint(Text("Shows the people and settings of this room"))
+                    .accessibilityHint(Text("Shows the people and settings of this project"))
                     .accessibilityIdentifier("rooms.header")
             }
             .sharedBackgroundVisibility(.hidden)
@@ -142,7 +142,7 @@ struct RoomScreen: View {
                     AvatarStack(people: members, size: 26, limit: 3)
                 }
                 .buttonStyle(PressScaleStyle())
-                .accessibilityLabel(Text("Room members"))
+                .accessibilityLabel(Text("Project members"))
                 .accessibilityIdentifier("rooms.members")
             }
             .sharedBackgroundVisibility(.hidden)

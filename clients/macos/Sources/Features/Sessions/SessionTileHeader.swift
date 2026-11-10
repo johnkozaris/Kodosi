@@ -229,7 +229,7 @@ private struct TerminalActions: View {
             }
             if roomEmbedded, session.isOwner {
                 PanelMenuDivider()
-                PanelMenuRow(Text("Remove from room"), icon: .symbol("rectangle.portrait.and.arrow.right"),
+                PanelMenuRow(Text("Remove from project"), icon: .symbol("rectangle.portrait.and.arrow.right"),
                              identifier: "\(stageId).removeFromRoom", destructive: true)
                 {
                     Task { @MainActor in

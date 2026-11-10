@@ -19,7 +19,7 @@
 Windows. Sie hält die Terminals all deiner Computer in einem Fenster, zeigt dir, welcher
 Agent dich braucht, und lässt deine Freunde in denselben Terminals mitarbeiten. Jedes
 Terminal hat ein Canvas: Dort zeigt der Agent seine Pläne, Seiten und Dokumente, und du
-bearbeitest sie mit ihm. Terminals und Räume sind Ende-zu-Ende-verschlüsselt.
+bearbeitest sie mit ihm. Terminals und Projekte sind Ende-zu-Ende-verschlüsselt.
 
 <p align="center">
   <picture>
@@ -41,7 +41,7 @@ wartet, fertig ist oder fehlgeschlagen ist, und eine Mitteilung sagt es dir, sol
 Hintergrund ist.
 
 **Dosi, dein Agent für deine Agents.** Frag Dosi, was dich braucht. Dosi liest all deine
-Terminals und Räume, sagt es dir und handelt für dich: Es tippt die Antwort in ein Terminal,
+Terminals und Projekte, sagt es dir und handelt für dich: Es tippt die Antwort in ein Terminal,
 startet Agents und schließt, was fertig ist. Deine Unterhaltung mit Dosi folgt dir auf jeden
 Computer.
 
@@ -68,20 +68,21 @@ tut, und klickst und tippst in denselben Seiten.
   </picture>
 </p>
 
-**Räume für Menschen und Agents.** Ein Raum enthält geteilte Terminals, eine Unterhaltung
-und Aufgaben. Agents lesen und schreiben in der Unterhaltung und übernehmen Aufgaben, und
-GitHub- oder Gitea-Issues werden zu Aufgaben.
+**Projekte für Menschen und Agents.** Ein Projekt bündelt Terminals aus jedem Ordner und von
+jedem Computer, mit einer Unterhaltung und Aufgaben. Agents lesen und schreiben in der
+Unterhaltung und übernehmen Aufgaben, und GitHub- oder Gitea-Issues werden zu Aufgaben. Lade
+Freunde ein, wenn du möchtest.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Ein Raum mit einem geteilten Terminal und einer Unterhaltung von Menschen und Agents."></p>
+<p align="center"><img src="../media/room.webp" width="900" alt="Ein Projekt mit einem geteilten Terminal und einer Unterhaltung von Menschen und Agents."></p>
 
 **Ein Branch für jeden Agent.** Starte einen Agent auf einem neuen Branch in seinem eigenen
 Git-Worktree, damit zwei Agents nie dieselben Dateien ändern.
 
-**Auf deinem iPhone und iPad.** Verfolge, beantworte und steuere deine Terminals und Räume,
+**Auf deinem iPhone und iPad.** Verfolge, beantworte und steuere deine Terminals und Projekte,
 wenn du nicht an deinem Computer bist.
 
 **Ende-zu-Ende-verschlüsselt, post-quanten-sicher.** Deine Schlüssel bleiben auf deinen
-Geräten. Deine Geräte verschlüsseln Terminals und Räume Ende-zu-Ende mit ML-KEM-768 zusammen
+Geräten. Deine Geräte verschlüsseln Terminals und Projekte Ende-zu-Ende mit ML-KEM-768 zusammen
 mit X25519, sodass der Dienst sie nicht lesen kann. [Sicherheit](SECURITY.md)
 
 ## Kodosi herunterladen

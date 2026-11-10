@@ -243,7 +243,7 @@ private struct FriendListItem: View {
             Button("Remove", role: .destructive) { people.remove(friend) }
                 .accessibilityIdentifier("people.confirmRemove")
         } message: {
-            Text("You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.")
+            Text("You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.")
         }
     }
 }

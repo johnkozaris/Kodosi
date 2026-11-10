@@ -19,7 +19,7 @@
 et Windows. Elle réunit les terminaux de tous vos ordinateurs dans une fenêtre, vous montre
 quel agent a besoin de vous et laisse vos amis travailler dans les mêmes terminaux. Chaque
 terminal a un canvas à côté, où l'agent montre ses plans, ses pages et ses documents, et
-vous les modifiez ensemble. Les terminaux et les salons sont chiffrés de bout en bout.
+vous les modifiez ensemble. Les terminaux et les projets sont chiffrés de bout en bout.
 
 <p align="center">
   <picture>
@@ -41,7 +41,7 @@ approbation, a terminé ou a échoué, et une notification vous prévient pendan
 en arrière-plan.
 
 **Dosi, votre agent pour vos agents.** Demandez à Dosi ce qui a besoin de vous. Il lit tous
-vos terminaux et salons, vous le dit et agit pour vous : il tape la réponse dans un terminal,
+vos terminaux et projets, vous le dit et agit pour vous : il tape la réponse dans un terminal,
 lance des agents et ferme ce qui est terminé. Votre conversation avec Dosi vous suit sur
 chaque ordinateur.
 
@@ -68,20 +68,21 @@ qu'il fait en vidéo en direct, et vous cliquez et tapez dans les mêmes pages.
   </picture>
 </p>
 
-**Des salons pour les personnes et les agents.** Un salon réunit des terminaux partagés, une
-conversation et des tâches. Les agents lisent et écrivent dans la conversation et prennent des
-tâches, et les issues GitHub ou Gitea deviennent des tâches.
+**Des projets pour les personnes et les agents.** Un projet rassemble des terminaux de
+n'importe quel dossier et ordinateur, avec une conversation et des tâches. Les agents lisent
+et écrivent dans la conversation et prennent des tâches, et les issues GitHub ou Gitea
+deviennent des tâches. Invitez des amis quand vous le souhaitez.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Un salon avec un terminal partagé et une conversation entre personnes et agents."></p>
+<p align="center"><img src="../media/room.webp" width="900" alt="Un projet avec un terminal partagé et une conversation entre personnes et agents."></p>
 
 **Une branche pour chaque agent.** Lancez un agent sur une nouvelle branche, dans son propre
 worktree Git, pour que deux agents ne modifient jamais les mêmes fichiers.
 
-**Sur votre iPhone et votre iPad.** Suivez, répondez et contrôlez vos terminaux et salons
+**Sur votre iPhone et votre iPad.** Suivez, répondez et contrôlez vos terminaux et projets
 quand vous n'êtes pas devant votre ordinateur.
 
 **Chiffré de bout en bout, post-quantique.** Vos clés restent sur vos appareils. Vos appareils
-chiffrent les terminaux et les salons de bout en bout avec ML-KEM-768 combiné à X25519, si bien
+chiffrent les terminaux et les projets de bout en bout avec ML-KEM-768 combiné à X25519, si bien
 que le service ne peut pas les lire. [Sécurité](SECURITY.md)
 
 ## Obtenir Kodosi

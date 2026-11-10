@@ -109,7 +109,7 @@ struct PeopleView: View {
                         pendingRemoval = nil
                     }
                 }
-            } message: { Text("You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.") }
+            } message: { Text("You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.") }
             .onChange(of: deps.inviteCopies) { _, _ in copied = true }
             .task(id: copied) {
                 guard copied else { return }

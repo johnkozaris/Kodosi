@@ -158,10 +158,10 @@ pub(super) fn takes_messages(program: Option<&str>, status: Option<&ProgramStatu
 
 pub(super) fn mention_line(room: &str, mentions: &[Mention]) -> String {
     let room = plain(room, MOST_NAME);
-    let answer = "You can answer there with kodosi room post.";
+    let answer = "You can answer there with kodosi project post.";
     if let [mention] = mentions {
         return format!(
-            "[Kodosi] {} mentioned you in the chat of the room \"{room}\": \"{}\" {answer} {JUDGMENT} it.",
+            "[Kodosi] {} mentioned you in the chat of the project \"{room}\": \"{}\" {answer} {JUDGMENT} it.",
             describe(&mention.from),
             plain(&mention.text, MOST_TEXT)
         );
@@ -179,7 +179,7 @@ pub(super) fn mention_line(room: &str, mentions: &[Mention]) -> String {
         }
     }
     format!(
-        "[Kodosi] {} messages in the chat of the room \"{room}\" mention you, from {}. Read them with kodosi room read --since {}. {answer} {JUDGMENT} them.",
+        "[Kodosi] {} messages in the chat of the project \"{room}\" mention you, from {}. Read them with kodosi project read --since {}. {answer} {JUDGMENT} them.",
         mentions.len(),
         listed(&authors),
         first.saturating_sub(1)

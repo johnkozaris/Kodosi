@@ -163,7 +163,7 @@ private struct WelcomeCard: View {
                 .appTextStyle(.large)
                 .foregroundStyle(theme.colors.ink)
                 .multilineTextAlignment(.center)
-            Text("See what your agents do, answer them, and talk with your rooms. Your terminals keep running on your computers.")
+            Text("See what your agents do, answer them, and talk in your projects. Your terminals keep running on your computers.")
                 .appTextStyle(.callout)
                 .foregroundStyle(theme.colors.inkMuted)
                 .multilineTextAlignment(.center)
@@ -217,7 +217,7 @@ private struct FeatureStrip: View {
                     }
             }
             .arrive(delay: 0.1)
-            FeatureRow(title: "Work in rooms", detail: "Talk, share terminals, and keep tasks with your team.") {
+            FeatureRow(title: "Work in projects", detail: "Talk, share terminals, and keep tasks with your team.") {
                 RoomSigil(key: "kodosi-room", size: 34)
             }
             .arrive(delay: 0.14)

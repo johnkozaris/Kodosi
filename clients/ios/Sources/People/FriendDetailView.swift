@@ -92,7 +92,7 @@ private struct FriendDetailList: View {
                     }
                 }
                 if !rooms.isEmpty {
-                    ListGroup(title: "Their rooms") {
+                    ListGroup(title: "Their projects") {
                         ForEach(rooms) { room in
                             Button { openRoute(RoomRoute(roomId: room.id)) } label: {
                                 ListRow(title: room.name) {
@@ -125,7 +125,7 @@ private struct FriendDetailList: View {
                     Button("Remove", role: .destructive) { people.remove(friend) }
                         .accessibilityIdentifier("people.detail.confirmRemove")
                 } message: {
-                    Text("You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.")
+                    Text("You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.")
                 }
                 .blockConfirmation(isPresented: $blocking, name: friend.personName) { people.block(handle: friend.handle) }
             }

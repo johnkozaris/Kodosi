@@ -1,30 +1,32 @@
 # Kodosi
 
 Kodosi is a native place for people and their coding agents to work together through
-shared terminals and a room conversation. Keep it lean. Make useful actions available
+shared terminals and a project conversation. Keep it lean. Make useful actions available
 and let people and agents decide how to use them.
 
-## Terminals and rooms
+## Terminals and projects
 
-The interface calls the shared spaces rooms; runtime contracts call them missions.
+The interface calls the shared spaces projects; the code and runtime contracts call them
+rooms and missions.
 
 - A terminal is a real process on the computer that hosts it. Full control means typing,
   resizing, interrupting and closing, with the host user's operating-system privileges.
 - A person's approved devices can use all of that person's terminals.
-- A person can share a terminal with friends or with a room, and everyone it is shared
-  with gets full control. A terminal in a room goes to the members who are friends of its
-  owner, including friends invited later. A shared terminal runs as its owner, with the
-  owner's `kodosi` command and files on that computer.
+- A person can share a terminal with friends or with a project, and everyone it is
+  shared with gets full control. A terminal in a project goes to the members who are
+  friends of its owner, including friends invited later. A shared terminal runs as its
+  owner, with the owner's `kodosi` command and files on that computer.
 - Removing a friend ends what the two share: each loses the terminals of the other and
-  leaves the rooms that the other owns. Blocking a person also does this, and the blocked
-  person cannot send friend requests until the block ends.
-- A room holds a conversation, tasks, repositories and terminals from many computers,
-  folders and repositories. Every member can share their own terminals into it, and new
-  members get the full history.
-- Anyone in a room can post, put tasks up for grabs, claim, release, close and reopen
+  leaves the projects that the other owns. Blocking a person also does this, and the
+  blocked person cannot send friend requests until the block ends.
+- A project holds a conversation, tasks, repositories and terminals from many computers,
+  folders and repositories. A person can work in it alone and invite friends when they
+  want. Every member can share their own terminals into it, and new members get the full
+  history.
+- Anyone in a project can post, put tasks up for grabs, claim, release, close and reopen
   them. A task can carry context, repositories and a result. People and agents decide
   what to do next.
-- A room can link GitHub or Gitea repositories and turn their issues into tasks, and a
+- A project can link GitHub or Gitea repositories and turn their issues into tasks, and a
   new task can open an issue. The provider stays authoritative, so changing a linked task
   updates the issue. Provider credentials stay on the participant's computer, and tasks
   need no Git provider. A person picks repositories from the checkouts of their terminals
@@ -32,7 +34,7 @@ The interface calls the shared spaces rooms; runtime contracts call them mission
 
 ## People and agents
 
-People and agents read and write the same room conversation. Agents take part through
+People and agents read and write the same project conversation. Agents take part through
 the `kodosi` command and its skill, when they choose to.
 
 Agents run through their own CLIs. Execution, prompts, permissions, settings, memory and
@@ -44,16 +46,16 @@ Copilot CLI get the note and Kodosi's skills also when a person starts them in a
 by hand. Codex gets them only from Kodosi, so a desktop app says so on a terminal where a
 person started Codex by hand.
 
-A room message that names a terminal with `@` goes to the agent in that terminal at once,
-also while it works, and an agent can send a message to the agent of another terminal
-with `kodosi terminal message`. Kodosi types each message as one line that says who wrote
-it and from where. It never types while the agent waits for a person's answer or while a
-person types there. Nothing else from a room goes into a terminal.
+A project message that names a terminal with `@` goes to the agent in that terminal at
+once, also while it works, and an agent can send a message to the agent of another
+terminal with `kodosi terminal message`. Kodosi types each message as one line that says
+who wrote it and from where. It never types while the agent waits for a person's answer or
+while a person types there. Nothing else from a project goes into a terminal.
 
-Dosi is the person's agent for their other agents. It sees every terminal, agent and room
-of the person, acts on them with the `kodosi` command, shows them in the app and asks
-with choices. It runs on the computer where the person writes, with the agent, account,
-model and effort chosen in Settings, and works in its own folder. One encrypted
+Dosi is the person's agent for their other agents. It sees every terminal, agent and
+project of the person, acts on them with the `kodosi` command, shows them in the app and
+asks with choices. It runs on the computer where the person writes, with the agent,
+account, model and effort chosen in Settings, and works in its own folder. One encrypted
 conversation follows the person to all their devices. On a phone, the person writes to
 Dosi on one of their computers, at first the one that answered last, and that computer
 answers. A message for a computer that is away waits until it runs Kodosi again, or until
@@ -73,17 +75,16 @@ from another device with a note that Dosi is off there.
   programs. Closing the window leaves the app and the host running, with Kodosi's icon in
   the menu bar or the system tray; on a desktop without a system tray, it quits. Settings
   can change what closing the window does.
-- A terminal of another computer comes to a device only while it shows there: on the
-  stage in the grid, alone in single view, with its canvas or in its room, in a window that
+- A terminal of another computer comes to a device only while it shows there: on the stage
+  in the grid, alone in single view, with its canvas or in its project, in a window that
   is on the screen. When it shows again, it keeps its last screen until the current one
   comes, and what the person types waits for it.
-- Quit stops the computer's host and its terminals, but not a host that runs in a
-  terminal with `kodosi host`. When the app opens again, the host starts those terminals
-  again with their names, folders, rooms and sharing, and with their earlier screens and
-  history above a new prompt. Agents continue their conversations. An open view of such
-  a terminal on another device moves to it. When a terminal ends by itself, no other
-  terminal takes its keyboard focus. The `kodosi` command starts a host but never the
-  earlier terminals.
+- Quit stops the computer's host and its terminals, but not a host that runs in a terminal
+  with `kodosi host`. When the app opens again, the host starts those terminals again with
+  their names, folders, projects and sharing, and with their earlier screens and history
+  above a new prompt. Agents continue their conversations. An open view of such a terminal
+  on another device moves to it. When a terminal ends by itself, no other terminal takes
+  its keyboard focus. The `kodosi` command starts a host but never the earlier terminals.
 - The apps and the `kodosi` command are equal clients of the computer's host. What one
   does, the others show. A person's typing comes first, so input from the command stops
   with a message while a person types in that terminal.
@@ -96,8 +97,8 @@ from another device with a note that Dosi is off there.
   connection is back.
 - When the computer of a terminal is offline, the terminal says so, keeps its last screen,
   takes no input and opens again when that computer is back. The person can hide it from
-  their own lists until then, or close it for everyone when the computer is back. A room
-  still shows its hidden terminals.
+  their own lists until then, or close it for everyone when the computer is back. A
+  project still shows its hidden terminals.
 - Programs get what Ghostty gives them, such as Kitty images and clipboard writes. A
   clipboard read asks first only in another person's terminal.
 - A pasted picture goes to the computer of the terminal as a file, and the terminal gets
@@ -208,24 +209,24 @@ from another device with a note that Dosi is off there.
 
 ## Encryption
 
-The participants' devices encrypt terminal traffic and room content end to end.
+The participants' devices encrypt terminal traffic and project content end to end.
 Private keys stay on devices. The backend connects participants and relays encrypted
-content; it does not run commands or read terminal or room plaintext. It sees only each
+content; it does not run commands or read terminal or project plaintext. It sees only each
 terminal's agent and reported state, such as working or waiting for an approval.
 
 A recovery key approves a new device when no other device can, and keeps friends and
-rooms. Without it, a person who lost all devices starts fresh with a new identity. They
+projects. Without it, a person who lost all devices starts fresh with a new identity. They
 keep their friends, not verified, and the friends trust that identity again. Starting
 fresh on an account that has devices waits a day; those devices show it and can stop it.
 
 ## Experience
 
-Keep terminals and the room conversation easy to reach. Starting work, inviting
+Keep terminals and the project conversation easy to reach. Starting work, inviting
 someone, sharing a terminal and writing in the conversation take few steps. Use plain
 language and native interaction. Add controls only when they help someone do the work.
 
-Visible text uses one word for one thing: terminal, room, friend, agent, device.
-Session, host, runtime and mission are internal words.
+Visible text uses one word for one thing: terminal, project, friend, agent, device.
+Session, host, runtime, room and mission are internal words.
 
 Kodosi speaks English, German, Greek, Spanish, French, Italian, Japanese, Korean and
 Simplified Chinese. Each app follows the language of the system, and its settings can
@@ -233,16 +234,16 @@ choose another; a new choice applies when the app opens again. The sign-in pages
 the language of the app. The `kodosi` command, the logs and the details of an internal
 fault stay English.
 
-A terminal opened in a room keeps the conversation beside it. Tasks and repositories
+A terminal opened in a project keeps the conversation beside it. Tasks and repositories
 share that workspace. Drafts and reading position survive moving between them. Show
 progress where work happens and give each failure a clear recovery action.
 
 ## The apps
 
 - The Mac app and the Linux and Windows app run terminals on the computer's host and take
-  part in rooms. The iPhone and iPad app follows, answers and controls the terminals of
+  part in projects. The iPhone and iPad app follows, answers and controls the terminals of
   the person's computers and friends, starts terminals on the person's computers, and
-  takes part in rooms.
+  takes part in projects.
 - Each desktop app contains the `kodosi` command, so that people and agents can do from a
   shell what the apps do.
 - Apps update themselves in the background and never restart without asking, because a
@@ -251,10 +252,11 @@ progress where work happens and give each failure a clear recovery action.
 - Until an approved device of the person approves it, a new device says so and shares
   nothing. The person's approved
   computers show its request.
-- A server can define plans that limit an account's devices, rooms, people, friends and
-  room data. A full room loses its oldest messages first; tasks and repositories stay.
+- A server can define plans that limit an account's devices, projects, people, friends
+  and project data. A full project loses its oldest messages first; tasks and repositories
+  stay.
 - A server limits how many user names an account can try, because a user name tells
   whether its account exists, and bans an account that keeps trying. The apps of a banned
   account sign out and say why; its terminals keep running.
 - A person deletes their account through the sign-in service's account page. What they
-  wrote in other rooms stays, and their terminals keep running.
+  wrote in other projects stays, and their terminals keep running.

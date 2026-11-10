@@ -36,7 +36,7 @@ struct SignInSheet: View {
                 case .signedIn:
                     VStack(spacing: 6) {
                         Text("You are in").appTextStyle(.title).foregroundStyle(theme.colors.ink)
-                        Text("Share a terminal or make a room.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        Text("Share a terminal or make a project.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                     }
                 case .idle, .starting, .finalizing:
                     ProgressCaption(text: String(localized: "Connecting your account")).accessibilityLabel(Text("Connecting account"))

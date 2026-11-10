@@ -2,22 +2,22 @@
 
 [English](../SECURITY.md) · [Deutsch](../de/SECURITY.md) · [Ελληνικά](../el/SECURITY.md) · **Español** · [Français](../fr/SECURITY.md) · [Italiano](../it/SECURITY.md) · [日本語](../ja/SECURITY.md) · [한국어](../ko/SECURITY.md) · [简体中文](../zh-Hans/SECURITY.md)
 
-Tus dispositivos cifran el tráfico de los terminales y el contenido de las salas de extremo a
+Tus dispositivos cifran el tráfico de los terminales y el contenido de los proyectos de extremo a
 extremo. Las claves privadas se quedan en los dispositivos. El backend enruta las conexiones y
-guarda los datos cifrados de las salas; nunca ejecuta comandos ni ve su texto en claro. El
+guarda los datos cifrados de los proyectos; nunca ejecuta comandos ni ve su texto en claro. El
 [diseño del cifrado](../CRYPTOGRAPHY.md) (en inglés) describe el modelo de amenazas, los
 mecanismos y los límites conocidos; todavía no lo ha auditado ninguna parte independiente.
 
 ## Qué permite compartir
 
 Compartir un terminal da el control total, con los privilegios del sistema operativo del
-usuario del host. Un terminal en una sala es para los amigos de su dueño en esa sala, también
+usuario del host. Un terminal en un proyecto es para los amigos de su dueño en ese proyecto, también
 los amigos que se unan más tarde. Cuando eliminas a un amigo, pierde tus terminales, y cada
-uno sale de las salas del otro. Bloquear a una persona hace lo mismo, y no puede enviarte
+uno sale de los proyectos del otro. Bloquear a una persona hace lo mismo, y no puede enviarte
 solicitudes de amistad. Un terminal compartido se ejecuta como tú: las personas en él también
 pueden ejecutar `kodosi` como tú y leer y cambiar tus archivos en ese ordenador, así que
 compártelo solo con personas a quienes confíes ese ordenador. Kodosi confía en todas las
-personas que comparten un terminal o una sala, y en los programas y agentes de sus terminales,
+personas que comparten un terminal o un proyecto, y en los programas y agentes de sus terminales,
 y no limita lo que hacen. Cada uno de tus dispositivos aprobados controla todos tus terminales
 y puede iniciar otros nuevos en tus demás ordenadores que ejecutan Kodosi. Desde cualquiera de tus dispositivos puedes escribir a Dosi en tus ordenadores, y Dosi actúa allí igual que cuando le escribes en el propio ordenador. Un dispositivo que quitas ya no puede escribir a Dosi.
 
@@ -44,8 +44,8 @@ el SHA-256 que indica el feed.
 
 ## Qué ve el servicio
 
-El servicio ve los registros de cuentas y dispositivos, los miembros de las salas, los
-metadatos de salas y terminales, el agente y el estado de cada terminal (como trabajando o
+El servicio ve los registros de cuentas y dispositivos, los miembros de los proyectos, los
+metadatos de proyectos y terminales, el agente y el estado de cada terminal (como trabajando o
 esperando una aprobación, nunca su texto), los campos de enrutamiento, los tiempos y los
 tamaños del texto cifrado. Las notificaciones push a tu iPhone, iPad o dispositivo Android
 pasan por el servicio push de Apple o de Google, que ve los ID del terminal y de su
@@ -58,7 +58,7 @@ tus dispositivos lo muestran, para que puedas detenerlo. Las credenciales de Git
 se quedan en tu ordenador.
 
 Eliminar una cuenta quita sus dispositivos, sus datos de recuperación, sus amigos, lo que
-comparte y las salas que son suyas; los mensajes en salas de otras personas se quedan sin
+comparte y los proyectos que son suyos; los mensajes en proyectos de otras personas se quedan sin
 cuenta. Durante 30 días, el servicio guarda el emisor y el sujeto del inicio de sesión
 eliminado para rechazar tokens anteriores.
 

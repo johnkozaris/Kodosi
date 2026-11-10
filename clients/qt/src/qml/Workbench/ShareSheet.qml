@@ -132,7 +132,7 @@ KPopover {
             visible: root.accountReady && Models.Missions.missions.length > 0
             spacing: 8
 
-            PlainLabel { text: qsTr("A room"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
+            PlainLabel { text: qsTr("A project"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
             Flow {
                 Layout.fillWidth: true
                 spacing: 6

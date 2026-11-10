@@ -43,8 +43,8 @@ public sealed partial class DeviceService
     public async Task AddRecoveryKeyAsync(Guid userId, ApprovedDevice device, RecoveryKeyWrite request, CancellationToken ct)
     {
         var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
-        var box = Limits.Base64(request.RoomKeyBox, "Recovery room key", RecoveryBoxLength);
-        if (box.Length == 0) throw ApiException.Invalid("The recovery room key is missing.");
+        var box = Limits.Base64(request.RoomKeyBox, "Recovery project key", RecoveryBoxLength);
+        if (box.Length == 0) throw ApiException.Invalid("The recovery project key is missing.");
         var cert = DeviceCertificate.Parse(certBytes);
         if (!IsRecoveryId(cert.DeviceId)) throw ApiException.Invalid("This is not the device identifier of a recovery key.");
         var (roomKey, roomKeySignature) = MissionService.ValidRoomKey(userId, cert.DeviceId, cert.SigPublicKey, request.RoomKey);

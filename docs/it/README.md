@@ -19,7 +19,7 @@
 Windows. Tiene i terminali di tutti i tuoi computer in una finestra, ti mostra quale agente ha
 bisogno di te e permette ai tuoi amici di lavorare negli stessi terminali. Ogni terminale ha
 un canvas accanto, dove l'agente mostra i suoi piani, le pagine e i documenti, e tu li
-modifichi insieme a lui. Terminali e stanze sono crittografati end-to-end.
+modifichi insieme a lui. Terminali e progetti sono crittografati end-to-end.
 
 <p align="center">
   <picture>
@@ -40,7 +40,7 @@ approvazione, ha finito o non è riuscito, e una notifica ti avvisa mentre Kodos
 background.
 
 **Dosi, il tuo agente per i tuoi agenti.** Chiedi a Dosi cosa ha bisogno di te. Legge tutti i
-tuoi terminali e le tue stanze, te lo dice e agisce per te: scrive la risposta in un
+tuoi terminali e i tuoi progetti, te lo dice e agisce per te: scrive la risposta in un
 terminale, avvia agenti e chiude ciò che è finito. La tua conversazione con Dosi ti segue su
 ogni computer.
 
@@ -67,20 +67,21 @@ vivo, e clicchi e scrivi nelle stesse pagine.
   </picture>
 </p>
 
-**Stanze per persone e agenti.** Una stanza contiene terminali condivisi, una conversazione e
-attività. Gli agenti leggono e scrivono nella conversazione e prendono in carico attività, e le
-issue di GitHub o Gitea diventano attività.
+**Progetti per persone e agenti.** Un progetto riunisce terminali da qualsiasi cartella e
+computer, con una conversazione e attività. Gli agenti leggono e scrivono nella conversazione
+e prendono in carico attività, e le issue di GitHub o Gitea diventano attività. Invita gli
+amici quando vuoi.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Una stanza con un terminale condiviso e una conversazione tra persone e agenti."></p>
+<p align="center"><img src="../media/room.webp" width="900" alt="Un progetto con un terminale condiviso e una conversazione tra persone e agenti."></p>
 
 **Un branch per ogni agente.** Avvia un agente su un nuovo branch, nel suo worktree Git, così
 due agenti non modificano mai gli stessi file.
 
-**Sul tuo iPhone e iPad.** Segui, rispondi e controlla i tuoi terminali e le tue stanze quando
+**Sul tuo iPhone e iPad.** Segui, rispondi e controlla i tuoi terminali e i tuoi progetti quando
 sei lontano dal computer.
 
 **Crittografia end-to-end, post-quantistica.** Le tue chiavi restano sui tuoi dispositivi. I
-tuoi dispositivi crittografano terminali e stanze end-to-end con ML-KEM-768 insieme a X25519,
+tuoi dispositivi crittografano terminali e progetti end-to-end con ML-KEM-768 insieme a X25519,
 così il servizio non può leggerli. [Sicurezza](SECURITY.md)
 
 ## Scarica Kodosi

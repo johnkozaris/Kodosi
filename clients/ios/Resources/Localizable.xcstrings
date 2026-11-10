@@ -998,6 +998,110 @@
         }
       }
     },
+    "A project" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Projekt"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα έργο"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un proyecto"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un projet"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un progetto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        }
+      }
+    },
+    "A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Projekt bündelt Terminals aus jedem Ordner und von jedem Computer, mit seinen Aufgaben und Repositorys. Lade Freunde ein, wenn du möchtest."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ένα έργο συγκεντρώνει τερματικά από οποιονδήποτε φάκελο και υπολογιστή, μαζί με τις εργασίες και τα αποθετήριά του. Προσκαλέστε φίλους όποτε θέλετε."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un proyecto reúne terminales de cualquier carpeta y ordenador, con sus tareas y repositorios. Invita a amigos cuando quieras."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un projet rassemble des terminaux de n'importe quel dossier et ordinateur, avec ses tâches et ses dépôts. Invitez des amis quand vous le souhaitez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un progetto riunisce terminali da qualsiasi cartella e computer, con le sue attività e i suoi repository. Invita gli amici quando vuoi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクトは、どのフォルダやコンピュータのターミナルも、タスクやリポジトリと一緒にまとめます。フレンドはいつでも招待できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트는 어느 폴더와 컴퓨터의 터미널이든 작업, 저장소와 함께 모아요. 친구는 원할 때 초대하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目汇集来自任意文件夹和电脑的终端，以及它的任务和仓库。可随时邀请好友。"
+          }
+        }
+      }
+    },
     "A recovery key approves a new device when you have no other device." : {
       "localizations" : {
         "de" : {
@@ -1046,110 +1150,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有其他设备时，可以用恢复密钥批准新设备。"
-          }
-        }
-      }
-    },
-    "A room" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ein Raum"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ένα δωμάτιο"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Una sala"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un salon"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Una stanza"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ルーム"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "방"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "房间"
-          }
-        }
-      }
-    },
-    "A room keeps people, agents and terminals in one place." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ein Raum bündelt Personen, Agents und Terminals an einem Ort."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ένα δωμάτιο συγκεντρώνει άτομα, agents και τερματικά σε ένα σημείο."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Una sala reúne personas, agentes y terminales en un solo lugar."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un salon réunit personnes, agents et terminaux au même endroit."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Una stanza riunisce persone, agenti e terminali in un unico posto."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ルームでは、人、エージェント、ターミナルをひとつにまとめられます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "방에는 사람, 에이전트, 터미널이 한곳에 모여요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "房间把人、Agent 和终端放在一起。"
           }
         }
       }
@@ -3078,54 +3078,54 @@
         }
       }
     },
-    "Back to rooms" : {
+    "Back to projects" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zurück zu den Räumen"
+            "value" : "Zurück zu den Projekten"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Πίσω στα δωμάτια"
+            "value" : "Πίσω στα έργα"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Volver a las salas"
+            "value" : "Volver a los proyectos"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retour aux salons"
+            "value" : "Retour aux projets"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Torna alle stanze"
+            "value" : "Torna ai progetti"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームに戻る"
+            "value" : "プロジェクトに戻る"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방으로 돌아가기"
+            "value" : "프로젝트로 돌아가기"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "返回房间"
+            "value" : "返回项目"
           }
         }
       }
@@ -5002,106 +5002,106 @@
         }
       }
     },
-    "Delete room" : {
+    "Delete project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Raum löschen"
+            "value" : "Projekt löschen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Διαγραφή δωματίου"
+            "value" : "Διαγραφή έργου"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eliminar sala"
+            "value" : "Eliminar proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Supprimer le salon"
+            "value" : "Supprimer le projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Elimina stanza"
+            "value" : "Elimina progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームを削除"
+            "value" : "プロジェクトを削除"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방 삭제"
+            "value" : "프로젝트 삭제"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "删除房间"
+            "value" : "删除项目"
           }
         }
       }
     },
-    "Delete room…" : {
+    "Delete project…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Raum löschen…"
+            "value" : "Projekt löschen…"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Διαγραφή δωματίου…"
+            "value" : "Διαγραφή έργου…"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eliminar sala…"
+            "value" : "Eliminar proyecto…"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Supprimer le salon…"
+            "value" : "Supprimer le projet…"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Elimina stanza…"
+            "value" : "Elimina progetto…"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームを削除…"
+            "value" : "プロジェクトを削除…"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방 삭제…"
+            "value" : "프로젝트 삭제…"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "删除房间…"
+            "value" : "删除项目…"
           }
         }
       }
@@ -5678,54 +5678,54 @@
         }
       }
     },
-    "Everyone in the room shares its conversation. Your terminals in it go to your friends." : {
+    "Everyone in the project shares its conversation. Your terminals in it go to your friends." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alle im Raum teilen seine Unterhaltung. Deine Terminals darin gehen an deine Freunde."
+            "value" : "Alle im Projekt teilen seine Unterhaltung. Deine Terminals darin gehen an deine Freunde."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Όλοι στο δωμάτιο μοιράζονται τη συζήτησή του. Τα τερματικά σας σε αυτό πηγαίνουν στους φίλους σας."
+            "value" : "Όλοι στο έργο μοιράζονται τη συζήτησή του. Τα τερματικά σας σε αυτό πηγαίνουν στους φίλους σας."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Todos en la sala comparten su conversación. Tus terminales en ella son para tus amigos."
+            "value" : "Todos en el proyecto comparten su conversación. Tus terminales en él son para tus amigos."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tout le monde dans le salon partage sa conversation. Vos terminaux qui s'y trouvent vont à vos amis."
+            "value" : "Tout le monde dans le projet partage sa conversation. Vos terminaux qui s'y trouvent vont à vos amis."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tutti nella stanza condividono la sua conversazione. I tuoi terminali al suo interno vanno ai tuoi amici."
+            "value" : "Tutti nel progetto condividono la sua conversazione. I tuoi terminali al suo interno vanno ai tuoi amici."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームの全員が会話を共有します。ルームに置いたターミナルはフレンドに共有されます。"
+            "value" : "プロジェクトの全員が会話を共有します。プロジェクトに置いたターミナルはフレンドに共有されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방에 있는 모두가 대화를 공유해요. 방에 둔 내 터미널은 내 친구들에게 공유돼요."
+            "value" : "프로젝트에 있는 모두가 대화를 공유해요. 프로젝트에 둔 내 터미널은 내 친구들에게 공유돼요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "房间里的每个人都共享其对话。你放在其中的终端会共享给你的好友。"
+            "value" : "项目里的每个人都共享其对话。你放在其中的终端会共享给你的好友。"
           }
         }
       }
@@ -5782,54 +5782,54 @@
         }
       }
     },
-    "Find a room" : {
+    "Find a project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Raum suchen"
+            "value" : "Projekt suchen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Εύρεση δωματίου"
+            "value" : "Εύρεση έργου"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buscar una sala"
+            "value" : "Buscar un proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rechercher un salon"
+            "value" : "Rechercher un projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cerca una stanza"
+            "value" : "Cerca un progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームを検索"
+            "value" : "プロジェクトを検索"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방 찾기"
+            "value" : "프로젝트 찾기"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "查找房间"
+            "value" : "查找项目"
           }
         }
       }
@@ -6458,54 +6458,54 @@
         }
       }
     },
-    "In a room, each terminal goes to the friends of its owner. They can type, resize and close it." : {
+    "In a project, each terminal goes to the friends of its owner. They can type, resize and close it." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In einem Raum geht jedes Terminal an die Freunde seines Eigentümers. Sie können darin tippen, seine Größe ändern und es schließen."
+            "value" : "In einem Projekt geht jedes Terminal an die Freunde seines Eigentümers. Sie können darin tippen, seine Größe ändern und es schließen."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Σε ένα δωμάτιο, κάθε τερματικό πηγαίνει στους φίλους του κατόχου του. Μπορούν να πληκτρολογούν, να αλλάζουν το μέγεθός του και να το κλείνουν."
+            "value" : "Σε ένα έργο, κάθε τερματικό πηγαίνει στους φίλους του κατόχου του. Μπορούν να πληκτρολογούν, να αλλάζουν το μέγεθός του και να το κλείνουν."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En una sala, cada terminal es para los amigos de su dueño. Pueden escribir, cambiar el tamaño y cerrarlo."
+            "value" : "En un proyecto, cada terminal es para los amigos de su dueño. Pueden escribir, cambiar el tamaño y cerrarlo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dans un salon, chaque terminal va aux amis de son propriétaire. Ils peuvent taper, le redimensionner et le fermer."
+            "value" : "Dans un projet, chaque terminal va aux amis de son propriétaire. Ils peuvent taper, le redimensionner et le fermer."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In una stanza, ogni terminale va agli amici del suo proprietario. Possono scrivere, ridimensionarlo e chiuderlo."
+            "value" : "In un progetto, ogni terminale va agli amici del suo proprietario. Possono scrivere, ridimensionarlo e chiuderlo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームでは、各ターミナルは持ち主のフレンドに共有されます。フレンドは入力、サイズ変更、終了ができます。"
+            "value" : "プロジェクトでは、各ターミナルは持ち主のフレンドに共有されます。フレンドは入力、サイズ変更、終了ができます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방에서 각 터미널은 주인의 친구들에게 공유돼요. 친구들은 입력하고, 크기를 바꾸고, 닫을 수 있어요."
+            "value" : "프로젝트에서 각 터미널은 주인의 친구들에게 공유돼요. 친구들은 입력하고, 크기를 바꾸고, 닫을 수 있어요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在房间中，每个终端都共享给其所有者的好友。他们可以在其中输入、调整大小并关闭它。"
+            "value" : "在项目中，每个终端都共享给其所有者的好友。他们可以在其中输入、调整大小并关闭它。"
           }
         }
       }
@@ -6822,106 +6822,106 @@
         }
       }
     },
-    "It can then use all your terminals, rooms and friends. Approve it only if you hold that device." : {
+    "It can then use all your terminals, projects and friends. Approve it only if you hold that device." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Es kann dann alle deine Terminals, Räume und Freunde nutzen. Gib es nur frei, wenn du dieses Gerät in der Hand hast."
+            "value" : "Es kann dann alle deine Terminals, Projekte und Freunde nutzen. Gib es nur frei, wenn du dieses Gerät in der Hand hast."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Θα μπορεί έπειτα να χρησιμοποιεί όλα τα τερματικά, τα δωμάτια και τους φίλους σας. Εγκρίνετέ την μόνο αν κρατάτε αυτή τη συσκευή."
+            "value" : "Θα μπορεί έπειτα να χρησιμοποιεί όλα τα τερματικά, τα έργα και τους φίλους σας. Εγκρίνετέ την μόνο αν κρατάτε αυτή τη συσκευή."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Luego podrá usar todos tus terminales, salas y amigos. Apruébalo solo si tienes ese dispositivo en tus manos."
+            "value" : "Luego podrá usar todos tus terminales, proyectos y amigos. Apruébalo solo si tienes ese dispositivo en tus manos."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il pourra alors utiliser tous vos terminaux, salons et amis. Approuvez-le seulement si vous avez cet appareil en main."
+            "value" : "Il pourra alors utiliser tous vos terminaux, projets et amis. Approuvez-le seulement si vous avez cet appareil en main."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Potrà poi usare tutti i tuoi terminali, stanze e amici. Approvalo solo se hai in mano quel dispositivo."
+            "value" : "Potrà poi usare tutti i tuoi terminali, progetti e amici. Approvalo solo se hai in mano quel dispositivo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "承認すると、そのデバイスはあなたのすべてのターミナル、ルーム、フレンドを使えるようになります。そのデバイスが手元にある場合にだけ承認してください。"
+            "value" : "承認すると、そのデバイスはあなたのすべてのターミナル、プロジェクト、フレンドを使えるようになります。そのデバイスが手元にある場合にだけ承認してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "승인하면 그 기기가 내 모든 터미널, 방, 친구를 쓸 수 있어요. 그 기기를 직접 가지고 있을 때만 승인하세요."
+            "value" : "승인하면 그 기기가 내 모든 터미널, 프로젝트, 친구를 쓸 수 있어요. 그 기기를 직접 가지고 있을 때만 승인하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "批准后，它可以使用你的所有终端、房间和好友。只有当那台设备在你手中时才批准。"
+            "value" : "批准后，它可以使用你的所有终端、项目和好友。只有当那台设备在你手中时才批准。"
           }
         }
       }
     },
-    "It can use your terminals and rooms now." : {
+    "It can use your terminals and projects now." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Es kann jetzt deine Terminals und Räume nutzen."
+            "value" : "Es kann jetzt deine Terminals und Projekte nutzen."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Μπορεί πλέον να χρησιμοποιεί τα τερματικά και τα δωμάτιά σας."
+            "value" : "Μπορεί πλέον να χρησιμοποιεί τα τερματικά και τα έργα σας."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ya puede usar tus terminales y salas."
+            "value" : "Ya puede usar tus terminales y proyectos."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il peut maintenant utiliser vos terminaux et vos salons."
+            "value" : "Il peut maintenant utiliser vos terminaux et vos projets."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ora può usare i tuoi terminali e le tue stanze."
+            "value" : "Ora può usare i tuoi terminali e i tuoi progetti."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "これで、あなたのターミナルとルームを使えます。"
+            "value" : "これで、あなたのターミナルとプロジェクトを使えます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이제 내 터미널과 방을 쓸 수 있어요."
+            "value" : "이제 내 터미널과 프로젝트를 쓸 수 있어요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "它现在可以使用你的终端和房间了。"
+            "value" : "它现在可以使用你的终端和项目了。"
           }
         }
       }
@@ -7498,54 +7498,54 @@
         }
       }
     },
-    "Kodosi encrypts your terminals and rooms end to end. A device you already trust gives this %@ its keys." : {
+    "Kodosi encrypts your terminals and projects end to end. A device you already trust gives this %@ its keys." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi verschlüsselt deine Terminals und Räume Ende-zu-Ende. Ein Gerät, dem du schon vertraust, gibt diesem %@ seine Schlüssel."
+            "value" : "Kodosi verschlüsselt deine Terminals und Projekte Ende-zu-Ende. Ein Gerät, dem du schon vertraust, gibt diesem %@ seine Schlüssel."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το Kodosi κρυπτογραφεί τα τερματικά και τα δωμάτιά σας από άκρο σε άκρο. Μια συσκευή που ήδη εμπιστεύεστε δίνει σε αυτό το %@ τα κλειδιά του."
+            "value" : "Το Kodosi κρυπτογραφεί τα τερματικά και τα έργα σας από άκρο σε άκρο. Μια συσκευή που ήδη εμπιστεύεστε δίνει σε αυτό το %@ τα κλειδιά του."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi cifra tus terminales y salas de extremo a extremo. Un dispositivo en el que ya confías le da a este %@ sus claves."
+            "value" : "Kodosi cifra tus terminales y proyectos de extremo a extremo. Un dispositivo en el que ya confías le da a este %@ sus claves."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi chiffre vos terminaux et salons de bout en bout. Un appareil de confiance donne ses clés à cet appareil (%@)."
+            "value" : "Kodosi chiffre vos terminaux et projets de bout en bout. Un appareil de confiance donne ses clés à cet appareil (%@)."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi crittografa end-to-end i tuoi terminali e le tue stanze. Un dispositivo di cui ti fidi già dà a questo %@ le sue chiavi."
+            "value" : "Kodosi crittografa end-to-end i tuoi terminali e i tuoi progetti. Un dispositivo di cui ti fidi già dà a questo %@ le sue chiavi."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi はターミナルとルームをエンドツーエンドで暗号化します。すでに信頼しているデバイスが、この %@ にキーを渡します。"
+            "value" : "Kodosi はターミナルとプロジェクトをエンドツーエンドで暗号化します。すでに信頼しているデバイスが、この %@ にキーを渡します。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi는 터미널과 방을 종단 간 암호화해요. 이미 신뢰하는 기기가 이 %@에 키를 전달해요."
+            "value" : "Kodosi는 터미널과 프로젝트를 종단 간 암호화해요. 이미 신뢰하는 기기가 이 %@에 키를 전달해요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 会对你的终端和房间进行端到端加密。由你已信任的设备将密钥交给这台 %@。"
+            "value" : "Kodosi 会对你的终端和项目进行端到端加密。由你已信任的设备将密钥交给这台 %@。"
           }
         }
       }
@@ -7758,54 +7758,54 @@
         }
       }
     },
-    "Kodosi on a computer turns their issues into room tasks. Your sign-in for them stays on that computer." : {
+    "Kodosi on a computer turns their issues into project tasks. Your sign-in for them stays on that computer." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi auf einem Computer macht aus ihren Issues Raumaufgaben. Deine Anmeldung dafür bleibt auf diesem Computer."
+            "value" : "Kodosi auf einem Computer macht aus ihren Issues Projektaufgaben. Deine Anmeldung dafür bleibt auf diesem Computer."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το Kodosi σε υπολογιστή μετατρέπει τα issues τους σε εργασίες δωματίου. Η σύνδεσή σας γι' αυτά μένει σε εκείνον τον υπολογιστή."
+            "value" : "Το Kodosi σε υπολογιστή μετατρέπει τα issues τους σε εργασίες του έργου. Η σύνδεσή σας γι' αυτά μένει σε εκείνον τον υπολογιστή."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi en un ordenador convierte sus issues en tareas de la sala. Tu inicio de sesión para ellos se queda en ese ordenador."
+            "value" : "Kodosi en un ordenador convierte sus issues en tareas del proyecto. Tu inicio de sesión para ellos se queda en ese ordenador."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi sur un ordinateur transforme leurs issues en tâches du salon. Votre connexion à ces services reste sur cet ordinateur."
+            "value" : "Kodosi sur un ordinateur transforme leurs issues en tâches du projet. Votre connexion à ces services reste sur cet ordinateur."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi su un computer trasforma le loro issue in attività della stanza. Il tuo accesso resta su quel computer."
+            "value" : "Kodosi su un computer trasforma le loro issue in attività del progetto. Il tuo accesso resta su quel computer."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "コンピュータの Kodosi が、その Issue をルームのタスクにします。サインイン情報はそのコンピュータに残ります。"
+            "value" : "コンピュータの Kodosi が、その Issue をプロジェクトのタスクにします。サインイン情報はそのコンピュータに残ります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "컴퓨터의 Kodosi가 이슈를 방 작업으로 바꿔요. 로그인 정보는 그 컴퓨터에 남아요."
+            "value" : "컴퓨터의 Kodosi가 이슈를 프로젝트 작업으로 바꿔요. 로그인 정보는 그 컴퓨터에 남아요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "电脑上的 Kodosi 会把它们的 Issue 转为房间任务。你的登录信息会留在那台电脑上。"
+            "value" : "电脑上的 Kodosi 会把它们的 Issue 转为项目任务。你的登录信息会留在那台电脑上。"
           }
         }
       }
@@ -7914,54 +7914,54 @@
         }
       }
     },
-    "Kodosi uses these open-source projects." : {
+    "Kodosi uses this open-source software." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi verwendet diese Open-Source-Projekte."
+            "value" : "Kodosi verwendet diese Open-Source-Software."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το Kodosi χρησιμοποιεί αυτά τα έργα ανοιχτού κώδικα."
+            "value" : "Το Kodosi χρησιμοποιεί αυτό το λογισμικό ανοιχτού κώδικα."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi usa estos proyectos de código abierto."
+            "value" : "Kodosi usa este software de código abierto."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi utilise ces projets open source."
+            "value" : "Kodosi utilise ces logiciels open source."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi usa questi progetti open source."
+            "value" : "Kodosi usa questo software open source."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi は次のオープンソースプロジェクトを使っています。"
+            "value" : "Kodosi は次のオープンソースソフトウェアを使っています。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi는 이 오픈 소스 프로젝트를 사용해요."
+            "value" : "Kodosi는 이 오픈 소스 소프트웨어를 사용해요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 使用了以下开源项目。"
+            "value" : "Kodosi 使用了以下开源软件。"
           }
         }
       }
@@ -8278,106 +8278,106 @@
         }
       }
     },
-    "Leave room" : {
+    "Leave project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Raum verlassen"
+            "value" : "Projekt verlassen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Αποχώρηση από το δωμάτιο"
+            "value" : "Αποχώρηση από το έργο"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Salir de la sala"
+            "value" : "Salir del proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quitter le salon"
+            "value" : "Quitter le projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esci dalla stanza"
+            "value" : "Esci dal progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームから退出"
+            "value" : "プロジェクトから退出"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방 나가기"
+            "value" : "프로젝트 나가기"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "离开房间"
+            "value" : "离开项目"
           }
         }
       }
     },
-    "Leave room…" : {
+    "Leave project…" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Raum verlassen…"
+            "value" : "Projekt verlassen…"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Αποχώρηση από το δωμάτιο…"
+            "value" : "Αποχώρηση από το έργο…"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Salir de la sala…"
+            "value" : "Salir del proyecto…"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quitter le salon…"
+            "value" : "Quitter le projet…"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esci dalla stanza…"
+            "value" : "Esci dal progetto…"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームから退出…"
+            "value" : "プロジェクトから退出…"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방 나가기…"
+            "value" : "프로젝트 나가기…"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "离开房间…"
+            "value" : "离开项目…"
           }
         }
       }
@@ -9266,106 +9266,106 @@
         }
       }
     },
-    "Make room" : {
+    "Make project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Raum erstellen"
+            "value" : "Projekt erstellen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Δημιουργία δωματίου"
+            "value" : "Δημιουργία έργου"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crear sala"
+            "value" : "Crear proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Créer le salon"
+            "value" : "Créer le projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crea stanza"
+            "value" : "Crea progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームを作成"
+            "value" : "プロジェクトを作成"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방 만들기"
+            "value" : "프로젝트 만들기"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "创建房间"
+            "value" : "创建项目"
           }
         }
       }
     },
-    "Make your first room" : {
+    "Make your first project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Erstelle deinen ersten Raum"
+            "value" : "Erstelle dein erstes Projekt"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Δημιουργήστε το πρώτο σας δωμάτιο"
+            "value" : "Δημιουργήστε το πρώτο σας έργο"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crea tu primera sala"
+            "value" : "Crea tu primer proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Créez votre premier salon"
+            "value" : "Créez votre premier projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crea la tua prima stanza"
+            "value" : "Crea il tuo primo progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "最初のルームを作成"
+            "value" : "最初のプロジェクトを作成"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "첫 방 만들기"
+            "value" : "첫 프로젝트 만들기"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "创建你的第一个房间"
+            "value" : "创建你的第一个项目"
           }
         }
       }
@@ -9578,54 +9578,54 @@
         }
       }
     },
-    "Message the room" : {
+    "Message the project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nachricht an den Raum"
+            "value" : "Nachricht an das Projekt"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Μήνυμα στο δωμάτιο"
+            "value" : "Μήνυμα στο έργο"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Escribe a la sala"
+            "value" : "Escribe al proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Écrire au salon"
+            "value" : "Écrire au projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Scrivi alla stanza"
+            "value" : "Scrivi al progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームにメッセージ"
+            "value" : "プロジェクトにメッセージ"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방에 메시지 보내기"
+            "value" : "프로젝트에 메시지 보내기"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "给房间发消息"
+            "value" : "在项目中发消息"
           }
         }
       }
@@ -9890,54 +9890,54 @@
         }
       }
     },
-    "New room" : {
+    "New project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Neuer Raum"
+            "value" : "Neues Projekt"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Νέο δωμάτιο"
+            "value" : "Νέο έργο"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nueva sala"
+            "value" : "Nuevo proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nouveau salon"
+            "value" : "Nouveau projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nuova stanza"
+            "value" : "Nuovo progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しいルーム"
+            "value" : "新しいプロジェクト"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "새 방"
+            "value" : "새 프로젝트"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新建房间"
+            "value" : "新建项目"
           }
         }
       }
@@ -12178,6 +12178,214 @@
         }
       }
     },
+    "Project" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projekt"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Έργο"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyecto"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projet"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progetto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        }
+      }
+    },
+    "Project members" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projektmitglieder"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Μέλη έργου"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Miembros del proyecto"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membres du projet"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membri del progetto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクトのメンバー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트 멤버"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目成员"
+          }
+        }
+      }
+    },
+    "Project name" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projektname"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Όνομα έργου"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre del proyecto"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom du projet"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome del progetto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクト名"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트 이름"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目名称"
+          }
+        }
+      }
+    },
+    "Projects" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projekte"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Έργα"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proyectos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Projets"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progetti"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        }
+      }
+    },
     "Put one up. People and agents can pick it up." : {
       "localizations" : {
         "de" : {
@@ -12698,54 +12906,54 @@
         }
       }
     },
-    "Remove from room" : {
+    "Remove from project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aus dem Raum entfernen"
+            "value" : "Aus dem Projekt entfernen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Αφαίρεση από το δωμάτιο"
+            "value" : "Αφαίρεση από το έργο"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quitar de la sala"
+            "value" : "Quitar del proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Retirer du salon"
+            "value" : "Retirer du projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rimuovi dalla stanza"
+            "value" : "Rimuovi dal progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームから削除"
+            "value" : "プロジェクトから削除"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방에서 제거"
+            "value" : "프로젝트에서 제거"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "从房间移除"
+            "value" : "从项目移除"
           }
         }
       }
@@ -12854,54 +13062,54 @@
         }
       }
     },
-    "Rename room" : {
+    "Rename project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Raum umbenennen"
+            "value" : "Projekt umbenennen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Μετονομασία δωματίου"
+            "value" : "Μετονομασία έργου"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renombrar sala"
+            "value" : "Renombrar proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renommer le salon"
+            "value" : "Renommer le projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rinomina stanza"
+            "value" : "Rinomina progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルーム名を変更"
+            "value" : "プロジェクト名を変更"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방 이름 변경"
+            "value" : "프로젝트 이름 변경"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重命名房间"
+            "value" : "重命名项目"
           }
         }
       }
@@ -13426,214 +13634,6 @@
         }
       }
     },
-    "Room" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Raum"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Δωμάτιο"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sala"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Salon"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stanza"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ルーム"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "방"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "房间"
-          }
-        }
-      }
-    },
-    "Room members" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Raummitglieder"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Μέλη δωματίου"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Miembros de la sala"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Membres du salon"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Membri della stanza"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ルームのメンバー"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "방 멤버"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "房间成员"
-          }
-        }
-      }
-    },
-    "Room name" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Raumname"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Όνομα δωματίου"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nombre de la sala"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nom du salon"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nome della stanza"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ルーム名"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "방 이름"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "房间名称"
-          }
-        }
-      }
-    },
-    "Rooms" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Räume"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Δωμάτια"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Salas"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Salons"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stanze"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ルーム"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "방"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "房间"
-          }
-        }
-      }
-    },
     "Same as this device" : {
       "localizations" : {
         "de" : {
@@ -13842,54 +13842,54 @@
         }
       }
     },
-    "See what your agents do, answer them, and talk with your rooms. Your terminals keep running on your computers." : {
+    "See what your agents do, answer them, and talk in your projects. Your terminals keep running on your computers." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sieh, was deine Agents tun, antworte ihnen und rede mit deinen Räumen. Deine Terminals laufen auf deinen Computern weiter."
+            "value" : "Sieh, was deine Agents tun, antworte ihnen und rede in deinen Projekten mit. Deine Terminals laufen auf deinen Computern weiter."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Δείτε τι κάνουν οι agents σας, απαντήστε τους και μιλήστε με τα δωμάτιά σας. Τα τερματικά σας συνεχίζουν να τρέχουν στους υπολογιστές σας."
+            "value" : "Δείτε τι κάνουν οι agents σας, απαντήστε τους και μιλήστε στα έργα σας. Τα τερματικά σας συνεχίζουν να τρέχουν στους υπολογιστές σας."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mira lo que hacen tus agentes, respóndeles y habla con tus salas. Tus terminales siguen en marcha en tus ordenadores."
+            "value" : "Mira lo que hacen tus agentes, respóndeles y habla en tus proyectos. Tus terminales siguen en marcha en tus ordenadores."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voyez ce que font vos agents, répondez-leur et discutez avec vos salons. Vos terminaux continuent de fonctionner sur vos ordinateurs."
+            "value" : "Voyez ce que font vos agents, répondez-leur et discutez dans vos projets. Vos terminaux continuent de fonctionner sur vos ordinateurs."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Guarda cosa fanno i tuoi agenti, rispondi loro e parla con le tue stanze. I tuoi terminali continuano a funzionare sui tuoi computer."
+            "value" : "Guarda cosa fanno i tuoi agenti, rispondi loro e parla nei tuoi progetti. I tuoi terminali continuano a funzionare sui tuoi computer."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エージェントの作業を確認して返答し、ルームで会話できます。ターミナルは各コンピュータで動き続けます。"
+            "value" : "エージェントの作業を確認して返答し、プロジェクトで会話できます。ターミナルは各コンピュータで動き続けます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "에이전트가 하는 일을 보고, 답하고, 방에서 대화하세요. 터미널은 내 컴퓨터에서 계속 실행돼요."
+            "value" : "에이전트가 하는 일을 보고, 답하고, 프로젝트에서 대화하세요. 터미널은 내 컴퓨터에서 계속 실행돼요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "查看 Agent 的工作、回复它们，并在房间中交流。你的终端会在你的电脑上继续运行。"
+            "value" : "查看 Agent 的工作、回复它们，并在项目中交流。你的终端会在你的电脑上继续运行。"
           }
         }
       }
@@ -14466,54 +14466,54 @@
         }
       }
     },
-    "Share one of your terminals with this room. Your friends in the room get full control." : {
+    "Share one of your terminals with this project. Your friends in the project get full control." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Teile eines deiner Terminals mit diesem Raum. Deine Freunde im Raum bekommen die volle Kontrolle."
+            "value" : "Teile eines deiner Terminals mit diesem Projekt. Deine Freunde im Projekt bekommen die volle Kontrolle."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Μοιραστείτε ένα από τα τερματικά σας με αυτό το δωμάτιο. Οι φίλοι σας στο δωμάτιο αποκτούν πλήρη έλεγχο."
+            "value" : "Μοιραστείτε ένα από τα τερματικά σας με αυτό το έργο. Οι φίλοι σας στο έργο αποκτούν πλήρη έλεγχο."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comparte uno de tus terminales con esta sala. Tus amigos en la sala tendrán control total."
+            "value" : "Comparte uno de tus terminales con este proyecto. Tus amigos en el proyecto tendrán control total."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partagez l'un de vos terminaux avec ce salon. Vos amis dans le salon en auront le contrôle total."
+            "value" : "Partagez l'un de vos terminaux avec ce projet. Vos amis dans le projet en auront le contrôle total."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Condividi uno dei tuoi terminali con questa stanza. I tuoi amici nella stanza ne avranno il pieno controllo."
+            "value" : "Condividi uno dei tuoi terminali con questo progetto. I tuoi amici nel progetto ne avranno il pieno controllo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ターミナルをこのルームと共有しましょう。ルームにいるフレンドがフル操作できます。"
+            "value" : "ターミナルをこのプロジェクトと共有しましょう。プロジェクトにいるフレンドがフル操作できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "내 터미널 하나를 이 방과 공유해 보세요. 방에 있는 친구들이 전체 권한을 가져요."
+            "value" : "내 터미널 하나를 이 프로젝트와 공유해 보세요. 프로젝트에 있는 친구들이 전체 권한을 가져요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "与此房间共享你的一个终端。房间里你的好友都能完全控制它。"
+            "value" : "与此项目共享你的一个终端。项目里你的好友都能完全控制它。"
           }
         }
       }
@@ -14570,54 +14570,54 @@
         }
       }
     },
-    "Share with a room" : {
+    "Share with a project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mit einem Raum teilen"
+            "value" : "Mit einem Projekt teilen"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Κοινή χρήση με δωμάτιο"
+            "value" : "Κοινή χρήση με έργο"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compartir con una sala"
+            "value" : "Compartir con un proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partager avec un salon"
+            "value" : "Partager avec un projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Condividi con una stanza"
+            "value" : "Condividi con un progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームと共有"
+            "value" : "プロジェクトと共有"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방에 공유"
+            "value" : "프로젝트에 공유"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "与房间共享"
+            "value" : "与项目共享"
           }
         }
       }
@@ -15096,54 +15096,54 @@
         }
       }
     },
-    "Shows the people and settings of this room" : {
+    "Shows the people and settings of this project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zeigt die Personen und Einstellungen dieses Raums"
+            "value" : "Zeigt die Personen und Einstellungen dieses Projekts"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Εμφανίζει τα άτομα και τις ρυθμίσεις αυτού του δωματίου"
+            "value" : "Εμφανίζει τα άτομα και τις ρυθμίσεις αυτού του έργου"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Muestra las personas y los ajustes de esta sala"
+            "value" : "Muestra las personas y los ajustes de este proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Affiche les personnes et les réglages de ce salon"
+            "value" : "Affiche les personnes et les réglages de ce projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mostra le persone e le impostazioni di questa stanza"
+            "value" : "Mostra le persone e le impostazioni di questo progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このルームのメンバーと設定を表示します"
+            "value" : "このプロジェクトのメンバーと設定を表示します"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 방의 멤버와 설정을 보여 줘요"
+            "value" : "이 프로젝트의 멤버와 설정을 보여 줘요"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "显示此房间的成员和设置"
+            "value" : "显示此项目的成员和设置"
           }
         }
       }
@@ -15564,54 +15564,54 @@
         }
       }
     },
-    "Some rooms are not shown." : {
+    "Some projects are not shown." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Einige Räume werden nicht angezeigt."
+            "value" : "Einige Projekte werden nicht angezeigt."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ορισμένα δωμάτια δεν εμφανίζονται."
+            "value" : "Ορισμένα έργα δεν εμφανίζονται."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Algunas salas no se muestran."
+            "value" : "Algunos proyectos no se muestran."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Certains salons ne sont pas affichés."
+            "value" : "Certains projets ne sont pas affichés."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Alcune stanze non sono mostrate."
+            "value" : "Alcuni progetti non sono mostrati."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一部のルームは表示されていません。"
+            "value" : "一部のプロジェクトは表示されていません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일부 방은 표시되지 않아요."
+            "value" : "일부 프로젝트는 표시되지 않아요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "部分房间未显示。"
+            "value" : "部分项目未显示。"
           }
         }
       }
@@ -17124,54 +17124,54 @@
         }
       }
     },
-    "Their rooms" : {
+    "Their projects" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ihre Räume"
+            "value" : "Ihre Projekte"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Τα δωμάτιά τους"
+            "value" : "Τα έργα τους"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sus salas"
+            "value" : "Sus proyectos"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Leurs salons"
+            "value" : "Leurs projets"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le loro stanze"
+            "value" : "I loro progetti"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "相手のルーム"
+            "value" : "相手のプロジェクト"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "상대의 방"
+            "value" : "상대의 프로젝트"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "对方的房间"
+            "value" : "对方的项目"
           }
         }
       }
@@ -17211,13 +17211,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "再び招待するまで、相手はそのルームのターミナルと会話を使えなくなります。"
+            "value" : "再び招待するまで、相手はそのプロジェクトのターミナルと会話を使えなくなります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "다시 초대할 때까지 상대는 이 방의 터미널과 대화에 접근할 수 없어요."
+            "value" : "다시 초대할 때까지 상대는 이 프로젝트의 터미널과 대화에 접근할 수 없어요."
           }
         },
         "zh-Hans" : {
@@ -19152,54 +19152,54 @@
         }
       }
     },
-    "Work in rooms" : {
+    "Work in projects" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In Räumen arbeiten"
+            "value" : "In Projekten arbeiten"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Δουλειά σε δωμάτια"
+            "value" : "Δουλειά σε έργα"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Trabaja en salas"
+            "value" : "Trabaja en proyectos"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Travaillez dans des salons"
+            "value" : "Travaillez par projets"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lavora nelle stanze"
+            "value" : "Lavora per progetti"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ルームで作業"
+            "value" : "プロジェクトで作業"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "방에서 작업하기"
+            "value" : "프로젝트에서 작업하기"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在房间中协作"
+            "value" : "在项目中工作"
           }
         }
       }
@@ -19308,106 +19308,106 @@
         }
       }
     },
-    "You are no longer in this room" : {
+    "You are no longer in this project" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Du bist nicht mehr in diesem Raum"
+            "value" : "Du bist nicht mehr in diesem Projekt"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Δεν είστε πια σε αυτό το δωμάτιο"
+            "value" : "Δεν είστε πια σε αυτό το έργο"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ya no estás en esta sala"
+            "value" : "Ya no estás en este proyecto"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous n'êtes plus dans ce salon"
+            "value" : "Vous n'êtes plus dans ce projet"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non sei più in questa stanza"
+            "value" : "Non sei più in questo progetto"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このルームのメンバーではなくなりました"
+            "value" : "このプロジェクトのメンバーではなくなりました"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "더 이상 이 방의 멤버가 아니에요"
+            "value" : "더 이상 이 프로젝트의 멤버가 아니에요"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你已不在此房间中"
+            "value" : "你已不在此项目中"
           }
         }
       }
     },
-    "You have no rooms yet." : {
+    "You have no projects yet." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Du hast noch keine Räume."
+            "value" : "Du hast noch keine Projekte."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Δεν έχετε ακόμη δωμάτια."
+            "value" : "Δεν έχετε ακόμη έργα."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aún no tienes salas."
+            "value" : "Aún no tienes proyectos."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous n'avez pas encore de salon."
+            "value" : "Vous n'avez pas encore de projet."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non hai ancora stanze."
+            "value" : "Non hai ancora progetti."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "まだルームはありません。"
+            "value" : "まだプロジェクトはありません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "아직 방이 없어요."
+            "value" : "아직 프로젝트가 없어요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你还没有房间。"
+            "value" : "你还没有项目。"
           }
         }
       }
@@ -19499,13 +19499,13 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "再び招待されるまで、そのルームのターミナルと会話を使えなくなります。"
+            "value" : "再び招待されるまで、そのプロジェクトのターミナルと会話を使えなくなります。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "누군가 다시 초대할 때까지 이 방의 터미널과 대화에 접근할 수 없어요."
+            "value" : "누군가 다시 초대할 때까지 이 프로젝트의 터미널과 대화에 접근할 수 없어요."
           }
         },
         "zh-Hans" : {
@@ -19516,54 +19516,54 @@
         }
       }
     },
-    "You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran." : {
+    "You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ihr teilt keine Terminals mehr miteinander, und jeder von euch verlässt die Räume, die dem anderen gehören. Kodosi macht bereits ausgeführte Befehle nicht rückgängig."
+            "value" : "Ihr teilt keine Terminals mehr miteinander, und jeder von euch verlässt die Projekte, die dem anderen gehören. Kodosi macht bereits ausgeführte Befehle nicht rückgängig."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα δωμάτια του άλλου. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει."
+            "value" : "Σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα έργα του άλλου. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se deja de compartir terminales en ambos sentidos, y cada persona sale de las salas de la otra. Kodosi no deshace los comandos que ya ha ejecutado."
+            "value" : "Se deja de compartir terminales en ambos sentidos, y cada persona sale de los proyectos de la otra. Kodosi no deshace los comandos que ya ha ejecutado."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous ne partagez plus de terminaux entre vous, et chacun quitte les salons de l'autre. Kodosi n'annule pas les commandes que cette personne a déjà exécutées."
+            "value" : "Vous ne partagez plus de terminaux entre vous, et chacun quitte les projets de l'autre. Kodosi n'annule pas les commandes que cette personne a déjà exécutées."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Smettete di condividere terminali tra voi e ciascuno lascia le stanze dell'altro. Kodosi non annulla i comandi che ha già eseguito."
+            "value" : "Smettete di condividere terminali tra voi e ciascuno lascia i progetti dell'altro. Kodosi non annulla i comandi che ha già eseguito."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "お互いにターミナルを共有しなくなり、それぞれ相手が所有するルームから退出します。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。"
+            "value" : "お互いにターミナルを共有しなくなり、それぞれ相手が所有するプロジェクトから退出します。相手がすでに実行したコマンドを Kodosi が元に戻すことはありません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 방에서 나가요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요."
+            "value" : "서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 프로젝트에서 나가요. 상대가 이미 실행한 명령은 Kodosi가 되돌리지 않아요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你们将不再互相共享终端，并且各自退出对方拥有的房间。Kodosi 不会撤销对方已执行的命令。"
+            "value" : "你们将不再互相共享终端，并且各自退出对方拥有的项目。Kodosi 不会撤销对方已执行的命令。"
           }
         }
       }
@@ -19620,54 +19620,54 @@
         }
       }
     },
-    "Your friends in the room get full control, including friends who join later." : {
+    "Your friends in the project get full control, including friends who join later." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Deine Freunde im Raum bekommen die volle Kontrolle, auch Freunde, die später beitreten."
+            "value" : "Deine Freunde im Projekt bekommen die volle Kontrolle, auch Freunde, die später beitreten."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Οι φίλοι σας στο δωμάτιο αποκτούν πλήρη έλεγχο, ακόμη και όσοι μπουν αργότερα."
+            "value" : "Οι φίλοι σας στο έργο αποκτούν πλήρη έλεγχο, ακόμη και όσοι μπουν αργότερα."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tus amigos en la sala tienen control total, incluso los que se unan más tarde."
+            "value" : "Tus amigos en el proyecto tienen control total, incluso los que se unan más tarde."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos amis dans le salon en ont le contrôle total, y compris ceux qui le rejoindront plus tard."
+            "value" : "Vos amis dans le projet en ont le contrôle total, y compris ceux qui le rejoindront plus tard."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "I tuoi amici nella stanza ne hanno il pieno controllo, anche quelli che si uniranno più tardi."
+            "value" : "I tuoi amici nel progetto ne hanno il pieno controllo, anche quelli che si uniranno più tardi."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "後から参加するフレンドも含め、ルームにいるフレンドがフル操作できます。"
+            "value" : "後から参加するフレンドも含め、プロジェクトにいるフレンドがフル操作できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "나중에 들어오는 친구를 포함해 방에 있는 친구들이 전체 권한을 가져요."
+            "value" : "나중에 들어오는 친구를 포함해 프로젝트에 있는 친구들이 전체 권한을 가져요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "房间里你的好友（包括之后加入的好友）都能完全控制。"
+            "value" : "项目里你的好友（包括之后加入的好友）都能完全控制。"
           }
         }
       }

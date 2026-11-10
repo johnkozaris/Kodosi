@@ -242,9 +242,9 @@ impl DosiBody {
         };
         let target = target.as_ref().map(|target| match target.kind {
             DosiTargetKind::Terminal => format!("the terminal {}", target.value),
-            DosiTargetKind::Room => format!("the room {}", target.value),
+            DosiTargetKind::Room => format!("the project {}", target.value),
             DosiTargetKind::Terminals => "the terminals".to_owned(),
-            DosiTargetKind::Rooms => "the rooms".to_owned(),
+            DosiTargetKind::Rooms => "the projects".to_owned(),
             _ => target.value.clone(),
         });
         let line = format!("{} {}", action.done(), target.unwrap_or_default());

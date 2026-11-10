@@ -82,8 +82,8 @@ A part of either set, or a key that does not load, stops the backend at start.
 
 ## Plans
 
-Without plans, an account can have 10 devices, own 64 rooms of 64 members, share a
-terminal with 64 people and send 64 open friend requests; room data and friends are
+Without plans, an account can have 10 devices, own 64 projects of 64 members, share a
+terminal with 64 people and send 64 open friend requests; project data and friends are
 unlimited. The setting `Plans` defines smaller limits, and the column `users.Plan` names
 an account's plan (the default plan otherwise):
 
@@ -100,11 +100,11 @@ an account's plan (the default plan otherwise):
 ```
 
 The limits are `Devices` (1 to 16), `OwnedRooms` (1 to 64), `RoomPeople` in an owned
-room, counting the owner and open invitations (1 to 65), `SharePeople` who can see one of
-the account's terminals (1 to 64), `RoomBytes` of encrypted data per owned room (at
+project, counting the owner and open invitations (1 to 65), `SharePeople` who can see one of
+the account's terminals (1 to 64), `RoomBytes` of encrypted data per owned project (at
 least 131072), `Friends`, `SentFriendRequests` (1 to 64) and `ReceivedFriendRequests`. An unset limit
-keeps its default, and the owner's plan applies to a room or terminal. Past `RoomBytes`
-a room drops its oldest messages. A smaller plan removes nothing, recovery is never
+keeps its default, and the owner's plan applies to a project or terminal. Past `RoomBytes`
+a project drops its oldest messages. A smaller plan removes nothing, recovery is never
 limited, a changed `users.Plan` applies at once, and an invalid setting stops the
 backend at start.
 

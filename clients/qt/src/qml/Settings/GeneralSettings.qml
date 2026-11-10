@@ -232,9 +232,9 @@ ColumnLayout {
 
         PlainLabel {
             color: KodosiTheme.inkMuted
-            text: [qsTr("Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.")]
+            text: [qsTr("Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there.")]
                 .concat(root.ownedRooms.length > 0
-                    ? [qsTr("These rooms close for everyone in them: %1.").arg(root.ownedRooms.join(", "))]
+                    ? [qsTr("These projects close for everyone in them: %1.").arg(root.ownedRooms.join(", "))]
                     : [])
                 .concat([qsTr("The terminals on this computer keep running. You cannot undo this.")])
                 .join("\n\n")

@@ -25,7 +25,7 @@ struct MainTabView: View {
             .badge(model.terminals.needsYou.count)
             .accessibilityIdentifier("tab.terminals")
 
-            Tab("Rooms", systemImage: "square.grid.2x2", value: .rooms) {
+            Tab("Projects", systemImage: "square.grid.2x2", value: .rooms) {
                 NavigationStack(path: $rooms) { RoomsHome() }
                     .environment(\.openRoute, OpenRouteAction { rooms.append($0) })
                     .tint(theme.colors.ink)

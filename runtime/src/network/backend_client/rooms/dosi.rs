@@ -17,7 +17,7 @@ impl RoomCache {
             .rooms
             .get(&room)
             .and_then(|cached| cached.states.last_key_value())
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?
             .1
             .state;
         if state.owner_user_id == credentials.user_id
@@ -26,7 +26,7 @@ impl RoomCache {
             Ok(())
         } else {
             Err(invalid(
-                "The server offered Dosi a room that is not yours alone.",
+                "The server offered Dosi a project that is not yours alone.",
             ))
         }
     }
@@ -60,7 +60,7 @@ impl RoomCache {
         let cached = self
             .rooms
             .get(&room)
-            .ok_or_else(|| Error::Text(text!("Room keys are missing.")))?;
+            .ok_or_else(|| Error::Text(text!("Project keys are missing.")))?;
         let mut instructed = None;
         for item in items {
             if item.user_id != credentials.user_id {
@@ -107,7 +107,7 @@ impl BackendClient {
             .await?;
         list.get("dosi")
             .and_then(Value::as_str)
-            .map(|room| Uuid::parse_str(room).map_err(|_| invalid("Invalid room identity.")))
+            .map(|room| Uuid::parse_str(room).map_err(|_| invalid("Invalid project identity.")))
             .transpose()
     }
 
@@ -155,7 +155,7 @@ impl BackendClient {
         let path = self.inner.config.data_root.join("network/dosi-rooms.json");
         let pins = match std::fs::read(&path) {
             Ok(bytes) if bytes.len() <= PINS_LIMIT => serde_json::from_slice(&bytes)?,
-            Ok(_) => return Err(invalid("Saved Dosi rooms exceed their limit.")),
+            Ok(_) => return Err(invalid("Saved Dosi projects exceed their limit.")),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
             Err(error) => return Err(error.into()),
         };
@@ -318,7 +318,7 @@ impl BackendClient {
             drop(cache);
             after = last
                 .filter(|last| *last > after)
-                .ok_or_else(|| invalid("Room history did not advance."))?;
+                .ok_or_else(|| invalid("Project history did not advance."))?;
         }
     }
 }

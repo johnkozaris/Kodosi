@@ -1,6 +1,6 @@
 # Kodosi for iPhone and iPad
 
-The native iOS app follows your terminals and rooms. It embeds the viewer build of the
+The native iOS app follows your terminals and projects. It embeds the viewer build of the
 Rust runtime and Ghostty's terminal view, and shares code with the Mac app through the
 [shared Swift package](../apple/Package.swift).
 

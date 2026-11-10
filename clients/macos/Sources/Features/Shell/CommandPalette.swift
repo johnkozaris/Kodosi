@@ -41,7 +41,7 @@ struct CommandPalette: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").font(.system(size: 13, weight: .semibold)).foregroundStyle(theme.colors.inkMuted)
-                    TextField("Go to a terminal, a room or a person", text: $query)
+                    TextField("Go to a terminal, a project or a person", text: $query)
                         .textFieldStyle(.plain).appTextStyle(.body).focused($focused)
                         .onSubmit { run(results) }
                         .onKeyPress(.downArrow) { move(1, in: results); return .handled }
@@ -154,7 +154,7 @@ struct CommandPalette: View {
 
     private var roomItems: [Item] {
         deps.rooms.missions.map { mission in
-            Item(id: "room.\(mission.id)", group: String(localized: "Rooms"), title: mission.name,
+            Item(id: "room.\(mission.id)", group: String(localized: "Projects"), title: mission.name,
                  icon: .room(mission.id))
             {
                 deps.workbench.section = .missions; deps.openMission(mission)
@@ -190,7 +190,7 @@ struct CommandPalette: View {
             },
         ]
         if deps.account.isReady {
-            actions.append(Item(id: "action.room", group: group, title: String(localized: "New room"), icon: .symbol("square.grid.2x2.fill", TileTint.purple)) {
+            actions.append(Item(id: "action.room", group: group, title: String(localized: "New project"), icon: .symbol("square.grid.2x2.fill", TileTint.purple)) {
                 deps.workbench.showsNewRoom = true
             })
         }

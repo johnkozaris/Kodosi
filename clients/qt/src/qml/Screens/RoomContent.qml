@@ -101,7 +101,7 @@ Item {
                         font.weight: Font.DemiBold
                         objectName: "room.rename"
                         Accessible.id: objectName
-                        Accessible.name: qsTr("Room name")
+                        Accessible.name: qsTr("Project name")
                         onVisibleChanged: {
                             if (visible) {
                                 text = root.mission.name || "";
@@ -156,7 +156,7 @@ Item {
                     glyph: "warning"
                     glyphColor: KodosiTheme.caution
                     visible: !!root.presentation.failure
-                    Accessible.name: qsTr("Room action failed")
+                    Accessible.name: qsTr("Project action failed")
                     onClicked: failure.open()
                 }
                 AbstractButton {
@@ -164,7 +164,7 @@ Item {
                     implicitWidth: avatars.implicitWidth + 8
                     implicitHeight: 30
                     hoverEnabled: true
-                    Accessible.name: qsTr("Room members")
+                    Accessible.name: qsTr("Project members")
                     objectName: "room.people"
                     Accessible.id: objectName
                     contentItem: Item {
@@ -190,7 +190,7 @@ Item {
                         contentItem: ColumnLayout {
                             spacing: 10
 
-                            PlainLabel { text: qsTr("In this room"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
+                            PlainLabel { text: qsTr("In this project"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
                             Repeater {
                                 model: root.members
                                 delegate: RowLayout {
@@ -214,7 +214,7 @@ Item {
                                         size: 24
                                         destructive: true
                                         visible: root.owner && !member.modelData.isOwner
-                                        Accessible.name: qsTr("Remove %1 from the room").arg(member.fullName)
+                                        Accessible.name: qsTr("Remove %1 from the project").arg(member.fullName)
                                         onClicked: Models.Missions.removeMember(member.modelData.userId)
                                     }
                                 }
@@ -326,7 +326,7 @@ Item {
                     glyph: "more"
                     size: 30
                     open: options.visible
-                    Accessible.name: qsTr("Room options")
+                    Accessible.name: qsTr("Project options")
                     objectName: "room.options"
                     Accessible.id: objectName
                     onClicked: options.visible ? options.close() : options.open()
@@ -342,7 +342,7 @@ Item {
                         KMenuItem { text: qsTr("Copy agent instructions"); iconName: "agent"; onTriggered: Models.Missions.copyAgentInstructions() }
                         KMenuItem { text: qsTr("Refresh"); iconName: "refresh"; onTriggered: Models.Missions.roomAction({ type: "read" }) }
                         MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
-                        KMenuItem { text: root.owner ? qsTr("Delete room…") : qsTr("Leave room…"); iconName: root.owner ? "trash" : "leave"; destructive: true; onTriggered: remove.open() }
+                        KMenuItem { text: root.owner ? qsTr("Delete project…") : qsTr("Leave project…"); iconName: root.owner ? "trash" : "leave"; destructive: true; onTriggered: remove.open() }
                     }
                 }
             }
@@ -587,7 +587,7 @@ Item {
                                 width: Math.min(360, parent.width - 40)
                                 visible: !terminal.active && root.sessionIds.length === 0
                                 title: qsTr("No terminals here yet")
-                                message: qsTr("Add one. Your friends in the room get full control.")
+                                message: qsTr("Add one. Your friends in the project get full control.")
                                 art: Item {
                                     implicitWidth: 190
                                     implicitHeight: 96
@@ -717,7 +717,7 @@ Item {
                     anchors.centerIn: parent
                     width: Math.min(340, parent.width - 40)
                     visible: !root.loaded && !!root.presentation.failure && root.section !== 0
-                    title: qsTr("The room did not load")
+                    title: qsTr("The project did not load")
                     message: root.presentation.failure || ""
 
                     KButton { text: qsTr("Try again"); iconName: "refresh"; variant: KButton.Primary; onClicked: Models.Missions.roomAction({ type: "read" }) }
@@ -776,7 +776,7 @@ Item {
         property string sessionId: ""
 
         KMenuItem {
-            text: qsTr("Remove from room")
+            text: qsTr("Remove from project")
             iconName: "leave"
             objectName: "room.terminal.remove"
             onTriggered: Models.SessionActions.attachMission(terminalMenu.sessionId, "")

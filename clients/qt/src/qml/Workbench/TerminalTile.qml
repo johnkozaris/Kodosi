@@ -441,7 +441,7 @@ Item {
                                 contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
                             }
                             KMenuItem {
-                                text: qsTr("Remove from room")
+                                text: qsTr("Remove from project")
                                 iconName: "leave"
                                 destructive: true
                                 visible: root.roomEmbedded && root.session.isOwner === true

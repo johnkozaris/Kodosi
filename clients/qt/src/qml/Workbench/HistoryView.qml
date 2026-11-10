@@ -74,13 +74,13 @@ KPopover {
                 compact: true
                 iconName: "folder"
                 objectName: "panel.history.folder"
-                text: root.history.directory.length > 0 ? Models.Sessions.folderName(root.history.directory) : qsTr("All projects")
+                text: root.history.directory.length > 0 ? Models.Sessions.folderName(root.history.directory) : qsTr("All folders")
 
                 onClicked: Models.DesktopFiles.requestDirectory("history", root.history.directory)
             }
             KIconButton {
                 Accessible.id: objectName
-                Accessible.name: qsTr("All projects")
+                Accessible.name: qsTr("All folders")
                 glyph: "close"
                 size: 24
                 objectName: "panel.history.all-projects"
@@ -204,7 +204,7 @@ KPopover {
                     width: Math.min(360, parent.width - 40)
                     visible: root.selectedId.length === 0
                     title: root.hasList ? qsTr("Pick a conversation") : qsTr("Nothing saved here")
-                    message: root.hasList ? qsTr("You see it here before you resume it.") : qsTr("Choose another project, or switch the agent.")
+                    message: root.hasList ? qsTr("You see it here before you resume it.") : qsTr("Choose another folder, or switch the agent.")
                     art: AgentMark { program: root.history.provider; size: 52; asleep: true }
                 }
                 KScrollView {

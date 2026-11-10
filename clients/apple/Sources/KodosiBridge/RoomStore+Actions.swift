@@ -63,7 +63,7 @@ public extension RoomStore {
             }
         }
         if missed > 0 {
-            notify(String(localized: "Some invitations did not go out. Invite them again from the room.", bundle: .module))
+            notify(String(localized: "Some invitations did not go out. Invite them again from the project.", bundle: .module))
         }
         return roomId
     }

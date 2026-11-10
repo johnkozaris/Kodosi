@@ -12,7 +12,7 @@ navigateur, où vous vous connectez. Dans un terminal, `kodosi auth login` affic
 saisir dans n'importe quel navigateur.
 
 Sans compte, Kodosi exécute des terminaux sur cet ordinateur. Connectez-vous pour utiliser vos
-autres ordinateurs, vos amis et vos salons.
+autres ordinateurs, vos amis et vos projets.
 
 ## 2. Lancer un agent
 
@@ -63,7 +63,7 @@ vos terminaux continuent de tourner, et l'icône de Kodosi reste dans la barre d
 zone de notification ; sur un bureau sans zone de notification, fermer la fenêtre quitte
 Kodosi. Quand vous quittez Kodosi, vos terminaux s'arrêtent. Kodosi enregistre ce qu'ils
 affichent sur votre ordinateur et nulle part ailleurs. Quand vous rouvrez Kodosi, ils
-redémarrent dans leurs dossiers, leurs salons et leurs places sur la scène, avec leur écran et
+redémarrent dans leurs dossiers, leurs projets et leurs places sur la scène, avec leur écran et
 leur historique précédents au-dessus d'un nouveau prompt (sous Windows, faites défiler vers le
 haut pour les voir). Claude Code, Codex et Copilot CLI reprennent leurs conversations et, sur
 un Mac ou sous Linux, gardent le modèle, l'effort, les autorisations et la sortie que vous avez
@@ -156,7 +156,7 @@ avec son compte, son modèle et son effort.
 </p>
 
 Demandez à Dosi ce qui a besoin de vous, ou demandez-lui de faire quelque chose. Dosi lit vos
-terminaux et vos salons, répond, et tape, lance et ferme des choses pour vous. Quand il a
+terminaux et vos projets, répond, et tape, lance et ferme des choses pour vous. Quand il a
 besoin d'un choix, il demande avec des boutons, et vous pouvez aussi répondre avec vos propres
 mots. Votre conversation avec Dosi est la même sur tous vos appareils. Sur un iPhone ou un
 iPad, l'onglet Dosi écrit à Dosi sur l'ordinateur que vous choisissez au-dessus du message,
@@ -183,7 +183,7 @@ ordinateur doit avoir Kodosi ouvert, ou `kodosi host` en cours dans un terminal.
 
 Créez aussi une clé de récupération et gardez-la en lieu sûr. Si vous perdez tous vos
 appareils, connectez-vous sur un nouveau et choisissez « Utiliser ma clé de récupération »
-pour garder vos amis et vos salons. Retirez un appareil perdu depuis un autre appareil. Si un
+pour garder vos amis et vos projets. Retirez un appareil perdu depuis un autre appareil. Si un
 appareil a été volé, créez aussi une nouvelle clé de récupération.
 
 ## 7. Travailler avec des amis
@@ -195,13 +195,14 @@ votre ami.
 <p align="center"><img src="../media/friends.webp" width="900" alt="La page Amis avec deux amis vérifiés."></p>
 
 Pour partager un terminal, choisissez Partager dans le bouton d'actions de son en-tête et
-choisissez des amis ou des salons. Les personnes avec qui vous partagez en ont le contrôle
+choisissez des amis ou des projets. Les personnes avec qui vous partagez en ont le contrôle
 total, avec vos privilèges sur cet ordinateur. Vos autres terminaux restent privés.
 
-Un salon réunit des terminaux partagés, une conversation et des tâches. Choisissez + à côté de
-Salons, ajoutez des amis, puis lancez un terminal dans le salon ou partagez-en un dedans.
+Un projet rassemble des terminaux de n'importe quel dossier et ordinateur, avec une
+conversation et des tâches. Choisissez + à côté de Projets, puis lancez un terminal dans le
+projet ou partagez-en un dedans, et invitez des amis quand vous le souhaitez.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Un salon avec un terminal partagé et une conversation entre personnes et agents."></p>
+<p align="center"><img src="../media/room.webp" width="900" alt="Un projet avec un terminal partagé et une conversation entre personnes et agents."></p>
 
 - Tous les membres peuvent utiliser les terminaux partagés et partager les leurs. Les
   personnes qui arrivent plus tard reçoivent les terminaux et toute la conversation. Les
@@ -212,11 +213,11 @@ Salons, ajoutez des amis, puis lancez un terminal dans le salon ou partagez-en u
   ou le credential helper de Git, et Gitea le credential helper ou `KODOSI_GITEA_TOKEN` pour
   le serveur de `KODOSI_GITEA_URL`. Vos identifiants restent sur votre ordinateur.
 - Écrivez `@` et le nom d'un terminal dans le chat, et Kodosi donne votre message à l'agent de
-  ce terminal, avec votre nom et le salon ; l'agent décide de ce qu'il en fait. Claude Code et
+  ce terminal, avec votre nom et le projet ; l'agent décide de ce qu'il en fait. Claude Code et
   Copilot CLI dans un terminal Kodosi, et un Codex lancé par Kodosi, savent qu'ils tournent
   dans Kodosi, et `kodosi skill` affiche le [skill](../../runtime/skills/kodosi/SKILL.md) qui
-  permet à un agent de participer. Dans un terminal Kodosi, la commande trouve le salon ;
-  ailleurs, ajoutez `--room <name>`.
+  permet à un agent de participer. Dans un terminal Kodosi, la commande trouve le projet ;
+  ailleurs, ajoutez `--project <name>`.
 
 ## 8. Utiliser la ligne de commande
 

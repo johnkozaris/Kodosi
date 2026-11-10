@@ -14,6 +14,6 @@ public enum Counted {
     }
 
     public static func rooms(_ count: Int) -> String {
-        String(localized: "\(count) rooms", bundle: .module)
+        String(localized: "\(count) projects", bundle: .module)
     }
 }

@@ -478,7 +478,7 @@ Item {
         PlainLabel {
             width: 340
             color: KodosiTheme.inkMuted
-            text: qsTr("They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.")
+            text: qsTr("They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.")
             wrapMode: Text.WordWrap
         }
     }
@@ -498,7 +498,7 @@ Item {
         PlainLabel {
             width: 340
             color: KodosiTheme.inkMuted
-            text: qsTr("You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.")
+            text: qsTr("You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.")
             wrapMode: Text.WordWrap
         }
     }

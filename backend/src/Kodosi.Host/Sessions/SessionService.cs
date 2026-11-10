@@ -129,7 +129,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         }
         var session = await OwnerAsync(id, userId, ct); Incarnation(session, body.IncarnationId);
         if (body.Choice.History != await RoomHistoryAsync(body.MissionId, ct))
-            throw ApiException.Conflict("The room of this terminal changed; refresh before retrying.");
+            throw ApiException.Conflict("The project of this terminal changed; refresh before retrying.");
         var signature = RoomSignature(session, device, body);
         var before = await TerminalAccess.PeopleAsync(db, id, ct);
         if (session.MissionId != body.MissionId) await db.SessionMembers.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
@@ -147,7 +147,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<SessionDto> ShareAsync(Guid id, Guid userId, string deviceId, ShareSession body, CancellationToken ct)
     {
         var session = await HostAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
-        if (session.MissionId is not null) throw ApiException.Conflict("This terminal is shared with its room. Remove it from the room to share it with friends.");
+        if (session.MissionId is not null) throw ApiException.Conflict("This terminal is shared with its project. Remove it from the project to share it with friends.");
         if (body.UserIds is null || body.UserIds.Length > Limits.MaxSessionMembers || body.UserIds.Any(x => x == Guid.Empty || x == userId))
             throw ApiException.Invalid($"Choose up to {Limits.MaxSessionMembers} friends, excluding yourself.");
         var selected = body.UserIds.ToHashSet();
@@ -171,7 +171,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     {
         var session = await AuthorizedAsync(id, userId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
         if (session.OwnerUserId == userId) throw ApiException.Invalid("You cannot leave your own terminal.");
-        if (session.MissionId is not null) throw ApiException.Conflict("Leave the room to leave its shared terminals.");
+        if (session.MissionId is not null) throw ApiException.Conflict("Leave the project to leave its shared terminals.");
         var member = await db.SessionMembers.SingleOrDefaultAsync(x => x.SessionId == id && x.UserId == userId, ct) ?? throw ApiException.Missing();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         db.SessionMembers.Remove(member);
@@ -256,18 +256,18 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     private static byte[] RoomSignature(Session session, ApprovedDevice device, AttachSession body)
     {
         var choice = body.Choice;
-        if (choice.DeviceId != device.Id) throw ApiException.Forbidden("The device that sends the room must sign it.");
-        if (choice.Sequence <= session.RoomSequence) throw ApiException.Conflict("The room of this terminal changed; refresh before retrying.");
-        var signature = Limits.Base64(choice.Signature, "Room signature", IdentityWireFormat.MlDsa65SignatureLength);
+        if (choice.DeviceId != device.Id) throw ApiException.Forbidden("The device that sends the project must sign it.");
+        if (choice.Sequence <= session.RoomSequence) throw ApiException.Conflict("The project of this terminal changed; refresh before retrying.");
+        var signature = Limits.Base64(choice.Signature, "Project signature", IdentityWireFormat.MlDsa65SignatureLength);
         var signed = Proofs.TerminalRoom(session.OwnerUserId, session.Id, session.IncarnationId, body.MissionId, choice.History, choice.Sequence, device.Id);
-        return SignatureVerifier.Verify(device.SigningPublicKey, signed, signature) ? signature : throw ApiException.Forbidden("Invalid room signature.");
+        return SignatureVerifier.Verify(device.SigningPublicKey, signed, signature) ? signature : throw ApiException.Forbidden("Invalid project signature.");
     }
 
     private async Task<string> RoomHistoryAsync(Guid? room, CancellationToken ct)
     {
         if (room is null) return "";
         var newest = await db.MissionKeyStates.AsNoTracking().Where(x => x.MissionId == room).OrderByDescending(x => x.Version).Select(x => x.Body).FirstOrDefaultAsync(ct);
-        return newest is null ? throw ApiException.Conflict("The room of this terminal changed; refresh before retrying.") : Convert.ToHexStringLower(SHA256.HashData(newest));
+        return newest is null ? throw ApiException.Conflict("The project of this terminal changed; refresh before retrying.") : Convert.ToHexStringLower(SHA256.HashData(newest));
     }
 
     internal static void LeaveRoom(Session session)

@@ -128,7 +128,7 @@ impl Content {
 
 pub(crate) fn secret() -> Result<Secret> {
     let mut key = Zeroizing::new([0; 32]);
-    rand::fill(key.as_mut()).map_err(|_| invalid("Cannot create room keys."))?;
+    rand::fill(key.as_mut()).map_err(|_| invalid("Cannot create project keys."))?;
     Ok(key)
 }
 
@@ -157,7 +157,7 @@ pub(crate) fn verify_signature(
     let signature = decode(signature, 3309)?;
     ML_DSA_65
         .verify_sig(public, &signed, &signature)
-        .map_err(|_| invalid("The room signature is invalid."))
+        .map_err(|_| invalid("The project signature is invalid."))
 }
 
 pub(crate) fn verify_state(
@@ -180,7 +180,7 @@ pub(crate) fn verify_state(
         || state.recipients.is_empty()
         || state.recipients.len() > crate::protocol::ROOM_RECIPIENTS_MOST
     {
-        return Err(invalid("The room key history is invalid."));
+        return Err(invalid("The project key history is invalid."));
     }
     let identities = member_identities(&state, owner, owner_root, previous)?;
     if let Some(previous) = previous {
@@ -189,7 +189,7 @@ pub(crate) fn verify_state(
             || state.epoch > previous.state.epoch + 1
             || !previous.state.members.contains_key(&state.author_id)
         {
-            return Err(invalid("The room update does not follow its history."));
+            return Err(invalid("The project update does not follow its history."));
         }
         let prior = previous.state.members.keys().collect::<BTreeSet<_>>();
         let current = state.members.keys().collect::<BTreeSet<_>>();
@@ -198,27 +198,29 @@ pub(crate) fn verify_state(
             && (current.difference(&prior).next().is_some()
                 || removed.iter().any(|user| *user != &state.author_id))
         {
-            return Err(invalid("The room membership update has no valid author."));
+            return Err(invalid(
+                "The project membership update has no valid author.",
+            ));
         }
         if !removed.is_empty() && state.epoch != previous.state.epoch + 1 {
-            return Err(invalid("Room keys did not change with membership."));
+            return Err(invalid("Project keys did not change with membership."));
         }
         if state.epoch == previous.state.epoch && state.previous_key != previous.state.previous_key
         {
-            return Err(invalid("Room history keys changed within an epoch."));
+            return Err(invalid("Project history keys changed within an epoch."));
         }
     } else if state.author_id != owner
         || state.epoch != 1
         || !state.previous_hash.is_empty()
         || state.previous_key.is_some()
     {
-        return Err(invalid("The room has no valid starting keys."));
+        return Err(invalid("The project has no valid starting keys."));
     }
     let signer_bundle = state
         .members
         .get(&state.author_id)
         .or_else(|| previous.and_then(|p| p.state.members.get(&state.author_id)))
-        .ok_or_else(|| invalid("The room update has no member identity."))?;
+        .ok_or_else(|| invalid("The project update has no member identity."))?;
     let signer_root = previous
         .and_then(|p| p.state.members.get(&state.author_id))
         .map_or_else(|| signer_bundle.root(), IdentityBundle::root)?;
@@ -226,7 +228,7 @@ pub(crate) fn verify_state(
     let public = &identity
         .devices
         .get(&state.device_id)
-        .ok_or_else(|| invalid("The room update has no approved signing device."))?
+        .ok_or_else(|| invalid("The project update has no approved signing device."))?
         .sig_public_key;
     verify_signature(STATE_DOMAIN, &bytes, &signed.signature, public)?;
     for recipient in &state.recipients {
@@ -234,7 +236,9 @@ pub(crate) fn verify_state(
             .get(&recipient.user_id)
             .is_some_and(|identity| identity.devices.contains_key(&recipient.device_id))
         {
-            return Err(invalid("Room keys include a device outside the room."));
+            return Err(invalid(
+                "Project keys include a device outside the project.",
+            ));
         }
     }
     Ok(VerifiedState {
@@ -253,7 +257,7 @@ fn member_identities(
     let mut identities = BTreeMap::new();
     for (user, bundle) in &state.members {
         if user != &bundle.user_id {
-            return Err(invalid("A room identity belongs to another user."));
+            return Err(invalid("A project identity belongs to another user."));
         }
         let prior = previous.and_then(|p| p.state.members.get(user).map(|known| (known, p)));
         if let Some((known, p)) = prior
@@ -275,7 +279,7 @@ fn member_identities(
                 || previous.is_none_or(|p| state.epoch != p.state.epoch + 1))
         {
             return Err(crate::network::Error::Text(text!(
-                "A room member's identity changed."
+                "A project member's identity changed."
             )));
         }
         let older = prior
@@ -307,11 +311,11 @@ fn wrapping_key(shared: &[&[u8]], info: &[&[u8]]) -> Result<Secret> {
     let prk = hkdf::Salt::new(hkdf::HKDF_SHA256, WRAP_SALT).extract(&secret);
     let expanded = prk
         .expand(info, &aead::AES_256_GCM)
-        .map_err(|_| invalid("Cannot derive the room wrapping key."))?;
+        .map_err(|_| invalid("Cannot derive the project wrapping key."))?;
     let mut key = Zeroizing::new([0; 32]);
     expanded
         .fill(key.as_mut())
-        .map_err(|_| invalid("Cannot derive the room wrapping key."))?;
+        .map_err(|_| invalid("Cannot derive the project wrapping key."))?;
     Ok(key)
 }
 
@@ -323,23 +327,23 @@ pub(crate) fn wrap(
     key: &Secret,
 ) -> Result<Recipient> {
     if public.len() != ROOM_PUBLIC_BYTES {
-        return Err(invalid("Invalid room recipient key."));
+        return Err(invalid("Invalid project recipient key."));
     }
     let (kem_public, agreement_public) = public.split_at(ROOM_KEM_PUBLIC_BYTES);
     let (ciphertext, shared) = kem::EncapsulationKey::new(&kem::ML_KEM_768, kem_public)
-        .map_err(|_| invalid("Invalid room recipient key."))?
+        .map_err(|_| invalid("Invalid project recipient key."))?
         .encapsulate()
-        .map_err(|_| invalid("Cannot encrypt room keys."))?;
+        .map_err(|_| invalid("Cannot encrypt project keys."))?;
     let ephemeral = agreement::PrivateKey::generate(&agreement::X25519)
-        .map_err(|_| invalid("Cannot encrypt room keys."))?;
+        .map_err(|_| invalid("Cannot encrypt project keys."))?;
     let ephemeral_public = ephemeral
         .compute_public_key()
-        .map_err(|_| invalid("Cannot encrypt room keys."))?;
+        .map_err(|_| invalid("Cannot encrypt project keys."))?;
     let context = wrap_context(state, user, device)?;
     let derived = agreement::agree(
         &ephemeral,
         agreement::UnparsedPublicKey::new(&agreement::X25519, agreement_public),
-        invalid("Invalid room recipient key."),
+        invalid("Invalid project recipient key."),
         |agreed| {
             wrapping_key(
                 &[shared.as_ref(), agreed],
@@ -373,7 +377,7 @@ fn unwrap_for(state: &State, user: &str, device: &str, room: &RoomKeyPair) -> Re
         .iter()
         .find(|recipient| recipient.user_id == user && recipient.device_id == device)
         .ok_or_else(|| {
-            crate::network::Error::Text(text!("Room keys are still arriving on this device."))
+            crate::network::Error::Text(text!("Project keys are still arriving on this device."))
         })?;
     let ciphertext = decode(
         &recipient.kem_ciphertext,
@@ -381,17 +385,17 @@ fn unwrap_for(state: &State, user: &str, device: &str, room: &RoomKeyPair) -> Re
     )?;
     let (kem_ciphertext, ephemeral_public) = ciphertext
         .split_at_checked(KEM_CIPHERTEXT_BYTES)
-        .ok_or_else(|| invalid("Cannot open room keys."))?;
+        .ok_or_else(|| invalid("Cannot open project keys."))?;
     let shared = room
         .kem()?
         .decapsulate(kem::Ciphertext::from(kem_ciphertext))
-        .map_err(|_| invalid("Cannot open room keys."))?;
+        .map_err(|_| invalid("Cannot open project keys."))?;
     let context = wrap_context(state, user, device)?;
     let (_, agreement_public) = room.public().split_at(ROOM_KEM_PUBLIC_BYTES);
     let derived = agreement::agree(
         &room.agreement()?,
         agreement::UnparsedPublicKey::new(&agreement::X25519, ephemeral_public),
-        invalid("Cannot open room keys."),
+        invalid("Cannot open project keys."),
         |agreed| {
             wrapping_key(
                 &[shared.as_ref(), agreed],
@@ -429,7 +433,7 @@ pub(crate) fn open_previous(state: &State, current: &Secret) -> Result<Secret> {
         state
             .previous_key
             .as_ref()
-            .ok_or_else(|| invalid("Room history keys are incomplete."))?,
+            .ok_or_else(|| invalid("Project history keys are incomplete."))?,
     )?)
 }
 
@@ -437,13 +441,13 @@ fn key_bytes(bytes: &[u8]) -> Result<Secret> {
     Ok(Zeroizing::new(
         bytes
             .try_into()
-            .map_err(|_| invalid("Invalid room key size."))?,
+            .map_err(|_| invalid("Invalid project key size."))?,
     ))
 }
 
 fn seal(key: &[u8], context: &[u8], bytes: &[u8]) -> Result<Sealed> {
-    let (nonce, ciphertext) =
-        crypto::seal(key, context, bytes).ok_or_else(|| invalid("Cannot encrypt room content."))?;
+    let (nonce, ciphertext) = crypto::seal(key, context, bytes)
+        .ok_or_else(|| invalid("Cannot encrypt project content."))?;
     Ok(Sealed {
         nonce: BASE64.encode(nonce),
         ciphertext: BASE64.encode(ciphertext),
@@ -457,7 +461,7 @@ fn open(key: &[u8], context: &[u8], sealed: &Sealed) -> Result<Zeroizing<Vec<u8>
         &decode(&sealed.nonce, crypto::NONCE_BYTES)?,
         decode(&sealed.ciphertext, 256 * 1024)?,
     )
-    .ok_or_else(|| invalid("Room content could not be authenticated."))
+    .ok_or_else(|| invalid("Project content could not be authenticated."))
 }
 
 fn digest(bytes: &[u8]) -> String {

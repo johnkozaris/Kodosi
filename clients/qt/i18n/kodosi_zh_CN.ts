@@ -599,8 +599,8 @@
         <translation>终端</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>房间</translation>
+        <source>Projects</source>
+        <translation>项目</translation>
     </message>
     <message>
         <source>Friends</source>
@@ -623,16 +623,16 @@
         <translation>继续对话</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>新建房间</translation>
+        <source>New project</source>
+        <translation>新建项目</translation>
     </message>
     <message>
         <source>Settings</source>
         <translation>设置</translation>
     </message>
     <message>
-        <source>Go to a terminal, a room or a person</source>
-        <translation>前往终端、房间或某人</translation>
+        <source>Go to a terminal, a project or a person</source>
+        <translation>前往终端、项目或某人</translation>
     </message>
     <message>
         <source>Nothing matches.</source>
@@ -733,8 +733,8 @@
         <translation>阻止</translation>
     </message>
     <message>
-        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
-        <translation>这台电脑可在 %1 之后重新开始。在此之前，你的其他设备可以阻止它。如果你还有其中一台设备，请改用它批准这台电脑，这样可以保留你的好友和房间。</translation>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and projects.</source>
+        <translation>这台电脑可在 %1 之后重新开始。在此之前，你的其他设备可以阻止它。如果你还有其中一台设备，请改用它批准这台电脑，这样可以保留你的好友和项目。</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -793,8 +793,8 @@
         <translation>批准 %1？</translation>
     </message>
     <message>
-        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
-        <translation>批准后，它可以使用你的所有终端、房间和好友。只有当那台设备在你手中时才批准。</translation>
+        <source>It can then use all your terminals, projects and friends. Approve it only if you hold that device.</source>
+        <translation>批准后，它可以使用你的所有终端、项目和好友。只有当那台设备在你手中时才批准。</translation>
     </message>
     <message>
         <source>Make a new recovery key?</source>
@@ -837,8 +837,8 @@
         <translation>重新开始</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>在你从这台电脑重新批准之前，你的其他设备将无法访问。好友需要重新信任你，你也需要重新创建房间。如果你的账号有设备，这台电脑需要等待一天。如果你有另一台设备或恢复密钥，请取消并使用它：这样可以保留你的好友和房间。</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
+        <translation>在你从这台电脑重新批准之前，你的其他设备将无法访问。好友需要重新信任你，你也需要重新创建项目。如果你的账号有设备，这台电脑需要等待一天。如果你有另一台设备或恢复密钥，请取消并使用它：这样可以保留你的好友和项目。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1116,13 +1116,13 @@
         <translation>新建终端</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>新建房间</translation>
+        <source>New project</source>
+        <translation>新建项目</translation>
     </message>
     <message numerus="yes">
-        <source>%n more rooms</source>
+        <source>%n more projects</source>
         <translation>
-            <numerusform>另外 %n 个房间</numerusform>
+            <numerusform>另外 %n 个项目</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -1210,8 +1210,8 @@
         <translation>有什么需要我处理？</translation>
     </message>
     <message>
-        <source>Sum up my rooms</source>
-        <translation>总结一下我的房间</translation>
+        <source>Sum up my projects</source>
+        <translation>总结一下我的项目</translation>
     </message>
     <message>
         <source>Tell me when my terminals finish</source>
@@ -1565,8 +1565,8 @@
         <translation>所有终端</translation>
     </message>
     <message>
-        <source>the rooms</source>
-        <translation>所有房间</translation>
+        <source>the projects</source>
+        <translation>所有项目</translation>
     </message>
     <message>
         <source>working on</source>
@@ -1858,12 +1858,12 @@
         <translation>删除账号</translation>
     </message>
     <message>
-        <source>Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.</source>
-        <translation>Kodosi 会删除你的设备和好友，并停止所有共享。你在其他房间写的内容会保留。</translation>
+        <source>Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there.</source>
+        <translation>Kodosi 会删除你的设备和好友，并停止所有共享。你在其他项目中写的内容会保留。</translation>
     </message>
     <message>
-        <source>These rooms close for everyone in them: %1.</source>
-        <translation>这些房间将对其中所有人关闭：%1。</translation>
+        <source>These projects close for everyone in them: %1.</source>
+        <translation>这些项目将对其中所有人关闭：%1。</translation>
     </message>
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
@@ -1877,8 +1877,8 @@
         <translation>继续对话</translation>
     </message>
     <message>
-        <source>All projects</source>
-        <translation>所有项目</translation>
+        <source>All folders</source>
+        <translation>所有文件夹</translation>
     </message>
     <message>
         <source>Close</source>
@@ -1901,8 +1901,8 @@
         <translation>继续之前，你可以先在这里查看。</translation>
     </message>
     <message>
-        <source>Choose another project, or switch the agent.</source>
-        <translation>选择其他项目，或切换 Agent。</translation>
+        <source>Choose another folder, or switch the agent.</source>
+        <translation>选择其他文件夹，或切换 Agent。</translation>
     </message>
     <message>
         <source>Show less</source>
@@ -2110,12 +2110,12 @@
 <context>
     <name>MissionsView</name>
     <message>
-        <source>Rooms are for working together</source>
-        <translation>房间用于协作</translation>
+        <source>Work in projects</source>
+        <translation>在项目中工作</translation>
     </message>
     <message>
-        <source>Share terminals, talk, and hand off tasks with people and agents.</source>
-        <translation>共享终端、交流讨论，并把任务交给人和 Agent。</translation>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>项目汇集来自任意文件夹和电脑的终端，以及它的任务和仓库。可随时邀请好友。</translation>
     </message>
     <message>
         <source>Sign in</source>
@@ -2126,17 +2126,13 @@
         <translation>批准此设备</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>房间</translation>
-    </message>
-    <message>
-        <source>A room keeps people, agents and terminals in one place.</source>
-        <translation>房间把人、Agent 和终端放在一起。</translation>
+        <source>Projects</source>
+        <translation>项目</translation>
     </message>
     <message numerus="yes">
-        <source>%n rooms</source>
+        <source>%n projects</source>
         <translation>
-            <numerusform>%n 个房间</numerusform>
+            <numerusform>%n 个项目</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -2146,16 +2142,16 @@
         </translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>新建房间</translation>
+        <source>New project</source>
+        <translation>新建项目</translation>
     </message>
     <message>
-        <source>More rooms exist. Use Go to… to find them.</source>
-        <translation>还有更多房间。使用“前往…”查找。</translation>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>还有更多项目。使用“前往…”查找。</translation>
     </message>
     <message>
-        <source>Some rooms are not shown</source>
-        <translation>部分房间未显示</translation>
+        <source>Some projects are not shown</source>
+        <translation>部分项目未显示</translation>
     </message>
     <message>
         <source>%1 invited you</source>
@@ -2200,20 +2196,20 @@
         </translation>
     </message>
     <message>
-        <source>Make your first room</source>
-        <translation>创建你的第一个房间</translation>
+        <source>Make your first project</source>
+        <translation>创建你的第一个项目</translation>
     </message>
     <message>
-        <source>Room name</source>
-        <translation>房间名称</translation>
+        <source>Project name</source>
+        <translation>项目名称</translation>
     </message>
     <message>
         <source>Cancel</source>
         <translation>取消</translation>
     </message>
     <message>
-        <source>Create room</source>
-        <translation>创建房间</translation>
+        <source>Create project</source>
+        <translation>创建项目</translation>
     </message>
 </context>
 <context>
@@ -2383,8 +2379,8 @@
         <translation>屏蔽</translation>
     </message>
     <message>
-        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
-        <translation>此人无法再向你发送好友请求。如果你们是好友，你们将不再互相共享终端，并且各自退出对方拥有的房间。</translation>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
+        <translation>此人无法再向你发送好友请求。如果你们是好友，你们将不再互相共享终端，并且各自退出对方拥有的项目。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2395,8 +2391,8 @@
         <translation>移除</translation>
     </message>
     <message>
-        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
-        <translation>你们将不再互相共享终端，并且各自退出对方拥有的房间。Kodosi 不会撤销对方已执行的命令。</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>你们将不再互相共享终端，并且各自退出对方拥有的项目。Kodosi 不会撤销对方已执行的命令。</translation>
     </message>
 </context>
 <context>
@@ -2499,8 +2495,8 @@
 <context>
     <name>RoomContent</name>
     <message>
-        <source>Room name</source>
-        <translation>房间名称</translation>
+        <source>Project name</source>
+        <translation>项目名称</translation>
     </message>
     <message numerus="yes">
         <source>%n people</source>
@@ -2527,16 +2523,16 @@
         <translation>仓库</translation>
     </message>
     <message>
-        <source>Room action failed</source>
-        <translation>房间操作失败</translation>
+        <source>Project action failed</source>
+        <translation>项目操作失败</translation>
     </message>
     <message>
-        <source>Room members</source>
-        <translation>房间成员</translation>
+        <source>Project members</source>
+        <translation>项目成员</translation>
     </message>
     <message>
-        <source>In this room</source>
-        <translation>在此房间中</translation>
+        <source>In this project</source>
+        <translation>在此项目中</translation>
     </message>
     <message>
         <source>%1 (you)</source>
@@ -2547,8 +2543,8 @@
         <translation>所有者</translation>
     </message>
     <message>
-        <source>Remove %1 from the room</source>
-        <translation>将 %1 移出房间</translation>
+        <source>Remove %1 from the project</source>
+        <translation>将 %1 移出项目</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2573,8 +2569,8 @@
         </translation>
     </message>
     <message>
-        <source>Room options</source>
-        <translation>房间选项</translation>
+        <source>Project options</source>
+        <translation>项目选项</translation>
     </message>
     <message>
         <source>Rename</source>
@@ -2589,12 +2585,12 @@
         <translation>刷新</translation>
     </message>
     <message>
-        <source>Delete room…</source>
-        <translation>删除房间…</translation>
+        <source>Delete project…</source>
+        <translation>删除项目…</translation>
     </message>
     <message>
-        <source>Leave room…</source>
-        <translation>离开房间…</translation>
+        <source>Leave project…</source>
+        <translation>离开项目…</translation>
     </message>
     <message>
         <source>Share with %1</source>
@@ -2625,16 +2621,16 @@
         <translation>这里还没有终端</translation>
     </message>
     <message>
-        <source>Add one. Your friends in the room get full control.</source>
-        <translation>添加一个。房间里你的好友都能完全控制它。</translation>
+        <source>Add one. Your friends in the project get full control.</source>
+        <translation>添加一个。项目里你的好友都能完全控制它。</translation>
     </message>
     <message>
         <source>Open a terminal</source>
         <translation>打开终端</translation>
     </message>
     <message>
-        <source>The room did not load</source>
-        <translation>房间未能加载</translation>
+        <source>The project did not load</source>
+        <translation>项目未能加载</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2645,8 +2641,8 @@
         <translation>调整对话大小</translation>
     </message>
     <message>
-        <source>Remove from room</source>
-        <translation>从房间移除</translation>
+        <source>Remove from project</source>
+        <translation>从项目移除</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -2774,8 +2770,8 @@
         <translation>提及某人或终端</translation>
     </message>
     <message>
-        <source>Message the room</source>
-        <translation>给房间发消息</translation>
+        <source>Message the project</source>
+        <translation>在项目中发消息</translation>
     </message>
     <message>
         <source>Send message</source>
@@ -2824,8 +2820,8 @@
 <context>
     <name>RoomShareDialog</name>
     <message>
-        <source>the room</source>
-        <translation>房间</translation>
+        <source>the project</source>
+        <translation>项目</translation>
     </message>
     <message>
         <source>Share %1 with %2?</source>
@@ -3107,8 +3103,8 @@
         <translation>登录</translation>
     </message>
     <message>
-        <source>A room</source>
-        <translation>房间</translation>
+        <source>A project</source>
+        <translation>项目</translation>
     </message>
     <message>
         <source>Friends</source>
@@ -3138,8 +3134,8 @@
         <translation>需要你的批准</translation>
     </message>
     <message>
-        <source>Rooms and terminals</source>
-        <translation>房间和终端</translation>
+        <source>Projects and terminals</source>
+        <translation>项目和终端</translation>
     </message>
     <message>
         <source>Show sidebar</source>
@@ -3154,8 +3150,8 @@
         <translation>新建终端（%1）</translation>
     </message>
     <message>
-        <source>Back to terminals and rooms</source>
-        <translation>返回终端和房间</translation>
+        <source>Back to terminals and projects</source>
+        <translation>返回终端和项目</translation>
     </message>
     <message>
         <source>Grid view</source>
@@ -3178,12 +3174,12 @@
         <translation>隐藏侧边栏</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>房间</translation>
+        <source>Projects</source>
+        <translation>项目</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>新建房间</translation>
+        <source>New project</source>
+        <translation>新建项目</translation>
     </message>
     <message>
         <source>Approve this device to work together</source>
@@ -3210,8 +3206,8 @@
         <translation>新消息</translation>
     </message>
     <message>
-        <source>More rooms exist. Use Go to… to find them.</source>
-        <translation>还有更多房间。使用“前往…”查找。</translation>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>还有更多项目。使用“前往…”查找。</translation>
     </message>
     <message>
         <source>Terminals</source>
@@ -3662,8 +3658,8 @@
         <translation>详情</translation>
     </message>
     <message>
-        <source>Remove from room</source>
-        <translation>从房间移除</translation>
+        <source>Remove from project</source>
+        <translation>从项目移除</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -3921,7 +3917,7 @@
     </message>
     <message>
         <source>This item kept changing while Kodosi read it.</source>
-        <translation>Kodosi 读取时，此项目一直在变化。</translation>
+        <translation>Kodosi 读取时，此内容一直在变化。</translation>
     </message>
     <message>
         <source>Kodosi got a canvas answer it cannot read.</source>
@@ -3953,8 +3949,8 @@
 <context>
     <name>kodosi::ConversationHistoryModel</name>
     <message>
-        <source>Choose a conversation from this project.</source>
-        <translation>请选择此项目中的对话。</translation>
+        <source>Choose a conversation from this folder.</source>
+        <translation>请选择此文件夹中的对话。</translation>
     </message>
     <message>
         <source>The provider returned an unexpected response.</source>
@@ -3965,8 +3961,8 @@
         <translation>对话列表已达到显示上限。</translation>
     </message>
     <message>
-        <source>A conversation did not match this project.</source>
-        <translation>有一个对话与此项目不匹配。</translation>
+        <source>A conversation did not match this folder.</source>
+        <translation>有一个对话与此文件夹不匹配。</translation>
     </message>
     <message>
         <source>The conversation preview exceeded its page limit.</source>
@@ -3980,8 +3976,8 @@
         <translation>文件夹选择器已经打开。</translation>
     </message>
     <message>
-        <source>Choose a project folder</source>
-        <translation>选择项目文件夹</translation>
+        <source>Choose a folder</source>
+        <translation>选择文件夹</translation>
     </message>
     <message>
         <source>Choose a readable local folder.</source>

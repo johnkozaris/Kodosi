@@ -29,7 +29,7 @@ fn this_terminal() -> Option<String> {
 #[command(
     name = "kodosi",
     version = env!("KODOSI_VERSION"),
-    about = "Shared terminals and rooms for people and their coding agents."
+    about = "Shared terminals and projects for people and their coding agents."
 )]
 struct Arguments {
     /// Print JSON.
@@ -50,7 +50,8 @@ enum Action {
     )]
     Agent(AgentAction),
     #[command(
-        about = "Work with rooms and their members, conversation, tasks, repositories and terminals."
+        name = "project",
+        about = "Work with projects and their members, conversation, tasks, repositories and terminals."
     )]
     Room(rooms::Arguments),
     #[command(subcommand, about = "Work with Dosi, an agent for your other agents.")]
@@ -129,7 +130,7 @@ enum SkillTopic {
 }
 #[derive(Subcommand)]
 enum DosiAction {
-    /// Print the skill that lets an agent act as Dosi, which sees your terminals and rooms and acts on them.
+    /// Print the skill that lets an agent act as Dosi, which sees your terminals and projects and acts on them.
     Skill,
     /// Tell Dosi something and print what it says and does until it answers.
     Say {
@@ -218,8 +219,8 @@ enum TerminalAction {
         /// Start the terminal on another computer of yours, by the name that `kodosi devices list` shows. There, a relative --directory, or one that starts with ~ in quotes, is in your home.
         #[arg(long)]
         computer: Option<String>,
-        /// Start the terminal in this room, by its name or ID.
-        #[arg(long)]
+        /// Start the terminal in this project, by its name or ID.
+        #[arg(long = "project", value_name = "PROJECT")]
         room: Option<String>,
         /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
         #[arg(long)]
@@ -355,7 +356,7 @@ enum AuthAction {
     Login,
     /// Sign out. This ends the sharing of the terminals of this computer.
     Logout,
-    /// Delete this account and its devices, friends, shared terminals and rooms on the server.
+    /// Delete this account and its devices, friends, shared terminals and projects on the server.
     DeleteAccount,
 }
 #[derive(Subcommand)]
@@ -415,7 +416,7 @@ enum ProviderAction {
     /// Show the program and the settings files of an agent, for a folder if you give one.
     Inspect {
         provider: Provider,
-        /// The folder whose project settings to show.
+        /// The folder whose settings to show.
         #[arg(long)]
         directory: Option<PathBuf>,
     },
@@ -1116,7 +1117,7 @@ async fn missions(client: &mut local_host::Client, context: &mut Context) -> Res
         .latest
         .get("missions.snapshot")
         .cloned()
-        .ok_or_else(|| Error::Other("Kodosi did not list the rooms.".into()))
+        .ok_or_else(|| Error::Other("Kodosi did not list the projects.".into()))
 }
 
 fn friend_id(friends: &[Value], reference: &str) -> Result<String> {
@@ -1137,7 +1138,7 @@ fn friend_id(friends: &[Value], reference: &str) -> Result<String> {
 fn mission_id(snapshot: &Value, reference: &str) -> Result<String> {
     let missions = snapshot["missions"].as_array().into_iter().flatten();
     let matches = referred(missions, ("id", "name"), reference);
-    only(&matches, "room", reference, "kodosi room list").map(str::to_owned)
+    only(&matches, "project", reference, "kodosi project list").map(str::to_owned)
 }
 
 fn referred<'a>(
@@ -1997,7 +1998,7 @@ mod tests {
         assert!(friend_id(&friends, "carol").is_err());
     }
     #[test]
-    fn every_command_says_terminal_and_room() {
+    fn every_command_says_terminal_and_project() {
         fn help(command: &mut clap::Command) -> String {
             let mut text = command.render_long_help().to_string();
             for subcommand in command.get_subcommands_mut() {
@@ -2011,11 +2012,13 @@ mod tests {
         let words: std::collections::HashSet<_> = text
             .split(|character: char| !character.is_ascii_alphanumeric())
             .collect();
-        assert!(words.contains("terminal") && words.contains("room"));
+        assert!(words.contains("terminal") && words.contains("project"));
         assert!(
-            ["session", "sessions", "mission", "missions"]
-                .iter()
-                .all(|word| !words.contains(word))
+            [
+                "session", "sessions", "mission", "missions", "room", "rooms"
+            ]
+            .iter()
+            .all(|word| !words.contains(word))
         );
     }
     #[test]

@@ -104,7 +104,7 @@ void ConversationHistoryModel::preview(const QString& nativeId)
         }
     }
     if (selected.isEmpty()) {
-        fail(tr("Choose a conversation from this project."));
+        fail(tr("Choose a conversation from this folder."));
         return;
     }
     m_selected = selected;
@@ -189,7 +189,7 @@ void ConversationHistoryModel::apply(const QJsonObject& event, const QByteArray&
                         != m_directory)
                 || QUuid(item.value(QStringLiteral("nativeConversationId")).toString())
                        .isNull()) {
-                fail(tr("A conversation did not match this project."));
+                fail(tr("A conversation did not match this folder."));
                 return;
             }
             accepted.append(item.toVariantMap());

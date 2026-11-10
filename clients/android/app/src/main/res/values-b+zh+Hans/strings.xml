@@ -59,7 +59,7 @@
     <string name="sign_question">需要你回答</string>
     <string name="signing_in">正在登录</string>
     <string name="start_fresh">重新开始</string>
-    <string name="start_fresh_message">在你从这部手机重新批准之前，你的其他设备将无法访问。好友需要重新确认你的身份，你也需要重新创建房间。如果你有恢复密钥，请取消并使用它：这样可以保留你的好友和房间。</string>
+    <string name="start_fresh_message">在你从这部手机重新批准之前，你的其他设备将无法访问。好友需要重新确认你的身份，你也需要重新创建项目。如果你有恢复密钥，请取消并使用它：这样可以保留你的好友和项目。</string>
     <string name="start_fresh_title">在这部手机上重新开始？</string>
     <string name="starting_fresh">正在重新开始</string>
     <string name="storage_failed">Kodosi 无法准备其存储空间。</string>
@@ -73,12 +73,12 @@
     <string name="terminals">终端</string>
     <string name="terminals_empty_message">在电脑上的 Kodosi 中启动一个终端，或请好友共享一个。它会显示在这里，方便你关注它的工作并回复它的 Agent。</string>
     <string name="terminals_empty_title">你的终端运行在你的电脑上</string>
-    <string name="trust_message">Kodosi 会对你的终端和房间进行端到端加密。由你已信任的设备将密钥交给这部手机。</string>
+    <string name="trust_message">Kodosi 会对你的终端和项目进行端到端加密。由你已信任的设备将密钥交给这部手机。</string>
     <string name="trust_title">信任这部手机</string>
     <string name="try_again">重试</string>
     <string name="use_recovery_key">使用我的恢复密钥</string>
     <string name="waiting_for_approval">等待批准</string>
     <string name="waiting_for_sign_in_page">正在等待登录页面</string>
-    <string name="welcome_message">查看 Agent 的工作、回复它们，并在房间中交流。你的终端会在你的电脑上继续运行。</string>
+    <string name="welcome_message">查看 Agent 的工作、回复它们，并在项目中交流。你的终端会在你的电脑上继续运行。</string>
     <string name="welcome_title">你的终端，随身相伴</string>
 </resources>

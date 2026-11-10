@@ -160,7 +160,7 @@ struct DeviceSettingsView: View {
             Button("Approve") { deps.account.confirmApproval() }
                 .accessibilityIdentifier("settings.devices.confirmApprove")
             Button("Cancel", role: .cancel) { deps.account.finishApproval() }
-        } message: { Text("It can then use all your terminals, rooms and friends. Approve it only if you hold that device.") }
+        } message: { Text("It can then use all your terminals, projects and friends. Approve it only if you hold that device.") }
         .confirmationDialog("Make a new recovery key?", isPresented: $replacingRecoveryKey, titleVisibility: .visible) {
             Button("Make a new key") { deps.account.createRecoveryKey() }
         } message: { Text("The recovery key that you have now stops working.") }

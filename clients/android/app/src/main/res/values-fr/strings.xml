@@ -59,7 +59,7 @@
     <string name="sign_question">Attend votre réponse</string>
     <string name="signing_in">Connexion</string>
     <string name="start_fresh">Repartir de zéro</string>
-    <string name="start_fresh_message">Vos autres appareils perdent l\'accès jusqu\'à ce que vous les approuviez à nouveau depuis ce téléphone. Vos amis confirment à nouveau votre identité, et vous recréez vos salons. Si vous avez une clé de récupération, annulez et utilisez-la : vous gardez vos amis et vos salons.</string>
+    <string name="start_fresh_message">Vos autres appareils perdent l\'accès jusqu\'à ce que vous les approuviez à nouveau depuis ce téléphone. Vos amis confirment à nouveau votre identité, et vous recréez vos projets. Si vous avez une clé de récupération, annulez et utilisez-la : vous gardez vos amis et vos projets.</string>
     <string name="start_fresh_title">Repartir de zéro sur ce téléphone ?</string>
     <string name="starting_fresh">Réinitialisation…</string>
     <string name="storage_failed">Kodosi n\'a pas pu préparer son stockage.</string>
@@ -73,12 +73,12 @@
     <string name="terminals">Terminaux</string>
     <string name="terminals_empty_message">Lancez un terminal dans Kodosi sur votre ordinateur, ou demandez à un ami d\'en partager un. Il s\'affiche ici pour que vous suiviez son travail et répondiez à ses agents.</string>
     <string name="terminals_empty_title">Vos terminaux tournent sur vos ordinateurs</string>
-    <string name="trust_message">Kodosi chiffre vos terminaux et salons de bout en bout. Un appareil de confiance donne ses clés à ce téléphone.</string>
+    <string name="trust_message">Kodosi chiffre vos terminaux et projets de bout en bout. Un appareil de confiance donne ses clés à ce téléphone.</string>
     <string name="trust_title">Faire confiance à ce téléphone</string>
     <string name="try_again">Réessayer</string>
     <string name="use_recovery_key">Utiliser ma clé de récupération</string>
     <string name="waiting_for_approval">En attente d\'approbation</string>
     <string name="waiting_for_sign_in_page">En attente de la page de connexion</string>
-    <string name="welcome_message">Voyez ce que font vos agents, répondez-leur et discutez avec vos salons. Vos terminaux continuent de fonctionner sur vos ordinateurs.</string>
+    <string name="welcome_message">Voyez ce que font vos agents, répondez-leur et discutez dans vos projets. Vos terminaux continuent de fonctionner sur vos ordinateurs.</string>
     <string name="welcome_title">Vos terminaux, avec vous</string>
 </resources>

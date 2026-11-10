@@ -96,7 +96,7 @@ struct AppShell: View {
     }
 
     private func roomName(_ id: String) -> String {
-        deps.rooms.missions.first { $0.id == id }?.name ?? String(localized: "the room")
+        deps.rooms.missions.first { $0.id == id }?.name ?? String(localized: "the project")
     }
 
     private var terminalsInteractive: Bool {

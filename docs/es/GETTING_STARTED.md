@@ -12,7 +12,7 @@ tu navegador, donde inicias sesión. En un terminal, `kodosi auth login` muestra
 escribirlo en cualquier navegador.
 
 Sin cuenta, Kodosi ejecuta terminales en este ordenador. Inicia sesión para usar tus otros
-ordenadores, tus amigos y tus salas.
+ordenadores, tus amigos y tus proyectos.
 
 ## 2. Inicia un agente
 
@@ -61,7 +61,7 @@ y tus terminales siguen en marcha, y el icono de Kodosi se queda en la barra de 
 bandeja del sistema; en un escritorio sin bandeja del sistema, cerrar la ventana cierra
 Kodosi. Cuando sales de Kodosi, tus terminales se detienen. Kodosi guarda lo que muestran en
 tu ordenador y en ningún otro sitio. Cuando vuelves a abrir Kodosi, se inician de nuevo en sus
-carpetas, salas y posiciones en el escenario, con su pantalla y su historial anteriores sobre
+carpetas, proyectos y posiciones en el escenario, con su pantalla y su historial anteriores sobre
 un prompt nuevo (en Windows, desplázate hacia arriba para verlos). Claude Code, Codex y Copilot
 CLI continúan sus conversaciones, y en un Mac o en Linux mantienen el modelo, el esfuerzo, los
 permisos y la salida que elegiste. Cuando Kodosi no puede saber qué conversación mostraba un
@@ -148,7 +148,7 @@ su cuenta, su modelo y su esfuerzo.
   </picture>
 </p>
 
-Pregúntale a Dosi qué te necesita, o pídele que haga algo. Dosi lee tus terminales y salas,
+Pregúntale a Dosi qué te necesita, o pídele que haga algo. Dosi lee tus terminales y proyectos,
 responde, y escribe, inicia y cierra cosas por ti. Cuando necesita que elijas, pregunta con
 botones, y también puedes responder con tus propias palabras. Tu conversación con Dosi es la
 misma en todos tus dispositivos. En un iPhone o iPad, la pestaña Dosi escribe a Dosi en el
@@ -175,7 +175,7 @@ necesita Kodosi abierto, o `kodosi host` ejecutándose en un terminal.
 
 Crea también allí una clave de recuperación y guárdala bien. Si pierdes todos tus
 dispositivos, inicia sesión en uno nuevo y elige «Usar mi clave de recuperación» para
-conservar tus amigos y salas. Quita un dispositivo perdido desde otro dispositivo. Si te
+conservar tus amigos y proyectos. Quita un dispositivo perdido desde otro dispositivo. Si te
 robaron un dispositivo, crea también una clave de recuperación nueva.
 
 ## 7. Trabaja con amigos
@@ -186,13 +186,14 @@ nombre de usuario de un amigo. Con una invitación, Kodosi puede verificar a tu 
 <p align="center"><img src="../media/friends.webp" width="900" alt="La página Amigos con dos amigos verificados."></p>
 
 Para compartir un terminal, selecciona Compartir en el botón de acciones de su cabecera y
-elige amigos o salas. Las personas con las que compartes tienen el control total, con tus
+elige amigos o proyectos. Las personas con las que compartes tienen el control total, con tus
 privilegios en ese ordenador. Tus otros terminales siguen siendo privados.
 
-Una sala tiene terminales compartidos, una conversación y tareas. Selecciona + junto a Salas,
-añade amigos y luego inicia un terminal en la sala o comparte uno en ella.
+Un proyecto reúne terminales de cualquier carpeta y ordenador, con una conversación y
+tareas. Selecciona + junto a Proyectos, luego inicia un terminal en el proyecto o comparte uno
+en él, e invita a amigos cuando quieras.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Una sala con un terminal compartido y una conversación de personas y agentes."></p>
+<p align="center"><img src="../media/room.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
 
 - Todos los miembros pueden usar los terminales compartidos y compartir los suyos. Quien
   entra más tarde recibe los terminales y toda la conversación. Los archivos se quedan en el
@@ -204,11 +205,11 @@ añade amigos y luego inicia un terminal en la sala o comparte uno en ella.
   helper de Git, y Gitea el credential helper o `KODOSI_GITEA_TOKEN` para el servidor de
   `KODOSI_GITEA_URL`. Tus credenciales se quedan en tu ordenador.
 - Escribe `@` y el nombre de un terminal en el chat, y Kodosi le da al agente de ese terminal
-  tu mensaje con tu nombre y la sala; el agente decide qué hacer con él. Claude Code y Copilot
+  tu mensaje con tu nombre y el proyecto; el agente decide qué hacer con él. Claude Code y Copilot
   CLI en un terminal de Kodosi, y un Codex que inicia Kodosi, saben que se ejecutan en Kodosi,
   y `kodosi skill` imprime la [skill](../../runtime/skills/kodosi/SKILL.md) que permite a un
-  agente participar. En un terminal de Kodosi, el comando encuentra la sala; en otro sitio,
-  añade `--room <name>`.
+  agente participar. En un terminal de Kodosi, el comando encuentra el proyecto; en otro sitio,
+  añade `--project <name>`.
 
 ## 8. Usa la línea de comandos
 

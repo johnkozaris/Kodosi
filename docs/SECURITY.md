@@ -2,21 +2,21 @@
 
 **English** · [Deutsch](de/SECURITY.md) · [Ελληνικά](el/SECURITY.md) · [Español](es/SECURITY.md) · [Français](fr/SECURITY.md) · [Italiano](it/SECURITY.md) · [日本語](ja/SECURITY.md) · [한국어](ko/SECURITY.md) · [简体中文](zh-Hans/SECURITY.md)
 
-Your devices encrypt terminal traffic and room content end to end. Private keys stay on
-devices. The backend routes connections and stores encrypted room data; it never runs
+Your devices encrypt terminal traffic and project content end to end. Private keys stay on
+devices. The backend routes connections and stores encrypted project data; it never runs
 commands or sees their plaintext. The [encryption design](CRYPTOGRAPHY.md) gives the
 threat model, mechanisms and known limits; no independent party has audited it yet.
 
 ## What sharing grants
 
 Sharing a terminal grants full control with the host user's operating-system privileges.
-A terminal in a room goes to the friends of its owner in that room, including friends
+A terminal in a project goes to the friends of its owner in that project, including friends
 who join later. When you remove a friend, they lose your terminals, and each of you
-leaves the rooms that the other owns. Blocking a person does the same, and they cannot
+leaves the projects that the other owns. Blocking a person does the same, and they cannot
 send you friend requests. A shared terminal runs as you: the people in it can also run
 `kodosi` as you and read and change your files on that computer, so share it only with
 people whom you trust with that computer. Kodosi trusts everyone who shares a terminal
-or a room, and the programs and agents in their terminals, and does not limit what they
+or a project, and the programs and agents in their terminals, and does not limit what they
 do. Each of your approved devices controls all your terminals and can start new ones on
 your other computers that run Kodosi. From any of your devices you can write to Dosi on
 your computers, and Dosi acts there as it does when you write to it at the computer. A
@@ -43,7 +43,7 @@ of Kodosi's updates and the download has the SHA-256 that the feed gives.
 
 ## What the service sees
 
-The service sees account and device records, room membership, room and terminal
+The service sees account and device records, project membership, project and terminal
 metadata, each terminal's agent and state (such as working or waiting for an approval,
 never its text), routing fields, timing and ciphertext sizes. Push notifications to your
 iPhone, iPad or Android device go through Apple's or Google's push service, which sees
@@ -55,7 +55,7 @@ on your account while you have devices, it waits a day and your devices show it,
 you can stop it. GitHub and Gitea credentials stay on your computer.
 
 Deleting an account removes its devices, recovery data, friends, sharing and owned
-rooms; messages in other people's rooms stay without an account. For 30 days the service
+projects; messages in other people's projects stay without an account. For 30 days the service
 keeps the issuer and subject of the deleted sign-in to refuse older tokens.
 
 ## Check a download

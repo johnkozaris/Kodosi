@@ -162,7 +162,7 @@ fn kodosi(words: &[String]) -> Option<Shown> {
     let (group, rest) = words.split_first()?;
     match *group {
         "terminal" => terminal(rest),
-        "room" => room(rest),
+        "project" => room(rest),
         "agent" => Some(simple(DosiAction::Look, DosiTargetKind::Agent, None, None)),
         "dosi" if rest.first() == Some(&"ask") => Some(Shown::Hidden),
         _ => None,
@@ -234,7 +234,7 @@ fn terminal(words: &[&str]) -> Option<Shown> {
     let valued = [
         "name",
         "directory",
-        "room",
+        "project",
         "branch",
         "agent",
         "account",
@@ -309,7 +309,7 @@ fn room(words: &[&str]) -> Option<Shown> {
     let parsed = Parsed::new(
         words,
         &[
-            "room",
+            "project",
             "agent",
             "since",
             "before",
@@ -322,7 +322,7 @@ fn room(words: &[&str]) -> Option<Shown> {
             "provider",
         ],
     );
-    let named = parsed.option("room");
+    let named = parsed.option("project");
     let (verb, rest) = parsed.positional.split_first()?;
     let one = |action| Some(simple(action, DosiTargetKind::Room, named, None));
     match *verb {

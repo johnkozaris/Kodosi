@@ -600,8 +600,8 @@
         <translation>Terminales</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>Salas</translation>
+        <source>Projects</source>
+        <translation>Proyectos</translation>
     </message>
     <message>
         <source>Friends</source>
@@ -624,16 +624,16 @@
         <translation>Retomar una conversación</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>Nueva sala</translation>
+        <source>New project</source>
+        <translation>Nuevo proyecto</translation>
     </message>
     <message>
         <source>Settings</source>
         <translation>Ajustes</translation>
     </message>
     <message>
-        <source>Go to a terminal, a room or a person</source>
-        <translation>Ir a un terminal, una sala o una persona</translation>
+        <source>Go to a terminal, a project or a person</source>
+        <translation>Ir a un terminal, un proyecto o una persona</translation>
     </message>
     <message>
         <source>Nothing matches.</source>
@@ -734,8 +734,8 @@
         <translation>Detener</translation>
     </message>
     <message>
-        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and rooms.</source>
-        <translation>Este ordenador puede empezar de cero a partir del %1. Hasta entonces, tus otros dispositivos pueden detenerlo. Si aún tienes uno de ellos, aprueba este ordenador con él y conserva tus amigos y salas.</translation>
+        <source>This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and projects.</source>
+        <translation>Este ordenador puede empezar de cero a partir del %1. Hasta entonces, tus otros dispositivos pueden detenerlo. Si aún tienes uno de ellos, aprueba este ordenador con él y conserva tus amigos y proyectos.</translation>
     </message>
     <message>
         <source>Your devices</source>
@@ -794,8 +794,8 @@
         <translation>¿Aprobar %1?</translation>
     </message>
     <message>
-        <source>It can then use all your terminals, rooms and friends. Approve it only if you hold that device.</source>
-        <translation>Luego podrá usar todos tus terminales, salas y amigos. Apruébalo solo si tienes ese dispositivo en tus manos.</translation>
+        <source>It can then use all your terminals, projects and friends. Approve it only if you hold that device.</source>
+        <translation>Luego podrá usar todos tus terminales, proyectos y amigos. Apruébalo solo si tienes ese dispositivo en tus manos.</translation>
     </message>
     <message>
         <source>Make a new recovery key?</source>
@@ -838,8 +838,8 @@
         <translation>Empezar de cero</translation>
     </message>
     <message>
-        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your rooms again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and rooms.</source>
-        <translation>Tus otros dispositivos pierden el acceso hasta que los vuelvas a aprobar desde este ordenador. Tus amigos tendrán que volver a confiar en ti y tendrás que crear tus salas de nuevo. Si tu cuenta tiene dispositivos, este ordenador espera un día. Si tienes otro dispositivo o una clave de recuperación, cancela y úsalo: así conservas tus amigos y salas.</translation>
+        <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
+        <translation>Tus otros dispositivos pierden el acceso hasta que los vuelvas a aprobar desde este ordenador. Tus amigos tendrán que volver a confiar en ti y tendrás que crear tus proyectos de nuevo. Si tu cuenta tiene dispositivos, este ordenador espera un día. Si tienes otro dispositivo o una clave de recuperación, cancela y úsalo: así conservas tus amigos y proyectos.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -1117,14 +1117,14 @@
         <translation>Nuevo terminal</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>Nueva sala</translation>
+        <source>New project</source>
+        <translation>Nuevo proyecto</translation>
     </message>
     <message numerus="yes">
-        <source>%n more rooms</source>
+        <source>%n more projects</source>
         <translation>
-            <numerusform>%n sala más</numerusform>
-            <numerusform>%n salas más</numerusform>
+            <numerusform>%n proyecto más</numerusform>
+            <numerusform>%n proyectos más</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -1213,8 +1213,8 @@
         <translation>¿Qué necesita mi atención?</translation>
     </message>
     <message>
-        <source>Sum up my rooms</source>
-        <translation>Resume mis salas</translation>
+        <source>Sum up my projects</source>
+        <translation>Resume mis proyectos</translation>
     </message>
     <message>
         <source>Tell me when my terminals finish</source>
@@ -1568,8 +1568,8 @@
         <translation>los terminales</translation>
     </message>
     <message>
-        <source>the rooms</source>
-        <translation>las salas</translation>
+        <source>the projects</source>
+        <translation>los proyectos</translation>
     </message>
     <message>
         <source>working on</source>
@@ -1861,12 +1861,12 @@
         <translation>Eliminar cuenta</translation>
     </message>
     <message>
-        <source>Kodosi deletes your devices, friends and sharing. What you wrote in other rooms stays there.</source>
-        <translation>Kodosi elimina tus dispositivos y amigos, y deja de compartir tus terminales. Lo que hayas escrito en otras salas se queda allí.</translation>
+        <source>Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there.</source>
+        <translation>Kodosi elimina tus dispositivos y amigos, y deja de compartir tus terminales. Lo que hayas escrito en otros proyectos se queda allí.</translation>
     </message>
     <message>
-        <source>These rooms close for everyone in them: %1.</source>
-        <translation>Estas salas se cierran para todos sus miembros: %1.</translation>
+        <source>These projects close for everyone in them: %1.</source>
+        <translation>Estos proyectos se cierran para todos sus miembros: %1.</translation>
     </message>
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
@@ -1880,8 +1880,8 @@
         <translation>Retomar una conversación</translation>
     </message>
     <message>
-        <source>All projects</source>
-        <translation>Todos los proyectos</translation>
+        <source>All folders</source>
+        <translation>Todas las carpetas</translation>
     </message>
     <message>
         <source>Close</source>
@@ -1904,8 +1904,8 @@
         <translation>La ves aquí antes de retomarla.</translation>
     </message>
     <message>
-        <source>Choose another project, or switch the agent.</source>
-        <translation>Elige otro proyecto o cambia de agente.</translation>
+        <source>Choose another folder, or switch the agent.</source>
+        <translation>Elige otra carpeta o cambia de agente.</translation>
     </message>
     <message>
         <source>Show less</source>
@@ -2113,12 +2113,12 @@
 <context>
     <name>MissionsView</name>
     <message>
-        <source>Rooms are for working together</source>
-        <translation>Las salas son para trabajar juntos</translation>
+        <source>Work in projects</source>
+        <translation>Trabaja en proyectos</translation>
     </message>
     <message>
-        <source>Share terminals, talk, and hand off tasks with people and agents.</source>
-        <translation>Comparte terminales, habla y pasa tareas a personas y agentes.</translation>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>Un proyecto reúne terminales de cualquier carpeta y ordenador, con sus tareas y repositorios. Invita a amigos cuando quieras.</translation>
     </message>
     <message>
         <source>Sign in</source>
@@ -2129,18 +2129,14 @@
         <translation>Aprobar este dispositivo</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>Salas</translation>
-    </message>
-    <message>
-        <source>A room keeps people, agents and terminals in one place.</source>
-        <translation>Una sala reúne personas, agentes y terminales en un solo lugar.</translation>
+        <source>Projects</source>
+        <translation>Proyectos</translation>
     </message>
     <message numerus="yes">
-        <source>%n rooms</source>
+        <source>%n projects</source>
         <translation>
-            <numerusform>%n sala</numerusform>
-            <numerusform>%n salas</numerusform>
+            <numerusform>%n proyecto</numerusform>
+            <numerusform>%n proyectos</numerusform>
         </translation>
     </message>
     <message numerus="yes">
@@ -2151,16 +2147,16 @@
         </translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>Nueva sala</translation>
+        <source>New project</source>
+        <translation>Nuevo proyecto</translation>
     </message>
     <message>
-        <source>More rooms exist. Use Go to… to find them.</source>
-        <translation>Hay más salas. Usa «Ir a…» para encontrarlas.</translation>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>Hay más proyectos. Usa «Ir a…» para encontrarlos.</translation>
     </message>
     <message>
-        <source>Some rooms are not shown</source>
-        <translation>Algunas salas no se muestran</translation>
+        <source>Some projects are not shown</source>
+        <translation>Algunos proyectos no se muestran</translation>
     </message>
     <message>
         <source>%1 invited you</source>
@@ -2206,20 +2202,20 @@
         </translation>
     </message>
     <message>
-        <source>Make your first room</source>
-        <translation>Crea tu primera sala</translation>
+        <source>Make your first project</source>
+        <translation>Crea tu primer proyecto</translation>
     </message>
     <message>
-        <source>Room name</source>
-        <translation>Nombre de la sala</translation>
+        <source>Project name</source>
+        <translation>Nombre del proyecto</translation>
     </message>
     <message>
         <source>Cancel</source>
         <translation>Cancelar</translation>
     </message>
     <message>
-        <source>Create room</source>
-        <translation>Crear sala</translation>
+        <source>Create project</source>
+        <translation>Crear proyecto</translation>
     </message>
 </context>
 <context>
@@ -2390,8 +2386,8 @@
         <translation>Bloquear</translation>
     </message>
     <message>
-        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the rooms that the other owns.</source>
-        <translation>Esta persona no puede enviarte solicitudes de amistad. Si son amigos, se deja de compartir terminales en ambos sentidos, y cada persona sale de las salas de la otra.</translation>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
+        <translation>Esta persona no puede enviarte solicitudes de amistad. Si son amigos, se deja de compartir terminales en ambos sentidos, y cada persona sale de los proyectos de la otra.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2402,8 +2398,8 @@
         <translation>Quitar</translation>
     </message>
     <message>
-        <source>You stop sharing terminals with each other, and each of you leaves the rooms that the other owns. Kodosi does not undo the commands that they already ran.</source>
-        <translation>Se deja de compartir terminales en ambos sentidos, y cada persona sale de las salas de la otra. Kodosi no deshace los comandos que ya ha ejecutado.</translation>
+        <source>You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.</source>
+        <translation>Se deja de compartir terminales en ambos sentidos, y cada persona sale de los proyectos de la otra. Kodosi no deshace los comandos que ya ha ejecutado.</translation>
     </message>
 </context>
 <context>
@@ -2507,8 +2503,8 @@
 <context>
     <name>RoomContent</name>
     <message>
-        <source>Room name</source>
-        <translation>Nombre de la sala</translation>
+        <source>Project name</source>
+        <translation>Nombre del proyecto</translation>
     </message>
     <message numerus="yes">
         <source>%n people</source>
@@ -2537,16 +2533,16 @@
         <translation>Repositorios</translation>
     </message>
     <message>
-        <source>Room action failed</source>
-        <translation>Ha fallado la acción en la sala</translation>
+        <source>Project action failed</source>
+        <translation>Ha fallado la acción en el proyecto</translation>
     </message>
     <message>
-        <source>Room members</source>
-        <translation>Miembros de la sala</translation>
+        <source>Project members</source>
+        <translation>Miembros del proyecto</translation>
     </message>
     <message>
-        <source>In this room</source>
-        <translation>En esta sala</translation>
+        <source>In this project</source>
+        <translation>En este proyecto</translation>
     </message>
     <message>
         <source>%1 (you)</source>
@@ -2557,8 +2553,8 @@
         <translation>Propietario</translation>
     </message>
     <message>
-        <source>Remove %1 from the room</source>
-        <translation>Quitar a %1 de la sala</translation>
+        <source>Remove %1 from the project</source>
+        <translation>Quitar a %1 del proyecto</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2584,8 +2580,8 @@
         </translation>
     </message>
     <message>
-        <source>Room options</source>
-        <translation>Opciones de la sala</translation>
+        <source>Project options</source>
+        <translation>Opciones del proyecto</translation>
     </message>
     <message>
         <source>Rename</source>
@@ -2600,12 +2596,12 @@
         <translation>Actualizar</translation>
     </message>
     <message>
-        <source>Delete room…</source>
-        <translation>Eliminar sala…</translation>
+        <source>Delete project…</source>
+        <translation>Eliminar proyecto…</translation>
     </message>
     <message>
-        <source>Leave room…</source>
-        <translation>Salir de la sala…</translation>
+        <source>Leave project…</source>
+        <translation>Salir del proyecto…</translation>
     </message>
     <message>
         <source>Share with %1</source>
@@ -2636,16 +2632,16 @@
         <translation>Aún no hay terminales aquí</translation>
     </message>
     <message>
-        <source>Add one. Your friends in the room get full control.</source>
-        <translation>Añade uno. Tus amigos en la sala tendrán control total.</translation>
+        <source>Add one. Your friends in the project get full control.</source>
+        <translation>Añade uno. Tus amigos en el proyecto tendrán control total.</translation>
     </message>
     <message>
         <source>Open a terminal</source>
         <translation>Abrir un terminal</translation>
     </message>
     <message>
-        <source>The room did not load</source>
-        <translation>La sala no se ha cargado</translation>
+        <source>The project did not load</source>
+        <translation>El proyecto no se ha cargado</translation>
     </message>
     <message>
         <source>Try again</source>
@@ -2656,8 +2652,8 @@
         <translation>Cambiar el tamaño de la conversación</translation>
     </message>
     <message>
-        <source>Remove from room</source>
-        <translation>Quitar de la sala</translation>
+        <source>Remove from project</source>
+        <translation>Quitar del proyecto</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -2786,8 +2782,8 @@
         <translation>Menciona a alguien o un terminal</translation>
     </message>
     <message>
-        <source>Message the room</source>
-        <translation>Escribe a la sala</translation>
+        <source>Message the project</source>
+        <translation>Escribe al proyecto</translation>
     </message>
     <message>
         <source>Send message</source>
@@ -2836,8 +2832,8 @@
 <context>
     <name>RoomShareDialog</name>
     <message>
-        <source>the room</source>
-        <translation>la sala</translation>
+        <source>the project</source>
+        <translation>el proyecto</translation>
     </message>
     <message>
         <source>Share %1 with %2?</source>
@@ -3119,8 +3115,8 @@
         <translation>Iniciar sesión</translation>
     </message>
     <message>
-        <source>A room</source>
-        <translation>Una sala</translation>
+        <source>A project</source>
+        <translation>Un proyecto</translation>
     </message>
     <message>
         <source>Friends</source>
@@ -3150,8 +3146,8 @@
         <translation>Necesita tu aprobación</translation>
     </message>
     <message>
-        <source>Rooms and terminals</source>
-        <translation>Salas y terminales</translation>
+        <source>Projects and terminals</source>
+        <translation>Proyectos y terminales</translation>
     </message>
     <message>
         <source>Show sidebar</source>
@@ -3166,8 +3162,8 @@
         <translation>Nuevo terminal (%1)</translation>
     </message>
     <message>
-        <source>Back to terminals and rooms</source>
-        <translation>Volver a terminales y salas</translation>
+        <source>Back to terminals and projects</source>
+        <translation>Volver a terminales y proyectos</translation>
     </message>
     <message>
         <source>Grid view</source>
@@ -3190,12 +3186,12 @@
         <translation>Ocultar barra lateral</translation>
     </message>
     <message>
-        <source>Rooms</source>
-        <translation>Salas</translation>
+        <source>Projects</source>
+        <translation>Proyectos</translation>
     </message>
     <message>
-        <source>New room</source>
-        <translation>Nueva sala</translation>
+        <source>New project</source>
+        <translation>Nuevo proyecto</translation>
     </message>
     <message>
         <source>Approve this device to work together</source>
@@ -3222,8 +3218,8 @@
         <translation>Mensajes nuevos</translation>
     </message>
     <message>
-        <source>More rooms exist. Use Go to… to find them.</source>
-        <translation>Hay más salas. Usa «Ir a…» para encontrarlas.</translation>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>Hay más proyectos. Usa «Ir a…» para encontrarlos.</translation>
     </message>
     <message>
         <source>Terminals</source>
@@ -3675,8 +3671,8 @@
         <translation>Detalles</translation>
     </message>
     <message>
-        <source>Remove from room</source>
-        <translation>Quitar de la sala</translation>
+        <source>Remove from project</source>
+        <translation>Quitar del proyecto</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -3970,8 +3966,8 @@
 <context>
     <name>kodosi::ConversationHistoryModel</name>
     <message>
-        <source>Choose a conversation from this project.</source>
-        <translation>Elige una conversación de este proyecto.</translation>
+        <source>Choose a conversation from this folder.</source>
+        <translation>Elige una conversación de esta carpeta.</translation>
     </message>
     <message>
         <source>The provider returned an unexpected response.</source>
@@ -3982,8 +3978,8 @@
         <translation>La lista de conversaciones ha llegado a su límite de visualización.</translation>
     </message>
     <message>
-        <source>A conversation did not match this project.</source>
-        <translation>Una conversación no coincidía con este proyecto.</translation>
+        <source>A conversation did not match this folder.</source>
+        <translation>Una conversación no coincidía con esta carpeta.</translation>
     </message>
     <message>
         <source>The conversation preview exceeded its page limit.</source>
@@ -3997,8 +3993,8 @@
         <translation>Ya hay un selector de carpetas abierto.</translation>
     </message>
     <message>
-        <source>Choose a project folder</source>
-        <translation>Elegir una carpeta de proyecto</translation>
+        <source>Choose a folder</source>
+        <translation>Elegir una carpeta</translation>
     </message>
     <message>
         <source>Choose a readable local folder.</source>

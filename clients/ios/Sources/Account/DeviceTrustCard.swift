@@ -17,7 +17,7 @@ struct DeviceTrustCard: View {
                 Text("Trust this \(ThisDevice.name)")
                     .appTextStyle(.title)
                     .foregroundStyle(theme.colors.ink)
-                Text("Kodosi encrypts your terminals and rooms end to end. A device you already trust gives this \(ThisDevice.name) its keys.")
+                Text("Kodosi encrypts your terminals and projects end to end. A device you already trust gives this \(ThisDevice.name) its keys.")
                     .appTextStyle(.callout)
                     .foregroundStyle(theme.colors.inkMuted)
                     .multilineTextAlignment(.center)
