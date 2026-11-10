@@ -47,7 +47,8 @@ and `--help` lists every option.
   different computers; their files stay there.
 - `kodosi --json room read`: the chat. `--since <sequence>` reads newer messages and
   `--before <sequence>` older ones; follow `hasOlder` to catch up. People write `@` and
-  the name of a terminal to speak to the agent in it.
+  the name of a terminal to speak to the agent in it. `@` and a person's user name, such
+  as `@ana`, gets that person's attention.
 - `kodosi room post "message"`: post in the chat. A post from your terminal carries your
   agent's name; `--agent "name"` gives another. With `--json`, `room.sequence` is the
   room's sequence after your message.

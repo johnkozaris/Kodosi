@@ -62,7 +62,7 @@ void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
         import Kodosi 1.0
         QtObject {
             readonly property var targets: [
-                { id: "u1", name: "Leo Park", kind: "person" },
+                { id: "u1", name: "Leo Park", kind: "person", handle: "leo" },
                 { id: "u2", name: "Maya Chen", kind: "person" },
                 { id: "t\"1", name: "Amber Wren", kind: "terminal", program: "" }
             ]
@@ -71,6 +71,8 @@ void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
             readonly property string chips: Mentions.chips(parts, "u1").map(chip => chip.start + "-" + chip.end + " " + chip.color).join(",")
             readonly property string offered: Mentions.suggestions("@", targets, "u1").map(target => target.id).join(",")
             readonly property bool mine: Mentions.mentions(Mentions.segments("ping @Leo Park", targets), "u1")
+            readonly property bool mineByName: Mentions.mentions(Mentions.segments("thanks @leo.", targets), "u1")
+            readonly property bool notMine: Mentions.mentions(Mentions.segments("@leopard", targets), "u1")
         }
     )", {});
     std::unique_ptr<QObject> object(component.create());
@@ -85,6 +87,8 @@ void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
     QVERIFY2(chips.endsWith(QStringLiteral(",20-31 #eaa47e")), qPrintable(chips));
     QCOMPARE(object->property("offered").toString(), QStringLiteral("u2,t\"1"));
     QVERIFY(object->property("mine").toBool());
+    QVERIFY(object->property("mineByName").toBool());
+    QVERIFY(!object->property("notMine").toBool());
 }
 
 void ControlsTest::keyboardFocusTracksButtonState()
