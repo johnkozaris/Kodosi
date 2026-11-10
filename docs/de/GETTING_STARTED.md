@@ -256,9 +256,11 @@ tippst. `message` bricht auch ab, solange der Agent auf die Antwort einer Person
 Prüfe, ob der Computer des Terminals online ist und Kodosi dort geöffnet ist, und ob das
 Terminal noch geteilt ist. Ein neues Gerät kann eine Freigabe brauchen, und ein Freund mit
 geänderter Identität kann eine Verifizierung unter Freunde brauchen. Nach einer verlorenen
-Verbindung zeigt Kodosi wieder den aktuellen Zustand. Sagt Kodosi, dass ein Computer offline
-ist, öffnen sich seine Terminals wieder, sobald er zurück ist, außer sie sind dort beendet
-worden. Um so ein Terminal aus deiner Liste zu nehmen, wähle sein X. Ausblenden, bis es
-wieder da ist zeigt es wieder, wenn der Computer zurück ist, und Endgültig schließen schließt
-es dann. Sagt Kodosi, dass es nicht sicher ist, ob deine Eingabe angekommen ist, sieh dir das
-Terminal an, bevor du den Befehl noch einmal tippst.
+Verbindung zeigt Kodosi wieder den aktuellen Zustand. Zeigt ein Terminal eines anderen
+Computers Offline, erreicht dieses Gerät den Server nicht: Prüfe sein Netzwerk. Kodosi
+verbindet sich von selbst wieder, und Erneut versuchen verbindet sofort. Sagt Kodosi, dass
+ein Computer offline ist, öffnen sich seine Terminals wieder, sobald er zurück ist, außer sie
+sind dort beendet worden. Um so ein Terminal aus deiner Liste zu nehmen, wähle sein X.
+Ausblenden, bis es wieder da ist zeigt es wieder, wenn der Computer zurück ist, und Endgültig
+schließen schließt es dann. Sagt Kodosi, dass es nicht sicher ist, ob deine Eingabe
+angekommen ist, sieh dir das Terminal an, bevor du den Befehl noch einmal tippst.

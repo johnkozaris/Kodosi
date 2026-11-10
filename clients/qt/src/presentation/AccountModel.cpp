@@ -50,6 +50,19 @@ void AccountModel::logout()
     m_workspace.sendUntracked(QStringLiteral("auth.logout"));
 }
 
+void AccountModel::retryConnection()
+{
+    m_workspace.sendUntracked(QStringLiteral("connection.retry"));
+}
+
+void AccountModel::setOnline(bool value)
+{
+    if (m_online == value)
+        return;
+    m_online = value;
+    emit onlineChanged();
+}
+
 void AccountModel::reset()
 {
     m_userId.clear();

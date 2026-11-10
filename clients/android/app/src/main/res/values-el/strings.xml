@@ -36,6 +36,7 @@
     <string name="no_other_device">Δεν έχω άλλη συσκευή</string>
     <string name="not_connected">Χωρίς σύνδεση</string>
     <string name="nothing_matches">Δεν βρέθηκε τίποτα.</string>
+    <string name="offline">Εκτός σύνδεσης</string>
     <string name="opening_sign_in">Άνοιγμα σύνδεσης</string>
     <string name="other_account">Το Kodosi έλαβε απάντηση για άλλον λογαριασμό.</string>
     <string name="reconnecting">Γίνεται επανασύνδεση</string>
@@ -70,6 +71,7 @@
     <string name="terminal_invalid_control">Το τερματικό έλαβε μη έγκυρο πλαίσιο ελέγχου. Δοκιμάστε ξανά για επανασύνδεση.</string>
     <string name="terminal_not_available">Αυτό το τερματικό δεν είναι διαθέσιμο</string>
     <string name="terminal_opens_when_back">Το τερματικό θα ανοίξει όταν επιστρέψει ο υπολογιστής του.</string>
+    <string name="terminal_opens_when_connection_back">Το τερματικό θα ανοίξει όταν επανέλθει η σύνδεση.</string>
     <string name="terminals">Τερματικά</string>
     <string name="terminals_empty_message">Ξεκινήστε ένα τερματικό στο Kodosi στον υπολογιστή σας ή ζητήστε από έναν φίλο να μοιραστεί ένα. Εμφανίζεται εδώ, ώστε να παρακολουθείτε τη δουλειά του και να απαντάτε στους agents του.</string>
     <string name="terminals_empty_title">Τα τερματικά σας τρέχουν στους υπολογιστές σας</string>

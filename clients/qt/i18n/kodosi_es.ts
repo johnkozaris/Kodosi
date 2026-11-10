@@ -94,6 +94,14 @@
         <translation>Ordenador</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Sin conexión</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Reintentar</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Cerrar</translation>
     </message>
@@ -3262,6 +3270,10 @@
         <translation>Ordenador remoto</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Sin conexión</translation>
+    </message>
+    <message>
         <source>Not connected</source>
         <translation>Sin conexión</translation>
     </message>
@@ -3619,6 +3631,10 @@
         <translation>Ordenador remoto</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Sin conexión</translation>
+    </message>
+    <message>
         <source>Reconnecting</source>
         <translation>Reconectando</translation>
     </message>
@@ -3721,6 +3737,10 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>El terminal se abrirá cuando su ordenador vuelva.</translation>
+    </message>
+    <message>
+        <source>The terminal opens when the connection is back.</source>
+        <translation>El terminal se abrirá cuando vuelva la conexión.</translation>
     </message>
     <message>
         <source>This terminal is not available</source>

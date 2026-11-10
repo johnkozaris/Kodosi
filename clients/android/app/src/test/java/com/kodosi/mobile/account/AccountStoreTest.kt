@@ -122,4 +122,22 @@ class AccountStoreTest {
         assertEquals(listOf(TestWords.signInEnded), notices)
         assertTrue(store.state.value.needsOnboarding)
     }
+
+    @Test
+    fun followsWhetherKodosiReachesTheServer() {
+        store.receiveConnection(event("connection.state", """"online":false"""))
+        assertFalse(store.state.value.online)
+
+        store.receiveConnection(event("connection.state", """"online":true"""))
+        assertTrue(store.state.value.online)
+    }
+
+    @Test
+    fun anotherAccountStartsOnline() {
+        store.reset("ana")
+        store.receiveConnection(event("connection.state", """"online":false"""))
+
+        store.reset("bo")
+        assertTrue(store.state.value.online)
+    }
 }

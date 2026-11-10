@@ -94,6 +94,14 @@
         <translation>コンピュータ</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>オフライン</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>再試行</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>閉じる</translation>
     </message>
@@ -3250,6 +3258,10 @@
         <translation>リモートコンピュータ</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>オフライン</translation>
+    </message>
+    <message>
         <source>Not connected</source>
         <translation>未接続</translation>
     </message>
@@ -3606,6 +3618,10 @@
         <translation>リモートコンピュータ</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>オフライン</translation>
+    </message>
+    <message>
         <source>Reconnecting</source>
         <translation>再接続中</translation>
     </message>
@@ -3708,6 +3724,10 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>コンピュータがオンラインに戻ると、ターミナルが開きます。</translation>
+    </message>
+    <message>
+        <source>The terminal opens when the connection is back.</source>
+        <translation>接続が戻ると、ターミナルが開きます。</translation>
     </message>
     <message>
         <source>This terminal is not available</source>

@@ -94,6 +94,14 @@
         <translation>컴퓨터</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>오프라인</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>다시 시도</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>닫기</translation>
     </message>
@@ -3250,6 +3258,10 @@
         <translation>원격 컴퓨터</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>오프라인</translation>
+    </message>
+    <message>
         <source>Not connected</source>
         <translation>연결 안 됨</translation>
     </message>
@@ -3606,6 +3618,10 @@
         <translation>원격 컴퓨터</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>오프라인</translation>
+    </message>
+    <message>
         <source>Reconnecting</source>
         <translation>다시 연결 중</translation>
     </message>
@@ -3708,6 +3724,10 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>컴퓨터가 다시 온라인이 되면 터미널이 열려요.</translation>
+    </message>
+    <message>
+        <source>The terminal opens when the connection is back.</source>
+        <translation>연결이 돌아오면 터미널이 열려요.</translation>
     </message>
     <message>
         <source>This terminal is not available</source>

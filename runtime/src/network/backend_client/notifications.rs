@@ -36,7 +36,10 @@ impl Retry {
     }
 
     fn waited(&mut self, ended: terminal_connections::Wait) {
-        if ended == terminal_connections::Wait::Slept {
+        if matches!(
+            ended,
+            terminal_connections::Wait::Slept | terminal_connections::Wait::Asked
+        ) {
             *self = Self::default();
         } else {
             self.hurried = ended == terminal_connections::Wait::Wanted;
@@ -172,6 +175,7 @@ impl BackendClient {
                 {
                     break;
                 }
+                network.inner.link.start_wanting();
                 let started = crate::network::Moment::now();
                 let result = tokio::select! {
                     biased;
@@ -204,6 +208,7 @@ impl BackendClient {
                 };
                 retry.waited(ended);
             }
+            network.inner.link.stop_wanting();
             cancel.cancel();
         });
         Ok(())

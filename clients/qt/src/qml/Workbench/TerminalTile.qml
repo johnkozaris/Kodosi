@@ -30,8 +30,11 @@ Item {
     readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
     readonly property bool away: session.kind === "remote" && session.status === "offline"
     readonly property string awayText: qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer"))
-    readonly property string notice: session.kind === "remote" && session.connectionState === "connected"
-        ? (away ? awayText : session.status === "reconnecting" ? qsTr("Reconnecting") : session.message || "") : ""
+    readonly property bool unreachable: session.kind === "remote" && !Models.Account.online && session.connectionState !== "blocked"
+    readonly property bool remoteConnected: session.kind === "remote" && session.connectionState === "connected"
+    readonly property string remoteState: !remoteConnected ? "" : unreachable ? qsTr("Offline") : away ? awayText
+        : session.status === "reconnecting" ? qsTr("Reconnecting") : ""
+    readonly property string notice: remoteConnected && !away && session.status !== "reconnecting" ? session.message || "" : ""
     property string terminalError: ""
     property bool connectingLong: false
     property string terminalOperationError: ""
@@ -309,7 +312,30 @@ Item {
                 }
                 PlainLabel {
                     Accessible.id: objectName
-                    color: root.away ? KodosiTheme.caution : KodosiTheme.terminalInkFaint
+                    color: root.away || root.unreachable ? KodosiTheme.terminalCaution : KodosiTheme.terminalInkFaint
+                    font.pixelSize: KodosiTheme.fontCaption
+                    objectName: root.objectName + ".state"
+                    text: root.remoteState
+                    visible: text.length > 0
+                }
+                KButton {
+                    Accessible.id: objectName
+                    compact: true
+                    objectName: root.objectName + ".state.retry"
+                    onTerminal: true
+                    opacity: tileHover.hovered || root.active && !root.joined ? 1 : 0.35
+                    text: qsTr("Try again")
+                    variant: KButton.Ghost
+                    visible: root.unreachable && root.remoteConnected
+
+                    onClicked: Models.Account.retryConnection()
+                }
+                PlainLabel {
+                    Accessible.id: objectName
+                    Layout.fillWidth: true
+                    Layout.maximumWidth: Math.ceil(implicitWidth)
+                    color: KodosiTheme.terminalInkFaint
+                    elide: Text.ElideRight
                     font.pixelSize: KodosiTheme.fontCaption
                     objectName: root.objectName + ".notice"
                     text: root.notice
@@ -597,7 +623,7 @@ Item {
             }
             Timer {
                 interval: 300
-                running: !terminal.terminalReady && root.terminalError.length === 0 && !root.away
+                running: !terminal.terminalReady && root.terminalError.length === 0 && !root.away && !root.unreachable
 
                 onRunningChanged: root.connectingLong = false
                 onTriggered: root.connectingLong = true
@@ -639,7 +665,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         objectName: root.objectName + ".away"
                         text: root.awayText
-                        visible: root.away && root.terminalError.length === 0
+                        visible: root.away && !root.unreachable && root.terminalError.length === 0
                     }
                     PlainLabel {
                         Layout.fillWidth: true
@@ -647,8 +673,40 @@ Item {
                         font.pixelSize: KodosiTheme.fontFootnote
                         horizontalAlignment: Text.AlignHCenter
                         text: qsTr("The terminal opens when its computer is back.")
-                        visible: root.away && root.terminalError.length === 0
+                        visible: root.away && !root.unreachable && root.terminalError.length === 0
                         wrapMode: Text.WordWrap
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 14
+                        visible: root.unreachable && !root.remoteConnected && root.terminalError.length === 0
+
+                        PlainLabel {
+                            Layout.fillWidth: true
+                            color: KodosiTheme.terminalInk
+                            font.pixelSize: KodosiTheme.fontHeadline
+                            font.weight: Font.DemiBold
+                            horizontalAlignment: Text.AlignHCenter
+                            objectName: root.objectName + ".unreachable"
+                            text: qsTr("Offline")
+                        }
+                        PlainLabel {
+                            Layout.fillWidth: true
+                            color: KodosiTheme.terminalInkMuted
+                            font.pixelSize: KodosiTheme.fontFootnote
+                            horizontalAlignment: Text.AlignHCenter
+                            text: qsTr("The terminal opens when the connection is back.")
+                            wrapMode: Text.WordWrap
+                        }
+                        KButton {
+                            Accessible.id: objectName
+                            Layout.alignment: Qt.AlignHCenter
+                            objectName: root.objectName + ".unreachable.retry"
+                            text: qsTr("Try again")
+                            variant: KButton.Primary
+
+                            onClicked: Models.Account.retryConnection()
+                        }
                     }
                     PlainLabel {
                         Layout.fillWidth: true

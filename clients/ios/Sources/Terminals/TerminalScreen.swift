@@ -110,7 +110,10 @@ private struct TerminalScreenContent: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 if let session {
-                    TerminalTitle(session: session, sign: model.terminals.sign(of: session), rename: session.isOwner ? { prompt = .rename(session) } : nil)
+                    TerminalTitle(
+                        session: session, sign: model.terminals.sign(of: session), unreachable: model.unreachable(session),
+                        rename: session.isOwner ? { prompt = .rename(session) } : nil, reconnect: model.account.retryConnection,
+                    )
                 }
             }
             .sharedBackgroundVisibility(.hidden)
@@ -261,7 +264,10 @@ private struct TerminalScreenContent: View {
                 }
                 .id(surface.token.subscriptionId)
             } else {
-                TerminalSessionState(session: session, opening: controller.opening, failure: controller.openFailure, connect: controller.open)
+                TerminalSessionState(
+                    session: session, unreachable: model.unreachable(session), opening: controller.opening, failure: controller.openFailure,
+                    connect: controller.open, reconnect: model.account.retryConnection,
+                )
             }
         } else {
             TerminalEnded { dismiss() }

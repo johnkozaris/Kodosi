@@ -7,6 +7,7 @@
 
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QStringList>
 #include <QUuid>
 
 #include <algorithm>
@@ -22,6 +23,15 @@ QVariantList list(const QJsonObject& object, const char* key)
 QString requestId()
 {
     return QUuid::createUuidV7().toString(QUuid::WithoutBraces);
+}
+
+/// Whether an operation is a refresh that the app asks for by itself. Its failure is no news to
+/// the person: the runtime refreshes again when the connection is back.
+bool isRefresh(const QString& operation)
+{
+    static const QStringList refreshes { QStringLiteral("session.list"), QStringLiteral("auth.refresh"),
+        QStringLiteral("friends.refresh"), QStringLiteral("devices.refresh"), QStringLiteral("mission.list") };
+    return refreshes.contains(operation);
 }
 }
 
@@ -197,6 +207,7 @@ void Workspace::setError(QString error)
 void Workspace::clearAccountData(bool clearLinks, const QString& userId)
 {
     m_pending.clear();
+    m_account.setOnline(true);
     m_people.reset();
     m_devices.reset();
     m_missions.reset();
@@ -351,6 +362,10 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_account.m_signInPage = event.value(QStringLiteral("url")).toString();
         emit m_account.loginChanged();
         emit m_account.signInPageReady(m_account.m_signInPage);
+        return;
+    }
+    if (type == QStringLiteral("connection.state")) {
+        m_account.setOnline(event.value(QStringLiteral("online")).toBool(true));
         return;
     }
     if (type.startsWith(QStringLiteral("dosi."))) {
@@ -526,15 +541,14 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (quiet)
         return;
-    setError(event.value(QStringLiteral("message")).toString());
-    if (type == QStringLiteral("session.error")
-        && event.value(QStringLiteral("operation")).toString()
-            == QStringLiteral("session.list")) {
-        m_sessions.fail(m_error);
+    const auto message = event.value(QStringLiteral("message")).toString();
+    const auto operation = event.value(QStringLiteral("operation")).toString();
+    if (!isRefresh(operation))
+        setError(message);
+    if (type == QStringLiteral("session.error") && operation == QStringLiteral("session.list")) {
+        m_sessions.fail(message);
     }
-    if (type == QStringLiteral("session.error")
-        && event.value(QStringLiteral("operation")).toString()
-            == QStringLiteral("session.create")) {
+    if (type == QStringLiteral("session.error") && operation == QStringLiteral("session.create")) {
         m_sessionActions.m_typeAhead.drop();
     }
 }

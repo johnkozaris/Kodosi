@@ -97,6 +97,12 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    /// Tries to reach the server and the terminals of other computers now.
+    #[serde(rename = "connection.retry")]
+    RetryConnection {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
     #[serde(rename = "devices.revoke")]
     RevokeDevice {
         #[serde(rename = "deviceId")]
@@ -968,6 +974,21 @@ pub enum EventBody {
     SystemError { message: Text },
     #[serde(rename = "system.updateRequired")]
     SystemUpdateRequired {},
+    /// Whether the account reaches the server. A short drop, such as when the computer wakes,
+    /// keeps it online.
+    #[serde(rename = "connection.state")]
+    Connection { online: bool },
+    #[serde(rename = "connection.result")]
+    ConnectionResult {
+        request_id: String,
+        operation: String,
+    },
+    #[serde(rename = "connection.error")]
+    ConnectionError {
+        request_id: String,
+        operation: String,
+        message: Text,
+    },
     #[serde(rename = "auth.ready")]
     AuthReady {
         user_id: String,
@@ -1595,6 +1616,8 @@ impl EventBody {
             | Self::AuthDeletionPending { request_id, .. }
             | Self::AuthResult { request_id, .. }
             | Self::AuthError { request_id, .. }
+            | Self::ConnectionResult { request_id, .. }
+            | Self::ConnectionError { request_id, .. }
             | Self::FriendsResult { request_id, .. }
             | Self::FriendsError { request_id, .. }
             | Self::DevicesResult { request_id, .. }
@@ -1632,6 +1655,9 @@ impl EventBody {
             Self::SystemReady { .. } => "system.ready",
             Self::SystemError { .. } => "system.error",
             Self::SystemUpdateRequired {} => "system.updateRequired",
+            Self::Connection { .. } => "connection.state",
+            Self::ConnectionResult { .. } => "connection.result",
+            Self::ConnectionError { .. } => "connection.error",
             Self::AuthReady { .. } => "auth.ready",
             Self::AuthRequired { .. } => "auth.required",
             Self::AuthRestoring { .. } => "auth.restoring",
@@ -1746,6 +1772,7 @@ impl Command {
             Self::CancelDeleteAccount { .. } => "auth.deleteAccount.cancel",
             Self::RefreshAuth { .. } => "auth.refresh",
             Self::RefreshDevices { .. } => "devices.refresh",
+            Self::RetryConnection { .. } => "connection.retry",
             Self::RevokeDevice { .. } => "devices.revoke",
             Self::CheckDevice { .. } => "devices.link.check",
             Self::ApproveDevice { .. } => "devices.link.approve",
@@ -1882,6 +1909,7 @@ impl Command {
             | Self::CancelDeleteAccount { request_id }
             | Self::RefreshAuth { request_id }
             | Self::RefreshDevices { request_id }
+            | Self::RetryConnection { request_id }
             | Self::RevokeDevice { request_id, .. }
             | Self::CheckDevice { request_id, .. }
             | Self::ApproveDevice { request_id, .. }
@@ -2819,6 +2847,7 @@ mod tests {
             "auth.deleteAccount.cancel",
             "auth.refresh",
             "devices.refresh",
+            "connection.retry",
             "devices.reset",
             "devices.recovery.create",
             "devices.link.startSelf",
@@ -2936,7 +2965,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 72);
+        assert_eq!(kinds.len(), 73);
     }
 
     #[test]

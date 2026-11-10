@@ -182,6 +182,14 @@ struct AgentLauncher: View {
             } else {
                 computerKey
             }
+            if !deps.account.online, deps.account.hasOtherDevices {
+                Text(verbatim: "·")
+                Text("Offline").foregroundStyle(ink.caution)
+                    .accessibilityIdentifier("launcher.offline")
+                Button("Try again") { deps.account.retryConnection() }
+                    .buttonStyle(.kodosi(.ghost, size: .small))
+                    .accessibilityIdentifier("launcher.offline.retry")
+            }
             if let roomName {
                 Text(verbatim: "·")
                 RoomSigil(key: roomId ?? "", size: 13)

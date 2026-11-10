@@ -54,6 +54,7 @@ extension AppDependencies {
         case "sessions": try receiveSessions(event)
         case "friends": try receiveFriends(event)
         case "devices": try account.receiveDevices(event)
+        case "connection": try account.receiveConnection(event)
         case "mission", "missions", "room", "dosi": try receiveCollaboration(event)
         case "term", "session", "document": receiveTerminal(event)
         default: break
@@ -81,7 +82,7 @@ extension AppDependencies {
         let message = event.string("message") ?? String(localized: "That did not work.")
         let stage = account.stage
         account.absorb(error: event, message: message)
-        guard !signInPresented || account.stage == stage else { return }
+        guard !signInPresented || account.stage == stage, !event.failedRefresh else { return }
         errorMessage = message
     }
 

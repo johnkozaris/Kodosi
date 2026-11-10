@@ -198,10 +198,15 @@ final class AppModel {
             receiveError(event, delivery: delivery)
             return
         }
+        try dispatch(event)
+    }
+
+    private func dispatch(_ event: RuntimeEvent) throws {
         switch event.type.prefix(while: { $0 != "." }) {
         case "system": try receiveSystem(event)
         case "auth": try receiveAuth(event)
         case "devices": try account.receiveDevices(event)
+        case "connection" where event.type == "connection.state": try account.receiveConnection(event)
         case "sessions", "session", "term", "document": try terminals.receive(event)
         case "friends": try people.receive(event)
         case "mission", "missions", "room": try rooms.receive(event)
@@ -240,7 +245,7 @@ final class AppModel {
         guard delivery == .app, !["provider.", "room.", "canvas.", "document."].contains(where: event.type.hasPrefix) else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
         people.absorb(error: event)
-        guard !account.absorb(error: event, message: message) else { return }
+        guard !account.absorb(error: event, message: message), !event.failedRefresh else { return }
         notices.show(message)
     }
 }

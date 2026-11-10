@@ -25,7 +25,8 @@ data class AccountState(
     val signInPage: String? = null,
     val devices: List<Device> = emptyList(),
     val onlineHosts: Set<String> = emptySet(),
-    val restoring: String? = null
+    val restoring: String? = null,
+    val online: Boolean = true
 ) {
     val isReady: Boolean get() = userId != null && localDeviceEnrolled
     val needsOnboarding: Boolean get() = authResolved && !isReady
@@ -94,6 +95,18 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
 
             event.type == "devices.link.resolved" -> commands.perform("devices.refresh")
         }
+    }
+
+    /** Follows whether Kodosi reaches the server; a short drop keeps it online. */
+    fun receiveConnection(event: RuntimeEvent) {
+        if (event.type != "connection.state") return
+        val online = event.bool("online") ?: return
+        mutableState.update { it.copy(online = online) }
+    }
+
+    /** Reaches for the server and the terminals of other computers now. */
+    fun retryConnection() {
+        commands.perform("connection.retry")
     }
 
     /** Takes an error that belongs to sign-in; tells whether it is shown already. */

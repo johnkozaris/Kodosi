@@ -1804,6 +1804,44 @@ private slots:
         QVERIFY(f.workspace.devices().waitingRequests().isEmpty());
         QVERIFY(!f.workspace.devices().approvalNoticeDismissed());
     }
+    void anotherDeviceIsNeitherThisOneNorARecoveryKey()
+    {
+        Fixture f;
+        const auto listed = [](const QJsonArray& devices) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("devices.list") },
+                { QStringLiteral("selfDeviceId"), test::id(60) }, { QStringLiteral("localDeviceEnrolled"), true },
+                { QStringLiteral("devices"), devices } };
+        };
+        const auto device = [](int value, bool recoveryKey = false) {
+            return QJsonObject { { QStringLiteral("deviceId"), test::id(value) },
+                { QStringLiteral("recoveryKey"), recoveryKey } };
+        };
+        f.workspace.apply(listed({ device(60), device(61, true) }), 1);
+        QVERIFY(!f.workspace.devices().hasOtherDevices());
+        f.workspace.apply(listed({ device(60), device(61, true), device(62) }), 1);
+        QVERIFY(f.workspace.devices().hasOtherDevices());
+    }
+    void kodosiIsOfflineUntilItReachesTheServerAgainOrTheAccountChanges()
+    {
+        Fixture f;
+        f.workspace.apply(accountEvent(test::id(50), 1), 1);
+        const auto connection = [](bool online) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("connection.state") },
+                { QStringLiteral("online"), online } };
+        };
+        QSignalSpy changed(&f.workspace.account(), &kodosi::AccountModel::onlineChanged);
+        f.workspace.apply(connection(false), 1);
+        QVERIFY(!f.workspace.account().online());
+        f.workspace.account().retryConnection();
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("connection.retry"));
+        f.workspace.apply(connection(true), 1);
+        QVERIFY(f.workspace.account().online());
+        QCOMPARE(changed.count(), 2);
+        f.workspace.apply(connection(false), 1);
+        f.workspace.apply(accountEvent({}, 2), 2);
+        QVERIFY(f.workspace.account().online());
+        QVERIFY(f.workspace.error().isEmpty());
+    }
     void aSavedSignInThatComesBackIsNotShownAsSignedOut()
     {
         Fixture f;
@@ -1975,6 +2013,16 @@ private slots:
             { QStringLiteral("message"), QStringLiteral("Nobody is called ada") },
             { QStringLiteral("requestId"), friendRequest } }, 0);
         QCOMPARE(f.workspace.error(), QStringLiteral("Nobody is called ada"));
+    }
+
+    void aRefreshThatTheAppAskedForFailsWithoutAnError()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("friends.error") },
+            { QStringLiteral("operation"), QStringLiteral("friends.refresh") },
+            { QStringLiteral("message"), QStringLiteral("Kodosi cannot reach the server. Check your connection and try again.") },
+            { QStringLiteral("requestId"), test::id(1) } }, 0);
+        QVERIFY(f.workspace.error().isEmpty());
     }
 
     void aRoomAnswerBringsItsIssuesAndOlderMessages()

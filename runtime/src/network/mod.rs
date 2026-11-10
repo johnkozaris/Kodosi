@@ -583,7 +583,11 @@ pub type PublicationOutput = broadcast::Receiver<PublishedFrame>;
 
 #[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
-pub(crate) use terminal_connections::{CONTROL_TIMEOUT, STABLE_CONNECTION, input_not_sent};
+#[cfg(test)]
+pub(crate) use terminal_connections::Wait;
+pub(crate) use terminal_connections::{
+    CONTROL_TIMEOUT, RECONNECT_WAIT, STABLE_CONNECTION, input_not_sent,
+};
 
 #[cfg(test)]
 pub(crate) fn test_remote_connection(

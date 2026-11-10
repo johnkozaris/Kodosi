@@ -272,4 +272,7 @@ fn the_device_link_waits_longer_after_each_failure_and_tries_early_only_once() {
     assert_eq!(retry.delay, 15);
     retry.waited(Wait::Slept);
     assert_eq!(retry, Retry::default());
+    retry.waited(Wait::Wanted);
+    retry.waited(Wait::Asked);
+    assert_eq!(retry, Retry::default());
 }

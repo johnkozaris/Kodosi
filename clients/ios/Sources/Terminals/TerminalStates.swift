@@ -3,17 +3,39 @@ import KodosiDesign
 import KodosiTerminalSessions
 import SwiftUI
 
+extension AppModel {
+    /// A terminal of another computer that Kodosi cannot reach because Kodosi is offline.
+    func unreachable(_ session: RuntimeSession) -> Bool {
+        session.kind == .remote && !account.online && session.connectionState != .blocked
+    }
+
+    func statusLabel(of session: RuntimeSession) -> String {
+        unreachable(session) ? String(localized: "Offline") : session.statusLabel
+    }
+}
+
 struct TerminalSessionState: View {
     let session: RuntimeSession
+    let unreachable: Bool
     let opening: Bool
     let failure: String?
     let connect: () -> Void
+    let reconnect: () -> Void
 
     var body: some View {
         switch session.connectionState {
         case .blocked:
             TerminalStateCard(symbol: "lock", title: session.statusLabel, message: session.message, working: false) { EmptyView() }
                 .accessibilityIdentifier("terminal.state.blocked")
+        case .connecting where unreachable, .offline where unreachable:
+            TerminalStateCard(symbol: "wifi.slash", title: String(localized: "Offline"),
+                              message: String(localized: "The terminal opens when the connection is back."), working: false)
+            {
+                Button("Try again", action: reconnect)
+                    .buttonStyle(.kodosi(.primary))
+                    .accessibilityIdentifier("terminal.unreachable.retry")
+            }
+            .accessibilityIdentifier("terminal.state.unreachable")
         case .offline where session.status == .offline:
             TerminalStateCard(symbol: "wifi.slash", title: session.statusLabel, message: String(localized: "The terminal opens when its computer is back."),
                               working: false) { EmptyView() }

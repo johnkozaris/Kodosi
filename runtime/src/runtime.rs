@@ -60,6 +60,7 @@ pub(crate) fn sharing_changed() -> crate::text::Text {
 }
 const MAX_SESSIONS: usize = 64;
 const MAX_JOBS: usize = 64;
+const MAX_TYPING: usize = 32;
 #[cfg(feature = "host")]
 const MAX_PUBLICATIONS_IN_FLIGHT: usize = 8;
 const COMMAND_CAPACITY: usize = 128;
@@ -588,13 +589,27 @@ fn answer(command: &Command, outcome: std::result::Result<(), &Error>) -> Value 
     value
 }
 
+fn unsent(error: Error) -> Error {
+    match error {
+        Error::Stopped | Error::NotFound => error,
+        error => Error::Unsent(error.text()),
+    }
+}
+
 struct Job {
     scope: Scope,
     completion: Completion,
 }
 
 enum Completion {
+    #[cfg(feature = "host")]
     Input {
+        result: Result<()>,
+    },
+    Typed {
+        session: Uuid,
+        number: u64,
+        reply: Option<oneshot::Sender<Result<()>>>,
         result: Result<()>,
     },
     Initialized(Result<()>),
@@ -1080,8 +1095,12 @@ struct Runtime {
     room_latest: HashMap<String, u64>,
     room_seen: room_seen::RoomSeen,
     reconnect: HashMap<Uuid, Reconnect>,
+    typing: HashMap<Uuid, usize>,
+    inputs: u64,
+    unsent: HashMap<Uuid, u64>,
     folder_asks: HashMap<String, terminal_folders::FolderAsk>,
     link_connects: u64,
+    online: bool,
     #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
     #[cfg(feature = "host")]
@@ -1227,8 +1246,12 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         room_latest: HashMap::new(),
         room_seen,
         reconnect: HashMap::new(),
+        typing: HashMap::new(),
+        inputs: 0,
+        unsent: HashMap::new(),
         folder_asks: HashMap::new(),
         link_connects: 0,
+        online: true,
         #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
         #[cfg(feature = "host")]
@@ -1560,11 +1583,35 @@ impl Runtime {
         let mut values = vec![
             self.ready_event(),
             self.auth_event(),
+            self.connection_event(),
             json!({"type":"sessions.snapshot", "sessions":self.entries()}),
         ];
         values.push(self.dosi.snapshot());
         values.extend(self.cached_events.values().cloned());
         values.into_iter().map(|value| self.event(value)).collect()
+    }
+
+    fn connection_event(&self) -> Value {
+        json!({"type":"connection.state", "online":self.online})
+    }
+
+    /// Kodosi is offline when the account cannot reach the server for longer than a short drop.
+    fn publish_connection(&mut self) {
+        let restoring = self.latest_auth.as_ref().is_some_and(|event| {
+            event["type"] == "auth.restoring"
+                && matches!(event["reason"].as_str(), Some("offline" | "unavailable"))
+        });
+        let online = !restoring
+            && self
+                .network
+                .inner
+                .link
+                .down_for()
+                .is_none_or(|down| down < crate::network::RECONNECT_WAIT);
+        if online != self.online {
+            self.online = online;
+            self.emit(self.connection_event());
+        }
     }
 
     fn auth_event(&self) -> Value {
@@ -1709,7 +1756,7 @@ impl Runtime {
                         None => {},
                     }
                 }
-                _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); }
+                _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); self.publish_connection(); }
                 _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); } self.reconnect_views(); self.started_remotes(); self.ask_folders(); }
             }
         }
@@ -2210,11 +2257,51 @@ impl Runtime {
     }
 
     fn clear_input_notice(&mut self, session: Uuid) {
+        self.unsent.remove(&session);
         if let Some(entry) = self.remotes.get_mut(&session)
             && entry.message == Some(crate::network::input_not_sent())
         {
             entry.message = None;
             self.publish_catalog();
+        }
+    }
+
+    /// Says on a terminal of another computer that Kodosi did not send some input, until an
+    /// input that Kodosi takes after this one goes through.
+    fn note_unsent_input(&mut self, session: Uuid) {
+        let remotes = &self.remotes;
+        self.unsent.retain(|id, _| remotes.contains_key(id));
+        let notice = crate::network::input_not_sent();
+        let Some(entry) = self.remotes.get_mut(&session) else {
+            return;
+        };
+        self.unsent.insert(session, self.inputs);
+        if entry.message.as_ref() != Some(&notice) {
+            entry.message = Some(notice);
+            self.publish_catalog();
+        }
+    }
+
+    /// Typing into a terminal of another computer keeps at most `MAX_TYPING` inputs waiting for
+    /// their answers, so that it cannot take the jobs that reconnecting needs.
+    fn admit_input(&self, session: Uuid, target: TerminalTarget) -> Result<TerminalTarget> {
+        let remote = matches!(target, TerminalTarget::Remote(_));
+        let admitted = self.job_capacity().and_then(|()| {
+            if remote
+                && self
+                    .typing
+                    .get(&session)
+                    .is_some_and(|waiting| *waiting >= MAX_TYPING)
+            {
+                Err(Error::Busy)
+            } else {
+                self.reachable(session)
+            }
+        });
+        match admitted {
+            Ok(()) => Ok(target),
+            Err(error) if remote => Err(unsent(error)),
+            Err(error) => Err(error),
         }
     }
 
@@ -2228,36 +2315,48 @@ impl Runtime {
         reply: Option<oneshot::Sender<Result<()>>>,
     ) {
         let result = self
-            .job_capacity()
-            .and_then(|()| self.check_incarnation(session, incarnation))
-            .and_then(|()| self.reachable(session))
-            .and_then(|()| self.target(session));
+            .check_incarnation(session, incarnation)
+            .and_then(|()| self.target(session))
+            .and_then(|target| self.admit_input(session, target));
         match result {
             Ok(target) => {
+                self.inputs += 1;
+                let number = self.inputs;
                 let admission = match target {
                     #[cfg(feature = "host")]
                     TerminalTarget::Local(terminal) => {
                         terminal.write_input(connection, bytes).boxed()
                     }
                     TerminalTarget::Remote(terminal) => {
-                        self.clear_input_notice(session);
-                        terminal.write_input(connection, bytes).boxed()
+                        *self.typing.entry(session).or_default() += 1;
+                        let written = terminal.write_input(connection, bytes);
+                        async move { written.await.map_err(unsent) }.boxed()
                     }
                 };
                 self.spawn(async move {
                     let result = admission.await;
                     drop(permit);
-                    match reply {
-                        Some(reply) => Completion::HeadlessControl { reply, result },
-                        None => Completion::Input { result },
+                    Completion::Typed {
+                        session,
+                        number,
+                        reply,
+                        result,
                     }
                 });
             }
-            Err(error) => match reply {
-                Some(reply) => drop(reply.send(Err(error))),
-                None if matches!(error, Error::Stopped | Error::NotFound) => {}
-                None => self.emit(json!({"type":"system.error", "message":error.text()})),
-            },
+            Err(error) => {
+                if matches!(error, Error::Unsent(_)) {
+                    self.note_unsent_input(session);
+                }
+                match reply {
+                    Some(reply) => drop(reply.send(Err(error))),
+                    None if matches!(
+                        error,
+                        Error::Stopped | Error::NotFound | Error::Unsent(_)
+                    ) => {}
+                    None => self.emit(json!({"type":"system.error", "message":error.text()})),
+                }
+            }
         }
     }
 
@@ -3276,6 +3375,9 @@ impl Runtime {
                 entry.status = status;
                 let lost = crate::network::input_not_sent();
                 entry.message = reason.words().ends_with(lost.words()).then_some(lost);
+                if entry.message.is_some() {
+                    self.unsent.insert(id, self.inputs);
+                }
             } else {
                 entry.connection_state = ConnectionState::Offline;
                 entry.message = online.then_some(reason);
@@ -3305,13 +3407,13 @@ impl Runtime {
         let connects = self.network.inner.link.connects();
         if connects != self.link_connects {
             self.link_connects = connects;
-            let recovering = self
+            let waiting = self
                 .reconnect
                 .keys()
                 .copied()
-                .filter(|id| self.recovering(*id))
+                .filter(|id| self.shown(*id))
                 .collect::<Vec<_>>();
-            for id in recovering {
+            for id in waiting {
                 self.reconnect_now(id);
             }
         }

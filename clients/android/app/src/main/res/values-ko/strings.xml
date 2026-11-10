@@ -36,6 +36,7 @@
     <string name="no_other_device">다른 기기가 없어요</string>
     <string name="not_connected">연결 안 됨</string>
     <string name="nothing_matches">일치하는 항목이 없어요.</string>
+    <string name="offline">오프라인</string>
     <string name="opening_sign_in">로그인 여는 중</string>
     <string name="other_account">Kodosi가 다른 계정에 대한 응답을 받았어요.</string>
     <string name="reconnecting">다시 연결 중</string>
@@ -70,6 +71,7 @@
     <string name="terminal_invalid_control">터미널이 잘못된 제어 프레임을 받았어요. 다시 시도해서 다시 연결하세요.</string>
     <string name="terminal_not_available">이 터미널을 사용할 수 없어요</string>
     <string name="terminal_opens_when_back">컴퓨터가 다시 온라인이 되면 터미널이 열려요.</string>
+    <string name="terminal_opens_when_connection_back">연결이 돌아오면 터미널이 열려요.</string>
     <string name="terminals">터미널</string>
     <string name="terminals_empty_message">컴퓨터의 Kodosi에서 터미널을 시작하거나 친구에게 공유를 부탁하세요. 여기에 나타나서 작업을 지켜보고 에이전트에 답할 수 있어요.</string>
     <string name="terminals_empty_title">터미널은 내 컴퓨터에서 실행돼요</string>

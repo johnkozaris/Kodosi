@@ -252,9 +252,11 @@ terminal. `message` s'arrête aussi pendant que l'agent attend la réponse d'une
 Vérifiez que l'ordinateur du terminal est en ligne, avec Kodosi ouvert, et que le terminal est
 toujours partagé. Un nouvel appareil peut avoir besoin d'une approbation, et un ami dont
 l'identité a changé peut avoir besoin d'une vérification dans Amis. Après une perte de
-connexion, Kodosi affiche de nouveau l'état actuel. Quand Kodosi indique qu'un ordinateur est
-hors ligne, ses terminaux se rouvrent à son retour, sauf s'ils se sont terminés là-bas. Pour
-retirer un tel terminal de votre liste, choisissez son X. Masquer jusqu'à son retour
+connexion, Kodosi affiche de nouveau l'état actuel. Quand un terminal d'un autre ordinateur
+indique Hors ligne, cet appareil ne joint pas le serveur : vérifiez son réseau. Kodosi se
+reconnecte tout seul, et Réessayer se connecte aussitôt. Quand Kodosi indique qu'un ordinateur
+est hors ligne, ses terminaux se rouvrent à son retour, sauf s'ils se sont terminés là-bas.
+Pour retirer un tel terminal de votre liste, choisissez son X. Masquer jusqu'à son retour
 l'affiche de nouveau quand l'ordinateur revient, et Fermer définitivement le ferme alors. Si
 Kodosi indique ne pas être sûr que votre saisie soit arrivée, regardez le terminal avant de
 retaper la commande.

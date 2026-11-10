@@ -91,8 +91,8 @@ struct SessionDetailsView: View {
     }
 
     private func hostState(_ current: RuntimeSession) -> String? {
-        if current.status == .offline {
-            return current.statusLabel
+        if current.status == .offline || deps.unreachable(current) {
+            return deps.statusLabel(of: current)
         }
         return current.isConnected ? nil : current.message ?? current.statusLabel
     }

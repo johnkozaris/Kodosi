@@ -343,7 +343,7 @@ struct SidebarTerminalRow: View {
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .animation(theme.motion.snappy, value: deps.sign(of: session))
-        .help(session.isConnected && !troubled ? (staged ? String(localized: "Open") : String(localized: "Minimized")) : session.statusLabel)
+        .help(session.isConnected && !troubled ? (staged ? String(localized: "Open") : String(localized: "Minimized")) : deps.statusLabel(of: session))
         .contextMenu { menu }
         .terminalDrag(session)
         .confirmationDialog("Close \(session.name)?", isPresented: $confirmingClose, titleVisibility: .visible) {
@@ -391,7 +391,7 @@ struct SidebarTerminalRow: View {
                 }
                 let active = session.activity != nil || session.progress != nil
                 if session.status == .offline {
-                    Text(session.statusLabel).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
+                    Text(deps.statusLabel(of: session)).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
                         .lineLimit(1)
                 } else if session.place != nil || active {
                     HStack(spacing: 4) {

@@ -94,6 +94,14 @@
         <translation>Υπολογιστής</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Εκτός σύνδεσης</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Δοκιμάστε ξανά</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Κλείσιμο</translation>
     </message>
@@ -3262,6 +3270,10 @@
         <translation>Απομακρυσμένος υπολογιστής</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Εκτός σύνδεσης</translation>
+    </message>
+    <message>
         <source>Not connected</source>
         <translation>Χωρίς σύνδεση</translation>
     </message>
@@ -3619,6 +3631,10 @@
         <translation>Απομακρυσμένος υπολογιστής</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Εκτός σύνδεσης</translation>
+    </message>
+    <message>
         <source>Reconnecting</source>
         <translation>Γίνεται επανασύνδεση</translation>
     </message>
@@ -3721,6 +3737,10 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>Το τερματικό θα ανοίξει όταν επιστρέψει ο υπολογιστής του.</translation>
+    </message>
+    <message>
+        <source>The terminal opens when the connection is back.</source>
+        <translation>Το τερματικό θα ανοίξει όταν επανέλθει η σύνδεση.</translation>
     </message>
     <message>
         <source>This terminal is not available</source>

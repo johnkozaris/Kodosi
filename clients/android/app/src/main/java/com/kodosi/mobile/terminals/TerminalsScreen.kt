@@ -51,7 +51,7 @@ import com.kodosi.mobile.ui.raised
 
 /** The Terminals tab: your terminals by computer, then the terminals that friends share. */
 @Composable
-fun TerminalsScreen(store: TerminalStore, open: (String) -> Unit) {
+fun TerminalsScreen(store: TerminalStore, online: Boolean, open: (String) -> Unit) {
     val colors = KodosiTheme.colors
     val state by store.state.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
@@ -77,7 +77,12 @@ fun TerminalsScreen(store: TerminalStore, open: (String) -> Unit) {
         for (group in groups) {
             item(key = "group-${group.place.id}") { GroupHeader(group) }
             items(group.sessions, key = { it.id }) { session ->
-                TerminalCard(session, onClick = { open(session.id) }, modifier = Modifier.padding(vertical = 5.dp))
+                TerminalCard(
+                    session,
+                    online,
+                    onClick = { open(session.id) },
+                    modifier = Modifier.padding(vertical = 5.dp)
+                )
             }
         }
         if (sessions.isEmpty()) {
@@ -169,7 +174,7 @@ private fun GroupHeader(group: TerminalGroup) {
 
 /** A terminal in a list: its mark, its name, what it does, and its sign. */
 @Composable
-fun TerminalCard(session: RuntimeSession, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun TerminalCard(session: RuntimeSession, online: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
     val shape = RoundedCornerShape(Radius.lg)
     val sign = session.sign()
@@ -202,7 +207,7 @@ fun TerminalCard(session: RuntimeSession, onClick: () -> Unit, modifier: Modifie
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            TerminalCaption(session)
+            TerminalCaption(session, online)
         }
         Spacer(Modifier.width(8.dp))
         when {
@@ -213,15 +218,23 @@ fun TerminalCard(session: RuntimeSession, onClick: () -> Unit, modifier: Modifie
 }
 
 @Composable
-fun TerminalCaption(session: RuntimeSession) {
+fun TerminalCaption(session: RuntimeSession, online: Boolean) {
     val colors = KodosiTheme.colors
     val troubled = session.isTroubled || session.connectionState == RuntimeSession.Connection.CONNECTING
+    val reconnecting = session.status == RuntimeSession.Status.RECONNECTING
+    val closing = session.status == RuntimeSession.Status.CLOSING
+    val notice = session.message?.takeIf { session.isConnected }
     val (words, color) = when {
+        session.unreachable(online) && (session.isConnected || troubled || reconnecting || closing) ->
+            stringResource(R.string.offline) to colors.caution
+
         troubled -> statusLabel(session) to if (session.isTroubled) colors.caution else colors.inkFaint
 
-        session.status == RuntimeSession.Status.RECONNECTING -> stringResource(R.string.reconnecting) to colors.caution
+        reconnecting -> stringResource(R.string.reconnecting) to colors.caution
 
-        session.status == RuntimeSession.Status.CLOSING -> statusLabel(session) to colors.inkFaint
+        closing -> statusLabel(session) to colors.inkFaint
+
+        notice != null -> notice to colors.caution
 
         else -> (session.activity ?: session.folderName ?: agentLabel(session.agent)) to
             if (session.activity == null) colors.inkFaint else colors.inkMuted

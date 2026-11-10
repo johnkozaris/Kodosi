@@ -41,6 +41,9 @@ public final class AccountStore {
     public private(set) var restoring: String?
     public private(set) var credentialStore: String?
     public private(set) var credentialFolder: String?
+    /// Whether Kodosi reaches the server. A short drop, such as when the computer wakes, keeps it
+    /// online.
+    public private(set) var online = true
 
     @ObservationIgnored public var notify: (String) -> Void = { _ in }
     @ObservationIgnored private var checkedCode: String?
@@ -86,6 +89,22 @@ public final class AccountStore {
             .sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
     }
 
+    /// Whether the account has another device, which Kodosi reaches only while it is online.
+    public var hasOtherDevices: Bool {
+        devices.contains { $0.deviceId != selfDeviceId && !$0.recoveryKey }
+    }
+
+    public func receiveConnection(_ event: RuntimeEvent) throws {
+        if event.type == "connection.state" {
+            online = try event.value("online", as: Bool.self)
+        }
+    }
+
+    /// Reaches for the server and the terminals of other computers now.
+    public func retryConnection() {
+        commands.perform("connection.retry")
+    }
+
     public func canRemove(_ device: MyDeviceEntry) -> Bool {
         localDeviceEnrolled && device.deviceId != selfDeviceId
     }
@@ -121,6 +140,7 @@ public final class AccountStore {
         restoring = nil
         credentialStore = nil
         credentialFolder = nil
+        online = true
         if !stage.isPending {
             stage = .idle
         }

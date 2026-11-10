@@ -47,7 +47,7 @@ fun App(model: AppModel, openSignIn: (String) -> Unit) {
             is AppModel.Phase.Failed -> Failure(current.message, model::retry)
 
             AppModel.Phase.Ready -> when {
-                account.isReady -> Home(model)
+                account.isReady -> Home(model, account.online)
                 account.authResolved -> OnboardingScreen(model.account, openSignIn)
                 else -> Launch()
             }
@@ -57,14 +57,14 @@ fun App(model: AppModel, openSignIn: (String) -> Unit) {
 }
 
 @Composable
-private fun Home(model: AppModel) {
+private fun Home(model: AppModel, online: Boolean) {
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     val terminal = open
     if (terminal == null) {
-        TerminalsScreen(model.terminals, open = { open = it })
+        TerminalsScreen(model.terminals, online, open = { open = it })
     } else {
         BackHandler { open = null }
-        TerminalScreen(model, terminal, back = { open = null })
+        TerminalScreen(model, terminal, online, back = { open = null })
     }
 }
 

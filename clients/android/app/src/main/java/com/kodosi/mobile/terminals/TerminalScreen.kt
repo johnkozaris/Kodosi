@@ -65,7 +65,7 @@ import com.kodosi.mobile.ui.raised
 /** A terminal of another computer, live, in a dark tile, with the keys that a phone lacks. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TerminalScreen(model: AppModel, sessionId: String, back: () -> Unit) {
+fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: () -> Unit) {
     val colors = KodosiTheme.colors
     val scope = rememberCoroutineScope()
     val connection = remember(sessionId) { model.connection(sessionId, scope) } ?: return
@@ -84,7 +84,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, back: () -> Unit) {
     val typing = WindowInsets.isImeVisible
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Column(Modifier.fillMaxSize().background(colors.surface).statusBarsPadding().imePadding()) {
-        if (!(typing && landscape)) Header(session, back)
+        if (!(typing && landscape)) Header(session, online, model.account::retryConnection, back)
         Box(
             Modifier
                 .weight(1f)
@@ -112,7 +112,9 @@ fun TerminalScreen(model: AppModel, sessionId: String, back: () -> Unit) {
                         )
                     }
 
-                    !session.isConnected -> SessionState(session, connection)
+                    !session.isConnected -> SessionState(session, online, connection, model.account::retryConnection)
+
+                    session.unreachable(online) && state !is TerminalConnection.State.Closed -> Unit
 
                     else -> RenderState(state, connection)
                 }
@@ -134,7 +136,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, back: () -> Unit) {
 }
 
 @Composable
-private fun Header(session: RuntimeSession?, back: () -> Unit) {
+private fun Header(session: RuntimeSession?, online: Boolean, retryConnection: () -> Unit, back: () -> Unit) {
     val colors = KodosiTheme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -168,20 +170,34 @@ private fun Header(session: RuntimeSession?, back: () -> Unit) {
                         StatusSign(it, 13.dp)
                     }
                 }
-                TerminalCaption(session)
+                TerminalCaption(session, online)
+            }
+            if (session.isConnected && session.unreachable(online)) {
+                KodosiButton(stringResource(R.string.try_again), onClick = retryConnection, kind = ButtonKind.GHOST)
             }
         }
     }
 }
 
 @Composable
-private fun SessionState(session: RuntimeSession, connection: TerminalConnection) {
+private fun SessionState(
+    session: RuntimeSession,
+    online: Boolean,
+    connection: TerminalConnection,
+    retryConnection: () -> Unit
+) {
     when {
         session.connectionState == RuntimeSession.Connection.BLOCKED -> StateCard(
             statusLabel(session),
             session.message,
             working = false
         )
+
+        session.unreachable(online) -> StateCard(
+            stringResource(R.string.offline),
+            stringResource(R.string.terminal_opens_when_connection_back),
+            working = false
+        ) { KodosiButton(stringResource(R.string.try_again), onClick = retryConnection) }
 
         session.status == RuntimeSession.Status.OFFLINE ->
             StateCard(statusLabel(session), stringResource(R.string.terminal_opens_when_back), working = false)

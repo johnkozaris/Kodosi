@@ -681,8 +681,12 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             opening: HashMap::new(),
             views: HashMap::new(),
             reconnect: HashMap::new(),
+            typing: HashMap::new(),
+            inputs: 0,
+            unsent: HashMap::new(),
             folder_asks: HashMap::new(),
             link_connects: 0,
+            online: true,
             #[cfg(feature = "host")]
             publishing: BTreeSet::new(),
             #[cfg(feature = "host")]
@@ -813,9 +817,15 @@ async fn input_to_a_terminal_that_is_gone_shows_no_error_and_other_lost_input_do
     let (mut runtime, _root) = registry_fixture();
     let mut events = runtime.events.subscribe();
     let scope = runtime.scope.clone();
+    let session = Uuid::now_v7();
     let typed = |result| Job {
         scope: scope.clone(),
-        completion: Completion::Input { result },
+        completion: Completion::Typed {
+            session,
+            number: 1,
+            reply: None,
+            result,
+        },
     };
     runtime.complete(typed(Err(Error::Stopped)));
     runtime.complete(typed(Err(Error::NotFound)));
@@ -1642,6 +1652,180 @@ async fn a_view_says_that_input_was_not_sent_until_the_next_input() {
     );
 }
 
+#[tokio::test]
+async fn typing_that_another_computer_did_not_get_shows_on_its_terminal_and_not_as_errors() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    let (_view, _requests, _updates) = open_view(&mut runtime, &remote).await;
+    let mut events = runtime.events.subscribe();
+    let typed = |runtime: &mut Runtime, number, result| {
+        runtime.complete(Job {
+            scope: runtime.scope.clone(),
+            completion: Completion::Typed {
+                session: id,
+                number,
+                reply: None,
+                result,
+            },
+        });
+    };
+
+    runtime.inputs = 3;
+    typed(&mut runtime, 1, Err(unsent(Error::Busy)));
+    typed(&mut runtime, 2, Err(unsent(Error::Busy)));
+    assert_eq!(
+        remote_state(&runtime, id).2,
+        Some(crate::network::input_not_sent())
+    );
+    let mut published = Vec::new();
+    while let Ok(event) = events.try_recv() {
+        published.push(serde_json::to_value(event).unwrap()["type"].clone());
+    }
+    assert_eq!(published, ["sessions.snapshot"]);
+
+    typed(&mut runtime, 3, Ok(()));
+    assert_eq!(
+        remote_state(&runtime, id).2,
+        Some(crate::network::input_not_sent())
+    );
+    runtime.inputs = 4;
+    typed(&mut runtime, 4, Ok(()));
+    assert_eq!(remote_state(&runtime, id).2, None);
+}
+
+#[tokio::test]
+async fn typing_into_another_computer_that_does_not_answer_keeps_few_inputs_waiting() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    let (view, _requests, _updates) = open_view(&mut runtime, &remote).await;
+    let mut events = runtime.events.subscribe();
+    for _ in 0..=MAX_TYPING {
+        runtime.input(
+            id,
+            remote.incarnation_id,
+            view.connection_id,
+            Bytes::from_static(b"x"),
+            Arc::new(Semaphore::new(1)).try_acquire_owned().unwrap(),
+            None,
+        );
+    }
+    assert_eq!(runtime.typing[&id], MAX_TYPING);
+    assert_eq!(
+        remote_state(&runtime, id).2,
+        Some(crate::network::input_not_sent())
+    );
+    while let Ok(event) = events.try_recv() {
+        assert_ne!(serde_json::to_value(event).unwrap()["type"], "system.error");
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn kodosi_is_offline_only_when_the_server_stays_out_of_reach_longer_than_a_short_drop() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let mut online = |runtime: &mut Runtime| {
+        runtime.publish_connection();
+        events
+            .try_recv()
+            .ok()
+            .map(|event| serde_json::to_value(event).unwrap())
+            .map(|event| (event["type"].clone(), event["online"].clone()))
+    };
+    let link = Arc::clone(&runtime.network.inner.link);
+    link.start_wanting();
+    tokio::time::advance(crate::network::RECONNECT_WAIT.saturating_sub(Duration::from_secs(1)))
+        .await;
+    assert_eq!(online(&mut runtime), None);
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(
+        online(&mut runtime),
+        Some((json!("connection.state"), json!(false)))
+    );
+    link.note_connected();
+    assert_eq!(
+        online(&mut runtime),
+        Some((json!("connection.state"), json!(true)))
+    );
+
+    runtime.latest_auth = Some(json!({"type":"auth.restoring","reason":"unreadable"}));
+    assert_eq!(online(&mut runtime), None);
+    runtime.latest_auth = Some(json!({"type":"auth.restoring","reason":"offline"}));
+    assert_eq!(
+        online(&mut runtime),
+        Some((json!("connection.state"), json!(false)))
+    );
+}
+
+#[tokio::test]
+async fn a_terminal_that_could_not_open_tries_again_as_soon_as_the_server_is_back() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote]);
+    runtime
+        .apply_for_consumer(
+            &Command::OpenRemote {
+                request_id: Uuid::now_v7().to_string(),
+                session_id: id.to_string(),
+            },
+            Uuid::now_v7(),
+            CancellationToken::new(),
+        )
+        .unwrap();
+    connected(
+        &mut runtime,
+        id,
+        Err(Error::Text(crate::text::Text::plain("unreachable"))),
+    );
+    assert!(!runtime.opening.contains_key(&id));
+    assert!(runtime.reconnect[&id].next > Instant::now());
+
+    runtime.network.inner.link.note_connected();
+    runtime.reconnect_views();
+    assert!(runtime.opening.contains_key(&id));
+}
+
+#[tokio::test(start_paused = true)]
+async fn trying_again_reaches_for_the_server_and_the_terminals_at_once() {
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    runtime.reconnect.insert(
+        id,
+        Reconnect {
+            incarnation: Uuid::now_v7(),
+            failures: 4,
+            next: Instant::now() + Duration::from_mins(1),
+            connected: None,
+            failure: crate::diagnostics::Repeats::new(),
+        },
+    );
+    let mut events = runtime.events.subscribe();
+    let retry = Command::RetryConnection {
+        request_id: Uuid::now_v7().to_string(),
+    };
+    let client = Uuid::now_v7();
+    runtime
+        .expect_answer(&retry, client, CancellationToken::new())
+        .unwrap();
+    runtime.apply(&retry).unwrap();
+    let answer = events.try_recv().unwrap();
+    assert_eq!(answer.recipient, Some(client));
+    assert_eq!(answer.event.kind(), "connection.result");
+    assert_eq!(runtime.reconnect[&id].failures, 0);
+    assert!(runtime.reconnect[&id].next <= Instant::now());
+    assert_eq!(
+        runtime
+            .network
+            .inner
+            .link
+            .wait_to_reconnect(Duration::from_mins(1), false)
+            .await,
+        crate::network::Wait::Asked
+    );
+}
+
 fn host_notice(runtime: &mut Runtime, remote: &RemoteSession, online: bool) {
     let generation = runtime.network.generation();
     runtime.network_event(BackendEvent {
@@ -1690,6 +1874,15 @@ async fn a_view_whose_computer_goes_offline_says_so_and_connects_again_when_it_i
         typed.await.unwrap().unwrap_err().to_string(),
         "Other computer is offline."
     );
+    let notice = Some(crate::network::input_not_sent());
+    assert_eq!(
+        remote_state(&runtime, id),
+        (
+            ConnectionState::Connected,
+            SessionStatus::Offline,
+            notice.clone()
+        )
+    );
 
     runtime.reconnect.get_mut(&id).unwrap().next = Instant::now();
     runtime.reconnect_views();
@@ -1704,7 +1897,7 @@ async fn a_view_whose_computer_goes_offline_says_so_and_connects_again_when_it_i
     connected(&mut runtime, id, Ok(again));
     assert_eq!(
         remote_state(&runtime, id),
-        (ConnectionState::Connected, SessionStatus::Running, None)
+        (ConnectionState::Connected, SessionStatus::Running, notice)
     );
 }
 

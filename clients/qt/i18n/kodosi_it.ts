@@ -94,6 +94,14 @@
         <translation>Computer</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Offline</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Riprova</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Chiudi</translation>
     </message>
@@ -3262,6 +3270,10 @@
         <translation>Computer remoto</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Offline</translation>
+    </message>
+    <message>
         <source>Not connected</source>
         <translation>Non connesso</translation>
     </message>
@@ -3619,6 +3631,10 @@
         <translation>Computer remoto</translation>
     </message>
     <message>
+        <source>Offline</source>
+        <translation>Offline</translation>
+    </message>
+    <message>
         <source>Reconnecting</source>
         <translation>Riconnessione in corso</translation>
     </message>
@@ -3721,6 +3737,10 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>Il terminale si aprirà quando il suo computer tornerà online.</translation>
+    </message>
+    <message>
+        <source>The terminal opens when the connection is back.</source>
+        <translation>Il terminale si aprirà quando tornerà la connessione.</translation>
     </message>
     <message>
         <source>This terminal is not available</source>

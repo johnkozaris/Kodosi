@@ -117,6 +117,9 @@ data class RuntimeSession(
         get() = connectionState == Connection.BLOCKED || status == Status.OFFLINE ||
             (connectionState == Connection.OFFLINE && message != null)
 
+    /** Whether Kodosi cannot reach this terminal of another computer because this device is offline. */
+    fun unreachable(online: Boolean): Boolean = !online && kind == Kind.REMOTE && connectionState != Connection.BLOCKED
+
     val isWorking: Boolean
         get() = status != Status.CLOSING &&
             (programStatus?.state?.let { it == ProgramStatus.State.WORKING } ?: (canControl && titleSpins))

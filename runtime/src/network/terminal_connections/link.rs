@@ -11,6 +11,7 @@ const SILENCE: Duration = Duration::from_secs(45);
 const LINK_WAIT: Duration = Duration::from_secs(10);
 const WAKE_CHECK: Duration = Duration::from_secs(2);
 const WAKE_ANSWER: Duration = Duration::from_secs(5);
+const UNANSWERED: Duration = Duration::from_secs(2);
 
 #[cfg_attr(
     not(feature = "host"),
@@ -63,6 +64,7 @@ struct Outgoing {
 #[derive(Default)]
 struct Shared {
     outgoing: Option<Outgoing>,
+    down_since: Option<tokio::time::Instant>,
     routes: BTreeMap<Uuid, Route>,
     hosting: BTreeMap<Uuid, Hosting>,
     #[cfg(feature = "host")]
@@ -82,6 +84,8 @@ pub(crate) enum Wait {
     Full,
     /// A terminal or a call that waits for the link ended it.
     Wanted,
+    /// A person asked to try again.
+    Asked,
     /// The computer slept during it.
     Slept,
 }
@@ -92,6 +96,7 @@ pub(crate) struct Link {
     changed: Notify,
     reconnected: Notify,
     wanted: Notify,
+    asked: Notify,
     connects: AtomicU64,
 }
 
@@ -277,9 +282,9 @@ impl Link {
         }
     }
 
-    /// Waits before the device link connects again. A terminal or a call that waits for the link
-    /// ends the wait when `hurry` allows it, and so does a sleep of the computer, because the
-    /// time asleep does not count for the delay.
+    /// Waits before the device link connects again. A person who asks to try again ends the wait,
+    /// a terminal or a call that waits for the link ends it when `hurry` allows it, and so does a
+    /// sleep of the computer, because the time asleep does not count for the delay.
     pub(crate) async fn wait_to_reconnect(&self, delay: Duration, hurry: bool) -> Wait {
         let started = Moment::now();
         let mut check = tokio::time::interval(WAKE_CHECK);
@@ -289,6 +294,7 @@ impl Link {
         loop {
             tokio::select! {
                 () = &mut full => return Wait::Full,
+                () = self.asked.notified() => return Wait::Asked,
                 () = self.wanted.notified(), if hurry => return Wait::Wanted,
                 _ = check.tick() => {
                     if started.slept_until(Moment::now()) {
@@ -297,6 +303,10 @@ impl Link {
                 }
             }
         }
+    }
+
+    pub(crate) fn retry_now(&self) {
+        self.asked.notify_one();
     }
 
     #[cfg(feature = "host")]
@@ -345,6 +355,7 @@ impl Link {
     fn connected(&self, outgoing: Outgoing) {
         if let Ok(mut shared) = self.shared.lock() {
             shared.outgoing = Some(outgoing);
+            shared.down_since = None;
             for hosting in shared.hosting.values_mut() {
                 hosting.announced = false;
             }
@@ -358,14 +369,47 @@ impl Link {
         self.connects.load(Ordering::Acquire)
     }
 
+    /// Tells that the account wants the link, so that the time without it counts from now.
+    pub(crate) fn start_wanting(&self) {
+        if let Ok(mut shared) = self.shared.lock()
+            && shared.outgoing.is_none()
+        {
+            shared
+                .down_since
+                .get_or_insert_with(tokio::time::Instant::now);
+        }
+    }
+
+    /// Tells that the account no longer wants the link, such as after signing out.
+    pub(crate) fn stop_wanting(&self) {
+        if let Ok(mut shared) = self.shared.lock() {
+            shared.down_since = None;
+        }
+    }
+
+    /// How long the link that the account wants has been down.
+    pub(crate) fn down_for(&self) -> Option<Duration> {
+        self.shared
+            .lock()
+            .ok()?
+            .down_since
+            .map(|since| since.elapsed())
+    }
+
     #[cfg(test)]
     pub(crate) fn note_connected(&self) {
+        if let Ok(mut shared) = self.shared.lock() {
+            shared.down_since = None;
+        }
         self.connects.fetch_add(1, Ordering::AcqRel);
     }
 
     fn disconnected(&self) {
         if let Ok(mut shared) = self.shared.lock() {
             shared.outgoing = None;
+            shared
+                .down_since
+                .get_or_insert_with(tokio::time::Instant::now);
             for route in std::mem::take(&mut shared.routes).into_values() {
                 drop(route.incoming.send(Incoming::Closed(None)));
             }
@@ -555,9 +599,12 @@ impl Drop for Disconnect<'_> {
 }
 
 /// When the device link last heard from the server. The server may drop the link while the
-/// computer sleeps, so after a sleep the link asks the server at once and must hear back soon.
+/// computer sleeps, and a network may drop it without a word. So after a sleep, or when the
+/// server has not answered what the link sent for a while, the link asks the server at once and
+/// must hear back soon.
 struct Hearing {
     heard: tokio::time::Instant,
+    sent: Option<tokio::time::Instant>,
     answer_by: Option<tokio::time::Instant>,
     checked: Moment,
 }
@@ -566,6 +613,7 @@ impl Hearing {
     const fn new(now: Moment) -> Self {
         Self {
             heard: now.monotonic,
+            sent: None,
             answer_by: None,
             checked: now,
         }
@@ -573,7 +621,12 @@ impl Hearing {
 
     const fn heard(&mut self, now: tokio::time::Instant) {
         self.heard = now;
+        self.sent = None;
         self.answer_by = None;
+    }
+
+    fn sent(&mut self, now: tokio::time::Instant) {
+        self.sent.get_or_insert(now);
     }
 
     fn silent(&self, now: tokio::time::Instant) -> bool {
@@ -581,14 +634,19 @@ impl Hearing {
             || self.answer_by.is_some_and(|by| now >= by)
     }
 
-    /// Tells whether the computer slept since the last check, so that the link asks the server.
-    fn woke(&mut self, now: Moment) -> bool {
+    /// Tells whether the computer slept since the last check, or the server has not answered
+    /// what the link sent, so that the link asks the server.
+    fn asks(&mut self, now: Moment) -> bool {
         let slept = self.checked.slept_until(now);
         self.checked = now;
-        if slept {
+        let unanswered = self
+            .sent
+            .is_some_and(|at| now.monotonic.saturating_duration_since(at) >= UNANSWERED);
+        let asks = slept || (unanswered && self.answer_by.is_none());
+        if asks {
             self.answer_by.get_or_insert(now.monotonic + WAKE_ANSWER);
         }
-        slept
+        asks
     }
 }
 
@@ -610,6 +668,7 @@ pub(crate) async fn run(
     for surface in ["sessions", "friends", "devices", "missions"] {
         drop(notices.send(wire::Notice::Changed(wire::Change::of(surface))));
     }
+    let sent = Notify::new();
     let writer = async {
         loop {
             let message = tokio::select! {
@@ -618,10 +677,14 @@ pub(crate) async fn run(
                 Some(message) = waiting.recv() => message,
                 else => return Err(Error::Closed),
             };
+            let frame = matches!(message, Message::Binary(_));
             tokio::time::timeout(SEND, sink.send(message))
                 .await
                 .map_err(|_| Error::Closed)?
                 .map_err(|_| Error::Closed)?;
+            if frame {
+                sent.notify_one();
+            }
         }
     };
     let reader = async {
@@ -635,13 +698,14 @@ pub(crate) async fn run(
                 _ = heartbeat.tick() => drop(control.send(text(&json!({"type":"ping"})))),
                 _ = check.tick() => {
                     let now = Moment::now();
-                    if hearing.woke(now) {
+                    if hearing.asks(now) {
                         drop(control.send(text(&json!({"type":"ping"}))));
                     }
                     if hearing.silent(now.monotonic) {
                         return Err(Error::Closed);
                     }
                 }
+                () = sent.notified() => hearing.sent(tokio::time::Instant::now()),
                 () = link.changed.notified() => link.announce(),
                 () = network.inner.friends_changed.notified() => drop(notices.send(wire::Notice::Changed(wire::Change::of("friends")))),
                 incoming = stream.next() => {
@@ -749,18 +813,38 @@ mod tests {
             monotonic: start.monotonic + WAKE_CHECK,
             wall: start.wall + WAKE_CHECK,
         };
-        assert!(!hearing.woke(awake));
+        assert!(!hearing.asks(awake));
         assert!(!hearing.silent(awake.monotonic + WAKE_ANSWER));
         let woken = Moment {
             monotonic: awake.monotonic + WAKE_CHECK,
             wall: awake.wall + Duration::from_mins(30),
         };
-        assert!(hearing.woke(woken));
+        assert!(hearing.asks(woken));
         assert!(!hearing.silent(woken.monotonic));
         assert!(hearing.silent(woken.monotonic + WAKE_ANSWER));
         hearing.heard(woken.monotonic + Duration::from_secs(1));
         assert!(!hearing.silent(woken.monotonic + WAKE_ANSWER));
         assert!(hearing.silent(woken.monotonic + SILENCE + Duration::from_secs(2)));
+    }
+
+    #[test]
+    fn frames_that_the_server_leaves_unanswered_make_the_link_ask_it() {
+        let start = Moment::now();
+        let mut hearing = Hearing::new(start);
+        let after = |seconds| Moment {
+            monotonic: start.monotonic + Duration::from_secs(seconds),
+            wall: start.wall + Duration::from_secs(seconds),
+        };
+        hearing.sent(after(0).monotonic);
+        hearing.heard(after(1).monotonic);
+        assert!(!hearing.asks(after(4)));
+        hearing.sent(after(4).monotonic);
+        hearing.sent(after(5).monotonic);
+        assert!(!hearing.asks(after(5)));
+        assert!(hearing.asks(after(6)));
+        assert!(!hearing.asks(after(8)));
+        assert!(!hearing.silent(after(10).monotonic));
+        assert!(hearing.silent(after(11).monotonic));
     }
 
     #[tokio::test(start_paused = true)]

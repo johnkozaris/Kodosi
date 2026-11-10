@@ -20,6 +20,7 @@ class DevicesModel final : public QObject {
     Q_PROPERTY(QString selfDeviceId READ selfDeviceId NOTIFY changed)
     Q_PROPERTY(QString newRecoveryKey READ newRecoveryKey NOTIFY changed)
     Q_PROPERTY(bool hasRecoveryKey READ hasRecoveryKey NOTIFY changed)
+    Q_PROPERTY(bool hasOtherDevices READ hasOtherDevices NOTIFY changed)
     Q_PROPERTY(QVariantList computers READ computers NOTIFY changed)
     Q_PROPERTY(QString checkedLabel READ checkedLabel NOTIFY changed)
     Q_PROPERTY(QVariantMap pendingReset READ pendingReset NOTIFY changed)
@@ -38,6 +39,7 @@ public:
     QString selfDeviceId() const { return m_selfDeviceId; }
     QString newRecoveryKey() const { return m_newRecoveryKey; }
     bool hasRecoveryKey() const;
+    bool hasOtherDevices() const;
     QVariantList computers() const;
     QString checkedLabel() const { return m_checkedLabel; }
     QVariantMap pendingReset() const { return m_pendingReset; }
