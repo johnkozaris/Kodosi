@@ -124,6 +124,11 @@ struct RoomConversationView: View {
                     withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
                 }
             }
+            .onChange(of: state.followsLatest) { _, follows in
+                if follows {
+                    withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
+                }
+            }
         }
     }
 
