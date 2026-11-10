@@ -125,8 +125,10 @@ private struct RoomTerminals: View {
     }
 
     /// The terminal, with its canvas beside it when it is open, flowing out of its tab.
+    @ViewBuilder
     private func pair(_ current: RuntimeSession) -> some View {
-        CanvasStage(canvas: workspace.showsCanvas && current.canvas != nil ? current : nil, front: current.id, wide: $workspace.canvasWide,
+        let open = workspace.showsCanvas && deps.canvas.showsSomething(current)
+        CanvasStage(canvas: open ? current : nil, front: current.id, wide: $workspace.canvasWide,
                     width: $workspace.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true)
         {
             workspace.showsCanvas = false
@@ -142,10 +144,8 @@ private struct RoomTerminals: View {
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { stageFrame = $0 }
         .padding([.horizontal, .bottom], 6)
         .environment(\.tileRadius, Radius.xl)
-        .environment(\.canvasPlace, CanvasPlace(flight: keys, open: workspace.showsCanvas && current.canvas != nil ? current.id : nil) { session, section in
-            if let section {
-                deps.canvas.show(section, in: session)
-            }
+        .environment(\.canvasPlace, CanvasPlace(flight: keys, open: open ? current.id : nil) { session, section in
+            deps.canvas.show(section, in: session)
             workspace.selectedTerminal = session.id
             workspace.showsCanvas = true
         })
@@ -197,8 +197,10 @@ private struct RoomTerminals: View {
                 }
                 Button("Add a File…") {
                     open(session)
-                    workspace.showsCanvas = true
-                    deps.addFile(to: session)
+                    if deps.addFile(to: session) {
+                        deps.canvas.show(.files, in: session)
+                        workspace.showsCanvas = true
+                    }
                 }
             }
             if deps.workbench.stagedSessionIds.contains(session.id) {

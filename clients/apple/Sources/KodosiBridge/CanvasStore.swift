@@ -148,6 +148,12 @@ public final class CanvasStore {
         }
     }
 
+    /// Whether an open canvas of a terminal shows something on this device: a part that a person
+    /// did not close here.
+    public func showsSomething(_ session: RuntimeSession) -> Bool {
+        !sections(session).isEmpty
+    }
+
     /// The parts that a person can open on a canvas: the ones they closed, and a browser.
     public func closedSections(_ session: RuntimeSession) -> [CanvasSection] {
         let open = sections(session)
@@ -166,6 +172,16 @@ public final class CanvasStore {
         }
         if section == .files {
             shelves.remove(session.id)
+        }
+    }
+
+    /// Opens the canvas of a terminal at a part, or else at something: when a person closed all its
+    /// parts on this device, the part with the newest change opens again.
+    public func open(_ session: RuntimeSession, at section: CanvasSection? = nil) {
+        if let section {
+            show(section, in: session)
+        } else if !showsSomething(session), let newest = session.canvas?.newest {
+            show(newest.section, in: session)
         }
     }
 

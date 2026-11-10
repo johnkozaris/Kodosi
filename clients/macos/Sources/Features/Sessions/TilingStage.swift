@@ -18,7 +18,7 @@ struct TilingStage: View {
     /// The terminal whose canvas is open beside it.
     private var canvasSession: RuntimeSession? {
         workbench.canvasSessionId.flatMap { id in
-            presentedSessionIds.contains(id) ? deps.session(id).flatMap { $0.canvas == nil ? nil : $0 } : nil
+            presentedSessionIds.contains(id) ? deps.session(id).flatMap { deps.canvas.showsSomething($0) ? $0 : nil } : nil
         }
     }
 
@@ -39,10 +39,7 @@ struct TilingStage: View {
             }
             .padding(Self.edge)
             .environment(\.canvasPlace, CanvasPlace(flight: keys, open: canvasSession?.id) { session, section in
-                if let section {
-                    deps.canvas.show(section, in: session)
-                }
-                workbench.openCanvas(session.id)
+                workbench.openCanvas(session.id, at: section)
             })
             .animation(theme.motion.snappy, value: dropTarget)
         }

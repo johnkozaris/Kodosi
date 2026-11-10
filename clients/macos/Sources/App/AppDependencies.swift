@@ -85,13 +85,14 @@ final class AppDependencies {
         self.storageBootstrap = storageBootstrap
         let settings = DesktopSettings(defaults: defaults)
         self.settings = settings
-        workbench = WorkbenchState(defaults: defaults)
         let commands = CommandSink()
         commandSink = commands
+        let canvas = CanvasStore(commands: commands)
+        self.canvas = canvas
+        workbench = WorkbenchState(defaults: defaults, canvas: canvas)
         account = AccountStore(commands: commands, browser: "system")
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
-        canvas = CanvasStore(commands: commands)
         rooms = RoomStore(commands: commands)
         launcher = LauncherState(commands: commands)
         let inbox = RuntimeEventInbox()

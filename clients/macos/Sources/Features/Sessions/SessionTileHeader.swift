@@ -216,10 +216,12 @@ private struct TerminalActions: View {
             if session.canControl {
                 PanelMenuRow(Text("Open Browser"), icon: .symbol("globe"), identifier: "\(stageId).browser") {
                     deps.openBrowser(of: session)
-                    canvasPlace.show(session, nil)
+                    canvasPlace.show(session, .browser)
                 }
                 PanelMenuRow(Text("Add a File…"), icon: .symbol(CanvasSymbol.addFile), identifier: "\(stageId).addFile") {
-                    deps.addFile(to: session)
+                    if deps.addFile(to: session) {
+                        canvasPlace.show(session, .files)
+                    }
                 }
             }
             PanelMenuRow(Text("Details"), icon: .symbol("info.circle"), identifier: "\(stageId).details") {

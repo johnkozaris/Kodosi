@@ -470,12 +470,12 @@ struct SidebarTerminalRow: View {
         if session.canControl, session.canOpen {
             Button("Open Browser") {
                 guard deps.activateSession(session.id) else { return }
-                deps.workbench.openCanvas(session.id)
+                deps.workbench.openCanvas(session.id, at: .browser)
                 deps.openBrowser(of: session)
             }
             Button("Add a File…") {
-                if deps.activateSession(session.id) {
-                    deps.addFile(to: session)
+                if deps.activateSession(session.id), deps.addFile(to: session) {
+                    deps.workbench.openCanvas(session.id, at: .files)
                 }
             }
         }

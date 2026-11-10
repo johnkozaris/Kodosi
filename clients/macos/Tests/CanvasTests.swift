@@ -31,6 +31,15 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(terminalFields(id, canvas: canvas)))
 }
 
+private func asleepBrowser(changed: UInt64) -> JSONValue {
+    .object([
+        "state": .string("asleep"), "changed": .uint(changed), "width": .uint(1280), "height": .uint(720),
+        "tabs": .array([.object([
+            "id": .string("1"), "title": .string("Doodles"), "url": .string("https://doodles.google/"), "active": .bool(true),
+        ])]),
+    ])
+}
+
 @Test func `a canvas lists its items, newest first, and then the browser`() throws {
     let session = try terminal(canvas: [
         "sequence": .uint(9),
@@ -115,6 +124,21 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     store.observe([fresh])
     #expect(store.openShown(fresh))
     #expect(!store.openShown(fresh))
+}
+
+@Test @MainActor func `a canvas that a person closed on this device opens again at its newest part only`() throws {
+    let store = CanvasStore(commands: CommandSink())
+    let both = try terminal(canvas: [
+        "sequence": .uint(5), "items": .array([item("plan.md", changed: 3)]), "browser": asleepBrowser(changed: 5),
+    ])
+    store.observe([both])
+    store.close(.files, in: both)
+    store.open(both)
+    #expect(store.sections(both) == [.browser])
+    store.close(.browser, in: both)
+    #expect(!store.showsSomething(both) && store.current(both) == nil)
+    store.open(both)
+    #expect(store.sections(both) == [.browser] && store.current(both)?.key == CanvasShown.browserKey)
 }
 
 @Test func `a point of the view becomes a point of the browser`() {
@@ -248,6 +272,56 @@ private func terminal(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", can
     ])
     _ = workbench.reconcile([browsing, other])
     #expect(workbench.canvasSessionId == browsing.id)
+}
+
+@Test @MainActor func `the stage shows a canvas only with something open on this device, and opening it shows its newest part`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasClosed"))
+    let store = CanvasStore(commands: CommandSink())
+    let workbench = WorkbenchState(defaults: defaults, canvas: store)
+    workbench.switchAccount(nil)
+    let files = try terminal("01992e43-53db-7040-8e02-f6ebf4149b29", canvas: [
+        "sequence": .uint(2), "items": .array([item("plan.md", changed: 1)]), "browser": asleepBrowser(changed: 2),
+    ])
+    let asleep = try terminal(canvas: ["sequence": .uint(1), "browser": asleepBrowser(changed: 1)])
+    store.observe([files, asleep])
+    _ = workbench.reconcile([files, asleep])
+    workbench.showSession(files.id)
+    workbench.showSession(asleep.id)
+    store.close(.browser, in: files)
+    store.close(.browser, in: asleep)
+    workbench.openCanvas(files.id)
+    #expect(workbench.canvasSessionId == files.id)
+    workbench.showSession(asleep.id)
+    #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == asleep.id)
+    workbench.openCanvas(asleep.id)
+    #expect(workbench.canvasSessionId == asleep.id && store.current(asleep)?.key == CanvasShown.browserKey)
+    workbench.openCanvas(files.id)
+    #expect(workbench.canvasSessionId == files.id && store.sections(files) == [.files])
+    let emptied = try terminal(files.id, canvas: ["sequence": .uint(3), "browser": asleepBrowser(changed: 2)])
+    store.observe([emptied, asleep])
+    _ = workbench.reconcile([emptied, asleep])
+    #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == files.id)
+}
+
+@Test @MainActor func `a file added to a canvas closed on this device opens it at the file when it comes, and the browser stays closed`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasAddFile"))
+    let store = CanvasStore(commands: CommandSink())
+    let workbench = WorkbenchState(defaults: defaults, canvas: store)
+    workbench.switchAccount(nil)
+    let asleep = try terminal(canvas: ["sequence": .uint(1), "browser": asleepBrowser(changed: 1)])
+    store.observe([asleep])
+    _ = workbench.reconcile([asleep])
+    workbench.showSession(asleep.id)
+    store.close(.browser, in: asleep)
+    workbench.openCanvas(asleep.id, at: .files)
+    #expect(workbench.canvasSessionId == nil && workbench.focusedSessionId == asleep.id)
+    let added = try terminal(canvas: [
+        "sequence": .uint(2), "items": .array([item("plan.md", changed: 2)]), "browser": asleepBrowser(changed: 1),
+    ])
+    store.observe([added])
+    _ = workbench.reconcile([added])
+    #expect(workbench.canvasSessionId == added.id && store.current(added)?.key == "/tmp/work/plan.md")
+    #expect(store.closedSections(added) == [.browser])
 }
 
 @Test @MainActor func `the stage opens a canvas that comes later only at a show from after the start`() throws {
