@@ -125,7 +125,8 @@ private:
         QString key;
         quint64 changed = 0;
     };
-    // What the agent showed last with `kodosi show`, and the stamp of the canvas then.
+    // What the canvas opens at: what the agent showed last with `kodosi show`, or the shared
+    // browser at the agent's first use of it, and the stamp of the canvas then.
     struct Show {
         QString key;
         quint64 at = 0;

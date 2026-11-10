@@ -507,6 +507,7 @@ private slots:
     void terminalViewJoinsSurrogateHalvesFromSeparateKeyEvents();
     void terminalViewPastesClipboardThroughBoundedAuthority();
     void terminalViewTracksShiftInsertPasteReleaseExactly();
+    void aSelectionGoesToTheSelectionClipboardThatAMiddleClickAndShiftInsertPaste();
     void terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads();
     void terminalProgramsReadTheClipboardOnlyWhenAllowed();
     void terminalViewWheelUpdatesFrameWithoutPtyInput();
@@ -1665,6 +1666,10 @@ void TerminalKernelTest::terminalViewRoutesTrackedMouseToPty()
             QByteArrayLiteral("\x1b[<0;1;1M"),
             QByteArrayLiteral("\x1b[<0;1;1m"),
         }));
+
+    QWheelEvent notch(point, point, {}, QPoint(0, 120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+    QCoreApplication::sendEvent(&view, &notch);
+    QCOMPARE(dispatcher.inputCommands.mid(2).join(), QByteArrayLiteral("\x1b[<64;1;1M").repeated(3));
 }
 
 void TerminalKernelTest::remoteGridFitsAndMapsAccessibleMouseCoordinates()
@@ -2335,9 +2340,10 @@ void TerminalKernelTest::terminalViewTracksShiftInsertPasteReleaseExactly()
         QStringLiteral("paste-release-incarnation")));
     makeTerminalReady(registry, subscription);
 
-    QGuiApplication::clipboard()->setText(
+    auto* clipboard = QGuiApplication::clipboard();
+    clipboard->setText(
         QStringLiteral("shift-insert"),
-        QClipboard::Clipboard);
+        clipboard->supportsSelection() ? QClipboard::Selection : QClipboard::Clipboard);
     QKeyEvent pastePress(
         QEvent::KeyPress,
         Qt::Key_Insert,
@@ -2360,6 +2366,61 @@ void TerminalKernelTest::terminalViewTracksShiftInsertPasteReleaseExactly()
     QCoreApplication::sendEvent(&view, &unrelatedVRelease);
     QVERIFY(!unrelatedVRelease.isAccepted());
     QCOMPARE(dispatcher.inputCommands.size(), 1);
+}
+
+void TerminalKernelTest::aSelectionGoesToTheSelectionClipboardThatAMiddleClickAndShiftInsertPaste()
+{
+    auto* clipboard = QGuiApplication::clipboard();
+    if (!clipboard->supportsSelection()) {
+        QSKIP("This platform has no selection clipboard.");
+    }
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    kodosi::TerminalView view(m_window.contentItem());
+    const kodosi::TerminalSubscription subscription {
+        QStringLiteral("selection-paste"),
+        QStringLiteral("selection-paste-subscription"),
+        100,
+    };
+    view.setWidth(400);
+    view.setHeight(160);
+    view.setTerminalInteraction(true, false);
+    QVERIFY(view.attach(
+        registry,
+        dispatcher,
+        subscription,
+        QStringLiteral("selection-paste-incarnation")));
+    QVERIFY(registry.installCheckpoint({
+        subscription,
+        1,
+        5,
+        30,
+        checkpointFor(QByteArrayLiteral("hello brave world"), 30, 5),
+    }));
+    registry.receiveConnectResult({subscription, ffiOk});
+    QCoreApplication::processEvents();
+    clipboard->setText(QStringLiteral("clipboard"), QClipboard::Clipboard);
+
+    const auto cell = view.terminalCellSize() * view.viewportScale();
+    const QPointF onBrave(cell.width() * 8.5, cell.height() * 0.5);
+    const auto send = [&](const QEvent::Type type, const Qt::MouseButton button, const quint64 at) {
+        const bool down = type != QEvent::MouseButtonRelease;
+        QMouseEvent event(type, onBrave, onBrave, button, down ? button : Qt::NoButton, Qt::NoModifier);
+        event.setTimestamp(at);
+        QCoreApplication::sendEvent(&view, &event);
+    };
+    send(QEvent::MouseButtonPress, Qt::LeftButton, 1000);
+    send(QEvent::MouseButtonRelease, Qt::LeftButton, 1010);
+    send(QEvent::MouseButtonPress, Qt::LeftButton, 1100);
+    send(QEvent::MouseButtonDblClick, Qt::LeftButton, 1100);
+    send(QEvent::MouseButtonRelease, Qt::LeftButton, 1110);
+    QCOMPARE(clipboard->text(QClipboard::Selection), QStringLiteral("brave"));
+
+    send(QEvent::MouseButtonPress, Qt::MiddleButton, 3000);
+    send(QEvent::MouseButtonRelease, Qt::MiddleButton, 3010);
+    QKeyEvent shiftInsert(QEvent::KeyPress, Qt::Key_Insert, Qt::ShiftModifier, QString {});
+    QCoreApplication::sendEvent(&view, &shiftInsert);
+    QCOMPARE(dispatcher.inputCommands, (QVector<QByteArray> {QByteArrayLiteral("brave"), QByteArrayLiteral("brave")}));
 }
 
 void TerminalKernelTest::terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads()
@@ -2507,33 +2568,34 @@ void TerminalKernelTest::terminalViewWheelUpdatesFrameWithoutPtyInput()
     QVERIFY(before.contains(QStringLiteral("line-299")));
 
     QSignalSpy frames(&view, &kodosi::TerminalView::frameChanged);
-    QWheelEvent firstHalfStep(
+    QWheelEvent partOfANotch(
         QPointF(20, 20),
         QPointF(20, 20),
         {},
-        QPoint(0, 60),
+        QPoint(0, 20),
         Qt::NoButton,
         Qt::NoModifier,
         Qt::ScrollUpdate,
         false);
-    QCoreApplication::sendEvent(&view, &firstHalfStep);
+    QCoreApplication::sendEvent(&view, &partOfANotch);
     QCoreApplication::processEvents();
     QCOMPARE(view.accessibleText(), before);
     QCOMPARE(frames.count(), 0);
 
-    QWheelEvent secondHalfStep(
+    QWheelEvent restOfTheNotch(
         QPointF(20, 20),
         QPointF(20, 20),
         {},
-        QPoint(0, 60),
+        QPoint(0, 100),
         Qt::NoButton,
         Qt::NoModifier,
         Qt::ScrollUpdate,
         false);
-    QCoreApplication::sendEvent(&view, &secondHalfStep);
+    QCoreApplication::sendEvent(&view, &restOfTheNotch);
     QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText() != before, 250);
-    const auto afterOneRow = view.accessibleText();
-    QVERIFY(afterOneRow.contains(QStringLiteral("line-294")));
+    const auto afterANotch = view.accessibleText();
+    QVERIFY(afterANotch.contains(QStringLiteral("line-292")));
+    QVERIFY(!afterANotch.contains(QStringLiteral("line-298")));
     QCOMPARE(frames.count(), 1);
 
     QWheelEvent boundedLargeDelta(
@@ -2546,7 +2608,7 @@ void TerminalKernelTest::terminalViewWheelUpdatesFrameWithoutPtyInput()
         Qt::ScrollUpdate,
         false);
     QCoreApplication::sendEvent(&view, &boundedLargeDelta);
-    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText() != afterOneRow, 250);
+    QTRY_VERIFY_WITH_TIMEOUT(view.accessibleText() != afterANotch, 250);
     QVERIFY(!view.accessibleText().contains(QStringLiteral("line-00")));
     QVERIFY(frames.count() >= 1);
     QCOMPARE(dispatcher.inputCommands.size(), 0);
@@ -2715,7 +2777,7 @@ void TerminalKernelTest::terminalViewSelectionAnchorSurvivesPresentedScroll()
         QPointF(20, 20),
         QPointF(20, 20),
         {},
-        QPoint(0, -120),
+        QPoint(0, -40),
         Qt::NoButton,
         Qt::NoModifier,
         Qt::ScrollUpdate,

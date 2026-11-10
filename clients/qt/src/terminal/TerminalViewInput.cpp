@@ -33,6 +33,9 @@ namespace {
 constexpr qsizetype maximumQueuedInputBytes = 1024 * 1024;
 constexpr std::size_t maximumQueuedInputFrames = 1024;
 constexpr int maximumWheelRowsPerEvent = 100;
+constexpr int wheelNotchAngle = 120;
+constexpr int rowsPerWheelNotch = 3;
+constexpr int wheelRowAngle = wheelNotchAngle / rowsPerWheelNotch;
 
 std::uint32_t unshiftedCodepoint(const int key)
 {
@@ -313,6 +316,12 @@ bool isPasteShortcut(const QKeyEvent* event)
     return terminalShortcut || platformShortcut;
 }
 
+QClipboard::Mode selectionOrClipboard()
+{
+    const auto* clipboard = QGuiApplication::clipboard();
+    return clipboard != nullptr && clipboard->supportsSelection() ? QClipboard::Selection : QClipboard::Clipboard;
+}
+
 }
 
 void TerminalView::setAppKeys(const QList<QKeySequence>& keys)
@@ -381,7 +390,7 @@ void TerminalView::keyPressEvent(QKeyEvent* event)
             m_pasteShortcutKey = event->key();
         }
         if (m_canSendInput && !event->isAutoRepeat()) {
-            pasteClipboard();
+            pasteClipboard(event->key() == Qt::Key_Insert ? selectionOrClipboard() : QClipboard::Clipboard);
         }
         event->accept();
         return;
@@ -545,6 +554,11 @@ void TerminalView::mousePressEvent(QMouseEvent* event)
         event->accept();
         return;
     }
+    if (event->button() == Qt::MiddleButton && selectionOrClipboard() == QClipboard::Selection) {
+        pasteClipboard(QClipboard::Selection);
+        event->accept();
+        return;
+    }
     if (event->button() != Qt::LeftButton) {
         QQuickItem::mousePressEvent(event);
         return;
@@ -636,6 +650,9 @@ void TerminalView::mouseReleaseEvent(QMouseEvent* event)
         m_registry->releaseSelection(surfaceIdentity());
     }
     m_selecting = false;
+    if (selectionOrClipboard() == QClipboard::Selection) {
+        (void)copySelection(QClipboard::Selection);
+    }
     event->accept();
 }
 
@@ -661,37 +678,27 @@ void TerminalView::hoverLeaveEvent(QHoverEvent* event)
 
 void TerminalView::wheelEvent(QWheelEvent* event)
 {
-    if (!interactionAvailable() || !m_terminalReady || m_registry == nullptr) {
+    if (!interactionAvailable() || !m_terminalReady || m_registry == nullptr
+        || (event->pixelDelta().y() == 0 && event->angleDelta().y() == 0)) {
         QQuickItem::wheelEvent(event);
         return;
     }
-    const auto delta = event->pixelDelta().y() != 0
-        ? event->pixelDelta().y()
-        : event->angleDelta().y();
-    if (m_canSendInput && delta != 0
-        && sendMouseEvent(
-            TerminalMouseAction::Press,
-            delta > 0
-                ? TerminalMouseButton::WheelUp
-                : TerminalMouseButton::WheelDown,
-            event->position(),
-            event->modifiers(),
-            false)) {
-        event->accept();
-        return;
-    }
+    event->accept();
     const auto rows = wheelRows(event);
-    if (rows != 0) {
-        auto scrolled = m_registry->scrollViewport(surfaceIdentity(), rows);
-        if (!scrolled) {
-            emit operationError(scrolled.error().message);
-        }
-    }
-    if (event->pixelDelta().y() != 0 || event->angleDelta().y() != 0) {
-        event->accept();
+    if (rows == 0)
+        return;
+    const auto button = rows < 0 ? TerminalMouseButton::WheelUp : TerminalMouseButton::WheelDown;
+    const auto report = [&] {
+        return m_canSendInput
+            && sendMouseEvent(TerminalMouseAction::Press, button, event->position(), event->modifiers(), false);
+    };
+    if (report()) {
+        for (auto row = 1; row < std::abs(rows); ++row)
+            (void)report();
         return;
     }
-    QQuickItem::wheelEvent(event);
+    if (auto scrolled = m_registry->scrollViewport(surfaceIdentity(), rows); !scrolled)
+        emit operationError(scrolled.error().message);
 }
 
 bool TerminalView::sendMouseEvent(
@@ -753,7 +760,7 @@ void TerminalView::sendText(const QString& text)
     (void)enqueueInput(text.toUtf8());
 }
 
-void TerminalView::pasteClipboard()
+void TerminalView::pasteClipboard(const QClipboard::Mode mode)
 {
     if (!interactionAvailable() || !m_canSendInput || m_registry == nullptr || m_runtime == nullptr
         || !m_terminalReady) {
@@ -763,9 +770,9 @@ void TerminalView::pasteClipboard()
     if (clipboard == nullptr) {
         return;
     }
-    auto text = clipboard->text(QClipboard::Clipboard).toUtf8();
+    auto text = clipboard->text(mode).toUtf8();
     if (text.isEmpty()) {
-        if (const auto* mime = clipboard->mimeData(QClipboard::Clipboard); mime != nullptr) {
+        if (const auto* mime = clipboard->mimeData(mode); mime != nullptr) {
             pastePicture(*mime);
         }
         return;
@@ -1127,14 +1134,14 @@ int TerminalView::wheelRows(QWheelEvent* event)
     if (event->angleDelta().y() != 0) {
         const auto bounded = std::clamp(
             event->angleDelta().y(),
-            -120 * maximumWheelRowsPerEvent,
-            120 * maximumWheelRowsPerEvent);
+            -wheelRowAngle * maximumWheelRowsPerEvent,
+            wheelRowAngle * maximumWheelRowsPerEvent);
         m_wheelAngleRemainder += bounded;
         const auto rows = std::clamp(
-            m_wheelAngleRemainder / 120,
+            m_wheelAngleRemainder / wheelRowAngle,
             -maximumWheelRowsPerEvent,
             maximumWheelRowsPerEvent);
-        m_wheelAngleRemainder -= rows * 120;
+        m_wheelAngleRemainder -= rows * wheelRowAngle;
         return -rows;
     }
     return 0;
@@ -1222,7 +1229,7 @@ void TerminalView::answerClipboardRead(const bool allowed)
     }
 }
 
-bool TerminalView::copySelection()
+bool TerminalView::copySelection(const QClipboard::Mode mode)
 {
     if (m_registry == nullptr) {
         return false;
@@ -1235,7 +1242,7 @@ bool TerminalView::copySelection()
     if (text->isEmpty()) {
         return false;
     }
-    QGuiApplication::clipboard()->setText(*text, QClipboard::Clipboard);
+    QGuiApplication::clipboard()->setText(*text, mode);
     return true;
 }
 

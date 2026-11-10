@@ -315,18 +315,47 @@ private slots:
         QVERIFY(desktop.canvasSessionId().isEmpty());
         QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
         desktop.openCanvas(id);
-        sessions.apply(test::snapshot({ terminal({}) }));
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) })) }));
-        QCOMPARE(desktop.canvasSessionId(), id);
         desktop.toggleFocusForSelectedSession();
         QVERIFY(desktop.canvasSessionId().isEmpty());
         QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Grid);
+        desktop.openCanvas(id);
         sessions.apply(test::snapshot({ terminal({}) }));
-        sessions.apply(test::snapshot({ terminal(canvas(3, { item(QStringLiteral("plan.md"), 3) })) }));
         QVERIFY(desktop.canvasSessionId().isEmpty());
+        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) })) }));
         desktop.openCanvas(id);
         QVERIFY(desktop.unstageSession(id));
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+    }
+
+    void aCanvasThatComesLaterOpensOnlyWhenThePersonOpenedItBefore()
+    {
+        QTemporaryDir directory;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::DesktopStateModel desktop(
+            std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
+        desktop.attachSessionCatalog(&sessions);
+        const auto id = test::id(1);
+        const auto empty = [&] { sessions.apply(test::snapshot({ terminal({}) })); };
+        const auto comes = [&](int at) {
+            sessions.apply(test::snapshot({ terminal(canvas(at, { item(QStringLiteral("plan.md"), at) })) }));
+        };
+        empty();
+        QVERIFY(desktop.selectSession(id));
+        comes(1);
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        empty();
+        desktop.openCanvas(id);
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        comes(2);
+        QCOMPARE(desktop.canvasSessionId(), id);
+        desktop.hideCanvas();
+        empty();
+        comes(3);
+        QVERIFY(desktop.canvasSessionId().isEmpty());
+        empty();
+        desktop.openCanvas(id);
+        desktop.toggleFocusForSelectedSession();
+        comes(4);
         QVERIFY(desktop.canvasSessionId().isEmpty());
     }
 

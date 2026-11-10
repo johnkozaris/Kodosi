@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QKeyCombination>
 #include <QKeySequence>
 #include <QList>
 #include <QObject>
@@ -9,6 +10,8 @@
 #include <QVariantMap>
 
 #include <memory>
+
+class QKeyEvent;
 
 namespace kodosi {
 
@@ -32,7 +35,8 @@ public:
     Q_INVOKABLE QString bind(const QString& action, const QString& sequence, const QString& old = {});
     Q_INVOKABLE void remove(const QString& action, const QString& sequence);
     Q_INVOKABLE void reset();
-    Q_INVOKABLE [[nodiscard]] static QString sequence(int key, int modifiers);
+    [[nodiscard]] static QString sequence(const QKeyEvent& event);
+    [[nodiscard]] static QString sequence(QKeyCombination pressed, const QList<QKeyCombination>& possible);
 
 signals:
     void keysChanged();

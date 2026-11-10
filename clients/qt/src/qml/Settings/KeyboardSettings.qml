@@ -21,20 +21,16 @@ ColumnLayout {
         recordingAction = "";
         recordingKey = "";
     }
-    function receive(event) {
-        event.accepted = true;
-        if (event.key === Qt.Key_Escape) {
+    function receive(key, sequence) {
+        if (key === Qt.Key_Escape) {
             note = "";
             stop();
-        } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+        } else if (key === Qt.Key_Delete || key === Qt.Key_Backspace) {
             if (recordingKey.length > 0)
                 Models.Shortcuts.remove(recordingAction, recordingKey);
             note = "";
             stop();
-        } else {
-            const sequence = Models.Shortcuts.sequence(event.key, event.modifiers);
-            if (sequence.length === 0)
-                return;
+        } else if (sequence.length > 0) {
             if (recordingAction === "numberedTerminal" && !/[0-9]$/.test(sequence)) {
                 note = qsTr("Use a digit.");
                 return;
@@ -47,14 +43,13 @@ ColumnLayout {
 
     spacing: 18
 
-    Item {
+    KeyRecorder {
         id: recorder
 
         Layout.preferredWidth: 0
         Layout.preferredHeight: 0
-        Keys.enabled: root.recordingAction.length > 0
-        Keys.onPressed: event => root.receive(event)
-        Keys.onShortcutOverride: event => event.accepted = true
+        enabled: root.recordingAction.length > 0
+        onPressed: (key, sequence) => root.receive(key, sequence)
         onActiveFocusChanged: {
             if (!activeFocus)
                 root.stop();

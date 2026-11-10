@@ -141,9 +141,8 @@ private:
     QString m_canvas;
     bool m_canvasWide = false;
     qreal m_canvasWidth = 0;
-    QSet<QString> m_hiddenCanvases;
+    QString m_awaitedCanvas;
     QSet<QString> m_canvasesLeftOpen;
-    QHash<QString, bool> m_canvasesSeen;
     QHash<QString, Computer> m_pinComputers;
     QString m_stageKey;
     QStringList m_restoring;
@@ -165,7 +164,6 @@ private:
     qreal m_dosiWidth = 420;
     StageLayoutMode m_mode = Grid;
     void exitFocusMode();
-    void endCanvas();
     void followCanvas(const QString& id);
     void reconcileCanvas();
     void reconcile();
