@@ -253,7 +253,7 @@ impl Inherited {
         })
     }
 
-    fn text_look(&self, key: Option<&str>, body: Xml<'_, '_>) -> Value {
+    fn text_look(&self, key: Option<&str>, body: Option<Xml<'_, '_>>) -> Value {
         let kind = key.and_then(|key| key.split(':').next());
         let mut levels = match kind {
             Some("title" | "ctrTitle") => self.title.clone(),
@@ -271,10 +271,10 @@ impl Inherited {
             }
             anchor = placeholder.anchor.clone().or(anchor);
         }
-        if let Some(list) = local(body, "lstStyle") {
+        if let Some(list) = body.and_then(|body| local(body, "lstStyle")) {
             merge_levels(&mut levels, list);
         }
-        let properties = local(body, "bodyPr");
+        let properties = body.and_then(|body| local(body, "bodyPr"));
         let scale = properties
             .and_then(|node| local(node, "normAutofit"))
             .and_then(|fit| fit.attribute("fontScale"))
@@ -428,7 +428,7 @@ impl<'input> Reader<'_, '_, 'input> {
             None => None,
         };
         let look = body.map_or(Value::Null, |body| {
-            inherited.text_look(placeholder.as_deref(), body)
+            inherited.text_look(placeholder.as_deref(), Some(body))
         });
         let asset = self.picture(element);
         let link = local(names, "hlinkClick").and_then(|click| self.link_of(click));
@@ -494,7 +494,8 @@ impl<'input> Reader<'_, '_, 'input> {
             return Ok(Vec::new());
         };
         let mut shapes = Vec::new();
-        for (order, element) in (0_u64..).zip(tree.children().filter(Xml::is_element)) {
+        for element in tree.children().filter(Xml::is_element) {
+            let order = shapes.len() as u64;
             if let Some(shape) = self.shape(element, order, inherited)? {
                 shapes.push(shape);
             }
@@ -724,6 +725,7 @@ pub(crate) fn read(file: &[u8], assets: &mut Assets) -> Result<Model, Unreadable
             shapes,
             behind,
             background,
+            text_look: inherited.text_look(None, None),
         });
     }
     model.theme = theme_of(&mut package, first_master.as_deref());

@@ -37,6 +37,12 @@ fn deck() -> Vec<u8> {
     let layout = format!(
         r#"<?xml version="1.0"?><p:sldLayout xmlns:a="{DRAWING}" xmlns:p="{MAIN}"><p:cSld><p:spTree><p:nvGrpSpPr/><p:grpSpPr/><p:sp><p:nvSpPr><p:cNvPr id="2" name="Title"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="100" y="200"/><a:ext cx="300" cy="400"/></a:xfrm></p:spPr></p:sp></p:spTree></p:cSld></p:sldLayout>"#
     );
+    let layout_relations = format!(
+        r#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{RELATIONSHIP}/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>"#
+    );
+    let master = format!(
+        r#"<?xml version="1.0"?><p:sldMaster xmlns:a="{DRAWING}" xmlns:p="{MAIN}"><p:cSld><p:spTree><p:nvGrpSpPr/><p:grpSpPr/></p:spTree></p:cSld><p:txStyles><p:otherStyle><a:lvl1pPr algn="ctr"><a:defRPr sz="1800"/></a:lvl1pPr></p:otherStyle></p:txStyles></p:sldMaster>"#
+    );
     let slide_relations = format!(
         r#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{RELATIONSHIP}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>"#
     );
@@ -53,6 +59,11 @@ fn deck() -> Vec<u8> {
         ("ppt/slides/_rels/slide1.xml.rels", slide_relations.clone()),
         ("ppt/slides/_rels/slide2.xml.rels", slide_relations),
         ("ppt/slideLayouts/slideLayout1.xml", layout),
+        (
+            "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+            layout_relations,
+        ),
+        ("ppt/slideMasters/slideMaster1.xml", master),
     ] {
         writer.start_file(name, options).unwrap();
         writer.write_all(bytes.as_bytes()).unwrap();
@@ -385,6 +396,94 @@ fn a_write_that_puts_another_shape_under_an_id_brings_that_shape() {
     };
     assert_eq!(label(&model), label(&read(&written)));
     assert_eq!(saved(&model, &written), written);
+}
+
+#[test]
+fn a_new_text_box_reads_back_as_it_is_and_keeps_what_people_did_with_it() {
+    let file = deck();
+    let mut model = read(&file);
+    apply_ops(
+        &mut model,
+        vec![Op::AddTextBox {
+            slide: "256".to_owned(),
+            text: "Note".to_owned(),
+            x: 10.0,
+            y: 10.0,
+            width: 100.0,
+            height: 50.0,
+        }],
+    );
+    let with_box = saved(&model, &file);
+    let changes = Pptx::compare(&model, &read(&with_box));
+    assert!(changes.is_empty(), "{changes:?}");
+    let base = model.clone();
+    apply_ops(
+        &mut model,
+        vec![Op::SetText {
+            slide: "256".to_owned(),
+            shape: "4".to_owned(),
+            text: "Note by Ana".to_owned(),
+        }],
+    );
+    let mut other = read(&with_box);
+    apply_ops(
+        &mut other,
+        vec![Op::MoveShape {
+            slide: "257".to_owned(),
+            shape: "3".to_owned(),
+            x: Some(20.0),
+            y: None,
+            width: None,
+            height: None,
+        }],
+    );
+    for change in Pptx::compare(&base, &read(&saved(&other, &with_box))) {
+        Pptx::apply(&mut model, change, &[], &mut Assets::default()).unwrap();
+    }
+    assert_eq!(
+        listing(&model)["slides"][0]["shapes"][2]["text"],
+        "Note by Ana"
+    );
+}
+
+#[test]
+fn an_order_carries_over_when_a_write_stacks_shapes_anew() {
+    let file = deck();
+    let mut model = read(&file);
+    apply_ops(
+        &mut model,
+        vec![Op::RemoveShape {
+            slide: "256".to_owned(),
+            shape: "2".to_owned(),
+        }],
+    );
+    let changes = Pptx::compare(&model, &read(&saved(&model, &file)));
+    assert!(changes.is_empty(), "{changes:?}");
+    let slide = slide_xml("First");
+    let title = slide.find(r#"<p:sp><p:nvSpPr><p:cNvPr id="2""#).unwrap();
+    let shape = slide.find(r#"<p:sp><p:nvSpPr><p:cNvPr id="3""#).unwrap();
+    let end = slide.find("</p:spTree>").unwrap();
+    let restacked = format!(
+        "{}{}{}{}",
+        &slide[..title],
+        &slide[shape..end],
+        &slide[title..shape],
+        &slide[end..]
+    );
+    let written = with_parts(&file, &[("ppt/slides/slide1.xml", &restacked)]);
+    let mut model = read(&file);
+    for change in Pptx::compare(&read(&file), &read(&written)) {
+        Pptx::apply(&mut model, change, &[], &mut Assets::default()).unwrap();
+    }
+    let orders = |model: &Model| -> Vec<Value> {
+        model.snapshot()["slides"][0]["shapes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|shape| json!([shape["id"], shape["order"]]))
+            .collect()
+    };
+    assert_eq!(orders(&model), [json!(["2", 1]), json!(["3", 0])]);
 }
 
 #[test]

@@ -142,6 +142,10 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
                     "The slide {slide} is there already."
                 )));
             }
+            let text_look = model
+                .slides
+                .first()
+                .map_or(Value::Null, |first| first.text_look.clone());
             model.slides.push(Slide {
                 id: slide.clone(),
                 part: None,
@@ -149,6 +153,7 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
                 shapes: Vec::new(),
                 behind: Vec::new(),
                 background: None,
+                text_look,
             });
             model.sort_slides();
         }
@@ -161,13 +166,16 @@ fn apply_one(model: &mut Model, change: &Change) -> Result<(), Refused> {
             model.slides.retain(|known| known.id != *slide);
         }
         Change::AddShape { slide, shape } => {
-            let shape = Shape::from_snapshot(shape).map_err(Refused::Invalid)?;
+            let mut shape = Shape::from_snapshot(shape).map_err(Refused::Invalid)?;
             let target = model.slide_mut(slide).ok_or_else(|| no_slide(slide))?;
             if target.shapes.iter().any(|known| known.id == shape.id) {
                 return Err(Refused::Invalid(format!(
                     "The shape {} is there already.",
                     shape.id
                 )));
+            }
+            if shape.text.is_some() && shape.look.is_null() {
+                shape.look.clone_from(&target.text_look);
             }
             target.shapes.push(shape);
         }
@@ -202,7 +210,30 @@ fn same_shape(old: &Shape, new: &Shape) -> bool {
         && old.text.is_some() == new.text.is_some()
 }
 
-fn shape_changes(slide: &str, old: &Shape, new: &Shape, out: &mut Vec<Change>) {
+/// The ids of the shapes of a slide that another state of it holds too, from back to front.
+fn stack<'s>(slide: &'s Slide, other: &Slide) -> Vec<&'s str> {
+    let mut shapes: Vec<&Shape> = slide
+        .shapes
+        .iter()
+        .filter(|shape| other.shapes.iter().any(|known| known.id == shape.id))
+        .collect();
+    shapes.sort_by_key(|shape| shape.order);
+    shapes.iter().map(|shape| shape.id.as_str()).collect()
+}
+
+/// Whether a write stacked the shapes of a slide anew or brought a shape there, so that the order
+/// of each shape carries over. A shape that went leaves the others where they stand.
+fn stacked_anew(old: &Slide, new: &Slide) -> bool {
+    stack(old, new) != stack(new, old)
+        || new.shapes.iter().any(|shape| {
+            old.shapes
+                .iter()
+                .find(|known| known.id == shape.id)
+                .is_none_or(|known| !same_shape(known, shape))
+        })
+}
+
+fn shape_changes(slide: &str, old: &Shape, new: &Shape, stacked: bool, out: &mut Vec<Change>) {
     if !same_shape(old, new) {
         out.push(Change::RemoveShape {
             slide: slide.to_owned(),
@@ -232,7 +263,7 @@ fn shape_changes(slide: &str, old: &Shape, new: &Shape, out: &mut Vec<Change>) {
     if old.line != new.line {
         fields.line = Some(new.line.clone());
     }
-    if old.order != new.order {
+    if stacked && old.order != new.order {
         fields.order = Some(new.order);
     }
     if fields != ShapeFields::default() {
@@ -282,9 +313,10 @@ pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
                 position: slide.position,
             });
         }
+        let stacked = stacked_anew(old, slide);
         for shape in &slide.shapes {
             match old.shapes.iter().find(|known| known.id == shape.id) {
-                Some(known) => shape_changes(&slide.id, known, shape, &mut changes),
+                Some(known) => shape_changes(&slide.id, known, shape, stacked, &mut changes),
                 None => changes.push(Change::AddShape {
                     slide: slide.id.clone(),
                     shape: shape.snapshot(),
