@@ -8,7 +8,7 @@ use super::{
     CanvasHandle, CanvasKind, CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES,
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
-    files::{Files, Showing, Stamp, examine_all},
+    files::{Files, QUIET, Showing, Stamp, examine_all},
     is_address, kind_of, page,
 };
 use crate::text::Text;
@@ -119,12 +119,12 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
     assert_eq!(files.items()[0].revision, first);
 
     std::fs::write(&plan, "# Plan\n\nMore words.").unwrap();
-    assert!(files.check(&stamp).await);
+    assert!(files.check(&stamp).await.any);
     assert!(files.items()[0].revision > first);
-    assert!(!files.check(&stamp).await);
+    assert!(!files.check(&stamp).await.any);
 
     std::fs::remove_file(&shot).unwrap();
-    assert!(files.check(&stamp).await);
+    assert!(files.check(&stamp).await.any);
     assert!(files.items()[1].missing);
     let key = files.items()[1].key.clone();
     assert!(files.read(&key, 1, 0).await.is_err());
@@ -153,7 +153,7 @@ async fn a_text_file_opens_live_while_its_format_takes_it_and_else_shows_as_a_pa
     assert_eq!(views(&files), [Some(DocumentView::Text), None]);
 
     std::fs::write(&config, "port: 80\n".repeat(20_000)).unwrap();
-    assert!(files.check(&stamp).await);
+    assert!(files.check(&stamp).await.any);
     assert_eq!(views(&files), [None, None]);
 }
 
@@ -370,8 +370,8 @@ async fn a_browser_that_came_back_asleep_keeps_its_page_for_the_next_start() {
     assert_eq!(canvas.address(), None);
 }
 
-#[tokio::test]
-async fn the_agent_command_that_starts_the_browser_opens_the_canvas_at_it() {
+#[tokio::test(start_paused = true)]
+async fn the_agent_browser_opens_the_canvas_at_it_after_a_quiet_minute() {
     let folder = tempfile::tempdir().unwrap();
     let services = crate::canvas::CanvasServices {
         agent_browser: folder.path().join("agent-browser"),
@@ -396,7 +396,13 @@ async fn the_agent_command_that_starts_the_browser_opens_the_canvas_at_it() {
     let first = canvas.current().unwrap().open.unwrap();
     assert_eq!(first.key, BROWSER_PIPE);
     assert!(browse(&canvas).await.is_err());
-    assert_eq!(canvas.current().unwrap().open, Some(first));
+    assert_eq!(canvas.current().unwrap().open, Some(first.clone()));
+
+    tokio::time::advance(QUIET).await;
+    assert!(browse(&canvas).await.is_err());
+    let again = canvas.current().unwrap().open.unwrap();
+    assert_eq!(again.key, BROWSER_PIPE);
+    assert!(again.at > first.at);
 
     let restored = spawn();
     restored.restore(
@@ -407,7 +413,144 @@ async fn the_agent_command_that_starts_the_browser_opens_the_canvas_at_it() {
     assert!(browse(&restored).await.is_err());
     let back = restored.current().unwrap();
     assert!(back.browser.is_some());
-    assert_eq!(back.open, None);
+    assert_eq!(
+        back.open.map(|open| open.key).as_deref(),
+        Some(BROWSER_PIPE)
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_file_that_changes_after_a_quiet_minute_opens_the_canvas_unless_it_is_live() {
+    let folder = tempfile::tempdir().unwrap();
+    let services = crate::canvas::CanvasServices::new(folder.path(), true);
+    let canvas = CanvasHandle::spawn(uuid::Uuid::now_v7(), folder.path(), services.clone());
+    let notes = folder.path().join("notes.txt");
+    let report = folder.path().join("report.md");
+    std::fs::write(&notes, "one\n").unwrap();
+    std::fs::write(&report, "# One").unwrap();
+    canvas
+        .show(crate::canvas::Show {
+            paths: vec![notes.clone(), report.clone()],
+            address: None,
+            folder: folder.path().to_owned(),
+            terminal: "Ivory Moose".to_owned(),
+            agent: None,
+        })
+        .await
+        .unwrap();
+    let shown = canvas.current().unwrap().open.unwrap();
+    assert!(shown.key.ends_with("notes.txt"), "{}", shown.key);
+    let changed = async |key: &str| {
+        let revision = |canvas: &super::Canvas| {
+            canvas
+                .items
+                .iter()
+                .find(|item| item.key.ends_with(key))
+                .map(|item| item.revision)
+        };
+        let before = revision(&canvas.current().unwrap());
+        canvas
+            .state()
+            .wait_for(|canvas| revision(canvas) != before)
+            .await
+            .unwrap();
+    };
+
+    std::fs::write(&report, "# Two, soon after").unwrap();
+    changed("report.md").await;
+    assert_eq!(canvas.current().unwrap().open, Some(shown.clone()));
+
+    tokio::time::advance(QUIET * 2).await;
+    std::fs::write(&report, "# Three, after a quiet while").unwrap();
+    changed("report.md").await;
+    let opened = canvas.current().unwrap().open.unwrap();
+    assert!(opened.key.ends_with("report.md"), "{}", opened.key);
+    assert!(opened.at > shown.at);
+
+    let _live = services
+        .documents
+        .open(
+            &notes,
+            documents::Viewer {
+                id: "ana".to_owned(),
+                name: "Ana".to_owned(),
+                can_edit: true,
+            },
+        )
+        .await
+        .unwrap();
+    tokio::time::advance(QUIET * 2).await;
+    std::fs::write(&notes, "one\ntwo, from another program\n").unwrap();
+    changed("notes.txt").await;
+    assert_eq!(canvas.current().unwrap().open, Some(opened));
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_agent_edit_of_a_document_opens_the_canvas_at_it_after_a_quiet_minute() {
+    let folder = tempfile::tempdir().unwrap();
+    let canvas = CanvasHandle::spawn(
+        uuid::Uuid::now_v7(),
+        folder.path(),
+        crate::canvas::CanvasServices::new(folder.path(), true),
+    );
+    let doc = async |words: &[&str]| {
+        let arguments = words.iter().map(|word| (*word).to_owned()).collect();
+        match canvas
+            .document_command(
+                None,
+                "Ivory Moose".to_owned(),
+                folder.path().to_owned(),
+                arguments,
+            )
+            .await
+        {
+            CanvasAnswer::Text { text, code } => (text, code),
+            other => panic!("text expected: {other:?}"),
+        }
+    };
+    let apply = async || {
+        let (read, _) = doc(&["read", "sums.xlsx"]).await;
+        let rev = serde_json::from_str::<serde_json::Value>(&read).unwrap()["rev"].to_string();
+        let ops = json!([{ "op": "setCell", "sheet": "Sheet1", "cell": "B2", "value": 7 }]);
+        let (text, code) = doc(&[
+            "apply",
+            "sums.xlsx",
+            "--ops",
+            &ops.to_string(),
+            "--base",
+            &rev,
+        ])
+        .await;
+        assert_eq!(code, 0, "{text}");
+    };
+    assert_eq!(doc(&["new", "sums.xlsx"]).await.1, 0);
+    canvas
+        .show(crate::canvas::Show {
+            paths: vec![folder.path().join("sums.xlsx")],
+            address: None,
+            folder: folder.path().to_owned(),
+            terminal: "Ivory Moose".to_owned(),
+            agent: None,
+        })
+        .await
+        .unwrap();
+    let shown = canvas.current().unwrap().open.unwrap();
+
+    apply().await;
+    tokio::task::yield_now().await;
+    assert_eq!(canvas.current().unwrap().open, Some(shown.clone()));
+
+    tokio::time::advance(QUIET * 2).await;
+    apply().await;
+    let opened = canvas
+        .state()
+        .wait_for(|canvas| canvas.open.as_ref().is_some_and(|open| open.at > shown.at))
+        .await
+        .unwrap()
+        .open
+        .clone()
+        .unwrap();
+    assert_eq!(opened.key, shown.key);
 }
 
 #[tokio::test]

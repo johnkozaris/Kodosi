@@ -51,11 +51,12 @@ pub struct Canvas {
     pub open: Option<CanvasOpen>,
 }
 
-/// What the agent showed last with `kodosi show`, an item by its key or the browser, or the
-/// browser that its first `kodosi browser` command started.
+/// Where the canvas opened last for the people of the terminal: an item by its key or the browser.
 ///
-/// `at` is when, in milliseconds since 1970 on the terminal's computer. Each device opens its
-/// canvas there once, and only for a show after the device's app started.
+/// The agent's `kodosi show` opens it, and so do its `kodosi browser` command and a change of a
+/// file of the canvas after a quiet while. `at` is when, in milliseconds since 1970 on the
+/// terminal's computer. Each device opens its canvas there once, and only for an open after the
+/// device's app started.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CanvasOpen {
