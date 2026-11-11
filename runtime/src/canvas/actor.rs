@@ -14,7 +14,7 @@ use super::{
     attach::{Part, Uploads},
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
-    files::{self, Files, QUIET, Showing, Stamp, key_of},
+    files::{self, Files, Showing, Stamp, key_of},
     render::{self, RenderArguments},
 };
 use crate::documents::{DocumentHost, changed_file, path_of};
@@ -135,10 +135,9 @@ impl CanvasHandle {
             sharing,
             browsers: services.browsers,
             agent_browser: services.agent_browser,
-            documents: services.documents.clone(),
             browser: None,
-            browsed: None,
             open: None,
+            change: None,
         };
         tokio::spawn(actor.run());
         Self {
@@ -359,11 +358,9 @@ struct Actor {
     sharing: watch::Receiver<bool>,
     browsers: BrowserHost,
     agent_browser: PathBuf,
-    documents: DocumentHost,
     browser: Option<(Arc<Browser>, watch::Receiver<CanvasBrowser>)>,
-    /// When the agent's last browser command came.
-    browsed: Option<tokio::time::Instant>,
     open: Option<CanvasOpen>,
+    change: Option<CanvasOpen>,
 }
 
 impl Actor {
@@ -391,12 +388,8 @@ impl Actor {
                 }
                 _ = check.tick(), if !self.files.is_empty() => {
                     let checked = self.files.check(&self.stamp).await;
-                    if let Some(key) = checked
-                        .after_quiet
-                        .into_iter()
-                        .find(|key| !self.documents.is_open(&path_of(key)))
-                    {
-                        self.open_at(key);
+                    if let Some(key) = checked.changed.into_iter().next() {
+                        self.change = Some(self.mark(key));
                     }
                     if checked.any {
                         self.publish();
@@ -423,13 +416,13 @@ impl Actor {
                 .as_ref()
                 .and_then(|(browser, _)| browser.page()),
         );
-        let open = self.open.clone().filter(|open| {
-            if open.key == BROWSER_PIPE {
+        let shows = |mark: &&CanvasOpen| {
+            if mark.key == BROWSER_PIPE {
                 self.browser.is_some()
             } else {
-                self.files.contains(&open.key)
+                self.files.contains(&mark.key)
             }
-        });
+        };
         let canvas = Canvas {
             sequence: self.stamp.now(),
             items: self.files.items(),
@@ -437,7 +430,8 @@ impl Actor {
                 .browser
                 .as_ref()
                 .map(|(_, state)| state.borrow().clone()),
-            open,
+            open: self.open.as_ref().filter(shows).cloned(),
+            change: self.change.as_ref().filter(shows).cloned(),
         };
         self.published.send_if_modified(|current| {
             if *current == canvas {
@@ -465,10 +459,7 @@ impl Actor {
                     return;
                 }
                 let browser = self.browser();
-                if starts || self.browsed.is_none_or(|at| at.elapsed() >= QUIET) {
-                    self.open_at(BROWSER_PIPE.to_owned());
-                }
-                self.browsed = Some(tokio::time::Instant::now());
+                self.change = Some(self.mark(BROWSER_PIPE.to_owned()));
                 self.publish();
                 tokio::spawn(async move {
                     drop(reply.send(browser.run(folder, arguments, &terminal, agent).await));
@@ -510,8 +501,8 @@ impl Actor {
             }
             Job::Edited { path } => {
                 let key = key_of(&kodosi_os::fs::canonicalize(&path).unwrap_or(path));
-                if self.files.touch(&key) {
-                    self.open_at(key);
+                if self.files.contains(&key) {
+                    self.change = Some(self.mark(key));
                     self.publish();
                 }
             }
@@ -586,7 +577,7 @@ impl Actor {
             showing.shown.first().map(|shown| shown.key.clone())
         };
         if let Some(key) = key {
-            self.open_at(key);
+            self.open = Some(self.mark(key));
         }
         self.publish();
         let Some(browser) = browser else {
@@ -706,14 +697,15 @@ impl Actor {
             .map(|(browser, _)| Arc::clone(browser))
     }
 
-    /// Opens the canvas at `key` for the people of the terminal, later than each open before.
-    fn open_at(&mut self, key: String) {
-        let at = self
-            .open
-            .as_ref()
-            .map_or(0, |open| open.at + 1)
-            .max(crate::identity::now_ms());
-        self.open = Some(CanvasOpen { key, at });
+    /// `key` now, later than each show and change before, so that each device acts on each
+    /// one once and in order.
+    fn mark(&self, key: String) -> CanvasOpen {
+        let at = [&self.open, &self.change]
+            .into_iter()
+            .flatten()
+            .map(|mark| mark.at + 1)
+            .fold(crate::identity::now_ms(), u64::max);
+        CanvasOpen { key, at }
     }
 
     fn browser(&mut self) -> Arc<Browser> {

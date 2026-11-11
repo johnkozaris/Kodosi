@@ -145,7 +145,7 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func `what the agent shows opens the canvas only after Kodosi is unlocked`() async throws {
+    @Test func `what the agent shows on the canvas is news only while Kodosi is in front and unlocked`() async throws {
         let suite = "TerminalControllerTests.lock"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -161,17 +161,17 @@ struct TerminalControllerTests {
         try deliver("sessions.snapshot", ["sessions": [entry]])
         let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: lock)
         controller.appear(active: true)
-        #expect(!controller.openShownCanvas())
+        #expect(controller.canvasNews().isEmpty)
         lock.unlock()
         for _ in 0 ..< 20 where lock.locked {
             await Task.yield()
         }
         #expect(!lock.locked)
         controller.setActive(false)
-        #expect(!controller.openShownCanvas())
+        #expect(controller.canvasNews().isEmpty)
         controller.setActive(true)
-        #expect(controller.openShownCanvas())
-        #expect(!controller.openShownCanvas())
+        #expect(controller.canvasNews().map(\.shown.key) == ["/work/report.pdf"])
+        #expect(controller.canvasNews().isEmpty)
         controller.disappear()
     }
 

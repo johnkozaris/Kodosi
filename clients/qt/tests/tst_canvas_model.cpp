@@ -48,6 +48,11 @@ QJsonObject canvas(int sequence, QJsonArray items, QJsonObject browser = {})
     return value;
 }
 
+QJsonObject mark(const QString& name, int at)
+{
+    return { { QStringLiteral("key"), QStringLiteral("/work/") + name }, { QStringLiteral("at"), at } };
+}
+
 QJsonObject asleepBrowser(int changed)
 {
     return { { QStringLiteral("state"), QStringLiteral("asleep") }, { QStringLiteral("changed"), changed },
@@ -89,10 +94,13 @@ private slots:
         QCOMPARE(sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
         sessions.apply(test::snapshot({ terminal({}) }));
         QVERIFY(!sessions.presentationForSession(test::id(1)).value(QStringLiteral("canvas")).isValid());
-        auto unstamped = canvas(11, { item(QStringLiteral("plan.html"), 5) });
-        unstamped.insert(QStringLiteral("open"), QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.html") } });
-        sessions.apply(test::snapshot({ terminal(unstamped) }));
-        QCOMPARE(sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        for (const auto& name : { QStringLiteral("open"), QStringLiteral("change") }) {
+            sessions.apply(test::snapshot({ terminal({}) }));
+            auto unstamped = canvas(11, { item(QStringLiteral("plan.html"), 5) });
+            unstamped.insert(name, QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.html") } });
+            sessions.apply(test::snapshot({ terminal(unstamped) }));
+            QCOMPARE(sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        }
     }
 
     void aCanvasShowsNewsOnlyForWhatChangedAfterThisDeviceSawIt()
@@ -110,6 +118,9 @@ private slots:
         QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
         model.saw(id, QStringLiteral("/work/plan.md"));
         QVERIFY(!model.isNew(id, QStringLiteral("/work/plan.md")));
+        sessions.apply(test::snapshot({ terminal(
+            canvas(7, { item(QStringLiteral("plan.md"), 6), item(QStringLiteral("compare.html"), 7, 2) })) }));
+        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
         model.pick(id, QStringLiteral("/work/compare.html"));
         sessions.apply(test::snapshot({ terminal(
             canvas(8, { item(QStringLiteral("plan.md"), 8, 2), item(QStringLiteral("compare.html"), 4) })) }));
@@ -270,39 +281,37 @@ private slots:
         QCOMPARE(model.current(id), QStringLiteral("browser"));
     }
 
-    void aCanvasOpensOnceAtEachShowOfItsAgentAndNotAtAShowFromBefore()
+    void eachShowAndChangeOfACanvasIsNewsOnceTheOlderFirstAndNoneFromBeforeTheStart()
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
         kodosi::CanvasModel model(commands, sessions, 6);
         const auto id = test::id(1);
-        const auto files = QStringLiteral("files");
-        const auto show = [&](int at, const QString& name) {
-            auto shown = canvas(at, { item(QStringLiteral("plan.md"), 5), item(QStringLiteral("compare.html"), 4) });
-            shown.insert(QStringLiteral("open"),
-                QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/") + name }, { QStringLiteral("at"), at } });
+        const auto apply = [&](const QString& open, int openAt, const QString& change, int changeAt) {
+            auto shown = canvas(9, { item(QStringLiteral("plan.md"), 5), item(QStringLiteral("compare.html"), 4) });
+            shown.insert(QStringLiteral("open"), mark(open, openAt));
+            shown.insert(QStringLiteral("change"), mark(change, changeAt));
             sessions.apply(test::snapshot({ terminal(shown) }));
         };
-        show(6, QStringLiteral("compare.html"));
-        QVERIFY(!model.openShown(id));
-        show(7, QStringLiteral("compare.html"));
-        QVERIFY(model.showsNew(id));
-        QVERIFY(model.openShown(id));
-        QCOMPARE(model.current(id), QStringLiteral("/work/compare.html"));
-        QVERIFY(!model.openShown(id));
-        show(8, QStringLiteral("plan.md"));
-        model.close(id, files);
-        QVERIFY(!model.openShown(id));
-        show(9, QStringLiteral("plan.md"));
-        QVERIFY(model.openShown(id));
-        QCOMPARE(model.sections(id), QStringList { files });
-        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
-        show(10, QStringLiteral("gone.md"));
-        QVERIFY(!model.showsNew(id));
-        QVERIFY(!model.openShown(id));
+        const auto news = [&] {
+            QStringList found;
+            for (const auto& news : model.news(id))
+                found.append((news.shown ? QStringLiteral("shown ") : QStringLiteral("changed ")) + news.key);
+            return found;
+        };
+        apply(QStringLiteral("compare.html"), 6, QStringLiteral("plan.md"), 5);
+        QVERIFY(news().isEmpty());
+        apply(QStringLiteral("compare.html"), 8, QStringLiteral("plan.md"), 7);
+        QCOMPARE(news(), (QStringList { QStringLiteral("changed /work/plan.md"), QStringLiteral("shown /work/compare.html") }));
+        QVERIFY(news().isEmpty());
+        apply(QStringLiteral("plan.md"), 10, QStringLiteral("plan.md"), 9);
+        model.close(id, QStringLiteral("files"));
+        QVERIFY(news().isEmpty());
+        apply(QStringLiteral("gone.md"), 11, QStringLiteral("gone.md"), 12);
+        QVERIFY(news().isEmpty());
     }
 
-    void aTerminalWhoseCanvasComesLaterOpensOnlyAShowFromAfterTheStart()
+    void aTerminalWhoseCanvasComesLaterHasNewsOnlyFromAfterTheStart()
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
@@ -310,17 +319,42 @@ private slots:
         const auto id = test::id(1);
         const auto show = [&](int at) {
             auto shown = canvas(at, { item(QStringLiteral("plan.md"), 5) });
-            shown.insert(QStringLiteral("open"),
-                QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.md") }, { QStringLiteral("at"), at } });
+            shown.insert(QStringLiteral("open"), mark(QStringLiteral("plan.md"), at));
             sessions.apply(test::snapshot({ terminal(shown) }));
         };
         sessions.apply(test::snapshot({ test::session(1) }));
         show(90);
-        QVERIFY(!model.openShown(id));
+        QVERIFY(model.news(id).isEmpty());
         sessions.apply(test::snapshot({ test::session(1) }));
         show(120);
-        QVERIFY(model.openShown(id));
-        QVERIFY(!model.openShown(id));
+        QCOMPARE(model.news(id).size(), 1);
+        QVERIFY(model.news(id).isEmpty());
+    }
+
+    void aCanvasThatAPersonClosedStaysClosedForChangesUntilAShowOrThePersonOpensIt()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasModel model(commands, sessions, 1);
+        const auto id = test::id(1);
+        auto shown = canvas(9, { item(QStringLiteral("plan.md"), 5) });
+        shown.insert(QStringLiteral("open"), mark(QStringLiteral("plan.md"), 8));
+        sessions.apply(test::snapshot({ terminal(shown) }));
+        model.closeCanvas(id);
+        QVERIFY(model.isShut(id));
+        const auto news = model.news(id);
+        QCOMPARE(news.size(), 1);
+        QVERIFY(!model.isShut(id));
+        model.closeCanvas(id);
+        model.reveal(id, news.first().key);
+        QVERIFY(!model.isShut(id));
+        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
+        model.closeCanvas(id);
+        model.open(id);
+        QVERIFY(!model.isShut(id));
+        model.closeCanvas(id);
+        model.show(id, QStringLiteral("files"));
+        QVERIFY(!model.isShut(id));
     }
 
     void oneCanvasOpensWithItsTerminalAloneAndHidesWithoutLeavingIt()

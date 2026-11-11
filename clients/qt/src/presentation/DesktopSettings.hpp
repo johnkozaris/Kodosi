@@ -21,6 +21,7 @@ class DesktopSettings final : public QObject {
     Q_PROPERTY(QString branchFolder READ branchFolder NOTIFY settingsChanged)
     Q_PROPERTY(QString lastComputer READ lastComputer WRITE setLastComputer NOTIFY settingsChanged)
     Q_PROPERTY(bool keepRunning READ keepRunning WRITE setKeepRunning NOTIFY settingsChanged)
+    Q_PROPERTY(bool opensCanvas READ opensCanvas WRITE setOpensCanvas NOTIFY settingsChanged)
     Q_PROPERTY(QVariantMap viewers READ viewers NOTIFY settingsChanged)
     Q_PROPERTY(QVariantMap shownViews READ shownViews NOTIFY settingsChanged)
     Q_PROPERTY(QVariantMap viewPreferences READ viewPreferences NOTIFY settingsChanged)
@@ -45,6 +46,9 @@ public:
     QString branchFolder() const { return m_branchFolder; }
     QString lastComputer() const { return m_computer; }
     bool keepRunning() const { return m_keepRunning.value_or(m_keepRunningByDefault); }
+    // Whether the canvas opens by itself when the agent shows something or a file or the browser
+    // on it changes.
+    bool opensCanvas() const { return m_opensCanvas; }
     bool closeHintShown() const { return m_closeHintShown; }
     QVariantMap viewers() const;
     QVariantMap shownViews() const;
@@ -61,6 +65,7 @@ public:
     void setWorkingDirectory(const QString& path);
     void setLastComputer(const QString& computer);
     void setKeepRunning(bool keep);
+    void setOpensCanvas(bool opens);
     void setCloseHintShown();
     Q_INVOKABLE void setBranchFolder(const QString& path);
     Q_INVOKABLE void setViewer(const QString& name, bool on);
@@ -82,6 +87,7 @@ private:
     CursorStyle m_cursor = Block;
     double m_lineHeight = 1.0;
     bool m_blink = false;
+    bool m_opensCanvas = true;
     std::optional<bool> m_keepRunning;
     QMap<QString, bool> m_viewers;
     bool m_closeHintShown = false;

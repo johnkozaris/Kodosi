@@ -1842,6 +1842,18 @@
         <translation>터미널은 계속 실행돼요. Kodosi를 다시 열면 볼 수 있어요.</translation>
     </message>
     <message>
+        <source>Open the canvas by itself</source>
+        <translation>캔버스 자동으로 열기</translation>
+    </message>
+    <message>
+        <source>The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it.</source>
+        <translation>에이전트가 캔버스에 무언가를 보여 주면 캔버스가 열려요. 캔버스의 파일이나 브라우저가 바뀌어도 열리지만, 직접 닫았다면 열리지 않아요.</translation>
+    </message>
+    <message>
+        <source>The canvas opens only when you open it. Its keys show what is new.</source>
+        <translation>캔버스는 직접 열 때만 열려요. 새로운 내용은 버튼에 표시돼요.</translation>
+    </message>
+    <message>
         <source>Quit Kodosi</source>
         <translation>Kodosi 종료</translation>
     </message>

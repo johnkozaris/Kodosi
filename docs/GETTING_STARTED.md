@@ -98,15 +98,17 @@ progress bar. A program that reports nothing shows no state.
 An agent can show you a page, Markdown, a picture, a PDF, a document, a sheet, a
 presentation or the app that it runs on the canvas of its terminal, and use a browser that
 you share with it. The canvas opens with what the agent shows while you look at its
-terminal. Claude Code and Copilot CLI know how, also when you start them yourself, and so
-does a Codex that Kodosi starts; tell another agent to read `kodosi skill canvas`. When
-the canvas has something, the terminal's header shows a key for its files and one for its
-browser, with a copper dot for news. Select one to open the canvas beside the terminal;
-More room gives the canvas the stage and keeps the terminal small in its corner. Close a
-part with the × on its key, and open it again with +. Open Browser in the actions key
-opens the browser before the agent uses it, and Add a File puts a file on the canvas and
-into the terminal's folder; you can also drop a file on the canvas. On the iPhone, the
-canvas key is in the terminal's bar.
+terminal, and when a file on it or the browser changes, unless you closed it. To open it
+only yourself, turn off Open the canvas by itself in Settings › General. Claude Code and
+Copilot CLI know how, also when you start them yourself, and so does a Codex that Kodosi
+starts; tell another agent to read `kodosi skill canvas`. When the canvas has something,
+the terminal's header shows a key for its files and one for its browser, with a copper dot
+for news. Select one to open the canvas beside the terminal; More room gives the canvas
+the stage and keeps the terminal small in its corner. Close a part with the × on its key,
+and open it again with +. Open Browser in the actions key opens the browser before the
+agent uses it, and Add a File puts a file on the canvas and into the terminal's folder;
+you can also drop a file on the canvas. On the iPhone, the canvas key is in the terminal's
+bar, and a banner names what the agent shows or changes, with Open.
 
 - A document, sheet, presentation, PDF or text file is live: you, the people in the
   terminal and the agent edit it at the same time, and it stays a normal file in its

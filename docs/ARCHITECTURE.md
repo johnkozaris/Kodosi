@@ -171,12 +171,13 @@ The host keeps the canvas of each terminal: the files that an agent showed with
 `kodosi show <file>`, by path, each with a revision: the canvas's stamp when the file came
 or last changed, so a path never gets the same revision twice. Once a second, while the
 canvas has files, it compares their size and change time, and a change gives a new
-revision. Each show also names what it showed, a file or the browser, with the time on the
-terminal's computer, later than the one before. So do, after a minute without one, the
-agent's `kodosi browser <command>`, its `kodosi doc apply` to a file of the canvas, and a
-new revision of a file that is not open as a live document. An app opens its canvas there
-once for each such time after the app started, while the terminal is in front or when it
-comes to the front. `kodosi show <address>`, and an HTML page that loads from the network,
+revision. Each show also names what it showed, a file or the browser, as `open`, with the
+time on the terminal's computer, later than each show and change before. Each change names
+what changed the same way, as `change`: each `kodosi browser <command>` of the agent, its
+`kodosi doc apply` to a file of the canvas, and each new revision of a file. An app acts on
+each once, after the app started, while the terminal is in front or when it comes to the
+front: a show opens its canvas there, and a change opens a canvas that a person did not
+close on that device. `kodosi show <address>`, and an HTML page that loads from the network,
 open in the shared browser with agent-browser's `open`. Markdown, text and data files
 become pages with the style of the skill's page template. The list goes with the
 terminal's state to each client and to each device on the terminal's encrypted channel. An

@@ -250,7 +250,8 @@ final class WorkbenchState {
 
     func toggleFocus(_ id: String) {
         selectedSessionId = id
-        if canvasSessionId != nil {
+        if let open = canvasSessionId {
+            canvas.closeCanvas(open)
             hideCanvas()
             focusedSessionId = nil
             return

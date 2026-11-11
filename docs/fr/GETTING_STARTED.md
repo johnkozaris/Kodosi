@@ -105,16 +105,19 @@ barre de progression. Un programme qui n'indique rien n'affiche pas d'état.
 Un agent peut vous montrer une page, du Markdown, une image, un PDF, un document, une feuille,
 une présentation ou l'app qu'il exécute sur le canvas de son terminal, et utiliser un
 navigateur que vous partagez avec lui. Le canvas s'ouvre avec ce que montre l'agent pendant que
-vous regardez son terminal. Claude Code et Copilot CLI savent comment faire, même quand vous
-les lancez vous-même, tout comme un Codex lancé par Kodosi ; demandez à un autre agent de lire
-`kodosi skill canvas`. Quand le canvas contient quelque chose, l'en-tête du terminal affiche un
-bouton pour ses fichiers et un pour son navigateur, avec un point cuivré pour les nouveautés.
+vous regardez son terminal, et quand un fichier du canvas ou le navigateur change, sauf si vous
+l'avez fermé. Pour ne l'ouvrir que vous-même, désactivez Ouvrir le canvas automatiquement dans
+Réglages › Général. Claude Code et Copilot CLI savent comment faire, même quand vous les lancez
+vous-même, tout comme un Codex lancé par Kodosi ; demandez à un autre agent de lire `kodosi
+skill canvas`. Quand le canvas contient quelque chose, l'en-tête du terminal affiche un bouton
+pour ses fichiers et un pour son navigateur, avec un point cuivré pour les nouveautés.
 Choisissez-en un pour ouvrir le canvas à côté du terminal ; Plus d'espace donne la scène au
 canvas et garde le terminal petit dans son coin. Fermez une partie avec le × de son bouton, et
 rouvrez-la avec +. Ouvrir le navigateur, dans le bouton d'actions, ouvre le navigateur avant
 que l'agent ne l'utilise, et Ajouter un fichier… place un fichier sur le canvas et dans le
 dossier du terminal ; vous pouvez aussi déposer un fichier sur le canvas. Sur l'iPhone, le
-bouton du canvas est dans la barre du terminal.
+bouton du canvas est dans la barre du terminal, et un bandeau indique ce que l'agent montre ou
+change, avec Ouvrir.
 
 - Un document, une feuille, une présentation, un PDF ou un fichier texte est en direct :
   vous, les personnes du terminal et l'agent le modifiez en même temps, et il reste un

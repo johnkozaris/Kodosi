@@ -24,6 +24,12 @@ struct GeneralSettingsView: View {
             : "Closing the window quits Kodosi. Your terminals stop, and start again when Kodosi opens."
     }
 
+    private var canvasFooter: LocalizedStringKey {
+        deps.settings.opensCanvas
+            ? "The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it."
+            : "The canvas opens only when you open it. Its keys show what is new."
+    }
+
     private var languageFooter: LocalizedStringKey {
         let next = deps.settings.nextLanguage
         guard next != AppLanguage.current else {
@@ -82,6 +88,16 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.horizontal, 14).frame(minHeight: 52)
                 .accessibilityIdentifier("settings.keepRunning")
+            }
+            ListGroup(footer: canvasFooter) {
+                Toggle(isOn: $settings.opensCanvas) {
+                    HStack(spacing: 12) {
+                        IconTile(symbol: CanvasSymbol.canvas, tint: TileTint.orange, size: 28)
+                        Text("Open the canvas by itself")
+                    }
+                }
+                .padding(.horizontal, 14).frame(minHeight: 52)
+                .accessibilityIdentifier("settings.opensCanvas")
             }
             ListGroup(footer: commandFooter) {
                 ListRow(String(localized: "Command line"),

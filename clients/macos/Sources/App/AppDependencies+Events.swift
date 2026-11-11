@@ -226,7 +226,7 @@ extension AppDependencies {
         let restored = workbench.reconcile(received)
         reportVisible()
         restored.forEach(openStaged)
-        openShownCanvas()
+        followCanvas()
         consumeDeepLink()
     }
 
@@ -284,9 +284,35 @@ extension AppDependencies {
         }
     }
 
-    /// Opens the canvas of the terminal in front at what its agent showed, once for each show.
-    func openShownCanvas() {
-        guard let id = frontSessionId, let session = session(id), canvas.openShown(session) else { return }
+    /// Acts once on each show and change on the canvas of the terminal in front. A show opens the
+    /// canvas at it, or switches an open canvas to it. A change opens a closed canvas at it, unless
+    /// the person closed that canvas; an open one keeps what it shows. With Open the canvas by
+    /// itself off, nothing opens a closed canvas.
+    func followCanvas() {
+        guard let id = frontSessionId, let session = session(id) else { return }
+        var open = canvasOpen(id)
+        for news in canvas.news(session) {
+            let opens = switch news {
+            case .shown: open || settings.opensCanvas
+            case .changed: !open && settings.opensCanvas && !canvas.isShut(id)
+            }
+            guard opens else { continue }
+            canvas.reveal(news.shown, in: session)
+            showCanvas(id)
+            open = true
+        }
+    }
+
+    private func canvasOpen(_ id: String) -> Bool {
+        guard let session = session(id), canvas.showsSomething(session) else { return false }
+        switch workbench.section {
+        case .sessions: return workbench.canvasSessionId == id
+        case .missions: return workbench.selectedMissionId.flatMap { roomWorkspaces[$0] }?.showsCanvas == true
+        case .people, .settings: return false
+        }
+    }
+
+    private func showCanvas(_ id: String) {
         switch workbench.section {
         case .sessions:
             workbench.openCanvas(id)

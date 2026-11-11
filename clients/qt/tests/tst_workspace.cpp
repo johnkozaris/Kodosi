@@ -230,6 +230,38 @@ private slots:
         QVERIFY(roomShowsCanvas());
     }
 
+    void aChangeOpensTheCanvasInFrontOnlyWhenThePersonDidNotCloseIt()
+    {
+        Fixture f;
+        kodosi::CanvasModel canvas(f.commands, f.sessions, 2);
+        f.workspace.attachCanvas(canvas);
+        f.desktop.attachCanvas(&canvas);
+        const auto id = test::id(1);
+        const auto apply = [&](int openAt, int changeAt) {
+            auto entry = showing(1, openAt);
+            auto shown = entry.value(QStringLiteral("canvas")).toObject();
+            shown.insert(QStringLiteral("change"),
+                QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.md") }, { QStringLiteral("at"), changeAt } });
+            entry.insert(QStringLiteral("canvas"), shown);
+            f.workspace.apply(test::snapshot({ entry }), 0);
+            QCoreApplication::sendPostedEvents();
+        };
+        apply(2, 2);
+        QVERIFY(f.desktop.selectSession(id));
+        f.sessions.setVisible(id, true);
+        apply(2, 3);
+        QTRY_COMPARE(f.desktop.canvasSessionId(), id);
+        f.desktop.closeCanvas();
+        apply(2, 4);
+        QVERIFY(f.desktop.canvasSessionId().isEmpty());
+        apply(5, 4);
+        QTRY_COMPARE(f.desktop.canvasSessionId(), id);
+        f.settings.setOpensCanvas(false);
+        f.desktop.hideCanvas();
+        apply(6, 7);
+        QVERIFY(f.desktop.canvasSessionId().isEmpty());
+    }
+
     void theOnlyTerminalLeftOnTheStageComesToTheFrontAndOpensAtWhatItsAgentShowed()
     {
         Fixture f;

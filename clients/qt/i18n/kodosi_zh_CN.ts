@@ -1842,6 +1842,18 @@
         <translation>你的终端会继续运行。再次打开 Kodosi 即可查看。</translation>
     </message>
     <message>
+        <source>Open the canvas by itself</source>
+        <translation>自动打开画布</translation>
+    </message>
+    <message>
+        <source>The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it.</source>
+        <translation>Agent 在画布上展示内容时，画布会打开。画布上的文件或浏览器有变化时也会打开，除非你已将它关闭。</translation>
+    </message>
+    <message>
+        <source>The canvas opens only when you open it. Its keys show what is new.</source>
+        <translation>画布只在你打开它时才会打开。它的按钮会显示新内容。</translation>
+    </message>
+    <message>
         <source>Quit Kodosi</source>
         <translation>退出 Kodosi</translation>
     </message>

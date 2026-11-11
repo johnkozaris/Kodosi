@@ -41,6 +41,7 @@ Workspace::Workspace(CommandDispatcher& commands, SessionCatalogModel& sessions,
     , m_commands(commands)
     , m_sessions(sessions)
     , m_desktop(desktop)
+    , m_settings(settings)
     , m_account(*this)
     , m_people(*this)
     , m_devices(*this)
@@ -131,14 +132,14 @@ void Workspace::attachCanvas(CanvasModel& canvas)
 {
     m_canvas = &canvas;
     // Queued, so that the canvas opens after a change that moves the front, not in the middle of it.
-    connect(&m_sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &Workspace::openShownCanvas,
+    connect(&m_sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &Workspace::followCanvas,
         Qt::QueuedConnection);
-    connect(&m_sessions, &SessionCatalogModel::visibleChanged, this, &Workspace::openShownCanvas, Qt::QueuedConnection);
+    connect(&m_sessions, &SessionCatalogModel::visibleChanged, this, &Workspace::followCanvas, Qt::QueuedConnection);
     for (const auto signal : { &DesktopStateModel::activeViewChanged, &DesktopStateModel::stagedSessionIdsChanged,
              &DesktopStateModel::selectedSessionIdChanged, &DesktopStateModel::stageLayoutModeChanged })
-        connect(&m_desktop, signal, this, &Workspace::openShownCanvas, Qt::QueuedConnection);
-    connect(&m_missions, &MissionsModel::selectionChanged, this, &Workspace::openShownCanvas, Qt::QueuedConnection);
-    connect(&m_missions, &MissionsModel::presentationChanged, this, &Workspace::openShownCanvas, Qt::QueuedConnection);
+        connect(&m_desktop, signal, this, &Workspace::followCanvas, Qt::QueuedConnection);
+    connect(&m_missions, &MissionsModel::selectionChanged, this, &Workspace::followCanvas, Qt::QueuedConnection);
+    connect(&m_missions, &MissionsModel::presentationChanged, this, &Workspace::followCanvas, Qt::QueuedConnection);
 }
 
 QString Workspace::frontSessionId() const
@@ -172,11 +173,35 @@ void Workspace::openCanvas(const QString& sessionId, const QString& section)
     }
 }
 
-void Workspace::openShownCanvas()
+bool Workspace::canvasOpen(const QString& sessionId) const
+{
+    if (!m_canvas->showsSomething(sessionId))
+        return false;
+    if (m_desktop.activeView() == DesktopStateModel::Missions) {
+        const auto room = m_missions.presentation();
+        return room.value(QStringLiteral("showsCanvas")).toBool() && room.value(QStringLiteral("terminal")).toString() == sessionId;
+    }
+    return m_desktop.canvasSessionId() == sessionId;
+}
+
+// A show opens the canvas at it, or switches an open canvas to it. A change opens a closed canvas
+// at it, unless the person closed that canvas; an open one keeps what it shows. With Open the
+// canvas by itself off, nothing opens a closed canvas.
+void Workspace::followCanvas()
 {
     const auto id = frontSessionId();
-    if (!id.isEmpty() && m_canvas && m_canvas->openShown(id))
+    if (id.isEmpty() || !m_canvas)
+        return;
+    bool open = canvasOpen(id);
+    for (const auto& news : m_canvas->news(id)) {
+        const bool opens = news.shown ? open || m_settings.opensCanvas()
+                                      : !open && m_settings.opensCanvas() && !m_canvas->isShut(id);
+        if (!opens)
+            continue;
+        m_canvas->reveal(id, news.key);
         openCanvas(id, {});
+        open = true;
+    }
 }
 
 void Workspace::addFiles(const QString& sessionId, const QList<QUrl>& files)

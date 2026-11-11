@@ -219,6 +219,6 @@ private struct VisibleReporter: View {
     var body: some View {
         Color.clear
             .onChange(of: deps.shownSessionIds, initial: true) { _, _ in deps.reportVisible() }
-            .onChange(of: deps.frontSessionId) { _, _ in deps.openShownCanvas() }
+            .onChange(of: deps.frontSessionId) { _, _ in deps.followCanvas() }
     }
 }

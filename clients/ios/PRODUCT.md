@@ -34,15 +34,15 @@ reading provider conversations stay on the computer.
   mouse. A drag scrolls the terminal, or the program when it uses the mouse. A tap on the
   name of your own terminal in its bar renames it.
 - The canvas key in a terminal's bar opens the canvas full screen with the keys of its
-  parts in the bar, and it opens by itself at what the agent shows while the terminal is
-  open. A long press on a key closes its part, and the plus key opens a closed
-  part or the browser, or adds a file. The files are tabs over the file, each with the key
-  that takes it off the canvas, or all as cards, and a long press on one has Save a Copy,
-  Ask about this and Remove from canvas. Documents, sheets, presentations, PDFs and text
-  files are live, and other pictures and files show with Quick Look. In the shared
-  browser, its tabs are over the bar, taps and drags are clicks and scrolling, the address
-  offers the pages that the shared browsers showed on this device, and the keyboard key
-  types into it.
+  parts in the bar. The banner of what the agent showed or changed sits over the terminal
+  with Open and a cross; the cross, like Done on the canvas, closes the canvas. A long
+  press on a key closes its part, and the plus key opens a closed part or the browser, or
+  adds a file. The files are tabs over the file, each with the key that takes it off the
+  canvas, or all as cards, and a long press on one has Save a Copy, Ask about this and
+  Remove from canvas. Documents, sheets, presentations, PDFs and text files are live, and
+  other pictures and files show with Quick Look. In the shared browser, its tabs are over
+  the bar, taps and drags are clicks and scrolling, the address offers the pages that the
+  shared browsers showed on this device, and the keyboard key types into it.
 - Projects show the conversation, tasks and terminals, side by side on a wide iPad, and
   the Projects tab counts invitations and projects with new messages. Settings holds the
   account, friends, devices, recovery key, appearance, the size of terminal text on this

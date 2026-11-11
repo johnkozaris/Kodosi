@@ -1842,6 +1842,18 @@
         <translation>ターミナルは実行を続けます。もう一度 Kodosi を開くと表示されます。</translation>
     </message>
     <message>
+        <source>Open the canvas by itself</source>
+        <translation>キャンバスを自動で開く</translation>
+    </message>
+    <message>
+        <source>The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it.</source>
+        <translation>エージェントがキャンバスに何かを表示すると、キャンバスが開きます。キャンバス上のファイルやブラウザが変わったときも開きますが、自分で閉じた場合は開きません。</translation>
+    </message>
+    <message>
+        <source>The canvas opens only when you open it. Its keys show what is new.</source>
+        <translation>キャンバスは自分で開いたときだけ開きます。新しいものはボタンに表示されます。</translation>
+    </message>
+    <message>
         <source>Quit Kodosi</source>
         <translation>Kodosi を終了</translation>
     </message>

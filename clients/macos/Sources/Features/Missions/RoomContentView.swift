@@ -131,6 +131,7 @@ private struct RoomTerminals: View {
         CanvasStage(canvas: open ? current : nil, front: current.id, wide: $workspace.canvasWide,
                     width: $workspace.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true)
         {
+            deps.canvas.closeCanvas(current.id)
             workspace.showsCanvas = false
             workspace.canvasWide = false
         } terminal: {

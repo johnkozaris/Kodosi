@@ -170,6 +170,12 @@ void DesktopStateModel::hideCanvas()
     m_canvasWide = false;
     emit canvasChanged();
 }
+void DesktopStateModel::closeCanvas()
+{
+    if (m_canvasModel && !m_canvas.isEmpty())
+        m_canvasModel->closeCanvas(m_canvas);
+    hideCanvas();
+}
 bool DesktopStateModel::showsSomething(const QString& id) const
 {
     return m_canvasModel && m_canvasModel->showsSomething(id);
@@ -246,6 +252,7 @@ void DesktopStateModel::exitFocusMode()
 void DesktopStateModel::toggleFocusForSelectedSession()
 {
     if (m_mode == Focus) {
+        closeCanvas();
         exitFocusMode();
     } else if (!m_selected.isEmpty()) {
         m_mode = Focus;

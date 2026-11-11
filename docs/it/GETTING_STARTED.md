@@ -100,16 +100,18 @@ una barra di avanzamento. Un programma che non comunica nulla non mostra uno sta
 
 Un agente può mostrarti una pagina, Markdown, un'immagine, un PDF, un documento, un foglio, una
 presentazione o l'app che esegue sul canvas del suo terminale, e usare un browser che condividi
-con lui. Il canvas si apre con ciò che l'agente mostra mentre guardi il suo terminale. Claude
-Code e Copilot CLI sanno come fare, anche quando li avvii tu, e così un Codex avviato da
-Kodosi; a un altro agente, di' di leggere `kodosi skill canvas`. Quando il canvas ha qualcosa,
-l'intestazione del terminale mostra un pulsante per i suoi file e uno per il suo browser, con
-un punto color rame per le novità. Selezionane uno per aprire il canvas accanto al terminale;
-Più spazio dà la scena al canvas e tiene il terminale piccolo nel suo angolo. Chiudi una parte
-con la × sul suo pulsante e riaprila con +. Apri browser, nel pulsante delle azioni, apre il
-browser prima che l'agente lo usi, e Aggiungi un file… mette un file sul canvas e nella
-cartella del terminale; puoi anche trascinare un file sul canvas. Su iPhone, il pulsante del
-canvas è nella barra del terminale.
+con lui. Il canvas si apre con ciò che l'agente mostra mentre guardi il suo terminale, e quando
+cambia un file del canvas o il browser, a meno che tu non l'abbia chiuso. Per aprirlo solo tu,
+disattiva Apri il canvas automaticamente in Impostazioni › Generale. Claude Code e Copilot CLI
+sanno come fare, anche quando li avvii tu, e così un Codex avviato da Kodosi; a un altro
+agente, di' di leggere `kodosi skill canvas`. Quando il canvas ha qualcosa, l'intestazione del
+terminale mostra un pulsante per i suoi file e uno per il suo browser, con un punto color rame
+per le novità. Selezionane uno per aprire il canvas accanto al terminale; Più spazio dà la
+scena al canvas e tiene il terminale piccolo nel suo angolo. Chiudi una parte con la × sul suo
+pulsante e riaprila con +. Apri browser, nel pulsante delle azioni, apre il browser prima che
+l'agente lo usi, e Aggiungi un file… mette un file sul canvas e nella cartella del terminale;
+puoi anche trascinare un file sul canvas. Su iPhone, il pulsante del canvas è nella barra del
+terminale, e un banner indica cosa l'agente mostra o cambia, con Apri.
 
 - Un documento, un foglio, una presentazione, un PDF o un file di testo è dal vivo: tu, le
   persone nel terminale e l'agente lo modificate nello stesso momento, e resta un file

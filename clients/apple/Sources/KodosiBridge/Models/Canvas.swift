@@ -5,14 +5,17 @@ public struct Canvas: Decodable, Equatable, Sendable {
     public let sequence: UInt64
     public let items: [CanvasItem]
     public let browser: CanvasBrowser?
-    /// Where the canvas opened last for the people of the terminal, which each device opens once.
+    /// What the agent showed last, which each device acts on once.
     public let open: CanvasOpen?
+    /// What changed last: a file, or the browser by a command of the agent. Each device acts on it once.
+    public let change: CanvasOpen?
 
-    public init(sequence: UInt64, items: [CanvasItem], browser: CanvasBrowser?, open: CanvasOpen? = nil) {
+    public init(sequence: UInt64, items: [CanvasItem], browser: CanvasBrowser?, open: CanvasOpen? = nil, change: CanvasOpen? = nil) {
         self.sequence = sequence
         self.items = items
         self.browser = browser
         self.open = open
+        self.change = change
     }
 
     public init(from decoder: any Decoder) throws {
@@ -21,9 +24,10 @@ public struct Canvas: Decodable, Equatable, Sendable {
         items = try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? []
         browser = try container.decodeIfPresent(CanvasBrowser.self, forKey: .browser)
         open = try container.decodeIfPresent(CanvasOpen.self, forKey: .open)
+        change = try container.decodeIfPresent(CanvasOpen.self, forKey: .change)
     }
 
-    private enum CodingKeys: String, CodingKey { case sequence, items, browser, open }
+    private enum CodingKeys: String, CodingKey { case sequence, items, browser, open, change }
 
     /// The items, the newest first, and then the browser.
     public var shown: [CanvasShown] {

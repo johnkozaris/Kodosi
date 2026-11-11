@@ -100,16 +100,19 @@ una barra de progreso. Un programa que no indica nada no muestra estado.
 
 Un agente puede mostrarte una página, Markdown, una imagen, un PDF, un documento, una hoja,
 una presentación o la app que ejecuta en el lienzo de su terminal, y usar un navegador que
-compartes con él. El lienzo se abre con lo que muestra el agente mientras miras su terminal.
-Claude Code y Copilot CLI saben cómo, también cuando los inicias tú, y también un Codex que
-inicia Kodosi; a otro agente, dile que lea `kodosi skill canvas`. Cuando el lienzo tiene algo,
-la cabecera del terminal muestra un botón para sus archivos y otro para su navegador, con un
-punto cobrizo cuando hay novedades. Selecciona uno para abrir el lienzo junto al terminal; Más
-espacio le da el escenario al lienzo y deja el terminal pequeño en su esquina. Cierra una
-parte con la × de su botón y vuelve a abrirla con +. Abrir navegador, en el botón de acciones,
-abre el navegador antes de que lo use el agente, y Añadir un archivo… pone un archivo en el
-lienzo y en la carpeta del terminal; también puedes soltar un archivo sobre el lienzo. En el
-iPhone, el botón del lienzo está en la barra del terminal.
+compartes con él. El lienzo se abre con lo que muestra el agente mientras miras su terminal, y
+cuando cambia un archivo del lienzo o el navegador, salvo que lo hayas cerrado. Para abrirlo
+solo tú, desactiva Abrir el lienzo automáticamente en Ajustes › General. Claude Code y Copilot
+CLI saben cómo, también cuando los inicias tú, y también un Codex que inicia Kodosi; a otro
+agente, dile que lea `kodosi skill canvas`. Cuando el lienzo tiene algo, la cabecera del
+terminal muestra un botón para sus archivos y otro para su navegador, con un punto cobrizo
+cuando hay novedades. Selecciona uno para abrir el lienzo junto al terminal; Más espacio le da
+el escenario al lienzo y deja el terminal pequeño en su esquina. Cierra una parte con la × de
+su botón y vuelve a abrirla con +. Abrir navegador, en el botón de acciones, abre el navegador
+antes de que lo use el agente, y Añadir un archivo… pone un archivo en el lienzo y en la
+carpeta del terminal; también puedes soltar un archivo sobre el lienzo. En el iPhone, el botón
+del lienzo está en la barra del terminal, y un aviso indica lo que el agente muestra o cambia,
+con Abrir.
 
 - Un documento, una hoja, una presentación, un PDF o un archivo de texto está en directo:
   tú, las personas del terminal y el agente lo editáis a la vez, y sigue siendo un archivo

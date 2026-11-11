@@ -45,7 +45,7 @@ public:
     void reset();
     void route(const DeepLinkDestination& destination);
     void setError(QString error);
-    // Opens the canvas of the terminal in front at what its agent showed, once for each show.
+    // Opens the canvas of the terminal in front at what its agent shows and changes, once for each.
     void attachCanvas(CanvasModel& canvas);
     // Puts files on the canvas of a terminal and opens the canvas at its files where the person
     // is: in the room that shows the terminal, or else on the stage.
@@ -80,6 +80,7 @@ private:
     CommandDispatcher& m_commands;
     SessionCatalogModel& m_sessions;
     DesktopStateModel& m_desktop;
+    DesktopSettings& m_settings;
     QPointer<CanvasModel> m_canvas;
     QHash<QString, Pending> m_pending;
     std::optional<std::pair<QStringList, bool>> m_reportedVisible;
@@ -101,7 +102,8 @@ private:
     void notifyBusy();
     void reportVisible();
     void openCanvas(const QString& sessionId, const QString& section);
-    void openShownCanvas();
+    [[nodiscard]] bool canvasOpen(const QString& sessionId) const;
+    void followCanvas();
     void askRestore();
     void receiveResult(const QString& type, const QJsonObject& event);
     void clearAccountData(bool clearLinks, const QString& userId);

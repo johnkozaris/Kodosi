@@ -47,16 +47,19 @@ pub struct Canvas {
     pub items: Vec<CanvasItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser: Option<CanvasBrowser>,
+    /// What the agent showed last, with `kodosi show` or in the browser.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub open: Option<CanvasOpen>,
+    /// What changed last: a file of the canvas, by anyone, or the browser by a command of the
+    /// agent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub change: Option<CanvasOpen>,
 }
 
-/// Where the canvas opened last for the people of the terminal: an item by its key or the browser.
+/// An item of the canvas by its key, or the browser, and when the agent showed it or it changed.
 ///
-/// The agent's `kodosi show` opens it, and so do its `kodosi browser` command and a change of a
-/// file of the canvas after a quiet while. `at` is when, in milliseconds since 1970 on the
-/// terminal's computer. Each device opens its canvas there once, and only for an open after the
-/// device's app started.
+/// `at` is in milliseconds since 1970 on the terminal's computer, later than each show and change
+/// before. Each device acts on each one once, and only on one after the device's app started.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CanvasOpen {
