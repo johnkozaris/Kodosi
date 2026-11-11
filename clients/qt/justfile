@@ -45,21 +45,12 @@ test: build
 dependency-pins-check:
     python3 scripts/build/verify-dependency-pins.py
 
-# Check that each Rust dependency of the Linux and the Windows runtime has license text.
-rust-license-check:
-    for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc; do \
-        python3 scripts/release/generate-rust-license-inventory.py \
-            --manifest ../../runtime/Cargo.toml \
-            --target "$target" \
-            --output-dir "build/rust-license-check/$target"; \
-    done
-
 # Check the native license evidence against the installed Qt.
 native-license-check: tools-install
     python3 scripts/release/verify-native-license-evidence.py
 
 # Lint and test the Linux app and check its dependency pins and license evidence.
-check: dependency-pins-check rust-license-check native-license-check lint strings-check test
+check: dependency-pins-check native-license-check lint strings-check test
 
 # Build the Windows app in Git Bash on Windows 11.
 windows-build: tools-install

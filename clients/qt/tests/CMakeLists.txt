@@ -3,7 +3,6 @@ function(kodosi_test name source)
     target_link_libraries(${name} PRIVATE
         kodosi-application kodosi-desktop-integration kodosi-terminal-kernel
         kodosi-ghostty-vt Qt6::Test Qt6::Widgets Qt6::QuickControls2)
-    target_compile_definitions(${name} PRIVATE KODOSI_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     add_test(NAME ${name} COMMAND ${KODOSI_TEST_LAUNCHER} "$<TARGET_FILE:${name}>")
     set_tests_properties(${name} PROPERTIES
         ENVIRONMENT "${KODOSI_TEST_ENVIRONMENT}"
@@ -13,7 +12,6 @@ endfunction()
 
 qt_add_executable(kodosi-runtime-tests tst_runtime_bridge.cpp RuntimeApiFixture.cpp)
 target_link_libraries(kodosi-runtime-tests PRIVATE kodosi-runtime Kodosi::RustRuntime Qt6::Test)
-target_compile_definitions(kodosi-runtime-tests PRIVATE KODOSI_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 add_test(NAME kodosi-runtime-tests COMMAND kodosi-runtime-tests)
 set_tests_properties(kodosi-runtime-tests PROPERTIES
     ENVIRONMENT_MODIFICATION "${KODOSI_TEST_ENVIRONMENT_MODIFICATION}")

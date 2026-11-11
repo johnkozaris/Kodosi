@@ -94,9 +94,19 @@ rust-advisories-check: (rust-tool-check "cargo-deny")
 rust-machete-check: (rust-tool-check "cargo-machete")
     cargo machete --skip-target-dir runtime
 
-# Run rust-deny-check and rust-machete-check.
+# Check that each Rust dependency of the Linux and the Windows runtime has license text.
 [group('rust')]
-rust-dependency-check: rust-deny-check rust-machete-check
+rust-license-check:
+    for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc; do \
+        python3 clients/qt/scripts/release/generate-rust-license-inventory.py \
+            --manifest runtime/Cargo.toml \
+            --target "$target" \
+            --output-dir "runtime/target/rust-license-check/$target"; \
+    done
+
+# Run rust-deny-check, rust-machete-check and rust-license-check.
+[group('rust')]
+rust-dependency-check: rust-deny-check rust-machete-check rust-license-check
 
 # Windows terminals and tests find the pinned ConPTY host in KODOSI_CONPTY_DIR.
 [private]
