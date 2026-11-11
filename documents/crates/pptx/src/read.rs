@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Write as _};
 
 use document::{Assets, Unreadable};
-use package::{Package, RELATIONSHIPS, Relation, STRICT_RELATIONSHIPS};
+use package::{Package, Relation, relation_id};
 use roxmltree::{Document, Node as Xml};
 use serde_json::{Map, Value, json};
 use sha2::{Digest as _, Sha256};
@@ -28,18 +28,6 @@ pub(crate) fn local<'a, 'input>(node: Xml<'a, 'input>, name: &str) -> Option<Xml
 fn descendant<'a, 'input>(node: Xml<'a, 'input>, name: &str) -> Option<Xml<'a, 'input>> {
     node.descendants()
         .find(|child| child.is_element() && child.tag_name().name() == name)
-}
-
-fn relation_id<'a>(node: Xml<'a, '_>, name: &str) -> Option<&'a str> {
-    node.attributes()
-        .find(|attribute| {
-            attribute.name() == name
-                && matches!(
-                    attribute.namespace(),
-                    Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
-                )
-        })
-        .map(|attribute| attribute.value())
 }
 
 fn hash_of(text: &str) -> String {

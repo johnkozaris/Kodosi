@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Write as _};
 
 use document::{Assets, Unreadable};
-use package::{Package, RELATIONSHIPS, Relation, STRICT_RELATIONSHIPS};
+use package::{Package, Relation, relation_id};
 use roxmltree::Node as Xml;
 use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
@@ -44,18 +44,6 @@ pub(crate) fn is_word_attribute(attribute: &roxmltree::Attribute<'_, '_>) -> boo
 pub(crate) fn word_attribute<'a>(node: Xml<'a, '_>, name: &str) -> Option<&'a str> {
     node.attributes()
         .find(|attribute| attribute.name() == name && is_word_attribute(attribute))
-        .map(|attribute| attribute.value())
-}
-
-fn relation_id<'a>(node: Xml<'a, '_>, name: &str) -> Option<&'a str> {
-    node.attributes()
-        .find(|attribute| {
-            attribute.name() == name
-                && matches!(
-                    attribute.namespace(),
-                    Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
-                )
-        })
         .map(|attribute| attribute.value())
 }
 

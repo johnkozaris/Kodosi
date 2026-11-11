@@ -123,7 +123,19 @@ pub const PACKAGE_RELATIONSHIPS: &str =
 pub const RELATIONSHIPS: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 /// The same namespace in the strict form of the standard.
-pub const STRICT_RELATIONSHIPS: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+const STRICT_RELATIONSHIPS: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+
+pub fn relation_id<'a>(node: roxmltree::Node<'a, '_>, name: &str) -> Option<&'a str> {
+    node.attributes()
+        .find(|attribute| {
+            attribute.name() == name
+                && matches!(
+                    attribute.namespace(),
+                    Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
+                )
+        })
+        .map(|attribute| attribute.value())
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relation {

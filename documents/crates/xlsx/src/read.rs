@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use document::Unreadable;
-use package::{Package, RELATIONSHIPS, Relation, STRICT_RELATIONSHIPS, escape};
+use package::{Package, Relation, escape, relation_id};
 use roxmltree::{Document, Node as Xml};
 
 use crate::{
@@ -56,17 +56,7 @@ pub(crate) fn read(file: &[u8]) -> Result<Model, Unreadable> {
         .ok_or_else(|| Unreadable("the workbook has no sheets".to_owned()))?;
     let mut sheets = Vec::new();
     for entry in locals(list, "sheet") {
-        let relation = entry
-            .attributes()
-            .find(|attribute| {
-                attribute.name() == "id"
-                    && matches!(
-                        attribute.namespace(),
-                        Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
-                    )
-            })
-            .map(|attribute| attribute.value());
-        let part = relation
+        let part = relation_id(entry, "id")
             .and_then(|id| relations.get(id))
             .map(|relation| relation.target.clone());
         let Some(part) = part else {
@@ -270,16 +260,7 @@ fn read_sheet(
 }
 
 fn link_of(element: Xml<'_, '_>, relations: &HashMap<String, Relation>) -> Option<Link> {
-    let relation = element
-        .attributes()
-        .find(|attribute| {
-            attribute.name() == "id"
-                && matches!(
-                    attribute.namespace(),
-                    Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
-                )
-        })
-        .and_then(|attribute| relations.get(attribute.value()));
+    let relation = relation_id(element, "id").and_then(|id| relations.get(id));
     match (relation, element.attribute("location")) {
         (Some(relation), _) if relation.external => Some(Link::Href(relation.target.clone())),
         (_, Some(location)) if !location.is_empty() => Some(Link::Location(location.to_owned())),
