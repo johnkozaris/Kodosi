@@ -132,11 +132,6 @@ impl Documents {
         open.get(path).map(|document| document.commands.clone())
     }
 
-    /// Whether a file is open as a live document.
-    pub fn is_open(&self, path: &Path) -> bool {
-        real_path(path).is_ok_and(|path| self.running(&path).is_some())
-    }
-
     fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<PathBuf, Open>> {
         self.shared
             .open

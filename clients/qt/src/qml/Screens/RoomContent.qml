@@ -549,6 +549,7 @@ Item {
                                 wide: root.presentation.canvasWide === true
                                 chosenWidth: root.presentation.canvasWidth || 0
                                 onHideRequested: {
+                                    Models.Canvas.closeCanvas(root.shownTerminal);
                                     Models.Missions.setPresentation("showsCanvas", false);
                                     Models.Missions.setPresentation("canvasWide", false);
                                 }

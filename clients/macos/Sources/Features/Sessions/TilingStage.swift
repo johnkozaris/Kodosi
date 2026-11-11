@@ -33,6 +33,7 @@ struct TilingStage: View {
             CanvasStage(canvas: canvasSession, front: workbench.focusedSessionId, wide: $workbench.canvasWide,
                         width: $workbench.canvasWidth)
             {
+                workbench.canvasSessionId.map(deps.canvas.closeCanvas)
                 workbench.hideCanvas()
             } terminal: {
                 tiles(alone: alone).onGeometryChange(for: CGSize.self, of: \.size) { workbench.tileRoom = $0 }

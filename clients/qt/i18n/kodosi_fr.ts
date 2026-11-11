@@ -1845,6 +1845,18 @@
         <translation>Vos terminaux continuent de fonctionner. Rouvrez Kodosi pour les voir.</translation>
     </message>
     <message>
+        <source>Open the canvas by itself</source>
+        <translation>Ouvrir le canvas automatiquement</translation>
+    </message>
+    <message>
+        <source>The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it.</source>
+        <translation>Le canvas s&apos;ouvre quand l&apos;agent y montre quelque chose. Une modification d&apos;un fichier ou du navigateur du canvas l&apos;ouvre aussi, sauf si vous l&apos;avez fermé.</translation>
+    </message>
+    <message>
+        <source>The canvas opens only when you open it. Its keys show what is new.</source>
+        <translation>Le canvas ne s&apos;ouvre que lorsque vous l&apos;ouvrez. Ses boutons montrent ce qui est nouveau.</translation>
+    </message>
+    <message>
         <source>Quit Kodosi</source>
         <translation>Quitter Kodosi</translation>
     </message>

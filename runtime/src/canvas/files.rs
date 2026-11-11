@@ -19,8 +19,6 @@ use crate::text::Text;
 const MOST_PAGE_SOURCE: u64 = 8 * 1024 * 1024;
 const NAME_CHARACTERS: usize = 128;
 const SNAPSHOT_KEPT: std::time::Duration = std::time::Duration::from_mins(1);
-/// A change after this long without one opens the canvas at the file again.
-pub(super) const QUIET: std::time::Duration = std::time::Duration::from_mins(1);
 
 /// The formats of live documents, which say whether a text file opens live.
 static FORMATS: LazyLock<documents::Formats> = LazyLock::new(documents_cli::formats);
@@ -50,24 +48,13 @@ struct Item {
     path: PathBuf,
     listed: CanvasItem,
     seen: Option<Seen>,
-    /// When the file was shown or last changed.
-    touched: Option<tokio::time::Instant>,
-}
-
-impl Item {
-    /// Notes a change, and says whether it comes after a quiet while.
-    fn touch(&mut self) -> bool {
-        let quiet = self.touched.is_none_or(|at| at.elapsed() >= QUIET);
-        self.touched = Some(tokio::time::Instant::now());
-        quiet
-    }
 }
 
 /// What a check of the files found.
 pub(super) struct Checked {
     pub(super) any: bool,
-    /// The files whose change comes after a quiet while, newest first.
-    pub(super) after_quiet: Vec<String>,
+    /// The files whose content changed, newest first.
+    pub(super) changed: Vec<String>,
 }
 
 /// A file that the canvas can show.
@@ -164,7 +151,6 @@ impl Files {
                     item.listed.missing = false;
                     item.listed.changed = changed;
                     item.seen = Some(seen);
-                    item.touched = Some(tokio::time::Instant::now());
                     item
                 }
                 None => Item {
@@ -180,7 +166,6 @@ impl Files {
                     },
                     path,
                     seen: Some(seen),
-                    touched: Some(tokio::time::Instant::now()),
                 },
             };
             shown.push(Shown {
@@ -221,24 +206,14 @@ impl Files {
                 },
                 path,
                 seen: None,
-                touched: None,
             });
         }
-    }
-
-    /// Notes that the agent changed a file of the canvas, and says whether the change comes
-    /// after a quiet while.
-    pub(super) fn touch(&mut self, key: &str) -> bool {
-        self.items
-            .iter_mut()
-            .find(|item| item.listed.key == key)
-            .is_some_and(Item::touch)
     }
 
     /// Checks each file for a change. A changed file gets a new revision.
     pub(super) async fn check(&mut self, stamp: &Stamp) -> Checked {
         let mut any = false;
-        let mut after_quiet = Vec::new();
+        let mut changed = Vec::new();
         for item in &mut self.items {
             let seen = tokio::fs::metadata(&item.path)
                 .await
@@ -256,12 +231,10 @@ impl Files {
                 }
                 Some(seen) if item.seen.as_ref() != Some(&seen) => {
                     if item.seen.is_some() || item.listed.missing {
-                        let changed = stamp.next();
-                        item.listed.revision = changed;
-                        item.listed.changed = changed;
-                        if item.touch() {
-                            after_quiet.push(item.listed.key.clone());
-                        }
+                        let at = stamp.next();
+                        item.listed.revision = at;
+                        item.listed.changed = at;
+                        changed.push(item.listed.key.clone());
                     }
                     item.listed.view = view_of(&item.path, seen.bytes).await;
                     item.listed.bytes = seen.bytes;
@@ -279,7 +252,7 @@ impl Files {
         {
             self.snapshot = None;
         }
-        Checked { any, after_quiet }
+        Checked { any, changed }
     }
 
     /// Removes the items with these keys, or all items when there are no keys.

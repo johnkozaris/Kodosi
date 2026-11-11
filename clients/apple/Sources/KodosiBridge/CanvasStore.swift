@@ -1,6 +1,19 @@
 import Foundation
 import Observation
 
+/// What the agent of a terminal showed on its canvas, or what changed there, which a device acts
+/// on once.
+public enum CanvasNews: Equatable, Sendable {
+    case shown(CanvasShown)
+    case changed(CanvasShown)
+
+    public var shown: CanvasShown {
+        switch self {
+        case let .shown(shown), let .changed(shown): shown
+        }
+    }
+}
+
 /// What this device knows of the canvases of the terminals: what a person saw and picked, and
 /// the content of the items that it showed.
 @MainActor
@@ -40,9 +53,14 @@ public final class CanvasStore {
     /// The parts of each canvas that a person closed on this device, with the newest change in
     /// each part then. A part opens again when it changes.
     private var closed: [String: [CanvasSection: UInt64]] = [:]
-    /// The time of the newest show of each terminal's agent that this device opened, or the start
-    /// of the app: a show from before opens nothing.
+    /// The time of the newest show of each terminal's agent that this device acted on, or the start
+    /// of the app: a show from before is not news.
     private var opened: [String: UInt64] = [:]
+    /// The same for the changes of each canvas.
+    private var noticed: [String: UInt64] = [:]
+    /// The terminals whose canvas a person closed on this device since it last opened or its agent
+    /// last showed something: a change does not open it.
+    private var shut: Set<String> = []
     /// When the app started, in milliseconds since 1970.
     private let started: UInt64
     @ObservationIgnored private var stored: [Stored: Data] = [:]
@@ -87,6 +105,7 @@ public final class CanvasStore {
         }
         for session in sessions where opened[session.id] == nil {
             opened[session.id] = started
+            noticed[session.id] = started
         }
         firstSeen = firstSeen.filter { ids.contains($0.key) }
         marks = marks.filter { ids.contains($0.key) }
@@ -100,6 +119,7 @@ public final class CanvasStore {
             }
         }
         opening.formIntersection(ids)
+        shut.formIntersection(ids)
         closed = closed.filter { ids.contains($0.key) }
         picks = picks.filter { ids.contains($0.key) }
         lastFiles = lastFiles.filter { ids.contains($0.key) }
@@ -124,7 +144,12 @@ public final class CanvasStore {
         session.canvas?.shown.contains { isNew($0, in: session.id) } ?? false
     }
 
+    /// A person saw an item: it is no longer news, and an open canvas stays at it until the
+    /// person picks another or the agent shows something.
     public func saw(_ shown: CanvasShown, in session: String) {
+        if picks[session] == nil {
+            picks[session] = shown.key
+        }
         guard isNew(shown, in: session) else { return }
         marks[session, default: [:]][shown.key] = shown.changed
     }
@@ -178,6 +203,7 @@ public final class CanvasStore {
     /// Opens the canvas of a terminal at a part, or else at something: when a person closed all its
     /// parts on this device, the part with the newest change opens again.
     public func open(_ session: RuntimeSession, at section: CanvasSection? = nil) {
+        shut.remove(session.id)
         if let section {
             show(section, in: session)
         } else if !showsSomething(session), let newest = session.canvas?.newest {
@@ -185,27 +211,57 @@ public final class CanvasStore {
         }
     }
 
-    /// Whether the agent of a terminal showed something that this device did not open yet.
-    public func showsNew(_ session: RuntimeSession) -> Bool {
-        guard let open = session.canvas?.open, open.at > (opened[session.id] ?? started) else { return false }
-        return session.canvas?.shown(open.key) != nil
+    /// What the agent of a terminal showed and what changed on its canvas since this device last
+    /// acted on it, the older first, each once. One from before the app started, or of an item that
+    /// the canvas no longer has, is not news.
+    public func news(_ session: RuntimeSession) -> [CanvasNews] {
+        guard let canvas = session.canvas else { return [] }
+        var news: [(at: UInt64, news: CanvasNews)] = []
+        if let open = canvas.open, open.at > opened[session.id] ?? started {
+            opened[session.id] = open.at
+            if let shown = canvas.shown(open.key) {
+                shut.remove(session.id)
+                news.append((open.at, .shown(shown)))
+            }
+        }
+        if let change = canvas.change, change.at > noticed[session.id] ?? started {
+            noticed[session.id] = change.at
+            if let shown = canvas.shown(change.key) {
+                news.append((change.at, .changed(shown)))
+            }
+        }
+        return news.sorted { $0.at < $1.at }.map(\.news)
     }
 
-    /// Opens the canvas of a terminal at what its agent showed, once for each show, and says
-    /// whether there was something to open.
-    public func openShown(_ session: RuntimeSession) -> Bool {
-        guard showsNew(session), let open = session.canvas?.open, let shown = session.canvas?.shown(open.key) else { return false }
-        opened[session.id] = open.at
+    /// Opens the canvas of a terminal at what its agent showed or what changed: its part opens
+    /// again on this device.
+    public func reveal(_ shown: CanvasShown, in session: RuntimeSession) {
+        settle(session)
+        shut.remove(session.id)
         closed[session.id]?[shown.section] = nil
         pick(shown.key, in: session.id)
-        return true
     }
 
-    /// A person on this device opened or closed the canvas, so what its agent showed until now
-    /// does not open it again.
+    /// A person closed the canvas of a terminal on this device, so a change does not open it
+    /// again until it opens or its agent shows something.
+    public func closeCanvas(_ session: String) {
+        shut.insert(session)
+    }
+
+    /// Whether a person closed the canvas of a terminal on this device since it last opened or its
+    /// agent last showed something.
+    public func isShut(_ session: String) -> Bool {
+        shut.contains(session)
+    }
+
+    /// A person on this device opened or closed the canvas, so what its agent showed or changed
+    /// until now is not news.
     private func settle(_ session: RuntimeSession) {
         if let at = session.canvas?.open?.at {
             opened[session.id] = max(opened[session.id] ?? started, at)
+        }
+        if let at = session.canvas?.change?.at {
+            noticed[session.id] = max(noticed[session.id] ?? started, at)
         }
     }
 
@@ -231,6 +287,7 @@ public final class CanvasStore {
     /// person saw last there, else the newest file.
     public func show(_ section: CanvasSection, in session: RuntimeSession) {
         settle(session)
+        shut.remove(session.id)
         closed[session.id]?[section] = nil
         switch section {
         case .browser:
@@ -328,6 +385,7 @@ public final class CanvasStore {
             show(.browser, in: session)
             return
         }
+        shut.remove(session.id)
         closed[session.id]?[.browser] = nil
         opening.insert(session.id)
         do {

@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         Task { [dependencies] in
             for await _ in NotificationCenter.default.notifications(named: NSWindow.didChangeOcclusionStateNotification) {
                 dependencies.reportVisible()
+                dependencies.followCanvas()
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.windowChromeSettle) {

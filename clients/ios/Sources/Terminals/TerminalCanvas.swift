@@ -34,6 +34,40 @@ struct CanvasKey: View {
     }
 }
 
+/// What the agent showed or changed on a closed canvas, over the terminal: Open opens the canvas
+/// there, and the cross puts the banner away.
+struct CanvasBanner: View {
+    @Environment(\.theme) private var theme
+    @ScaledMetric(relativeTo: .footnote) private var glyph: CGFloat = 12
+    let news: CanvasNews
+    let open: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: news.shown.symbol)
+                .font(.system(size: glyph, weight: .semibold))
+                .foregroundStyle(theme.colors.accentStrong)
+                .accessibilityHidden(true)
+            Text(news.shown.title)
+                .appTextStyle(.footnote)
+                .foregroundStyle(theme.colors.ink)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Button("Open", action: open)
+                .buttonStyle(.kodosi(.tinted, size: .small))
+                .accessibilityIdentifier("terminal.canvasBanner.open")
+            IconButton(title: "Close", symbol: "xmark", identifier: "terminal.canvasBanner.close", size: 28, action: dismiss)
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("terminal.canvasBanner")
+    }
+}
+
 private struct CanvasCopy {
     let name: String
     let data: Data
@@ -125,7 +159,10 @@ struct CanvasScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    IconButton(title: "Done", symbol: "xmark", identifier: "canvas.done", size: 32) { dismiss() }
+                    IconButton(title: "Done", symbol: "xmark", identifier: "canvas.done", size: 32) {
+                        store.closeCanvas(sessionId)
+                        dismiss()
+                    }
                 }
                 .sharedBackgroundVisibility(.hidden)
                 if let session, session.canvas != nil {

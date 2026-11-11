@@ -33,6 +33,7 @@ private struct TerminalScreenContent: View {
     @State private var prompt: TerminalPrompt?
     @State private var showsSharing = false
     @State private var canvasOpen = false
+    @State private var arrival: CanvasNews?
     @State private var addingFile = false
     @State private var keyboard = TerminalKeyboard(hardware: GCKeyboard.coalesced != nil)
     @FocusState private var composing: Bool
@@ -144,7 +145,7 @@ private struct TerminalScreenContent: View {
         .modifier(CanvasFilePicker(isPresented: $addingFile, session: session) { canvasOpen = true })
         .onAppear {
             controller.appear(active: scenePhase == .active)
-            openShownCanvas()
+            followCanvas()
             ScreenAwake.terminalShown()
         }
         .onDisappear {
@@ -153,16 +154,22 @@ private struct TerminalScreenContent: View {
         }
         .onChange(of: scenePhase) { _, phase in
             controller.setActive(phase == .active)
-            openShownCanvas()
+            followCanvas()
         }
         .onChange(of: model.lock.locked) { _, locked in
             controller.refresh()
-            openShownCanvas()
+            followCanvas()
             if !locked, !canvasOpen, keyboard.input(composing: false) == .composing {
                 composing = true
             }
         }
-        .onChange(of: session?.canvas?.open) { _, _ in openShownCanvas() }
+        .onChange(of: session?.canvas?.open) { _, _ in followCanvas() }
+        .onChange(of: session?.canvas?.change) { _, _ in followCanvas() }
+        .onChange(of: canvasOpen) { _, open in
+            if open {
+                arrival = nil
+            }
+        }
         .onChange(of: liveKey) { _, _ in controller.refresh() }
         .onChange(of: controller.sessionId) { _, _ in prompt = nil }
         .onChange(of: composing) { _, focused in
@@ -191,11 +198,33 @@ private struct TerminalScreenContent: View {
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
     }
 
-    /// Opens the canvas at what the terminal's agent showed, once for each show.
-    private func openShownCanvas() {
-        if controller.openShownCanvas() {
-            canvasOpen = true
+    /// Acts once on each show and change on the canvas. An open canvas switches to a show. A closed
+    /// one offers a show in a banner, and a change too unless the person closed the canvas.
+    private func followCanvas() {
+        guard let session = controller.session else { return }
+        let store = model.terminals.canvas
+        for news in controller.canvasNews() {
+            switch news {
+            case let .shown(shown) where canvasOpen:
+                store.reveal(shown, in: session)
+            case .shown:
+                arrival = news
+            case .changed where !canvasOpen && !store.isShut(session.id):
+                arrival = news
+            case .changed:
+                break
+            }
         }
+    }
+
+    private func openCanvas(at shown: CanvasShown, in session: RuntimeSession) {
+        model.terminals.canvas.reveal(shown, in: session)
+        canvasOpen = true
+    }
+
+    private func dismissArrival(in session: RuntimeSession) {
+        model.terminals.canvas.closeCanvas(session.id)
+        arrival = nil
     }
 
     private func openBrowser(of session: RuntimeSession) {
@@ -212,11 +241,21 @@ private struct TerminalScreenContent: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .terminalTile()
             .overlay(alignment: .top) {
-                if let note = controller.sizeNote, session?.isConnected == true {
-                    TerminalSizeNote(note: note, resize: controller.resizeHere)
-                        .padding(8)
+                VStack(spacing: 8) {
+                    if let note = controller.sizeNote, session?.isConnected == true {
+                        TerminalSizeNote(note: note, resize: controller.resizeHere)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    if let arrival, let session, session.canvas?.shown(arrival.shown.key) != nil {
+                        CanvasBanner(news: arrival) {
+                            openCanvas(at: arrival.shown, in: session)
+                        } dismiss: {
+                            dismissArrival(in: session)
+                        }
                         .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
+                .padding(8)
             }
             .overlay(alignment: .bottomTrailing) {
                 if let picture = controller.picture, let computer = session?.otherComputer {
@@ -230,6 +269,7 @@ private struct TerminalScreenContent: View {
             .animation(theme.motion.soft, value: liveKey)
             .animation(theme.motion.soft, value: controller.sizeNote)
             .animation(theme.motion.spring, value: controller.picture == nil)
+            .animation(theme.motion.spring, value: arrival)
     }
 
     @ViewBuilder

@@ -41,6 +41,11 @@ public:
         QString named;
         int windows = 0;
     };
+    // What the agent of a terminal showed on its canvas, or what changed there, by its key.
+    struct News {
+        bool shown = false;
+        QString key;
+    };
 
     // `started` is when the app started, in milliseconds since 1970: a show from before opens nothing.
     CanvasModel(CommandDispatcher& commands, SessionCatalogModel& sessions,
@@ -85,12 +90,20 @@ public:
     Q_INVOKABLE void openBrowser(const QString& sessionId);
     Q_INVOKABLE [[nodiscard]] bool opensBrowser(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
+    // A person saw an item: it is no longer news, and an open canvas stays at it until the person
+    // picks another or the agent shows something.
     Q_INVOKABLE void saw(const QString& sessionId, const QString& key);
-    // Whether the agent of a terminal showed something that this device did not open yet.
-    [[nodiscard]] bool showsNew(const QString& sessionId) const;
-    // Opens the canvas of a terminal at what its agent showed, once for each show, and says
-    // whether there was something to open.
-    bool openShown(const QString& sessionId);
+    // What the agent of a terminal showed and what changed on its canvas since this device last
+    // acted on it, the older first, each once. One from before the app started, or of an item that
+    // the canvas no longer has, is not news.
+    QList<News> news(const QString& sessionId);
+    // Opens the canvas of a terminal at what its agent showed or what changed: its part opens
+    // again on this device.
+    void reveal(const QString& sessionId, const QString& key);
+    // A person closed the canvas of a terminal on this device, so a change does not open it again
+    // until it opens or its agent shows something.
+    Q_INVOKABLE void closeCanvas(const QString& sessionId);
+    [[nodiscard]] bool isShut(const QString& sessionId) const;
     Q_INVOKABLE void remove(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString question(const QString& sessionId, const QString& key, const QString& words) const;
     Q_INVOKABLE void follow(const QString& sessionId, const QUrl& link);
@@ -132,9 +145,8 @@ private:
         QString key;
         quint64 changed = 0;
     };
-    // What the canvas opens at: what the agent showed last with `kodosi show`, or the shared
-    // browser at the agent's first use of it, and the stamp of the canvas then.
-    struct Show {
+    // What the agent showed last, or what changed last, by its key, and when.
+    struct Mark {
         QString key;
         quint64 at = 0;
     };
@@ -186,9 +198,14 @@ private:
     QHash<QString, QString> m_picks;
     QHash<QString, QString> m_lastFiles;
     QHash<QString, QHash<QString, quint64>> m_closed;
-    // The time of the newest show of each terminal's agent that this device opened, or the start
+    // The time of the newest show of each terminal's agent that this device acted on, or the start
     // of the app.
     QHash<QString, quint64> m_opened;
+    // The same for the changes of each canvas.
+    QHash<QString, quint64> m_noticed;
+    // The terminals whose canvas a person closed on this device since it last opened or its agent
+    // last showed something.
+    QSet<QString> m_shut;
     quint64 m_started = 0;
     QSet<QString> m_opening;
     QSet<QString> m_shelves;
@@ -214,7 +231,7 @@ private:
     int m_publishedCount = 0;
 
     [[nodiscard]] QList<Shown> shown(const QString& sessionId) const;
-    [[nodiscard]] std::optional<Show> lastShow(const QString& sessionId) const;
+    [[nodiscard]] std::optional<Mark> mark(const QString& sessionId, const QString& name) const;
     [[nodiscard]] QStringList present(const QString& sessionId) const;
     [[nodiscard]] quint64 changedOf(const QString& sessionId, const QString& section) const;
     [[nodiscard]] static QString sectionOf(const QString& key);

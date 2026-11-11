@@ -6,9 +6,10 @@ import QtQuick.Controls
 import Kodosi.Models 1.0 as Models
 
 // The keys of a terminal's canvas, one for each of its parts: its files and its browser. The
-// chosen part shows its name. When the agent shows or changes a file, the files key shows that
-// file's name for a moment. On the canvas, a pointer on a key shows the key that closes the part
-// on this device, and the plus key lists the parts to open.
+// chosen part shows its name. When a file comes or changes, the files key shows that file's name
+// for a moment, and a command of the agent in the browser shows the browser key's name. On the
+// canvas, a pointer on a key shows the key that closes the part on this device, and the plus key
+// lists the parts to open.
 Row {
     id: root
 
@@ -25,7 +26,7 @@ Row {
     readonly property var newest: canvas ? (canvas.items || []).reduce((best, item) => !best || item.changed > best.changed ? item : best, null)
         : null
     readonly property string change: newest ? newest.key + "\n" + newest.changed : ""
-    readonly property bool browsing: !!canvas && !!canvas.browser
+    readonly property string browserChange: canvas && canvas.change && canvas.change.key === "browser" ? String(canvas.change.at) : ""
     property string toldSection: ""
     property string toldWords: ""
     property int flashes: 0
@@ -52,8 +53,8 @@ Row {
             ++flashes;
         }
     }
-    onBrowsingChanged: {
-        if (ready && browsing)
+    onBrowserChangeChanged: {
+        if (ready && browserChange.length > 0)
             tell("browser", title("browser"));
     }
     Component.onCompleted: {

@@ -200,6 +200,27 @@ ColumnLayout {
             }
         }
         ListRow {
+            iconName: "canvas"
+            tint: "#d98a5f"
+            title: qsTr("Open the canvas by itself")
+            subtitle: Models.DesktopSettings.opensCanvas
+                ? qsTr("The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it.")
+                : qsTr("The canvas opens only when you open it. Its keys show what is new.")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Open the canvas by itself")
+                checked: Models.DesktopSettings.opensCanvas
+                objectName: "settings.opensCanvas"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.DesktopSettings.opensCanvas);
+                    Models.DesktopSettings.opensCanvas = wanted;
+                }
+            }
+        }
+        ListRow {
             iconName: "minus"
             tint: "#54433a"
             title: qsTr("Quit Kodosi")

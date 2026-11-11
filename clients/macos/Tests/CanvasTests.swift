@@ -69,6 +69,11 @@ private func asleepBrowser(changed: UInt64) -> JSONValue {
     #expect(newest.key == "/tmp/work/plan.md")
     store.saw(newest, in: changed.id)
     #expect(!store.hasNews(changed))
+    let other = try terminal(canvas: [
+        "sequence": .uint(7), "items": .array([item("plan.md", changed: 6), item("compare.html", changed: 7, revision: 2)]),
+    ])
+    store.observe([other])
+    #expect(store.current(other)?.key == "/tmp/work/plan.md")
     store.pick("/tmp/work/compare.html", in: changed.id)
     let edited = try terminal(canvas: [
         "sequence": .uint(8), "items": .array([item("plan.md", changed: 8, revision: 2), item("compare.html", changed: 4)]),
@@ -81,33 +86,38 @@ private func asleepBrowser(changed: UInt64) -> JSONValue {
     #expect(store.current(removed)?.key == "/tmp/work/plan.md")
 }
 
-@Test @MainActor func `a canvas opens once at each show of its agent, and not at a show from before`() throws {
-    let store = CanvasStore(commands: CommandSink(), started: 6)
-    let shown = { (at: UInt64, key: String) in
-        try terminal(canvas: [
-            "sequence": .uint(at), "items": .array([item("plan.md", changed: 5), item("compare.html", changed: 4)]),
-            "open": .object(["key": .string("/tmp/work/\(key)"), "at": .uint(at)]),
-        ])
-    }
-    let before = try shown(6, "compare.html")
-    store.observe([before])
-    #expect(!store.openShown(before))
-    let again = try shown(7, "compare.html")
-    store.observe([again])
-    #expect(store.showsNew(again))
-    #expect(store.openShown(again))
-    #expect(store.current(again)?.key == "/tmp/work/compare.html")
-    #expect(!store.openShown(again))
-    let next = try shown(8, "plan.md")
-    store.observe([next])
-    store.close(.files, in: next)
-    #expect(!store.openShown(next))
-    let gone = try shown(9, "gone.md")
-    store.observe([gone])
-    #expect(!store.showsNew(gone))
+private func marked(_ name: String?, _ at: UInt64) -> JSONValue? {
+    name.map { .object(["key": .string("/tmp/work/\($0)"), "at": .uint(at)]) }
 }
 
-@Test @MainActor func `a terminal whose canvas comes later opens only a show from after the start`() throws {
+@Test @MainActor func `each show and change of a canvas is news once, the older first, and none from before the start`() throws {
+    let store = CanvasStore(commands: CommandSink(), started: 6)
+    let canvas = { (open: String?, openAt: UInt64, change: String?, changeAt: UInt64) in
+        var fields: [String: JSONValue] = [
+            "sequence": .uint(9), "items": .array([item("plan.md", changed: 5), item("compare.html", changed: 4)]),
+        ]
+        fields["open"] = marked(open, openAt)
+        fields["change"] = marked(change, changeAt)
+        return try terminal(canvas: fields)
+    }
+    let before = try canvas("compare.html", 6, "plan.md", 5)
+    store.observe([before])
+    #expect(store.news(before).isEmpty)
+    let both = try canvas("compare.html", 8, "plan.md", 7)
+    store.observe([both])
+    let plan = try #require(both.canvas?.shown("/tmp/work/plan.md"))
+    let compare = try #require(both.canvas?.shown("/tmp/work/compare.html"))
+    #expect(store.news(both) == [.changed(plan), .shown(compare)])
+    #expect(store.news(both).isEmpty)
+    let gone = try canvas("gone.md", 9, "gone.md", 10)
+    store.observe([gone])
+    #expect(store.news(gone).isEmpty)
+    let back = try canvas("gone.md", 9, "plan.md", 10)
+    store.observe([back])
+    #expect(store.news(back).isEmpty)
+}
+
+@Test @MainActor func `a terminal whose canvas comes later has news only from after the start`() throws {
     let store = CanvasStore(commands: CommandSink(), started: 100)
     let shown = { (at: UInt64) in
         try terminal(canvas: [
@@ -118,12 +128,103 @@ private func asleepBrowser(changed: UInt64) -> JSONValue {
     try store.observe([terminal(canvas: nil)])
     let old = try shown(90)
     store.observe([old])
-    #expect(!store.openShown(old))
+    #expect(store.news(old).isEmpty)
     let fresh = try shown(120)
     try store.observe([terminal(canvas: nil)])
     store.observe([fresh])
-    #expect(store.openShown(fresh))
-    #expect(!store.openShown(fresh))
+    #expect(store.news(fresh).count == 1)
+    #expect(store.news(fresh).isEmpty)
+}
+
+@Test @MainActor func `a canvas that a person closed stays closed for changes until a show or the person opens it`() throws {
+    let store = CanvasStore(commands: CommandSink(), started: 1)
+    let canvas = { (open: String?, change: UInt64) in
+        var fields: [String: JSONValue] = ["sequence": .uint(9), "items": .array([item("plan.md", changed: 5)])]
+        fields["open"] = marked(open, 8)
+        fields["change"] = marked("plan.md", change)
+        return try terminal(canvas: fields)
+    }
+    let changed = try canvas(nil, 5)
+    store.observe([changed])
+    store.closeCanvas(changed.id)
+    #expect(store.isShut(changed.id))
+    let shown = try canvas("plan.md", 9)
+    store.observe([shown])
+    let news = store.news(shown)
+    #expect(news.map(\.shown.key) == ["/tmp/work/plan.md", "/tmp/work/plan.md"])
+    #expect(!store.isShut(shown.id))
+    store.closeCanvas(shown.id)
+    try store.reveal(#require(news.first).shown, in: shown)
+    #expect(!store.isShut(shown.id) && store.current(shown)?.key == "/tmp/work/plan.md")
+    store.closeCanvas(shown.id)
+    store.open(shown)
+    #expect(!store.isShut(shown.id))
+    store.closeCanvas(shown.id)
+    store.show(.files, in: shown)
+    #expect(!store.isShut(shown.id))
+}
+
+@Test @MainActor func `a show opens the canvas in front or switches it, and a change opens it only when the person did not close it`() throws {
+    let defaults = try #require(EphemeralUserDefaults(prefix: "CanvasNews"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    var shown = true
+    app.windowShown = { shown }
+    let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
+    let now = UInt64(Date.now.timeIntervalSince1970 * 1000)
+    let plan = "/tmp/work/plan.md"
+    let notes = "/tmp/work/notes.md"
+    func deliver(open: String? = nil, _ openAt: UInt64 = 0, change: String? = nil, _ changeAt: UInt64 = 0) throws {
+        var canvas: [String: JSONValue] = ["sequence": .uint(3), "items": .array([item("plan.md", changed: 2), item("notes.md", changed: 1)])]
+        canvas["open"] = marked(open, now + openAt)
+        canvas["change"] = marked(change, now + changeAt)
+        var fields = terminalFields(id, canvas: canvas)
+        fields["incarnationId"] = .string("01992e43-53db-7040-8e02-f6ebf4149b30")
+        try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object(fields)])]))
+    }
+    func current() -> String? {
+        app.session(id).flatMap(app.canvas.current)?.key
+    }
+
+    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
+    try deliver()
+    app.workbench.showSession(id)
+    try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object(terminalFields(id, canvas: [
+        "sequence": .uint(3), "items": .array([item("plan.md", changed: 2)]), "open": marked("plan.md", 1) ?? .null,
+    ]))])]))
+    #expect(app.workbench.canvasSessionId == nil)
+    try deliver(change: "plan.md", 10)
+    #expect(app.workbench.canvasSessionId == id && current() == plan)
+    app.canvas.pick(notes, in: id)
+    try deliver(change: "plan.md", 11)
+    #expect(current() == notes)
+    try deliver(open: "plan.md", 12, change: "plan.md", 11)
+    #expect(current() == plan)
+
+    app.workbench.toggleFocus(id)
+    try deliver(open: "plan.md", 12, change: "notes.md", 13)
+    #expect(app.workbench.canvasSessionId == nil)
+    try deliver(open: "notes.md", 14, change: "notes.md", 13)
+    #expect(app.workbench.canvasSessionId == id && current() == notes)
+
+    app.workbench.hideCanvas()
+    shown = false
+    try deliver(open: "notes.md", 14, change: "plan.md", 15)
+    #expect(app.workbench.canvasSessionId == nil)
+    shown = true
+    app.followCanvas()
+    #expect(app.workbench.canvasSessionId == id && current() == plan)
+
+    app.settings.opensCanvas = false
+    app.workbench.hideCanvas()
+    try deliver(open: "notes.md", 16, change: "plan.md", 15)
+    #expect(app.workbench.canvasSessionId == nil)
+    app.workbench.openCanvas(id)
+    app.canvas.pick(notes, in: id)
+    try deliver(open: "plan.md", 17, change: "plan.md", 15)
+    #expect(app.workbench.canvasSessionId == id && current() == plan)
 }
 
 @Test @MainActor func `a canvas that a person closed on this device opens again at its newest part only`() throws {
@@ -322,38 +423,6 @@ private func asleepBrowser(changed: UInt64) -> JSONValue {
     _ = workbench.reconcile([added])
     #expect(workbench.canvasSessionId == added.id && store.current(added)?.key == "/tmp/work/plan.md")
     #expect(store.closedSections(added) == [.browser])
-}
-
-@Test @MainActor func `the stage opens a canvas that comes later only at a show from after the start`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageCanvasShown"))
-    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
-    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
-    defer { app.shutdownProcess() }
-    app.commandSink.transport = { _ in 0 }
-    app.windowShown = { true }
-    try app.receive(runtimeEvent("system.ready", epoch: 0, userId: nil, fields: ["protocolVersion": .int(Int64(RuntimeHandle.expectedProtocolVersion))]))
-    var fields = terminalFields(canvas: nil)
-    func snapshot(_ canvas: [String: JSONValue]?) throws {
-        fields["canvas"] = canvas.map(JSONValue.object)
-        try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object(fields)])]))
-    }
-    try snapshot(nil)
-    let id = try #require(app.sessions.first?.id)
-    app.workbench.showSession(id)
-    try snapshot([
-        "sequence": .uint(1), "items": .array([item("plan.md", changed: 1)]),
-        "open": .object(["key": .string("/tmp/work/plan.md"), "at": .uint(1)]),
-    ])
-    #expect(app.workbench.canvasSessionId == nil)
-    let later = UInt64(Date.now.timeIntervalSince1970 * 1000) + 60000
-    try snapshot([
-        "sequence": .uint(2), "items": .array([item("plan.md", changed: 1)]),
-        "browser": .object(["state": .string("starting"), "changed": .uint(2), "width": .uint(1280), "height": .uint(720)]),
-        "open": .object(["key": .string(CanvasShown.browserKey), "at": .uint(later)]),
-    ])
-    #expect(app.workbench.canvasSessionId == id)
-    let session = try #require(app.sessions.first)
-    #expect(app.canvas.current(session)?.key == CanvasShown.browserKey)
 }
 
 @Test func `ask about this types one line for the person to finish`() throws {

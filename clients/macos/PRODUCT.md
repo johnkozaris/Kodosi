@@ -48,8 +48,10 @@ A key of the canvas in a terminal's header opens the canvas beside the terminal,
 then alone on the stage; in a project, it opens beside the project's terminal. The terminal
 in front is the one in single view, the selected one on the stage or the only one there, or
 the one that a project shows. Drag the gap between them to share the width. More room gives
-the canvas the stage and zooms the terminal out into its corner, where it stays live; a click on
-it puts them side by side again. Hide canvas leaves the terminal alone.
+the canvas the stage and zooms the terminal out into its corner, where it stays live; a
+click on it puts them side by side again. Hide canvas leaves the terminal alone. Hiding the
+canvas, closing its last part or leaving single view closes it until it opens again. Open
+the canvas by itself is in Settings › General.
 
 The files are tabs over the file, and the key with their count shows them all as cards.
 Each tab ends with the key that takes the file off the canvas, and a pointer on a card

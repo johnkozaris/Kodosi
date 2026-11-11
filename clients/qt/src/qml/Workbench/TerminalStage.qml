@@ -265,7 +265,7 @@ Item {
                                         canvasSessionId: cell.canvasId
                                         wide: Models.DesktopState.canvasWide
                                         chosenWidth: Models.DesktopState.canvasWidth
-                                        onHideRequested: Models.DesktopState.hideCanvas()
+                                        onHideRequested: Models.DesktopState.closeCanvas()
                                         onWideChosen: chosen => Models.DesktopState.canvasWide = chosen
                                         onWidthChosen: chosen => Models.DesktopState.canvasWidth = chosen
                                         onAsked: terminalTile.forceTerminalFocus()

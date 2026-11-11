@@ -7720,6 +7720,30 @@
                             }
                           ]
                         },
+                        "change": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "at": {
+                                  "format": "u64",
+                                  "type": "integer"
+                                },
+                                "key": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "key",
+                                "at"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "items": {
                           "items": {
                             "additionalProperties": false,
@@ -13610,7 +13634,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 85,
+  "protocolVersion": 86,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

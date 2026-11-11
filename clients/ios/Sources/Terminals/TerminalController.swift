@@ -171,11 +171,11 @@ final class TerminalController {
         store.live.takeSize(for: sessionId)
     }
 
-    /// Opens the canvas at what the terminal's agent showed, once for each show, while Kodosi is
-    /// in front and unlocked, and says whether there was something to open.
-    func openShownCanvas() -> Bool {
-        guard presence.active, !lock.locked, let session else { return false }
-        return store.canvas.openShown(session)
+    /// What the terminal's agent showed and what changed on its canvas, once each, while Kodosi is
+    /// in front and unlocked.
+    func canvasNews() -> [CanvasNews] {
+        guard presence.active, !lock.locked, let session else { return [] }
+        return store.canvas.news(session)
     }
 
     func open() {

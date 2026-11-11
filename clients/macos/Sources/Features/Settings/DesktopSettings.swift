@@ -63,6 +63,12 @@ final class DesktopSettings {
         didSet { defaults.set(keepRunning, forKey: Self.keepRunningKey) }
     }
 
+    /// Whether the canvas opens by itself when the agent shows something or a file or the browser
+    /// on it changes.
+    var opensCanvas = true {
+        didSet { defaults.set(opensCanvas, forKey: Self.opensCanvasKey) }
+    }
+
     var terminalCell: TerminalCell? {
         didSet { defaults.set(try? JSONEncoder().encode(terminalCell), forKey: Self.terminalCellKey) }
     }
@@ -80,6 +86,7 @@ final class DesktopSettings {
     }
 
     private static let keepRunningKey = "app.keepRunning"
+    private static let opensCanvasKey = "canvas.opensItself"
     private static let terminalCellKey = "terminal.cell"
     private static let shortcutsKey = "app.shortcuts"
 
@@ -140,6 +147,7 @@ final class DesktopSettings {
         lastComputer = d.string(forKey: "session.lastComputer")
         branchFolder = d.string(forKey: "session.branchFolder")
         keepRunning = d.object(forKey: Self.keepRunningKey) == nil || d.bool(forKey: Self.keepRunningKey)
+        opensCanvas = d.object(forKey: Self.opensCanvasKey) == nil || d.bool(forKey: Self.opensCanvasKey)
         terminalCell = d.data(forKey: Self.terminalCellKey).flatMap { try? JSONDecoder().decode(TerminalCell.self, from: $0) }
         shortcuts = d.data(forKey: Self.shortcutsKey).flatMap { try? JSONDecoder().decode(ShortcutTable.self, from: $0) } ?? ShortcutTable()
     }

@@ -123,16 +123,18 @@ from another device with a note that Dosi is off there.
 - Each terminal has a canvas with two parts: its files and its shared browser. Its agent
   shows what it makes there with `kodosi show`: a web page, Markdown or text, a picture, a
   PDF, a document, a sheet or a presentation, or an address, such as the app that it runs,
-  in the shared browser. A page that loads from the network opens in the shared browser too.
-  The canvas then opens at it on each device where the terminal is in front, or when the
-  person comes to the terminal, once, and only for a show after the app there started. It
-  opens the same way when the agent uses the shared browser, or a file on the canvas
-  changes, after a minute without that, so a canvas that a person closed stays closed while
-  the agent goes on. A change that people make in a live document does not open it. A person
-  adds a file with Add a File or a drop, on any device: it goes into the terminal's folder on
-  the terminal's computer, a taken name gets a number, and the limit is 32 MB. The canvas
-  shows the newest first and keeps 20. When a file changes, each device shows the new
-  version. Save a Copy keeps a copy on the device.
+  in the shared browser. A page that loads from the network opens in the shared browser
+  too. The canvas then opens at it on each device where the terminal is in front, or when
+  the person comes to the terminal, once, and only for a show after the app there started;
+  an open canvas switches to it. A change of a file on the canvas, by anyone, and a
+  command of the agent in the shared browser open a closed canvas the same way, unless the
+  person closed it on that device since it last opened. With Open the canvas by itself off
+  in Settings, only the person opens it. On a phone or tablet, it never opens by itself: a
+  banner names what came and opens the canvas there. A person adds a file with Add a File
+  or a drop, on any device: it goes into the terminal's folder on the terminal's computer,
+  a taken name gets a number, and the limit is 32 MB. The canvas shows the newest first
+  and keeps 20. When a file changes, each device shows the new version. Save a Copy keeps
+  a copy on the device.
 - A document (.docx), sheet (.xlsx), presentation (.pptx), PDF or text file (.txt, .json,
   .yaml, .yml, .toml or .xml) on the canvas is live. The people and agents of the terminal
   edit it at the same time, each sees where the others are, and each edit reaches all of
@@ -145,12 +147,12 @@ from another device with a note that Dosi is off there.
   presentation, PDF and text viewer. A viewer that is off shows a preview, or Save a Copy
   where the app has no preview. Documents show as pages or as text that fits the canvas,
   and documents, sheets and PDFs can go dark with the app.
-- The terminal has a key for each part that has something, with a dot for news, and the
-  files key names a file for a moment when the agent shows or changes it. A key opens
-  the canvas at its part. An open canvas follows the newest file until the person picks
-  one. A person closes a part on their device until it changes, and the plus key opens
-  it again or opens the browser. Each device keeps its own state of the keys and the
-  canvas.
+- The terminal has a key for each part that has something, with a dot for news. For a
+  moment, the files key names a file that comes or changes, and the browser key its name
+  after a command of the agent. A key opens the canvas at its part. An open canvas stays
+  at what it shows until the person picks another or the agent shows something. A person
+  closes a part on their device until it changes, and the plus key opens it again or opens
+  the browser. Each device keeps its own state of the keys and the canvas.
 - A page runs its scripts in a closed frame. It reaches no network, no files and no
   storage that stays. A link in a page, document, sheet, presentation or PDF opens on the
   device by the link rules. Where the person can edit, a link opens with ⌘-click

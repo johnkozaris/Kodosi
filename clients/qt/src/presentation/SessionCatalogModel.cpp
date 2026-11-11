@@ -562,10 +562,13 @@ std::optional<QVariantMap> SessionCatalogModel::decodeCanvas(const QJsonValue& v
             || !count(item.value(QStringLiteral("changed"))) || (!missing.isUndefined() && !missing.isBool()))
             return std::nullopt;
     }
-    const auto open = canvas.value(QStringLiteral("open"));
-    if (!open.isUndefined() && !open.isNull()
-        && (!open.isObject() || !text(open.toObject().value(QStringLiteral("key")), 1024)
-            || !count(open.toObject().value(QStringLiteral("at")))))
+    const auto mark = [&](const QString& name) {
+        const auto value = canvas.value(name);
+        return value.isUndefined() || value.isNull()
+            || (value.isObject() && text(value.toObject().value(QStringLiteral("key")), 1024)
+                && count(value.toObject().value(QStringLiteral("at"))));
+    };
+    if (!mark(QStringLiteral("open")) || !mark(QStringLiteral("change")))
         return std::nullopt;
     const auto browserValue = canvas.value(QStringLiteral("browser"));
     if (!browserValue.isUndefined() && !browserValue.isNull()) {

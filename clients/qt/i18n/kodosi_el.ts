@@ -1845,6 +1845,18 @@
         <translation>Τα τερματικά σας συνεχίζουν να τρέχουν. Ανοίξτε ξανά το Kodosi για να τα δείτε.</translation>
     </message>
     <message>
+        <source>Open the canvas by itself</source>
+        <translation>Αυτόματο άνοιγμα του canvas</translation>
+    </message>
+    <message>
+        <source>The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it.</source>
+        <translation>Το canvas ανοίγει όταν ο agent δείχνει κάτι σε αυτό. Το ανοίγει επίσης μια αλλαγή σε ένα αρχείο ή στον browser του, εκτός αν το κλείσατε.</translation>
+    </message>
+    <message>
+        <source>The canvas opens only when you open it. Its keys show what is new.</source>
+        <translation>Το canvas ανοίγει μόνο όταν το ανοίγετε εσείς. Τα κουμπιά του δείχνουν τι είναι νέο.</translation>
+    </message>
+    <message>
         <source>Quit Kodosi</source>
         <translation>Έξοδος από το Kodosi</translation>
     </message>

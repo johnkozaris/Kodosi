@@ -1845,6 +1845,18 @@
         <translation>Tus terminales siguen en marcha. Vuelve a abrir Kodosi para verlos.</translation>
     </message>
     <message>
+        <source>Open the canvas by itself</source>
+        <translation>Abrir el lienzo automáticamente</translation>
+    </message>
+    <message>
+        <source>The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it.</source>
+        <translation>El lienzo se abre cuando el agente muestra algo en él. También lo abre un cambio en un archivo o en el navegador del lienzo, salvo que lo hayas cerrado.</translation>
+    </message>
+    <message>
+        <source>The canvas opens only when you open it. Its keys show what is new.</source>
+        <translation>El lienzo solo se abre cuando lo abres tú. Sus botones muestran lo nuevo.</translation>
+    </message>
+    <message>
         <source>Quit Kodosi</source>
         <translation>Salir de Kodosi</translation>
     </message>

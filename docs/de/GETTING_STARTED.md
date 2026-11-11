@@ -106,16 +106,18 @@ einen Fortschrittsbalken. Ein Programm, das nichts meldet, zeigt keinen Zustand.
 Ein Agent kann dir auf dem Canvas seines Terminals eine Seite, Markdown, ein Bild, ein PDF, ein
 Dokument, eine Tabelle, eine Präsentation oder die App zeigen, die er ausführt, und einen
 Browser nutzen, den du mit ihm teilst. Das Canvas öffnet sich mit dem, was der Agent zeigt,
-während du sein Terminal ansiehst. Claude Code und Copilot CLI wissen, wie das geht, auch wenn
-du sie selbst startest, und ebenso ein Codex, den Kodosi startet; einem anderen Agent sagst du,
-er soll `kodosi skill canvas` lesen. Hat das Canvas etwas, zeigt die Kopfzeile des Terminals
-einen Button für seine Dateien und einen für seinen Browser, mit einem kupferfarbenen Punkt für
-Neues. Wähle einen, um das Canvas neben dem Terminal zu öffnen; Mehr Platz gibt dem Canvas die
-Bühne und hält das Terminal klein in seiner Ecke. Schließe einen Teil mit dem × an seinem Button
-und öffne ihn mit + wieder. Browser öffnen im Aktionen-Button öffnet den Browser, bevor der
-Agent ihn nutzt, und Datei hinzufügen… legt eine Datei auf das Canvas und in den Ordner des
-Terminals; du kannst eine Datei auch auf das Canvas ziehen. Auf dem iPhone ist der Canvas-Button
-in der Leiste des Terminals.
+während du sein Terminal ansiehst, und wenn sich eine Datei darauf oder der Browser ändert,
+außer du hast es geschlossen. Um es nur selbst zu öffnen, schalte Canvas automatisch öffnen in
+Einstellungen › Allgemein aus. Claude Code und Copilot CLI wissen, wie das geht, auch wenn du
+sie selbst startest, und ebenso ein Codex, den Kodosi startet; einem anderen Agent sagst du, er
+soll `kodosi skill canvas` lesen. Hat das Canvas etwas, zeigt die Kopfzeile des Terminals einen
+Button für seine Dateien und einen für seinen Browser, mit einem kupferfarbenen Punkt für Neues.
+Wähle einen, um das Canvas neben dem Terminal zu öffnen; Mehr Platz gibt dem Canvas die Bühne
+und hält das Terminal klein in seiner Ecke. Schließe einen Teil mit dem × an seinem Button und
+öffne ihn mit + wieder. Browser öffnen im Aktionen-Button öffnet den Browser, bevor der Agent
+ihn nutzt, und Datei hinzufügen… legt eine Datei auf das Canvas und in den Ordner des Terminals;
+du kannst eine Datei auch auf das Canvas ziehen. Auf dem iPhone ist der Canvas-Button in der
+Leiste des Terminals, und ein Banner nennt, was der Agent zeigt oder ändert, mit Öffnen.
 
 - Ein Dokument, eine Tabelle, eine Präsentation, ein PDF oder eine Textdatei ist live: Du,
   die Personen im Terminal und der Agent bearbeiten es gleichzeitig, und es bleibt eine

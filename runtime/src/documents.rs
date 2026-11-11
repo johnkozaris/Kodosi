@@ -76,10 +76,6 @@ impl DocumentHost {
     pub(crate) async fn close(&self) {
         self.documents.close().await;
     }
-
-    pub(crate) fn is_open(&self, path: &Path) -> bool {
-        self.documents.is_open(path)
-    }
 }
 
 /// The file that an agent's `kodosi doc` command changes, if it changes one.
