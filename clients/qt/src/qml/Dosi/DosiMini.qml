@@ -11,7 +11,7 @@ Item {
     readonly property string kind: tool.targetKind || ""
     readonly property var session: kind === "terminal" && tool.sessionId ? Models.Sessions.presentationForSession(tool.sessionId) : null
     readonly property var stack: kind === "terminals" ? Models.Sessions.listedSessions.slice(0, 3)
-        : kind === "rooms" ? Models.Missions.missions.slice(0, 3) : []
+        : kind === "projects" ? Models.Projects.projects.slice(0, 3) : []
     readonly property string glyph: kind === "terminal" ? "terminal" : kind === "url" ? "link" : kind === "file" ? "document"
         : kind === "query" ? "search" : kind === "command" ? "prompt" : tool.icon || "cube"
 
@@ -22,7 +22,7 @@ Item {
     Loader {
         anchors.fill: parent
         sourceComponent: root.session && root.session.id ? terminal
-            : root.kind === "room" ? room
+            : root.kind === "project" ? project
             : root.stack.length > 0 ? pile
             : root.kind === "agent" ? agent : symbol
     }
@@ -35,10 +35,10 @@ Item {
         }
     }
     Component {
-        id: room
-        RoomSigil {
+        id: project
+        ProjectSigil {
             size: 14
-            key: root.tool.roomId || root.tool.targetValue || ""
+            key: root.tool.projectId || root.tool.targetValue || ""
         }
     }
     Component {
@@ -71,8 +71,8 @@ Item {
                         program: entry.modelData.program || ""
                         session: root.kind === "terminals" ? entry.modelData : null
                     }
-                    RoomSigil {
-                        visible: root.kind === "rooms"
+                    ProjectSigil {
+                        visible: root.kind === "projects"
                         size: 14
                         key: entry.modelData.id || ""
                     }

@@ -50,8 +50,8 @@ private struct FriendDetailList: View {
         model.terminals.sessions.filter { $0.ownerUserId == friend.userId && !$0.hidden }
     }
 
-    private var rooms: [MissionEntry] {
-        model.rooms.missions.filter { $0.ownerUserId == friend.userId }
+    private var projects: [ProjectEntry] {
+        model.projects.entries.filter { $0.ownerUserId == friend.userId }
     }
 
     var body: some View {
@@ -91,18 +91,18 @@ private struct FriendDetailList: View {
                         .accessibilityIdentifier("people.terminal.\(session.id)")
                     }
                 }
-                if !rooms.isEmpty {
+                if !projects.isEmpty {
                     ListGroup(title: "Their projects") {
-                        ForEach(rooms) { room in
-                            Button { openRoute(RoomRoute(roomId: room.id)) } label: {
-                                ListRow(title: room.name) {
-                                    RoomSigil(key: room.id, size: 28)
+                        ForEach(projects) { project in
+                            Button { openRoute(ProjectRoute(projectId: project.id)) } label: {
+                                ListRow(title: project.name) {
+                                    ProjectSigil(key: project.id, size: 28)
                                 } trailing: {
                                     Disclosure()
                                 }
                             }
                             .buttonStyle(ListRowButtonStyle())
-                            .accessibilityIdentifier("people.detail.room.\(AccessibilityIdentifier.token(room.id))")
+                            .accessibilityIdentifier("people.detail.project.\(AccessibilityIdentifier.token(project.id))")
                         }
                     }
                 }

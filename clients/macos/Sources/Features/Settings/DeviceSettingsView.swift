@@ -171,7 +171,7 @@ struct DeviceSettingsView: View {
             Button("Delete Account", role: .destructive) { deps.account.deleteAccount() }
         } message: {
             Text(deps.account.deletionSummary(
-                rooms: deps.rooms.missions,
+                projects: deps.projects.entries,
                 terminals: String(localized: "Terminals on this Mac keep running. You cannot undo this."),
             ))
         }

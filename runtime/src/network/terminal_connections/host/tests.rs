@@ -637,16 +637,16 @@ async fn a_viewer_whose_device_the_host_cannot_check_is_asked_to_try_again() {
     let (session, incarnation) = (Uuid::now_v7(), Uuid::now_v7());
     let dto: SessionDto = serde_json::from_value(json!({
         "id":session,"incarnationId":incarnation,"name":"Terminal","ownerUserId":"owner","ownerName":"Owner",
-        "hostDeviceId":"laptop","hostName":"Laptop","missionId":null,"missionName":null,"sharedWith":["friend"],
-        "authorizationRevision":1,"hostOnline":true,"roomSequence":0,"hidden":false
+        "hostDeviceId":"laptop","hostName":"Laptop","projectId":null,"projectName":null,"sharedWith":["friend"],
+        "authorizationRevision":1,"hostOnline":true,"projectSequence":0,"hidden":false
     }))
     .unwrap();
     let info = LocalPublication {
         session_id: session,
         incarnation_id: incarnation,
         name: "Terminal".into(),
-        mission_id: None,
-        room_sequence: 0,
+        project_id: None,
+        project_sequence: 0,
         shared_with: ["friend".to_owned()].into(),
         restored_from: None,
     };

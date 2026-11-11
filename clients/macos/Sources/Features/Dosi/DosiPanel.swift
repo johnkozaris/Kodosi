@@ -23,7 +23,7 @@ extension DosiStore {
         guard busy, let turn = items.last?.turn else { return [] }
         var targets: [DosiTarget] = []
         for item in items.reversed() where item.turn == turn {
-            guard case let .tool(tool) = item.body, let target = tool.target, [.terminal, .room].contains(target.kind),
+            guard case let .tool(tool) = item.body, let target = tool.target, [.terminal, .project].contains(target.kind),
                   !targets.contains(target) else { continue }
             targets.append(target)
             if targets.count == 3 {

@@ -37,7 +37,7 @@ struct SettingsHome: View {
         .navigationDestination(for: PeopleRoute.self) { _ in PeopleHome() }
         .navigationDestination(for: FriendRoute.self) { FriendDetailView(userId: $0.userId) }
         .navigationDestination(for: TerminalRoute.self) { TerminalScreen(sessionId: $0.sessionId) }
-        .navigationDestination(for: RoomRoute.self) { RoomScreen(roomId: $0.roomId) }
+        .navigationDestination(for: ProjectRoute.self) { ProjectScreen(projectId: $0.projectId) }
         .animation(theme.motion.spring, value: account.devices)
         .animation(theme.motion.spring, value: account.deviceRequests)
         .animation(theme.motion.spring, value: account.pendingReset)

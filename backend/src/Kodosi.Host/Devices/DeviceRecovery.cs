@@ -1,5 +1,5 @@
 using Kodosi.Data;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,24 +43,24 @@ public sealed partial class DeviceService
     public async Task AddRecoveryKeyAsync(Guid userId, ApprovedDevice device, RecoveryKeyWrite request, CancellationToken ct)
     {
         var (certBytes, certSig, listBytes, listSig) = SignedParts(request.DeviceCertificate, request.DeviceCertificateSignature, request.SignedDeviceList, request.SignedDeviceListSignature);
-        var box = Limits.Base64(request.RoomKeyBox, "Recovery project key", RecoveryBoxLength);
+        var box = Limits.Base64(request.ProjectKeyBox, "Recovery project key", RecoveryBoxLength);
         if (box.Length == 0) throw ApiException.Invalid("The recovery project key is missing.");
         var cert = DeviceCertificate.Parse(certBytes);
         if (!IsRecoveryId(cert.DeviceId)) throw ApiException.Invalid("This is not the device identifier of a recovery key.");
-        var (roomKey, roomKeySignature) = MissionService.ValidRoomKey(userId, cert.DeviceId, cert.SigPublicKey, request.RoomKey);
+        var (projectKey, projectKeySignature) = ProjectService.ValidProjectKey(userId, cert.DeviceId, cert.SigPublicKey, request.ProjectKey);
         if (await RecoveryDeviceAsync(userId, ct) is not null) throw ApiException.Conflict("Remove the current recovery key first.");
         var added = await StageDeviceAsync(userId, device, cert.DeviceId, cert.SigPublicKey, certBytes, certSig, listBytes, listSig, ct);
         added.RecoveryBox = box;
-        db.RoomRecipientKeys.Add(new RoomRecipientKey { DeviceId = added.Id, UserId = userId, PublicKey = roomKey, Signature = roomKeySignature });
+        db.ProjectRecipientKeys.Add(new ProjectRecipientKey { DeviceId = added.Id, UserId = userId, PublicKey = projectKey, Signature = projectKeySignature });
         await db.SaveChangesAsync(ct);
         connections.Notify([userId], "devices");
-        await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
+        await ProjectMembership.NotifyProjectsOfAsync(db, connections, userId, ct);
     }
 
     public async Task<object> RecoveryBoxAsync(Guid userId, CancellationToken ct)
     {
         var device = await RecoveryDeviceAsync(userId, ct) ?? throw ApiException.Missing();
-        return new { deviceId = device.Id, roomKeyBox = Convert.ToBase64String(device.RecoveryBox!) };
+        return new { deviceId = device.Id, projectKeyBox = Convert.ToBase64String(device.RecoveryBox!) };
     }
 
     public async Task RecoverAsync(Guid userId, RegisterDevice request, CancellationToken ct)
@@ -76,5 +76,5 @@ public sealed partial class DeviceService
     }
 
     public sealed record RecoveryKeyWrite(string DeviceCertificate, string DeviceCertificateSignature,
-        string SignedDeviceList, string SignedDeviceListSignature, string RoomKeyBox, MissionService.RecipientKeyWrite RoomKey);
+        string SignedDeviceList, string SignedDeviceListSignature, string ProjectKeyBox, ProjectService.RecipientKeyWrite ProjectKey);
 }

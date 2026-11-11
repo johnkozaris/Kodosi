@@ -73,8 +73,8 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.workbench.launcher == nil)
     #expect(app.workbench.launcherFocus == 1)
     app.workbench.launcherDraft.folder = "/work/atlas"
-    app.openLauncher(roomId: "room")
-    #expect(app.workbench.launcher == LauncherRequest(roomId: "room"))
+    app.openLauncher(projectId: "project")
+    #expect(app.workbench.launcher == LauncherRequest(projectId: "project"))
     app.workbench.launcherDraft.prompt = "fix the build"
     app.workbench.launcherDraft.remoteFolders["studio"] = "/Users/me/atlas"
     app.workbench.launcher = nil
@@ -89,17 +89,17 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.workbench.launcherDraft == LauncherDraft())
 }
 
-@Test @MainActor func `a terminal started for a room joins that room`() async throws {
-    let (app, sent) = try launcherApp("LauncherRoom")
+@Test @MainActor func `a terminal started for a project joins that project`() async throws {
+    let (app, sent) = try launcherApp("LauncherProject")
     defer { app.shutdownProcess() }
-    let creating = Task { try await app.createSession(name: "Test", directory: "/work", roomId: "room", command: "claude") }
+    let creating = Task { try await app.createSession(name: "Test", directory: "/work", projectId: "project", command: "claude") }
     var create: [String: JSONValue]?
     for _ in 0 ..< 200 where create == nil {
         await Task.yield()
         create = sent().last { $0["type"] == .string("session.create") }
     }
     let fields = try #require(create)
-    #expect(fields["missionId"] == .string("room"))
+    #expect(fields["projectId"] == .string("project"))
     #expect(fields["command"] == .string("claude"))
     let request = try #require(fields["requestId"]?.stringValue)
     let created = UUIDv7.generate()

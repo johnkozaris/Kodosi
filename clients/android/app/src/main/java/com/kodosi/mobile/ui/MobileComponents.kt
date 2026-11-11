@@ -72,7 +72,7 @@ import kotlinx.coroutines.launch
 
 enum class AppSymbol {
     TERMINAL,
-    ROOMS,
+    PROJECTS,
     FRIENDS,
     SETTINGS,
     DOSI,
@@ -182,7 +182,7 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 path(12f, 15f, 17f, 15f)
             }
 
-            AppSymbol.ROOMS -> {
+            AppSymbol.PROJECTS -> {
                 rect(3f, 3f, 7f, 7f)
                 rect(14f, 3f, 7f, 7f)
                 rect(3f, 14f, 7f, 7f)
@@ -626,7 +626,7 @@ fun SectionTitle(text: String) {
 fun EmptyState(
     title: String,
     detail: String? = null,
-    symbol: AppSymbol = AppSymbol.ROOMS,
+    symbol: AppSymbol = AppSymbol.PROJECTS,
     action: @Composable () -> Unit = {}
 ) {
     val colors = KodosiTheme.colors
@@ -681,9 +681,9 @@ fun PersonAvatar(name: String, id: String = name, size: androidx.compose.ui.unit
 }
 
 @Composable
-fun RoomMark(id: String, size: Dp = 38.dp) {
+fun ProjectMark(id: String, size: Dp = 38.dp) {
     val colors = KodosiTheme.colors
-    val tint = roomTint(id)
+    val tint = projectTint(id)
     val seed = identityHash(id)
     val shape = RoundedCornerShape(size * 0.3f)
     Canvas(

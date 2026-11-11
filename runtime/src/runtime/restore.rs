@@ -47,8 +47,8 @@ pub(super) struct Saved {
 #[serde(rename_all = "camelCase")]
 pub(super) struct Sharing {
     pub owner: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub room: Option<String>,
+    #[serde(rename = "room", default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub people: Vec<String>,
 }
@@ -56,13 +56,13 @@ pub(super) struct Sharing {
 impl Sharing {
     pub(super) fn of(
         owner: Option<&String>,
-        room: Option<&String>,
+        project: Option<&String>,
         people: &[String],
     ) -> Option<Self> {
         let owner = owner?.clone();
-        (room.is_some() || !people.is_empty()).then(|| Self {
+        (project.is_some() || !people.is_empty()).then(|| Self {
             owner,
-            room: room.cloned(),
+            project: project.cloned(),
             people: people.to_vec(),
         })
     }

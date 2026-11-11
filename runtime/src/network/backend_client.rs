@@ -72,7 +72,7 @@ pub(crate) struct Inner {
     retry: tokio::sync::Notify,
     login_interrupt: std::sync::Mutex<CancellationToken>,
     app_login: std::sync::Mutex<Option<AppLogin>>,
-    rooms: Mutex<rooms::RoomCache>,
+    projects: Mutex<projects::ProjectCache>,
 }
 
 struct AppLogin {
@@ -170,7 +170,7 @@ impl BackendClient {
                 retry: tokio::sync::Notify::new(),
                 login_interrupt: std::sync::Mutex::new(CancellationToken::new()),
                 app_login: std::sync::Mutex::new(None),
-                rooms: Mutex::new(rooms::RoomCache::default()),
+                projects: Mutex::new(projects::ProjectCache::default()),
             }),
         })
     }
@@ -594,7 +594,7 @@ impl BackendClient {
             }
             "push.register" => self.register_push(&args).await?,
             "push.unregister" => self.unregister_push().await?,
-            "room.command" => events.extend(self.room_command(&args).await?),
+            "project.act" => events.extend(self.act_in_project(&args).await?),
             "friends.refresh" => events.push(self.friend_event().await?),
             operation if operation.starts_with("friends.") => {
                 events.extend(self.friend_command(operation, &args).await?);
@@ -686,66 +686,67 @@ impl BackendClient {
                 }
                 events.push(result);
             }
-            "session.rename" | "session.attachMission" => {
+            "session.rename" | "session.attachProject" => {
                 let credentials = self.credentials()?;
                 let current = self.current_session(&credentials, &args).await?;
                 let id = current.id;
                 if operation == "session.rename" {
                     let _response:Value=self.inner.http.device(Method::PATCH,&format!("api/sessions/{id}"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"expectedRevision":current.authorization_revision,"name":wire::text(&args,"name")?}))).await?;
                 } else {
-                    let room = args
-                        .get("missionId")
+                    let project = args
+                        .get("projectId")
                         .and_then(Value::as_str)
-                        .map(|room| {
-                            Uuid::parse_str(room).map_err(|_| invalid("Invalid project identity."))
+                        .map(|project| {
+                            Uuid::parse_str(project)
+                                .map_err(|_| invalid("Invalid project identity."))
                         })
                         .transpose()?;
-                    let history = if let Some(room) = room {
-                        self.refresh_room_keys(
+                    let history = if let Some(project) = project {
+                        self.refresh_project_keys(
                             &credentials,
-                            room,
+                            project,
                             false,
-                            &mut rooms::Lookups::default(),
+                            &mut projects::Lookups::default(),
                         )
                         .await?;
-                        self.room_history(&credentials, room).await?
+                        self.project_history(&credentials, project).await?
                     } else {
                         String::new()
                     };
-                    let choice = Self::room_choice(&credentials, &current, room, &history)?;
-                    let _response:Value=self.inner.http.device(Method::PUT,&format!("api/sessions/{id}/mission"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"missionId":room,"choice":choice}))).await?;
+                    let choice = Self::project_choice(&credentials, &current, project, &history)?;
+                    let _response:Value=self.inner.http.device(Method::PUT,&format!("api/sessions/{id}/project"),&credentials,Some(json!({"incarnationId":current.incarnation_id,"projectId":project,"choice":choice}))).await?;
                 }
                 events.push(self.session_event().await?);
                 events.push(session_result(operation, &args));
             }
-            "mission.list" => events.push(self.mission_list().await?),
-            "mission.open" => {
+            "project.list" => events.push(self.project_list().await?),
+            "project.open" => {
                 let credentials = self.credentials()?;
-                let id = wire::id(&args, "missionId")?;
+                let id = wire::id(&args, "projectId")?;
                 let value: Value = self
                     .inner
                     .http
                     .device(
                         Method::GET,
-                        &format!("api/missions/{id}"),
+                        &format!("api/projects/{id}"),
                         &credentials,
                         None,
                     )
                     .await?;
-                events.push(json!({"type":"mission.result","requestId":args["requestId"],"operation":operation,
-                    "missionId":id,"mission":value["mission"],"members":value["members"]}));
+                events.push(json!({"type":"project.result","requestId":args["requestId"],"operation":operation,
+                    "projectId":id,"project":value["project"],"members":value["members"]}));
             }
-            "mission.create"
-            | "mission.rename"
-            | "mission.delete"
-            | "mission.invite"
-            | "mission.invitation.accept"
-            | "mission.invitation.reject"
-            | "mission.removeMember"
-            | "mission.leave" => {
-                self.mission_mutation(operation, &args).await?;
-                events.push(self.mission_list().await?);
-                events.push(json!({"type":"mission.result","requestId":args["requestId"],"missionId":args.get("missionId"),"operation":operation}));
+            "project.create"
+            | "project.rename"
+            | "project.delete"
+            | "project.invite"
+            | "project.invitation.accept"
+            | "project.invitation.reject"
+            | "project.removeMember"
+            | "project.leave" => {
+                self.project_mutation(operation, &args).await?;
+                events.push(self.project_list().await?);
+                events.push(json!({"type":"project.result","requestId":args["requestId"],"projectId":args.get("projectId"),"operation":operation}));
             }
             _ => return Err(invalid("Unsupported network command.")),
         }
@@ -842,9 +843,9 @@ impl BackendClient {
                 }
                 let local = {
                     let info = publication.info.read().await;
-                    (info.mission_id, info.room_sequence)
+                    (info.project_id, info.project_sequence)
                 };
-                let change = self.room_change(&credentials, local, dto).await;
+                let change = self.project_change(&credentials, local, dto).await;
                 let mut info = publication.info.write().await;
                 if info.incarnation_id != dto.incarnation_id
                     || dto.host_device_id != credentials.keys.device_id
@@ -852,11 +853,11 @@ impl BackendClient {
                     continue;
                 }
                 info.name.clone_from(&dto.name);
-                let change = change.filter(|_| (info.mission_id, info.room_sequence) == local);
+                let change = change.filter(|_| (info.project_id, info.project_sequence) == local);
                 let (removed, shown) = follow_sharing(&mut info, dto, change);
                 let sharing = json!({
                     "type":"network.sharing", "sessionId":dto.id, "incarnationId":dto.incarnation_id,
-                    "sharedWith":shown, "missionId":info.mission_id, "roomSequence":info.room_sequence
+                    "sharedWith":shown, "projectId":info.project_id, "projectSequence":info.project_sequence
                 });
                 drop(info);
                 let previous = publication.dto.read().await.clone();
@@ -883,7 +884,7 @@ impl BackendClient {
     async fn exclude_friend(&self, user: &str) {
         for publication in self.inner.publications.lock().await.values() {
             let mut info = publication.info.write().await;
-            if info.mission_id.is_none() && info.shared_with.remove(user) {
+            if info.project_id.is_none() && info.shared_with.remove(user) {
                 *publication.pending_shares.lock().await = Some(info.shared_with.clone());
                 drop(info);
                 publication.invalidate();
@@ -891,73 +892,73 @@ impl BackendClient {
         }
     }
 
-    async fn mission_list(&self) -> Result<Value> {
+    async fn project_list(&self) -> Result<Value> {
         let credentials = self.credentials()?;
         if !credentials.enrolled {
-            return Ok(json!({"type":"missions.snapshot","missions":[],"invitations":[]}));
+            return Ok(json!({"type":"projects.snapshot","projects":[],"invitations":[]}));
         }
-        let mut missions: Value = self
+        let mut projects: Value = self
             .inner
             .http
-            .device(Method::GET, "api/missions", &credentials, None)
+            .device(Method::GET, "api/projects", &credentials, None)
             .await?;
-        self.learn_dosi(&credentials, &mut missions).await;
-        missions["type"] = json!("missions.snapshot");
-        Ok(missions)
+        self.learn_dosi(&credentials, &mut projects).await;
+        projects["type"] = json!("projects.snapshot");
+        Ok(projects)
     }
 
-    async fn mission_mutation(&self, operation: &str, args: &Value) -> Result<()> {
+    async fn project_mutation(&self, operation: &str, args: &Value) -> Result<()> {
         let credentials = self.credentials()?;
         let request_id = wire::id(args, "requestId")?;
         let (method, path, body) = match operation {
-            "mission.create" => (
+            "project.create" => (
                 Method::POST,
-                "api/missions".to_owned(),
+                "api/projects".to_owned(),
                 Some(json!({"id":request_id,"name":wire::text(args,"name")?})),
             ),
-            "mission.invitation.accept" | "mission.invitation.reject" => (
+            "project.invitation.accept" | "project.invitation.reject" => (
                 Method::POST,
                 format!(
-                    "api/missions/invitations/{}/{}",
+                    "api/projects/invitations/{}/{}",
                     wire::id(args, "invitationId")?,
                     operation.rsplit('.').next().unwrap_or_default()
                 ),
                 None,
             ),
             other => {
-                let id = wire::id(args, "missionId")?;
+                let id = wire::id(args, "projectId")?;
                 match other {
-                    "mission.rename" => (
+                    "project.rename" => (
                         Method::PATCH,
-                        format!("api/missions/{id}"),
+                        format!("api/projects/{id}"),
                         Some(json!({"name":wire::text(args,"name")?})),
                     ),
-                    "mission.delete" => (Method::DELETE, format!("api/missions/{id}"), None),
-                    "mission.invite" => {
+                    "project.delete" => (Method::DELETE, format!("api/projects/{id}"), None),
+                    "project.invite" => {
                         let user = wire::text(args, "userId")?;
                         let keys = self
-                            .prepare_room_membership(&credentials, id, Some(user), None)
+                            .prepare_project_membership(&credentials, id, Some(user), None)
                             .await?;
                         (
                             Method::POST,
-                            format!("api/missions/{id}/invitations"),
+                            format!("api/projects/{id}/invitations"),
                             Some(json!({"id":request_id,"userId":user,"keys":keys})),
                         )
                     }
-                    "mission.removeMember" => {
+                    "project.removeMember" => {
                         let user = wire::text(args, "userId")?;
                         let keys = self
-                            .prepare_room_membership(&credentials, id, None, Some(user))
+                            .prepare_project_membership(&credentials, id, None, Some(user))
                             .await?;
                         (
                             Method::DELETE,
-                            format!("api/missions/{id}/members/{user}"),
+                            format!("api/projects/{id}/members/{user}"),
                             Some(json!({"keys":keys})),
                         )
                     }
-                    "mission.leave" => {
+                    "project.leave" => {
                         let keys = self
-                            .prepare_room_membership(
+                            .prepare_project_membership(
                                 &credentials,
                                 id,
                                 None,
@@ -966,7 +967,7 @@ impl BackendClient {
                             .await?;
                         (
                             Method::DELETE,
-                            format!("api/missions/{id}/members/{}", credentials.user_id),
+                            format!("api/projects/{id}/members/{}", credentials.user_id),
                             Some(json!({"keys":keys})),
                         )
                     }
@@ -974,11 +975,11 @@ impl BackendClient {
                 }
             }
         };
-        let (body, room) = if operation == "mission.invitation.reject" {
-            let (keys, room) = self.leaving_invitation(&credentials, args).await?;
-            (Some(json!({ "keys": keys })), Some(room))
+        let (body, project) = if operation == "project.invitation.reject" {
+            let (keys, project) = self.leaving_invitation(&credentials, args).await?;
+            (Some(json!({ "keys": keys })), Some(project))
         } else {
-            (body, wire::id(args, "missionId").ok())
+            (body, wire::id(args, "projectId").ok())
         };
         let signed = body.as_ref().and_then(|body| body.get("keys")).cloned();
         let _response: Value = self
@@ -986,8 +987,8 @@ impl BackendClient {
             .http
             .device(method, &path, &credentials, body)
             .await?;
-        if let (Some(room), Some(signed)) = (room, signed) {
-            self.apply_own_state(&credentials, room, &signed).await?;
+        if let (Some(project), Some(signed)) = (project, signed) {
+            self.apply_own_state(&credentials, project, &signed).await?;
         }
         Ok(())
     }
@@ -997,22 +998,22 @@ impl BackendClient {
         credentials: &Credentials,
         args: &Value,
     ) -> Result<(Value, Uuid)> {
-        let list = self.mission_list().await?;
+        let list = self.project_list().await?;
         let invitation = wire::text(args, "invitationId")?;
-        let room = list["invitations"]
+        let project = list["invitations"]
             .as_array()
             .and_then(|items| {
                 items
                     .iter()
                     .find(|item| item["id"].as_str() == Some(invitation))
             })
-            .and_then(|item| item["missionId"].as_str())
+            .and_then(|item| item["projectId"].as_str())
             .ok_or_else(|| Error::Text(text!("This invitation is unavailable.")))?;
-        let room = Uuid::parse_str(room).map_err(|_| invalid("Invalid project identity."))?;
+        let project = Uuid::parse_str(project).map_err(|_| invalid("Invalid project identity."))?;
         let keys = self
-            .prepare_room_membership(credentials, room, None, Some(&credentials.user_id))
+            .prepare_project_membership(credentials, project, None, Some(&credentials.user_id))
             .await?;
-        Ok((keys, room))
+        Ok((keys, project))
     }
 
     #[cfg(feature = "host")]
@@ -1029,9 +1030,14 @@ impl BackendClient {
         if !credentials.enrolled {
             return Err(Error::EnrollmentRequired);
         }
-        if let Some(room) = info.mission_id {
-            self.refresh_room_keys(&credentials, room, false, &mut rooms::Lookups::default())
-                .await?;
+        if let Some(project) = info.project_id {
+            self.refresh_project_keys(
+                &credentials,
+                project,
+                false,
+                &mut projects::Lookups::default(),
+            )
+            .await?;
         }
         if let Some(publication) = self.inner.publications.lock().await.get(&info.session_id) {
             if publication.info.read().await.incarnation_id != info.incarnation_id {
@@ -1039,13 +1045,13 @@ impl BackendClient {
             }
             return Ok(());
         }
-        let body = publication_body(&info, &credentials.keys.device_id, info.mission_id);
+        let body = publication_body(&info, &credentials.keys.device_id, info.project_id);
         let mut dto: SessionDto = self
             .inner
             .http
             .device(Method::POST, "api/sessions", &credentials, Some(body))
             .await?;
-        if info.mission_id.is_none()
+        if info.project_id.is_none()
             && dto.shared_with.iter().cloned().collect::<BTreeSet<_>>() != info.shared_with
         {
             dto=self.inner.http.device(Method::PUT,&format!("api/sessions/{}/members",info.session_id),&credentials,Some(json!({"incarnationId":info.incarnation_id,"expectedRevision":dto.authorization_revision,"userIds":info.shared_with}))).await?;
@@ -1327,7 +1333,7 @@ fn path_segment(value: &str) -> Result<String> {
     Ok(url.path().trim_start_matches('/').to_owned())
 }
 
-/// The server can only take people away from the host's own choice. A room change ends a
+/// The server can only take people away from the host's own choice. A project change ends a
 /// terminal's people, as it does on the server.
 #[cfg(feature = "host")]
 fn follow_sharing(
@@ -1335,17 +1341,17 @@ fn follow_sharing(
     dto: &SessionDto,
     change: Option<(Option<Uuid>, u64)>,
 ) -> (bool, BTreeSet<String>) {
-    if let Some((room, sequence)) = change {
-        if info.mission_id != room {
+    if let Some((project, sequence)) = change {
+        if info.project_id != project {
             info.shared_with.clear();
         }
-        info.mission_id = room;
-        info.room_sequence = sequence;
+        info.project_id = project;
+        info.project_sequence = sequence;
     }
     let reported = dto.shared_with.iter().cloned().collect::<BTreeSet<_>>();
     let removed = !info.shared_with.is_subset(&reported);
     info.shared_with.retain(|user| reported.contains(user));
-    let shown = if info.mission_id.is_some() && info.mission_id == dto.mission_id {
+    let shown = if info.project_id.is_some() && info.project_id == dto.project_id {
         reported
     } else {
         info.shared_with.clone()
@@ -1357,7 +1363,7 @@ fn follow_sharing(
 pub(crate) fn publication_body(
     info: &LocalPublication,
     device_id: &str,
-    room: Option<Uuid>,
+    project: Option<Uuid>,
 ) -> Value {
     json!({
         "id": info.session_id,
@@ -1365,7 +1371,7 @@ pub(crate) fn publication_body(
         "name": info.name,
         "hostDeviceId": device_id,
         "hostName": host_label(),
-        "missionId": room,
+        "projectId": project,
         "restoredFrom": info.restored_from,
     })
 }
@@ -1428,12 +1434,12 @@ mod device_identity;
 mod enrollment;
 mod friends;
 mod notifications;
+mod projects;
 mod push;
 mod recovery;
-mod rooms;
 mod terminal_close;
 #[cfg(feature = "host")]
 pub(crate) use terminal_close::close_signature_holds;
-mod terminal_rooms;
+mod terminal_projects;
 #[cfg(test)]
 mod tests;

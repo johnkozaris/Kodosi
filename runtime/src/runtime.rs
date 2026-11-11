@@ -38,9 +38,9 @@ mod commands;
 mod dosi;
 #[cfg(feature = "host")]
 mod messages;
+mod project_seen;
 #[cfg(feature = "host")]
 mod restore;
-mod room_seen;
 mod saver;
 mod terminal_folders;
 
@@ -457,7 +457,7 @@ struct Scope {
 #[cfg(feature = "host")]
 impl Local {
     fn tell_canvas_who_shares(&self) {
-        let shared = !self.entry.shared_with.is_empty() || self.entry.mission_id.is_some();
+        let shared = !self.entry.shared_with.is_empty() || self.entry.project_id.is_some();
         self.terminal.canvas.set_shared(shared);
     }
 }
@@ -468,7 +468,7 @@ struct Local {
     entry: SessionEntry,
     creation: Command,
     published: bool,
-    room_sequence: u64,
+    project_sequence: u64,
     worktree: Option<crate::worktree::Worktree>,
     wanted: Option<restore::Sharing>,
     conversation: restore::Conversation,
@@ -508,13 +508,13 @@ impl Local {
                 session_id: id,
                 incarnation_id: self.terminal.incarnation_id,
                 name: self.entry.name.clone(),
-                mission_id: self
+                project_id: self
                     .entry
-                    .mission_id
+                    .project_id
                     .as_deref()
                     .and_then(|id| Uuid::parse_str(id).ok()),
-                room_sequence: self.room_sequence,
-                shared_with: if self.entry.mission_id.is_some() {
+                project_sequence: self.project_sequence,
+                shared_with: if self.entry.project_id.is_some() {
                     BTreeSet::new()
                 } else {
                     self.entry.shared_with.iter().cloned().collect()
@@ -579,13 +579,13 @@ fn answer(command: &Command, outcome: std::result::Result<(), &Error>) -> Value 
         value["sessionId"] = json!(session);
     }
     match command {
-        Command::Room { room_id, .. } if outcome.is_ok() => value["roomId"] = json!(room_id),
-        Command::RenameMission { mission_id, .. }
-        | Command::DeleteMission { mission_id, .. }
-        | Command::OpenMission { mission_id, .. }
-        | Command::InviteMission { mission_id, .. }
-        | Command::RemoveMissionMember { mission_id, .. }
-        | Command::LeaveMission { mission_id, .. } => value["missionId"] = json!(mission_id),
+        Command::ActInProject { project_id, .. }
+        | Command::RenameProject { project_id, .. }
+        | Command::DeleteProject { project_id, .. }
+        | Command::OpenProject { project_id, .. }
+        | Command::InviteProject { project_id, .. }
+        | Command::RemoveProjectMember { project_id, .. }
+        | Command::LeaveProject { project_id, .. } => value["projectId"] = json!(project_id),
         _ => {}
     }
     value
@@ -1131,8 +1131,8 @@ struct Runtime {
     visible: HashMap<Uuid, Shown>,
     attention: BTreeSet<String>,
     activity: HashMap<String, Activity>,
-    room_latest: HashMap<String, u64>,
-    room_seen: room_seen::RoomSeen,
+    project_latest: HashMap<String, u64>,
+    project_seen: project_seen::ProjectSeen,
     reconnect: HashMap<Uuid, Reconnect>,
     typing: HashMap<Uuid, usize>,
     inputs: u64,
@@ -1186,7 +1186,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         isolated: config.isolated,
     })?;
     let network_events = network.events();
-    let room_seen = room_seen::RoomSeen::load(&config.data_root);
+    let project_seen = project_seen::ProjectSeen::load(&config.data_root);
     let scope = Scope {
         user: None,
         epoch: std::time::SystemTime::now()
@@ -1284,8 +1284,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         visible: HashMap::new(),
         attention: BTreeSet::new(),
         activity: HashMap::new(),
-        room_latest: HashMap::new(),
-        room_seen,
+        project_latest: HashMap::new(),
+        project_seen,
         reconnect: HashMap::new(),
         typing: HashMap::new(),
         inputs: 0,
@@ -1802,7 +1802,7 @@ impl Runtime {
                         Ok(event) => self.network_event(event),
                         Err(broadcast::error::RecvError::Lagged(_)) => {
                             let internal = || Uuid::now_v7().to_string();
-                            for command in [Command::RefreshAuth { request_id: internal() }, Command::RefreshDevices { request_id: internal() }, Command::RefreshFriends { request_id: internal() }, Command::ListMissions { request_id: internal() }, Command::ListSessions { request_id: internal() }] {
+                            for command in [Command::RefreshAuth { request_id: internal() }, Command::RefreshDevices { request_id: internal() }, Command::RefreshFriends { request_id: internal() }, Command::ListProjects { request_id: internal() }, Command::ListSessions { request_id: internal() }] {
                                 self.refresh(command);
                             }
                         },
@@ -1867,7 +1867,7 @@ impl Runtime {
         remove_pictures(&self.config.data_root).await;
         #[cfg(feature = "host")]
         self.restore.saved().await;
-        self.room_seen.saved().await;
+        self.project_seen.saved().await;
         self.network.shutdown().await;
     }
 
@@ -1995,7 +1995,7 @@ impl Runtime {
                     sharing: local.wanted.clone().or_else(|| {
                         restore::Sharing::of(
                             local.entry.owner_user_id.as_ref(),
-                            local.entry.mission_id.as_ref(),
+                            local.entry.project_id.as_ref(),
                             &local.entry.shared_with,
                         )
                     }),
@@ -2036,7 +2036,7 @@ impl Runtime {
                 request_id: Uuid::now_v7().to_string(),
                 name: saved.name.clone(),
                 working_dir: restore::nearest_folder(saved.folder.as_deref()),
-                mission_id: None,
+                project_id: None,
                 resume: None,
                 branch: None,
                 worktrees: None,
@@ -2058,25 +2058,27 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
-    fn note_mentions(&mut self, room: &Value) {
-        let Some(id) = room["roomId"].as_str() else {
+    fn note_mentions(&mut self, content: &Value) {
+        let Some(id) = content["projectId"].as_str() else {
             return;
         };
-        let messages = room["messages"].as_array().map_or(&[][..], Vec::as_slice);
+        let messages = content["messages"]
+            .as_array()
+            .map_or(&[][..], Vec::as_slice);
         let fresh = self.mentions.new_messages(id, messages);
         if fresh.is_empty() {
             return;
         }
-        let in_room = |entry: &SessionEntry| entry.mission_id.as_deref() == Some(id);
+        let in_project = |entry: &SessionEntry| entry.project_id.as_deref() == Some(id);
         let terminals = self
             .local
             .iter()
-            .filter(|(_, local)| in_room(&local.entry))
+            .filter(|(_, local)| in_project(&local.entry))
             .map(|(terminal, local)| (Some(*terminal), local.entry.name.as_str()))
             .chain(
                 self.remotes
                     .iter()
-                    .filter(|(remote, entry)| !self.local.contains_key(remote) && in_room(entry))
+                    .filter(|(remote, entry)| !self.local.contains_key(remote) && in_project(entry))
                     .map(|(_, entry)| (None, entry.name.as_str())),
             )
             .collect::<Vec<_>>();
@@ -2115,26 +2117,26 @@ impl Runtime {
                 }
             }
         }
-        let room = Uuid::parse_str(id).ok();
+        let project = Uuid::parse_str(id).ok();
         let now = tokio::time::Instant::now();
         for (terminal, from, text, sequence, author) in kept {
             let name = self.local[&terminal]
                 .entry
-                .mission_name
+                .project_name
                 .clone()
-                .or_else(|| self.room_name(id))
-                .unwrap_or_else(|| "room".to_owned());
+                .or_else(|| self.project_name(id))
+                .unwrap_or_else(|| "project".to_owned());
             let mention = messages::Mention {
-                room: name,
+                project: name,
                 from,
                 text,
                 sequence,
             };
             if Some(author.as_str()) == self.scope.user.as_deref() {
                 self.mentions.keep(terminal, mention);
-            } else if let Some(room) = room {
+            } else if let Some(project) = project {
                 self.mentions.wait_for_check(messages::Unchecked {
-                    room,
+                    project,
                     author,
                     terminal,
                     mention,
@@ -2146,7 +2148,7 @@ impl Runtime {
         self.tell_mentions();
     }
 
-    /// The mention of another person reaches an agent only when the signed room and friend
+    /// The mention of another person reaches an agent only when the signed project and friend
     /// records admit that person, as they admit a viewer of the terminal. A mention whose check
     /// gets no answer waits for a later check.
     #[cfg(feature = "host")]
@@ -2164,12 +2166,12 @@ impl Runtime {
             let (mut mentions, mut later) = (Vec::new(), Vec::new());
             if let Ok(credentials) = network.credentials() {
                 for check in checks {
-                    let asked = (check.room, check.author.clone());
+                    let asked = (check.project, check.author.clone());
                     let answer = if let Some(answer) = answers.get(&asked).copied() {
                         answer
                     } else {
                         let answer = match network
-                            .room_identity(&credentials, check.room, &check.author)
+                            .project_identity(&credentials, check.project, &check.author)
                             .await
                         {
                             Ok(_) => Some(true),
@@ -2225,13 +2227,13 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
-    fn room_name(&self, id: &str) -> Option<String> {
+    fn project_name(&self, id: &str) -> Option<String> {
         self.cached_events
-            .get("missions.snapshot")?
-            .get("missions")?
+            .get("projects.snapshot")?
+            .get("projects")?
             .as_array()?
             .iter()
-            .find(|mission| mission["id"] == id)?
+            .find(|project| project["id"] == id)?
             .get("name")?
             .as_str()
             .map(str::to_owned)
@@ -2265,14 +2267,14 @@ impl Runtime {
             let Some(waiting) = self.mentions.waiting.remove(&id) else {
                 continue;
             };
-            let room = waiting[0].room.clone();
+            let project = waiting[0].project.clone();
             let (now_told, later): (Vec<_>, Vec<_>) = waiting
                 .into_iter()
-                .partition(|mention| mention.room == room);
+                .partition(|mention| mention.project == project);
             if !later.is_empty() {
                 self.mentions.waiting.insert(id, later);
             }
-            let line = messages::mention_line(&room, &now_told);
+            let line = messages::mention_line(&project, &now_told);
             let terminal = TerminalTarget::Local(self.local[&id].terminal.clone());
             self.mentions.telling.insert(id);
             self.spawn(async move {
@@ -2406,7 +2408,7 @@ impl Runtime {
                 self.mentions.told.insert(id, tokio::time::Instant::now());
             }
             Err(error) => {
-                tracing::debug!(%id, %error, "a room message waits for the agent");
+                tracing::debug!(%id, %error, "a project message waits for the agent");
                 for mention in told {
                     self.mentions.keep(id, mention);
                 }
@@ -2421,13 +2423,13 @@ impl Runtime {
         };
         for local in self.local.values_mut() {
             if let Some(sharing) = local.wanted.take_if(|sharing| sharing.owner == user) {
-                local.entry.shared_with = if sharing.room.is_some() {
+                local.entry.shared_with = if sharing.project.is_some() {
                     Vec::new()
                 } else {
                     sharing.people
                 };
-                local.entry.mission_id = sharing.room;
-                local.entry.mission_name = None;
+                local.entry.project_id = sharing.project;
+                local.entry.project_name = None;
                 local.tell_canvas_who_shares();
             }
         }
@@ -2728,7 +2730,7 @@ impl Runtime {
         self.remotes.clear();
         self.starting.clear();
         self.cached_events.clear();
-        self.room_latest.clear();
+        self.project_latest.clear();
         #[cfg(feature = "host")]
         self.mentions.clear();
         self.latest_auth = None;
@@ -2742,8 +2744,8 @@ impl Runtime {
         for local in self.local.values_mut() {
             local.published = false;
             local.entry.shared_with.clear();
-            local.entry.mission_id = None;
-            local.entry.mission_name = None;
+            local.entry.project_id = None;
+            local.entry.project_name = None;
             local.tell_canvas_who_shares();
             local.entry.owner_user_id.clone_from(&self.scope.user);
             local.entry.host_device_id = None;
@@ -2818,7 +2820,7 @@ impl Runtime {
                 }
                 _ => {}
             }
-            let event = if kind == "missions.snapshot" {
+            let event = if kind == "projects.snapshot" {
                 self.with_unread(event.event)
             } else {
                 event.event
@@ -2829,59 +2831,59 @@ impl Runtime {
                     | "devices.list"
                     | "devices.hosts"
                     | "devices.link.snapshot"
-                    | "missions.snapshot"
+                    | "projects.snapshot"
                     | "system.updateRequired"
             ) {
                 self.cached_events.insert(kind.to_owned(), event.clone());
             }
-            let room = (kind == "room.snapshot").then(|| event["room"].clone());
+            let content = (kind == "project.snapshot").then(|| event["content"].clone());
             self.emit(event);
-            if let Some(room) = room {
+            if let Some(content) = content {
                 #[cfg(feature = "host")]
-                self.note_mentions(&room);
-                self.room_changed(&room);
+                self.note_mentions(&content);
+                self.content_changed(&content);
             }
         }
     }
 
-    fn seen_rooms(&mut self) -> Option<&mut BTreeMap<String, u64>> {
+    fn seen_projects(&mut self) -> Option<&mut BTreeMap<String, u64>> {
         let user = self.scope.user.clone()?;
-        Some(self.room_seen.of(user))
+        Some(self.project_seen.of(user))
     }
 
     fn with_unread(&mut self, mut snapshot: Value) -> Value {
-        let latest = self.room_latest.clone();
-        let seen = self.seen_rooms().cloned().unwrap_or_default();
-        for mission in snapshot
-            .get_mut("missions")
+        let latest = self.project_latest.clone();
+        let seen = self.seen_projects().cloned().unwrap_or_default();
+        for project in snapshot
+            .get_mut("projects")
             .and_then(Value::as_array_mut)
             .into_iter()
             .flatten()
         {
-            let id = mission["id"].as_str().unwrap_or_default();
+            let id = project["id"].as_str().unwrap_or_default();
             let unread = latest
                 .get(id)
                 .is_some_and(|latest| *latest > seen.get(id).copied().unwrap_or_default());
-            mission["unread"] = json!(unread);
+            project["unread"] = json!(unread);
         }
         snapshot
     }
 
-    fn publish_rooms(&mut self) {
-        if let Some(snapshot) = self.cached_events.get("missions.snapshot").cloned() {
+    fn publish_projects(&mut self) {
+        if let Some(snapshot) = self.cached_events.get("projects.snapshot").cloned() {
             let snapshot = self.with_unread(snapshot);
             self.cached_events
-                .insert("missions.snapshot".to_owned(), snapshot.clone());
+                .insert("projects.snapshot".to_owned(), snapshot.clone());
             self.emit(snapshot);
         }
     }
 
-    fn room_changed(&mut self, room: &Value) {
-        let Some(id) = room["roomId"].as_str().map(str::to_owned) else {
+    fn content_changed(&mut self, content: &Value) {
+        let Some(id) = content["projectId"].as_str().map(str::to_owned) else {
             return;
         };
         let user = self.scope.user.clone();
-        let Some(latest) = room["messages"]
+        let Some(latest) = content["messages"]
             .as_array()
             .into_iter()
             .flatten()
@@ -2893,30 +2895,30 @@ impl Runtime {
         else {
             return;
         };
-        let known = self.room_latest.get(&id).copied().unwrap_or_default();
+        let known = self.project_latest.get(&id).copied().unwrap_or_default();
         if latest <= known {
             return;
         }
-        self.room_latest.insert(id.clone(), latest);
-        if let Some(seen) = self.seen_rooms()
+        self.project_latest.insert(id.clone(), latest);
+        if let Some(seen) = self.seen_projects()
             && !seen.contains_key(&id)
         {
             seen.insert(id, latest);
-            self.room_seen.save();
+            self.project_seen.save();
         }
-        self.publish_rooms();
+        self.publish_projects();
     }
 
-    fn see_room(&mut self, room: &str, sequence: u64) -> Result<()> {
+    fn see_project(&mut self, project: &str, sequence: u64) -> Result<()> {
         let seen = self
-            .seen_rooms()
+            .seen_projects()
             .ok_or_else(|| Error::Refused(text!("Sign in to use projects.")))?;
-        if seen.get(room).is_some_and(|seen| *seen >= sequence) {
+        if seen.get(project).is_some_and(|seen| *seen >= sequence) {
             return Ok(());
         }
-        seen.insert(room.to_owned(), sequence);
-        self.room_seen.save();
-        self.publish_rooms();
+        seen.insert(project.to_owned(), sequence);
+        self.project_seen.save();
+        self.publish_projects();
         Ok(())
     }
 
@@ -2934,14 +2936,14 @@ impl Runtime {
             .get("sharedWith")
             .cloned()
             .and_then(|users| serde_json::from_value::<Vec<String>>(users).ok());
-        let room = event
-            .get("missionId")
+        let project = event
+            .get("projectId")
             .cloned()
-            .and_then(|room| serde_json::from_value::<Option<Uuid>>(room).ok());
-        let sequence = event.get("roomSequence").and_then(Value::as_u64);
+            .and_then(|project| serde_json::from_value::<Option<Uuid>>(project).ok());
+        let sequence = event.get("projectSequence").and_then(Value::as_u64);
         let administering = id.is_some_and(|id| self.administering.contains(&id));
-        if let (Some(id), Some(incarnation), Some(users), Some(room), Some(sequence)) =
-            (id, incarnation, users, room, sequence)
+        if let (Some(id), Some(incarnation), Some(users), Some(project), Some(sequence)) =
+            (id, incarnation, users, project, sequence)
             && let Some(local) = self
                 .local
                 .get_mut(&id)
@@ -2949,9 +2951,9 @@ impl Runtime {
         {
             local.entry.shared_with = users;
             if !administering {
-                local.entry.mission_id = room.map(|room| room.to_string());
+                local.entry.project_id = project.map(|project| project.to_string());
             }
-            local.room_sequence = sequence;
+            local.project_sequence = sequence;
             local.tell_canvas_who_shares();
             self.publish_catalog();
         }
@@ -2979,8 +2981,8 @@ impl Runtime {
                 && !self.publishing.contains(&remote.id)
             {
                 local.entry.name.clone_from(&remote.name);
-                local.entry.mission_name = remote.mission_name.clone().filter(|_| {
-                    local.entry.mission_id == remote.mission_id.map(|id| id.to_string())
+                local.entry.project_name = remote.project_name.clone().filter(|_| {
+                    local.entry.project_id == remote.project_id.map(|id| id.to_string())
                 });
                 local
                     .entry
@@ -3292,8 +3294,8 @@ impl Runtime {
                 .remotes
                 .get(&remote.id)
                 .and_then(|entry| entry.message.clone()),
-            mission_id: remote.mission_id.map(|id| id.to_string()),
-            mission_name: remote.mission_name,
+            project_id: remote.project_id.map(|id| id.to_string()),
+            project_name: remote.project_name,
             shared_with: remote.shared_with,
             restored_from: remote.restored_from.map(|id| id.to_string()),
         }

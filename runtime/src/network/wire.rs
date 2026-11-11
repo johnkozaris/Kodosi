@@ -40,15 +40,15 @@ pub(crate) struct SessionDto {
     pub owner_name: String,
     pub host_device_id: String,
     pub host_name: String,
-    pub mission_id: Option<Uuid>,
-    pub mission_name: Option<String>,
+    pub project_id: Option<Uuid>,
+    pub project_name: Option<String>,
     pub shared_with: Vec<String>,
     pub authorization_revision: u64,
     pub host_online: bool,
     pub status: Option<TerminalStatus>,
-    pub room_sequence: u64,
+    pub project_sequence: u64,
     #[cfg(feature = "host")]
-    pub room_choice: Option<RoomChoice>,
+    pub project_choice: Option<ProjectChoice>,
     pub hidden: bool,
     #[cfg(feature = "host")]
     pub close_request: Option<CloseRequest>,
@@ -58,7 +58,7 @@ pub(crate) struct SessionDto {
 #[cfg(feature = "host")]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct RoomChoice {
+pub(crate) struct ProjectChoice {
     pub device_id: String,
     pub signature: String,
     pub history: String,
@@ -83,8 +83,8 @@ impl From<SessionDto> for super::RemoteSession {
             owner_name: dto.owner_name,
             host_device_id: dto.host_device_id,
             host_name: dto.host_name,
-            mission_id: dto.mission_id,
-            mission_name: dto.mission_name,
+            project_id: dto.project_id,
+            project_name: dto.project_name,
             shared_with: dto.shared_with,
             online: dto.host_online,
             status: dto.status.filter(TerminalStatus::is_valid),
@@ -256,7 +256,7 @@ pub(crate) fn hosts(value: &Value) -> Result<Vec<String>> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Change {
     pub surface: String,
-    pub room: Option<Uuid>,
+    pub project: Option<Uuid>,
     pub sequence: Option<u64>,
 }
 
@@ -264,19 +264,19 @@ impl Change {
     pub(crate) fn of(surface: &str) -> Self {
         Self {
             surface: surface.to_owned(),
-            room: None,
+            project: None,
             sequence: None,
         }
     }
 
     pub(crate) fn read(value: &Value) -> Result<Self> {
-        let room = match value.get("roomId") {
+        let project = match value.get("projectId") {
             None | Some(Value::Null) => None,
-            Some(_) => Some(id(value, "roomId")?),
+            Some(_) => Some(id(value, "projectId")?),
         };
         Ok(Self {
             surface: text(value, "surface")?.to_owned(),
-            room,
+            project,
             sequence: value.get("sequence").and_then(Value::as_u64),
         })
     }

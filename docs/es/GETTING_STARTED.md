@@ -201,7 +201,7 @@ Un proyecto reúne terminales de cualquier carpeta y ordenador, con una conversa
 tareas. Selecciona + junto a Proyectos, luego inicia un terminal en el proyecto o comparte uno
 en él, e invita a amigos cuando quieras.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
 
 - Todos los miembros pueden usar los terminales compartidos y compartir los suyos. Quien
   entra más tarde recibe los terminales y toda la conversación. Los archivos se quedan en el

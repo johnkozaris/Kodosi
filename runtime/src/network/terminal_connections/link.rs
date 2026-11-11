@@ -654,7 +654,7 @@ pub(crate) async fn run(
         frames,
     });
     let _disconnect = Disconnect(&link);
-    for surface in ["sessions", "friends", "devices", "missions"] {
+    for surface in ["sessions", "friends", "devices", "projects"] {
         drop(notices.send(wire::Notice::Changed(wire::Change::of(surface))));
     }
     let sent = Notify::new();

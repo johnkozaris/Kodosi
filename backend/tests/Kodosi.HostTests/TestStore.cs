@@ -2,7 +2,7 @@ using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Friends;
 using Kodosi.TerminalConnections;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Plans;
 using Kodosi.Security;
 using Kodosi.Sessions;
@@ -23,8 +23,8 @@ internal sealed class TestStore : IAsyncDisposable
     public Kodosi.Admission.AccountGate Gate { get; } = new();
     public FriendService Friends => new(Db, Connections, TimeProvider.System, Plans, Names);
     public NameChecks Names => new(Db, Connections, DeviceSessions, TimeProvider.System);
-    public MissionService Missions => new(Db, Connections, Friends, TimeProvider.System, Devices, Plans);
-    public SessionService Sessions => new(Db, Connections, Missions, TimeProvider.System, Plans);
+    public ProjectService Projects => new(Db, Connections, Friends, TimeProvider.System, Devices, Plans);
+    public SessionService Sessions => new(Db, Connections, Projects, TimeProvider.System, Plans);
 
     public static async Task<TestStore> CreateAsync(PostgresFixture postgres)
     {
@@ -36,10 +36,10 @@ internal sealed class TestStore : IAsyncDisposable
     public TestStore Fork(params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors) =>
         new(new KodosiDbContext(new DbContextOptionsBuilder<KodosiDbContext>()
             .UseNpgsql(Db.Database.GetConnectionString()).AddInterceptors(interceptors).Options)) { Plans = Plans };
-    public async Task<string> KeyRoomAsync(Guid room, long version = 1)
+    public async Task<string> KeyProjectAsync(Guid project, long version = 1)
     {
-        var body = System.Text.Encoding.UTF8.GetBytes($"key state {version} of {room}");
-        Db.MissionKeyStates.Add(new MissionKeyState { MissionId = room, Version = version, Epoch = 1, Body = body, Signature = new byte[IdentityWireFormat.MlDsa65SignatureLength] });
+        var body = System.Text.Encoding.UTF8.GetBytes($"key state {version} of {project}");
+        Db.ProjectKeyStates.Add(new ProjectKeyState { ProjectId = project, Version = version, Epoch = 1, Body = body, Signature = new byte[IdentityWireFormat.MlDsa65SignatureLength] });
         await Db.SaveChangesAsync(TestContext.Current.CancellationToken);
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(body));
     }
@@ -89,8 +89,8 @@ internal sealed record TestUser(User User, DeviceFixture Fixture, Device Device)
 {
     public ApprovedDevice Approved => ApprovedDevice.From(Device);
 
-    public SessionService.RoomChoiceWrite RoomChoice(Guid terminal, Guid incarnation, Guid? room, long sequence, string history = "") =>
-        new(Device.Id, sequence, Convert.ToBase64String(Fixture.Sign(Proofs.TerminalRoom(User.Id, terminal, incarnation, room, history, sequence, Device.Id))), history);
+    public SessionService.ProjectChoiceWrite ProjectChoice(Guid terminal, Guid incarnation, Guid? project, long sequence, string history = "") =>
+        new(Device.Id, sequence, Convert.ToBase64String(Fixture.Sign(Proofs.TerminalProject(User.Id, terminal, incarnation, project, history, sequence, Device.Id))), history);
 }
 
 internal sealed class ManualClock : TimeProvider

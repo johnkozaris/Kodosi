@@ -12,18 +12,18 @@ use zeroize::{Zeroize as _, Zeroizing};
 use super::storage::Secrets;
 use crate::network::{Result, invalid};
 
-pub(crate) const ROOM_KEM_PUBLIC_BYTES: usize = 1184;
-pub(crate) const ROOM_PUBLIC_BYTES: usize = ROOM_KEM_PUBLIC_BYTES + AGREEMENT_BYTES;
-const ROOM_KEM_SECRET_BYTES: usize = 2400;
+pub(crate) const PROJECT_KEM_PUBLIC_BYTES: usize = 1184;
+pub(crate) const PROJECT_PUBLIC_BYTES: usize = PROJECT_KEM_PUBLIC_BYTES + AGREEMENT_BYTES;
+const PROJECT_KEM_SECRET_BYTES: usize = 2400;
 pub(crate) const AGREEMENT_BYTES: usize = 32;
 
-pub(crate) struct RoomKeyPair {
+pub(crate) struct ProjectKeyPair {
     kem_secret: Zeroizing<Vec<u8>>,
     agreement_secret: Zeroizing<Vec<u8>>,
     public: Vec<u8>,
 }
 
-impl RoomKeyPair {
+impl ProjectKeyPair {
     pub(crate) fn generate() -> Result<Self> {
         let kem = kem::DecapsulationKey::generate(&kem::ML_KEM_768)
             .map_err(|_| invalid("Cannot create the project encryption key."))?;
@@ -70,11 +70,11 @@ impl RoomKeyPair {
     }
 
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        if bytes.len() != ROOM_KEM_SECRET_BYTES + ROOM_KEM_PUBLIC_BYTES + AGREEMENT_BYTES {
+        if bytes.len() != PROJECT_KEM_SECRET_BYTES + PROJECT_KEM_PUBLIC_BYTES + AGREEMENT_BYTES {
             return Err(invalid("Invalid stored project key."));
         }
-        let (kem_secret, rest) = bytes.split_at(ROOM_KEM_SECRET_BYTES);
-        let (kem_public, agreement_secret) = rest.split_at(ROOM_KEM_PUBLIC_BYTES);
+        let (kem_secret, rest) = bytes.split_at(PROJECT_KEM_SECRET_BYTES);
+        let (kem_public, agreement_secret) = rest.split_at(PROJECT_KEM_PUBLIC_BYTES);
         Self::from_parts(kem_secret, kem_public, agreement_secret)
     }
 
@@ -82,7 +82,7 @@ impl RoomKeyPair {
         Zeroizing::new(
             [
                 self.kem_secret.as_slice(),
-                &self.public[..ROOM_KEM_PUBLIC_BYTES],
+                &self.public[..PROJECT_KEM_PUBLIC_BYTES],
                 self.agreement_secret.as_slice(),
             ]
             .concat(),
@@ -108,28 +108,33 @@ pub struct DeviceKeys {
     pub device_id: String,
     signing_pkcs8: Zeroizing<Vec<u8>>,
     signing_public: Vec<u8>,
-    room: RoomKeyPair,
-    recovery: Option<(String, RoomKeyPair)>,
+    project: ProjectKeyPair,
+    recovery: Option<(String, ProjectKeyPair)>,
 }
 
+/// A device reads the keys that it saved only under the names that it saved them with.
 #[derive(Serialize, Deserialize)]
 struct StoredKeys {
     version: u8,
     device_id: String,
     signing_pkcs8: String,
-    room_kem_secret: String,
-    room_kem_public: String,
-    room_agreement_secret: String,
+    #[serde(rename = "room_kem_secret")]
+    project_kem_secret: String,
+    #[serde(rename = "room_kem_public")]
+    project_kem_public: String,
+    #[serde(rename = "room_agreement_secret")]
+    project_agreement_secret: String,
     recovery_device_id: Option<String>,
-    recovery_room: Option<String>,
+    #[serde(rename = "recovery_room")]
+    recovery_project: Option<String>,
 }
 
 impl Drop for StoredKeys {
     fn drop(&mut self) {
         self.signing_pkcs8.zeroize();
-        self.room_kem_secret.zeroize();
-        self.room_agreement_secret.zeroize();
-        self.recovery_room.zeroize();
+        self.project_kem_secret.zeroize();
+        self.project_agreement_secret.zeroize();
+        self.recovery_project.zeroize();
     }
 }
 
@@ -176,7 +181,7 @@ impl DeviceKeys {
         store: &Secrets,
         user_id: &str,
         expected_device: &str,
-        recovery: Option<(String, RoomKeyPair)>,
+        recovery: Option<(String, ProjectKeyPair)>,
     ) -> Result<Self> {
         let label = format!("{}.device", Self::account(user_id)?);
         let payload = store
@@ -203,23 +208,23 @@ impl DeviceKeys {
             device_id: Uuid::now_v7().to_string(),
             signing_pkcs8: Zeroizing::new(pkcs8.as_ref().to_vec()),
             signing_public: pair.public_key().as_ref().to_vec(),
-            room: RoomKeyPair::generate()?,
+            project: ProjectKeyPair::generate()?,
             recovery: None,
         })
     }
 
-    pub(crate) fn room_public(&self) -> &[u8] {
-        self.room.public()
+    pub(crate) fn project_public(&self) -> &[u8] {
+        self.project.public()
     }
 
-    pub(crate) fn room(&self) -> &RoomKeyPair {
-        &self.room
+    pub(crate) fn project(&self) -> &ProjectKeyPair {
+        &self.project
     }
 
-    pub(crate) fn recovery(&self) -> Option<(&str, &RoomKeyPair)> {
+    pub(crate) fn recovery(&self) -> Option<(&str, &ProjectKeyPair)> {
         self.recovery
             .as_ref()
-            .map(|(device, room)| (device.as_str(), room))
+            .map(|(device, project)| (device.as_str(), project))
     }
 
     pub fn signing_public(&self) -> &[u8] {
@@ -234,19 +239,19 @@ impl DeviceKeys {
     }
 
     fn encode(&self) -> Result<Zeroizing<String>> {
-        let (kem_public, _) = self.room.public.split_at(ROOM_KEM_PUBLIC_BYTES);
+        let (kem_public, _) = self.project.public.split_at(PROJECT_KEM_PUBLIC_BYTES);
         Ok(Zeroizing::new(serde_json::to_string(&StoredKeys {
             version: 1,
             device_id: self.device_id.clone(),
             signing_pkcs8: BASE64.encode(self.signing_pkcs8.as_slice()),
-            room_kem_secret: BASE64.encode(self.room.kem_secret.as_slice()),
-            room_kem_public: BASE64.encode(kem_public),
-            room_agreement_secret: BASE64.encode(self.room.agreement_secret.as_slice()),
+            project_kem_secret: BASE64.encode(self.project.kem_secret.as_slice()),
+            project_kem_public: BASE64.encode(kem_public),
+            project_agreement_secret: BASE64.encode(self.project.agreement_secret.as_slice()),
             recovery_device_id: self.recovery.as_ref().map(|(device, _)| device.clone()),
-            recovery_room: self
+            recovery_project: self
                 .recovery
                 .as_ref()
-                .map(|(_, room)| BASE64.encode(room.to_bytes().as_slice())),
+                .map(|(_, project)| BASE64.encode(project.to_bytes().as_slice())),
         })?))
     }
 
@@ -268,18 +273,21 @@ impl DeviceKeys {
                 .map(Zeroizing::new)
                 .map_err(|_| invalid(reason))
         };
-        let room = RoomKeyPair::from_parts(
-            &bytes(&stored.room_kem_secret, "Invalid stored project key.")?,
+        let project = ProjectKeyPair::from_parts(
+            &bytes(&stored.project_kem_secret, "Invalid stored project key.")?,
             &bytes(
-                &stored.room_kem_public,
+                &stored.project_kem_public,
                 "Invalid stored project public key.",
             )?,
-            &bytes(&stored.room_agreement_secret, "Invalid stored project key.")?,
+            &bytes(
+                &stored.project_agreement_secret,
+                "Invalid stored project key.",
+            )?,
         )?;
-        let recovery = match (&stored.recovery_device_id, &stored.recovery_room) {
-            (Some(device), Some(room)) => Some((
+        let recovery = match (&stored.recovery_device_id, &stored.recovery_project) {
+            (Some(device), Some(project)) => Some((
                 device.clone(),
-                RoomKeyPair::from_bytes(&bytes(room, "Invalid stored recovery key.")?)?,
+                ProjectKeyPair::from_bytes(&bytes(project, "Invalid stored recovery key.")?)?,
             )),
             (None, None) => None,
             _ => return Err(invalid("Stored recovery key is incomplete.")),
@@ -288,7 +296,7 @@ impl DeviceKeys {
             device_id: stored.device_id.clone(),
             signing_pkcs8,
             signing_public: pair.public_key().as_ref().to_vec(),
-            room,
+            project,
             recovery,
         })
     }
@@ -320,8 +328,34 @@ mod tests {
         let second = DeviceKeys::decode(&first.encode().unwrap()).unwrap();
         assert_eq!(first.device_id, second.device_id);
         assert_eq!(first.signing_public(), second.signing_public());
-        assert_eq!(first.room_public(), second.room_public());
-        assert_eq!(first.room_public().len(), ROOM_PUBLIC_BYTES);
+        assert_eq!(first.project_public(), second.project_public());
+        assert_eq!(first.project_public().len(), PROJECT_PUBLIC_BYTES);
+    }
+
+    #[test]
+    fn a_device_saves_its_keys_under_the_names_that_devices_hold() {
+        let stored: serde_json::Value =
+            serde_json::from_str(&DeviceKeys::generate().unwrap().encode().unwrap()).unwrap();
+        let mut names: Vec<&str> = stored
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        names.sort_unstable();
+        assert_eq!(
+            names,
+            [
+                "device_id",
+                "recovery_device_id",
+                "recovery_room",
+                "room_agreement_secret",
+                "room_kem_public",
+                "room_kem_secret",
+                "signing_pkcs8",
+                "version",
+            ]
+        );
     }
 
     #[test]
@@ -344,18 +378,19 @@ mod tests {
     }
 
     #[test]
-    fn the_device_keeps_the_room_key_of_a_recovery_key_until_it_deletes_it() {
+    fn the_device_keeps_the_project_key_of_a_recovery_key_until_it_deletes_it() {
         let folder = tempfile::tempdir().unwrap();
         let store = Secrets::new(folder.path().to_owned(), "test", true);
         let user = Uuid::now_v7().to_string();
         let keys = DeviceKeys::load_or_create(&store, &user).unwrap();
-        let kept = RoomKeyPair::generate().unwrap();
+        let kept = ProjectKeyPair::generate().unwrap();
         let public = kept.public().to_vec();
         assert!(
             DeviceKeys::set_recovery(&store, &user, "other", Some(("recovery".into(), kept)))
                 .is_err()
         );
-        let kept = RoomKeyPair::from_bytes(&RoomKeyPair::generate().unwrap().to_bytes()).unwrap();
+        let kept =
+            ProjectKeyPair::from_bytes(&ProjectKeyPair::generate().unwrap().to_bytes()).unwrap();
         let public_kept = kept.public().to_vec();
         assert_ne!(public, public_kept);
         DeviceKeys::set_recovery(
@@ -366,12 +401,12 @@ mod tests {
         )
         .unwrap();
         let loaded = DeviceKeys::load_or_create(&store, &user).unwrap();
-        let (device, room) = loaded.recovery().unwrap();
+        let (device, project) = loaded.recovery().unwrap();
         assert_eq!(
-            (device, room.public()),
+            (device, project.public()),
             ("recovery", public_kept.as_slice())
         );
-        assert_eq!(loaded.room_public(), keys.room_public());
+        assert_eq!(loaded.project_public(), keys.project_public());
         DeviceKeys::set_recovery(&store, &user, &keys.device_id, None).unwrap();
         let loaded = DeviceKeys::load_or_create(&store, &user).unwrap();
         assert!(loaded.recovery().is_none());

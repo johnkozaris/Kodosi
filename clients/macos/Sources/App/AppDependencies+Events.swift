@@ -29,7 +29,7 @@ extension AppDependencies {
             account.reset(userId: event.accountUserId)
             people.reset(userId: event.accountUserId); inviteRequested = nil
             dosi.reset()
-            rooms.reset(userId: event.accountUserId); roomWorkspaces.removeAll()
+            projects.reset(userId: event.accountUserId); projectWorkspaces.removeAll()
             freshTerminals.removeAll(); reportedVisible = nil
             activationTasks.values.forEach { $0.cancel() }; activationTasks.removeAll()
             accountKnown = true
@@ -55,29 +55,25 @@ extension AppDependencies {
         case "friends": try receiveFriends(event)
         case "devices": try account.receiveDevices(event)
         case "connection": try account.receiveConnection(event)
-        case "mission", "missions", "room", "dosi": try receiveCollaboration(event)
+        case "project", "projects": try receiveProject(event)
+        case "dosi": try receiveDosi(event)
         case "term", "session", "document": receiveTerminal(event)
         default: break
         }
     }
 
-    private func receiveCollaboration(_ event: RuntimeEvent) throws {
-        if event.type.hasPrefix("room.") {
-            try rooms.receive(event)
-        } else if event.type.hasPrefix("dosi.") {
-            try dosi.receive(event)
-            if event.type == "dosi.item" {
-                try touch(by: event.value("item"))
-            } else if event.type == "dosi.snapshot" {
-                workbench.dosiOn = dosi.state != .off
-            }
-        } else {
-            try receiveMission(event)
+    private func receiveDosi(_ event: RuntimeEvent) throws {
+        try dosi.receive(event)
+        if event.type == "dosi.item" {
+            try touch(by: event.value("item"))
+        } else if event.type == "dosi.snapshot" {
+            workbench.dosiOn = dosi.state != .off
         }
     }
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
-        guard delivery == .app, !["provider.", "room.", "canvas.", "document."].contains(where: event.type.hasPrefix) else { return }
+        guard delivery == .app, !["provider.", "canvas.", "document."].contains(where: event.type.hasPrefix),
+              event.string("operation") != "project.act" else { return }
         people.absorb(error: event)
         let message = event.string("message") ?? String(localized: "That did not work.")
         let stage = account.stage
@@ -171,7 +167,7 @@ extension AppDependencies {
                 signInPresented = true
             }
             commandSink.perform("session.list"); commandSink.perform("friends.refresh")
-            commandSink.perform("devices.refresh"); commandSink.perform("mission.list")
+            commandSink.perform("devices.refresh"); commandSink.perform("project.list")
             consumeDeepLink()
         case "auth.required":
             askRestore()
@@ -230,19 +226,20 @@ extension AppDependencies {
         consumeDeepLink()
     }
 
-    private func receiveMission(_ event: RuntimeEvent) throws {
+    private func receiveProject(_ event: RuntimeEvent) throws {
         switch event.type {
-        case "mission.show":
-            guard let id = event.string("missionId") else { return }
+        case "project.show":
+            guard let id = event.string("projectId") else { return }
             bringToFront()
-            workbench.section = .missions
-            openMission(id: id)
-        case "missions.snapshot":
-            try rooms.receive(event)
-            if let selected = workbench.selectedMissionId, rooms.departed.contains(selected) {
-                workbench.selectedMissionId = nil
+            workbench.section = .projects
+            openProject(id: id)
+        case "projects.snapshot":
+            try projects.receive(event)
+            if let selected = workbench.selectedProjectId, projects.departed.contains(selected) {
+                workbench.selectedProjectId = nil
             }
-        default: break
+        default:
+            try projects.receive(event)
         }
     }
 
@@ -275,7 +272,7 @@ extension AppDependencies {
                 return selected
             }
             return staged.count == 1 ? staged.first : nil
-        case .missions:
+        case .projects:
             return staged.first(where: isShown)
         case .people, .settings:
             return nil
@@ -301,7 +298,7 @@ extension AppDependencies {
         guard let session = session(id), canvas.showsSomething(session) else { return false }
         switch workbench.section {
         case .sessions: return workbench.canvasSessionId == id
-        case .missions: return workbench.selectedMissionId.flatMap { roomWorkspaces[$0] }?.showsCanvas == true
+        case .projects: return workbench.selectedProjectId.flatMap { projectWorkspaces[$0] }?.showsCanvas == true
         case .people, .settings: return false
         }
     }
@@ -310,8 +307,8 @@ extension AppDependencies {
         switch workbench.section {
         case .sessions:
             workbench.openCanvas(id)
-        case .missions:
-            workbench.selectedMissionId.flatMap { roomWorkspaces[$0] }?.showsCanvas = true
+        case .projects:
+            workbench.selectedProjectId.flatMap { projectWorkspaces[$0] }?.showsCanvas = true
         case .people, .settings:
             break
         }
@@ -321,8 +318,8 @@ extension AppDependencies {
         guard workbench.stagedSessionIds.contains(id) else { return false }
         switch workbench.section {
         case .sessions: return workbench.focusedSessionId == nil || workbench.focusedSessionId == id
-        case .missions:
-            guard let room = workbench.selectedMissionId, session(id)?.missionId == room, let workspace = roomWorkspaces[room] else {
+        case .projects:
+            guard let project = workbench.selectedProjectId, session(id)?.projectId == project, let workspace = projectWorkspaces[project] else {
                 return false
             }
             return workspace.shownSection == 0 && workspace.selectedTerminal == id

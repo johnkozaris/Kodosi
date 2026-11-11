@@ -9,9 +9,9 @@ ColumnLayout {
     id: root
 
     readonly property bool inBrowser: Models.Account.signInPage.length > 0
-    readonly property var ownedRooms: Models.Missions.missions
-        .filter(room => room.ownerUserId === Models.Account.userId)
-        .map(room => room.name)
+    readonly property var ownedProjects: Models.Projects.projects
+        .filter(project => project.ownerUserId === Models.Account.userId)
+        .map(project => project.name)
 
     spacing: 18
 
@@ -254,8 +254,8 @@ ColumnLayout {
         PlainLabel {
             color: KodosiTheme.inkMuted
             text: [qsTr("Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there.")]
-                .concat(root.ownedRooms.length > 0
-                    ? [qsTr("These projects close for everyone in them: %1.").arg(root.ownedRooms.join(", "))]
+                .concat(root.ownedProjects.length > 0
+                    ? [qsTr("These projects close for everyone in them: %1.").arg(root.ownedProjects.join(", "))]
                     : [])
                 .concat([qsTr("The terminals on this computer keep running. You cannot undo this.")])
                 .join("\n\n")

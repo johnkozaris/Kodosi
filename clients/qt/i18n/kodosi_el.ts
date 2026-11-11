@@ -2131,114 +2131,6 @@
     </message>
 </context>
 <context>
-    <name>MissionsView</name>
-    <message>
-        <source>Work in projects</source>
-        <translation>Δουλειά σε έργα</translation>
-    </message>
-    <message>
-        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
-        <translation>Ένα έργο συγκεντρώνει τερματικά από οποιονδήποτε φάκελο και υπολογιστή, μαζί με τις εργασίες και τα αποθετήριά του. Προσκαλέστε φίλους όποτε θέλετε.</translation>
-    </message>
-    <message>
-        <source>Sign in</source>
-        <translation>Σύνδεση</translation>
-    </message>
-    <message>
-        <source>Approve this device</source>
-        <translation>Έγκριση αυτής της συσκευής</translation>
-    </message>
-    <message>
-        <source>Projects</source>
-        <translation>Έργα</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n projects</source>
-        <translation>
-            <numerusform>%n έργο</numerusform>
-            <numerusform>%n έργα</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%n shared terminals</source>
-        <translation>
-            <numerusform>%n κοινόχρηστο τερματικό</numerusform>
-            <numerusform>%n κοινόχρηστα τερματικά</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>New project</source>
-        <translation>Νέο έργο</translation>
-    </message>
-    <message>
-        <source>More projects exist. Use Go to… to find them.</source>
-        <translation>Υπάρχουν κι άλλα έργα. Βρείτε τα με το «Μετάβαση σε…».</translation>
-    </message>
-    <message>
-        <source>Some projects are not shown</source>
-        <translation>Ορισμένα έργα δεν εμφανίζονται</translation>
-    </message>
-    <message>
-        <source>%1 invited you</source>
-        <translation>Ο χρήστης %1 σας προσκάλεσε</translation>
-    </message>
-    <message>
-        <source>You are invited</source>
-        <translation>Έχετε πρόσκληση</translation>
-    </message>
-    <message>
-        <source>Not now</source>
-        <translation>Όχι τώρα</translation>
-    </message>
-    <message>
-        <source>Decline invitation</source>
-        <translation>Απόρριψη πρόσκλησης</translation>
-    </message>
-    <message>
-        <source>Join</source>
-        <translation>Συμμετοχή</translation>
-    </message>
-    <message>
-        <source>New messages</source>
-        <translation>Νέα μηνύματα</translation>
-    </message>
-    <message>
-        <source>Yours</source>
-        <translation>Δικά σας</translation>
-    </message>
-    <message>
-        <source>No terminals yet</source>
-        <translation>Δεν υπάρχουν ακόμη τερματικά</translation>
-    </message>
-    <message>
-        <source>Working</source>
-        <translation>Δουλεύει</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals</source>
-        <translation>
-            <numerusform>%n τερματικό</numerusform>
-            <numerusform>%n τερματικά</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>Make your first project</source>
-        <translation>Δημιουργήστε το πρώτο σας έργο</translation>
-    </message>
-    <message>
-        <source>Project name</source>
-        <translation>Όνομα έργου</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>Ακύρωση</translation>
-    </message>
-    <message>
-        <source>Create project</source>
-        <translation>Δημιουργία έργου</translation>
-    </message>
-</context>
-<context>
     <name>NoticePill</name>
     <message>
         <source>Dismiss</source>
@@ -2434,94 +2326,7 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>Αναζήτηση</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Το Kodosi ανοίγει αυτά τα αρχεία. Δεν τα αλλάζει.</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>Δεν έχει δημιουργηθεί ακόμη</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>Άνοιγμα</translation>
-    </message>
-</context>
-<context>
-    <name>QuitDialog</name>
-    <message>
-        <source>Restart Kodosi?</source>
-        <translation>Επανεκκίνηση του Kodosi;</translation>
-    </message>
-    <message>
-        <source>Quit Kodosi?</source>
-        <translation>Έξοδος από το Kodosi;</translation>
-    </message>
-    <message>
-        <source>Restart</source>
-        <translation>Επανεκκίνηση</translation>
-    </message>
-    <message>
-        <source>Quit</source>
-        <translation>Έξοδος</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
-        <translation>
-            <numerusform>%n τερματικό σε αυτόν τον υπολογιστή σταματά. Ξεκινά ξανά όταν ανοίξει το Kodosi.</numerusform>
-            <numerusform>%n τερματικά σε αυτόν τον υπολογιστή σταματούν. Ξεκινούν ξανά όταν ανοίξει το Kodosi.</numerusform>
-        </translation>
-    </message>
-</context>
-<context>
-    <name>RemoveKey</name>
-    <message>
-        <source>Remove from canvas</source>
-        <translation>Αφαίρεση από το canvas</translation>
-    </message>
-</context>
-<context>
-    <name>RepositoryPicker</name>
-    <message>
-        <source>Find or paste a repository</source>
-        <translation>Βρείτε ή επικολλήστε ένα αποθετήριο</translation>
-    </message>
-    <message>
-        <source>Install GitHub CLI to see your repositories</source>
-        <translation>Εγκαταστήστε το GitHub CLI για να δείτε τα αποθετήριά σας</translation>
-    </message>
-    <message>
-        <source>Connect GitHub to see your repositories</source>
-        <translation>Συνδέστε το GitHub για να δείτε τα αποθετήριά σας</translation>
-    </message>
-    <message>
-        <source>Get it</source>
-        <translation>Λήψη</translation>
-    </message>
-    <message>
-        <source>Connect</source>
-        <translation>Σύνδεση</translation>
-    </message>
-    <message>
-        <source>GitHub sign-in</source>
-        <translation>Σύνδεση στο GitHub</translation>
-    </message>
-    <message>
-        <source>No match</source>
-        <translation>Καμία αντιστοιχία</translation>
-    </message>
-    <message>
-        <source>No repositories found</source>
-        <translation>Δεν βρέθηκαν αποθετήρια</translation>
-    </message>
-</context>
-<context>
-    <name>RoomContent</name>
+    <name>ProjectContent</name>
     <message>
         <source>Project name</source>
         <translation>Όνομα έργου</translation>
@@ -2701,7 +2506,7 @@
     </message>
 </context>
 <context>
-    <name>RoomConversation</name>
+    <name>ProjectConversation</name>
     <message>
         <source>Today</source>
         <translation>Σήμερα</translation>
@@ -2811,7 +2616,7 @@
     </message>
 </context>
 <context>
-    <name>RoomRepositories</name>
+    <name>ProjectRepositories</name>
     <message>
         <source>Link a repository</source>
         <translation>Σύνδεση αποθετηρίου</translation>
@@ -2850,7 +2655,7 @@
     </message>
 </context>
 <context>
-    <name>RoomShareDialog</name>
+    <name>ProjectShareDialog</name>
     <message>
         <source>the project</source>
         <translation>το έργο</translation>
@@ -2877,14 +2682,14 @@
     </message>
 </context>
 <context>
-    <name>RoomSkeleton</name>
+    <name>ProjectSkeleton</name>
     <message>
         <source>Loading</source>
         <translation>Φόρτωση</translation>
     </message>
 </context>
 <context>
-    <name>RoomTasks</name>
+    <name>ProjectTasks</name>
     <message>
         <source>Reopen %1</source>
         <translation>Άνοιγμα ξανά: %1</translation>
@@ -2984,6 +2789,201 @@
     <message>
         <source>Done</source>
         <translation>Τέλος</translation>
+    </message>
+</context>
+<context>
+    <name>ProjectsView</name>
+    <message>
+        <source>Work in projects</source>
+        <translation>Δουλειά σε έργα</translation>
+    </message>
+    <message>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>Ένα έργο συγκεντρώνει τερματικά από οποιονδήποτε φάκελο και υπολογιστή, μαζί με τις εργασίες και τα αποθετήριά του. Προσκαλέστε φίλους όποτε θέλετε.</translation>
+    </message>
+    <message>
+        <source>Sign in</source>
+        <translation>Σύνδεση</translation>
+    </message>
+    <message>
+        <source>Approve this device</source>
+        <translation>Έγκριση αυτής της συσκευής</translation>
+    </message>
+    <message>
+        <source>Projects</source>
+        <translation>Έργα</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n projects</source>
+        <translation>
+            <numerusform>%n έργο</numerusform>
+            <numerusform>%n έργα</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n shared terminals</source>
+        <translation>
+            <numerusform>%n κοινόχρηστο τερματικό</numerusform>
+            <numerusform>%n κοινόχρηστα τερματικά</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>New project</source>
+        <translation>Νέο έργο</translation>
+    </message>
+    <message>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>Υπάρχουν κι άλλα έργα. Βρείτε τα με το «Μετάβαση σε…».</translation>
+    </message>
+    <message>
+        <source>Some projects are not shown</source>
+        <translation>Ορισμένα έργα δεν εμφανίζονται</translation>
+    </message>
+    <message>
+        <source>%1 invited you</source>
+        <translation>Ο χρήστης %1 σας προσκάλεσε</translation>
+    </message>
+    <message>
+        <source>You are invited</source>
+        <translation>Έχετε πρόσκληση</translation>
+    </message>
+    <message>
+        <source>Not now</source>
+        <translation>Όχι τώρα</translation>
+    </message>
+    <message>
+        <source>Decline invitation</source>
+        <translation>Απόρριψη πρόσκλησης</translation>
+    </message>
+    <message>
+        <source>Join</source>
+        <translation>Συμμετοχή</translation>
+    </message>
+    <message>
+        <source>New messages</source>
+        <translation>Νέα μηνύματα</translation>
+    </message>
+    <message>
+        <source>Yours</source>
+        <translation>Δικά σας</translation>
+    </message>
+    <message>
+        <source>No terminals yet</source>
+        <translation>Δεν υπάρχουν ακόμη τερματικά</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>Δουλεύει</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals</source>
+        <translation>
+            <numerusform>%n τερματικό</numerusform>
+            <numerusform>%n τερματικά</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Make your first project</source>
+        <translation>Δημιουργήστε το πρώτο σας έργο</translation>
+    </message>
+    <message>
+        <source>Project name</source>
+        <translation>Όνομα έργου</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Ακύρωση</translation>
+    </message>
+    <message>
+        <source>Create project</source>
+        <translation>Δημιουργία έργου</translation>
+    </message>
+</context>
+<context>
+    <name>ProviderSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>Αναζήτηση</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Το Kodosi ανοίγει αυτά τα αρχεία. Δεν τα αλλάζει.</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>Δεν έχει δημιουργηθεί ακόμη</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>Άνοιγμα</translation>
+    </message>
+</context>
+<context>
+    <name>QuitDialog</name>
+    <message>
+        <source>Restart Kodosi?</source>
+        <translation>Επανεκκίνηση του Kodosi;</translation>
+    </message>
+    <message>
+        <source>Quit Kodosi?</source>
+        <translation>Έξοδος από το Kodosi;</translation>
+    </message>
+    <message>
+        <source>Restart</source>
+        <translation>Επανεκκίνηση</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>Έξοδος</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
+        <translation>
+            <numerusform>%n τερματικό σε αυτόν τον υπολογιστή σταματά. Ξεκινά ξανά όταν ανοίξει το Kodosi.</numerusform>
+            <numerusform>%n τερματικά σε αυτόν τον υπολογιστή σταματούν. Ξεκινούν ξανά όταν ανοίξει το Kodosi.</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>RemoveKey</name>
+    <message>
+        <source>Remove from canvas</source>
+        <translation>Αφαίρεση από το canvas</translation>
+    </message>
+</context>
+<context>
+    <name>RepositoryPicker</name>
+    <message>
+        <source>Find or paste a repository</source>
+        <translation>Βρείτε ή επικολλήστε ένα αποθετήριο</translation>
+    </message>
+    <message>
+        <source>Install GitHub CLI to see your repositories</source>
+        <translation>Εγκαταστήστε το GitHub CLI για να δείτε τα αποθετήριά σας</translation>
+    </message>
+    <message>
+        <source>Connect GitHub to see your repositories</source>
+        <translation>Συνδέστε το GitHub για να δείτε τα αποθετήριά σας</translation>
+    </message>
+    <message>
+        <source>Get it</source>
+        <translation>Λήψη</translation>
+    </message>
+    <message>
+        <source>Connect</source>
+        <translation>Σύνδεση</translation>
+    </message>
+    <message>
+        <source>GitHub sign-in</source>
+        <translation>Σύνδεση στο GitHub</translation>
+    </message>
+    <message>
+        <source>No match</source>
+        <translation>Καμία αντιστοιχία</translation>
+    </message>
+    <message>
+        <source>No repositories found</source>
+        <translation>Δεν βρέθηκαν αποθετήρια</translation>
     </message>
 </context>
 <context>
@@ -4245,7 +4245,7 @@
     </message>
 </context>
 <context>
-    <name>kodosi::MissionsModel</name>
+    <name>kodosi::ProjectsModel</name>
     <message>
         <source>Use a name of 1 to 128 UTF-8 bytes.</source>
         <translation>Χρησιμοποιήστε όνομα από 1 έως 128 byte UTF-8.</translation>

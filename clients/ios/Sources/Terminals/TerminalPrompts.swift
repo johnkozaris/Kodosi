@@ -148,6 +148,6 @@ extension View {
 
 extension RuntimeSession {
     var canLeave: Bool {
-        !isOwner && missionId == nil
+        !isOwner && projectId == nil
     }
 }

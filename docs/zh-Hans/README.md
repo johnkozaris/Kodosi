@@ -52,7 +52,7 @@
 
 **为人和 Agent 准备的项目。** 项目汇集来自任意文件夹和电脑的终端，以及对话和任务。Agent 会在对话中阅读和发言、认领任务，GitHub 或 Gitea 的 Issue 也会变成任务。可随时邀请好友。
 
-<p align="center"><img src="../media/room.webp" width="900" alt="一个项目，里面有一个共享终端，以及人和 Agent 的对话。"></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="一个项目，里面有一个共享终端，以及人和 Agent 的对话。"></p>
 
 **每个 Agent 一个分支。** 在新分支、独立的 Git worktree 中启动 Agent，两个 Agent 就永远不会改动同一批文件。
 

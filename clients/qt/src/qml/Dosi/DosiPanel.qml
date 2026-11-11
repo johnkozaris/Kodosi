@@ -8,7 +8,7 @@ Item {
     id: root
 
     signal newTerminalRequested
-    signal newRoomRequested
+    signal newProjectRequested
     signal settingsRequested
 
     objectName: "dosi.panel"
@@ -31,7 +31,7 @@ Item {
             Layout.rightMargin: 12
             Layout.topMargin: 10
             onNewTerminalRequested: root.newTerminalRequested()
-            onNewRoomRequested: root.newRoomRequested()
+            onNewProjectRequested: root.newProjectRequested()
         }
         DosiThread {
             Layout.fillWidth: true

@@ -205,7 +205,7 @@ func terminalEntry(
     owner: Bool = true,
     host: String = "Studio",
     connection: String = "connected",
-    room: (id: String, name: String)? = nil,
+    project: (id: String, name: String)? = nil,
     restoredFrom: String? = nil,
 ) -> [String: Any] {
     var entry: [String: Any] = [
@@ -217,9 +217,9 @@ func terminalEntry(
     if ["blocked", "done", "error"].contains(state) {
         entry["waiting"] = state
     }
-    if let room {
-        entry["missionId"] = room.id
-        entry["missionName"] = room.name
+    if let project {
+        entry["projectId"] = project.id
+        entry["projectName"] = project.name
     }
     if let restoredFrom {
         entry["restoredFrom"] = restoredFrom

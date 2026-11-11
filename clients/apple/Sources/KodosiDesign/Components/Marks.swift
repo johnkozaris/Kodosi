@@ -323,7 +323,7 @@ public struct IconTile: View {
     }
 }
 
-public struct RoomSigil: View {
+public struct ProjectSigil: View {
     @Environment(\.theme) private var theme
     public let key: String
     public var size: CGFloat = 28
@@ -334,7 +334,7 @@ public struct RoomSigil: View {
     }
 
     public var body: some View {
-        let tint = RoomTint.color(for: key)
+        let tint = ProjectTint.color(for: key)
         let seed = StableHash.value(key)
         let shape = RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
         let gap = size * 0.07
@@ -370,17 +370,17 @@ public struct RoomSigil: View {
 
 public struct ShareBadge: View {
     @Environment(\.theme) private var theme
-    public let room: String?
+    public let project: String?
     public let ring: Color
 
-    public init(room: String?, ring: Color) {
-        self.room = room
+    public init(project: String?, ring: Color) {
+        self.project = project
         self.ring = ring
     }
 
     public var body: some View {
         RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-            .fill(room.map(RoomTint.color(for:)) ?? theme.colors.inkFaint)
+            .fill(project.map(ProjectTint.color(for:)) ?? theme.colors.inkFaint)
             .frame(width: 8, height: 8)
             .padding(2)
             .background(ring, in: RoundedRectangle(cornerRadius: 4, style: .continuous))

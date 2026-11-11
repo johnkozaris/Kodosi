@@ -71,10 +71,10 @@ struct TerminalCatalogTests {
         #expect(TerminalCatalog.newTerminal(on: lab, online: online) == nil)
     }
 
-    @Test func `search finds names computers rooms and agents`() throws {
+    @Test func `search finds names computers projects and agents`() throws {
         let all = try sessions([
             terminalEntry("deploy", state: "idle", host: "Studio"),
-            terminalEntry("tests", state: "idle", host: "Air", room: (id: "room-1", name: "Launch")),
+            terminalEntry("tests", state: "idle", host: "Air", project: (id: "project-1", name: "Launch")),
         ])
         #expect(TerminalCatalog.matching(all, query: "DEP").map(\.id) == ["deploy"])
         #expect(TerminalCatalog.matching(all, query: "air").map(\.id) == ["tests"])

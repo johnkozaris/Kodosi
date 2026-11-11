@@ -56,7 +56,7 @@ internal sealed record UnhostedNotice(Guid SessionId, int Status, string Message
 
 internal sealed record ChangedNotice(
     string Surface,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? RoomId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? ProjectId = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? Sequence = null) : ServerMessage;
 
 internal sealed record TerminalNotice(Guid SessionId, Guid IncarnationId, bool Online, TerminalStatus? Status) : ServerMessage;

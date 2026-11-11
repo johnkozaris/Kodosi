@@ -19,12 +19,12 @@ final class AppDependencies {
     let people: PeopleStore
     let dosi: DosiStore
     let canvas: CanvasStore
-    let rooms: RoomStore
+    let projects: ProjectStore
     let documentPages = CanvasDocumentPages()
     var sessions: [RuntimeSession] = []
     var inviteRequested: Date?
     var inviteCopies = 0
-    @ObservationIgnored var roomWorkspaces: [String: RoomWorkspace] = [:]
+    @ObservationIgnored var projectWorkspaces: [String: ProjectWorkspace] = [:]
     var reportedVisible: VisibleReport?
     var restoreAsked = false
     var hostForeground = false
@@ -57,9 +57,9 @@ final class AppDependencies {
     @ObservationIgnored private(set) lazy var dosiPlace = DosiPlace(
         dosi: dosi,
         terminal: { [weak self] in self?.terminal(named: $0) },
-        room: { [weak self] in self?.room(named: $0) },
+        project: { [weak self] in self?.project(named: $0) },
         sessions: { [weak self] in self?.listedSessions ?? [] },
-        rooms: { [weak self] in self?.rooms.missions ?? [] },
+        projects: { [weak self] in self?.projects.entries ?? [] },
         open: { [weak self] in self?.open($0) },
         answer: { [weak self] in self?.answerDosi($0, $1) },
         send: { [weak self] in self?.sendToDosi($0) },
@@ -94,7 +94,7 @@ final class AppDependencies {
         account = AccountStore(commands: commands, browser: "system")
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
-        rooms = RoomStore(commands: commands)
+        projects = ProjectStore(commands: commands)
         launcher = LauncherState(commands: commands)
         let inbox = RuntimeEventInbox()
         self.inbox = inbox
@@ -111,8 +111,8 @@ final class AppDependencies {
         )
         commandSink.onFailure = { [weak self] message in self?.errorMessage = message }
         account.notify = { [weak self] message in self?.errorMessage = message }
-        rooms.notify = { [weak self] message in self?.errorMessage = message }
-        rooms.isFront = { [weak self] in self?.isFront() == true }
+        projects.notify = { [weak self] message in self?.errorMessage = message }
+        projects.isFront = { [weak self] in self?.isFront() == true }
     }
 
     func start() {
@@ -247,8 +247,8 @@ final class AppDependencies {
         sessions.filter { !$0.hidden && $0.status != .closing }
     }
 
-    func roomSessions(_ roomId: String) -> [RuntimeSession] {
-        sessions.filter { $0.missionId == roomId && $0.status != .closing }
+    func projectSessions(_ projectId: String) -> [RuntimeSession] {
+        sessions.filter { $0.projectId == projectId && $0.status != .closing }
     }
 
     func refresh() {
@@ -258,12 +258,12 @@ final class AppDependencies {
             commandSink.perform("auth.refresh")
             commandSink.perform("friends.refresh")
             commandSink.perform("devices.refresh")
-            commandSink.perform("mission.list")
+            commandSink.perform("project.list")
         }
     }
 
     @discardableResult
-    func activateSession(_ id: String, inRoom roomId: String? = nil) -> Bool {
+    func activateSession(_ id: String, inProject projectId: String? = nil) -> Bool {
         guard stageHasRoom(for: id) else {
             errorMessage = String(localized: "Six terminals are open. Minimize one to open another.")
             return false
@@ -274,16 +274,16 @@ final class AppDependencies {
                 return false
             }
             makeRoom(for: id)
-            workbench.showSession(id, inRoom: roomId)
-            if let roomId {
-                roomWorkspace(roomId).selectedTerminal = id
+            workbench.showSession(id, inProject: projectId)
+            if let projectId {
+                projectWorkspace(projectId).selectedTerminal = id
             }
             reportVisible()
             if current.kind == .remote, activationTasks[id] == nil {
-                openRemote(id, inRoom: roomId)
+                openRemote(id, inProject: projectId)
             }
         } else if account.userId != nil, activationTasks[id] == nil {
-            openRemote(id, inRoom: roomId)
+            openRemote(id, inProject: projectId)
         }
         return workbench.stagedSessionIds.contains(id)
     }
@@ -302,12 +302,12 @@ final class AppDependencies {
         workbench.selectedSessionId.flatMap(session)?.localDirectory
     }
 
-    func openLauncher(roomId: String? = nil) {
+    func openLauncher(projectId: String? = nil) {
         let onHome = workbench.section == .sessions && !workbench.stagedSessionIds.contains { session($0) != nil }
-        if onHome, roomId == nil {
+        if onHome, projectId == nil {
             workbench.launcherFocus += 1
         } else {
-            workbench.launcher = LauncherRequest(roomId: roomId)
+            workbench.launcher = LauncherRequest(projectId: projectId)
         }
     }
 
@@ -333,7 +333,7 @@ final class AppDependencies {
 
     @discardableResult
     func createSession(
-        name: String, directory: String?, computer: String? = nil, roomId: String? = nil,
+        name: String, directory: String?, computer: String? = nil, projectId: String? = nil,
         resume: ProviderConversationIdentity? = nil, branch: String? = nil, command: String? = nil,
         agent: AgentStart? = nil, prompt: String? = nil,
     ) async throws -> String? {
@@ -341,12 +341,12 @@ final class AppDependencies {
         guard ProductInput.validName(name) else {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
         }
-        if let roomId {
-            roomWorkspace(roomId).shownSection = 0
+        if let projectId {
+            projectWorkspace(projectId).shownSection = 0
         }
         var fields = TerminalStart(
-            name: name, directory: directory, computer: computer, roomId: roomId, command: command, agent: agent, prompt: prompt,
-            branch: branch, worktrees: branch == nil ? nil : settings.branchFolder, size: startSize(computer: computer, roomId: roomId),
+            name: name, directory: directory, computer: computer, projectId: projectId, command: command, agent: agent, prompt: prompt,
+            branch: branch, worktrees: branch == nil ? nil : settings.branchFolder, size: startSize(computer: computer, projectId: projectId),
         ).fields
         if let resume {
             fields["resume"] = .object(["provider": .string(resume.provider.rawValue), "nativeConversationId": .string(resume.nativeConversationId)])
@@ -358,7 +358,7 @@ final class AppDependencies {
         }
         guard let id = created.string("sessionId") else { return nil }
         freshTerminals.insert(id)
-        activateSession(id, inRoom: roomId)
+        activateSession(id, inProject: projectId)
         return id
     }
 
@@ -366,12 +366,12 @@ final class AppDependencies {
         try await commandSink.mutate(operation, session: target, current: session(target.id), fields: fields)
     }
 
-    func openMission(_ mission: MissionEntry) {
-        openMission(id: mission.id)
+    func openProject(_ project: ProjectEntry) {
+        openProject(id: project.id)
     }
 
-    func openMission(id: String) {
-        workbench.selectedMissionId = id
+    func openProject(id: String) {
+        workbench.selectedProjectId = id
     }
 
     func perform(_ type: String, _ fields: [String: JSONValue] = [:]) {
@@ -383,18 +383,18 @@ extension AppDependencies {
     func openStaged(_ id: String) {
         guard let current = session(id) else { return }
         if let replaced = current.restoredFrom {
-            for workspace in roomWorkspaces.values where workspace.selectedTerminal == replaced {
+            for workspace in projectWorkspaces.values where workspace.selectedTerminal == replaced {
                 workspace.selectedTerminal = id
             }
         }
         guard current.kind == .remote, current.canOpen, activationTasks[id] == nil else { return }
-        openRemote(id, inRoom: nil, asked: false)
+        openRemote(id, inProject: nil, asked: false)
     }
 
-    private func openRemote(_ id: String, inRoom roomId: String?, asked: Bool = true) {
+    private func openRemote(_ id: String, inProject projectId: String?, asked: Bool = true) {
         let epoch = accountEpoch
         let section = workbench.section
-        let selectedRoom = workbench.selectedMissionId
+        let selectedProject = workbench.selectedProjectId
         activationTasks[id] = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
@@ -405,16 +405,16 @@ extension AppDependencies {
             do {
                 _ = try await commandSink.request("session.openRemote", ["sessionId": .string(id)])
                 guard !Task.isCancelled, accountEpoch == epoch, session(id) != nil else { return }
-                if asked, workbench.section == section, workbench.selectedMissionId == selectedRoom {
+                if asked, workbench.section == section, workbench.selectedProjectId == selectedProject {
                     makeRoom(for: id)
-                    workbench.showSession(id, inRoom: roomId)
+                    workbench.showSession(id, inProject: projectId)
                 }
                 guard workbench.stagedSessionIds.contains(id) else {
                     commandSink.perform("session.disconnect", ["sessionId": .string(id)])
                     return
                 }
-                if let roomId {
-                    roomWorkspace(roomId).selectedTerminal = id
+                if let projectId {
+                    projectWorkspace(projectId).selectedTerminal = id
                 }
             } catch {
                 guard session(id) == nil, !Task.isCancelled, accountEpoch == epoch else { return }

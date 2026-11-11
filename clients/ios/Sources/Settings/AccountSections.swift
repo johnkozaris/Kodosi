@@ -168,7 +168,7 @@ struct AccountDeletion: View {
 
     private var summary: String {
         account.deletionSummary(
-            rooms: model.rooms.missions,
+            projects: model.projects.entries,
             terminals: String(localized: "Terminals on your computers keep running. You cannot undo this."),
         )
     }

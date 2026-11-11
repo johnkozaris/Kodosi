@@ -28,7 +28,7 @@ private slots:
     void clipboardReadAnswersOnceTheTerminalTakesInputAgain();
     void terminalLinkDialogAsksOrTellsWhyAndCopiesTheLink();
     void leavingTerminalsLeavesNoDeferredWork();
-    void missionCreationHasOneNameField();
+    void projectCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
     void theSharedBrowserPictureStopsWhileTheWindowIsAway();
 };
@@ -64,7 +64,7 @@ void ControlsTest::theSharedBrowserPictureStopsWhileTheWindowIsAway()
     kodosi::qml::AppStateForeign::instance = &workspace;
     kodosi::qml::AccountModelForeign::instance = &workspace.account();
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
-    kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::ProjectsModelForeign::instance = &workspace.projects();
     kodosi::qml::CanvasModelForeign::instance = &canvas;
     kodosi::qml::CanvasDocumentsForeign::instance = &documents;
     kodosi::qml::DesktopFileIntegrationForeign::instance = &files;
@@ -173,7 +173,7 @@ void ControlsTest::keyboardFocusTracksButtonState()
                 objectName: "test.button"
                 anchors.centerIn: parent
                 width: 450
-                text: "Mission"
+                text: "Project"
             }
         }
     )", {});
@@ -409,7 +409,7 @@ void ControlsTest::terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTermi
     kodosi::qml::AccountModelForeign::instance = &workspace.account();
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
-    kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::ProjectsModelForeign::instance = &workspace.projects();
     kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
@@ -481,7 +481,7 @@ void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
     kodosi::qml::AccountModelForeign::instance = &workspace.account();
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
-    kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::ProjectsModelForeign::instance = &workspace.projects();
     kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     kodosi::qml::TerminalSurfaceControllerForeign::instance = &surfaces;
@@ -592,7 +592,7 @@ void ControlsTest::leavingTerminalsLeavesNoDeferredWork()
     kodosi::qml::AccountModelForeign::instance = &workspace.account();
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
-    kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::ProjectsModelForeign::instance = &workspace.projects();
     kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     kodosi::qml::AgentLauncherModelForeign::instance = &launcher;
@@ -640,7 +640,7 @@ void ControlsTest::leavingTerminalsLeavesNoDeferredWork()
     QTest::qWait(50);
 }
 
-void ControlsTest::missionCreationHasOneNameField()
+void ControlsTest::projectCreationHasOneNameField()
 {
     class Commands final : public kodosi::CommandDispatcher {
     public:
@@ -670,7 +670,7 @@ void ControlsTest::missionCreationHasOneNameField()
     kodosi::qml::AccountModelForeign::instance = &workspace.account();
     kodosi::qml::PeopleModelForeign::instance = &workspace.people();
     kodosi::qml::DevicesModelForeign::instance = &workspace.devices();
-    kodosi::qml::MissionsModelForeign::instance = &workspace.missions();
+    kodosi::qml::ProjectsModelForeign::instance = &workspace.projects();
     kodosi::qml::DosiModelForeign::instance = &workspace.dosi();
     kodosi::qml::SessionActionsModelForeign::instance = &workspace.sessionActions();
     workspace.apply({ {QStringLiteral("type"), QStringLiteral("auth.ready")},
@@ -684,34 +684,34 @@ void ControlsTest::missionCreationHasOneNameField()
         import Kodosi 1.0
         ApplicationWindow {
             width: 720; height: 480; visible: true
-            MissionsView { anchors.fill: parent }
+            ProjectsView { anchors.fill: parent }
         }
     )", {});
     QVERIFY2(component.isReady(), qPrintable(component.errorString()));
     std::unique_ptr<QObject> root(component.create());
     QVERIFY2(root, qPrintable(component.errorString()));
-    auto* button = root->findChild<QQuickItem*>(QStringLiteral("missions.create"));
-    auto* dialog = root->findChild<QObject*>(QStringLiteral("room.create.popup"));
-    auto* name = root->findChild<QQuickItem*>(QStringLiteral("room.create.name"));
-    auto* submit = root->findChild<QQuickItem*>(QStringLiteral("room.create"));
+    auto* button = root->findChild<QQuickItem*>(QStringLiteral("projects.create"));
+    auto* dialog = root->findChild<QObject*>(QStringLiteral("project.create.popup"));
+    auto* name = root->findChild<QQuickItem*>(QStringLiteral("project.create.name"));
+    auto* submit = root->findChild<QQuickItem*>(QStringLiteral("project.create"));
     QVERIFY(button && dialog && name && submit);
     QVERIFY(button->isEnabled());
     QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
     QTRY_VERIFY(dialog->property("visible").toBool());
-    QCOMPARE(root->findChildren<QQuickItem*>(QRegularExpression(QStringLiteral("^room\\.create\\.name$"))).size(), 1);
+    QCOMPARE(root->findChildren<QQuickItem*>(QRegularExpression(QStringLiteral("^project\\.create\\.name$"))).size(), 1);
     QVERIFY(name->setProperty("text", QStringLiteral("Release")));
     QVERIFY(QMetaObject::invokeMethod(submit, "clicked"));
     QCOMPARE(commands.values.size(), 1);
-    QCOMPARE(commands.values.first().value(QStringLiteral("type")).toString(), QStringLiteral("mission.create"));
+    QCOMPARE(commands.values.first().value(QStringLiteral("type")).toString(), QStringLiteral("project.create"));
     QCOMPARE(commands.values.first().value(QStringLiteral("name")).toString(), QStringLiteral("Release"));
     QCOMPARE(commands.values.first().size(), 3);
-    auto* warning = root->findChild<QQuickItem*>(QStringLiteral("panel.missions.truncated"));
+    auto* warning = root->findChild<QQuickItem*>(QStringLiteral("panel.projects.truncated"));
     QVERIFY(warning);
     QVERIFY(!warning->isVisible());
     const QJsonObject invitation {{QStringLiteral("id"), test::id(12)},
-        {QStringLiteral("missionId"), test::id(10)}, {QStringLiteral("missionName"), QStringLiteral("Project")}};
-    QJsonObject snapshot {{QStringLiteral("type"), QStringLiteral("missions.snapshot")},
-        {QStringLiteral("missions"), QJsonArray {}},
+        {QStringLiteral("projectId"), test::id(10)}, {QStringLiteral("projectName"), QStringLiteral("Project")}};
+    QJsonObject snapshot {{QStringLiteral("type"), QStringLiteral("projects.snapshot")},
+        {QStringLiteral("projects"), QJsonArray {}},
         {QStringLiteral("invitations"), QJsonArray {invitation}},
         {QStringLiteral("invitationsTruncated"), true}};
     workspace.apply(snapshot, 1);
@@ -721,7 +721,7 @@ void ControlsTest::missionCreationHasOneNameField()
         QList<QQuickItem*> pending {qobject_cast<QQuickWindow*>(root.get())->contentItem()};
         while (!pending.isEmpty()) {
             auto* item = pending.takeLast();
-            if (item->objectName() == QStringLiteral("panel.missionsView.decline.") + test::id(12)) {
+            if (item->objectName() == QStringLiteral("panel.projectsView.decline.") + test::id(12)) {
                 decline = item;
                 return true;
             }
@@ -732,7 +732,7 @@ void ControlsTest::missionCreationHasOneNameField()
     QTRY_VERIFY(findDecline());
     QTRY_VERIFY(decline->isVisible() && decline->isEnabled());
     QVERIFY(QMetaObject::invokeMethod(decline, "clicked"));
-    QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("mission.invitation.reject"));
+    QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("project.invitation.reject"));
     snapshot.remove(QStringLiteral("invitationsTruncated"));
     workspace.apply(snapshot, 1);
     QTRY_VERIFY(!warning->isVisible());

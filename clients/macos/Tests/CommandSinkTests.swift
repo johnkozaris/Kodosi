@@ -48,10 +48,10 @@ import Testing
     var sent = false
     let commands = CommandSink { _ in sent = true; return 0 }
     let fields: [String: JSONValue] = ["requestId": .string("duplicate")]
-    let first = Task { try await commands.request("mission.create", fields) }
+    let first = Task { try await commands.request("project.create", fields) }
     await settle { !sent }
     do {
-        _ = try await commands.request("mission.create", fields)
+        _ = try await commands.request("project.create", fields)
         Issue.record("A duplicate request replaced its original continuation")
     } catch { #expect(error is RuntimeError) }
     commands.cancelPending()
@@ -84,10 +84,10 @@ import Testing
         return 0
     }
     try app.receive(runtimeEvent("auth.required", fields: ["reason": .string("signedOut")]))
-    let creating = Task { try await app.commandSink.request("mission.create", ["requestId": .string("create"), "name": .string("Launch")]) }
-    await settle { !sent.contains { $0["type"] == .string("mission.create") } }
-    try app.receive(runtimeEvent("mission.error", fields: [
-        "requestId": .string("create"), "operation": .string("mission.create"), "message": .string("Use another name."),
+    let creating = Task { try await app.commandSink.request("project.create", ["requestId": .string("create"), "name": .string("Launch")]) }
+    await settle { !sent.contains { $0["type"] == .string("project.create") } }
+    try app.receive(runtimeEvent("project.error", fields: [
+        "requestId": .string("create"), "operation": .string("project.create"), "message": .string("Use another name."),
     ]))
     do {
         _ = try await creating.value

@@ -72,7 +72,7 @@ ordenador, con una conversación y tareas. Los agentes leen y escriben en la con
 encargan de tareas, y las issues de GitHub o Gitea se convierten en tareas. Invita a amigos
 cuando quieras.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
 
 **Una rama para cada agente.** Inicia un agente en una rama nueva, en su propio worktree de
 Git, para que dos agentes nunca cambien los mismos archivos.

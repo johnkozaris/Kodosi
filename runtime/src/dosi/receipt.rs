@@ -162,7 +162,7 @@ fn kodosi(words: &[String]) -> Option<Shown> {
     let (group, rest) = words.split_first()?;
     match *group {
         "terminal" => terminal(rest),
-        "project" => room(rest),
+        "project" => project(rest),
         "agent" => Some(simple(DosiAction::Look, DosiTargetKind::Agent, None, None)),
         "dosi" if rest.first() == Some(&"ask") => Some(Shown::Hidden),
         _ => None,
@@ -305,7 +305,7 @@ fn terminal(words: &[&str]) -> Option<Shown> {
     }
 }
 
-fn room(words: &[&str]) -> Option<Shown> {
+fn project(words: &[&str]) -> Option<Shown> {
     let parsed = Parsed::new(
         words,
         &[
@@ -324,15 +324,20 @@ fn room(words: &[&str]) -> Option<Shown> {
     );
     let named = parsed.option("project");
     let (verb, rest) = parsed.positional.split_first()?;
-    let one = |action| Some(simple(action, DosiTargetKind::Room, named, None));
+    let one = |action| Some(simple(action, DosiTargetKind::Project, named, None));
     match *verb {
-        "list" => Some(simple(DosiAction::Look, DosiTargetKind::Rooms, None, None)),
+        "list" => Some(simple(
+            DosiAction::Look,
+            DosiTargetKind::Projects,
+            None,
+            None,
+        )),
         "context" | "read" => one(DosiAction::Read),
         "wait" => one(DosiAction::Wait),
         "show" => one(DosiAction::Show),
         "post" => Some(simple(
             DosiAction::Post,
-            DosiTargetKind::Room,
+            DosiTargetKind::Project,
             named,
             rest.first().map(|text| (*text).to_owned()),
         )),
@@ -342,7 +347,7 @@ fn room(words: &[&str]) -> Option<Shown> {
             } else {
                 DosiAction::Edit
             },
-            DosiTargetKind::Room,
+            DosiTargetKind::Project,
             named,
             rest.get(1).map(|text| (*text).to_owned()),
         )),

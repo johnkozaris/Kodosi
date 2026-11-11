@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::{
     BackendClient, CancellationToken, Credentials, Duration, Error, Result, invalid,
-    rooms::Lookups,
+    projects::Lookups,
     terminal_connections,
     wire::{Change, Notice, TerminalNotice},
 };
@@ -50,14 +50,14 @@ impl Retry {
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Scope {
     All,
-    Rooms(BTreeSet<Uuid>),
+    Projects(BTreeSet<Uuid>),
 }
 
 #[derive(Debug, Default)]
 pub(super) struct Waiting {
     surfaces: BTreeSet<&'static str>,
-    missions: Option<Scope>,
-    rooms: BTreeMap<Uuid, Option<u64>>,
+    projects: Option<Scope>,
+    content: BTreeMap<Uuid, Option<u64>>,
     terminals: BTreeMap<Uuid, TerminalNotice>,
     hosts: Option<Vec<String>>,
     reported: BTreeMap<&'static str, String>,
@@ -88,24 +88,24 @@ impl Waiting {
                 self.terminals.clear();
                 self.surfaces.insert("sessions")
             }
-            "missions" => {
-                match (change.room, &mut self.missions) {
-                    (Some(room), Some(Scope::Rooms(rooms))) => {
-                        rooms.insert(room);
+            "projects" => {
+                match (change.project, &mut self.projects) {
+                    (Some(project), Some(Scope::Projects(projects))) => {
+                        projects.insert(project);
                     }
-                    (Some(room), missions @ None) => {
-                        *missions = Some(Scope::Rooms(BTreeSet::from([room])));
+                    (Some(project), projects @ None) => {
+                        *projects = Some(Scope::Projects(BTreeSet::from([project])));
                     }
                     (Some(_), Some(Scope::All)) => {}
-                    (None, missions) => *missions = Some(Scope::All),
+                    (None, projects) => *projects = Some(Scope::All),
                 }
                 true
             }
-            "rooms" => {
-                let room = change
-                    .room
+            "projectContent" => {
+                let project = change
+                    .project
                     .ok_or_else(|| invalid("A project change does not name its project."))?;
-                let wanted = self.rooms.entry(room).or_insert(change.sequence);
+                let wanted = self.content.entry(project).or_insert(change.sequence);
                 *wanted = wanted
                     .zip(change.sequence)
                     .map(|(known, new)| known.max(new));
@@ -118,8 +118,8 @@ impl Waiting {
 
     fn is_empty(&self) -> bool {
         self.surfaces.is_empty()
-            && self.missions.is_none()
-            && self.rooms.is_empty()
+            && self.projects.is_none()
+            && self.content.is_empty()
             && self.terminals.is_empty()
             && self.hosts.is_none()
     }
@@ -152,7 +152,7 @@ impl BackendClient {
         if !credentials.enrolled {
             return Ok(());
         }
-        self.register_room_key(&credentials).await?;
+        self.register_project_key(&credentials).await?;
         let mut current = self.inner.notifications.lock().await;
         if current
             .as_ref()
@@ -329,35 +329,41 @@ impl BackendClient {
         for notice in std::mem::take(&mut waiting.terminals).into_values() {
             emit(self.terminal_event(&notice));
         }
-        if let Some(scope) = waiting.missions.take() {
+        if let Some(scope) = waiting.projects.take() {
             match self
-                .refresh_missions(admitted, &credentials, waiting, scope)
+                .refresh_projects(admitted, &credentials, waiting, scope)
                 .await
             {
                 Ok(()) => {
-                    waiting.reported.remove("missions");
+                    waiting.reported.remove("projects");
                 }
                 Err(error) if retried(&error) => {
                     again.get_or_insert(error);
                 }
-                Err(error) => Self::surface_failed(waiting, "missions", error)?,
+                Err(error) => Self::surface_failed(waiting, "projects", error)?,
             }
         }
-        let rooms = std::mem::take(&mut waiting.rooms);
-        let mut pending = rooms.clone();
-        for (room, wanted) in rooms {
+        let projects = std::mem::take(&mut waiting.content);
+        let mut pending = projects.clone();
+        for (project, wanted) in projects {
             match self
-                .refresh_room(&credentials, room, wanted, false, &mut Lookups::default())
+                .refresh_project(
+                    &credentials,
+                    project,
+                    wanted,
+                    false,
+                    &mut Lookups::default(),
+                )
                 .await
             {
                 Err(error) if retried(&error) => {
-                    waiting.rooms = pending;
+                    waiting.content = pending;
                     return Err(error);
                 }
-                Err(error) => tracing::debug!(%error, "the room waits for its next change"),
+                Err(error) => tracing::debug!(%error, "the project waits for its next change"),
                 Ok(event) => event.into_iter().for_each(emit),
             }
-            pending.remove(&room);
+            pending.remove(&project);
         }
         if !self.credentials()?.enrolled {
             return Err(Error::EnrollmentRequired);
@@ -377,22 +383,22 @@ impl BackendClient {
         Ok(())
     }
 
-    async fn refresh_missions(
+    async fn refresh_projects(
         &self,
         admitted: &Credentials,
         credentials: &Credentials,
         waiting: &mut Waiting,
         scope: Scope,
     ) -> Result<()> {
-        let listed = self.mission_list().await.and_then(|catalog| {
-            let listed = Self::listed_rooms(&catalog)?;
+        let listed = self.project_list().await.and_then(|catalog| {
+            let listed = Self::listed_projects(&catalog)?;
             Ok((catalog, listed))
         });
         let (catalog, (listed, complete)) = match listed {
             Ok(listed) => listed,
             Err(error) => {
                 if retried(&error) {
-                    waiting.missions = Some(scope);
+                    waiting.projects = Some(scope);
                 }
                 return Err(error);
             }
@@ -403,30 +409,30 @@ impl BackendClient {
         let whole = scope == Scope::All;
         let scope = match scope {
             Scope::All => None,
-            Scope::Rooms(rooms) => Some(rooms),
+            Scope::Projects(projects) => Some(projects),
         };
-        let mut pending = self.rooms_to_refresh(listed, scope.as_ref()).await;
+        let mut pending = self.projects_to_refresh(listed, scope.as_ref()).await;
         let mut lookups = Lookups::default();
-        for room in pending.clone() {
+        for project in pending.clone() {
             match self
-                .refresh_room(credentials, room, None, true, &mut lookups)
+                .refresh_project(credentials, project, None, true, &mut lookups)
                 .await
             {
                 Err(error) if retried(&error) => {
-                    waiting.missions = Some(Scope::Rooms(pending));
+                    waiting.projects = Some(Scope::Projects(pending));
                     return Err(error);
                 }
-                Err(error) => tracing::debug!(%error, "the room waits for its next change"),
+                Err(error) => tracing::debug!(%error, "the project waits for its next change"),
                 Ok(event) => event.into_iter().for_each(emit),
             }
-            pending.remove(&room);
-            waiting.rooms.remove(&room);
+            pending.remove(&project);
+            waiting.content.remove(&project);
         }
         if whole {
             if complete {
-                self.drop_recovery_room_key(credentials).await;
+                self.drop_recovery_project_key(credentials).await;
             }
-            waiting.rooms.clear();
+            waiting.content.clear();
         }
         Ok(())
     }

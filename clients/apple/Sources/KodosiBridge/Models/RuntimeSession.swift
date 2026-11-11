@@ -82,8 +82,8 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let status: Status
     public let connectionState: Connection
     public let message: String?
-    public let missionId: String?
-    public let missionName: String?
+    public let projectId: String?
+    public let projectName: String?
     public let connectedUsers: [String]?
     public let sharedWith: [String]
     public let restoredFrom: String?

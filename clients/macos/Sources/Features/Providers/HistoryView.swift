@@ -185,7 +185,7 @@ struct HistoryView: View {
     }
 
     private func historyDate(_ value: String) -> String {
-        guard let date = RoomDates.parse(value) else { return String(value.prefix(10)) }
+        guard let date = ProjectDates.parse(value) else { return String(value.prefix(10)) }
         return date.formatted(.relative(presentation: .named))
     }
 

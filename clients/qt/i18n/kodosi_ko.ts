@@ -2128,111 +2128,6 @@
     </message>
 </context>
 <context>
-    <name>MissionsView</name>
-    <message>
-        <source>Work in projects</source>
-        <translation>프로젝트에서 작업하기</translation>
-    </message>
-    <message>
-        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
-        <translation>프로젝트는 어느 폴더와 컴퓨터의 터미널이든 작업, 저장소와 함께 모아요. 친구는 원할 때 초대하세요.</translation>
-    </message>
-    <message>
-        <source>Sign in</source>
-        <translation>로그인</translation>
-    </message>
-    <message>
-        <source>Approve this device</source>
-        <translation>이 기기 승인</translation>
-    </message>
-    <message>
-        <source>Projects</source>
-        <translation>프로젝트</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n projects</source>
-        <translation>
-            <numerusform>프로젝트 %n개</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%n shared terminals</source>
-        <translation>
-            <numerusform>공유 터미널 %n개</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>New project</source>
-        <translation>새 프로젝트</translation>
-    </message>
-    <message>
-        <source>More projects exist. Use Go to… to find them.</source>
-        <translation>다른 프로젝트도 있어요. &apos;이동…&apos;으로 찾아보세요.</translation>
-    </message>
-    <message>
-        <source>Some projects are not shown</source>
-        <translation>일부 프로젝트는 표시되지 않아요</translation>
-    </message>
-    <message>
-        <source>%1 invited you</source>
-        <translation>%1 님이 초대했어요</translation>
-    </message>
-    <message>
-        <source>You are invited</source>
-        <translation>초대받았어요</translation>
-    </message>
-    <message>
-        <source>Not now</source>
-        <translation>나중에</translation>
-    </message>
-    <message>
-        <source>Decline invitation</source>
-        <translation>초대 거절</translation>
-    </message>
-    <message>
-        <source>Join</source>
-        <translation>참여</translation>
-    </message>
-    <message>
-        <source>New messages</source>
-        <translation>새 메시지</translation>
-    </message>
-    <message>
-        <source>Yours</source>
-        <translation>내 것</translation>
-    </message>
-    <message>
-        <source>No terminals yet</source>
-        <translation>아직 터미널이 없어요</translation>
-    </message>
-    <message>
-        <source>Working</source>
-        <translation>작업 중</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals</source>
-        <translation>
-            <numerusform>터미널 %n개</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>Make your first project</source>
-        <translation>첫 프로젝트 만들기</translation>
-    </message>
-    <message>
-        <source>Project name</source>
-        <translation>프로젝트 이름</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>취소</translation>
-    </message>
-    <message>
-        <source>Create project</source>
-        <translation>프로젝트 만들기</translation>
-    </message>
-</context>
-<context>
     <name>NoticePill</name>
     <message>
         <source>Dismiss</source>
@@ -2427,93 +2322,7 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>찾는 중</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Kodosi는 이 파일을 열기만 하고 바꾸지 않아요.</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>아직 만들지 않음</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>열기</translation>
-    </message>
-</context>
-<context>
-    <name>QuitDialog</name>
-    <message>
-        <source>Restart Kodosi?</source>
-        <translation>Kodosi를 다시 시작할까요?</translation>
-    </message>
-    <message>
-        <source>Quit Kodosi?</source>
-        <translation>Kodosi를 종료할까요?</translation>
-    </message>
-    <message>
-        <source>Restart</source>
-        <translation>다시 시작</translation>
-    </message>
-    <message>
-        <source>Quit</source>
-        <translation>종료</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
-        <translation>
-            <numerusform>이 컴퓨터의 터미널 %n개가 멈춰요. Kodosi를 열면 다시 시작돼요.</numerusform>
-        </translation>
-    </message>
-</context>
-<context>
-    <name>RemoveKey</name>
-    <message>
-        <source>Remove from canvas</source>
-        <translation>캔버스에서 제거</translation>
-    </message>
-</context>
-<context>
-    <name>RepositoryPicker</name>
-    <message>
-        <source>Find or paste a repository</source>
-        <translation>저장소 찾기 또는 붙여넣기</translation>
-    </message>
-    <message>
-        <source>Install GitHub CLI to see your repositories</source>
-        <translation>저장소를 보려면 GitHub CLI를 설치하세요</translation>
-    </message>
-    <message>
-        <source>Connect GitHub to see your repositories</source>
-        <translation>저장소를 보려면 GitHub를 연동하세요</translation>
-    </message>
-    <message>
-        <source>Get it</source>
-        <translation>받기</translation>
-    </message>
-    <message>
-        <source>Connect</source>
-        <translation>연결</translation>
-    </message>
-    <message>
-        <source>GitHub sign-in</source>
-        <translation>GitHub 로그인</translation>
-    </message>
-    <message>
-        <source>No match</source>
-        <translation>일치 항목 없음</translation>
-    </message>
-    <message>
-        <source>No repositories found</source>
-        <translation>저장소를 찾을 수 없어요</translation>
-    </message>
-</context>
-<context>
-    <name>RoomContent</name>
+    <name>ProjectContent</name>
     <message>
         <source>Project name</source>
         <translation>프로젝트 이름</translation>
@@ -2690,7 +2499,7 @@
     </message>
 </context>
 <context>
-    <name>RoomConversation</name>
+    <name>ProjectConversation</name>
     <message>
         <source>Today</source>
         <translation>오늘</translation>
@@ -2799,7 +2608,7 @@
     </message>
 </context>
 <context>
-    <name>RoomRepositories</name>
+    <name>ProjectRepositories</name>
     <message>
         <source>Link a repository</source>
         <translation>저장소 연결</translation>
@@ -2838,7 +2647,7 @@
     </message>
 </context>
 <context>
-    <name>RoomShareDialog</name>
+    <name>ProjectShareDialog</name>
     <message>
         <source>the project</source>
         <translation>프로젝트</translation>
@@ -2865,14 +2674,14 @@
     </message>
 </context>
 <context>
-    <name>RoomSkeleton</name>
+    <name>ProjectSkeleton</name>
     <message>
         <source>Loading</source>
         <translation>불러오는 중</translation>
     </message>
 </context>
 <context>
-    <name>RoomTasks</name>
+    <name>ProjectTasks</name>
     <message>
         <source>Reopen %1</source>
         <translation>%1 다시 열기</translation>
@@ -2972,6 +2781,197 @@
     <message>
         <source>Done</source>
         <translation>완료</translation>
+    </message>
+</context>
+<context>
+    <name>ProjectsView</name>
+    <message>
+        <source>Work in projects</source>
+        <translation>프로젝트에서 작업하기</translation>
+    </message>
+    <message>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>프로젝트는 어느 폴더와 컴퓨터의 터미널이든 작업, 저장소와 함께 모아요. 친구는 원할 때 초대하세요.</translation>
+    </message>
+    <message>
+        <source>Sign in</source>
+        <translation>로그인</translation>
+    </message>
+    <message>
+        <source>Approve this device</source>
+        <translation>이 기기 승인</translation>
+    </message>
+    <message>
+        <source>Projects</source>
+        <translation>프로젝트</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n projects</source>
+        <translation>
+            <numerusform>프로젝트 %n개</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n shared terminals</source>
+        <translation>
+            <numerusform>공유 터미널 %n개</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>New project</source>
+        <translation>새 프로젝트</translation>
+    </message>
+    <message>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>다른 프로젝트도 있어요. &apos;이동…&apos;으로 찾아보세요.</translation>
+    </message>
+    <message>
+        <source>Some projects are not shown</source>
+        <translation>일부 프로젝트는 표시되지 않아요</translation>
+    </message>
+    <message>
+        <source>%1 invited you</source>
+        <translation>%1 님이 초대했어요</translation>
+    </message>
+    <message>
+        <source>You are invited</source>
+        <translation>초대받았어요</translation>
+    </message>
+    <message>
+        <source>Not now</source>
+        <translation>나중에</translation>
+    </message>
+    <message>
+        <source>Decline invitation</source>
+        <translation>초대 거절</translation>
+    </message>
+    <message>
+        <source>Join</source>
+        <translation>참여</translation>
+    </message>
+    <message>
+        <source>New messages</source>
+        <translation>새 메시지</translation>
+    </message>
+    <message>
+        <source>Yours</source>
+        <translation>내 것</translation>
+    </message>
+    <message>
+        <source>No terminals yet</source>
+        <translation>아직 터미널이 없어요</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>작업 중</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals</source>
+        <translation>
+            <numerusform>터미널 %n개</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Make your first project</source>
+        <translation>첫 프로젝트 만들기</translation>
+    </message>
+    <message>
+        <source>Project name</source>
+        <translation>프로젝트 이름</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Create project</source>
+        <translation>프로젝트 만들기</translation>
+    </message>
+</context>
+<context>
+    <name>ProviderSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>찾는 중</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Kodosi는 이 파일을 열기만 하고 바꾸지 않아요.</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>아직 만들지 않음</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>열기</translation>
+    </message>
+</context>
+<context>
+    <name>QuitDialog</name>
+    <message>
+        <source>Restart Kodosi?</source>
+        <translation>Kodosi를 다시 시작할까요?</translation>
+    </message>
+    <message>
+        <source>Quit Kodosi?</source>
+        <translation>Kodosi를 종료할까요?</translation>
+    </message>
+    <message>
+        <source>Restart</source>
+        <translation>다시 시작</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>종료</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
+        <translation>
+            <numerusform>이 컴퓨터의 터미널 %n개가 멈춰요. Kodosi를 열면 다시 시작돼요.</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>RemoveKey</name>
+    <message>
+        <source>Remove from canvas</source>
+        <translation>캔버스에서 제거</translation>
+    </message>
+</context>
+<context>
+    <name>RepositoryPicker</name>
+    <message>
+        <source>Find or paste a repository</source>
+        <translation>저장소 찾기 또는 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Install GitHub CLI to see your repositories</source>
+        <translation>저장소를 보려면 GitHub CLI를 설치하세요</translation>
+    </message>
+    <message>
+        <source>Connect GitHub to see your repositories</source>
+        <translation>저장소를 보려면 GitHub를 연동하세요</translation>
+    </message>
+    <message>
+        <source>Get it</source>
+        <translation>받기</translation>
+    </message>
+    <message>
+        <source>Connect</source>
+        <translation>연결</translation>
+    </message>
+    <message>
+        <source>GitHub sign-in</source>
+        <translation>GitHub 로그인</translation>
+    </message>
+    <message>
+        <source>No match</source>
+        <translation>일치 항목 없음</translation>
+    </message>
+    <message>
+        <source>No repositories found</source>
+        <translation>저장소를 찾을 수 없어요</translation>
     </message>
 </context>
 <context>
@@ -4228,7 +4228,7 @@
     </message>
 </context>
 <context>
-    <name>kodosi::MissionsModel</name>
+    <name>kodosi::ProjectsModel</name>
     <message>
         <source>Use a name of 1 to 128 UTF-8 bytes.</source>
         <translation>이름은 1~128바이트(UTF-8)로 정하세요.</translation>

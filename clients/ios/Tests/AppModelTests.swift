@@ -91,11 +91,11 @@ struct AppModelTests {
 
     @Test func `an error goes to its request or shows once`() async throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
-        let creating = Task { try await model.commands.request("mission.create", ["requestId": .string("create"), "name": .string("Launch")]) }
-        for _ in 0 ..< 100 where !sent.types.contains("mission.create") {
+        let creating = Task { try await model.commands.request("project.create", ["requestId": .string("create"), "name": .string("Launch")]) }
+        for _ in 0 ..< 100 where !sent.types.contains("project.create") {
             await Task.yield()
         }
-        try deliver("mission.error", ["requestId": "create", "operation": "mission.create", "message": "Use another name."])
+        try deliver("project.error", ["requestId": "create", "operation": "project.create", "message": "Use another name."])
         await #expect(throws: RuntimeError.operation("Use another name.")) { try await creating.value }
         #expect(model.notices.current == nil)
         try deliver("friends.error", ["operation": "friends.remove", "message": "Try again."])

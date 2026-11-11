@@ -33,7 +33,7 @@ pub(super) struct Place {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Mention {
-    pub room: String,
+    pub project: String,
     pub from: Sender,
     pub text: String,
     pub sequence: u64,
@@ -41,7 +41,7 @@ pub(super) struct Mention {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Unchecked {
-    pub room: Uuid,
+    pub project: Uuid,
     pub author: String,
     pub terminal: Uuid,
     pub mention: Mention,
@@ -58,17 +58,17 @@ pub(super) struct Mentions {
 }
 
 impl Mentions {
-    pub(super) fn new_messages(&mut self, room: &str, messages: &[Value]) -> Vec<Value> {
+    pub(super) fn new_messages(&mut self, project: &str, messages: &[Value]) -> Vec<Value> {
         let latest = messages
             .iter()
             .filter_map(|message| message["sequence"].as_u64())
             .max()
             .unwrap_or_default();
-        let Some(seen) = self.seen.insert(room.to_owned(), latest) else {
+        let Some(seen) = self.seen.insert(project.to_owned(), latest) else {
             return Vec::new();
         };
         if latest < seen {
-            self.seen.insert(room.to_owned(), seen);
+            self.seen.insert(project.to_owned(), seen);
         }
         messages
             .iter()
@@ -85,7 +85,7 @@ impl Mentions {
         let waiting = self.waiting.entry(terminal).or_default();
         if waiting
             .iter()
-            .any(|kept| kept.sequence == mention.sequence && kept.room == mention.room)
+            .any(|kept| kept.sequence == mention.sequence && kept.project == mention.project)
         {
             return;
         }
@@ -153,12 +153,12 @@ pub(super) fn takes_messages(program: Option<&str>, status: Option<&ProgramStatu
         && status.is_some_and(|status| status.state != ProgramState::Blocked)
 }
 
-pub(super) fn mention_line(room: &str, mentions: &[Mention]) -> String {
-    let room = plain(room, MOST_NAME);
+pub(super) fn mention_line(project: &str, mentions: &[Mention]) -> String {
+    let project = plain(project, MOST_NAME);
     let answer = "You can answer there with kodosi project post.";
     if let [mention] = mentions {
         return format!(
-            "[Kodosi] {} mentioned you in the chat of the project \"{room}\": \"{}\" {answer} {JUDGMENT} it.",
+            "[Kodosi] {} mentioned you in the chat of the project \"{project}\": \"{}\" {answer} {JUDGMENT} it.",
             describe(&mention.from),
             plain(&mention.text, MOST_TEXT)
         );
@@ -176,7 +176,7 @@ pub(super) fn mention_line(room: &str, mentions: &[Mention]) -> String {
         }
     }
     format!(
-        "[Kodosi] {} messages in the chat of the project \"{room}\" mention you, from {}. Read them with kodosi project read --since {}. {answer} {JUDGMENT} them.",
+        "[Kodosi] {} messages in the chat of the project \"{project}\" mention you, from {}. Read them with kodosi project read --since {}. {answer} {JUDGMENT} them.",
         mentions.len(),
         listed(&authors),
         first.saturating_sub(1)

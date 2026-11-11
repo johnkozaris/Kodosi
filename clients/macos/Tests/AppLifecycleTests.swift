@@ -12,7 +12,7 @@ import Testing
     #expect(!ProductInput.validName("one\ntwo"))
 }
 
-@Test @MainActor func `a hidden terminal leaves the list and the stage until it is back but stays in its room`() throws {
+@Test @MainActor func `a hidden terminal leaves the list and the stage until it is back but stays in its project`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "HiddenTerminal"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
@@ -25,7 +25,7 @@ import Testing
             "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
             "kind": .string("remote"), "name": .string("Copper Wren"), "isOwner": .bool(true), "hostName": .string("studio"),
             "status": .string(back ? "running" : "offline"), "attention": .bool(false), "hidden": .bool(hidden),
-            "connectionState": .string(back ? "connected" : "offline"), "missionId": .string("room"), "sharedWith": .array([]),
+            "connectionState": .string(back ? "connected" : "offline"), "projectId": .string("project"), "sharedWith": .array([]),
             "working": .bool(false),
         ])])])
     }
@@ -37,7 +37,7 @@ import Testing
     try app.receive(snapshot(hidden: true))
     #expect(app.workbench.stagedSessionIds.isEmpty)
     #expect(app.listedSessions.isEmpty)
-    #expect(app.sessions.map(\.missionId) == ["room"])
+    #expect(app.sessions.map(\.projectId) == ["project"])
     try app.receive(snapshot(hidden: false, back: true))
     #expect(app.listedSessions.map(\.id) == [id])
 }
@@ -106,7 +106,7 @@ import Testing
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     sent.removeAll()
     app.refresh()
-    #expect(Set(sent) == ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "mission.list"])
+    #expect(Set(sent) == ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "project.list"])
     app.shutdownProcess()
 }
 

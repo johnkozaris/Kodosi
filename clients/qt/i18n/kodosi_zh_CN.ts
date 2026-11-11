@@ -2128,111 +2128,6 @@
     </message>
 </context>
 <context>
-    <name>MissionsView</name>
-    <message>
-        <source>Work in projects</source>
-        <translation>在项目中工作</translation>
-    </message>
-    <message>
-        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
-        <translation>项目汇集来自任意文件夹和电脑的终端，以及它的任务和仓库。可随时邀请好友。</translation>
-    </message>
-    <message>
-        <source>Sign in</source>
-        <translation>登录</translation>
-    </message>
-    <message>
-        <source>Approve this device</source>
-        <translation>批准此设备</translation>
-    </message>
-    <message>
-        <source>Projects</source>
-        <translation>项目</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n projects</source>
-        <translation>
-            <numerusform>%n 个项目</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%n shared terminals</source>
-        <translation>
-            <numerusform>%n 个共享终端</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>New project</source>
-        <translation>新建项目</translation>
-    </message>
-    <message>
-        <source>More projects exist. Use Go to… to find them.</source>
-        <translation>还有更多项目。使用“前往…”查找。</translation>
-    </message>
-    <message>
-        <source>Some projects are not shown</source>
-        <translation>部分项目未显示</translation>
-    </message>
-    <message>
-        <source>%1 invited you</source>
-        <translation>%1 邀请了你</translation>
-    </message>
-    <message>
-        <source>You are invited</source>
-        <translation>你收到了邀请</translation>
-    </message>
-    <message>
-        <source>Not now</source>
-        <translation>暂不</translation>
-    </message>
-    <message>
-        <source>Decline invitation</source>
-        <translation>拒绝邀请</translation>
-    </message>
-    <message>
-        <source>Join</source>
-        <translation>加入</translation>
-    </message>
-    <message>
-        <source>New messages</source>
-        <translation>新消息</translation>
-    </message>
-    <message>
-        <source>Yours</source>
-        <translation>我的</translation>
-    </message>
-    <message>
-        <source>No terminals yet</source>
-        <translation>还没有终端</translation>
-    </message>
-    <message>
-        <source>Working</source>
-        <translation>工作中</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals</source>
-        <translation>
-            <numerusform>%n 个终端</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>Make your first project</source>
-        <translation>创建你的第一个项目</translation>
-    </message>
-    <message>
-        <source>Project name</source>
-        <translation>项目名称</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>取消</translation>
-    </message>
-    <message>
-        <source>Create project</source>
-        <translation>创建项目</translation>
-    </message>
-</context>
-<context>
     <name>NoticePill</name>
     <message>
         <source>Dismiss</source>
@@ -2427,93 +2322,7 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>正在查找</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Kodosi 只会打开这些文件，不会修改它们。</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>尚未创建</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>打开</translation>
-    </message>
-</context>
-<context>
-    <name>QuitDialog</name>
-    <message>
-        <source>Restart Kodosi?</source>
-        <translation>重启 Kodosi？</translation>
-    </message>
-    <message>
-        <source>Quit Kodosi?</source>
-        <translation>退出 Kodosi？</translation>
-    </message>
-    <message>
-        <source>Restart</source>
-        <translation>重启</translation>
-    </message>
-    <message>
-        <source>Quit</source>
-        <translation>退出</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
-        <translation>
-            <numerusform>这台电脑上的 %n 个终端会停止，Kodosi 打开时会重新启动。</numerusform>
-        </translation>
-    </message>
-</context>
-<context>
-    <name>RemoveKey</name>
-    <message>
-        <source>Remove from canvas</source>
-        <translation>从画布移除</translation>
-    </message>
-</context>
-<context>
-    <name>RepositoryPicker</name>
-    <message>
-        <source>Find or paste a repository</source>
-        <translation>查找或粘贴仓库</translation>
-    </message>
-    <message>
-        <source>Install GitHub CLI to see your repositories</source>
-        <translation>安装 GitHub CLI 以查看你的仓库</translation>
-    </message>
-    <message>
-        <source>Connect GitHub to see your repositories</source>
-        <translation>连接 GitHub 以查看你的仓库</translation>
-    </message>
-    <message>
-        <source>Get it</source>
-        <translation>获取</translation>
-    </message>
-    <message>
-        <source>Connect</source>
-        <translation>连接</translation>
-    </message>
-    <message>
-        <source>GitHub sign-in</source>
-        <translation>GitHub 登录</translation>
-    </message>
-    <message>
-        <source>No match</source>
-        <translation>无匹配</translation>
-    </message>
-    <message>
-        <source>No repositories found</source>
-        <translation>未找到仓库</translation>
-    </message>
-</context>
-<context>
-    <name>RoomContent</name>
+    <name>ProjectContent</name>
     <message>
         <source>Project name</source>
         <translation>项目名称</translation>
@@ -2690,7 +2499,7 @@
     </message>
 </context>
 <context>
-    <name>RoomConversation</name>
+    <name>ProjectConversation</name>
     <message>
         <source>Today</source>
         <translation>今天</translation>
@@ -2799,7 +2608,7 @@
     </message>
 </context>
 <context>
-    <name>RoomRepositories</name>
+    <name>ProjectRepositories</name>
     <message>
         <source>Link a repository</source>
         <translation>关联仓库</translation>
@@ -2838,7 +2647,7 @@
     </message>
 </context>
 <context>
-    <name>RoomShareDialog</name>
+    <name>ProjectShareDialog</name>
     <message>
         <source>the project</source>
         <translation>项目</translation>
@@ -2865,14 +2674,14 @@
     </message>
 </context>
 <context>
-    <name>RoomSkeleton</name>
+    <name>ProjectSkeleton</name>
     <message>
         <source>Loading</source>
         <translation>正在加载</translation>
     </message>
 </context>
 <context>
-    <name>RoomTasks</name>
+    <name>ProjectTasks</name>
     <message>
         <source>Reopen %1</source>
         <translation>重新打开 %1</translation>
@@ -2972,6 +2781,197 @@
     <message>
         <source>Done</source>
         <translation>完成</translation>
+    </message>
+</context>
+<context>
+    <name>ProjectsView</name>
+    <message>
+        <source>Work in projects</source>
+        <translation>在项目中工作</translation>
+    </message>
+    <message>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>项目汇集来自任意文件夹和电脑的终端，以及它的任务和仓库。可随时邀请好友。</translation>
+    </message>
+    <message>
+        <source>Sign in</source>
+        <translation>登录</translation>
+    </message>
+    <message>
+        <source>Approve this device</source>
+        <translation>批准此设备</translation>
+    </message>
+    <message>
+        <source>Projects</source>
+        <translation>项目</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n projects</source>
+        <translation>
+            <numerusform>%n 个项目</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n shared terminals</source>
+        <translation>
+            <numerusform>%n 个共享终端</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>New project</source>
+        <translation>新建项目</translation>
+    </message>
+    <message>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>还有更多项目。使用“前往…”查找。</translation>
+    </message>
+    <message>
+        <source>Some projects are not shown</source>
+        <translation>部分项目未显示</translation>
+    </message>
+    <message>
+        <source>%1 invited you</source>
+        <translation>%1 邀请了你</translation>
+    </message>
+    <message>
+        <source>You are invited</source>
+        <translation>你收到了邀请</translation>
+    </message>
+    <message>
+        <source>Not now</source>
+        <translation>暂不</translation>
+    </message>
+    <message>
+        <source>Decline invitation</source>
+        <translation>拒绝邀请</translation>
+    </message>
+    <message>
+        <source>Join</source>
+        <translation>加入</translation>
+    </message>
+    <message>
+        <source>New messages</source>
+        <translation>新消息</translation>
+    </message>
+    <message>
+        <source>Yours</source>
+        <translation>我的</translation>
+    </message>
+    <message>
+        <source>No terminals yet</source>
+        <translation>还没有终端</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>工作中</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals</source>
+        <translation>
+            <numerusform>%n 个终端</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Make your first project</source>
+        <translation>创建你的第一个项目</translation>
+    </message>
+    <message>
+        <source>Project name</source>
+        <translation>项目名称</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Create project</source>
+        <translation>创建项目</translation>
+    </message>
+</context>
+<context>
+    <name>ProviderSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>正在查找</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Kodosi 只会打开这些文件，不会修改它们。</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>尚未创建</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>打开</translation>
+    </message>
+</context>
+<context>
+    <name>QuitDialog</name>
+    <message>
+        <source>Restart Kodosi?</source>
+        <translation>重启 Kodosi？</translation>
+    </message>
+    <message>
+        <source>Quit Kodosi?</source>
+        <translation>退出 Kodosi？</translation>
+    </message>
+    <message>
+        <source>Restart</source>
+        <translation>重启</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>退出</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
+        <translation>
+            <numerusform>这台电脑上的 %n 个终端会停止，Kodosi 打开时会重新启动。</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>RemoveKey</name>
+    <message>
+        <source>Remove from canvas</source>
+        <translation>从画布移除</translation>
+    </message>
+</context>
+<context>
+    <name>RepositoryPicker</name>
+    <message>
+        <source>Find or paste a repository</source>
+        <translation>查找或粘贴仓库</translation>
+    </message>
+    <message>
+        <source>Install GitHub CLI to see your repositories</source>
+        <translation>安装 GitHub CLI 以查看你的仓库</translation>
+    </message>
+    <message>
+        <source>Connect GitHub to see your repositories</source>
+        <translation>连接 GitHub 以查看你的仓库</translation>
+    </message>
+    <message>
+        <source>Get it</source>
+        <translation>获取</translation>
+    </message>
+    <message>
+        <source>Connect</source>
+        <translation>连接</translation>
+    </message>
+    <message>
+        <source>GitHub sign-in</source>
+        <translation>GitHub 登录</translation>
+    </message>
+    <message>
+        <source>No match</source>
+        <translation>无匹配</translation>
+    </message>
+    <message>
+        <source>No repositories found</source>
+        <translation>未找到仓库</translation>
     </message>
 </context>
 <context>
@@ -4228,7 +4228,7 @@
     </message>
 </context>
 <context>
-    <name>kodosi::MissionsModel</name>
+    <name>kodosi::ProjectsModel</name>
     <message>
         <source>Use a name of 1 to 128 UTF-8 bytes.</source>
         <translation>请使用 1 到 128 个 UTF-8 字节的名称。</translation>

@@ -19,7 +19,7 @@ final class AppModel {
     let commands: CommandSink
     let account: AccountStore
     let terminals: TerminalStore
-    let rooms: RoomStore
+    let projects: ProjectStore
     let people: PeopleStore
     let dosi: DosiStore
     let push: PushNotifications
@@ -31,7 +31,7 @@ final class AppModel {
     @ObservationIgnored private var accountKnown = false
     @ObservationIgnored private(set) var accountEpoch: UInt64 = 0
     @ObservationIgnored private var launchers: [String: LauncherState] = [:]
-    @ObservationIgnored private var roomScreens: [String: RoomScreenState] = [:]
+    @ObservationIgnored private var projectScreens: [String: ProjectScreenState] = [:]
     @ObservationIgnored private var active = true
 
     init() {
@@ -43,14 +43,14 @@ final class AppModel {
         self.runtime = runtime
         account = AccountStore(commands: commands, browser: "app")
         terminals = TerminalStore(commands: commands, notices: notices, runtime: runtime)
-        rooms = RoomStore(commands: commands)
+        projects = ProjectStore(commands: commands)
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
         push = PushNotifications(commands: commands)
         commands.onFailure = { [notices] message in notices.show(message) }
         account.notify = { [notices] message in notices.show(message) }
-        rooms.notify = { [notices] message in notices.show(message) }
-        rooms.isFront = { [weak self] in self?.inFront == true }
+        projects.notify = { [notices] message in notices.show(message) }
+        projects.isFront = { [weak self] in self?.inFront == true }
     }
 
     func start() {
@@ -106,17 +106,17 @@ final class AppModel {
     func sceneChanged(to scenePhase: ScenePhase) {
         lock.sceneChanged(to: scenePhase)
         active = scenePhase == .active
-        rooms.markShownRead()
+        projects.markShownRead()
         guard scenePhase == .active, phase == .ready else { return }
         refresh()
     }
 
-    func roomScreen(_ roomId: String) -> RoomScreenState {
-        if let screen = roomScreens[roomId] {
+    func projectScreen(_ projectId: String) -> ProjectScreenState {
+        if let screen = projectScreens[projectId] {
             return screen
         }
-        let screen = RoomScreenState()
-        roomScreens[roomId] = screen
+        let screen = ProjectScreenState()
+        projectScreens[projectId] = screen
         return screen
     }
 
@@ -135,7 +135,7 @@ final class AppModel {
         commands.perform("auth.refresh")
         commands.perform("friends.refresh")
         commands.perform("devices.refresh")
-        commands.perform("mission.list")
+        commands.perform("project.list")
     }
 
     private func finishStart(_ outcome: RuntimeHandle.StartOutcome) {
@@ -168,10 +168,10 @@ final class AppModel {
 
     private func resetStores(userId: String?) {
         launchers.removeAll()
-        roomScreens.removeAll()
+        projectScreens.removeAll()
         account.reset(userId: userId)
         terminals.reset(userId: userId)
-        rooms.reset(userId: userId)
+        projects.reset(userId: userId)
         people.reset(userId: userId)
         dosi.reset()
         dosiDevice = nil
@@ -207,7 +207,7 @@ final class AppModel {
         case "connection" where event.type == "connection.state": try account.receiveConnection(event)
         case "sessions", "session", "term", "document": try terminals.receive(event)
         case "friends": try people.receive(event)
-        case "mission", "missions", "room": try rooms.receive(event)
+        case "project", "projects": try projects.receive(event)
         case "dosi": try dosi.receive(event)
         default: break
         }
@@ -234,7 +234,7 @@ final class AppModel {
             terminals.list()
             commands.perform("friends.refresh")
             commands.perform("devices.refresh")
-            commands.perform("mission.list")
+            commands.perform("project.list")
         case "auth.required":
             terminals.list()
         default:
@@ -244,7 +244,8 @@ final class AppModel {
 
     private func receiveError(_ event: RuntimeEvent, delivery: CommandSink.Delivery) {
         terminals.absorb(error: event)
-        guard delivery == .app, !["provider.", "room.", "canvas.", "document."].contains(where: event.type.hasPrefix) else { return }
+        guard delivery == .app, !["provider.", "canvas.", "document."].contains(where: event.type.hasPrefix),
+              event.string("operation") != "project.act" else { return }
         let message = event.string("message") ?? String(localized: "That did not work.")
         people.absorb(error: event)
         guard !account.absorb(error: event, message: message), !event.failedRefresh else { return }

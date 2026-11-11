@@ -5,8 +5,8 @@ import KodosiTerminalSessions
 
 extension AppDependencies {
     /// A new terminal gets the grid of its tile, so that its program starts at its final width.
-    func startSize(computer: String?, roomId: String?) -> JSONValue? {
-        guard computer == nil, roomId == nil, let room = workbench.tileRoom,
+    func startSize(computer: String?, projectId: String?) -> JSONValue? {
+        guard computer == nil, projectId == nil, let room = workbench.tileRoom,
               let scale = MainWindowLocator.mainWindow()?.backingScaleFactor,
               let cell = terminalCell(scale: scale),
               let grid = Self.startGrid(

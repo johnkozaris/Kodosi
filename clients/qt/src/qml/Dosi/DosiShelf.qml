@@ -13,15 +13,15 @@ Item {
         ranked.sort((a, b) => a.need - b.need || a.index - b.index)
         return ranked.map(entry => entry.session)
     }
-    readonly property var rooms: {
-        const unread = Models.Missions.unreadRooms
-        const ranked = Models.Missions.missions.map((room, index) => ({ room: room, index: index, unread: unread.indexOf(room.id) >= 0 }))
+    readonly property var projects: {
+        const unread = Models.Projects.unreadProjects
+        const ranked = Models.Projects.projects.map((project, index) => ({ project: project, index: index, unread: unread.indexOf(project.id) >= 0 }))
         ranked.sort((a, b) => (b.unread ? 1 : 0) - (a.unread ? 1 : 0) || a.index - b.index)
-        return ranked.map(entry => entry.room)
+        return ranked.map(entry => entry.project)
     }
 
     signal newTerminalRequested
-    signal newRoomRequested
+    signal newProjectRequested
 
     function form(session) {
         const unseen = Models.Sessions.attention.indexOf(session.id) >= 0
@@ -37,8 +37,8 @@ Item {
             return 2
         return session.working === true ? 3 : 4
     }
-    function unread(room) {
-        return Models.Missions.unreadRooms.indexOf(room.id) >= 0
+    function unread(project) {
+        return Models.Projects.unreadProjects.indexOf(project.id) >= 0
     }
     function chipWidth(name, sign) {
         return 37 + Math.min(Math.ceil(metrics.advanceWidth(name || "")), 112) + (sign > 0 ? 6 + sign : 0)
@@ -110,17 +110,17 @@ Item {
         }
         ShelfRow {
             width: column.width
-            visible: root.rooms.length > 0
-            values: root.rooms
-            widths: root.rooms.map(room => root.chipWidth(room.name, root.unread(room) ? 8 : 0))
+            visible: root.projects.length > 0
+            values: root.projects
+            widths: root.projects.map(project => root.chipWidth(project.name, root.unread(project) ? 8 : 0))
             count: root.shown(widths, width - 34)
-            needs: hidden.some(room => root.unread(room))
-            rooms: true
+            needs: hidden.some(project => root.unread(project))
+            projects: true
             addName: qsTr("New project")
-            addIdentifier: "dosi.marks.room.new"
-            onAdd: root.newRoomRequested()
+            addIdentifier: "dosi.marks.project.new"
+            onAdd: root.newProjectRequested()
             chip: Component {
-                RoomChip {}
+                ProjectChip {}
             }
         }
     }
@@ -132,7 +132,7 @@ Item {
         property var widths: []
         property int count: 0
         property bool needs: false
-        property bool rooms: false
+        property bool projects: false
         property string addName: ""
         property string addIdentifier: ""
         property bool addsTerminal: false
@@ -182,7 +182,7 @@ Item {
             visible: opacity > 0
             opacity: shelf.hidden.length > 0 ? names.progress : 0
             values: shelf.hidden
-            rooms: shelf.rooms
+            projects: shelf.projects
             needs: shelf.needs
             order: shelf.count
 
@@ -216,7 +216,7 @@ Item {
                 FoldSpot {
                     id: spot
                     anchors.fill: parent
-                    key: shelf.addsTerminal ? "new" : "new.room"
+                    key: shelf.addsTerminal ? "new" : "new.project"
                     place: "slot"
                     fill: KodosiTheme.alpha(KodosiTheme.accent, 0.12)
                     radius: KodosiTheme.radiusSm
@@ -241,15 +241,15 @@ Item {
         id: moreButton
 
         property var values: []
-        property bool rooms: false
+        property bool projects: false
         property bool needs: false
         property int order: 0
         property int glints: 0
         property int glintDelay: 0
         readonly property string readingItem: Models.Dosi.reading.item || ""
         readonly property bool open: morePopover.opened
-        readonly property bool selected: values.some(value => rooms
-            ? Models.DesktopState.activeView === Models.DesktopState.Missions && Models.Missions.selectedMissionId === value.id
+        readonly property bool selected: values.some(value => projects
+            ? Models.DesktopState.activeView === Models.DesktopState.Projects && Models.Projects.selectedProjectId === value.id
             : Models.DesktopState.activeView === Models.DesktopState.Sessions && Models.DesktopState.selectedSessionId === value.id)
         readonly property color ink: needs ? KodosiTheme.accentStrong : open || hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
 
@@ -257,9 +257,9 @@ Item {
         implicitHeight: 26
         hoverEnabled: true
         activeFocusOnTab: true
-        objectName: rooms ? "dosi.marks.room.more" : "dosi.marks.more"
+        objectName: projects ? "dosi.marks.project.more" : "dosi.marks.more"
         Accessible.id: objectName
-        Accessible.name: rooms ? qsTr("%n more projects", "", values.length) : qsTr("%n more terminals", "", values.length)
+        Accessible.name: projects ? qsTr("%n more projects", "", values.length) : qsTr("%n more terminals", "", values.length)
         ToolTip.visible: hovered && !open
         ToolTip.text: Accessible.name
         ToolTip.delay: Tip.delay
@@ -271,13 +271,13 @@ Item {
         }
         onReadingItemChanged: {
             const reading = Models.Dosi.reading
-            if (reading.kind === (rooms ? "rooms" : "terminals")) {
+            if (reading.kind === (projects ? "projects" : "terminals")) {
                 glintDelay = Math.min(order, 10) * 70
                 glints += 1
-            } else if (!rooms && reading.kind === "terminal" && values.some(value => value.id === reading.sessionId)) {
+            } else if (!projects && reading.kind === "terminal" && values.some(value => value.id === reading.sessionId)) {
                 glintDelay = 0
                 glints += 1
-            } else if (rooms && reading.kind === "room" && values.some(value => value.id === reading.roomId)) {
+            } else if (projects && reading.kind === "project" && values.some(value => value.id === reading.projectId)) {
                 glintDelay = 0
                 glints += 1
             }
@@ -314,10 +314,10 @@ Item {
                     anchors.centerIn: parent
                     width: 20
                     height: 20
-                    key: (moreButton.rooms ? "room:" : "terminal:") + (modelData.id || "")
+                    key: (moreButton.projects ? "project:" : "terminal:") + (modelData.id || "")
                     place: "slot"
-                    session: moreButton.rooms ? null : modelData
-                    sigil: moreButton.rooms ? modelData.id || "" : ""
+                    session: moreButton.projects ? null : modelData
+                    sigil: moreButton.projects ? modelData.id || "" : ""
                     tucked: true
                 }
             }
@@ -376,7 +376,7 @@ Item {
                     spacing: 2
 
                     Repeater {
-                        model: moreButton.rooms ? [] : moreButton.values
+                        model: moreButton.projects ? [] : moreButton.values
 
                         MoreRow {
                             id: terminalRow
@@ -408,31 +408,31 @@ Item {
                         }
                     }
                     Repeater {
-                        model: moreButton.rooms ? moreButton.values : []
+                        model: moreButton.projects ? moreButton.values : []
 
                         MoreRow {
-                            id: roomRow
+                            id: projectRow
 
                             required property var modelData
                             required property int index
 
                             order: index
                             name: modelData.name || ""
-                            selected: Models.DesktopState.activeView === Models.DesktopState.Missions
-                                && Models.Missions.selectedMissionId === modelData.id
-                            objectName: "dosi.marks.room.more." + (modelData.id || "")
+                            selected: Models.DesktopState.activeView === Models.DesktopState.Projects
+                                && Models.Projects.selectedProjectId === modelData.id
+                            objectName: "dosi.marks.project.more." + (modelData.id || "")
                             Accessible.id: objectName
                             onClicked: {
                                 morePopover.close()
-                                Models.DesktopState.activeView = Models.DesktopState.Missions
-                                Models.Missions.open(roomRow.modelData.id)
+                                Models.DesktopState.activeView = Models.DesktopState.Projects
+                                Models.Projects.open(projectRow.modelData.id)
                             }
-                            mark: RoomSigil {
+                            mark: ProjectSigil {
                                 size: 18
-                                key: roomRow.modelData.id || ""
+                                key: projectRow.modelData.id || ""
                             }
                             sign: NewDot {
-                                visible: Models.Missions.unreadRooms.indexOf(roomRow.modelData.id) >= 0
+                                visible: Models.Projects.unreadProjects.indexOf(projectRow.modelData.id) >= 0
                             }
                         }
                     }
@@ -648,35 +648,35 @@ Item {
         }
     }
 
-    component RoomChip: Chip {
-        id: roomChip
+    component ProjectChip: Chip {
+        id: projectChip
 
         required property var modelData
         required property int index
         readonly property var entry: modelData.value
         readonly property string readingItem: Models.Dosi.reading.item || ""
-        readonly property bool unread: Models.Missions.unreadRooms.indexOf(entry.id) >= 0
+        readonly property bool unread: Models.Projects.unreadProjects.indexOf(entry.id) >= 0
 
         name: entry.name || ""
         fixedWidth: modelData.width
         signWidth: unread ? 8 : 0
-        selected: Models.DesktopState.activeView === Models.DesktopState.Missions && Models.Missions.selectedMissionId === entry.id
+        selected: Models.DesktopState.activeView === Models.DesktopState.Projects && Models.Projects.selectedProjectId === entry.id
         ringColor: KodosiTheme.accent
-        objectName: "dosi.marks.room." + (entry.id || "")
+        objectName: "dosi.marks.project." + (entry.id || "")
         Accessible.id: objectName
         ToolTip.visible: hovered
         ToolTip.text: entry.name || ""
         ToolTip.delay: Tip.delay
         onClicked: {
-            Models.DesktopState.activeView = Models.DesktopState.Missions
-            Models.Missions.open(entry.id)
+            Models.DesktopState.activeView = Models.DesktopState.Projects
+            Models.Projects.open(entry.id)
         }
         onReadingItemChanged: {
             const reading = Models.Dosi.reading
-            if (reading.kind === "rooms") {
+            if (reading.kind === "projects") {
                 glintDelay = Math.min(index, 10) * 70
                 glints += 1
-            } else if (reading.kind === "room" && reading.roomId === entry.id) {
+            } else if (reading.kind === "project" && reading.projectId === entry.id) {
                 glintDelay = 0
                 glints += 1
             }
@@ -686,21 +686,21 @@ Item {
                 rings += 1
         }
 
-        mark: RoomSigil {
+        mark: ProjectSigil {
             size: 20
-            key: roomChip.entry.id || ""
-            opacity: roomSpot.hidden ? 0 : 1
+            key: projectChip.entry.id || ""
+            opacity: projectSpot.hidden ? 0 : 1
 
             FoldSpot {
-                id: roomSpot
+                id: projectSpot
                 anchors.fill: parent
-                key: "room:" + (roomChip.entry.id || "")
+                key: "project:" + (projectChip.entry.id || "")
                 place: "slot"
-                sigil: roomChip.entry.id || ""
+                sigil: projectChip.entry.id || ""
             }
         }
         sign: NewDot {
-            visible: roomChip.unread
+            visible: projectChip.unread
         }
     }
 }

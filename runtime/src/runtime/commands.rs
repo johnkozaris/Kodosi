@@ -206,8 +206,8 @@ impl Runtime {
                 self.emit(json!({"type":"session.show", "sessionId":session_id}));
                 self.result(command);
             }
-            Command::ShowMission { mission_id, .. } => {
-                self.emit(json!({"type":"mission.show", "missionId":mission_id}));
+            Command::ShowProject { project_id, .. } => {
+                self.emit(json!({"type":"project.show", "projectId":project_id}));
                 self.result(command);
             }
             Command::RetryConnection { .. } => {
@@ -219,12 +219,12 @@ impl Runtime {
                 self.result(command);
             }
             command if command.is_dosi() => self.dosi_command(command)?,
-            Command::SeeMission {
-                mission_id,
+            Command::SeeProject {
+                project_id,
                 sequence,
                 ..
             } => {
-                self.see_room(mission_id, *sequence)?;
+                self.see_project(project_id, *sequence)?;
                 self.result(command);
             }
             Command::CloseSession { .. } | Command::InterruptSession { .. } => {
@@ -270,12 +270,12 @@ impl Runtime {
                 return Err(Error::Refused(text!("Link repositories from a computer.")));
             }
             #[cfg(feature = "host")]
-            Command::ListRepositories { mission_id, .. } => {
+            Command::ListRepositories { project_id, .. } => {
                 self.job_capacity()?;
-                let folders = self.repository_folders(mission_id.as_deref());
+                let folders = self.repository_folders(project_id.as_deref());
                 let command = command.clone();
                 self.spawn(async move {
-                    let result = crate::rooms::providers::choices(folders)
+                    let result = crate::projects::providers::choices(folders)
                         .await
                         .map_err(Error::from);
                     Completion::Repositories { command, result }
@@ -323,13 +323,13 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
-    fn repository_folders(&self, mission_id: Option<&str>) -> Vec<String> {
+    fn repository_folders(&self, project_id: Option<&str>) -> Vec<String> {
         let mut terminals = self
             .local
             .values()
             .filter_map(|local| {
                 Some((
-                    local.entry.mission_id.as_deref() != mission_id,
+                    local.entry.project_id.as_deref() != project_id,
                     local.entry.working_dir.clone()?,
                 ))
             })
@@ -1699,7 +1699,7 @@ impl Runtime {
                 let Command::CreateSession {
                     request_id,
                     name,
-                    mission_id,
+                    project_id,
                     ..
                 } = &command
                 else {
@@ -1745,8 +1745,8 @@ impl Runtime {
                     connection_state: ConnectionState::Local,
                     hidden: false,
                     message: None,
-                    mission_id: mission_id.clone(),
-                    mission_name: None,
+                    project_id: project_id.clone(),
+                    project_name: None,
                     shared_with: vec![],
                     restored_from: restored.as_ref().map(|saved| saved.id.to_string()),
                 };
@@ -1776,7 +1776,7 @@ impl Runtime {
                         entry,
                         creation: command,
                         published: false,
-                        room_sequence: 0,
+                        project_sequence: 0,
                         worktree: started.worktree.take().or(kept),
                         wanted,
                         conversation: super::restore::Conversation::default(),
@@ -2012,11 +2012,11 @@ impl Runtime {
                 tracing::debug!(%id, %error, "local session publication deferred");
                 if let Some(local) = self.local.get_mut(&id).filter(|local| {
                     refused
-                        && (local.entry.mission_id.is_some() || !local.entry.shared_with.is_empty())
+                        && (local.entry.project_id.is_some() || !local.entry.shared_with.is_empty())
                 }) {
-                    tracing::warn!(%id, %error, "the terminal is private now: the server refused its room or people");
-                    local.entry.mission_id = None;
-                    local.entry.mission_name = None;
+                    tracing::warn!(%id, %error, "the terminal is private now: the server refused its project or people");
+                    local.entry.project_id = None;
+                    local.entry.project_name = None;
                     local.entry.shared_with.clear();
                     self.publish_catalog();
                 }
@@ -2036,9 +2036,9 @@ impl Runtime {
                     local.entry.shared_with.clone_from(user_ids);
                     local.wanted = None;
                 }
-                Command::AttachSession { mission_id, .. } => {
-                    local.entry.mission_id.clone_from(mission_id);
-                    local.entry.mission_name = None;
+                Command::AttachSession { project_id, .. } => {
+                    local.entry.project_id.clone_from(project_id);
+                    local.entry.project_name = None;
                     local.wanted = None;
                 }
                 _ => {}

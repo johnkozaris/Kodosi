@@ -51,8 +51,8 @@ public:
         QString ownerName;
         QString hostDeviceId;
         QString hostName;
-        QString missionId;
-        QString missionName;
+        QString projectId;
+        QString projectName;
         QString status;
         QString connectionState;
         QString message;

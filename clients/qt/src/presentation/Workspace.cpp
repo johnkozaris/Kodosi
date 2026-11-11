@@ -30,7 +30,7 @@ QString requestId()
 bool isRefresh(const QString& operation)
 {
     static const QStringList refreshes { QStringLiteral("session.list"), QStringLiteral("auth.refresh"),
-        QStringLiteral("friends.refresh"), QStringLiteral("devices.refresh"), QStringLiteral("mission.list") };
+        QStringLiteral("friends.refresh"), QStringLiteral("devices.refresh"), QStringLiteral("project.list") };
     return refreshes.contains(operation);
 }
 }
@@ -45,7 +45,7 @@ Workspace::Workspace(CommandDispatcher& commands, SessionCatalogModel& sessions,
     , m_account(*this)
     , m_people(*this)
     , m_devices(*this)
-    , m_missions(*this, sessions)
+    , m_projects(*this, sessions)
     , m_sessionActions(*this, sessions, desktop, settings)
     , m_dosi(*this, sessions)
 {
@@ -84,7 +84,7 @@ void Workspace::askRestore()
 }
 
 bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject values,
-    QString sessionId, QString missionId, bool quiet)
+    QString sessionId, QString projectId, bool quiet)
 {
     if (m_pending.size() >= 32) {
         setError(tr("Wait for the current operations to finish."));
@@ -99,7 +99,7 @@ bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject valu
         return false;
     }
     m_pending.insert(id,
-        { domain, std::move(type), std::move(sessionId), std::move(missionId), m_missions.presentation(), quiet });
+        { domain, std::move(type), std::move(sessionId), std::move(projectId), m_projects.presentation(), quiet });
     notifyBusy();
     clearError();
     return true;
@@ -114,7 +114,7 @@ bool Workspace::hasPending(PendingDomain domain) const
 void Workspace::notifyBusy()
 {
     emit m_sessionActions.busyChanged();
-    emit m_missions.busyChanged();
+    emit m_projects.busyChanged();
 }
 
 void Workspace::reportVisible()
@@ -138,8 +138,8 @@ void Workspace::attachCanvas(CanvasModel& canvas)
     for (const auto signal : { &DesktopStateModel::activeViewChanged, &DesktopStateModel::stagedSessionIdsChanged,
              &DesktopStateModel::selectedSessionIdChanged, &DesktopStateModel::stageLayoutModeChanged })
         connect(&m_desktop, signal, this, &Workspace::followCanvas, Qt::QueuedConnection);
-    connect(&m_missions, &MissionsModel::selectionChanged, this, &Workspace::followCanvas, Qt::QueuedConnection);
-    connect(&m_missions, &MissionsModel::presentationChanged, this, &Workspace::followCanvas, Qt::QueuedConnection);
+    connect(&m_projects, &ProjectsModel::selectionChanged, this, &Workspace::followCanvas, Qt::QueuedConnection);
+    connect(&m_projects, &ProjectsModel::presentationChanged, this, &Workspace::followCanvas, Qt::QueuedConnection);
 }
 
 QString Workspace::frontSessionId() const
@@ -152,11 +152,11 @@ QString Workspace::frontSessionId() const
             front = selected;
         else if (m_desktop.stageLayoutMode() == DesktopStateModel::Grid && staged.size() == 1)
             front = staged.first();
-    } else if (m_desktop.activeView() == DesktopStateModel::Missions) {
-        const auto room = m_missions.presentation();
-        const auto shown = room.value(QStringLiteral("terminal")).toString();
-        if (room.value(QStringLiteral("section")).toInt() == 0 && staged.contains(shown)
-            && m_missions.sessionIds().contains(shown))
+    } else if (m_desktop.activeView() == DesktopStateModel::Projects) {
+        const auto view = m_projects.presentation();
+        const auto shown = view.value(QStringLiteral("terminal")).toString();
+        if (view.value(QStringLiteral("section")).toInt() == 0 && staged.contains(shown)
+            && m_projects.sessionIds().contains(shown))
             front = shown;
     }
     return m_sessions.visible().contains(front) ? front : QString {};
@@ -164,10 +164,10 @@ QString Workspace::frontSessionId() const
 
 void Workspace::openCanvas(const QString& sessionId, const QString& section)
 {
-    if (m_desktop.activeView() == DesktopStateModel::Missions
-        && m_missions.presentation().value(QStringLiteral("terminal")).toString() == sessionId) {
+    if (m_desktop.activeView() == DesktopStateModel::Projects
+        && m_projects.presentation().value(QStringLiteral("terminal")).toString() == sessionId) {
         m_canvas->open(sessionId, section);
-        m_missions.setPresentation(QStringLiteral("showsCanvas"), true);
+        m_projects.setPresentation(QStringLiteral("showsCanvas"), true);
     } else {
         m_desktop.openCanvas(sessionId, section);
     }
@@ -177,9 +177,9 @@ bool Workspace::canvasOpen(const QString& sessionId) const
 {
     if (!m_canvas->showsSomething(sessionId))
         return false;
-    if (m_desktop.activeView() == DesktopStateModel::Missions) {
-        const auto room = m_missions.presentation();
-        return room.value(QStringLiteral("showsCanvas")).toBool() && room.value(QStringLiteral("terminal")).toString() == sessionId;
+    if (m_desktop.activeView() == DesktopStateModel::Projects) {
+        const auto view = m_projects.presentation();
+        return view.value(QStringLiteral("showsCanvas")).toBool() && view.value(QStringLiteral("terminal")).toString() == sessionId;
     }
     return m_desktop.canvasSessionId() == sessionId;
 }
@@ -232,7 +232,7 @@ void Workspace::clearAccountData(bool clearLinks, const QString& userId)
     m_account.setOnline(true);
     m_people.reset();
     m_devices.reset();
-    m_missions.reset();
+    m_projects.reset();
     m_dosi.reset();
     m_sessionActions.reset(clearLinks);
     m_desktop.switchAccount(userId);
@@ -256,16 +256,16 @@ void Workspace::route(const DeepLinkDestination& destination)
 
 void Workspace::receiveResult(const QString& type, const QJsonObject& event)
 {
-    if (type == QStringLiteral("room.result")) {
-        if (const auto room = event.value(QStringLiteral("room")).toObject(); !room.isEmpty())
-            m_missions.applyRoom(room);
+    if (type == QStringLiteral("project.result")) {
+        if (const auto content = event.value(QStringLiteral("content")).toObject(); !content.isEmpty())
+            m_projects.applyContent(content);
         if (event.contains(QStringLiteral("issues"))
-            && event.value(QStringLiteral("roomId")).toString() == m_missions.m_selectedId) {
+            && event.value(QStringLiteral("projectId")).toString() == m_projects.m_selectedId) {
             const auto repository = event.value(QStringLiteral("repositoryId")).toString();
-            m_missions.m_issuesByRepository.insert(repository, list(event, "issues"));
-            if (repository == m_missions.m_issueRepository)
-                m_missions.m_issues = list(event, "issues");
-            emit m_missions.roomChanged();
+            m_projects.m_issuesByRepository.insert(repository, list(event, "issues"));
+            if (repository == m_projects.m_issueRepository)
+                m_projects.m_issues = list(event, "issues");
+            emit m_projects.contentChanged();
         }
     }
     const auto id = event.value(QStringLiteral("requestId")).toString();
@@ -274,26 +274,26 @@ void Workspace::receiveResult(const QString& type, const QJsonObject& event)
         return;
     const auto pending = m_pending.take(id);
     notifyBusy();
-    if (type == QStringLiteral("room.result"))
-        m_missions.completeAction(pending.missionId, event.value(QStringLiteral("action")).toString(), pending.draft);
+    if (pending.operation == QStringLiteral("project.act"))
+        m_projects.completeAction(pending.projectId, event.value(QStringLiteral("action")).toString(), pending.draft);
     const auto created = event.value(QStringLiteral("sessionId")).toString();
     if (pending.operation == QStringLiteral("session.create") && !created.isEmpty())
-        m_sessionActions.completeCreation(created, pending.missionId);
-    if (pending.operation == QStringLiteral("mission.open") && pending.missionId == m_missions.m_selectedId) {
-        m_missions.m_selected = event.value(QStringLiteral("mission")).toObject().toVariantMap();
-        m_missions.m_members = list(event, "members");
-        emit m_missions.selectionChanged();
-        m_missions.roomAction({ { QStringLiteral("type"), QStringLiteral("read") } });
+        m_sessionActions.completeCreation(created, pending.projectId);
+    if (pending.operation == QStringLiteral("project.open") && pending.projectId == m_projects.m_selectedId) {
+        m_projects.m_selected = event.value(QStringLiteral("project")).toObject().toVariantMap();
+        m_projects.m_members = list(event, "members");
+        emit m_projects.selectionChanged();
+        m_projects.act({ { QStringLiteral("type"), QStringLiteral("read") } });
     }
-    if (pending.operation == QStringLiteral("mission.create")) {
-        m_missions.open(id);
-        emit m_missions.created(id);
+    if (pending.operation == QStringLiteral("project.create")) {
+        m_projects.open(id);
+        emit m_projects.created(id);
     }
-    if (pending.operation == QStringLiteral("mission.invitation.accept") && !pending.missionId.isEmpty())
-        m_missions.open(pending.missionId);
-    if ((pending.operation == QStringLiteral("mission.delete") || pending.operation == QStringLiteral("mission.leave"))
-        && pending.missionId == m_missions.m_selectedId) {
-        m_missions.open({});
+    if (pending.operation == QStringLiteral("project.invitation.accept") && !pending.projectId.isEmpty())
+        m_projects.open(pending.projectId);
+    if ((pending.operation == QStringLiteral("project.delete") || pending.operation == QStringLiteral("project.leave"))
+        && pending.projectId == m_projects.m_selectedId) {
+        m_projects.open({});
     }
 }
 
@@ -406,11 +406,11 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit showRequested(event.value(QStringLiteral("sessionId")).toString());
         return;
     }
-    if (type == QStringLiteral("mission.show")) {
-        if (const auto id = event.value(QStringLiteral("missionId")).toString(); !id.isEmpty()) {
+    if (type == QStringLiteral("project.show")) {
+        if (const auto id = event.value(QStringLiteral("projectId")).toString(); !id.isEmpty()) {
             m_desktop.bringToFront();
-            m_desktop.setActiveView(DesktopStateModel::Missions);
-            m_missions.open(id);
+            m_desktop.setActiveView(DesktopStateModel::Projects);
+            m_projects.open(id);
         }
         return;
     }
@@ -420,7 +420,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             setError(m_sessions.authorityError());
             return;
         }
-        emit m_missions.selectionChanged();
+        emit m_projects.selectionChanged();
         return;
     }
     if (type == QStringLiteral("friends.result")) {
@@ -479,41 +479,40 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_devices.changed();
         return;
     }
-    if (type == QStringLiteral("room.snapshot")) {
-        m_missions.applyRoom(event.value(QStringLiteral("room")).toObject());
+    if (type == QStringLiteral("project.snapshot")) {
+        m_projects.applyContent(event.value(QStringLiteral("content")).toObject());
         return;
     }
-    if (type == QStringLiteral("missions.snapshot")) {
-        m_missions.m_missions = list(event, "missions");
-        m_missions.m_invitations = list(event, "invitations");
-        const bool missionsTruncated
-            = event.value(QStringLiteral("missionsTruncated")).toBool();
-        m_missions.m_catalogTruncated = missionsTruncated
+    if (type == QStringLiteral("projects.snapshot")) {
+        m_projects.m_projects = list(event, "projects");
+        m_projects.m_invitations = list(event, "invitations");
+        const bool projectsTruncated
+            = event.value(QStringLiteral("projectsTruncated")).toBool();
+        m_projects.m_catalogTruncated = projectsTruncated
             || event.value(QStringLiteral("invitationsTruncated")).toBool();
-        emit m_missions.catalogChanged();
-        if (!m_missions.m_selectedId.isEmpty()) {
-            const auto exists = std::any_of(m_missions.m_missions.cbegin(),
-                m_missions.m_missions.cend(), [&](const QVariant& mission) {
-                    return mission.toMap().value(QStringLiteral("id")).toString()
-                        == m_missions.m_selectedId;
+        emit m_projects.catalogChanged();
+        if (!m_projects.m_selectedId.isEmpty()) {
+            const auto exists = std::any_of(m_projects.m_projects.cbegin(),
+                m_projects.m_projects.cend(), [&](const QVariant& project) {
+                    return project.toMap().value(QStringLiteral("id")).toString()
+                        == m_projects.m_selectedId;
                 });
-            if (!exists && !missionsTruncated)
-                m_missions.open({});
+            if (!exists && !projectsTruncated)
+                m_projects.open({});
             else
-                m_missions.open(m_missions.m_selectedId);
+                m_projects.open(m_projects.m_selectedId);
         }
         return;
     }
-    if (type == QStringLiteral("session.result") || type == QStringLiteral("room.result")
-        || type == QStringLiteral("mission.result")) {
+    if (type == QStringLiteral("session.result") || type == QStringLiteral("project.result")) {
         receiveResult(type, event);
         return;
     }
     if (type == QStringLiteral("repositories.result") || type == QStringLiteral("repositories.error")) {
-        m_missions.m_repositoryChoices = type == QStringLiteral("repositories.result")
+        m_projects.m_repositoryChoices = type == QStringLiteral("repositories.result")
             ? event.value(QStringLiteral("repositories")).toObject().toVariantMap()
             : QVariantMap { { QStringLiteral("failure"), event.value(QStringLiteral("message")).toString() } };
-        emit m_missions.repositoryChoicesChanged();
+        emit m_projects.repositoryChoicesChanged();
         return;
     }
     if (type == QStringLiteral("provider.error") || type == QStringLiteral("folders.error")
@@ -521,12 +520,13 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         || type.startsWith(QStringLiteral("document.")) || !type.endsWith(QStringLiteral(".error")))
         return;
     const auto id = event.value(QStringLiteral("requestId")).toString();
-    if (type == QStringLiteral("room.error")) {
+    if (type == QStringLiteral("project.error")
+        && event.value(QStringLiteral("operation")).toString() == QStringLiteral("project.act")) {
         if (!m_pending.contains(id))
             return;
         const auto pending = m_pending.take(id);
-        m_missions.m_presentations[pending.missionId].insert(QStringLiteral("failure"), event.value(QStringLiteral("message")).toString());
-        emit m_missions.presentationChanged();
+        m_projects.m_presentations[pending.projectId].insert(QStringLiteral("failure"), event.value(QStringLiteral("message")).toString());
+        emit m_projects.presentationChanged();
         notifyBusy();
         return;
     }
@@ -542,9 +542,9 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
             m_sessionActions.m_activeLink.reset();
             m_sessionActions.activatePendingLink();
         }
-        if (pending.operation == QStringLiteral("mission.open")
-            && pending.missionId == m_missions.m_selectedId) {
-            m_missions.open({});
+        if (pending.operation == QStringLiteral("project.open")
+            && pending.projectId == m_projects.m_selectedId) {
+            m_projects.open({});
         }
         m_pending.remove(id);
         notifyBusy();

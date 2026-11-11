@@ -1,6 +1,6 @@
 {
-  "terminalConnectionProtocolVersion": 24,
-  "oldestTerminalConnectionProtocolVersion": 24,
+  "terminalConnectionProtocolVersion": 25,
+  "oldestTerminalConnectionProtocolVersion": 25,
   "channelProtocolVersion": 11,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
@@ -36,7 +36,7 @@
       "ping": "the answer is pong"
     },
     "serverMessages": {
-      "changed": "surface (devices, friends, sessions, missions, rooms): the device reads that list again",
+      "changed": "surface (devices, friends, sessions, projects, projectContent): the device reads that list again",
       "terminal": "sessionId, incarnationId, online, status: to the devices of the people who can use the terminal, but not to the hosting device, after its host connects, disconnects or changes the status",
       "viewer": "pipe, sessionId, userId, deviceId: to the host, when the server admitted a viewer",
       "caller": "pipe, userId, deviceId: to a hosting device, when another device of its person calls it",

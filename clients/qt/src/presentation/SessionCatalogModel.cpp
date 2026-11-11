@@ -347,8 +347,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("connectedUsers"), s->connectedUsers },
         { QStringLiteral("placeKind"), s->placeKind }, { QStringLiteral("placeName"), s->placeName },
         { QStringLiteral("placeLabel"), placeLabel(session) }, { QStringLiteral("root"), s->root },
-        { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("missionId"), s->missionId },
-        { QStringLiteral("missionName"), s->missionName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
+        { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("projectId"), s->projectId },
+        { QStringLiteral("projectName"), s->projectName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("isOwner"), s->isOwner },
         { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
         { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden },
@@ -376,7 +376,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             .contains(s.connectionState)
         || !o.value(QStringLiteral("sharedWith")).isArray())
         return std::nullopt;
-    for (const auto* key : {"ownerUserId", "ownerName", "hostDeviceId", "hostName", "missionName", "message", "workingDir", "activity", "program", "restoredFrom"}) {
+    for (const auto* key : {"ownerUserId", "ownerName", "hostDeviceId", "hostName", "projectName", "message", "workingDir", "activity", "program", "restoredFrom"}) {
         const auto value = o.value(QLatin1String(key));
         if (!value.isNull() && !value.isUndefined() && (!value.isString() || value.toString().size()>4096)) return std::nullopt;
     }
@@ -477,8 +477,8 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     s.ownerName = text("ownerName");
     s.hostDeviceId = text("hostDeviceId");
     s.hostName = text("hostName");
-    s.missionId = text("missionId");
-    s.missionName = text("missionName");
+    s.projectId = text("projectId");
+    s.projectName = text("projectName");
     s.message = text("message");
     s.restoredFrom = text("restoredFrom");
     if (!s.restoredFrom.isEmpty() && QUuid(s.restoredFrom).isNull())

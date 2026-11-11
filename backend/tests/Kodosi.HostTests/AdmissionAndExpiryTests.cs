@@ -65,8 +65,8 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         using var owner = await app.EnrollAsync("owner");
         using var other = await app.EnrollAsync("other");
         using var read = await SignedAsync(owner, HttpMethod.Get, "/api/sessions");
-        using var change = await SignedAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Project" });
-        using var separate = await SignedAsync(other, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Other" });
+        using var change = await SignedAsync(owner, HttpMethod.Post, "/api/projects", new { id = Guid.CreateVersion7(), name = "Project" });
+        using var separate = await SignedAsync(other, HttpMethod.Post, "/api/projects", new { id = Guid.CreateVersion7(), name = "Other" });
         var changing = await app.Services.GetRequiredService<AccountGate>().EnterAsync(owner.Fixture.UserId, TestContext.Current.CancellationToken);
         Task<HttpResponseMessage> pending;
         try

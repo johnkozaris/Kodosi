@@ -21,7 +21,7 @@ enum TerminalCatalog {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return sessions }
         return sessions.filter { session in
-            [session.name, session.activity, session.hostLabel, session.ownerName, session.missionName, session.folderName, session.agent.label]
+            [session.name, session.activity, session.hostLabel, session.ownerName, session.projectName, session.folderName, session.agent.label]
                 .compactMap(\.self)
                 .contains { $0.localizedStandardContains(query) }
         }

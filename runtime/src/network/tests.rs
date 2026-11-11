@@ -9,8 +9,8 @@ fn session() -> RemoteSession {
         owner_name: "owner".into(),
         host_device_id: Uuid::now_v7().to_string(),
         host_name: "host".into(),
-        mission_id: None,
-        mission_name: None,
+        project_id: None,
+        project_name: None,
         shared_with: vec![],
         online: true,
         status: None,
@@ -25,9 +25,9 @@ fn a_listed_terminal_names_the_terminal_it_replaces_but_never_itself() {
     let listed = |restored_from: Value| -> RemoteSession {
         let dto = serde_json::json!({
             "id": id, "incarnationId": Uuid::now_v7(), "name": "Build", "ownerUserId": "owner",
-            "ownerName": "Owner", "hostDeviceId": "host", "hostName": "Host", "missionId": null,
-            "missionName": null, "sharedWith": [], "authorizationRevision": 1, "hostOnline": true,
-            "roomSequence": 0, "hidden": false, "restoredFrom": restored_from,
+            "ownerName": "Owner", "hostDeviceId": "host", "hostName": "Host", "projectId": null,
+            "projectName": null, "sharedWith": [], "authorizationRevision": 1, "hostOnline": true,
+            "projectSequence": 0, "hidden": false, "restoredFrom": restored_from,
         });
         serde_json::from_value::<wire::SessionDto>(dto)
             .unwrap()

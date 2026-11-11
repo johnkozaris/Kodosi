@@ -41,6 +41,6 @@ struct TerminalListCard: View {
             }
         }
         .animation(theme.motion.snappy, value: sign)
-        .accessibilityValue(session.missionName.map { Text("In \($0)") } ?? Text(verbatim: ""))
+        .accessibilityValue(session.projectName.map { Text("In \($0)") } ?? Text(verbatim: ""))
     }
 }

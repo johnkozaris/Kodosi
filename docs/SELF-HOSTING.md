@@ -89,19 +89,19 @@ an account's plan (the default plan otherwise):
 "Plans": {
   "Default": "free",
   "Definitions": {
-    "free": { "Devices": 4, "OwnedRooms": 3, "RoomPeople": 3, "SharePeople": 2,
-              "RoomBytes": 10485760, "Friends": 50, "SentFriendRequests": 20,
+    "free": { "Devices": 4, "OwnedProjects": 3, "ProjectPeople": 3, "SharePeople": 2,
+              "ProjectBytes": 10485760, "Friends": 50, "SentFriendRequests": 20,
               "ReceivedFriendRequests": 50 },
-    "team": { "OwnedRooms": 20, "RoomPeople": 20 }
+    "team": { "OwnedProjects": 20, "ProjectPeople": 20 }
   }
 }
 ```
 
-The limits are `Devices`, `OwnedRooms`, `RoomPeople` in an owned project (with the owner
-and open invitations), `SharePeople` who can see one of the account's terminals,
-`RoomBytes` of encrypted data in an owned project, `Friends`, `SentFriendRequests` and
+The limits are `Devices`, `OwnedProjects`, `ProjectPeople` in an owned project (with the
+owner and open invitations), `SharePeople` who can see one of the account's terminals,
+`ProjectBytes` of encrypted data in an owned project, `Friends`, `SentFriendRequests` and
 `ReceivedFriendRequests`. An unset limit keeps the backend's own limit, and the owner's
-plan applies to a project or terminal. Past `RoomBytes` a project drops its oldest
+plan applies to a project or terminal. Past `ProjectBytes` a project drops its oldest
 messages. A smaller plan removes nothing, recovery is never limited, and a changed
 `users.Plan` applies at once. The backend does not start with a setting that is not
 valid, and names the value that it refuses.

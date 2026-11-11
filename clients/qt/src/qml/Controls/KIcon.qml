@@ -56,7 +56,7 @@ Item {
         case "question": return "M8.5 9 Q8.5 5 12 5 Q15.5 5 15.5 8.5 Q15.5 11 12 12.5 V14.5 M12 18.5 V18.6"
         case "key": return "M12 4 A3.5 3.5 0 1 0 12 11 A3.5 3.5 0 1 0 12 4 M12 11 V20 M12 16 H15 M12 19.5 H14.5"
         case "warning": return "M12 3 L22 20 H2 Z M12 9 V14 M12 17 V17.1"
-        case "mission": return "M12 3 L20 7 V17 L12 21 L4 17 V7 Z M8 9 L12 7 L16 9 V15 L12 17 L8 15 Z"
+        case "project": return "M12 3 L20 7 V17 L12 21 L4 17 V7 Z M8 9 L12 7 L16 9 V15 L12 17 L8 15 Z"
         case "sidebar": return "M4 5 H20 V19 H4 Z M9 5 V19"
         case "document": return "M6 3 H14 L19 8 V21 H6 Z M14 3 V8 H19 M9 12 H16 M9 16 H16"
         case "search": return "M10.5 4 A6.5 6.5 0 1 0 10.5 17 A6.5 6.5 0 1 0 10.5 4 M15.5 15.5 L20 20"

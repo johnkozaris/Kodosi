@@ -14,7 +14,7 @@
 #include "presentation/DevicesModel.hpp"
 #include "presentation/DosiModel.hpp"
 #include "presentation/KeyedListModel.hpp"
-#include "presentation/MissionsModel.hpp"
+#include "presentation/ProjectsModel.hpp"
 #include "presentation/PeopleModel.hpp"
 #include "presentation/ProviderFilesModel.hpp"
 #include "presentation/SessionCatalogModel.hpp"
@@ -76,14 +76,14 @@ public:
     static kodosi::DevicesModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
-struct MissionsModelForeign {
+struct ProjectsModelForeign {
     Q_GADGET
-    QML_FOREIGN(kodosi::MissionsModel)
-    QML_NAMED_ELEMENT(Missions)
+    QML_FOREIGN(kodosi::ProjectsModel)
+    QML_NAMED_ELEMENT(Projects)
     QML_SINGLETON
 public:
-    inline static kodosi::MissionsModel* instance = nullptr;
-    static kodosi::MissionsModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
+    inline static kodosi::ProjectsModel* instance = nullptr;
+    static kodosi::ProjectsModel* create(QQmlEngine* engine, QJSEngine*) { return singleton(instance, engine); }
 };
 
 struct DosiModelForeign {

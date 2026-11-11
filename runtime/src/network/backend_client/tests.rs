@@ -164,8 +164,8 @@ async fn a_sign_out_does_not_wait_for_a_remote_terminal_that_waits_for_the_devic
     let id = Uuid::now_v7();
     let dto: SessionDto = serde_json::from_value(json!({
         "id":id,"incarnationId":Uuid::now_v7(),"name":"Terminal","ownerUserId":"friend","ownerName":"Friend",
-        "hostDeviceId":"laptop","hostName":"Laptop","missionId":null,"missionName":null,"sharedWith":[user],
-        "authorizationRevision":1,"hostOnline":true,"roomSequence":0,"hidden":false
+        "hostDeviceId":"laptop","hostName":"Laptop","projectId":null,"projectName":null,"sharedWith":[user],
+        "authorizationRevision":1,"hostOnline":true,"projectSequence":0,"hidden":false
     }))
     .unwrap();
     network.inner.sessions.lock().unwrap().insert(id, dto);
@@ -220,8 +220,8 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             session_id: id,
             incarnation_id: incarnation,
             name: "test".into(),
-            mission_id: None,
-            room_sequence: 0,
+            project_id: None,
+            project_sequence: 0,
             shared_with: BTreeSet::new(),
             restored_from: None,
         },
@@ -235,14 +235,14 @@ async fn failed_unpublish_retains_the_cleanup_obligation() {
             owner_name: "test".into(),
             host_device_id: Uuid::now_v7().to_string(),
             host_name: "test".into(),
-            mission_id: None,
-            mission_name: None,
+            project_id: None,
+            project_name: None,
             shared_with: vec![],
             authorization_revision: 1,
             host_online: true,
             status: None,
-            room_sequence: 0,
-            room_choice: None,
+            project_sequence: 0,
+            project_choice: None,
             hidden: false,
             close_request: None,
             restored_from: None,
@@ -281,8 +281,8 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             session_id: id,
             incarnation_id: incarnation,
             name: "live shell".into(),
-            mission_id: Some(Uuid::now_v7()),
-            room_sequence: 0,
+            project_id: Some(Uuid::now_v7()),
+            project_sequence: 0,
             shared_with: BTreeSet::from([friend.clone()]),
             restored_from: None,
         },
@@ -296,14 +296,14 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
             owner_name: "owner".into(),
             host_device_id: "host".into(),
             host_name: "host".into(),
-            mission_id: None,
-            mission_name: None,
+            project_id: None,
+            project_name: None,
             shared_with: vec![friend.clone()],
             authorization_revision: 4,
             host_online: false,
             status: None,
-            room_sequence: 0,
-            room_choice: None,
+            project_sequence: 0,
+            project_choice: None,
             hidden: false,
             close_request: None,
             restored_from: None,
@@ -320,7 +320,7 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
     network.reconcile_shares().await.unwrap();
     let info = publication.info.read().await;
     assert!(info.shared_with.is_empty());
-    assert!(info.mission_id.is_none());
+    assert!(info.project_id.is_none());
     assert_eq!(info.incarnation_id, incarnation);
     drop(info);
     assert!(publication.pending_shares.lock().await.is_none());
@@ -329,15 +329,15 @@ async fn missing_publication_discards_pending_grants_before_reconciliation() {
 
 #[cfg(feature = "host")]
 #[test]
-fn the_people_of_a_room_never_become_the_host_s_own_choice() {
-    let (id, incarnation, room) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+fn the_people_of_a_project_never_become_the_host_s_own_choice() {
+    let (id, incarnation, project) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
     let member = Uuid::now_v7().to_string();
     let mut info = LocalPublication {
         session_id: id,
         incarnation_id: incarnation,
         name: "shell".into(),
-        mission_id: Some(room),
-        room_sequence: 5,
+        project_id: Some(project),
+        project_sequence: 5,
         shared_with: BTreeSet::new(),
         restored_from: None,
     };
@@ -349,14 +349,14 @@ fn the_people_of_a_room_never_become_the_host_s_own_choice() {
         owner_name: "owner".into(),
         host_device_id: "host".into(),
         host_name: "host".into(),
-        mission_id: Some(room),
-        mission_name: None,
+        project_id: Some(project),
+        project_name: None,
         shared_with: vec![member.clone()],
         authorization_revision: 1,
         host_online: true,
         status: None,
-        room_sequence: 5,
-        room_choice: None,
+        project_sequence: 5,
+        project_choice: None,
         hidden: false,
         close_request: None,
         restored_from: None,
@@ -365,7 +365,7 @@ fn the_people_of_a_room_never_become_the_host_s_own_choice() {
     assert_eq!(shown, BTreeSet::from([member.clone()]));
     assert!(info.shared_with.is_empty());
 
-    dto.mission_id = None;
+    dto.project_id = None;
     let (_, shown) = follow_sharing(&mut info, &dto, Some((None, 5)));
     assert!(shown.is_empty());
     assert!(info.shared_with.is_empty());
@@ -424,16 +424,16 @@ async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
     let (_frames, output) = broadcast::channel(1);
     let dto: SessionDto = serde_json::from_value(json!({
         "id":id,"incarnationId":incarnation,"name":"Terminal","ownerUserId":"owner","ownerName":"Owner",
-        "hostDeviceId":"device","hostName":"Host","missionId":null,"missionName":null,"sharedWith":[],
-        "authorizationRevision":1,"hostOnline":true,"roomSequence":0,"hidden":false
+        "hostDeviceId":"device","hostName":"Host","projectId":null,"projectName":null,"sharedWith":[],
+        "authorizationRevision":1,"hostOnline":true,"projectSequence":0,"hidden":false
     }))
     .unwrap();
     let info = LocalPublication {
         session_id: id,
         incarnation_id: incarnation,
         name: "Terminal".into(),
-        mission_id: None,
-        room_sequence: 0,
+        project_id: None,
+        project_sequence: 0,
         shared_with: BTreeSet::new(),
         restored_from: None,
     };
@@ -500,8 +500,8 @@ fn a_restarted_terminal_tells_the_server_which_terminal_it_replaces() {
         session_id: Uuid::now_v7(),
         incarnation_id: Uuid::now_v7(),
         name: "Build".into(),
-        mission_id: None,
-        room_sequence: 0,
+        project_id: None,
+        project_sequence: 0,
         shared_with: BTreeSet::new(),
         restored_from: Some(replaced),
     };
@@ -626,7 +626,7 @@ async fn friends_kept_at(
     IdentityBundle,
     [SignedFriendList; 2],
 ) {
-    let (keys, bundle) = crate::rooms::crypto_tests::person();
+    let (keys, bundle) = crate::projects::crypto_tests::person();
     let root = tempfile::tempdir().unwrap();
     let network = BackendClient::new(BackendConfig {
         api_url: format!("{address}/").parse().unwrap(),

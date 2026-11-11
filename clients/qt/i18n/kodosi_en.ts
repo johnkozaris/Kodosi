@@ -29,30 +29,6 @@
     </message>
 </context>
 <context>
-    <name>MissionsView</name>
-    <message numerus="yes">
-        <source>%n projects</source>
-        <translation>
-            <numerusform>%n project</numerusform>
-            <numerusform>%n projects</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%n shared terminals</source>
-        <translation>
-            <numerusform>%n shared terminal</numerusform>
-            <numerusform>%n shared terminals</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals</source>
-        <translation>
-            <numerusform>%n terminal</numerusform>
-            <numerusform>%n terminals</numerusform>
-        </translation>
-    </message>
-</context>
-<context>
     <name>PeopleView</name>
     <message numerus="yes">
         <source>%n friends</source>
@@ -63,17 +39,7 @@
     </message>
 </context>
 <context>
-    <name>QuitDialog</name>
-    <message numerus="yes">
-        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
-        <translation>
-            <numerusform>%n terminal on this computer stops. It starts again when Kodosi opens.</numerusform>
-            <numerusform>%n terminals on this computer stop. They start again when Kodosi opens.</numerusform>
-        </translation>
-    </message>
-</context>
-<context>
-    <name>RoomContent</name>
+    <name>ProjectContent</name>
     <message numerus="yes">
         <source>%n people</source>
         <translation>
@@ -97,12 +63,46 @@
     </message>
 </context>
 <context>
-    <name>RoomConversation</name>
+    <name>ProjectConversation</name>
     <message numerus="yes">
         <source>%n new</source>
         <translation>
             <numerusform>%n new</numerusform>
             <numerusform>%n new</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ProjectsView</name>
+    <message numerus="yes">
+        <source>%n projects</source>
+        <translation>
+            <numerusform>%n project</numerusform>
+            <numerusform>%n projects</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n shared terminals</source>
+        <translation>
+            <numerusform>%n shared terminal</numerusform>
+            <numerusform>%n shared terminals</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals</source>
+        <translation>
+            <numerusform>%n terminal</numerusform>
+            <numerusform>%n terminals</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>QuitDialog</name>
+    <message numerus="yes">
+        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
+        <translation>
+            <numerusform>%n terminal on this computer stops. It starts again when Kodosi opens.</numerusform>
+            <numerusform>%n terminals on this computer stop. They start again when Kodosi opens.</numerusform>
         </translation>
     </message>
 </context>

@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Kodosi.Data;
 using Kodosi.Devices;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Plans;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
@@ -16,8 +16,8 @@ namespace Kodosi.HostTests;
 [Collection("PostgreSQL")]
 public sealed class PlanTests(PostgresFixture postgres)
 {
-    private static readonly PlanLimits Small = new(Devices: 1, OwnedRooms: 1, RoomPeople: 2, SharePeople: 1,
-        RoomBytes: PlanCatalog.LeastRoomBytes, Friends: 1, SentFriendRequests: 1, ReceivedFriendRequests: 1);
+    private static readonly PlanLimits Small = new(Devices: 1, OwnedProjects: 1, ProjectPeople: 2, SharePeople: 1,
+        ProjectBytes: PlanCatalog.LeastProjectBytes, Friends: 1, SentFriendRequests: 1, ReceivedFriendRequests: 1);
 
     private static PlanCatalog Catalog() =>
         PlanCatalog.Of("free", new Dictionary<string, PlanLimits> { ["free"] = Small, ["unlimited"] = PlanLimits.Safety });
@@ -36,26 +36,26 @@ public sealed class PlanTests(PostgresFixture postgres)
         await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
-    private static async Task<Guid> KeyedRoomAsync(TestStore store, TestUser owner, bool dosi = false)
+    private static async Task<Guid> KeyedProjectAsync(TestStore store, TestUser owner, bool dosi = false)
     {
         var ct = TestContext.Current.CancellationToken;
-        var room = Guid.CreateVersion7();
-        await store.Missions.CreateAsync(owner.User.Id, new(room, "Workspace", dosi), ct);
+        var project = Guid.CreateVersion7();
+        await store.Projects.CreateAsync(owner.User.Id, new(project, "Workspace", dosi), ct);
         var state = JsonSerializer.SerializeToUtf8Bytes(new {
-            roomId = room, ownerUserId = owner.User.Id, authorId = owner.User.Id, deviceId = owner.Device.Id,
+            roomId = project, ownerUserId = owner.User.Id, authorId = owner.User.Id, deviceId = owner.Device.Id,
             version = 1, epoch = 1, createdAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), previousHash = "",
             members = new Dictionary<Guid, object> { [owner.User.Id] = new { } },
             recipients = new[] { new { userId = owner.User.Id, deviceId = owner.Device.Id, kemCiphertext = "AA==", @sealed = new { nonce = "AA==", ciphertext = "AA==" } } },
             previousKey = (object?)null
         }, TestJson.Options);
-        await store.Missions.StoreKeysAsync(room, owner.User.Id, new(owner.Device.Id, Convert.ToBase64String(state),
+        await store.Projects.StoreKeysAsync(project, owner.User.Id, new(owner.Device.Id, Convert.ToBase64String(state),
             Convert.ToBase64String(owner.Fixture.Sign(Proofs.Tagged("kodosi-room-state-v1"u8, state)))), ct);
-        return room;
+        return project;
     }
 
-    private static MissionService.ContentWrite Item(TestUser author, Guid room, Guid id, string kind)
+    private static ProjectService.ContentWrite Item(TestUser author, Guid project, Guid id, string kind)
     {
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { roomId = room, id, kind, version = 1, keyVersion = 1, epoch = 1,
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { roomId = project, id, kind, version = 1, keyVersion = 1, epoch = 1,
             authorId = author.User.Id, deviceId = author.Device.Id, nonce = Convert.ToBase64String(new byte[12]),
             ciphertext = Convert.ToBase64String(new byte[40 * 1024]) }, TestJson.Options);
         return new(0, author.Device.Id, Convert.ToBase64String(bytes),
@@ -71,41 +71,41 @@ public sealed class PlanTests(PostgresFixture postgres)
         var catalog = Read(new()
         {
             ["Plans:Default"] = "free", ["Plans:Definitions:free:Devices"] = "4",
-            ["Plans:Definitions:free:RoomBytes"] = "10485760", ["Plans:Definitions:unlimited:Devices"] = "16",
+            ["Plans:Definitions:free:ProjectBytes"] = "10485760", ["Plans:Definitions:unlimited:Devices"] = "16",
         });
-        Assert.Equal(PlanLimits.Safety with { Devices = 4, RoomBytes = 10485760 }, catalog.For(null));
+        Assert.Equal(PlanLimits.Safety with { Devices = 4, ProjectBytes = 10485760 }, catalog.For(null));
         Assert.Equal(16, catalog.For("unlimited").Devices);
         Assert.Same(catalog.For(null), catalog.For("gone"));
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "pro", ["Plans:Definitions:free:Devices"] = "4" }));
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Definitions:free:Devices"] = "4" }));
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "free", ["Plans:Definitions:free:Device"] = "4" }));
         Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "free", ["Plans:Definitions:free:Devices"] = "17" }));
-        Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "free", ["Plans:Definitions:free:RoomBytes"] = "1024" }));
+        Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "free", ["Plans:Definitions:free:ProjectBytes"] = "1024" }));
     }
 
     [Fact]
-    public async Task APlanLimitsRoomsPeopleAndSharesAndAnotherPlanLetsThemThrough()
+    public async Task APlanLimitsProjectsPeopleAndSharesAndAnotherPlanLetsThemThrough()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var store = await TestStore.CreateAsync(postgres);
         store.Plans = Catalog();
         var alice = await store.UserAsync("alice"); var bob = await store.UserAsync("bob"); var carol = await store.UserAsync("carol");
         await BefriendAsync(store, alice.User.Id, bob.User.Id); await BefriendAsync(store, alice.User.Id, carol.User.Id);
-        var room = Guid.CreateVersion7();
-        await store.Missions.CreateAsync(alice.User.Id, new(room, "Workspace"), ct);
+        var project = Guid.CreateVersion7();
+        await store.Projects.CreateAsync(alice.User.Id, new(project, "Workspace"), ct);
         await RefusedAsync("You own 1 project, the most that you can own. Delete a project to make a new one.",
-            () => store.Missions.CreateAsync(alice.User.Id, new(Guid.CreateVersion7(), "Second"), ct));
-        await store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), bob.User.Id), ct);
+            () => store.Projects.CreateAsync(alice.User.Id, new(Guid.CreateVersion7(), "Second"), ct));
+        await store.Projects.InviteAsync(project, alice.User.Id, new(Guid.CreateVersion7(), bob.User.Id), ct);
         await RefusedAsync("This project can have at most 2 people, with its open invitations.",
-            () => store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), carol.User.Id), ct));
+            () => store.Projects.InviteAsync(project, alice.User.Id, new(Guid.CreateVersion7(), carol.User.Id), ct));
         var terminal = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
         await store.Sessions.CreateAsync(alice.User.Id, alice.Approved, new(terminal, incarnation, "Shell", alice.Device.Id, "Mac", null), ct);
         await RefusedAsync("You can share a terminal with at most 1 person.",
             () => store.Sessions.ShareAsync(terminal, alice.User.Id, alice.Device.Id, new(incarnation, 1, [bob.User.Id, carol.User.Id]), ct));
 
         alice.User.Plan = "unlimited"; await store.Db.SaveChangesAsync(ct);
-        await store.Missions.CreateAsync(alice.User.Id, new(Guid.CreateVersion7(), "Second"), ct);
-        await store.Missions.InviteAsync(room, alice.User.Id, new(Guid.CreateVersion7(), carol.User.Id), ct);
+        await store.Projects.CreateAsync(alice.User.Id, new(Guid.CreateVersion7(), "Second"), ct);
+        await store.Projects.InviteAsync(project, alice.User.Id, new(Guid.CreateVersion7(), carol.User.Id), ct);
         await store.Sessions.ShareAsync(terminal, alice.User.Id, alice.Device.Id, new(incarnation, 1, [bob.User.Id, carol.User.Id]), ct);
     }
 
@@ -154,19 +154,19 @@ public sealed class PlanTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task DosisRoomStaysWithinItsOwnSpaceOnAPlanWithoutALimit()
+    public async Task DosisProjectStaysWithinItsOwnSpaceOnAPlanWithoutALimit()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var store = await TestStore.CreateAsync(postgres);
         var alice = await store.UserAsync("alice");
-        var room = await KeyedRoomAsync(store, alice, dosi: true);
+        var project = await KeyedProjectAsync(store, alice, dosi: true);
         var records = Enumerable.Range(0, 80).Select(_ => Guid.CreateVersion7()).ToArray();
-        foreach (var id in records) await store.Missions.PutContentAsync(room, id, alice.User.Id, Item(alice, room, id, "message"), ct);
+        foreach (var id in records) await store.Projects.PutContentAsync(project, id, alice.User.Id, Item(alice, project, id, "message"), ct);
         store.Db.ChangeTracker.Clear();
-        var stored = await store.Db.Missions.SingleAsync(x => x.Id == room, ct);
+        var stored = await store.Db.Projects.SingleAsync(x => x.Id == project, ct);
         Assert.True(stored.HistoryTrimmed);
-        Assert.InRange(stored.ContentBytes, 1, MissionService.DosiRoomBytes);
-        var kept = await store.Db.MissionItems.Where(x => x.MissionId == room).Select(x => x.Id).ToListAsync(ct);
+        Assert.InRange(stored.ContentBytes, 1, ProjectService.DosiProjectBytes);
+        var kept = await store.Db.ProjectItems.Where(x => x.ProjectId == project).Select(x => x.Id).ToListAsync(ct);
         Assert.DoesNotContain(records[0], kept);
         Assert.Contains(records[^1], kept);
     }
@@ -178,27 +178,27 @@ public sealed class PlanTests(PostgresFixture postgres)
         await using var store = await TestStore.CreateAsync(postgres);
         store.Plans = Catalog();
         var alice = await store.UserAsync("alice"); var bob = await store.UserAsync("bob");
-        var room = await KeyedRoomAsync(store, alice);
+        var project = await KeyedProjectAsync(store, alice);
         Guid[] messages = [Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7()];
-        foreach (var id in messages) await store.Missions.PutContentAsync(room, id, alice.User.Id, Item(alice, room, id, "message"), ct);
+        foreach (var id in messages) await store.Projects.PutContentAsync(project, id, alice.User.Id, Item(alice, project, id, "message"), ct);
         store.Db.ChangeTracker.Clear();
-        Assert.Equal(messages[1..], await store.Db.MissionItems.Where(x => x.MissionId == room).OrderBy(x => x.Sequence).Select(x => x.Id).ToListAsync(ct));
-        var stored = await store.Db.Missions.SingleAsync(x => x.Id == room, ct);
+        Assert.Equal(messages[1..], await store.Db.ProjectItems.Where(x => x.ProjectId == project).OrderBy(x => x.Sequence).Select(x => x.Id).ToListAsync(ct));
+        var stored = await store.Db.Projects.SingleAsync(x => x.Id == project, ct);
         Assert.True(stored.HistoryTrimmed);
-        Assert.Equal(await store.Db.MissionItems.Where(x => x.MissionId == room).SumAsync(x => (long)x.Body.Length + x.Signature.Length, ct), stored.ContentBytes);
-        Assert.InRange(stored.ContentBytes, 1, PlanCatalog.LeastRoomBytes);
-        var page = JsonSerializer.SerializeToElement(await store.Missions.ContentAsync(room, alice.User.Id, null, 0, null, null, ct), TestJson.Options);
+        Assert.Equal(await store.Db.ProjectItems.Where(x => x.ProjectId == project).SumAsync(x => (long)x.Body.Length + x.Signature.Length, ct), stored.ContentBytes);
+        Assert.InRange(stored.ContentBytes, 1, PlanCatalog.LeastProjectBytes);
+        var page = JsonSerializer.SerializeToElement(await store.Projects.ContentAsync(project, alice.User.Id, null, 0, null, null, ct), TestJson.Options);
         Assert.True(page.GetProperty("historyTrimmed").GetBoolean());
 
-        var tasks = await KeyedRoomAsync(store, bob);
+        var tasks = await KeyedProjectAsync(store, bob);
         foreach (var id in new[] { Guid.CreateVersion7(), Guid.CreateVersion7() })
-            await store.Missions.PutContentAsync(tasks, id, bob.User.Id, Item(bob, tasks, id, "task"), ct);
+            await store.Projects.PutContentAsync(tasks, id, bob.User.Id, Item(bob, tasks, id, "task"), ct);
         var full = Guid.CreateVersion7();
         await RefusedAsync("This project is full, because its tasks and repositories use all of its space. Make a new project to continue.",
-            () => store.Missions.PutContentAsync(tasks, full, bob.User.Id, Item(bob, tasks, full, "task"), ct));
+            () => store.Projects.PutContentAsync(tasks, full, bob.User.Id, Item(bob, tasks, full, "task"), ct));
         store.Db.ChangeTracker.Clear();
-        Assert.Equal(2, await store.Db.MissionItems.CountAsync(x => x.MissionId == tasks, ct));
-        Assert.False((await store.Db.Missions.SingleAsync(x => x.Id == tasks, ct)).HistoryTrimmed);
+        Assert.Equal(2, await store.Db.ProjectItems.CountAsync(x => x.ProjectId == tasks, ct));
+        Assert.False((await store.Db.Projects.SingleAsync(x => x.Id == tasks, ct)).HistoryTrimmed);
     }
 
     [Fact]
@@ -207,17 +207,17 @@ public sealed class PlanTests(PostgresFixture postgres)
         var ct = TestContext.Current.CancellationToken;
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct), settings: new Dictionary<string, string?>
         {
-            ["Plans:Default"] = "free", ["Plans:Definitions:free:OwnedRooms"] = "1",
+            ["Plans:Default"] = "free", ["Plans:Definitions:free:OwnedProjects"] = "1",
         });
         using var owner = await app.EnrollAsync("owner");
-        await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Room" });
-        using var second = await SignedAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Second" });
+        await CallAsync(owner, HttpMethod.Post, "/api/projects", new { id = Guid.CreateVersion7(), name = "Project" });
+        using var second = await SignedAsync(owner, HttpMethod.Post, "/api/projects", new { id = Guid.CreateVersion7(), name = "Second" });
         using var response = await owner.Client.SendAsync(second, ct);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
         Assert.Equal(["error", "limit", "most"], body.EnumerateObject().Select(x => x.Name));
         Assert.Equal("You own 1 project, the most that you can own. Delete a project to make a new one.", body.GetProperty("error").GetString());
-        Assert.Equal("rooms", body.GetProperty("limit").GetString());
+        Assert.Equal("projects", body.GetProperty("limit").GetString());
         Assert.Equal(1, body.GetProperty("most").GetInt64());
     }
 }

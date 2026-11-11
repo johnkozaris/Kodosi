@@ -11,13 +11,13 @@ KPopover {
 
     readonly property var results: {
         const needle = query.text.trim().toLowerCase()
-        const all = terminals().concat(rooms(), actions(), people())
+        const all = terminals().concat(projects(), actions(), people())
         return needle.length === 0 ? all : all.filter(item => item.title.toLowerCase().indexOf(needle) >= 0 || (item.detail || "").toLowerCase().indexOf(needle) >= 0)
     }
     property int index: 0
 
     signal newTerminalRequested
-    signal newRoomRequested
+    signal newProjectRequested
     signal resumeRequested
 
     function terminals() {
@@ -27,8 +27,8 @@ KPopover {
             detail: [session.folderName, session.kind === "remote" ? session.hostLabel : ""].filter(part => !!part).join(" · ")
         }))
     }
-    function rooms() {
-        return Models.Missions.missions.map(room => ({ id: "room." + room.id, group: qsTr("Projects"), title: room.name, kind: "room", key: room.id }))
+    function projects() {
+        return Models.Projects.projects.map(project => ({ id: "project." + project.id, group: qsTr("Projects"), title: project.name, kind: "project", key: project.id }))
     }
     function people() {
         return Models.People.friends.map(friend => ({
@@ -44,7 +44,7 @@ KPopover {
             { id: "action.resume", group: group, title: qsTr("Resume a conversation"), kind: "action", icon: "history", tint: "#d9a441" }
         ]
         if (Models.Account.signedIn && Models.Devices.localDeviceEnrolled)
-            list.push({ id: "action.room", group: group, title: qsTr("New project"), kind: "action", icon: "grid", tint: "#8c7bd1" })
+            list.push({ id: "action.project", group: group, title: qsTr("New project"), kind: "action", icon: "grid", tint: "#8c7bd1" })
         list.push({ id: "action.people", group: group, title: qsTr("Friends"), kind: "action", icon: "people", tint: "#5b82c9" })
         list.push({ id: "action.settings", group: group, title: qsTr("Settings"), kind: "action", icon: "gear", tint: "#6b6560" })
         return list
@@ -57,9 +57,9 @@ KPopover {
         case "terminal":
             Models.SessionActions.activate(item.key)
             break
-        case "room":
-            Models.DesktopState.activeView = Models.DesktopState.Missions
-            Models.Missions.open(item.key)
+        case "project":
+            Models.DesktopState.activeView = Models.DesktopState.Projects
+            Models.Projects.open(item.key)
             break
         case "person":
             Models.DesktopState.activeView = Models.DesktopState.People
@@ -68,7 +68,7 @@ KPopover {
             if (item.id === "action.terminal") root.newTerminalRequested()
             else if (item.id === "action.quickTerminal") Models.SessionActions.createQuick()
             else if (item.id === "action.resume") root.resumeRequested()
-            else if (item.id === "action.room") root.newRoomRequested()
+            else if (item.id === "action.project") root.newProjectRequested()
             else if (item.id === "action.people") Models.DesktopState.activeView = Models.DesktopState.People
             else Models.DesktopState.activeView = Models.DesktopState.Settings
         }
@@ -207,7 +207,7 @@ KPopover {
                         Layout.preferredHeight: 24
 
                         AgentMark { visible: entry.modelData.kind === "terminal"; program: entry.modelData.program || ""; size: 24; session: entry.modelData }
-                        RoomSigil { visible: entry.modelData.kind === "room"; key: entry.modelData.key || ""; size: 24 }
+                        ProjectSigil { visible: entry.modelData.kind === "project"; key: entry.modelData.key || ""; size: 24 }
                         PersonAvatar { visible: entry.modelData.kind === "person"; name: entry.modelData.title; key: entry.modelData.key || ""; size: 24 }
                         IconTile {
                             visible: entry.modelData.kind === "action"

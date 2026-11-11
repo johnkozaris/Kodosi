@@ -411,11 +411,11 @@ fn known_refusal(words: &str) -> Option<Text> {
 
 fn plan_limit(limit: &str, most: u64) -> Option<Text> {
     Some(match limit {
-        "rooms" => text!(
+        "projects" => text!(
             "You own the most projects that you can own ({most}). Delete a project to make a new one.",
             most = most
         ),
-        "roomPeople" => text!(
+        "projectPeople" => text!(
             "This project has the most people that it can have ({most}), with its open invitations.",
             most = most
         ),

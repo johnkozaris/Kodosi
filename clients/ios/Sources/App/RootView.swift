@@ -59,7 +59,7 @@ struct RootView: View {
         }
         .onChange(of: model.lock.locked) { _, locked in
             if !locked {
-                model.rooms.markShownRead()
+                model.projects.markShownRead()
             }
         }
     }

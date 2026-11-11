@@ -64,7 +64,7 @@ object TerminalCatalog {
                 session.activity,
                 session.hostName,
                 session.ownerName,
-                session.missionName,
+                session.projectName,
                 session.folderName
             )
                 .any { it.contains(words, ignoreCase = true) }

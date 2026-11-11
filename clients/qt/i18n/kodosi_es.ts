@@ -2131,114 +2131,6 @@
     </message>
 </context>
 <context>
-    <name>MissionsView</name>
-    <message>
-        <source>Work in projects</source>
-        <translation>Trabaja en proyectos</translation>
-    </message>
-    <message>
-        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
-        <translation>Un proyecto reúne terminales de cualquier carpeta y ordenador, con sus tareas y repositorios. Invita a amigos cuando quieras.</translation>
-    </message>
-    <message>
-        <source>Sign in</source>
-        <translation>Iniciar sesión</translation>
-    </message>
-    <message>
-        <source>Approve this device</source>
-        <translation>Aprobar este dispositivo</translation>
-    </message>
-    <message>
-        <source>Projects</source>
-        <translation>Proyectos</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n projects</source>
-        <translation>
-            <numerusform>%n proyecto</numerusform>
-            <numerusform>%n proyectos</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%n shared terminals</source>
-        <translation>
-            <numerusform>%n terminal compartido</numerusform>
-            <numerusform>%n terminales compartidos</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>New project</source>
-        <translation>Nuevo proyecto</translation>
-    </message>
-    <message>
-        <source>More projects exist. Use Go to… to find them.</source>
-        <translation>Hay más proyectos. Usa «Ir a…» para encontrarlos.</translation>
-    </message>
-    <message>
-        <source>Some projects are not shown</source>
-        <translation>Algunos proyectos no se muestran</translation>
-    </message>
-    <message>
-        <source>%1 invited you</source>
-        <translation>%1 te ha invitado</translation>
-    </message>
-    <message>
-        <source>You are invited</source>
-        <translation>Te han invitado</translation>
-    </message>
-    <message>
-        <source>Not now</source>
-        <translation>Ahora no</translation>
-    </message>
-    <message>
-        <source>Decline invitation</source>
-        <translation>Rechazar invitación</translation>
-    </message>
-    <message>
-        <source>Join</source>
-        <translation>Unirse</translation>
-    </message>
-    <message>
-        <source>New messages</source>
-        <translation>Mensajes nuevos</translation>
-    </message>
-    <message>
-        <source>Yours</source>
-        <translation>Tuyas</translation>
-    </message>
-    <message>
-        <source>No terminals yet</source>
-        <translation>Aún no hay terminales</translation>
-    </message>
-    <message>
-        <source>Working</source>
-        <translation>Trabajando</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals</source>
-        <translation>
-            <numerusform>%n terminal</numerusform>
-            <numerusform>%n terminales</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>Make your first project</source>
-        <translation>Crea tu primer proyecto</translation>
-    </message>
-    <message>
-        <source>Project name</source>
-        <translation>Nombre del proyecto</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>Cancelar</translation>
-    </message>
-    <message>
-        <source>Create project</source>
-        <translation>Crear proyecto</translation>
-    </message>
-</context>
-<context>
     <name>NoticePill</name>
     <message>
         <source>Dismiss</source>
@@ -2434,94 +2326,7 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>Buscando</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Kodosi abre estos archivos, pero no los cambia.</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>Aún no existe</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>Abrir</translation>
-    </message>
-</context>
-<context>
-    <name>QuitDialog</name>
-    <message>
-        <source>Restart Kodosi?</source>
-        <translation>¿Reiniciar Kodosi?</translation>
-    </message>
-    <message>
-        <source>Quit Kodosi?</source>
-        <translation>¿Salir de Kodosi?</translation>
-    </message>
-    <message>
-        <source>Restart</source>
-        <translation>Reiniciar</translation>
-    </message>
-    <message>
-        <source>Quit</source>
-        <translation>Salir</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
-        <translation>
-            <numerusform>%n terminal de este ordenador se detiene. Vuelve a iniciarse cuando se abre Kodosi.</numerusform>
-            <numerusform>%n terminales de este ordenador se detienen. Vuelven a iniciarse cuando se abre Kodosi.</numerusform>
-        </translation>
-    </message>
-</context>
-<context>
-    <name>RemoveKey</name>
-    <message>
-        <source>Remove from canvas</source>
-        <translation>Quitar del lienzo</translation>
-    </message>
-</context>
-<context>
-    <name>RepositoryPicker</name>
-    <message>
-        <source>Find or paste a repository</source>
-        <translation>Busca o pega un repositorio</translation>
-    </message>
-    <message>
-        <source>Install GitHub CLI to see your repositories</source>
-        <translation>Instala GitHub CLI para ver tus repositorios</translation>
-    </message>
-    <message>
-        <source>Connect GitHub to see your repositories</source>
-        <translation>Conecta GitHub para ver tus repositorios</translation>
-    </message>
-    <message>
-        <source>Get it</source>
-        <translation>Obtener</translation>
-    </message>
-    <message>
-        <source>Connect</source>
-        <translation>Conectar</translation>
-    </message>
-    <message>
-        <source>GitHub sign-in</source>
-        <translation>Inicio de sesión de GitHub</translation>
-    </message>
-    <message>
-        <source>No match</source>
-        <translation>Sin coincidencias</translation>
-    </message>
-    <message>
-        <source>No repositories found</source>
-        <translation>No se encontraron repositorios</translation>
-    </message>
-</context>
-<context>
-    <name>RoomContent</name>
+    <name>ProjectContent</name>
     <message>
         <source>Project name</source>
         <translation>Nombre del proyecto</translation>
@@ -2701,7 +2506,7 @@
     </message>
 </context>
 <context>
-    <name>RoomConversation</name>
+    <name>ProjectConversation</name>
     <message>
         <source>Today</source>
         <translation>Hoy</translation>
@@ -2811,7 +2616,7 @@
     </message>
 </context>
 <context>
-    <name>RoomRepositories</name>
+    <name>ProjectRepositories</name>
     <message>
         <source>Link a repository</source>
         <translation>Vincular un repositorio</translation>
@@ -2850,7 +2655,7 @@
     </message>
 </context>
 <context>
-    <name>RoomShareDialog</name>
+    <name>ProjectShareDialog</name>
     <message>
         <source>the project</source>
         <translation>el proyecto</translation>
@@ -2877,14 +2682,14 @@
     </message>
 </context>
 <context>
-    <name>RoomSkeleton</name>
+    <name>ProjectSkeleton</name>
     <message>
         <source>Loading</source>
         <translation>Cargando</translation>
     </message>
 </context>
 <context>
-    <name>RoomTasks</name>
+    <name>ProjectTasks</name>
     <message>
         <source>Reopen %1</source>
         <translation>Reabrir %1</translation>
@@ -2984,6 +2789,201 @@
     <message>
         <source>Done</source>
         <translation>Listo</translation>
+    </message>
+</context>
+<context>
+    <name>ProjectsView</name>
+    <message>
+        <source>Work in projects</source>
+        <translation>Trabaja en proyectos</translation>
+    </message>
+    <message>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>Un proyecto reúne terminales de cualquier carpeta y ordenador, con sus tareas y repositorios. Invita a amigos cuando quieras.</translation>
+    </message>
+    <message>
+        <source>Sign in</source>
+        <translation>Iniciar sesión</translation>
+    </message>
+    <message>
+        <source>Approve this device</source>
+        <translation>Aprobar este dispositivo</translation>
+    </message>
+    <message>
+        <source>Projects</source>
+        <translation>Proyectos</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n projects</source>
+        <translation>
+            <numerusform>%n proyecto</numerusform>
+            <numerusform>%n proyectos</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n shared terminals</source>
+        <translation>
+            <numerusform>%n terminal compartido</numerusform>
+            <numerusform>%n terminales compartidos</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>New project</source>
+        <translation>Nuevo proyecto</translation>
+    </message>
+    <message>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>Hay más proyectos. Usa «Ir a…» para encontrarlos.</translation>
+    </message>
+    <message>
+        <source>Some projects are not shown</source>
+        <translation>Algunos proyectos no se muestran</translation>
+    </message>
+    <message>
+        <source>%1 invited you</source>
+        <translation>%1 te ha invitado</translation>
+    </message>
+    <message>
+        <source>You are invited</source>
+        <translation>Te han invitado</translation>
+    </message>
+    <message>
+        <source>Not now</source>
+        <translation>Ahora no</translation>
+    </message>
+    <message>
+        <source>Decline invitation</source>
+        <translation>Rechazar invitación</translation>
+    </message>
+    <message>
+        <source>Join</source>
+        <translation>Unirse</translation>
+    </message>
+    <message>
+        <source>New messages</source>
+        <translation>Mensajes nuevos</translation>
+    </message>
+    <message>
+        <source>Yours</source>
+        <translation>Tuyas</translation>
+    </message>
+    <message>
+        <source>No terminals yet</source>
+        <translation>Aún no hay terminales</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>Trabajando</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals</source>
+        <translation>
+            <numerusform>%n terminal</numerusform>
+            <numerusform>%n terminales</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Make your first project</source>
+        <translation>Crea tu primer proyecto</translation>
+    </message>
+    <message>
+        <source>Project name</source>
+        <translation>Nombre del proyecto</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Create project</source>
+        <translation>Crear proyecto</translation>
+    </message>
+</context>
+<context>
+    <name>ProviderSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>Buscando</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Kodosi abre estos archivos, pero no los cambia.</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>Aún no existe</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>Abrir</translation>
+    </message>
+</context>
+<context>
+    <name>QuitDialog</name>
+    <message>
+        <source>Restart Kodosi?</source>
+        <translation>¿Reiniciar Kodosi?</translation>
+    </message>
+    <message>
+        <source>Quit Kodosi?</source>
+        <translation>¿Salir de Kodosi?</translation>
+    </message>
+    <message>
+        <source>Restart</source>
+        <translation>Reiniciar</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>Salir</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
+        <translation>
+            <numerusform>%n terminal de este ordenador se detiene. Vuelve a iniciarse cuando se abre Kodosi.</numerusform>
+            <numerusform>%n terminales de este ordenador se detienen. Vuelven a iniciarse cuando se abre Kodosi.</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>RemoveKey</name>
+    <message>
+        <source>Remove from canvas</source>
+        <translation>Quitar del lienzo</translation>
+    </message>
+</context>
+<context>
+    <name>RepositoryPicker</name>
+    <message>
+        <source>Find or paste a repository</source>
+        <translation>Busca o pega un repositorio</translation>
+    </message>
+    <message>
+        <source>Install GitHub CLI to see your repositories</source>
+        <translation>Instala GitHub CLI para ver tus repositorios</translation>
+    </message>
+    <message>
+        <source>Connect GitHub to see your repositories</source>
+        <translation>Conecta GitHub para ver tus repositorios</translation>
+    </message>
+    <message>
+        <source>Get it</source>
+        <translation>Obtener</translation>
+    </message>
+    <message>
+        <source>Connect</source>
+        <translation>Conectar</translation>
+    </message>
+    <message>
+        <source>GitHub sign-in</source>
+        <translation>Inicio de sesión de GitHub</translation>
+    </message>
+    <message>
+        <source>No match</source>
+        <translation>Sin coincidencias</translation>
+    </message>
+    <message>
+        <source>No repositories found</source>
+        <translation>No se encontraron repositorios</translation>
     </message>
 </context>
 <context>
@@ -4245,7 +4245,7 @@
     </message>
 </context>
 <context>
-    <name>kodosi::MissionsModel</name>
+    <name>kodosi::ProjectsModel</name>
     <message>
         <source>Use a name of 1 to 128 UTF-8 bytes.</source>
         <translation>Usa un nombre de 1 a 128 bytes UTF-8.</translation>

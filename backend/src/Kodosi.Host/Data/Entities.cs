@@ -115,11 +115,11 @@ public sealed class Session
     public string HostName { get; set; } = "";
     public string Name { get; set; } = "";
     public Guid? RestoredFrom { get; set; }
-    public Guid? MissionId { get; set; }
-    public long RoomSequence { get; set; }
-    public string? RoomDeviceId { get; set; }
-    public byte[]? RoomSignature { get; set; }
-    public string? RoomHistory { get; set; }
+    public Guid? ProjectId { get; set; }
+    public long ProjectSequence { get; set; }
+    public string? ProjectDeviceId { get; set; }
+    public byte[]? ProjectSignature { get; set; }
+    public string? ProjectHistory { get; set; }
     public Guid? CloseUserId { get; set; }
     public string? CloseDeviceId { get; set; }
     public byte[]? CloseSignature { get; set; }
@@ -141,7 +141,7 @@ public sealed class HiddenSession
     public Guid SessionId { get; set; }
 }
 
-public sealed class Mission
+public sealed class Project
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
@@ -153,22 +153,22 @@ public sealed class Mission
     public bool HistoryTrimmed { get; set; }
 }
 
-public sealed class MissionMember
+public sealed class ProjectMember
 {
-    public Guid MissionId { get; set; }
+    public Guid ProjectId { get; set; }
     public Guid UserId { get; set; }
 }
 
-public sealed class MissionInvitation
+public sealed class ProjectInvitation
 {
     public Guid Id { get; set; }
-    public Guid MissionId { get; set; }
+    public Guid ProjectId { get; set; }
     public Guid UserId { get; set; }
     public Guid InviterUserId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
 
-public sealed class RoomRecipientKey
+public sealed class ProjectRecipientKey
 {
     public string DeviceId { get; set; } = "";
     public Guid UserId { get; set; }
@@ -176,18 +176,18 @@ public sealed class RoomRecipientKey
     public byte[] Signature { get; set; } = [];
 }
 
-public sealed class MissionKeyState
+public sealed class ProjectKeyState
 {
-    public Guid MissionId { get; set; }
+    public Guid ProjectId { get; set; }
     public long Version { get; set; }
     public long Epoch { get; set; }
     public byte[] Body { get; set; } = [];
     public byte[] Signature { get; set; } = [];
 }
 
-public sealed class MissionItem
+public sealed class ProjectItem
 {
-    public Guid MissionId { get; set; }
+    public Guid ProjectId { get; set; }
     public Guid Id { get; set; }
     public string Kind { get; set; } = "";
     public long Version { get; set; }

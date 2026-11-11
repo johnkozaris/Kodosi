@@ -12,17 +12,17 @@ KPopover {
     property var session: ({})
     property var people: []
     property var originalPeople: []
-    property string room: ""
-    readonly property string currentRoom: session.missionId || ""
+    property string projectId: ""
+    readonly property string currentProjectId: session.projectId || ""
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
-    readonly property bool changed: room !== currentRoom || people.slice().sort().join() !== originalPeople.slice().sort().join()
+    readonly property bool changed: projectId !== currentProjectId || people.slice().sort().join() !== originalPeople.slice().sort().join()
     readonly property var here: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
     readonly property string actionTitle: {
-        if (room !== currentRoom) {
-            const target = Models.Missions.missions.find(mission => mission.id === room)
+        if (projectId !== currentProjectId) {
+            const target = Models.Projects.projects.find(entry => entry.id === projectId)
             return target ? qsTr("Share with %1").arg(target.name) : qsTr("Stop sharing")
         }
-        if (!changed && (room.length > 0 || people.length > 0))
+        if (!changed && (projectId.length > 0 || people.length > 0))
             return qsTr("Shared")
         if (people.length === 0)
             return originalPeople.length === 0 ? qsTr("Share") : qsTr("Stop sharing")
@@ -36,7 +36,7 @@ KPopover {
         session = Models.Sessions.presentationForSession(id);
         originalPeople = (session.sharedWith || []).slice();
         people = originalPeople.slice();
-        room = currentRoom;
+        projectId = currentProjectId;
         open();
     }
     function toggle(userId) {
@@ -49,8 +49,8 @@ KPopover {
         people = next;
     }
     function save() {
-        const sent = room !== currentRoom
-            ? Models.SessionActions.attachMission(sessionId, room)
+        const sent = projectId !== currentProjectId
+            ? Models.SessionActions.attachProject(sessionId, projectId)
             : Models.SessionActions.share(sessionId, people, originalPeople);
         if (sent)
             close();
@@ -129,7 +129,7 @@ KPopover {
         }
         ColumnLayout {
             Layout.fillWidth: true
-            visible: root.accountReady && Models.Missions.missions.length > 0
+            visible: root.accountReady && Models.Projects.projects.length > 0
             spacing: 8
 
             PlainLabel { text: qsTr("A project"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
@@ -138,18 +138,18 @@ KPopover {
                 spacing: 6
 
                 Repeater {
-                    model: Models.Missions.missions
+                    model: Models.Projects.projects
 
                     AbstractButton {
                         id: chip
 
                         required property var modelData
-                        readonly property bool selected: root.room === modelData.id
+                        readonly property bool selected: root.projectId === modelData.id
 
                         height: 28
                         implicitWidth: chipRow.implicitWidth + 16
                         scale: pressed ? 0.96 : 1
-                        objectName: "sharing.room." + modelData.id
+                        objectName: "sharing.project." + modelData.id
                         Accessible.id: objectName
                         Accessible.name: modelData.name
                         Accessible.selected: selected
@@ -159,7 +159,7 @@ KPopover {
                                 x: 5
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 7
-                                RoomSigil { key: chip.modelData.id; size: 18 }
+                                ProjectSigil { key: chip.modelData.id; size: 18 }
                                 PlainLabel { text: chip.modelData.name; color: chip.selected ? KodosiTheme.ink : KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontFootnote; font.weight: Font.Medium }
                                 KIcon { visible: chip.selected; Layout.preferredWidth: 10; Layout.preferredHeight: 10; name: "check"; strokeWidth: 2.8; color: KodosiTheme.accentStrong }
                             }
@@ -178,7 +178,7 @@ KPopover {
                             }
                         }
                         onClicked: {
-                            root.room = selected ? "" : modelData.id;
+                            root.projectId = selected ? "" : modelData.id;
                             root.people = root.originalPeople.slice();
                         }
                     }
@@ -187,7 +187,7 @@ KPopover {
         }
         ColumnLayout {
             Layout.fillWidth: true
-            visible: root.accountReady && root.room.length === 0 && root.currentRoom.length === 0
+            visible: root.accountReady && root.projectId.length === 0 && root.currentProjectId.length === 0
             spacing: 8
 
             PlainLabel { text: qsTr("Friends"); color: KodosiTheme.inkFaint; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }

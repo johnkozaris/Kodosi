@@ -20,7 +20,7 @@ struct SessionTileView: View {
     @Environment(\.tileRadius) private var radius
     let session: RuntimeSession
     let isFocused: Bool
-    var roomEmbedded = false
+    var projectEmbedded = false
     @State private var surfaceId = UUID()
     @State private var confirmingClose = false
     @State private var choosingOffline = false
@@ -45,7 +45,7 @@ struct SessionTileView: View {
         let viewers = deps.viewers(of: session)
         VStack(spacing: 0) {
             SessionTileHeader(
-                session: session, isFocused: isFocused, roomEmbedded: roomEmbedded,
+                session: session, isFocused: isFocused, projectEmbedded: projectEmbedded,
                 showsActions: hovered || lit && !joinsCanvas, viewers: viewers, isClosing: isClosing,
                 renaming: $renaming, select: select, close: askToClose,
             )
@@ -56,10 +56,10 @@ struct SessionTileView: View {
                 }
             }
             .contentShape(Rectangle()).onTapGesture(perform: select)
-            .terminalDrag(session, when: !roomEmbedded)
+            .terminalDrag(session, when: !projectEmbedded)
             terminal.frame(maxWidth: .infinity, maxHeight: .infinity).padding(Self.terminalInsets)
         }
-        .terminalTile(radius: radius, selected: lit && !roomEmbedded && !alone, shown: !joinsCanvas)
+        .terminalTile(radius: radius, selected: lit && !projectEmbedded && !alone, shown: !joinsCanvas)
         .overlay {
             shape.fill(theme.colors.accent)
                 .opacity(veil)
@@ -80,7 +80,7 @@ struct SessionTileView: View {
             withAnimation(theme.motion.snappy) { lit = selected }
         }
         .onChange(of: deps.workbench.closeRequest) { _, id in
-            guard id == session.id, !roomEmbedded else { return }
+            guard id == session.id, !projectEmbedded else { return }
             deps.workbench.closeRequest = nil
             askToClose()
         }

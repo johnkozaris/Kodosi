@@ -24,7 +24,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 86;
+pub const VERSION: u32 = 87;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -255,8 +255,8 @@ pub enum Command {
         name: String,
         #[serde(rename = "workingDir", default)]
         working_dir: Option<String>,
-        #[serde(rename = "missionId", default)]
-        mission_id: Option<String>,
+        #[serde(rename = "projectId", default)]
+        project_id: Option<String>,
         #[serde(default)]
         resume: Option<ConversationIdentity>,
         #[serde(default)]
@@ -434,7 +434,7 @@ pub enum Command {
         #[serde(rename = "expectedRuntimeIncarnationId")]
         expected_runtime_incarnation_id: String,
     },
-    #[serde(rename = "session.attachMission")]
+    #[serde(rename = "session.attachProject")]
     AttachSession {
         #[serde(rename = "requestId")]
         request_id: String,
@@ -442,16 +442,16 @@ pub enum Command {
         session_id: String,
         #[serde(rename = "expectedRuntimeIncarnationId")]
         expected_runtime_incarnation_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: Option<String>,
+        #[serde(rename = "projectId")]
+        project_id: Option<String>,
     },
-    #[serde(rename = "room.command")]
-    Room {
+    #[serde(rename = "project.act")]
+    ActInProject {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "roomId")]
-        room_id: String,
-        action: crate::rooms::Action,
+        #[serde(rename = "projectId")]
+        project_id: String,
+        action: crate::projects::Action,
     },
     #[serde(rename = "canvas.show")]
     CanvasShow {
@@ -542,92 +542,92 @@ pub enum Command {
         request_id: String,
         pipe: String,
     },
-    #[serde(rename = "mission.show")]
-    ShowMission {
+    #[serde(rename = "project.show")]
+    ShowProject {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: String,
+        #[serde(rename = "projectId")]
+        project_id: String,
     },
-    #[serde(rename = "mission.list")]
-    ListMissions {
+    #[serde(rename = "project.list")]
+    ListProjects {
         #[serde(rename = "requestId")]
         request_id: String,
     },
-    #[serde(rename = "mission.create")]
-    CreateMission {
+    #[serde(rename = "project.create")]
+    CreateProject {
         #[serde(rename = "requestId")]
         request_id: String,
         name: String,
     },
-    #[serde(rename = "mission.rename")]
-    RenameMission {
+    #[serde(rename = "project.rename")]
+    RenameProject {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: String,
+        #[serde(rename = "projectId")]
+        project_id: String,
         name: String,
     },
-    #[serde(rename = "mission.delete")]
-    DeleteMission {
+    #[serde(rename = "project.delete")]
+    DeleteProject {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: String,
+        #[serde(rename = "projectId")]
+        project_id: String,
     },
-    #[serde(rename = "mission.open")]
-    OpenMission {
+    #[serde(rename = "project.open")]
+    OpenProject {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: String,
+        #[serde(rename = "projectId")]
+        project_id: String,
     },
-    #[serde(rename = "mission.seen")]
-    SeeMission {
+    #[serde(rename = "project.seen")]
+    SeeProject {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: String,
+        #[serde(rename = "projectId")]
+        project_id: String,
         sequence: u64,
     },
-    #[serde(rename = "mission.invite")]
-    InviteMission {
+    #[serde(rename = "project.invite")]
+    InviteProject {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: String,
+        #[serde(rename = "projectId")]
+        project_id: String,
         #[serde(rename = "userId")]
         user_id: String,
     },
-    #[serde(rename = "mission.invitation.accept")]
-    AcceptMission {
+    #[serde(rename = "project.invitation.accept")]
+    AcceptProject {
         #[serde(rename = "requestId")]
         request_id: String,
         #[serde(rename = "invitationId")]
         invitation_id: String,
     },
-    #[serde(rename = "mission.invitation.reject")]
-    RejectMission {
+    #[serde(rename = "project.invitation.reject")]
+    RejectProject {
         #[serde(rename = "requestId")]
         request_id: String,
         #[serde(rename = "invitationId")]
         invitation_id: String,
     },
-    #[serde(rename = "mission.removeMember")]
-    RemoveMissionMember {
+    #[serde(rename = "project.removeMember")]
+    RemoveProjectMember {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: String,
+        #[serde(rename = "projectId")]
+        project_id: String,
         #[serde(rename = "userId")]
         user_id: String,
     },
-    #[serde(rename = "mission.leave")]
-    LeaveMission {
+    #[serde(rename = "project.leave")]
+    LeaveProject {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId")]
-        mission_id: String,
+        #[serde(rename = "projectId")]
+        project_id: String,
     },
     #[serde(rename = "provider.discoverConversations")]
     DiscoverConversations {
@@ -707,8 +707,8 @@ pub enum Command {
     ListRepositories {
         #[serde(rename = "requestId")]
         request_id: String,
-        #[serde(rename = "missionId", default)]
-        mission_id: Option<String>,
+        #[serde(rename = "projectId", default)]
+        project_id: Option<String>,
     },
     #[serde(rename = "dosi.send")]
     DosiSend {
@@ -933,9 +933,9 @@ pub struct SessionEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<Text>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mission_id: Option<String>,
+    pub project_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mission_name: Option<String>,
+    pub project_name: Option<String>,
     pub shared_with: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restored_from: Option<String>,
@@ -1153,56 +1153,45 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
-    #[serde(rename = "room.snapshot")]
-    RoomSnapshot { room: crate::rooms::Snapshot },
-    #[serde(rename = "room.result")]
-    RoomResult {
-        request_id: String,
-        operation: String,
-        room_id: String,
-        item_id: Option<String>,
+    #[serde(rename = "project.snapshot")]
+    ProjectSnapshot { content: crate::projects::Snapshot },
+    #[serde(rename = "projects.snapshot")]
+    ProjectsSnapshot {
+        projects: Vec<ProjectEntry>,
+        invitations: Vec<ProjectInvitationEntry>,
         #[serde(default)]
-        action: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        repository_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        issues: Option<Vec<crate::rooms::Issue>>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        room: Option<crate::rooms::Snapshot>,
-    },
-    #[serde(rename = "room.error")]
-    RoomError {
-        request_id: String,
-        operation: String,
-        message: Text,
-    },
-    #[serde(rename = "missions.snapshot")]
-    MissionsSnapshot {
-        missions: Vec<MissionEntry>,
-        invitations: Vec<MissionInvitationEntry>,
-        #[serde(default)]
-        missions_truncated: bool,
+        projects_truncated: bool,
         #[serde(default)]
         invitations_truncated: bool,
     },
-    #[serde(rename = "mission.result")]
-    MissionResult {
+    #[serde(rename = "project.result")]
+    ProjectResult {
         request_id: String,
         operation: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        mission_id: Option<String>,
+        project_id: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        mission: Option<MissionEntry>,
+        project: Option<ProjectEntry>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        members: Option<Vec<MissionMemberEntry>>,
+        members: Option<Vec<ProjectMemberEntry>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        action: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        repository_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        issues: Option<Vec<crate::projects::Issue>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        content: Option<crate::projects::Snapshot>,
     },
-    #[serde(rename = "mission.error")]
-    MissionError {
+    #[serde(rename = "project.error")]
+    ProjectError {
         request_id: String,
         operation: String,
         message: Text,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        mission_id: Option<String>,
+        project_id: Option<String>,
     },
     #[serde(rename = "canvas.result")]
     CanvasResult {
@@ -1298,8 +1287,8 @@ pub enum EventBody {
         operation: String,
         message: Text,
     },
-    #[serde(rename = "mission.show")]
-    MissionShow { mission_id: String },
+    #[serde(rename = "project.show")]
+    ProjectShow { project_id: String },
     #[serde(rename = "dosi.snapshot")]
     DosiSnapshot { dosi: crate::dosi::DosiSnapshot },
     #[serde(rename = "dosi.item")]
@@ -1514,7 +1503,7 @@ pub struct DeviceLinkRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MissionEntry {
+pub struct ProjectEntry {
     pub id: String,
     pub name: String,
     pub owner_user_id: String,
@@ -1524,10 +1513,10 @@ pub struct MissionEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MissionInvitationEntry {
+pub struct ProjectInvitationEntry {
     pub id: String,
-    pub mission_id: String,
-    pub mission_name: String,
+    pub project_id: String,
+    pub project_name: String,
     pub inviter_user_id: String,
     pub inviter_name: String,
     pub created_at: String,
@@ -1535,7 +1524,7 @@ pub struct MissionInvitationEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MissionMemberEntry {
+pub struct ProjectMemberEntry {
     pub user_id: String,
     pub handle: String,
     pub display_name: String,
@@ -1634,10 +1623,8 @@ impl EventBody {
             | Self::PushError { request_id, .. }
             | Self::SessionResult { request_id, .. }
             | Self::SessionError { request_id, .. }
-            | Self::RoomResult { request_id, .. }
-            | Self::RoomError { request_id, .. }
-            | Self::MissionResult { request_id, .. }
-            | Self::MissionError { request_id, .. }
+            | Self::ProjectResult { request_id, .. }
+            | Self::ProjectError { request_id, .. }
             | Self::ProviderResult { request_id, .. }
             | Self::ProviderError { request_id, .. }
             | Self::FoldersResult { request_id, .. }
@@ -1691,19 +1678,17 @@ impl EventBody {
             Self::SessionPicture { .. } => "session.picture",
             Self::SessionResult { .. } => "session.result",
             Self::SessionError { .. } => "session.error",
-            Self::RoomSnapshot { .. } => "room.snapshot",
-            Self::RoomResult { .. } => "room.result",
-            Self::RoomError { .. } => "room.error",
-            Self::MissionsSnapshot { .. } => "missions.snapshot",
-            Self::MissionResult { .. } => "mission.result",
-            Self::MissionError { .. } => "mission.error",
+            Self::ProjectSnapshot { .. } => "project.snapshot",
+            Self::ProjectsSnapshot { .. } => "projects.snapshot",
+            Self::ProjectResult { .. } => "project.result",
+            Self::ProjectError { .. } => "project.error",
             Self::ProviderResult { .. } => "provider.result",
             Self::ProviderError { .. } => "provider.error",
             Self::FoldersResult { .. } => "folders.result",
             Self::FoldersError { .. } => "folders.error",
             Self::RepositoriesResult { .. } => "repositories.result",
             Self::RepositoriesError { .. } => "repositories.error",
-            Self::MissionShow { .. } => "mission.show",
+            Self::ProjectShow { .. } => "project.show",
             Self::DosiSnapshot { .. } => "dosi.snapshot",
             Self::DosiItem { .. } => "dosi.item",
             Self::DosiResult { .. } => "dosi.result",
@@ -1821,8 +1806,8 @@ impl Command {
             Self::ShareSession { .. } => "session.share",
             Self::LeaveSession { .. } => "session.leave",
             Self::HideSession { .. } => "session.hide",
-            Self::AttachSession { .. } => "session.attachMission",
-            Self::Room { .. } => "room.command",
+            Self::AttachSession { .. } => "session.attachProject",
+            Self::ActInProject { .. } => "project.act",
             Self::CanvasShow { .. } => "canvas.show",
             Self::CanvasBrowse { .. } => "canvas.browser",
             Self::CanvasAsk { .. } => "canvas.request",
@@ -1835,18 +1820,18 @@ impl Command {
             Self::DocumentOpen { .. } => "document.open",
             Self::DocumentSend { .. } => "document.send",
             Self::DocumentClose { .. } => "document.close",
-            Self::ShowMission { .. } => "mission.show",
-            Self::ListMissions { .. } => "mission.list",
-            Self::CreateMission { .. } => "mission.create",
-            Self::RenameMission { .. } => "mission.rename",
-            Self::DeleteMission { .. } => "mission.delete",
-            Self::SeeMission { .. } => "mission.seen",
-            Self::OpenMission { .. } => "mission.open",
-            Self::InviteMission { .. } => "mission.invite",
-            Self::AcceptMission { .. } => "mission.invitation.accept",
-            Self::RejectMission { .. } => "mission.invitation.reject",
-            Self::RemoveMissionMember { .. } => "mission.removeMember",
-            Self::LeaveMission { .. } => "mission.leave",
+            Self::ShowProject { .. } => "project.show",
+            Self::ListProjects { .. } => "project.list",
+            Self::CreateProject { .. } => "project.create",
+            Self::RenameProject { .. } => "project.rename",
+            Self::DeleteProject { .. } => "project.delete",
+            Self::SeeProject { .. } => "project.seen",
+            Self::OpenProject { .. } => "project.open",
+            Self::InviteProject { .. } => "project.invite",
+            Self::AcceptProject { .. } => "project.invitation.accept",
+            Self::RejectProject { .. } => "project.invitation.reject",
+            Self::RemoveProjectMember { .. } => "project.removeMember",
+            Self::LeaveProject { .. } => "project.leave",
             Self::DiscoverConversations { .. } => "provider.discoverConversations",
             Self::ReadConversation { .. } => "provider.readConversation",
             Self::InspectProvider { .. } => "provider.inspect",
@@ -1960,7 +1945,7 @@ impl Command {
             | Self::LeaveSession { request_id, .. }
             | Self::HideSession { request_id, .. }
             | Self::AttachSession { request_id, .. }
-            | Self::Room { request_id, .. }
+            | Self::ActInProject { request_id, .. }
             | Self::CanvasShow { request_id, .. }
             | Self::CanvasBrowse { request_id, .. }
             | Self::CanvasAsk { request_id, .. }
@@ -1973,18 +1958,18 @@ impl Command {
             | Self::DocumentOpen { request_id, .. }
             | Self::DocumentSend { request_id, .. }
             | Self::DocumentClose { request_id, .. }
-            | Self::ListMissions { request_id }
-            | Self::ShowMission { request_id, .. }
-            | Self::CreateMission { request_id, .. }
-            | Self::RenameMission { request_id, .. }
-            | Self::DeleteMission { request_id, .. }
-            | Self::SeeMission { request_id, .. }
-            | Self::OpenMission { request_id, .. }
-            | Self::InviteMission { request_id, .. }
-            | Self::AcceptMission { request_id, .. }
-            | Self::RejectMission { request_id, .. }
-            | Self::RemoveMissionMember { request_id, .. }
-            | Self::LeaveMission { request_id, .. }
+            | Self::ListProjects { request_id }
+            | Self::ShowProject { request_id, .. }
+            | Self::CreateProject { request_id, .. }
+            | Self::RenameProject { request_id, .. }
+            | Self::DeleteProject { request_id, .. }
+            | Self::SeeProject { request_id, .. }
+            | Self::OpenProject { request_id, .. }
+            | Self::InviteProject { request_id, .. }
+            | Self::AcceptProject { request_id, .. }
+            | Self::RejectProject { request_id, .. }
+            | Self::RemoveProjectMember { request_id, .. }
+            | Self::LeaveProject { request_id, .. }
             | Self::DiscoverConversations { request_id, .. }
             | Self::ReadConversation { request_id, .. }
             | Self::InspectProvider { request_id, .. }
@@ -2103,36 +2088,36 @@ impl Command {
         }
         match self {
             Self::AttachSession {
-                mission_id: Some(mission_id),
+                project_id: Some(project_id),
                 ..
             }
             | Self::ListRepositories {
-                mission_id: Some(mission_id),
+                project_id: Some(project_id),
                 ..
             }
-            | Self::RenameMission { mission_id, .. }
-            | Self::DeleteMission { mission_id, .. }
-            | Self::OpenMission { mission_id, .. }
-            | Self::ShowMission { mission_id, .. }
-            | Self::SeeMission { mission_id, .. }
-            | Self::LeaveMission { mission_id, .. } => {
-                parse_id(mission_id)?;
+            | Self::RenameProject { project_id, .. }
+            | Self::DeleteProject { project_id, .. }
+            | Self::OpenProject { project_id, .. }
+            | Self::ShowProject { project_id, .. }
+            | Self::SeeProject { project_id, .. }
+            | Self::LeaveProject { project_id, .. } => {
+                parse_id(project_id)?;
             }
-            Self::InviteMission {
-                mission_id,
+            Self::InviteProject {
+                project_id,
                 user_id,
                 ..
             }
-            | Self::RemoveMissionMember {
-                mission_id,
+            | Self::RemoveProjectMember {
+                project_id,
                 user_id,
                 ..
             } => {
-                parse_id(mission_id)?;
+                parse_id(project_id)?;
                 parse_id(user_id)?;
             }
-            Self::AcceptMission { invitation_id, .. }
-            | Self::RejectMission { invitation_id, .. } => {
+            Self::AcceptProject { invitation_id, .. }
+            | Self::RejectProject { invitation_id, .. } => {
                 parse_id(invitation_id)?;
             }
             _ => {}
@@ -2276,7 +2261,7 @@ impl Command {
             } => {
                 writing(text, "message", MAX_MESSAGE_BYTES)?;
                 if let Some(context) = context {
-                    for id in [&context.terminal, &context.room].into_iter().flatten() {
+                    for id in [&context.terminal, &context.project].into_iter().flatten() {
                         parse_id(id)?;
                     }
                 }
@@ -2357,11 +2342,11 @@ impl Command {
         reason = "one typed command validation dispatch"
     )]
     pub fn validate(&self) -> Result<()> {
-        if let Self::Room {
-            room_id, action, ..
+        if let Self::ActInProject {
+            project_id, action, ..
         } = self
         {
-            parse_id(room_id)?;
+            parse_id(project_id)?;
             action.validate()?;
         }
         parse_id(self.request_id())?;
@@ -2371,8 +2356,8 @@ impl Command {
         match self {
             Self::CreateSession { name, .. }
             | Self::RenameSession { name, .. }
-            | Self::CreateMission { name, .. }
-            | Self::RenameMission { name, .. } => {
+            | Self::CreateProject { name, .. }
+            | Self::RenameProject { name, .. } => {
                 text(name, "name", 128)?;
                 text(name.trim(), "name", 128)?;
             }
@@ -2503,7 +2488,7 @@ impl Command {
             }
             Self::CreateSession {
                 working_dir,
-                mission_id,
+                project_id,
                 resume,
                 branch,
                 worktrees,
@@ -2513,7 +2498,7 @@ impl Command {
                 size,
                 ..
             } => {
-                if let Some(id) = mission_id {
+                if let Some(id) = project_id {
                     parse_id(id)?;
                 }
                 if let Some(size) = size {
@@ -2732,7 +2717,7 @@ pub fn answer_time(operation: &str) -> std::time::Duration {
     match operation {
         "auth.login.start" => crate::network::SIGN_IN_LIFE + std::time::Duration::from_mins(1),
         "auth.deleteAccount" => crate::network::DELETION_LIFE + std::time::Duration::from_mins(1),
-        "room.command" => std::time::Duration::from_mins(1),
+        "project.act" => std::time::Duration::from_mins(1),
         "canvas.browser" | "canvas.document" => std::time::Duration::from_mins(3),
         _ => std::time::Duration::from_secs(30),
     }
@@ -2877,7 +2862,7 @@ mod tests {
             "session.list",
             "session.restore",
             "session.folders",
-            "mission.list",
+            "project.list",
             "push.unregister",
         ]
         .into_iter()
@@ -2904,17 +2889,17 @@ mod tests {
             json!({"type":"session.disconnect","requestId":ID,"sessionId":ID}),
             json!({"type":"session.visible","requestId":ID,"sessionIds":[ID],"watching":true}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
-            json!({"type":"session.attachMission","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"missionId":null}),
+            json!({"type":"session.attachProject","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"projectId":null}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),
-            json!({"type":"mission.create","requestId":ID,"name":"Release"}),
-            json!({"type":"mission.rename","requestId":ID,"missionId":ID,"name":"Renamed"}),
+            json!({"type":"project.create","requestId":ID,"name":"Release"}),
+            json!({"type":"project.rename","requestId":ID,"projectId":ID,"name":"Renamed"}),
             json!({"type":"provider.discoverConversations","requestId":ID,"provider":"claude","workingDirectory":DIRECTORY}),
             json!({"type":"provider.readConversation","requestId":ID,"provider":"copilot","workingDirectory":DIRECTORY,"nativeConversationId":ID,"beforeByte":123,"limit":2,"maxBytes":4096}),
             json!({"type":"provider.inspect","requestId":ID,"provider":"claude"}),
             json!({"type":"folders.list","requestId":ID,"path":DIRECTORY}),
             resize(),
-            json!({"type":"mission.show","requestId":ID,"missionId":ID}),
-            json!({"type":"dosi.send","requestId":ID,"text":"What needs me?\nAnd why?","context":{"terminal":ID,"room":null}}),
+            json!({"type":"project.show","requestId":ID,"projectId":ID}),
+            json!({"type":"dosi.send","requestId":ID,"text":"What needs me?\nAnd why?","context":{"terminal":ID,"project":null}}),
             json!({"type":"dosi.stop","requestId":ID}),
             json!({"type":"dosi.unqueue","requestId":ID,"queuedId":ID}),
             json!({"type":"dosi.answer","requestId":ID,"itemId":ID,"choices":["work"]}),
@@ -2946,17 +2931,17 @@ mod tests {
         ]);
         values.extend(["session.close","session.interrupt","session.leave"].into_iter().map(|kind| json!({"type":kind,"requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID})));
         values.extend(
-            ["mission.delete", "mission.open", "mission.leave"]
+            ["project.delete", "project.open", "project.leave"]
                 .into_iter()
-                .map(|kind| json!({"type":kind,"requestId":ID,"missionId":ID})),
+                .map(|kind| json!({"type":kind,"requestId":ID,"projectId":ID})),
         );
         values.extend(
-            ["mission.invite", "mission.removeMember"]
+            ["project.invite", "project.removeMember"]
                 .into_iter()
-                .map(|kind| json!({"type":kind,"requestId":ID,"missionId":ID,"userId":ID})),
+                .map(|kind| json!({"type":kind,"requestId":ID,"projectId":ID,"userId":ID})),
         );
         values.extend(
-            ["mission.invitation.accept", "mission.invitation.reject"]
+            ["project.invitation.accept", "project.invitation.reject"]
                 .into_iter()
                 .map(|kind| json!({"type":kind,"requestId":ID,"invitationId":ID})),
         );
@@ -3201,7 +3186,7 @@ mod tests {
         ] {
             assert!(
                 serde_json::from_value::<CommandEnvelope>(envelope(
-                    json!({"type":"mission.create","requestId":ID,"name":name})
+                    json!({"type":"project.create","requestId":ID,"name":name})
                 ))
                 .is_err()
             );

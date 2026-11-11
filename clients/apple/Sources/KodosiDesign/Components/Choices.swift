@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct RoomChoice: View {
+public struct ProjectChoice: View {
     @Environment(\.theme) private var theme
     let name: String
     let key: String
@@ -14,7 +14,7 @@ public struct RoomChoice: View {
 
     public var body: some View {
         HStack(spacing: 7) {
-            RoomSigil(key: key, size: 18)
+            ProjectSigil(key: key, size: 18)
             Text(name).appTextStyle(.footnote).fontWeight(.medium).lineLimit(1)
             if selected {
                 Image(systemName: "checkmark").font(.system(size: 9, weight: .bold))

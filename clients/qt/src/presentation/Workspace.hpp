@@ -4,7 +4,7 @@
 #include "presentation/AccountModel.hpp"
 #include "presentation/DevicesModel.hpp"
 #include "presentation/DosiModel.hpp"
-#include "presentation/MissionsModel.hpp"
+#include "presentation/ProjectsModel.hpp"
 #include "presentation/PeopleModel.hpp"
 #include "presentation/SessionActionsModel.hpp"
 
@@ -36,7 +36,7 @@ public:
     AccountModel& account() { return m_account; }
     PeopleModel& people() { return m_people; }
     DevicesModel& devices() { return m_devices; }
-    MissionsModel& missions() { return m_missions; }
+    ProjectsModel& projects() { return m_projects; }
     DosiModel& dosi() { return m_dosi; }
     SessionActionsModel& sessionActions() { return m_sessionActions; }
 
@@ -58,16 +58,16 @@ private:
     friend class AccountModel;
     friend class DevicesModel;
     friend class DosiModel;
-    friend class MissionsModel;
+    friend class ProjectsModel;
     friend class PeopleModel;
     friend class SessionActionsModel;
 
-    enum class PendingDomain { Session, Mission };
+    enum class PendingDomain { Session, Project };
     struct Pending {
         PendingDomain domain;
         QString operation;
         QString sessionId;
-        QString missionId;
+        QString projectId;
         QVariantMap draft;
         bool quiet = false;
     };
@@ -85,14 +85,14 @@ private:
     AccountModel m_account;
     PeopleModel m_people;
     DevicesModel m_devices;
-    MissionsModel m_missions;
+    ProjectsModel m_projects;
     SessionActionsModel m_sessionActions;
     DosiModel m_dosi;
 
     QString sendRequest(QString type, QJsonObject values = {});
     bool sendUntracked(QString type, QJsonObject values = {});
     bool sendTracked(PendingDomain domain, QString type, QJsonObject values = {},
-        QString sessionId = {}, QString missionId = {}, bool quiet = false);
+        QString sessionId = {}, QString projectId = {}, bool quiet = false);
     bool hasPending(PendingDomain domain) const;
     void notifyBusy();
     void reportVisible();

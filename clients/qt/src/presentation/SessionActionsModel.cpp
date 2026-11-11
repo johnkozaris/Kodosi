@@ -31,7 +31,7 @@ SessionActionsModel::SessionActionsModel(Workspace& workspace, SessionCatalogMod
         for (const auto& id : ids) {
             const auto session = m_sessions.session(id);
             if (session && !session->restoredFrom.isEmpty())
-                m_workspace.missions().followTerminal(session->restoredFrom, id);
+                m_workspace.projects().followTerminal(session->restoredFrom, id);
             if (session && session->kind == QStringLiteral("remote") && !opening(id))
                 openRemote(id, true);
         }
@@ -67,10 +67,10 @@ void SessionActionsModel::refresh()
     if (m_workspace.account().signedIn()) {
         m_workspace.sendUntracked(QStringLiteral("friends.refresh"));
         m_workspace.sendUntracked(QStringLiteral("devices.refresh"));
-        m_workspace.sendUntracked(QStringLiteral("mission.list"));
+        m_workspace.sendUntracked(QStringLiteral("project.list"));
     }
-    if (!m_workspace.missions().selectedMissionId().isEmpty())
-        m_workspace.missions().open(m_workspace.missions().selectedMissionId());
+    if (!m_workspace.projects().selectedProjectId().isEmpty())
+        m_workspace.projects().open(m_workspace.projects().selectedProjectId());
 }
 
 bool SessionActionsModel::activate(const QString& id)
@@ -78,7 +78,7 @@ bool SessionActionsModel::activate(const QString& id)
     return activateSession(id, false);
 }
 
-bool SessionActionsModel::activateSession(const QString& id, bool inRoom)
+bool SessionActionsModel::activateSession(const QString& id, bool inProject)
 {
     const auto session = m_sessions.session(id);
     if (!session && m_workspace.account().signedIn()) {
@@ -104,25 +104,25 @@ bool SessionActionsModel::activateSession(const QString& id, bool inRoom)
     if (!m_desktop.stagedSessionIds().contains(id) && m_desktop.stagedSessionIds().size() >= 6) {
         leaving = m_desktop.makingRoom(id);
         if (leaving.isEmpty())
-            return m_desktop.stageSession(id, !inRoom);
+            return m_desktop.stageSession(id, !inProject);
     }
     if (session->kind == QStringLiteral("remote") && !opening(id) && !openRemote(id, true))
         return false;
     if (!leaving.isEmpty())
         minimize(leaving);
-    if (!m_desktop.stageSession(id, !inRoom))
+    if (!m_desktop.stageSession(id, !inProject))
         return false;
     emit activated(id);
     return true;
 }
 
-bool SessionActionsModel::activateInRoom(const QString& id)
+bool SessionActionsModel::activateInProject(const QString& id)
 {
     const bool opened = activateSession(id, true);
     if (opened) {
-        m_workspace.missions().setPresentation(QStringLiteral("terminal"), id);
-        m_workspace.missions().setPresentation(QStringLiteral("section"), 0);
-        m_desktop.setActiveView(DesktopStateModel::Missions);
+        m_workspace.projects().setPresentation(QStringLiteral("terminal"), id);
+        m_workspace.projects().setPresentation(QStringLiteral("section"), 0);
+        m_desktop.setActiveView(DesktopStateModel::Projects);
     }
     return opened;
 }
@@ -137,20 +137,20 @@ void SessionActionsModel::giveTypedKeys(const QString& id)
     m_typeAhead.deliver(id);
 }
 
-void SessionActionsModel::completeCreation(const QString& id, const QString& roomId)
+void SessionActionsModel::completeCreation(const QString& id, const QString& projectId)
 {
     if (m_created.size() > 64)
         m_created.clear();
     m_created.insert(id);
     m_typeAhead.expect(id);
-    if (roomId.isEmpty()) {
+    if (projectId.isEmpty()) {
         if (m_sessions.containsSession(id)) activate(id);
         else m_activeLink = DeepLinkDestination {id};
         return;
     }
-    if (!m_sessions.containsSession(id)) { m_roomCreations.insert(id, roomId); return; }
-    m_roomCreations.remove(id);
-    if (m_workspace.missions().selectedMissionId() == roomId) activateInRoom(id);
+    if (!m_sessions.containsSession(id)) { m_projectCreations.insert(id, projectId); return; }
+    m_projectCreations.remove(id);
+    if (m_workspace.projects().selectedProjectId() == projectId) activateInProject(id);
 }
 
 bool SessionActionsModel::minimize(const QString& id)
@@ -215,7 +215,7 @@ bool SessionActionsModel::createOnBranch(const QString& directory, const QString
 }
 
 bool SessionActionsModel::create(const QString& name, const QString& directory, const QString& command,
-    const QString& prompt, const QString& roomId, const QVariantMap& agent, const QString& computer)
+    const QString& prompt, const QString& projectId, const QVariantMap& agent, const QString& computer)
 {
     QJsonObject line;
     if (!command.trimmed().isEmpty())
@@ -226,7 +226,7 @@ bool SessionActionsModel::create(const QString& name, const QString& directory, 
         line.insert(QStringLiteral("prompt"), prompt.trimmed());
     if (!computer.isEmpty())
         line.insert(QStringLiteral("computer"), computer);
-    if (!createInternal(name, directory, {}, {}, roomId, {}, line))
+    if (!createInternal(name, directory, {}, {}, projectId, {}, line))
         return false;
     if (computer.isEmpty())
         m_settings.setWorkingDirectory(directory);
@@ -290,7 +290,7 @@ QVariantMap SessionActionsModel::selectedAgent() const
 }
 
 bool SessionActionsModel::createInternal(const QString& name, const QString& directory,
-    const QString& provider, const QString& nativeConversationId, const QString& roomId,
+    const QString& provider, const QString& nativeConversationId, const QString& projectId,
     const QString& branch, const QJsonObject& line)
 {
     QString title = name.trimmed();
@@ -301,7 +301,7 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
         return false;
     }
     QJsonObject values { { QStringLiteral("name"), title } };
-    if (!roomId.isEmpty()) values.insert(QStringLiteral("missionId"), roomId);
+    if (!projectId.isEmpty()) values.insert(QStringLiteral("projectId"), projectId);
     if (!directory.isEmpty())
         values.insert(QStringLiteral("workingDir"), directory);
     if (!branch.isEmpty()) {
@@ -311,7 +311,7 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
     }
     for (auto field = line.begin(); field != line.end(); ++field)
         values.insert(field.key(), field.value());
-    if (m_startSize && roomId.isEmpty() && !line.contains(QStringLiteral("computer"))) {
+    if (m_startSize && projectId.isEmpty() && !line.contains(QStringLiteral("computer"))) {
         if (const auto size = m_startSize(); !size.isEmpty())
             values.insert(QStringLiteral("size"), size);
     }
@@ -325,7 +325,7 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
                 { QStringLiteral("nativeConversationId"), nativeConversationId } });
     }
     return m_workspace.sendTracked(
-        Workspace::PendingDomain::Session, QStringLiteral("session.create"), values, {}, roomId);
+        Workspace::PendingDomain::Session, QStringLiteral("session.create"), values, {}, projectId);
 }
 
 bool SessionActionsModel::command(
@@ -411,11 +411,11 @@ bool SessionActionsModel::leave(const QString& id)
     return command(QStringLiteral("session.leave"), id);
 }
 
-bool SessionActionsModel::attachMission(const QString& id, const QString& missionId)
+bool SessionActionsModel::attachProject(const QString& id, const QString& projectId)
 {
-    return command(QStringLiteral("session.attachMission"), id,
-        { { QStringLiteral("missionId"),
-            missionId.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(missionId) } },
+    return command(QStringLiteral("session.attachProject"), id,
+        { { QStringLiteral("projectId"),
+            projectId.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(projectId) } },
         true);
 }
 
@@ -435,8 +435,8 @@ void SessionActionsModel::route(const DeepLinkDestination& destination)
 
 void SessionActionsModel::activatePendingLink()
 {
-    for (const auto& id : m_roomCreations.keys()) {
-        if (m_sessions.containsSession(id)) completeCreation(id, m_roomCreations.value(id));
+    for (const auto& id : m_projectCreations.keys()) {
+        if (m_sessions.containsSession(id)) completeCreation(id, m_projectCreations.value(id));
     }
     if (!m_activeLink && !m_links.isEmpty())
         m_activeLink = m_links.takeFirst();
@@ -465,7 +465,7 @@ void SessionActionsModel::reset(bool clearLinks)
     m_created.clear();
     m_typeAhead.drop();
     if (clearLinks) {
-        m_roomCreations.clear();
+        m_projectCreations.clear();
         m_activeLink.reset();
         m_links.clear();
     }

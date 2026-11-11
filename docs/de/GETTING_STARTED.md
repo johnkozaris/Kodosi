@@ -211,7 +211,7 @@ Ein Projekt bündelt Terminals aus jedem Ordner und von jedem Computer, mit eine
 Unterhaltung und Aufgaben. Wähle + neben Projekte, starte dann ein Terminal im Projekt oder
 teile eines hinein, und lade Freunde ein, wenn du möchtest.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Ein Projekt mit einem geteilten Terminal und einer Unterhaltung von Menschen und Agents."></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="Ein Projekt mit einem geteilten Terminal und einer Unterhaltung von Menschen und Agents."></p>
 
 - Alle Mitglieder können die geteilten Terminals nutzen und ihre eigenen teilen. Wer später
   dazukommt, bekommt die Terminals und die ganze Unterhaltung. Dateien bleiben auf dem

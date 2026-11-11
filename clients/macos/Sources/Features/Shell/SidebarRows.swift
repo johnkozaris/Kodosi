@@ -71,26 +71,26 @@ struct SidebarNavRow: View {
     }
 }
 
-struct SidebarRoomRow: View {
+struct SidebarProjectRow: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    let mission: MissionEntry
+    let project: ProjectEntry
     let selected: Bool
     let pill: Namespace.ID
     @State private var dropping = false
 
     private var live: [RuntimeSession] {
-        deps.roomSessions(mission.id)
+        deps.projectSessions(project.id)
     }
 
     var body: some View {
-        Button { deps.workbench.section = .missions; deps.openMission(mission) } label: {
+        Button { deps.workbench.section = .projects; deps.openProject(project) } label: {
             HStack(spacing: 9) {
-                RoomSigil(key: mission.id, size: 22).fold(.room(mission.id), at: .row)
-                Text(mission.name).appTextStyle(.body).fontWeight(selected || mission.unread ? .medium : .regular)
+                ProjectSigil(key: project.id, size: 22).fold(.project(project.id), at: .row)
+                Text(project.name).appTextStyle(.body).fontWeight(selected || project.unread ? .medium : .regular)
                     .foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 4)
-                if mission.unread {
+                if project.unread {
                     NewDot().padding(.trailing, 4).transition(AnyTransition.pop)
                 } else if live.contains(where: \.needsUser) {
                     StatusSign(form: .hand).transition(AnyTransition.pop)
@@ -108,33 +108,33 @@ struct SidebarRoomRow: View {
             .overlay { DropSlot(radius: Radius.md, shown: dropping) }
         }
         .buttonStyle(.plain)
-        .roomDrop(mission.id, deps: deps, targeted: $dropping)
+        .projectDrop(project.id, deps: deps, targeted: $dropping)
         .animation(theme.motion.snappy, value: dropping)
-        .accessibilityIdentifier("missions.mission.\(AccessibilityIdentifier.token(mission.id))")
+        .accessibilityIdentifier("projects.project.\(AccessibilityIdentifier.token(project.id))")
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityValue(mission.unread ? Text("New messages") : Text(verbatim: ""))
-        .animation(theme.motion.snappy, value: mission.unread)
+        .accessibilityValue(project.unread ? Text("New messages") : Text(verbatim: ""))
+        .animation(theme.motion.snappy, value: project.unread)
     }
 }
 
 struct SidebarInvitationRow: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    let invitation: MissionInvitationEntry
+    let invitation: ProjectInvitationEntry
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 9) {
-                RoomSigil(key: invitation.missionId, size: 22)
+                ProjectSigil(key: invitation.projectId, size: 22)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(invitation.missionName).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
+                    Text(invitation.projectName).appTextStyle(.body).fontWeight(.medium).foregroundStyle(theme.colors.ink).lineLimit(1)
                     Text("\(invitation.inviterName) invited you").appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
                 }
             }
             HStack(spacing: 6) {
                 Button("Join") { deps.respond(to: invitation, accept: true) }
                     .buttonStyle(.kodosi(.primary, size: .small))
-                    .accessibilityIdentifier("missions.invitation.\(AccessibilityIdentifier.token(invitation.id)).join")
+                    .accessibilityIdentifier("projects.invitation.\(AccessibilityIdentifier.token(invitation.id)).join")
                 Button("Not now") { deps.respond(to: invitation, accept: false) }
                     .buttonStyle(.kodosi(.ghost, size: .small))
             }
@@ -316,8 +316,8 @@ struct SidebarTerminalRow: View {
     }
 
     private var sharing: String? {
-        if session.missionId != nil {
-            return session.missionName.map { String(localized: "Shared with \($0)") } ?? String(localized: "Shared with a project")
+        if session.projectId != nil {
+            return session.projectName.map { String(localized: "Shared with \($0)") } ?? String(localized: "Shared with a project")
         }
         return session.isOwner && !session.sharedWith.isEmpty ? String(localized: "Shared") : nil
     }
@@ -364,7 +364,7 @@ struct SidebarTerminalRow: View {
             AgentMark(session: session, size: 22, activity: deps.activity(of: session))
                 .overlay(alignment: .bottomTrailing) {
                     if let sharing {
-                        ShareBadge(room: session.missionId, ring: selected ? theme.colors.raised : theme.colors.ground)
+                        ShareBadge(project: session.projectId, ring: selected ? theme.colors.raised : theme.colors.ground)
                             .offset(x: 4, y: 4)
                             .help(sharing)
                     }

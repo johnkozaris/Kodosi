@@ -1,6 +1,6 @@
 {
-  "apiContractVersion": 32,
-  "oldestApiContractVersion": 32,
+  "apiContractVersion": 33,
+  "oldestApiContractVersion": 33,
   "authContractVersion": 1,
   "compatibility": {
     "range": "the server serves each client whose apiContractVersion is from oldestApiContractVersion to apiContractVersion, and whose authContractVersion is equal",
@@ -21,8 +21,8 @@
     "feed": "every 15 seconds the server reads DELETE_ACCOUNT user events and DELETE USER admin events of the last day with a client that has only the realm-management role view-events, and deletes the Kodosi account of each subject; after a start it reads 30 days",
     "direct": "without Auth:AccountDeletion, deletionUri is null and DELETE /api/me deletes the account after a sign-in of at most 15 minutes; with it, DELETE /api/me answers 409",
     "recentSignIn": "DELETE /api/me and a new reset with POST /api/me/identity/reset need a sign-in of at most 15 minutes, which is the auth_time claim of the token; a refreshed token keeps the time of its sign-in, and the server refuses a token without auth_time with 403",
-    "removed": "the account, its devices and their push tokens, device lists, links and recovery data, its friend list and friendships, its terminals and their sharing, the rooms it owns with their content, its room memberships and invitations",
-    "kept": "the room items it wrote in rooms of other people stay without an account",
+    "removed": "the account, its devices and their push tokens, device lists, links and recovery data, its friend list and friendships, its terminals and their sharing, the projects it owns with their content, its project memberships and invitations",
+    "kept": "the project items it wrote in projects of other people stay without an account",
     "afterwards": "for 30 days the server keeps the issuer and subject and answers 410 to a token without auth_time or with an auth_time that is not after the deletion; a later sign-in starts a new account; the periodic cleanup removes older records"
   },
   "identityRead": {
@@ -51,8 +51,8 @@
     ],
     "administration": "owner; membership updates require the hosting device",
     "friendshipGrantsSessions": false,
-    "missionMembershipGrantsSessions": true,
-    "rooms": "the current members of the room to which the terminal was shared who are accepted friends of its owner, including later members; the end of the friendship ends the access"
+    "projectMembershipGrantsSessions": true,
+    "projects": "the current members of the project to which the terminal was shared who are accepted friends of its owner, including later members; the end of the friendship ends the access"
   },
   "sessionPublication": {
     "identity": [
@@ -70,11 +70,11 @@
     "status": "GET /api/sessions and GET /api/sessions/{id} give the newest status of a terminal while its host is connected, or null (terminalStatus in terminal-connections.json)",
     "restoredFrom": "POST /api/sessions takes the ID of the terminal that the host started again as this one, or null, and GET /api/sessions and GET /api/sessions/{id} give it; a viewer moves an open view to it only when the owner and the hosting device are the same"
   },
-  "terminalRoom": {
-    "choice": "PUT /api/sessions/{id}/mission takes {incarnationId, missionId, choice: {deviceId, sequence, signature, history}}: the calling device signs with ML-DSA-65 kodosi-terminal-room-v2 and the length-prefixed owner account id, terminal id, incarnation id, room id (empty for no room), history (the lowercase hex SHA-256 of the body of the newest key state of the room that the device read, empty for no room), 8-byte big-endian sequence and its own device id; the server refuses a history that is not the one of its newest key state of the room",
-    "sequence": "greater than the roomSequence of the terminal; a device signs the larger of roomSequence + 1 and the Unix time in milliseconds",
-    "read": "GET /api/sessions and GET /api/sessions/{id} give roomSequence and roomChoice {deviceId, signature, history}: the last signed choice, or null when the terminal got its room at its start or the server took it out of its room",
-    "host": "the hosting device takes a room for its terminal only with a valid choice of an approved device of the owner, not the recovery key, whose sequence is greater than the last one that it took and whose history is the hash of a key state in the history of the room that it reads; it takes the terminal out of a room without one"
+  "terminalProject": {
+    "choice": "PUT /api/sessions/{id}/project takes {incarnationId, projectId, choice: {deviceId, sequence, signature, history}}: the calling device signs with ML-DSA-65 kodosi-terminal-room-v2 and the length-prefixed owner account id, terminal id, incarnation id, project id (empty for no room), history (the lowercase hex SHA-256 of the body of the newest key state of the project that the device read, empty for no room), 8-byte big-endian sequence and its own device id; the server refuses a history that is not the one of its newest key state of the project",
+    "sequence": "greater than the projectSequence of the terminal; a device signs the larger of projectSequence + 1 and the Unix time in milliseconds",
+    "read": "GET /api/sessions and GET /api/sessions/{id} give projectSequence and projectChoice {deviceId, signature, history}: the last signed choice, or null when the terminal got its project at its start or the server took it out of its project",
+    "host": "the hosting device takes a project for its terminal only with a valid choice of an approved device of the owner, not the recovery key, whose sequence is greater than the last one that it took and whose history is the hash of a key state in the history of the project that it reads; it takes the terminal out of a project without one"
   },
   "offlineTerminal": {
     "hide": "PUT /api/sessions/{id}/hidden takes {incarnationId}; while the host is not connected, the lists of that person give the terminal with hidden: true; the server does nothing while the host is connected, and removes the marks of a terminal when its host connects again",
@@ -97,8 +97,8 @@
     "text": "32 random symbols of Crockford base 32 (160 bits) that an approved device makes and shows one time; the server never gets it",
     "keys": "HKDF-SHA256 with salt = the length-prefixed fields kodosi-recovery-v1, account id, identity root; the labels signing, device and room-key give the ML-DSA-65 seed, the device id (UUID version 8) and an AES-256-GCM key",
     "entry": "one more device in the signed device list, with a certificate from the approved device that made it; an account has one; it cannot open a device session and a host refuses it",
-    "roomKey": "the entry has a room recipient key; the request that adds the entry carries the public part, signed with the recovery key, and the secret part sealed with the AES-256-GCM key, and the server stores both in one write",
-    "recover": "a signed-in device that has the text proves possession of its own key and sends its certificate and the next device list, both signed with the recovery key; the device keeps the room key pair of the entry until it has its own room keys in each room, then deletes it"
+    "projectKey": "the entry has a project recipient key; the request that adds the entry carries the public part, signed with the recovery key, and the secret part sealed with the AES-256-GCM key, and the server stores both in one write",
+    "recover": "a signed-in device that has the text proves possession of its own key and sends its certificate and the next device list, both signed with the recovery key; the device keeps the project key pair of the entry until it has its own project keys in each project, then deletes it"
   },
   "startFresh": {
     "request": "POST /api/me/identity/reset with the device id, label and signing key of a device that is not registered; 204 when the account has no device list and no device, and then the device registers as the first device; else one pending reset for each account, ready one day after the request; a request from another device or key replaces it and its time",
@@ -186,61 +186,61 @@
       "GET /api/sessions/{id}",
       "PATCH /api/sessions/{id}",
       "DELETE /api/sessions/{id}",
-      "PUT /api/sessions/{id}/mission",
+      "PUT /api/sessions/{id}/project",
       "PUT /api/sessions/{id}/members",
       "DELETE /api/sessions/{id}/members/me",
       "PUT /api/sessions/{id}/hidden",
       "PUT /api/sessions/{id}/close-request",
       "DELETE /api/sessions/{id}/close-request"
     ],
-    "missions": [
-      "GET /api/missions",
-      "POST /api/missions",
-      "GET /api/missions/{id}",
-      "PATCH /api/missions/{id}",
-      "DELETE /api/missions/{id}",
-      "POST /api/missions/{id}/invitations",
-      "POST /api/missions/invitations/{id}/accept",
-      "POST /api/missions/invitations/{id}/reject",
-      "DELETE /api/missions/{id}/members/{userId}"
+    "projects": [
+      "GET /api/projects",
+      "POST /api/projects",
+      "GET /api/projects/{id}",
+      "PATCH /api/projects/{id}",
+      "DELETE /api/projects/{id}",
+      "POST /api/projects/{id}/invitations",
+      "POST /api/projects/invitations/{id}/accept",
+      "POST /api/projects/invitations/{id}/reject",
+      "DELETE /api/projects/{id}/members/{userId}"
     ],
-    "roomContent": [
-      "PUT /api/me/room-key",
-      "GET /api/users/{userId}/room-keys",
-      "GET /api/missions/{id}/keys",
-      "PUT /api/missions/{id}/keys",
-      "GET /api/missions/{id}/content",
-      "PUT /api/missions/{id}/content/{itemId}"
+    "projectContent": [
+      "PUT /api/me/project-key",
+      "GET /api/users/{userId}/project-keys",
+      "GET /api/projects/{id}/keys",
+      "PUT /api/projects/{id}/keys",
+      "GET /api/projects/{id}/content",
+      "PUT /api/projects/{id}/content/{itemId}"
     ],
     "push": [
       "PUT /api/me/push-token",
       "DELETE /api/me/push-token"
     ]
   },
-  "backendSecrets": "the client secret of Auth:AccountDeletion, the APNs key and the FCM service account of Push when they are set, and the device sessions in memory; the server relays TLS records between a host device and a viewer device, holds no terminal key and keeps room keys only as devices wrapped them, so it reads no terminal traffic or room content",
+  "backendSecrets": "the client secret of Auth:AccountDeletion, the APNs key and the FCM service account of Push when they are set, and the device sessions in memory; the server relays TLS records between a host device and a viewer device, holds no terminal key and keeps project keys only as devices wrapped them, so it reads no terminal traffic or project content",
   "dosi": {
-    "room": "POST /api/missions with dosi: true makes the person's one Dosi room; another Dosi room of the same person answers 409",
-    "list": "GET /api/missions leaves the Dosi room out of missions and gives its ID as dosi, or null",
-    "rules": "its owner is its only person: invitations, renames and terminals are refused, and it does not count toward the rooms that a person owns or sees",
-    "content": "its keys and content work like those of any room; each message holds one encrypted Dosi record, the task whose ID is the room ID holds Dosi's instructions, and past 4194304 bytes, or a smaller RoomBytes, the room drops its oldest messages"
+    "project": "POST /api/projects with dosi: true makes the person's one Dosi project; another Dosi project of the same person answers 409",
+    "list": "GET /api/projects leaves the Dosi project out of projects and gives its ID as dosi, or null",
+    "rules": "its owner is its only person: invitations, renames and terminals are refused, and it does not count toward the projects that a person owns or sees",
+    "content": "its keys and content work like those of any project; each message holds one encrypted Dosi record, the task whose ID is the project ID holds Dosi's instructions, and past 4194304 bytes, or a smaller ProjectBytes, the project drops its oldest messages"
   },
-  "roomContent": {
+  "projectContent": {
     "encryption": "AES-256-GCM content keys; each recipient key is ML-KEM-768 and X25519 together, with HKDF-SHA256 over both shared secrets for the wrapping key; ML-DSA-65 signed state and content",
-    "history": "new members receive current room keys and decrypt the backwards-wrapped key history",
-    "keyHistory": "GET /api/missions/{id}/keys?afterVersion= gives the key states after that version in order, at most 4 MB and 256 states in one answer and always at least one, with the version of the room; the device asks again after its last state until it has that version",
-    "membership": "signed room state commits member identities: those of the people of the room, and of members of the state before it whose accounts were deleted; removal rotates the content key, and when the person who left made that key, the next member device that writes or checks the room rotates it again; a member whose identity is not available keeps the last identity in the state; only the owner gives a member a new identity, with new keys; the relay holds no plaintext key",
-    "content": "immutable messages and versioned task/repository records; read by room sequence; compare expected version on updates",
-    "changes": "the device connection gets {type: changed, surface: rooms, roomId, sequence} after a content write and {type: changed, surface: rooms, roomId} after new room keys; it gets {type: changed, surface: missions, roomId} after a change of the room, its members, or the devices of a member; a device then reads only that room and only the items after the sequence that it has; it checks the identities and room keys of the members when it connects, when the members or their devices change, and when it uses a room whose last check is older than 5 minutes",
-    "space": "with a RoomBytes limit, the server counts the body and signature bytes of the items of each room; when a write goes past the limit, it deletes the oldest messages, and each content page then gives historyTrimmed: true; when only tasks and repositories are left, it refuses the write with the limit room-data",
+    "history": "new members receive current project keys and decrypt the backwards-wrapped key history",
+    "keyHistory": "GET /api/projects/{id}/keys?afterVersion= gives the key states after that version in order, at most 4 MB and 256 states in one answer and always at least one, with the version of the project; the device asks again after its last state until it has that version",
+    "membership": "signed project state commits member identities: those of the people of the project, and of members of the state before it whose accounts were deleted; removal rotates the content key, and when the person who left made that key, the next member device that writes or checks the project rotates it again; a member whose identity is not available keeps the last identity in the state; only the owner gives a member a new identity, with new keys; the relay holds no plaintext key",
+    "content": "immutable messages and versioned task/repository records; read by project sequence; compare expected version on updates",
+    "changes": "the device connection gets {type: changed, surface: projectContent, projectId, sequence} after a content write and {type: changed, surface: projectContent, projectId} after new project keys; it gets {type: changed, surface: projects, projectId} after a change of the project, its members, or the devices of a member; a device then reads only that project and only the items after the sequence that it has; it checks the identities and project keys of the members when it connects, when the members or their devices change, and when it uses a project whose last check is older than 5 minutes",
+    "space": "with a ProjectBytes limit, the server counts the body and signature bytes of the items of each project; when a write goes past the limit, it deletes the oldest messages, and each content page then gives historyTrimmed: true; when only tasks and repositories are left, it refuses the write with the limit project-data",
     "limits": {
       "people": 65,
       "recipients": 1105,
-      "rule": "a room has at most people persons, which are its owner, its members and the people of its open invitations; the plan of the owner can make that fewer; a key state names at most people persons and has at most recipients recipient keys, enough for each person with 16 devices and the recovery key"
+      "rule": "a project has at most people persons, which are its owner, its members and the people of its open invitations; the plan of the owner can make that fewer; a key state names at most people persons and has at most recipients recipient keys, enough for each person with 16 devices and the recovery key"
     }
   },
   "plans": {
-    "owner": "the plan of the room owner sets the limits of the room; the plan of the terminal owner sets the people who can see it",
-    "refusal": "status 403 with {error, limit, most}; the error text names the limit and tells the person what to do, limit is rooms, roomPeople, sharePeople, friends, friendRequests, devices or devicesRecovering, and most is its number, so that each app says it in its language",
+    "owner": "the plan of the project owner sets the limits of the project; the plan of the terminal owner sets the people who can see it",
+    "refusal": "status 403 with {error, limit, most}; the error text names the limit and tells the person what to do, limit is projects, projectPeople, sharePeople, friends, friendRequests, devices or devicesRecovering, and most is its number, so that each app says it in its language",
     "recovery": "a recovery never counts against the device limit"
   }
 }

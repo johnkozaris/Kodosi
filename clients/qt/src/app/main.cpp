@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
     QObject::connect(&canvas, &kodosi::CanvasModel::problem, &workspace, &kodosi::Workspace::setError);
     QObject::connect(&app, &QGuiApplication::applicationStateChanged, &workspace, [&](Qt::ApplicationState state) {
         if (state == Qt::ApplicationActive)
-            workspace.missions().readWatched();
+            workspace.projects().readWatched();
     });
     kodosi::qml::configureModelInstances(
         workspace, history, providerFiles, launcher, appearance, desktopSettings, desktop, sessions, tiling, files,

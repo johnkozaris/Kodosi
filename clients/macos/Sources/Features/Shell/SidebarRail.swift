@@ -25,25 +25,25 @@ struct SidebarRail: View {
             .tip("New terminal").accessibilityLabel(Text("New terminal")).accessibilityIdentifier("sidebar.newSession")
             ScrollView {
                 VStack(spacing: 6) {
-                    ForEach(deps.rooms.missions) { mission in
-                        railItem(selected: selection == .room(mission.id), help: mission.name,
-                                 identifier: "missions.mission.\(AccessibilityIdentifier.token(mission.id))")
+                    ForEach(deps.projects.entries) { project in
+                        railItem(selected: selection == .project(project.id), help: project.name,
+                                 identifier: "projects.project.\(AccessibilityIdentifier.token(project.id))")
                         {
-                            deps.workbench.section = .missions; deps.openMission(mission)
+                            deps.workbench.section = .projects; deps.openProject(project)
                         } content: {
-                            RoomSigil(key: mission.id, size: 26)
-                                .fold(.room(mission.id), at: .rail)
+                            ProjectSigil(key: project.id, size: 26)
+                                .fold(.project(project.id), at: .rail)
                                 .overlay(alignment: .topTrailing) {
-                                    if mission.unread {
+                                    if project.unread {
                                         Circle().fill(theme.colors.accent).frame(width: 8, height: 8)
                                             .overlay { Circle().stroke(theme.colors.ground, lineWidth: 1.5) }.offset(x: 3, y: -3)
                                             .transition(AnyTransition.pop)
                                     }
                                 }
-                                .animation(theme.motion.snappy, value: mission.unread)
+                                .animation(theme.motion.snappy, value: project.unread)
                         }
                     }
-                    if !deps.rooms.missions.isEmpty, !deps.listedSessions.isEmpty {
+                    if !deps.projects.entries.isEmpty, !deps.listedSessions.isEmpty {
                         Capsule().fill(theme.colors.hairline.mix(with: theme.colors.ground, by: 0.3)).frame(width: 18, height: 1).padding(.vertical, 4)
                     }
                     ForEach(deps.listedSessions) { session in

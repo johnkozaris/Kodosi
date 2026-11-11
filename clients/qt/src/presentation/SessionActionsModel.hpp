@@ -36,10 +36,10 @@ public:
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE bool activate(const QString& sessionId);
-    Q_INVOKABLE bool activateInRoom(const QString& sessionId);
+    Q_INVOKABLE bool activateInProject(const QString& sessionId);
     Q_INVOKABLE bool minimize(const QString& sessionId);
     Q_INVOKABLE bool create(const QString& name, const QString& directory, const QString& command = {},
-        const QString& prompt = {}, const QString& roomId = {}, const QVariantMap& agent = {},
+        const QString& prompt = {}, const QString& projectId = {}, const QVariantMap& agent = {},
         const QString& computer = {});
     Q_INVOKABLE bool createQuick();
     Q_INVOKABLE bool createSameAgent();
@@ -59,7 +59,7 @@ public:
     Q_INVOKABLE bool share(const QString& sessionId, const QStringList& userIds,
         const QStringList& expectedUserIds = {});
     Q_INVOKABLE bool leave(const QString& sessionId);
-    Q_INVOKABLE bool attachMission(const QString& sessionId, const QString& missionId);
+    Q_INVOKABLE bool attachProject(const QString& sessionId, const QString& projectId);
 
 signals:
     void busyChanged();
@@ -74,13 +74,13 @@ private:
     DesktopSettings& m_settings;
     std::optional<DeepLinkDestination> m_activeLink;
     QList<DeepLinkDestination> m_links;
-    QHash<QString, QString> m_roomCreations;
+    QHash<QString, QString> m_projectCreations;
     QSet<QString> m_created;
     TerminalTypeAhead m_typeAhead;
     std::function<QJsonObject()> m_startSize;
     std::function<QStringList(const QString&)> m_accounts;
-    void completeCreation(const QString& sessionId, const QString& roomId);
-    bool activateSession(const QString& sessionId, bool inRoom);
+    void completeCreation(const QString& sessionId, const QString& projectId);
+    bool activateSession(const QString& sessionId, bool inProject);
     bool opening(const QString& sessionId) const;
     bool openRemote(const QString& sessionId, bool quiet = false);
     void dropRemote(const QString& sessionId);
@@ -88,7 +88,7 @@ private:
     bool openQuick(const QVariantMap& agent);
     QVariantMap selectedAgent() const;
     bool createInternal(const QString& name, const QString& directory,
-        const QString& provider, const QString& nativeConversationId, const QString& roomId = {},
+        const QString& provider, const QString& nativeConversationId, const QString& projectId = {},
         const QString& branch = {}, const QJsonObject& line = {});
     bool command(QString type, const QString& id, QJsonObject values = {}, bool ownerOnly = false);
     void route(const DeepLinkDestination& destination);

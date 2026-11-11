@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using Kodosi.Data;
 using Kodosi.Devices;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Plans;
 using Kodosi.Security;
 using Kodosi.TerminalConnections;
@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kodosi.Sessions;
 
-public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections, MissionService missions, TimeProvider clock, PlanCatalog plans)
+public sealed class SessionService(KodosiDbContext db, ConnectionDirectory connections, ProjectService projects, TimeProvider clock, PlanCatalog plans)
 {
     // The record of an ended terminal stays so that a late request cannot reuse its identity.
     private static readonly TimeSpan EndedRecordLife = TimeSpan.FromMinutes(2);
@@ -46,12 +46,12 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     {
         var rows = await (from session in sessions.AsNoTracking()
                           join owner in db.Users on session.OwnerUserId equals owner.Id
-                          join room in db.Missions on session.MissionId equals (Guid?)room.Id into rooms
-                          from room in rooms.DefaultIfEmpty()
+                          join project in db.Projects on session.ProjectId equals (Guid?)project.Id into projects
+                          from project in projects.DefaultIfEmpty()
                           orderby session.CreatedAt, session.Id
                           select new
                           {
-                              Session = session, OwnerName = owner.DisplayName, MissionName = room == null ? null : room.Name,
+                              Session = session, OwnerName = owner.DisplayName, ProjectName = project == null ? null : project.Name,
                               Hidden = db.HiddenSessions.Any(x => x.SessionId == session.Id && x.UserId == viewer),
                           })
             .Take(most).ToListAsync(ct);
@@ -61,9 +61,9 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             var session = row.Session;
             var (online, status) = connections.Live(session.Id);
             return new SessionDto(session.Id, session.IncarnationId, session.Name, session.OwnerUserId, row.OwnerName, session.HostDeviceId,
-                session.HostName, session.MissionId, row.MissionName, people[session.Id].Where(user => user != session.OwnerUserId).ToArray(),
-                session.AuthorizationRevision, online, status, session.RoomSequence,
-                session.RoomSignature is { } signature ? new RoomChoice(session.RoomDeviceId!, Convert.ToBase64String(signature), session.RoomHistory ?? "") : null,
+                session.HostName, session.ProjectId, row.ProjectName, people[session.Id].Where(user => user != session.OwnerUserId).ToArray(),
+                session.AuthorizationRevision, online, status, session.ProjectSequence,
+                session.ProjectSignature is { } signature ? new ProjectChoice(session.ProjectDeviceId!, Convert.ToBase64String(signature), session.ProjectHistory ?? "") : null,
                 row.Hidden && !online,
                 session.CloseSignature is { } closing ? new CloseRequest(session.CloseUserId!.Value, session.CloseDeviceId!, Convert.ToBase64String(closing)) : null,
                 session.RestoredFrom);
@@ -88,10 +88,10 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         if (await live.CountAsync(ct) >= Limits.MaxLiveSessionsPerUser)
             throw ApiException.Conflict("Too many of your terminals wait to close on offline computers. Remove the computers that do not come back.");
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        if (body.MissionId is { } missionId)
+        if (body.ProjectId is { } projectId)
         {
-            await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
-            await missions.RequireSharedRoomAsync(missionId, ct);
+            await projects.RequireMemberForUpdateAsync(projectId, userId, ct);
+            await projects.RequireSharedProjectAsync(projectId, ct);
         }
         var now = clock.GetUtcNow();
         var session = new Session
@@ -103,7 +103,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
             HostName = Limits.Text(body.HostName, "Host name", 128),
             Name = Limits.Text(body.Name, "Session name", 128),
             RestoredFrom = body.RestoredFrom,
-            MissionId = body.MissionId,
+            ProjectId = body.ProjectId,
             ExpiresAt = now + EndedRecordLife,
             CreatedAt = now
         };
@@ -122,20 +122,20 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<SessionDto> AttachAsync(Guid id, Guid userId, ApprovedDevice device, AttachSession body, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        if (body.MissionId is { } missionId)
+        if (body.ProjectId is { } projectId)
         {
-            await missions.RequireMemberForUpdateAsync(missionId, userId, ct);
-            await missions.RequireSharedRoomAsync(missionId, ct);
+            await projects.RequireMemberForUpdateAsync(projectId, userId, ct);
+            await projects.RequireSharedProjectAsync(projectId, ct);
         }
         var session = await OwnerAsync(id, userId, ct); Incarnation(session, body.IncarnationId);
-        if (body.Choice.History != await RoomHistoryAsync(body.MissionId, ct))
+        if (body.Choice.History != await ProjectHistoryAsync(body.ProjectId, ct))
             throw ApiException.Conflict("The project of this terminal changed; refresh before retrying.");
-        var signature = RoomSignature(session, device, body);
+        var signature = ProjectSignature(session, device, body);
         var before = await TerminalAccess.PeopleAsync(db, id, ct);
-        if (session.MissionId != body.MissionId) await db.SessionMembers.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
-        session.MissionId = body.MissionId;
-        session.RoomSequence = body.Choice.Sequence; session.RoomDeviceId = device.Id; session.RoomSignature = signature;
-        session.RoomHistory = body.Choice.History;
+        if (session.ProjectId != body.ProjectId) await db.SessionMembers.Where(x => x.SessionId == id).ExecuteDeleteAsync(ct);
+        session.ProjectId = body.ProjectId;
+        session.ProjectSequence = body.Choice.Sequence; session.ProjectDeviceId = device.Id; session.ProjectSignature = signature;
+        session.ProjectHistory = body.Choice.History;
         session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
         await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct);
         await TerminalAccess.RevokeAsync(db, connections, [session], ct);
@@ -147,7 +147,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     public async Task<SessionDto> ShareAsync(Guid id, Guid userId, string deviceId, ShareSession body, CancellationToken ct)
     {
         var session = await HostAsync(id, userId, deviceId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
-        if (session.MissionId is not null) throw ApiException.Conflict("This terminal is shared with its project. Remove it from the project to share it with friends.");
+        if (session.ProjectId is not null) throw ApiException.Conflict("This terminal is shared with its project. Remove it from the project to share it with friends.");
         if (body.UserIds is null || body.UserIds.Length > Limits.MaxSessionMembers || body.UserIds.Any(x => x == Guid.Empty || x == userId))
             throw ApiException.Invalid($"Choose up to {Limits.MaxSessionMembers} friends, excluding yourself.");
         var selected = body.UserIds.ToHashSet();
@@ -171,7 +171,7 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     {
         var session = await AuthorizedAsync(id, userId, ct); Match(session, body.IncarnationId, body.ExpectedRevision);
         if (session.OwnerUserId == userId) throw ApiException.Invalid("You cannot leave your own terminal.");
-        if (session.MissionId is not null) throw ApiException.Conflict("Leave the project to leave its shared terminals.");
+        if (session.ProjectId is not null) throw ApiException.Conflict("Leave the project to leave its shared terminals.");
         var member = await db.SessionMembers.SingleOrDefaultAsync(x => x.SessionId == id && x.UserId == userId, ct) ?? throw ApiException.Missing();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         db.SessionMembers.Remove(member);
@@ -253,29 +253,29 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
         return described;
     }
 
-    private static byte[] RoomSignature(Session session, ApprovedDevice device, AttachSession body)
+    private static byte[] ProjectSignature(Session session, ApprovedDevice device, AttachSession body)
     {
         var choice = body.Choice;
         if (choice.DeviceId != device.Id) throw ApiException.Forbidden("The device that sends the project must sign it.");
-        if (choice.Sequence <= session.RoomSequence) throw ApiException.Conflict("The project of this terminal changed; refresh before retrying.");
+        if (choice.Sequence <= session.ProjectSequence) throw ApiException.Conflict("The project of this terminal changed; refresh before retrying.");
         var signature = Limits.Base64(choice.Signature, "Project signature", IdentityWireFormat.MlDsa65SignatureLength);
-        var signed = Proofs.TerminalRoom(session.OwnerUserId, session.Id, session.IncarnationId, body.MissionId, choice.History, choice.Sequence, device.Id);
+        var signed = Proofs.TerminalProject(session.OwnerUserId, session.Id, session.IncarnationId, body.ProjectId, choice.History, choice.Sequence, device.Id);
         return SignatureVerifier.Verify(device.SigningPublicKey, signed, signature) ? signature : throw ApiException.Forbidden("Invalid project signature.");
     }
 
-    private async Task<string> RoomHistoryAsync(Guid? room, CancellationToken ct)
+    private async Task<string> ProjectHistoryAsync(Guid? project, CancellationToken ct)
     {
-        if (room is null) return "";
-        var newest = await db.MissionKeyStates.AsNoTracking().Where(x => x.MissionId == room).OrderByDescending(x => x.Version).Select(x => x.Body).FirstOrDefaultAsync(ct);
+        if (project is null) return "";
+        var newest = await db.ProjectKeyStates.AsNoTracking().Where(x => x.ProjectId == project).OrderByDescending(x => x.Version).Select(x => x.Body).FirstOrDefaultAsync(ct);
         return newest is null ? throw ApiException.Conflict("The project of this terminal changed; refresh before retrying.") : Convert.ToHexStringLower(SHA256.HashData(newest));
     }
 
-    internal static void LeaveRoom(Session session)
+    internal static void LeaveProject(Session session)
     {
-        session.MissionId = null;
-        session.RoomDeviceId = null;
-        session.RoomSignature = null;
-        session.RoomHistory = null;
+        session.ProjectId = null;
+        session.ProjectDeviceId = null;
+        session.ProjectSignature = null;
+        session.ProjectHistory = null;
     }
 
     internal static void End(Session session, DateTimeOffset now)
@@ -290,15 +290,15 @@ public sealed class SessionService(KodosiDbContext db, ConnectionDirectory conne
     { Incarnation(session, incarnation); if (session.AuthorizationRevision != revision) throw ApiException.Conflict("The sharing of this terminal changed; refresh before retrying."); }
 
     public sealed record SessionDto(Guid Id, Guid IncarnationId, string Name, Guid OwnerUserId, string OwnerName,
-        string HostDeviceId, string HostName, Guid? MissionId, string? MissionName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline,
-        TerminalStatus? Status, long RoomSequence, RoomChoice? RoomChoice, bool Hidden, CloseRequest? CloseRequest, Guid? RestoredFrom);
-    public sealed record RoomChoice(string DeviceId, string Signature, string History);
+        string HostDeviceId, string HostName, Guid? ProjectId, string? ProjectName, Guid[] SharedWith, long AuthorizationRevision, bool HostOnline,
+        TerminalStatus? Status, long ProjectSequence, ProjectChoice? ProjectChoice, bool Hidden, CloseRequest? CloseRequest, Guid? RestoredFrom);
+    public sealed record ProjectChoice(string DeviceId, string Signature, string History);
     public sealed record CloseRequest(Guid UserId, string DeviceId, string Signature);
-    public sealed record CreateSession(Guid Id, Guid IncarnationId, string Name, string HostDeviceId, string HostName, Guid? MissionId,
+    public sealed record CreateSession(Guid Id, Guid IncarnationId, string Name, string HostDeviceId, string HostName, Guid? ProjectId,
         Guid? RestoredFrom = null);
     public sealed record RenameSession(Guid IncarnationId, long ExpectedRevision, string Name);
-    public sealed record AttachSession(Guid IncarnationId, Guid? MissionId, RoomChoiceWrite Choice);
-    public sealed record RoomChoiceWrite(string DeviceId, long Sequence, string Signature, string History);
+    public sealed record AttachSession(Guid IncarnationId, Guid? ProjectId, ProjectChoiceWrite Choice);
+    public sealed record ProjectChoiceWrite(string DeviceId, long Sequence, string Signature, string History);
     public sealed record ShareSession(Guid IncarnationId, long ExpectedRevision, Guid[] UserIds);
     public sealed record LeaveSession(Guid IncarnationId, long ExpectedRevision);
     public sealed record HideSession(Guid IncarnationId);

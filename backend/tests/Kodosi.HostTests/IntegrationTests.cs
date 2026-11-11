@@ -56,18 +56,18 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task RoomMembersHearWhenAMemberStartsFresh()
+    public async Task ProjectMembersHearWhenAMemberStartsFresh()
     {
         var ct = TestContext.Current.CancellationToken;
         var connection = await postgres.CreateDatabaseAsync(ct);
         await using var app = new BackendApplication(connection);
         using var owner = await app.EnrollAsync("owner");
         using var member = await app.EnrollAsync("member");
-        var room = Guid.CreateVersion7();
-        await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = room, name = "Room" });
+        var project = Guid.CreateVersion7();
+        await CallAsync(owner, HttpMethod.Post, "/api/projects", new { id = project, name = "Project" });
         await using (var db = PostgresFixture.Context(connection))
         {
-            db.MissionMembers.Add(new MissionMember { MissionId = room, UserId = member.Fixture.UserId });
+            db.ProjectMembers.Add(new ProjectMember { ProjectId = project, UserId = member.Fixture.UserId });
             await db.SaveChangesAsync(ct);
         }
         using var socket = await app.ConnectAsync(member);
@@ -81,8 +81,8 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var enrolled = await EnrollFirstAsync(recent, fresh);
         await SuccessAsync(enrolled);
         var notice = await JsonAsync(socket);
-        while (notice.GetProperty("surface").GetString() != "missions") notice = await JsonAsync(socket);
-        Assert.Equal(room, notice.GetProperty("roomId").GetGuid());
+        while (notice.GetProperty("surface").GetString() != "projects") notice = await JsonAsync(socket);
+        Assert.Equal(project, notice.GetProperty("projectId").GetGuid());
     }
 
     [Fact]
@@ -94,17 +94,17 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var owner = await app.EnrollAsync("owner");
         using var member = await app.EnrollAsync("member");
         using var outsider = await app.EnrollAsync("outsider");
-        var room = Guid.CreateVersion7();
-        await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = room, name = "Room" });
+        var project = Guid.CreateVersion7();
+        await CallAsync(owner, HttpMethod.Post, "/api/projects", new { id = project, name = "Project" });
         await using (var db = PostgresFixture.Context(connection))
         {
-            db.MissionMembers.Add(new MissionMember { MissionId = room, UserId = member.Fixture.UserId });
+            db.ProjectMembers.Add(new ProjectMember { ProjectId = project, UserId = member.Fixture.UserId });
             var (first, second) = Kodosi.Friends.FriendService.Pair(owner.Fixture.UserId, member.Fixture.UserId);
             db.Friendships.Add(new Friendship { FirstUserId = first, SecondUserId = second, RequestedBy = owner.Fixture.UserId, Accepted = true, CreatedAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync(ct);
         }
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
-        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Agent", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = room });
+        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Agent", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", projectId = project });
         using var viewer = await app.ConnectAsync(member);
         using var stranger = await app.ConnectAsync(outsider);
         using var host = await app.ConnectAsync(owner);
@@ -217,7 +217,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var owner = await app.EnrollAsync("owner");
-        using var stale = await SignedAsync(owner, HttpMethod.Post, "/api/missions", new { id = Guid.CreateVersion7(), name = "Forbidden" });
+        using var stale = await SignedAsync(owner, HttpMethod.Post, "/api/projects", new { id = Guid.CreateVersion7(), name = "Forbidden" });
         await using var scope = app.Services.CreateAsyncScope();
         var gate = scope.ServiceProvider.GetRequiredService<AccountGate>();
         var held = await gate.EnterAsync(owner.Fixture.UserId, TestContext.Current.CancellationToken);
@@ -231,7 +231,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         finally { held.Dispose(); }
         using var response = await pending;
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Empty(await scope.ServiceProvider.GetRequiredService<KodosiDbContext>().Missions.ToListAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await scope.ServiceProvider.GetRequiredService<KodosiDbContext>().Projects.ToListAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -243,7 +243,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
         await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var path = $"/api/sessions/{id}";
-        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = (Guid?)null });
+        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", projectId = (Guid?)null });
         var shared = await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
         var revision = shared.GetProperty("authorizationRevision").GetInt64();
         using (var bare = await SignedAsync(friend, HttpMethod.Delete, path + "/members/me"))
@@ -265,7 +265,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         object Terminal(Guid id, Guid? restoredFrom) => new
         {
             id, incarnationId = Guid.CreateVersion7(), name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host",
-            missionId = (Guid?)null, restoredFrom,
+            projectId = (Guid?)null, restoredFrom,
         };
         var replaced = Guid.CreateVersion7(); var id = Guid.CreateVersion7();
         var restarted = await CallAsync(owner, HttpMethod.Post, "/api/sessions", Terminal(id, replaced));
@@ -291,7 +291,7 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
         await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7();
-        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = (Guid?)null });
+        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", projectId = (Guid?)null });
         await CallAsync(owner, HttpMethod.Put, $"/api/sessions/{id}/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
         using var viewer = await app.ConnectAsync(friend);
         using var host = await app.ConnectAsync(owner);
@@ -347,15 +347,15 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         Assert.Equal(HttpStatusCode.NotModified, (await IdentityAsync(friend, ownerIdentity, tag)).Status);
         Assert.Equal(HttpStatusCode.OK, (await IdentityAsync(friend, ownerIdentity, "\"other\"")).Status);
         Assert.Equal((HttpStatusCode.NotModified, tag), await IdentityAsync(owner, "/api/me/identity", tag));
-        var mission = Guid.CreateVersion7();
-        await CallAsync(owner, HttpMethod.Post, "/api/missions", new { id = mission, name = "Project" });
+        var project = Guid.CreateVersion7();
+        await CallAsync(owner, HttpMethod.Post, "/api/projects", new { id = project, name = "Project" });
         var invite = Guid.CreateVersion7();
-        await CallAsync(owner, HttpMethod.Post, $"/api/missions/{mission}/invitations", new { id = invite, userId = friend.Fixture.UserId });
-        await CallAsync(friend, HttpMethod.Post, $"/api/missions/invitations/{invite}/accept");
+        await CallAsync(owner, HttpMethod.Post, $"/api/projects/{project}/invitations", new { id = invite, userId = friend.Fixture.UserId });
+        await CallAsync(friend, HttpMethod.Post, $"/api/projects/invitations/{invite}/accept");
         var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var path = $"/api/sessions/{id}";
-        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", missionId = (Guid?)null });
+        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", projectId = (Guid?)null });
         Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
-        Assert.Equal(mission, (await CallAsync(friend, HttpMethod.Get, $"/api/missions/{mission}")).GetProperty("mission").GetProperty("id").GetGuid());
+        Assert.Equal(project, (await CallAsync(friend, HttpMethod.Get, $"/api/projects/{project}")).GetProperty("project").GetProperty("id").GetGuid());
         await Assert.ThrowsAnyAsync<Exception>(() => app.ConnectAsync(owner with { Session = friend.Session }));
         using var host = await app.ConnectAsync(owner);
         using var viewer = await app.ConnectAsync(friend);

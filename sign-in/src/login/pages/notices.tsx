@@ -244,7 +244,7 @@ export function DeleteAccount({ kcContext, i18n }: Page<"delete-account-confirm.
   const form = "kc-delete-account";
   const lines = [
     { icon: UserRoundX, text: msgStr("kdsDeleteGoes") },
-    { icon: DoorClosed, text: msgStr("kdsDeleteRooms") },
+    { icon: DoorClosed, text: msgStr("kdsDeleteProjects") },
     { icon: MessageSquareText, text: msgStr("kdsDeleteWords") },
     { icon: SquareTerminal, text: msgStr("kdsDeleteTerminals") },
   ];

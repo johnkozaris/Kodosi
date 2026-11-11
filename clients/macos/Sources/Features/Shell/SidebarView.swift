@@ -3,9 +3,9 @@ import KodosiDesign
 import SwiftUI
 
 enum SidebarSelection: Hashable {
-    case room(String)
+    case project(String)
     case terminal(String)
-    case rooms
+    case projects
     case people
     case settings
     case none
@@ -25,7 +25,7 @@ struct SidebarView: View {
         let workbench = deps.workbench
         switch workbench.section {
         case .sessions: return workbench.selectedSessionId.map(SidebarSelection.terminal) ?? .none
-        case .missions: return workbench.selectedMissionId.map(SidebarSelection.room) ?? .rooms
+        case .projects: return workbench.selectedProjectId.map(SidebarSelection.project) ?? .projects
         case .people: return .people
         case .settings: return .settings
         }
@@ -78,7 +78,7 @@ struct SidebarView: View {
         .animation(theme.motion.soft, value: workbench.sidebarCollapsed)
         .animation(theme.motion.snappy, value: selection)
         .animation(theme.motion.spring, value: deps.listedSessions.map(\.id))
-        .animation(theme.motion.spring, value: deps.rooms.missions.map(\.id))
+        .animation(theme.motion.spring, value: deps.projects.entries.map(\.id))
         .animation(theme.motion.spring, value: deps.listedSessions.map(\.attention))
     }
 
@@ -123,7 +123,7 @@ struct SidebarView: View {
             NewTerminalButton().padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 6)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    rooms
+                    projects
                     terminals
                 }
                 .padding(.horizontal, 8).padding(.vertical, 8)
@@ -138,13 +138,13 @@ struct SidebarView: View {
         }
     }
 
-    private var rooms: some View {
+    private var projects: some View {
         VStack(alignment: .leading, spacing: 2) {
-            SidebarSectionHeader(title: "Projects", addTitle: "New project", identifier: "missions.create") {
-                deps.showRooms()
+            SidebarSectionHeader(title: "Projects", addTitle: "New project", identifier: "projects.create") {
+                deps.showProjects()
             } add: {
                 if deps.account.isReady {
-                    deps.workbench.showsNewRoom = true
+                    deps.workbench.showsNewProject = true
                 } else {
                     deps.beginSignIn()
                 }
@@ -163,14 +163,14 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain).accessibilityIdentifier("sidebar.signIn.hint")
             }
-            ForEach(deps.rooms.invitations) { invitation in
+            ForEach(deps.projects.invitations) { invitation in
                 SidebarInvitationRow(invitation: invitation).transition(AnyTransition.rise)
             }
-            ForEach(deps.rooms.missions) { mission in
-                SidebarRoomRow(mission: mission, selected: selection == .room(mission.id), pill: pill)
+            ForEach(deps.projects.entries) { project in
+                SidebarProjectRow(project: project, selected: selection == .project(project.id), pill: pill)
                     .transition(AnyTransition.rise)
             }
-            if deps.rooms.listTruncated {
+            if deps.projects.listTruncated {
                 Text("More projects exist. Use Go to… to find them.").appTextStyle(.caption)
                     .foregroundStyle(theme.colors.inkFaint).padding(.horizontal, 10).padding(.top, 2)
                     .accessibilityLabel(Text("Some projects are not shown"))

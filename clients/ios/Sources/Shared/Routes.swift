@@ -4,8 +4,8 @@ struct TerminalRoute: Hashable {
     let sessionId: String
 }
 
-struct RoomRoute: Hashable {
-    let roomId: String
+struct ProjectRoute: Hashable {
+    let projectId: String
 }
 
 struct OpenRouteAction {

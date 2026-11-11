@@ -36,9 +36,9 @@ pub mod identity;
 #[cfg(feature = "host")]
 pub mod local_host;
 pub mod network;
+pub mod projects;
 pub mod protocol;
 pub mod provider;
-pub mod rooms;
 mod runtime;
 pub mod terminal;
 mod worktree;

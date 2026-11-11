@@ -121,63 +121,63 @@ QUrl planFile(const QTemporaryDir& dir)
 class WorkspaceTest final : public QObject {
     Q_OBJECT
 private slots:
-    void roomChangesPublishTheMatchingDraftAndIdentity()
+    void projectChangesPublishTheMatchingDraftAndIdentity()
     {
         Fixture f;
-        f.workspace.missions().open(test::id(10));
-        f.workspace.missions().setPresentation(QStringLiteral("message"), QStringLiteral("Room ten draft"));
-        f.workspace.missions().open(test::id(11));
-        QString observedRoom, observedDraft;
-        connect(&f.workspace.missions(), &kodosi::MissionsModel::roomChanged, &f.workspace, [&] {
-            observedRoom = f.workspace.missions().selectedMissionId();
-            observedDraft = f.workspace.missions().presentation().value(QStringLiteral("message")).toString();
+        f.workspace.projects().open(test::id(10));
+        f.workspace.projects().setPresentation(QStringLiteral("message"), QStringLiteral("Project ten draft"));
+        f.workspace.projects().open(test::id(11));
+        QString observedProject, observedDraft;
+        connect(&f.workspace.projects(), &kodosi::ProjectsModel::contentChanged, &f.workspace, [&] {
+            observedProject = f.workspace.projects().selectedProjectId();
+            observedDraft = f.workspace.projects().presentation().value(QStringLiteral("message")).toString();
         });
-        f.workspace.missions().open(test::id(10));
-        QCOMPARE(observedRoom, test::id(10));
-        QCOMPARE(observedDraft, QStringLiteral("Room ten draft"));
+        f.workspace.projects().open(test::id(10));
+        QCOMPARE(observedProject, test::id(10));
+        QCOMPARE(observedDraft, QStringLiteral("Project ten draft"));
     }
 
-    void aRoomSendKeepsEditsMadeBeforeItsAcknowledgement()
+    void aProjectSendKeepsEditsMadeBeforeItsAcknowledgement()
     {
         Fixture f;
-        f.workspace.missions().open(test::id(10));
-        f.workspace.missions().setPresentation(QStringLiteral("message"), QStringLiteral("First message"));
-        f.workspace.missions().roomAction({{QStringLiteral("type"), QStringLiteral("post")}, {QStringLiteral("text"), QStringLiteral("First message")}});
+        f.workspace.projects().open(test::id(10));
+        f.workspace.projects().setPresentation(QStringLiteral("message"), QStringLiteral("First message"));
+        f.workspace.projects().act({{QStringLiteral("type"), QStringLiteral("post")}, {QStringLiteral("text"), QStringLiteral("First message")}});
         const auto command = f.commands.values.last();
-        f.workspace.missions().setPresentation(QStringLiteral("message"), QStringLiteral("Next draft"));
-        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("room.result")},
+        f.workspace.projects().setPresentation(QStringLiteral("message"), QStringLiteral("Next draft"));
+        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("project.result")},
             {QStringLiteral("requestId"), command.value(QStringLiteral("requestId"))},
-            {QStringLiteral("operation"), QStringLiteral("room.command")},
-            {QStringLiteral("roomId"), test::id(10)}, {QStringLiteral("action"), QStringLiteral("post")}}, 0);
-        QCOMPARE(f.workspace.missions().presentation().value(QStringLiteral("message")).toString(), QStringLiteral("Next draft"));
-        f.workspace.missions().open(test::id(11));
-        f.workspace.missions().open(test::id(10));
-        QCOMPARE(f.workspace.missions().presentation().value(QStringLiteral("message")).toString(), QStringLiteral("Next draft"));
+            {QStringLiteral("operation"), QStringLiteral("project.act")},
+            {QStringLiteral("projectId"), test::id(10)}, {QStringLiteral("action"), QStringLiteral("post")}}, 0);
+        QCOMPARE(f.workspace.projects().presentation().value(QStringLiteral("message")).toString(), QStringLiteral("Next draft"));
+        f.workspace.projects().open(test::id(11));
+        f.workspace.projects().open(test::id(10));
+        QCOMPARE(f.workspace.projects().presentation().value(QStringLiteral("message")).toString(), QStringLiteral("Next draft"));
     }
 
-    void aRoomTerminalKeepsTheRoomVisible()
+    void aProjectTerminalKeepsTheProjectVisible()
     {
         Fixture f;
         f.workspace.apply(test::snapshot({test::session(1, true, false)}), 0);
-        f.workspace.missions().open(test::id(10));
-        f.desktop.setActiveView(kodosi::DesktopStateModel::Missions);
+        f.workspace.projects().open(test::id(10));
+        f.desktop.setActiveView(kodosi::DesktopStateModel::Projects);
         QSignalSpy navigation(&f.desktop, &kodosi::DesktopStateModel::activeViewChanged);
-        QVERIFY(f.workspace.sessionActions().activateInRoom(test::id(1)));
-        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Missions);
-        QCOMPARE(f.workspace.missions().presentation().value(QStringLiteral("terminal")).toString(), test::id(1));
+        QVERIFY(f.workspace.sessionActions().activateInProject(test::id(1)));
+        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Projects);
+        QCOMPARE(f.workspace.projects().presentation().value(QStringLiteral("terminal")).toString(), test::id(1));
         f.desktop.selectSession(test::id(1));
-        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Missions);
+        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Projects);
         QCOMPARE(navigation.count(), 0);
     }
 
-    void aRoomKeepsItsCanvasOpenOnATerminalWithoutOne()
+    void aProjectKeepsItsCanvasOpenOnATerminalWithoutOne()
     {
         Fixture f;
         f.workspace.apply(test::snapshot({test::session(1)}), 0);
-        f.workspace.missions().open(test::id(10));
-        f.workspace.missions().setPresentation(QStringLiteral("showsCanvas"), true);
-        QVERIFY(f.workspace.sessionActions().activateInRoom(test::id(1)));
-        QVERIFY(f.workspace.missions().presentation().value(QStringLiteral("showsCanvas")).toBool());
+        f.workspace.projects().open(test::id(10));
+        f.workspace.projects().setPresentation(QStringLiteral("showsCanvas"), true);
+        QVERIFY(f.workspace.sessionActions().activateInProject(test::id(1)));
+        QVERIFY(f.workspace.projects().presentation().value(QStringLiteral("showsCanvas")).toBool());
     }
 
     void theCanvasOfTheTerminalInFrontOpensOnceAtWhatItsAgentShows()
@@ -191,13 +191,13 @@ private slots:
         const auto show = [&](int firstAt, int secondAt) {
             auto one = showing(1, firstAt);
             auto two = showing(2, secondAt);
-            one.insert(QStringLiteral("missionId"), test::id(10));
-            two.insert(QStringLiteral("missionId"), test::id(10));
+            one.insert(QStringLiteral("projectId"), test::id(10));
+            two.insert(QStringLiteral("projectId"), test::id(10));
             f.workspace.apply(test::snapshot({ one, two }), 0);
             QCoreApplication::sendPostedEvents();
         };
-        const auto roomShowsCanvas = [&] {
-            return f.workspace.missions().presentation().value(QStringLiteral("showsCanvas")).toBool();
+        const auto projectShowsCanvas = [&] {
+            return f.workspace.projects().presentation().value(QStringLiteral("showsCanvas")).toBool();
         };
         show(2, 2);
         QVERIFY(f.desktop.selectSession(first));
@@ -221,13 +221,13 @@ private slots:
         f.sessions.setVisible(first, true);
         QTRY_COMPARE(f.desktop.canvasSessionId(), first);
 
-        f.workspace.missions().open(test::id(10));
-        QVERIFY(f.workspace.sessionActions().activateInRoom(second));
+        f.workspace.projects().open(test::id(10));
+        QVERIFY(f.workspace.sessionActions().activateInProject(second));
         QCOMPARE(f.workspace.frontSessionId(), second);
         show(5, 2);
-        QVERIFY(!roomShowsCanvas());
+        QVERIFY(!projectShowsCanvas());
         show(5, 6);
-        QVERIFY(roomShowsCanvas());
+        QVERIFY(projectShowsCanvas());
     }
 
     void aChangeOpensTheCanvasInFrontOnlyWhenThePersonDidNotCloseIt()
@@ -338,7 +338,7 @@ private slots:
         QCOMPARE(canvas.closedSections(id), closed);
     }
 
-    void aFileAddedInARoomOpensTheRoomsCanvasAtItsFilesAndLeavesTheStage()
+    void aFileAddedInARoomOpensTheProjectsCanvasAtItsFilesAndLeavesTheStage()
     {
         Fixture f;
         kodosi::CanvasModel canvas(f.commands, f.sessions, 2);
@@ -346,11 +346,11 @@ private slots:
         f.desktop.attachCanvas(&canvas);
         const auto id = test::id(1);
         f.workspace.apply(test::snapshot({ asleep(1) }), 0);
-        f.workspace.missions().open(test::id(10));
-        QVERIFY(f.workspace.sessionActions().activateInRoom(id));
+        f.workspace.projects().open(test::id(10));
+        QVERIFY(f.workspace.sessionActions().activateInProject(id));
         canvas.close(id, QStringLiteral("browser"));
         f.workspace.addFiles(id, { planFile(f.dir) });
-        QVERIFY(f.workspace.missions().presentation().value(QStringLiteral("showsCanvas")).toBool());
+        QVERIFY(f.workspace.projects().presentation().value(QStringLiteral("showsCanvas")).toBool());
         f.workspace.apply(test::snapshot({ asleep(2, { planItem(2) }) }), 0);
         QVERIFY(canvas.showsSomething(id));
         QCOMPARE(canvas.closedSections(id), QStringList { QStringLiteral("browser") });
@@ -358,124 +358,124 @@ private slots:
         QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Grid);
     }
 
-    void updatingRoomTasksPreservesTheirVisibleOrder()
+    void updatingProjectTasksPreservesTheirVisibleOrder()
     {
         Fixture f;
-        f.workspace.missions().open(test::id(10));
+        f.workspace.projects().open(test::id(10));
         const auto task = [](int id, int version) {
             return QJsonObject {{QStringLiteral("id"), test::id(id)}, {QStringLiteral("version"), version}};
         };
-        const auto room = [&](const QJsonArray& tasks) {
-            f.workspace.apply({{QStringLiteral("type"), QStringLiteral("room.snapshot")},
-                {QStringLiteral("room"), QJsonObject {{QStringLiteral("roomId"), test::id(10)},
+        const auto project = [&](const QJsonArray& tasks) {
+            f.workspace.apply({{QStringLiteral("type"), QStringLiteral("project.snapshot")},
+                {QStringLiteral("content"), QJsonObject {{QStringLiteral("projectId"), test::id(10)},
                     {QStringLiteral("tasks"), tasks}, {QStringLiteral("messages"), QJsonArray {}}}}}, 0);
         };
-        room({task(1,1), task(2,1)});
-        room({task(2,1), task(1,2)});
-        const auto tasks = f.workspace.missions().room().value(QStringLiteral("tasks")).toList();
+        project({task(1,1), task(2,1)});
+        project({task(2,1), task(1,2)});
+        const auto tasks = f.workspace.projects().content().value(QStringLiteral("tasks")).toList();
         QCOMPARE(tasks.size(), 2);
         QCOMPARE(tasks.first().toMap().value(QStringLiteral("id")).toString(), test::id(1));
         QCOMPARE(tasks.first().toMap().value(QStringLiteral("version")).toInt(), 2);
     }
 
-    void aRoomIsNewUntilItsPersonSeesTheLatestMessage()
+    void aProjectIsNewUntilItsPersonSeesTheLatestMessage()
     {
         Fixture f;
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
             { QStringLiteral("userId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } }, 1);
-        auto& missions = f.workspace.missions();
+        auto& projects = f.workspace.projects();
         const auto catalog = [&](bool unread) {
-            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("missions.snapshot") },
-                { QStringLiteral("missions"), QJsonArray { QJsonObject { { QStringLiteral("id"), test::id(10) },
+            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("projects.snapshot") },
+                { QStringLiteral("projects"), QJsonArray { QJsonObject { { QStringLiteral("id"), test::id(10) },
                     { QStringLiteral("name"), QStringLiteral("Ten") }, { QStringLiteral("unread"), unread } } } },
                 { QStringLiteral("invitations"), QJsonArray {} } }, 1);
         };
-        const auto room = [&](int sequence) {
-            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.snapshot") },
-                { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) }, { QStringLiteral("tasks"), QJsonArray {} },
+        const auto project = [&](int sequence) {
+            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("project.snapshot") },
+                { QStringLiteral("content"), QJsonObject { { QStringLiteral("projectId"), test::id(10) }, { QStringLiteral("tasks"), QJsonArray {} },
                     { QStringLiteral("messages"), QJsonArray { QJsonObject { { QStringLiteral("id"), test::id(100 + sequence) },
                         { QStringLiteral("sequence"), sequence }, { QStringLiteral("authorId"), test::id(51) } } } } } } }, 1);
         };
         const auto seen = [&] {
             QList<qint64> sequences;
             for (const auto& command : std::as_const(f.commands.values)) {
-                if (command.value(QStringLiteral("type")).toString() == QStringLiteral("mission.seen"))
+                if (command.value(QStringLiteral("type")).toString() == QStringLiteral("project.seen"))
                     sequences.append(command.value(QStringLiteral("sequence")).toInteger());
             }
             return sequences;
         };
         bool front = false;
-        missions.isFront = [&front] { return front; };
+        projects.isFront = [&front] { return front; };
         catalog(true);
-        room(5);
-        QCOMPARE(missions.unreadRooms(), QStringList { test::id(10) });
+        project(5);
+        QCOMPARE(projects.unreadProjects(), QStringList { test::id(10) });
         QVERIFY(seen().isEmpty());
-        f.desktop.setActiveView(kodosi::DesktopStateModel::Missions);
-        missions.open(test::id(10));
+        f.desktop.setActiveView(kodosi::DesktopStateModel::Projects);
+        projects.open(test::id(10));
         QVERIFY(seen().isEmpty());
         front = true;
-        missions.readWatched();
+        projects.readWatched();
         QCOMPARE(seen(), QList<qint64> { 5 });
         catalog(false);
-        QVERIFY(missions.unreadRooms().isEmpty());
+        QVERIFY(projects.unreadProjects().isEmpty());
         QCOMPARE(seen(), QList<qint64> { 5 });
-        missions.setPresentation(QStringLiteral("followLatest"), false);
-        room(6);
+        projects.setPresentation(QStringLiteral("followLatest"), false);
+        project(6);
         QCOMPARE(seen(), QList<qint64> { 5 });
-        missions.setPresentation(QStringLiteral("followLatest"), true);
+        projects.setPresentation(QStringLiteral("followLatest"), true);
         QCOMPARE(seen(), (QList<qint64> { 5, 6 }));
     }
-    void aRoomCountsWhatArrivedOutOfView()
+    void aProjectCountsWhatArrivedOutOfView()
     {
         Fixture f;
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
             { QStringLiteral("userId"), test::id(50) }, { QStringLiteral("accountEpoch"), 1 } }, 1);
-        auto& missions = f.workspace.missions();
-        f.desktop.setActiveView(kodosi::DesktopStateModel::Missions);
-        missions.open(test::id(10));
+        auto& projects = f.workspace.projects();
+        f.desktop.setActiveView(kodosi::DesktopStateModel::Projects);
+        projects.open(test::id(10));
         int sequence = 0;
         QJsonArray tasks;
         QJsonArray repositories;
-        const auto room = [&](int messages) {
+        const auto project = [&](int messages) {
             QJsonArray list;
             for (int index = 0; index < messages; ++index) {
                 ++sequence;
                 list.append(QJsonObject { { QStringLiteral("id"), test::id(100 + sequence) }, { QStringLiteral("sequence"), sequence },
                     { QStringLiteral("authorId"), test::id(51) } });
             }
-            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.snapshot") },
-                { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) }, { QStringLiteral("tasks"), tasks },
+            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("project.snapshot") },
+                { QStringLiteral("content"), QJsonObject { { QStringLiteral("projectId"), test::id(10) }, { QStringLiteral("tasks"), tasks },
                     { QStringLiteral("repositories"), repositories }, { QStringLiteral("messages"), list } } } }, 1);
         };
-        const auto fresh = [&] { return missions.presentation().value(QStringLiteral("fresh")).toList(); };
-        const auto unread = [&] { return missions.presentation().value(QStringLiteral("unread")).toInt(); };
+        const auto fresh = [&] { return projects.presentation().value(QStringLiteral("fresh")).toList(); };
+        const auto unread = [&] { return projects.presentation().value(QStringLiteral("unread")).toInt(); };
         tasks = { QJsonObject { { QStringLiteral("id"), test::id(1) }, { QStringLiteral("version"), 1 } } };
-        room(0);
+        project(0);
         QVERIFY(fresh().isEmpty());
         tasks = { QJsonObject { { QStringLiteral("id"), test::id(1) }, { QStringLiteral("version"), 2 } } };
-        room(0);
+        project(0);
         QCOMPARE(fresh(), QVariantList { 1 });
         repositories = { QJsonObject { { QStringLiteral("id"), test::id(2) } } };
-        room(0);
+        project(0);
         QCOMPARE(fresh(), (QVariantList { 1, 2 }));
-        missions.setPresentation(QStringLiteral("section"), 1);
+        projects.setPresentation(QStringLiteral("section"), 1);
         QCOMPARE(fresh(), QVariantList { 2 });
         tasks = { QJsonObject { { QStringLiteral("id"), test::id(1) }, { QStringLiteral("version"), 3 } } };
-        room(0);
+        project(0);
         QCOMPARE(fresh(), QVariantList { 2 });
 
-        room(1);
+        project(1);
         QCOMPARE(unread(), 0);
-        missions.setPresentation(QStringLiteral("conversation"), false);
-        room(2);
-        room(1);
+        projects.setPresentation(QStringLiteral("conversation"), false);
+        project(2);
+        project(1);
         QCOMPARE(unread(), 3);
-        missions.setPresentation(QStringLiteral("conversation"), true);
+        projects.setPresentation(QStringLiteral("conversation"), true);
         QCOMPARE(unread(), 0);
-        missions.setPresentation(QStringLiteral("followLatest"), false);
-        room(1);
+        projects.setPresentation(QStringLiteral("followLatest"), false);
+        project(1);
         QCOMPARE(unread(), 1);
-        missions.setPresentation(QStringLiteral("followLatest"), true);
+        projects.setPresentation(QStringLiteral("followLatest"), true);
         QCOMPARE(unread(), 0);
     }
 
@@ -534,13 +534,13 @@ private slots:
         }
         QVERIFY(f.sessions.presentationSession(test::id(1))->away);
     }
-    void aHiddenTerminalLeavesTheListsAndItsViewUntilItIsBackButStaysInItsRoom()
+    void aHiddenTerminalLeavesTheListsAndItsViewUntilItIsBackButStaysInItsProject()
     {
         Fixture f;
         auto away = test::session(1, true, false);
         away.insert(QStringLiteral("status"), QStringLiteral("offline"));
         away.insert(QStringLiteral("hostName"), QStringLiteral("studio"));
-        away.insert(QStringLiteral("missionId"), test::id(10));
+        away.insert(QStringLiteral("projectId"), test::id(10));
         auto other = away;
         other.insert(QStringLiteral("id"), test::id(2));
         other.insert(QStringLiteral("incarnationId"), test::id(102));
@@ -927,7 +927,7 @@ private slots:
         }), 0);
         QCOMPARE(field(1, QStringLiteral("placeKind")).toString(), QStringLiteral("remote"));
     }
-    void aRoomTerminalThatIsNotOpenHereShowsTheStatusOfItsHost()
+    void aProjectTerminalThatIsNotOpenHereShowsTheStatusOfItsHost()
     {
         Fixture f;
         const auto closed = [](const int number) {
@@ -1002,17 +1002,17 @@ private slots:
         QVERIFY(f.sessions.listedSessions().isEmpty());
         QVERIFY(f.sessions.folderGroups().isEmpty());
     }
-    void aClosingTerminalLeavesItsRoomAtOnce()
+    void aClosingTerminalLeavesItsProjectAtOnce()
     {
         Fixture f;
         auto session = test::session(1);
-        session.insert(QStringLiteral("missionId"), test::id(10));
+        session.insert(QStringLiteral("projectId"), test::id(10));
         f.workspace.apply(test::snapshot({ session }), 0);
-        f.workspace.missions().open(test::id(10));
-        QCOMPARE(f.workspace.missions().sessionIds(), QStringList { test::id(1) });
+        f.workspace.projects().open(test::id(10));
+        QCOMPARE(f.workspace.projects().sessionIds(), QStringList { test::id(1) });
         session.insert(QStringLiteral("status"), QStringLiteral("closing"));
         f.workspace.apply(test::snapshot({ session }), 0);
-        QVERIFY(f.workspace.missions().sessionIds().isEmpty());
+        QVERIFY(f.workspace.projects().sessionIds().isEmpty());
     }
     void aTerminalThatWaitsForItsProgramsToStopDoesNotHoldUpANewOne()
     {
@@ -1203,7 +1203,7 @@ private slots:
         QCOMPARE(last.value(QStringLiteral("type")).toString(), QStringLiteral("session.disconnect"));
         QCOMPARE(last.value(QStringLiteral("sessionId")).toString(), test::id(7));
     }
-    void aTerminalStartedForARoomJoinsThatRoom()
+    void aTerminalStartedForARoomJoinsThatProject()
     {
         Fixture f;
         f.workspace.apply(test::snapshot({}), 0);
@@ -1214,7 +1214,7 @@ private slots:
             {}, QStringLiteral("/repo"), {}, QStringLiteral(" fix the test "), test::id(7), agent));
         const auto sent = f.commands.values.last();
         QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("session.create"));
-        QCOMPARE(sent.value(QStringLiteral("missionId")).toString(), test::id(7));
+        QCOMPARE(sent.value(QStringLiteral("projectId")).toString(), test::id(7));
         QVERIFY(!sent.contains(QStringLiteral("command")));
         QCOMPARE(sent.value(QStringLiteral("agent")).toObject(), QJsonObject::fromVariantMap(agent));
         QCOMPARE(sent.value(QStringLiteral("prompt")).toString(), QStringLiteral("fix the test"));
@@ -1468,8 +1468,8 @@ private slots:
         QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
         QVERIFY(f.desktop.selectSession(test::id(1)));
         f.desktop.toggleFocusForSelectedSession();
-        f.workspace.missions().open(test::id(10));
-        f.workspace.missions().setPresentation(QStringLiteral("terminal"), test::id(1));
+        f.workspace.projects().open(test::id(10));
+        f.workspace.projects().setPresentation(QStringLiteral("terminal"), test::id(1));
         f.workspace.apply(test::snapshot({ onMini(2) }), 1);
         QCOMPARE(f.desktop.stagedSessionIds(), QStringList { test::id(2) });
         QVERIFY(f.desktop.selectedSessionId().isEmpty());
@@ -1479,7 +1479,7 @@ private slots:
         QCOMPARE(f.desktop.selectedSessionId(), test::id(3));
         QCOMPARE(f.desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
         QVERIFY(opened(f.commands, test::id(3)));
-        QCOMPARE(f.workspace.missions().presentation().value(QStringLiteral("terminal")).toString(), test::id(3));
+        QCOMPARE(f.workspace.projects().presentation().value(QStringLiteral("terminal")).toString(), test::id(3));
     }
     void aRestartTakesNoSelectionThatThePersonGaveToAnotherTerminal()
     {
@@ -1613,144 +1613,144 @@ private slots:
         f.workspace.apply(test::snapshot({ invalid }), 0);
         QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
     }
-    void missionRepliesAreRequestScopedAndDeleteKeepsTerminal()
+    void projectRepliesAreRequestScopedAndDeleteKeepsTerminal()
     {
         Fixture f;
         auto terminal = test::session(1);
-        terminal.insert(QStringLiteral("missionId"), test::id(11));
+        terminal.insert(QStringLiteral("projectId"), test::id(11));
         f.workspace.apply(test::snapshot({ terminal }), 0);
-        f.workspace.missions().open(test::id(10));
+        f.workspace.projects().open(test::id(10));
         const auto oldRequest = f.commands.values.last().value(QStringLiteral("requestId"));
-        f.workspace.missions().open(test::id(11));
+        f.workspace.projects().open(test::id(11));
         const auto request = f.commands.values.last().value(QStringLiteral("requestId"));
-        const QJsonObject mission { { QStringLiteral("id"), test::id(11) },
+        const QJsonObject project { { QStringLiteral("id"), test::id(11) },
             { QStringLiteral("name"), QStringLiteral("Project") },
             { QStringLiteral("ownerUserId"), test::id(50) } };
-        QJsonObject reply { { QStringLiteral("type"), QStringLiteral("mission.result") },
-            { QStringLiteral("operation"), QStringLiteral("mission.open") },
-            { QStringLiteral("requestId"), oldRequest }, { QStringLiteral("mission"), mission },
+        QJsonObject reply { { QStringLiteral("type"), QStringLiteral("project.result") },
+            { QStringLiteral("operation"), QStringLiteral("project.open") },
+            { QStringLiteral("requestId"), oldRequest }, { QStringLiteral("project"), project },
             { QStringLiteral("members"), QJsonArray {} } };
         f.workspace.apply(reply, 0);
-        QVERIFY(f.workspace.missions().selectedMission().isEmpty());
+        QVERIFY(f.workspace.projects().selectedProject().isEmpty());
         reply.insert(QStringLiteral("requestId"), request);
         f.workspace.apply(reply, 0);
-        QCOMPARE(f.workspace.missions().sessionIds(), QStringList { test::id(1) });
-        f.workspace.apply({{QStringLiteral("type"),QStringLiteral("missions.snapshot")},{QStringLiteral("missions"),QJsonArray{}},{QStringLiteral("invitations"),QJsonArray{}}}, 0);
-        QVERIFY(f.workspace.missions().selectedMissionId().isEmpty());
-        f.workspace.missions().open(test::id(11));
-        f.workspace.missions().remove();
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("mission.result") },
-            { QStringLiteral("operation"), QStringLiteral("mission.delete") },
+        QCOMPARE(f.workspace.projects().sessionIds(), QStringList { test::id(1) });
+        f.workspace.apply({{QStringLiteral("type"),QStringLiteral("projects.snapshot")},{QStringLiteral("projects"),QJsonArray{}},{QStringLiteral("invitations"),QJsonArray{}}}, 0);
+        QVERIFY(f.workspace.projects().selectedProjectId().isEmpty());
+        f.workspace.projects().open(test::id(11));
+        f.workspace.projects().remove();
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("project.result") },
+            { QStringLiteral("operation"), QStringLiteral("project.delete") },
             { QStringLiteral("requestId"), f.commands.values.last().value(QStringLiteral("requestId")) },
-            { QStringLiteral("missionId"), test::id(11) } }, 0);
-        QVERIFY(f.workspace.missions().selectedMissionId().isEmpty());
+            { QStringLiteral("projectId"), test::id(11) } }, 0);
+        QVERIFY(f.workspace.projects().selectedProjectId().isEmpty());
         QVERIFY(f.sessions.containsSession(test::id(1)));
     }
-    void missionCreationNeedsOnlyNameAndAttachedTerminalsFollowCatalog()
+    void projectCreationNeedsOnlyNameAndAttachedTerminalsFollowCatalog()
     {
         Fixture f;
-        f.workspace.missions().create(QStringLiteral("  Release work  "));
+        f.workspace.projects().create(QStringLiteral("  Release work  "));
         QCOMPARE(f.commands.values.size(), 1);
         const auto created = f.commands.values.first();
-        QCOMPARE(created.value(QStringLiteral("type")).toString(), QStringLiteral("mission.create"));
+        QCOMPARE(created.value(QStringLiteral("type")).toString(), QStringLiteral("project.create"));
         QCOMPARE(created.value(QStringLiteral("name")).toString(), QStringLiteral("Release work"));
         QCOMPARE(created.size(), 3);
-        f.workspace.missions().create(QStringLiteral("   "));
+        f.workspace.projects().create(QStringLiteral("   "));
         QCOMPARE(f.commands.values.size(), 1);
         auto terminal = test::session(1);
-        terminal.insert(QStringLiteral("missionId"), test::id(10));
+        terminal.insert(QStringLiteral("projectId"), test::id(10));
         f.workspace.apply(test::snapshot({ terminal }), 0);
-        f.workspace.missions().open(test::id(10));
-        QCOMPARE(f.workspace.missions().sessionIds(), QStringList {test::id(1)});
-        QSignalSpy changed(&f.workspace.missions(), &kodosi::MissionsModel::selectionChanged);
-        terminal.insert(QStringLiteral("missionId"), test::id(11));
+        f.workspace.projects().open(test::id(10));
+        QCOMPARE(f.workspace.projects().sessionIds(), QStringList {test::id(1)});
+        QSignalSpy changed(&f.workspace.projects(), &kodosi::ProjectsModel::selectionChanged);
+        terminal.insert(QStringLiteral("projectId"), test::id(11));
         f.workspace.apply(test::snapshot({ terminal }), 0);
         QVERIFY(!changed.isEmpty());
-        QVERIFY(f.workspace.missions().sessionIds().isEmpty());
-        f.workspace.missions().open(test::id(11));
-        QCOMPARE(f.workspace.missions().sessionIds(), QStringList {test::id(1)});
+        QVERIFY(f.workspace.projects().sessionIds().isEmpty());
+        f.workspace.projects().open(test::id(11));
+        QCOMPARE(f.workspace.projects().sessionIds(), QStringList {test::id(1)});
         f.sessions.beginRefresh();
-        QVERIFY(f.workspace.missions().sessionIds().isEmpty());
+        QVERIFY(f.workspace.projects().sessionIds().isEmpty());
         f.workspace.apply(test::snapshot({}), 0);
-        QVERIFY(f.workspace.missions().sessionIds().isEmpty());
+        QVERIFY(f.workspace.projects().sessionIds().isEmpty());
     }
-    void truncatedMissionCatalogRetainsSelectionAndAllowsRecovery()
+    void truncatedProjectCatalogRetainsSelectionAndAllowsRecovery()
     {
         Fixture f;
-        const QJsonObject mission {{QStringLiteral("id"), test::id(11)},
+        const QJsonObject project {{QStringLiteral("id"), test::id(11)},
             {QStringLiteral("name"), QStringLiteral("Beyond the page")},
             {QStringLiteral("ownerUserId"), test::id(50)}};
-        f.workspace.missions().open(test::id(11));
+        f.workspace.projects().open(test::id(11));
         const auto previousRequest = f.commands.values.last().value(QStringLiteral("requestId"));
-        QJsonObject snapshot {{QStringLiteral("type"), QStringLiteral("missions.snapshot")},
-            {QStringLiteral("missions"), QJsonArray {}},
+        QJsonObject snapshot {{QStringLiteral("type"), QStringLiteral("projects.snapshot")},
+            {QStringLiteral("projects"), QJsonArray {}},
             {QStringLiteral("invitations"), QJsonArray {QJsonObject {
-                {QStringLiteral("id"), test::id(12)}, {QStringLiteral("missionId"), test::id(10)},
-                {QStringLiteral("missionName"), QStringLiteral("Invitation")}}}},
-            {QStringLiteral("missionsTruncated"), true},
+                {QStringLiteral("id"), test::id(12)}, {QStringLiteral("projectId"), test::id(10)},
+                {QStringLiteral("projectName"), QStringLiteral("Invitation")}}}},
+            {QStringLiteral("projectsTruncated"), true},
             {QStringLiteral("invitationsTruncated"), true}};
         f.workspace.apply(snapshot, 0);
-        QVERIFY(f.workspace.missions().catalogTruncated());
-        QCOMPARE(f.workspace.missions().selectedMissionId(), test::id(11));
+        QVERIFY(f.workspace.projects().catalogTruncated());
+        QCOMPARE(f.workspace.projects().selectedProjectId(), test::id(11));
         const auto detailRequest = f.commands.values.last();
-        QCOMPARE(detailRequest.value(QStringLiteral("type")).toString(), QStringLiteral("mission.open"));
-        QCOMPARE(detailRequest.value(QStringLiteral("missionId")).toString(), test::id(11));
+        QCOMPARE(detailRequest.value(QStringLiteral("type")).toString(), QStringLiteral("project.open"));
+        QCOMPARE(detailRequest.value(QStringLiteral("projectId")).toString(), test::id(11));
         QVERIFY(detailRequest.value(QStringLiteral("requestId")) != previousRequest);
-        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("mission.result")},
-            {QStringLiteral("operation"), QStringLiteral("mission.open")},
+        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("project.result")},
+            {QStringLiteral("operation"), QStringLiteral("project.open")},
             {QStringLiteral("requestId"), detailRequest.value(QStringLiteral("requestId"))},
-            {QStringLiteral("mission"), mission}, {QStringLiteral("members"), QJsonArray {}}}, 0);
-        QCOMPARE(f.workspace.missions().selectedMission().value(QStringLiteral("name")).toString(), QStringLiteral("Beyond the page"));
-        f.workspace.missions().declineInvitation(test::id(12));
+            {QStringLiteral("project"), project}, {QStringLiteral("members"), QJsonArray {}}}, 0);
+        QCOMPARE(f.workspace.projects().selectedProject().value(QStringLiteral("name")).toString(), QStringLiteral("Beyond the page"));
+        f.workspace.projects().declineInvitation(test::id(12));
         auto command = f.commands.values.last();
-        QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("mission.invitation.reject"));
+        QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("project.invitation.reject"));
         const auto sent = f.commands.values.size();
-        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("mission.result")},
+        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("project.result")},
             {QStringLiteral("operation"), command.value(QStringLiteral("type"))},
             {QStringLiteral("requestId"), command.value(QStringLiteral("requestId"))}}, 0);
         QCOMPARE(f.commands.values.size(), sent);
-        f.workspace.missions().leave();
+        f.workspace.projects().leave();
         command = f.commands.values.last();
-        QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("mission.leave"));
-        QCOMPARE(command.value(QStringLiteral("missionId")).toString(), test::id(11));
-        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("mission.result")},
+        QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("project.leave"));
+        QCOMPARE(command.value(QStringLiteral("projectId")).toString(), test::id(11));
+        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("project.result")},
             {QStringLiteral("operation"), command.value(QStringLiteral("type"))},
             {QStringLiteral("requestId"), command.value(QStringLiteral("requestId"))}}, 0);
-        QVERIFY(f.workspace.missions().selectedMissionId().isEmpty());
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("mission.leave"));
-        snapshot.remove(QStringLiteral("missionsTruncated"));
+        QVERIFY(f.workspace.projects().selectedProjectId().isEmpty());
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("project.leave"));
+        snapshot.remove(QStringLiteral("projectsTruncated"));
         snapshot.remove(QStringLiteral("invitationsTruncated"));
         f.workspace.apply(snapshot, 0);
-        QVERIFY(!f.workspace.missions().catalogTruncated());
+        QVERIFY(!f.workspace.projects().catalogTruncated());
         snapshot.insert(QStringLiteral("invitationsTruncated"), true);
-        f.workspace.missions().open(test::id(11));
+        f.workspace.projects().open(test::id(11));
         f.workspace.apply(snapshot, 0);
-        QVERIFY(f.workspace.missions().catalogTruncated());
-        QVERIFY(f.workspace.missions().selectedMissionId().isEmpty());
+        QVERIFY(f.workspace.projects().catalogTruncated());
+        QVERIFY(f.workspace.projects().selectedProjectId().isEmpty());
         f.workspace.reset();
-        QVERIFY(!f.workspace.missions().catalogTruncated());
+        QVERIFY(!f.workspace.projects().catalogTruncated());
     }
-    void unavailableMissionOutsideTruncatedPageClearsOnlyCurrentDetail()
+    void unavailableProjectOutsideTruncatedPageClearsOnlyCurrentDetail()
     {
         Fixture f;
-        f.workspace.missions().open(test::id(10));
+        f.workspace.projects().open(test::id(10));
         const auto stale = f.commands.values.last();
-        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("missions.snapshot")},
-            {QStringLiteral("missions"), QJsonArray {}}, {QStringLiteral("invitations"), QJsonArray {}},
-            {QStringLiteral("missionsTruncated"), true}}, 0);
+        f.workspace.apply({{QStringLiteral("type"), QStringLiteral("projects.snapshot")},
+            {QStringLiteral("projects"), QJsonArray {}}, {QStringLiteral("invitations"), QJsonArray {}},
+            {QStringLiteral("projectsTruncated"), true}}, 0);
         const auto current = f.commands.values.last();
         const auto failure = [](const QJsonObject& command) {
-            return QJsonObject {{QStringLiteral("type"), QStringLiteral("mission.error")},
-                {QStringLiteral("operation"), QStringLiteral("mission.open")},
+            return QJsonObject {{QStringLiteral("type"), QStringLiteral("project.error")},
+                {QStringLiteral("operation"), QStringLiteral("project.open")},
                 {QStringLiteral("requestId"), command.value(QStringLiteral("requestId"))},
-                {QStringLiteral("missionId"), command.value(QStringLiteral("missionId"))},
-                {QStringLiteral("message"), QStringLiteral("Mission unavailable")}};
+                {QStringLiteral("projectId"), command.value(QStringLiteral("projectId"))},
+                {QStringLiteral("message"), QStringLiteral("Project unavailable")}};
         };
         f.workspace.apply(failure(stale), 0);
-        QCOMPARE(f.workspace.missions().selectedMissionId(), test::id(10));
+        QCOMPARE(f.workspace.projects().selectedProjectId(), test::id(10));
         f.workspace.apply(failure(current), 0);
-        QVERIFY(f.workspace.missions().selectedMissionId().isEmpty());
-        QVERIFY(f.workspace.missions().catalogTruncated());
+        QVERIFY(f.workspace.projects().selectedProjectId().isEmpty());
+        QVERIFY(f.workspace.projects().catalogTruncated());
         QVERIFY(!f.workspace.error().isEmpty());
     }
     void friendDeviceAndShareCommandsStaySeparate()
@@ -1765,7 +1765,7 @@ private slots:
         QVERIFY(!command.contains(QStringLiteral("access")));
         QCOMPARE(command.value(QStringLiteral("userIds")).toArray().size(), 1);
         QVERIFY(!f.workspace.sessionActions().share(test::id(2), { test::id(51) }));
-        QVERIFY(f.workspace.sessionActions().attachMission(test::id(2), test::id(10)));
+        QVERIFY(f.workspace.sessionActions().attachProject(test::id(2), test::id(10)));
         f.workspace.devices().approve(QStringLiteral("ABCD-EFGH-JKMN"));
         command = f.commands.values.last();
         QCOMPARE(command.value(QStringLiteral("code")).toString(), QStringLiteral("ABCD-EFGH-JKMN"));
@@ -2037,18 +2037,18 @@ private slots:
         window.close();
         QCOMPARE(saved(), QPoint(70, 20));
     }
-    void aRoomThatTheCommandShowsOpensInFront()
+    void aProjectThatTheCommandShowsOpensInFront()
     {
         Fixture f;
         QWindow window;
         f.desktop.attachWindow(&window);
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("mission.show") },
-            { QStringLiteral("missionId"), test::id(10) } }, 0);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("project.show") },
+            { QStringLiteral("projectId"), test::id(10) } }, 0);
         QVERIFY(window.isVisible());
-        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Missions);
-        QCOMPARE(f.workspace.missions().selectedMissionId(), test::id(10));
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("mission.open"));
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("missionId")).toString(), test::id(10));
+        QCOMPARE(f.desktop.activeView(), kodosi::DesktopStateModel::Projects);
+        QCOMPARE(f.workspace.projects().selectedProjectId(), test::id(10));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("project.open"));
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("projectId")).toString(), test::id(10));
     }
     void endedSignInReturnsToSignedOutWithOneMessage()
     {
@@ -2110,36 +2110,36 @@ private slots:
         QVERIFY(f.workspace.error().isEmpty());
     }
 
-    void aRoomAnswerBringsItsIssuesAndOlderMessages()
+    void aProjectAnswerBringsItsIssuesAndOlderMessages()
     {
         Fixture f;
-        auto& missions = f.workspace.missions();
-        missions.open(test::id(10));
+        auto& projects = f.workspace.projects();
+        projects.open(test::id(10));
         const auto message = [](int sequence) {
             return QJsonObject { { QStringLiteral("id"), test::id(100 + sequence) }, { QStringLiteral("sequence"), sequence },
                 { QStringLiteral("authorId"), test::id(51) } };
         };
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.snapshot") },
-            { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) }, { QStringLiteral("hasOlder"), true },
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("project.snapshot") },
+            { QStringLiteral("content"), QJsonObject { { QStringLiteral("projectId"), test::id(10) }, { QStringLiteral("hasOlder"), true },
                 { QStringLiteral("messages"), QJsonArray { message(5) } } } } }, 0);
-        missions.roomAction({ { QStringLiteral("type"), QStringLiteral("issues") }, { QStringLiteral("repositoryId"), test::id(20) } });
+        projects.act({ { QStringLiteral("type"), QStringLiteral("issues") }, { QStringLiteral("repositoryId"), test::id(20) } });
         const auto issues = f.commands.values.last().value(QStringLiteral("requestId"));
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.result") }, { QStringLiteral("requestId"), issues },
-            { QStringLiteral("operation"), QStringLiteral("room.command") }, { QStringLiteral("roomId"), test::id(10) },
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("project.result") }, { QStringLiteral("requestId"), issues },
+            { QStringLiteral("operation"), QStringLiteral("project.act") }, { QStringLiteral("projectId"), test::id(10) },
             { QStringLiteral("action"), QStringLiteral("issues") }, { QStringLiteral("repositoryId"), test::id(20) },
             { QStringLiteral("issues"), QJsonArray { QJsonObject { { QStringLiteral("number"), 7 } } } } }, 0);
-        QCOMPARE(missions.issues().size(), 1);
-        missions.roomAction({ { QStringLiteral("type"), QStringLiteral("read") }, { QStringLiteral("before"), 5 } });
+        QCOMPARE(projects.issues().size(), 1);
+        projects.act({ { QStringLiteral("type"), QStringLiteral("read") }, { QStringLiteral("before"), 5 } });
         const auto older = f.commands.values.last().value(QStringLiteral("requestId"));
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("room.result") }, { QStringLiteral("requestId"), older },
-            { QStringLiteral("operation"), QStringLiteral("room.command") }, { QStringLiteral("roomId"), test::id(10) },
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("project.result") }, { QStringLiteral("requestId"), older },
+            { QStringLiteral("operation"), QStringLiteral("project.act") }, { QStringLiteral("projectId"), test::id(10) },
             { QStringLiteral("action"), QStringLiteral("read") },
-            { QStringLiteral("room"), QJsonObject { { QStringLiteral("roomId"), test::id(10) }, { QStringLiteral("hasOlder"), false },
+            { QStringLiteral("content"), QJsonObject { { QStringLiteral("projectId"), test::id(10) }, { QStringLiteral("hasOlder"), false },
                 { QStringLiteral("messages"), QJsonArray { message(3), message(4) } } } } }, 0);
-        const auto messages = missions.room().value(QStringLiteral("messages")).toList();
+        const auto messages = projects.content().value(QStringLiteral("messages")).toList();
         QCOMPARE(messages.size(), 3);
         QCOMPARE(messages.first().toMap().value(QStringLiteral("sequence")).toInt(), 3);
-        QVERIFY(!missions.room().value(QStringLiteral("hasOlder")).toBool());
+        QVERIFY(!projects.content().value(QStringLiteral("hasOlder")).toBool());
     }
 
     void aRejectedCommandShowsItsErrorAndLeavesNoWork()

@@ -68,7 +68,7 @@
 함께 모아요. 에이전트는 대화를 읽고 글을 올리고 작업을 맡아요. GitHub나 Gitea 이슈는 작업이
 돼요. 친구는 원할 때 초대하세요.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="공유 터미널과 사람과 에이전트의 대화가 있는 프로젝트."></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="공유 터미널과 사람과 에이전트의 대화가 있는 프로젝트."></p>
 
 **에이전트마다 브랜치 하나.** 에이전트를 전용 Git worktree의 새 브랜치에서 시작하면 두
 에이전트가 같은 파일을 바꾸는 일이 없어요.

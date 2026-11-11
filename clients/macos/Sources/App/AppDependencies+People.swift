@@ -15,7 +15,7 @@ extension AppDependencies {
         if let name = people.name(of: id) {
             return name
         }
-        if let member = rooms.details.values.lazy.flatMap(\.members).first(where: { $0.userId == id }) {
+        if let member = projects.details.values.lazy.flatMap(\.members).first(where: { $0.userId == id }) {
             return member.personName
         }
         return String(localized: "Guest")
@@ -93,19 +93,19 @@ extension AppDependencies {
         }
     }
 
-    func showRooms() {
-        workbench.selectedMissionId = nil
-        workbench.section = .missions
+    func showProjects() {
+        workbench.selectedProjectId = nil
+        workbench.section = .projects
     }
 }
 
 extension AppDependencies {
-    func respond(to invitation: MissionInvitationEntry, accept: Bool) {
-        rooms.run { [weak self] in
-            try await self?.rooms.respond(to: invitation, accept: accept)
+    func respond(to invitation: ProjectInvitationEntry, accept: Bool) {
+        projects.run { [weak self] in
+            try await self?.projects.respond(to: invitation, accept: accept)
             if accept {
-                self?.workbench.section = .missions
-                self?.openMission(id: invitation.missionId)
+                self?.workbench.section = .projects
+                self?.openProject(id: invitation.projectId)
             }
         }
     }

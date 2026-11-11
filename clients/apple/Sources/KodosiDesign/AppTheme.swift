@@ -127,7 +127,7 @@ public extension AppTheme {
 }
 
 public extension AppTheme.Colors {
-    /// The ground of what shows beside the work: a room's conversation and a canvas.
+    /// The ground of what shows beside the work: a project's conversation and a canvas.
     var sheet: Color {
         raised.mix(with: surface, by: 0.45)
     }

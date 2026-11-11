@@ -34,7 +34,7 @@ class RuntimeEvent(val type: String, val accountUserId: String?, val accountEpoc
                 "auth.refresh",
                 "friends.refresh",
                 "devices.refresh",
-                "mission.list"
+                "project.list"
             )
         fun parse(bytes: ByteArray): RuntimeEvent {
             val fields = RuntimeJson.parseToJsonElement(bytes.decodeToString()) as? JsonObject

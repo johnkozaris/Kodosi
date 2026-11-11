@@ -20,9 +20,9 @@ extension AppDependencies {
         switch workbench.section {
         case .sessions:
             return DosiContext(terminal: workbench.focusedSessionId ?? workbench.selectedSessionId)
-        case .missions:
-            guard let room = workbench.selectedMissionId else { return DosiContext() }
-            return DosiContext(terminal: roomWorkspace(room).selectedTerminal, room: room)
+        case .projects:
+            guard let project = workbench.selectedProjectId else { return DosiContext() }
+            return DosiContext(terminal: projectWorkspace(project).selectedTerminal, project: project)
         case .people, .settings:
             return DosiContext()
         }
@@ -101,8 +101,8 @@ extension AppDependencies {
         referred(reference, in: sessions, id: \.id, name: \.name)
     }
 
-    func room(named reference: String) -> MissionEntry? {
-        referred(reference, in: rooms.missions, id: \.id, name: \.name)
+    func project(named reference: String) -> ProjectEntry? {
+        referred(reference, in: projects.entries, id: \.id, name: \.name)
     }
 
     func open(_ target: DosiTarget) {
@@ -111,13 +111,13 @@ extension AppDependencies {
             if let session = terminal(named: target.value) {
                 activateSession(session.id)
             }
-        case .room:
-            if let mission = room(named: target.value) {
-                workbench.section = .missions
-                openMission(mission)
+        case .project:
+            if let project = project(named: target.value) {
+                workbench.section = .projects
+                openProject(project)
             }
-        case .rooms:
-            showRooms()
+        case .projects:
+            showProjects()
         case .terminals:
             workbench.section = .sessions
         case .url:
