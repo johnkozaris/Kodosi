@@ -14,6 +14,8 @@ struct RootView: View {
         case .ready:
             if model.account.isReady {
                 .main
+            } else if model.account.restoring == "updateRequired" {
+                .updateRequired
             } else if model.account.needsOnboarding {
                 .onboarding
             } else {
@@ -30,6 +32,8 @@ struct RootView: View {
                 LaunchView().transition(.opacity)
             case let .failed(message):
                 StartFailureView(message: message, retry: model.retry).transition(.opacity)
+            case .updateRequired:
+                UpdateRequiredView().transition(.opacity)
             case .onboarding:
                 OnboardingView().transition(.opacity.combined(with: .scale(scale: 0.98)))
             case .main:
@@ -37,7 +41,17 @@ struct RootView: View {
             }
         }
         .animation(theme.motion.soft, value: screen)
-        .overlay(alignment: .top) { NoticeBanner() }
+        .overlay(alignment: .top) {
+            if screen == .main || screen == .onboarding, model.updateRequired, !model.updateNoticeDismissed {
+                NoticePill(message: String(localized: "Update Kodosi to connect."),
+                           identifier: "notice.update") { model.updateNoticeDismissed = true }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            } else {
+                NoticeBanner()
+            }
+        }
         .background {
             LockWindow(covers: screen == .main && model.lock.covers(scenePhase), locked: model.lock.locked) {
                 LockCover().environment(model).kodosiTheme()
@@ -53,6 +67,7 @@ struct RootView: View {
     private enum Screen: Equatable {
         case launching
         case failed(String)
+        case updateRequired
         case onboarding
         case main
     }
@@ -62,6 +77,28 @@ struct LaunchView: View {
     var body: some View {
         KodosiWordmark(size: 26)
             .accessibilityIdentifier("launch.wordmark")
+    }
+}
+
+struct UpdateRequiredView: View {
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(spacing: 20) {
+            IconTile(symbol: "arrow.down.circle.fill", tint: theme.colors.accent, size: 56)
+            VStack(spacing: 8) {
+                Text("Signing in again")
+                    .appTextStyle(.title)
+                    .foregroundStyle(theme.colors.ink)
+                Text("Update Kodosi to sign in.")
+                    .appTextStyle(.body)
+                    .foregroundStyle(theme.colors.inkMuted)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(32)
+        .frame(maxWidth: 420)
+        .accessibilityIdentifier("launch.updateRequired")
     }
 }
 
