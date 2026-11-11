@@ -249,11 +249,11 @@ public struct AgentStart: Equatable, Sendable {
     }
 }
 
-extension AgentStart {
+public extension AgentStart {
     /// The agent in front of a terminal of this computer, to start once more: with its account,
     /// and with what it works with as far as Kodosi knows, its waiting change included. What
     /// Kodosi does not know stays the launcher's last choice.
-    public init?(runningIn session: RuntimeSession, info: AgentInfo?) {
+    init?(runningIn session: RuntimeSession, info: AgentInfo?) {
         guard session.kind == .local, let agent = session.program else { return nil }
         let account = session.programAccount.flatMap { place in
             info.flatMap { $0.accounts.indices.contains(place) ? $0.accounts[place].name : nil }
