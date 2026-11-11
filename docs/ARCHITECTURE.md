@@ -75,9 +75,9 @@ the host writes them into a folder of its own. Kodosi writes nothing into an age
 folders, so an agent outside a Kodosi terminal does not change.
 
 The host types a project message that names one of its terminals into the agent in that
-terminal, and `kodosi terminal message` sends such a line to an agent on any computer.
-A change of a running agent's model, effort or permissions is also typed, as the agent's
-own command. The host types only while the agent can take it: not while it waits for a
+terminal, and the `kodosi` command sends such a line to an agent on any computer. A change
+of a running agent's model, effort or permissions is also typed, as the agent's own
+command. The host types only while the agent can take it: not while it waits for a
 person, and not while a person types there.
 
 ## Canvas
