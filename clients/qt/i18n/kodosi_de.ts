@@ -4442,6 +4442,10 @@
         <translation>Neues Terminal</translation>
     </message>
     <message>
+        <source>Same agent</source>
+        <translation>Gleicher Agent</translation>
+    </message>
+    <message>
         <source>Quick terminal</source>
         <translation>Schnelles Terminal</translation>
     </message>
