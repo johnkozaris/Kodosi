@@ -46,6 +46,7 @@ jobs:
       - name: Make room on the disk while the next steps run
         run: sudo nohup rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL > /dev/null 2>&1 &
       - name: Install the system libraries
+        timeout-minutes: 5
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \

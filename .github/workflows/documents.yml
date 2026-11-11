@@ -64,6 +64,7 @@ jobs:
         with:
           bun-version: 1.4.4
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev
+        timeout-minutes: 5
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
