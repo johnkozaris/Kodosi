@@ -5,8 +5,9 @@ include_guard = "KODOSI_RUNTIME_H"
 documentation = false
 
 [defines]
-"target_vendor = apple" = "__APPLE__"
 "target_os = android" = "__ANDROID__"
+"target_os = linux" = "__linux__"
+"target_os = windows" = "_WIN32"
 
 [export]
 prefix = ""

@@ -816,7 +816,7 @@ async fn a_refresh_of_the_runtime_fails_quietly_and_a_request_hears_its_own_erro
 }
 
 #[tokio::test]
-async fn input_to_a_terminal_that_is_gone_shows_no_error_and_other_lost_input_does() {
+async fn input_that_does_not_reach_its_terminal_shows_no_error() {
     let (mut runtime, _root) = registry_fixture();
     let mut events = runtime.events.subscribe();
     let scope = runtime.scope.clone();
@@ -837,15 +837,7 @@ async fn input_to_a_terminal_that_is_gone_shows_no_error_and_other_lost_input_do
     runtime.input(gone, gone, gone, Bytes::from_static(b"x"), permit(), None);
     assert!(events.try_recv().is_err());
     runtime.complete(typed(Err(Error::Busy)));
-    let mut error = serde_json::to_value(events.try_recv().unwrap()).unwrap();
-    crate::text::render(&mut error, crate::text::Language::English);
-    assert_eq!(error["type"], "system.error");
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .starts_with("The terminal did not confirm the input")
-    );
+    assert!(events.try_recv().is_err());
 }
 
 #[tokio::test]
@@ -1703,7 +1695,6 @@ async fn typing_into_another_computer_that_does_not_answer_keeps_few_inputs_wait
     let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
     let id = remote.id;
     let (view, _requests, _updates) = open_view(&mut runtime, &remote).await;
-    let mut events = runtime.events.subscribe();
     for _ in 0..=MAX_TYPING {
         runtime.input(
             id,
@@ -1719,9 +1710,6 @@ async fn typing_into_another_computer_that_does_not_answer_keeps_few_inputs_wait
         remote_state(&runtime, id).2,
         Some(crate::network::input_not_sent())
     );
-    while let Ok(event) = events.try_recv() {
-        assert_ne!(serde_json::to_value(event).unwrap()["type"], "system.error");
-    }
 }
 
 #[tokio::test(start_paused = true)]

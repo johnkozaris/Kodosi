@@ -6254,38 +6254,6 @@
               }
             ]
           },
-          "message": {
-            "type": "string"
-          },
-          "type": {
-            "const": "system.error"
-          }
-        },
-        "required": [
-          "accountUserId",
-          "accountEpoch",
-          "type",
-          "message"
-        ],
-        "type": "object"
-      },
-      {
-        "additionalProperties": false,
-        "properties": {
-          "accountEpoch": {
-            "format": "u64",
-            "type": "integer"
-          },
-          "accountUserId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "type": {
             "const": "system.updateRequired"
           }

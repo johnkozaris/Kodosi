@@ -27,7 +27,12 @@ mod instance;
 mod link;
 mod subscriptions;
 mod terminal_bridge;
-#[cfg(not(target_vendor = "apple"))]
+// Only the Linux and Windows app decodes video here. Android's C headers define __linux__ too,
+// so the header needs the `not`.
+#[cfg(any(
+    target_os = "windows",
+    all(target_os = "linux", not(target_os = "android"))
+))]
 mod video;
 
 pub use app::{kodosi_close_app, kodosi_forward_activation, kodosi_log, kodosi_prepare};

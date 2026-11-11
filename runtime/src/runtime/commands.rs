@@ -1395,7 +1395,7 @@ impl Runtime {
                     && let Err(error) = result
                     && !matches!(error, Error::Stopped | Error::NotFound)
                 {
-                    self.emit(json!({"type":"system.error", "message":text!("The terminal did not confirm the input, and Kodosi did not send it again ({error}).", error = error.text())}));
+                    tracing::warn!(%error, "an answer of Dosi did not reach its terminal");
                 }
             }
             Completion::Typed {
@@ -1430,7 +1430,7 @@ impl Runtime {
                             && let Err(error) = result
                             && !matches!(error, Error::Stopped | Error::NotFound | Error::Unsent(_))
                         {
-                            self.emit(json!({"type":"system.error", "message":text!("The terminal did not confirm the input, and Kodosi did not send it again ({error}).", error = error.text())}));
+                            tracing::warn!(%error, "input did not reach its terminal");
                         }
                     }
                 }
@@ -1442,7 +1442,7 @@ impl Runtime {
                     && let Err(error) = result
                     && !matches!(error, Error::Stale)
                 {
-                    self.emit(json!({"type":"system.error", "message":error.text()}));
+                    tracing::warn!(%error, "the account did not start");
                 }
                 #[cfg(feature = "host")]
                 self.publish_locals();
