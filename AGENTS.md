@@ -53,6 +53,9 @@ decisions. Before you change a client's interface, read that client's `PRODUCT.m
 - A test stays only if it can fail for a real fault in behavior that people or another
   part rely on. Don't test constants, defaults, generated code, a stand-in, the language
   or the framework, or what the test itself set up.
+- A check runs in one place, where it finds its fault first. A pull request compiles and
+  tests each platform. Package, signature and release checks run when their own files
+  change. Don't add a check for what a build, a test or another check already finds.
 - One job has one implementation. In the change that makes something unused, remove it
   with its settings, texts, assets, scripts and tests.
 
