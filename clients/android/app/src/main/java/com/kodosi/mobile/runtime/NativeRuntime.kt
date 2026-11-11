@@ -3,7 +3,7 @@ package com.kodosi.mobile.runtime
 import android.content.Context
 import java.nio.ByteBuffer
 
-/** The runtime calls these on its own threads. Each call must return quickly. */
+/** What the runtime calls on its own threads. Each call must return quickly. */
 interface RuntimeCallbacks {
     fun onEvent(json: ByteArray)
 
@@ -36,7 +36,7 @@ internal object NativeRuntime {
 
     @JvmStatic external fun protocolVersion(): Int
 
-    /** The runtime needs the app's context to check certificates. */
+    /** Gives the runtime the app's context, which it needs to check certificates. */
     @JvmStatic external fun prepare(context: Context): Int
 
     @JvmStatic external fun setLanguage(language: String)
@@ -68,6 +68,7 @@ internal object NativeRuntime {
     ): Int
 }
 
+/** The codes of the C API. */
 object Ffi {
     const val ABI_VERSION = 11
     const val PROTOCOL_VERSION = 86

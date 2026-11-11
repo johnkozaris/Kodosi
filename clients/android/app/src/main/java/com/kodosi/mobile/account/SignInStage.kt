@@ -44,7 +44,7 @@ sealed interface SignInStage {
         }
 }
 
-/** The system browser opens a sign-in page only over HTTPS, or over HTTP on this device. */
+/** A sign-in page that the system browser may open: HTTPS, or HTTP on this device. */
 object ExternalAuthUrl {
     private val loopback = setOf("127.0.0.1", "localhost", "::1", "[::1]")
 

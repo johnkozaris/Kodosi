@@ -2,6 +2,7 @@ package com.kodosi.mobile.terminals
 
 import java.nio.ByteBuffer
 
+/** The visible screen of a terminal, cell by cell, as the kernel wrote it. */
 class TerminalFrame(
     val cols: Int,
     val rows: Int,
@@ -42,7 +43,7 @@ class TerminalFrame(
 
     fun foreground(column: Int, row: Int): Int = foregrounds[index(column, row)]
 
-    /** Zero is the terminal's own background. */
+    /** The background of a cell, or zero for the terminal's own. */
     fun background(column: Int, row: Int): Int = backgrounds[index(column, row)]
 
     fun style(column: Int, row: Int): Int = styles[index(column, row)] and 0xFFFF

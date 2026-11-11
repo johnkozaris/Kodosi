@@ -2,6 +2,7 @@ package com.kodosi.mobile.terminals
 
 import java.text.Collator
 
+/** The sign at the end of a terminal's row: what it waits for, or that it changed. */
 enum class StatusForm { CHANGED, HAND, QUESTION, KEY, DONE, FAILED }
 
 fun RuntimeSession.sign(unseen: Boolean = attention): StatusForm? = when (waitState) {
@@ -28,10 +29,12 @@ data class TerminalGroup(val place: Place, val sessions: List<RuntimeSession>) {
         data class Friend(override val id: String, override val name: String) : Place
     }
 
+    /** Whether the computers of these terminals are offline. */
     val away: Boolean get() = sessions.isNotEmpty() && sessions.all { it.hostOffline }
 }
 
 object TerminalCatalog {
+    /** Your terminals by computer, then the terminals of each friend. */
     fun groups(sessions: List<RuntimeSession>, unknownComputer: String, sharedWithYou: String): List<TerminalGroup> {
         val computers = LinkedHashMap<String, Pair<String, MutableList<RuntimeSession>>>()
         val friends = LinkedHashMap<String, Pair<String, MutableList<RuntimeSession>>>()

@@ -17,6 +17,7 @@ default: build
 
 # Build the viewer runtime for Android as a shared library in app/build/runtime/<profile>.
 runtime-build profile="dev":
+    python3 "{{ root }}/terminal/ghostty/scripts/verify-ghostty-pins.py" --platform android
     cd "{{ root }}/runtime" && cargo ndk --target arm64-v8a --platform {{ min_sdk }} \
         --output-dir "{{ justfile_directory() }}/app/build/runtime/{{ profile }}" \
         {{ runtime_rustc }} --profile {{ profile }} -- -C link-arg=-Wl,-soname,libkodosi_ffi_c.so

@@ -271,6 +271,16 @@ android-build:
 android-run:
     just --justfile clients/android/justfile run
 
+# Check the Kotlin style and run Android lint on the Android app.
+[group('android')]
+android-lint:
+    just --justfile clients/android/justfile lint
+
+# Run the unit tests of the Android app.
+[group('android')]
+android-test:
+    just --justfile clients/android/justfile test
+
 # Lint the runtime for Android, lint and test the Android app, build it, then check its translations.
 [group('android')]
 android-check: android-rust-lint

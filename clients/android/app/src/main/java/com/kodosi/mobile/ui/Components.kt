@@ -64,6 +64,7 @@ import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
 
+/** True when the person asked the system for less motion. */
 @Composable
 fun reducedMotion(): Boolean {
     val context = LocalContext.current
@@ -74,6 +75,7 @@ fun reducedMotion(): Boolean {
 
 enum class Elevation(val depth: Dp) { RESTING(2.dp), LIFTED(6.dp), FLOATING(12.dp) }
 
+/** A raised object: lit from the top left, with a hairline and a shadow that falls down and right. */
 fun Modifier.raised(
     colors: KodosiColors,
     shape: Shape,
@@ -182,6 +184,7 @@ fun ErrorNote(message: String, modifier: Modifier = Modifier) {
     }
 }
 
+/** The wordmark with the copper cursor that ends it. */
 @Composable
 fun Wordmark(height: Dp, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
@@ -230,6 +233,7 @@ private fun AgentKind.glyph(): Int? = when (this) {
     AgentKind.SHELL -> null
 }
 
+/** A squircle in the program's color with its glyph; a warm light circles it while it works. */
 @Composable
 fun AgentMark(
     kind: AgentKind,
@@ -312,6 +316,7 @@ private fun WorkingLight(colors: KodosiColors, size: Dp, modifier: Modifier) {
     }
 }
 
+/** The one sign that a terminal waits, finished, failed or changed. */
 @Composable
 fun StatusSign(form: StatusForm, size: Dp, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
@@ -444,6 +449,7 @@ fun StatusSign(form: StatusForm, size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
+/** A plain glyph from the app's drawables in the color of its text. */
 @Composable
 fun Glyph(@DrawableRes id: Int, tint: Color, size: Dp, modifier: Modifier = Modifier, description: String? = null) {
     Icon(painterResource(id), contentDescription = description, tint = tint, modifier = modifier.size(size))

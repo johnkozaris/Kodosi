@@ -8,6 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 
 class RuntimeFailure(message: String) : Exception(message)
 
+/** Sends commands to the runtime for the current account and pairs each request with its answer. */
 class CommandSink(private val words: Words) {
     enum class Delivery { CALLER, APP }
 

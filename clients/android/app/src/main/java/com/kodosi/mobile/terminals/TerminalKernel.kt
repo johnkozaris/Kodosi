@@ -3,7 +3,10 @@ package com.kodosi.mobile.terminals
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/** Its calls are safe from any thread, also after it closes. */
+/**
+ * Ghostty's terminal state for one view: it takes the runtime's checkpoints and data in order and
+ * gives the visible screen to draw. Its calls are safe from any thread, also after it closes.
+ */
 class TerminalKernel : AutoCloseable {
     enum class Key {
         ENTER,
@@ -44,7 +47,7 @@ class TerminalKernel : AutoCloseable {
         if (handle == 0L) CLOSED else nativeResize(handle, atSequence, rows, cols, cellWidth, cellHeight)
     }
 
-    /** Null before the first checkpoint. */
+    /** The visible screen, or null before the first checkpoint. */
     fun frame(): TerminalFrame? = synchronized(this) {
         if (handle == 0L) return null
         var written = nativeFrame(handle, output)
@@ -62,7 +65,11 @@ class TerminalKernel : AutoCloseable {
         if (handle == 0L) null else nativeEncodeKey(handle, key.ordinal, modifiers, text)
     }
 
-    /** Zero returns to the bottom. Tells whether the view moved. */
+    fun encodePaste(text: String): ByteArray? = synchronized(this) {
+        if (handle == 0L) null else nativeEncodePaste(handle, text.encodeToByteArray())
+    }
+
+    /** Moves the view through the history; zero returns to the bottom. Tells whether it moved. */
     fun scroll(rows: Int): Boolean = synchronized(this) { handle != 0L && nativeScroll(handle, rows) }
 
     override fun close() = synchronized(this) {
@@ -109,6 +116,8 @@ class TerminalKernel : AutoCloseable {
 
         @JvmStatic
         private external fun nativeEncodeKey(handle: Long, key: Int, modifiers: Int, text: String?): ByteArray?
+
+        @JvmStatic private external fun nativeEncodePaste(handle: Long, text: ByteArray): ByteArray?
 
         @JvmStatic private external fun nativeScroll(handle: Long, rows: Int): Boolean
     }

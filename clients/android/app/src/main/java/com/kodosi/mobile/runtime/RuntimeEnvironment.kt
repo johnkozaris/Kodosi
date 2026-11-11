@@ -7,7 +7,7 @@ import android.system.Os
 import com.kodosi.mobile.BuildConfig
 import java.io.File
 
-/** The runtime reads its settings from the environment when it starts. */
+/** Gives the runtime its settings, which it reads from the environment when it starts. */
 object RuntimeEnvironment {
     fun install(context: Context) {
         val root = File(context.noBackupFilesDir, "kodosi")

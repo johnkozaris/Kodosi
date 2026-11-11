@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.channels.Channel
 
+/** The view of one terminal that the runtime streams to. */
 interface TerminalLink {
     val subscriptionId: String
     val generation: Long
@@ -25,6 +26,7 @@ interface TerminalLink {
     }
 }
 
+/** The embedded runtime: its handle, its events and the terminals that it streams. */
 class RuntimeHandle : RuntimeCallbacks {
     sealed interface Start {
         data object Started : Start
@@ -44,7 +46,7 @@ class RuntimeHandle : RuntimeCallbacks {
     private var handle = 0L
     private val links = ConcurrentHashMap<String, TerminalLink>()
 
-    /** Blocks, so call it away from the main thread. */
+    /** Starts the runtime. It blocks, so call it away from the main thread. */
     fun start(context: Context, language: String): Start {
         if (NativeRuntime.abiVersion() != Ffi.ABI_VERSION || NativeRuntime.protocolVersion() != Ffi.PROTOCOL_VERSION) {
             return Start.Incompatible
@@ -57,7 +59,7 @@ class RuntimeHandle : RuntimeCallbacks {
         return Start.Started
     }
 
-    /** Waits for the runtime's callbacks to end. */
+    /** Stops the runtime and waits for its callbacks to end. */
     fun stop() {
         val current = handle
         handle = 0
@@ -140,6 +142,7 @@ class RuntimeHandle : RuntimeCallbacks {
     companion object {
         private const val EVENT_CAPACITY = 256
 
+        /** Gives the runtime's sentences for people in this language from now on. */
         fun setLanguage(language: String) = NativeRuntime.setLanguage(language)
     }
 }

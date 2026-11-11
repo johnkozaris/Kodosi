@@ -101,6 +101,7 @@ android {
     testOptions { unitTests.isReturnDefaultValues = false }
 }
 
+/** Puts the notices of the code, the font and the artwork in the app into its assets. */
 abstract class CollectNotices @Inject constructor(private val files: FileSystemOperations) : DefaultTask() {
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.NAME_ONLY)

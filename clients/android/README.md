@@ -41,3 +41,14 @@ the three together.
 The app needs Android 10 (API level 29), the first with the native thread-local storage
 that Rust, Zig and the NDK use. The runtime, Ghostty and the app build for that level and
 for 64-bit ARM only.
+
+## Limits
+
+- The runtime keeps the sign-in and the device keys in private files in the app's data
+  folder, which Android keeps from other apps, and not in the Android Keystore.
+- Besides sign-in and the approval of the phone, the app has only the Terminals tab and
+  the terminal. Projects, friends, settings with sign-out, the composer, the canvas, calls to
+  a computer, links, the mouse, selection and the clipboard are not there yet.
+- The runtime and the app each have their own copy of Ghostty's terminal library.
+- The app carries the notices of Ghostty, JetBrains Mono and the provider marks, but not
+  yet the licenses of the runtime's Rust crates, and no screen shows them.

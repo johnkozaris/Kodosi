@@ -18,6 +18,7 @@ data class TerminalsState(
     val listed: Boolean = false
 )
 
+/** The terminals that this device can open, as the runtime lists them. */
 class TerminalStore(private val commands: CommandSink) {
     private val mutableState = MutableStateFlow(TerminalsState())
     val state: StateFlow<TerminalsState> = mutableState
@@ -39,7 +40,7 @@ class TerminalStore(private val commands: CommandSink) {
         }
     }
 
-    /** Until the answer comes, the list is not known to be empty. */
+    /** Asks for the terminals. Until the answer comes, the list is not known to be empty. */
     fun list() {
         val request = UuidV7.generate()
         listing = request
@@ -48,7 +49,7 @@ class TerminalStore(private val commands: CommandSink) {
 
     fun absorb(event: RuntimeEvent) = settleList(event)
 
-    /** The runtime streams only the terminal that this device shows. */
+    /** Tells the runtime which terminal this device shows, so that it streams only that one. */
     fun watch(sessionId: String, shown: Boolean) {
         val next = if (shown) sessionId else watching.takeIf { it != sessionId }
         if (next == watching) return
