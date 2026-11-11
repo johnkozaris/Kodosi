@@ -253,8 +253,6 @@ impl RemoteTerminal {
         wait_for(admission, result, CONTROL_TIMEOUT)
     }
 
-    /// Asks the canvas of the terminal. Canvas requests do not wait for the terminal's own
-    /// operations, which keep their order.
     pub(crate) fn canvas(
         &self,
         request: crate::canvas::CanvasRequest,
@@ -267,7 +265,6 @@ impl RemoteTerminal {
         )
     }
 
-    /// Joins a live document on the computer of this terminal.
     pub(crate) fn document(
         &self,
         pipe: Uuid,
@@ -287,8 +284,6 @@ impl RemoteTerminal {
         )
     }
 
-    /// Sends a pasted picture to the terminal's computer, after the pictures that wait. A
-    /// picture that waits or travels already is not sent again.
     pub(crate) fn picture(
         &self,
         picture: Picture,
@@ -382,7 +377,6 @@ impl RequestedResize {
     }
 }
 
-/// The picture that travels to the terminal's computer.
 struct Sending {
     digest: [u8; 32],
     total: u64,
@@ -1310,8 +1304,7 @@ impl RemoteActor {
         }
     }
 
-    /// Tells how much of the picture arrived. A progress that does not fit the queue waits for
-    /// the next one.
+    /// A progress that does not fit the queue waits for the next one.
     fn picture_progress(&self, sent: u64, total: u64) {
         if self
             .sending

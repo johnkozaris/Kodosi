@@ -1742,7 +1742,6 @@ fn key_text(key: &str) -> Result<String> {
     Ok(named.to_owned())
 }
 
-/// Pastes a picture and waits until it arrives on the terminal's computer.
 async fn picture(
     client: &mut local_host::Client,
     context: &mut Context,

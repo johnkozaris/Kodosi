@@ -30,11 +30,9 @@ type Reply = oneshot::Receiver<std::result::Result<Value, Text>>;
 type PictureAnswer =
     std::pin::Pin<Box<dyn Future<Output = (PictureOffer, std::result::Result<bool, Text>)> + Send>>;
 
-/// The pictures that all views of this host's terminals send at once.
 static PICTURE_MEMORY: tokio::sync::Semaphore =
     tokio::sync::Semaphore::const_new(4 * TERMINAL_PICTURE_MAX_BYTES);
 
-/// A picture whose parts a view sends.
 struct Receiving {
     offer: PictureOffer,
     bytes: Vec<u8>,
@@ -596,7 +594,6 @@ enum Captured {
     Ended(End),
 }
 
-/// What the documents of this connection give it to send.
 enum Leaving {
     Frame { pipe: Uuid, frame: Vec<u8> },
     Closed { pipe: Uuid },
@@ -607,7 +604,6 @@ struct PipeIn {
     filling: Vec<u8>,
 }
 
-/// Carries a document's frames to the connection until the document or the connection ends.
 async fn leave(pipe: Uuid, mut frames: mpsc::Receiver<Vec<u8>>, leaving: mpsc::Sender<Leaving>) {
     while let Some(frame) = frames.recv().await {
         if leaving.send(Leaving::Frame { pipe, frame }).await.is_err() {
@@ -829,8 +825,8 @@ impl<'a, T: Transport> Stream<'a, T> {
         }
     }
 
-    /// Asks the terminal for a document. A slow open does not hold the terminal, and frames
-    /// that the viewer sends in that time wait in the pipe.
+    /// A slow open does not hold the terminal, and frames that the viewer sends in that time wait
+    /// in the pipe.
     fn open_pipe(&mut self, pipe: Uuid, key: String, name: String) {
         if self.pipes.len() >= MOST_PIPES {
             self.pipe_parts.push_back(Frame::PipeClose { pipe });
@@ -1228,9 +1224,8 @@ impl<'a, T: Transport> Stream<'a, T> {
         Ok(())
     }
 
-    /// A view offers a picture. The terminal pastes it at once if it has its file. A view offers
-    /// the next picture before an answer only when it stopped waiting for the last one, so the
-    /// next picture takes its place.
+    /// A view offers the next picture before an answer only when it stopped waiting for the last
+    /// one, so the next picture takes its place.
     async fn offered(&mut self, offer: PictureOffer) -> Result<()> {
         let digest = crate::terminal::picture_digest(&offer.sha256)
             .filter(|_| offer.size > 0 && offer.size <= TERMINAL_PICTURE_MAX_BYTES as u64)
@@ -1284,7 +1279,6 @@ impl<'a, T: Transport> Stream<'a, T> {
         Ok(())
     }
 
-    /// Pastes a picture whose parts all arrived, if it is the picture that the view offered.
     async fn paste(&mut self, receiving: Receiving) -> Result<()> {
         let Receiving {
             offer,
@@ -1316,7 +1310,6 @@ impl<'a, T: Transport> Stream<'a, T> {
         Ok(())
     }
 
-    /// Answers a view's picture: pasted, refused, or asked for when this host does not have it.
     async fn picture_answered(
         &mut self,
         (offer, answer): (PictureOffer, std::result::Result<bool, Text>),

@@ -152,7 +152,6 @@ impl Runtime {
         self.dosi_output(out);
     }
 
-    /// The computer `device` of the person, with its name from the person's devices.
     fn dosi_computer(&self, device: &str) -> DosiComputer {
         let name = self
             .cached_events

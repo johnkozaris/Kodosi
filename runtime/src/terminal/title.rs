@@ -21,8 +21,6 @@ pub(crate) fn titles_look_same(left: Option<&str>, right: Option<&str>) -> bool 
     }
 }
 
-/// The words of a title for people to read: without the spinner or the status mark before
-/// them, and without characters that hide or reorder text.
 pub(crate) fn title_words(title: &str) -> Option<String> {
     super::status::display_text(words(title), MAX_WORDS_CHARS)
 }

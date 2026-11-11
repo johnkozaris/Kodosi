@@ -618,15 +618,15 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
 #[test]
 fn only_a_codex_that_a_person_started_by_hand_misses_kodosi_s_note() {
     let words = |line: &str| line.split(' ').map(str::to_owned).collect::<Vec<_>>();
-    assert!(Agent::Codex.outside(&words("codex -m gpt-5.6-sol")));
-    assert!(!Agent::Codex.outside(&[
+    assert!(Agent::Codex.started_without_note(&words("codex -m gpt-5.6-sol")));
+    assert!(!Agent::Codex.started_without_note(&[
         "codex".to_owned(),
         "-c".to_owned(),
         format!("developer_instructions={}", CONTEXT.trim()),
     ]));
-    assert!(!Agent::Codex.outside(&[]));
-    assert!(!Agent::Claude.outside(&words("claude")));
-    assert!(!Agent::Copilot.outside(&words("copilot")));
+    assert!(!Agent::Codex.started_without_note(&[]));
+    assert!(!Agent::Claude.started_without_note(&words("claude")));
+    assert!(!Agent::Copilot.started_without_note(&words("copilot")));
 }
 
 #[test]

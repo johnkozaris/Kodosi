@@ -103,8 +103,6 @@ fn is_record(name: &str) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
 }
 
-/// Of the Copilot CLI sessions that a process of the group `group` holds with its lock, the
-/// one that it entered or wrote last.
 pub(super) fn copilot_conversation(state_root: &Path, group: u32) -> Option<String> {
     let root = storage::transcript_root(state_root, Provider::Copilot);
     std::fs::read_dir(root)

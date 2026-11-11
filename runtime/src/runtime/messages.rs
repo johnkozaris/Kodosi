@@ -7,7 +7,6 @@ use crate::terminal::{ProgramState, ProgramStatus};
 
 const MOST_WAITING: usize = 20;
 const MOST_UNCHECKED: usize = 64;
-/// How long a mention of another person waits for a check of its author that gets an answer.
 pub(super) const CHECK_PATIENCE: std::time::Duration = std::time::Duration::from_mins(10);
 const MOST_TEXT: usize = 500;
 const MOST_NAME: usize = 80;
@@ -40,7 +39,6 @@ pub(super) struct Mention {
     pub sequence: u64,
 }
 
-/// A mention of another person that waits for the signed records of its author.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Unchecked {
     pub room: Uuid,
@@ -102,7 +100,6 @@ impl Mentions {
         self.unchecked.drain(..extra);
     }
 
-    /// The mentions to check now, without the ones that waited too long.
     pub(super) fn take_unchecked(&mut self, now: tokio::time::Instant) -> Vec<Unchecked> {
         let mut unchecked = std::mem::take(&mut self.unchecked);
         unchecked.retain(|waiting| now.duration_since(waiting.since) < CHECK_PATIENCE);

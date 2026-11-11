@@ -25,12 +25,10 @@ const CHECK: Duration = Duration::from_secs(1);
 
 type Reply = oneshot::Sender<Result<CanvasAnswer, Text>>;
 
-/// What all canvases of this computer share.
 #[derive(Clone)]
 pub(crate) struct CanvasServices {
     pub(crate) documents: DocumentHost,
     pub(crate) browsers: BrowserHost,
-    /// The agent-browser that runs the agents' browser commands.
     pub(crate) agent_browser: PathBuf,
 }
 
@@ -93,8 +91,6 @@ enum Job {
     },
 }
 
-/// An agent's `kodosi show`: files, and an address for the shared browser, which the canvas
-/// opens at for the people of the terminal.
 pub(crate) struct Show {
     pub(crate) paths: Vec<PathBuf>,
     pub(crate) address: Option<String>,
@@ -103,7 +99,6 @@ pub(crate) struct Show {
     pub(crate) agent: Option<String>,
 }
 
-/// The canvas of one terminal: the files that its agent shows and its shared browser.
 #[derive(Clone)]
 pub(crate) struct CanvasHandle {
     jobs: mpsc::Sender<Job>,
@@ -160,7 +155,6 @@ impl CanvasHandle {
         });
     }
 
-    /// The folder of the terminal, where the files that people add go.
     pub(crate) fn moved_to(&self, folder: PathBuf) {
         self.folder.send_replace(folder);
     }
@@ -169,7 +163,6 @@ impl CanvasHandle {
         self.state.clone()
     }
 
-    /// What the canvas shows now; none when it is empty.
     pub(crate) fn current(&self) -> Option<Canvas> {
         Some(self.state.borrow().clone()).filter(|canvas| !canvas.is_empty())
     }
@@ -204,8 +197,6 @@ impl CanvasHandle {
         .await
     }
 
-    /// Joins the live document of an item of this canvas. `view` names this one view, and
-    /// `person` is the same in each view of one person.
     pub(crate) async fn document(
         &self,
         key: &str,
@@ -244,7 +235,6 @@ impl CanvasHandle {
         self.documents.open(&path_of(key), viewer).await
     }
 
-    /// Runs an agent's `kodosi doc` command.
     pub(crate) async fn document_command(
         &self,
         agent: Option<String>,
@@ -269,8 +259,6 @@ impl CanvasHandle {
         answer
     }
 
-    /// Draws each page of a file in this terminal's browser, as people see it, and saves the
-    /// pictures. The agent looks and changes nothing.
     async fn render(
         &self,
         viewer: documents::Viewer,
@@ -311,13 +299,10 @@ impl CanvasHandle {
         self.ask(|reply| Job::Request { request, reply }).await
     }
 
-    /// The web page that the browser opens when it wakes, which also opens when the terminal
-    /// comes back: the last one that it showed, or the one that it came back with.
     pub(crate) fn address(&self) -> Option<String> {
         self.page.borrow().clone()
     }
 
-    /// Brings back the files and the browser of the terminal that this one replaces.
     pub(crate) fn restore(&self, paths: Vec<PathBuf>, address: Option<String>, from: Uuid) {
         drop(self.jobs.try_send(Job::Restore {
             paths,
@@ -326,8 +311,6 @@ impl CanvasHandle {
         }));
     }
 
-    /// Closes the browser. `remove` also deletes its profile, because the terminal does not
-    /// come back.
     pub(crate) async fn end(&self, remove: bool) {
         let (reply, done) = oneshot::channel();
         if self.jobs.send(Job::End { remove, reply }).await.is_ok() {
@@ -531,8 +514,6 @@ impl Actor {
         }
     }
 
-    /// Shows files and pages on the canvas and opens it at them for the people of the terminal.
-    /// A page that loads from the network, and an address, open in the shared browser.
     async fn show(&mut self, show: Show, reply: Reply) {
         let Show {
             paths,
@@ -697,8 +678,6 @@ impl Actor {
             .map(|(browser, _)| Arc::clone(browser))
     }
 
-    /// `key` now, later than each show and change before, so that each device acts on each
-    /// one once and in order.
     fn mark(&self, key: String) -> CanvasOpen {
         let at = [&self.open, &self.change]
             .into_iter()
@@ -753,7 +732,6 @@ impl Actor {
     }
 }
 
-/// The private folder of the pictures that `kodosi doc render` draws for a terminal.
 fn pictures(data_root: &Path, id: Uuid) -> PathBuf {
     data_root.join("render").join(id.to_string())
 }
@@ -789,9 +767,8 @@ fn shown(showing: &Showing, terminal: &str) -> Vec<String> {
     lines
 }
 
-/// Deletes the browser profiles of the terminals that do not come back, and the pictures of
-/// earlier renders, on a thread of its own, as a profile can hold thousands of files. It finds
-/// them before a terminal starts, and each new terminal has a new ID, so none of them is in use.
+/// Runs on a thread of its own, as a profile can hold thousands of files. It finds them before a
+/// terminal starts, and each new terminal has a new ID, so none of them is in use.
 pub(crate) fn keep_profiles(data_root: &Path, returning: &HashSet<Uuid>) {
     let mut left = browser::left_profiles(data_root, returning);
     left.extend(
@@ -815,7 +792,6 @@ pub(crate) fn keep_profiles(data_root: &Path, returning: &HashSet<Uuid>) {
     );
 }
 
-/// Closes the browsers that an earlier host left, for example after a crash.
 pub(crate) async fn close_left(data_root: &Path) {
     browser::close_left(data_root).await;
 }

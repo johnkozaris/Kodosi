@@ -34,7 +34,6 @@ impl ProgramState {
     }
 }
 
-/// What a terminal waits with: a person's answer, a result or a failure.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Waiting {
@@ -44,7 +43,6 @@ pub enum Waiting {
 }
 
 impl ProgramState {
-    /// What the terminal waits with in this state. A terminal that closes asks nobody.
     pub(crate) const fn waiting(self, closing: bool) -> Option<Waiting> {
         match self {
             Self::Done => Some(Waiting::Done),
@@ -78,7 +76,6 @@ pub struct ProgramStatus {
 }
 
 impl ProgramStatus {
-    /// What the program says of its state, in words: its title and its message.
     pub fn caption(&self) -> Option<String> {
         let words = [self.title.as_deref(), self.message.as_deref()]
             .into_iter()

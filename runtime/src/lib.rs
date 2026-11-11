@@ -60,7 +60,6 @@ pub enum Error {
     Invalid(String),
     Refused(text::Text),
     Text(text::Text),
-    /// Input that a terminal of another computer did not get. Its terminal says so.
     Unsent(text::Text),
     HostBusy(text::Text),
     HostOutdated {

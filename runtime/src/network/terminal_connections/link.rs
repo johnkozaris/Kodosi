@@ -78,15 +78,11 @@ pub(crate) struct Caller {
     pub(super) device: String,
 }
 
-/// How a wait of the device link before it connects again ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Wait {
     Full,
-    /// A terminal or a call that waits for the link ended it.
     Wanted,
-    /// A person asked to try again.
     Asked,
-    /// The computer slept during it.
     Slept,
 }
 
@@ -282,9 +278,8 @@ impl Link {
         }
     }
 
-    /// Waits before the device link connects again. A person who asks to try again ends the wait,
-    /// a terminal or a call that waits for the link ends it when `hurry` allows it, and so does a
-    /// sleep of the computer, because the time asleep does not count for the delay.
+    /// A sleep of the computer ends the wait, because the time asleep does not count for the
+    /// delay.
     pub(crate) async fn wait_to_reconnect(&self, delay: Duration, hurry: bool) -> Wait {
         let started = Moment::now();
         let mut check = tokio::time::interval(WAKE_CHECK);
@@ -369,7 +364,6 @@ impl Link {
         self.connects.load(Ordering::Acquire)
     }
 
-    /// Tells that the account wants the link, so that the time without it counts from now.
     pub(crate) fn start_wanting(&self) {
         if let Ok(mut shared) = self.shared.lock()
             && shared.outgoing.is_none()
@@ -380,14 +374,12 @@ impl Link {
         }
     }
 
-    /// Tells that the account no longer wants the link, such as after signing out.
     pub(crate) fn stop_wanting(&self) {
         if let Ok(mut shared) = self.shared.lock() {
             shared.down_since = None;
         }
     }
 
-    /// How long the link that the account wants has been down.
     pub(crate) fn down_for(&self) -> Option<Duration> {
         self.shared
             .lock()
@@ -598,10 +590,9 @@ impl Drop for Disconnect<'_> {
     }
 }
 
-/// When the device link last heard from the server. The server may drop the link while the
-/// computer sleeps, and a network may drop it without a word. So after a sleep, or when the
-/// server has not answered what the link sent for a while, the link asks the server at once and
-/// must hear back soon.
+/// The server may drop the link while the computer sleeps, and a network may drop it without a
+/// word. So after a sleep, or when the server has not answered what the link sent for a while, the
+/// link asks the server at once and must hear back soon.
 struct Hearing {
     heard: tokio::time::Instant,
     sent: Option<tokio::time::Instant>,
@@ -634,8 +625,6 @@ impl Hearing {
             || self.answer_by.is_some_and(|by| now >= by)
     }
 
-    /// Tells whether the computer slept since the last check, or the server has not answered
-    /// what the link sent, so that the link asks the server.
     fn asks(&mut self, now: Moment) -> bool {
         let slept = self.checked.slept_until(now);
         self.checked = now;

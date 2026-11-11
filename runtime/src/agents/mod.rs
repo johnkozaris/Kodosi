@@ -99,7 +99,6 @@ impl Agent {
         }
     }
 
-    /// The flag that chooses the reasoning effort, and the start of its value.
     #[cfg(feature = "host")]
     pub(crate) const fn effort_flag(self) -> Option<(&'static str, &'static str)> {
         match self {
@@ -110,8 +109,6 @@ impl Agent {
         }
     }
 
-    /// The words that start the agent with these permissions, or `None` when it has no such
-    /// mode. Asking is the usual mode of the agents that have no flag for it.
     #[cfg(feature = "host")]
     pub(crate) const fn permission_words(
         self,
@@ -139,7 +136,6 @@ impl Agent {
         }
     }
 
-    /// The words that start the agent with this output, or `None` when it has no such choice.
     #[cfg(feature = "host")]
     pub(crate) const fn output_words(self, output: Output) -> Option<&'static [&'static str]> {
         match (self, output) {
@@ -167,7 +163,6 @@ impl Agent {
             .collect()
     }
 
-    /// How the agent asks until a person chooses: unrestricted where it can, else asking.
     #[cfg(feature = "host")]
     pub(crate) fn default_permissions(self) -> Permissions {
         if self.permission_words(Permissions::Unrestricted).is_some() {
@@ -177,8 +172,6 @@ impl Agent {
         }
     }
 
-    /// How much of its work the agent shows until a person chooses: quiet where it can, else
-    /// its standard.
     #[cfg(feature = "host")]
     pub(crate) fn default_output(self) -> Output {
         if self.output_words(Output::Quiet).is_some() {
@@ -201,8 +194,6 @@ impl Agent {
         }
     }
 
-    /// The flags that choose how the agent asks and what it shows, also those that a person
-    /// types by hand, each with the start of the value that it keeps, or `None` for a switch.
     #[cfg(feature = "host")]
     const fn mode_flags(self) -> &'static [(&'static str, Option<&'static str>)] {
         match self {
@@ -247,9 +238,6 @@ impl Agent {
         }
     }
 
-    /// The model, effort, permissions and output of the agent that runs with `arguments`, in
-    /// the words of the launcher, with what Kodosi `changed` while it ran in place of what it
-    /// started with.
     #[cfg(feature = "host")]
     pub(crate) fn chosen(self, arguments: &[String], changed: &AgentSettings) -> Vec<String> {
         let model = changed.model.clone();
@@ -306,11 +294,8 @@ impl Agent {
         words
     }
 
-    /// The words that give a launched agent Kodosi's note and keep it in its terminal. Codex
-    /// reads the note only from its command line, and without `--no-daemon` it works in its
-    /// shared background server, which has the variables of whatever started that server.
-    /// Claude Code and Copilot CLI read Kodosi's note and skills from the environment of each
-    /// Kodosi terminal, also when a person starts them by hand.
+    /// Codex reads Kodosi's note only from its command line, and without `--no-daemon` it works
+    /// in its shared background server, which has the variables of whatever started that server.
     #[cfg(feature = "host")]
     pub(crate) fn context_words(self, shell: &Path) -> Option<String> {
         match self {
@@ -322,10 +307,9 @@ impl Agent {
         }
     }
 
-    /// Whether the agent that runs with `arguments` missed Kodosi's note, because a person
-    /// started it by hand. Windows shows no arguments, so there it never misses it.
+    /// Windows shows no arguments, so there no agent counts as started without the note.
     #[cfg(feature = "host")]
-    pub(crate) fn outside(self, arguments: &[String]) -> bool {
+    pub(crate) fn started_without_note(self, arguments: &[String]) -> bool {
         self.context_words(Path::new("")).is_some()
             && !arguments.is_empty()
             && !arguments.iter().any(|argument| {
@@ -349,8 +333,6 @@ impl Agent {
         }
     }
 
-    /// The account folder of a running agent: its folder variable when that is an absolute
-    /// path, else the usual folder in `home`.
     #[cfg(feature = "host")]
     pub(crate) fn account_folder(
         self,
@@ -393,7 +375,6 @@ pub(crate) const PAGE: &str = include_str!("../../skills/kodosi-canvas/assets/pa
 #[cfg(feature = "host")]
 const PLUGIN: &str = "plugin";
 
-/// Claude Code's start of a session in a Kodosi terminal: it reads Kodosi's note there.
 #[cfg(feature = "host")]
 const CLAUDE_HOOKS: &str = r#"{
   "hooks": {
@@ -411,9 +392,6 @@ const CLAUDE_HOOKS: &str = r#"{
 }
 "#;
 
-/// Writes Kodosi's note for agents, and the plugin with its skills for agents that load plugins
-/// or skills from a folder. Agents read both only in Kodosi terminals; nothing goes into their
-/// own folders.
 #[cfg(feature = "host")]
 pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     let plugin = folder.join(PLUGIN);
@@ -470,7 +448,6 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// The plugin folders for Claude Code in a Kodosi terminal: the person's own, then Kodosi's.
 #[cfg(feature = "host")]
 pub(crate) fn plugin_dirs(notes: &Path) -> Option<String> {
     let plugin = plugin_dir(notes)?;
@@ -486,7 +463,6 @@ pub(crate) fn plugin_dirs(notes: &Path) -> Option<String> {
     )
 }
 
-/// The skill folders for Copilot CLI in a Kodosi terminal: the person's own, then Kodosi's.
 #[cfg(feature = "host")]
 pub(crate) fn skill_dirs(notes: &Path) -> Option<String> {
     let skills = Path::new(&plugin_dir(notes)?).join("skills");
@@ -556,17 +532,12 @@ pub struct AgentInfo {
     pub install: String,
     pub adds_accounts: bool,
     pub reports_usage: bool,
-    /// How the agent can ask before it acts, in the order of the launcher.
     pub permissions: Vec<Permissions>,
-    /// How much of its work the agent can show; empty when it has no choice.
     pub outputs: Vec<Output>,
-    /// How the agent asks until a person chooses.
     pub default_permissions: Permissions,
-    /// How much of its work the agent shows until a person chooses.
     pub default_output: Output,
 }
 
-/// How an agent asks before it acts, through its own flags.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Permissions {
@@ -593,7 +564,6 @@ impl Permissions {
     }
 }
 
-/// How much of its work an agent shows, through its own settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Output {
@@ -810,8 +780,6 @@ async fn add_account(
         })?
 }
 
-/// Quotes text as one word that the shell gives a program unchanged.
-///
 /// Line breaks and tabs go as escapes, because a typed line break ends the command in some
 /// shells and a typed tab completes. cmd cannot pass them, so there they become spaces.
 #[cfg(feature = "host")]
@@ -910,31 +878,28 @@ fn shell_word(value: &str) -> Option<String> {
     if value.is_empty() || value.contains(['\'', '\n', '\r']) {
         return None;
     }
-    if plain(value) {
+    if needs_no_quotes(value) {
         Some(value.to_owned())
     } else {
         Some(format!("'{value}'"))
     }
 }
 
-/// Whether each shell takes `word` as it is.
 #[cfg(feature = "host")]
-fn plain(word: &str) -> bool {
+fn needs_no_quotes(word: &str) -> bool {
     word.bytes()
         .all(|byte| byte.is_ascii_alphanumeric() || b"._-/:=@+".contains(&byte))
 }
 
-/// `word` as `shell` takes it unchanged: a plain word stays, any other gets quotes.
 #[cfg(feature = "host")]
-pub(crate) fn typed(shell: &Path, word: &str) -> String {
-    if !word.is_empty() && plain(word) {
+pub(crate) fn as_shell_word(shell: &Path, word: &str) -> String {
+    if !word.is_empty() && needs_no_quotes(word) {
         word.to_owned()
     } else {
         quote(shell, word)
     }
 }
 
-/// Whether a flag of `mode_flags` chooses the output rather than the permissions.
 #[cfg(feature = "host")]
 fn is_output_flag(flag: &str, start: Option<&str>) -> bool {
     matches!(flag, "--settings" | "--verbose")
@@ -949,7 +914,6 @@ fn is_output_flag(flag: &str, start: Option<&str>) -> bool {
             }))
 }
 
-/// The last value of `flag` in `arguments` that starts with `start`.
 #[cfg(feature = "host")]
 fn last_value<'a>(arguments: &'a [String], flag: &str, start: &str) -> Option<&'a str> {
     let mut found = None;

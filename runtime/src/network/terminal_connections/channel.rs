@@ -245,8 +245,7 @@ impl<T: Transport> Channel<T> {
     }
 }
 
-/// One message of the channel. It takes TLS data only up to its size, so a large frame goes
-/// in several messages.
+/// A message takes TLS data only up to its size, so a large frame goes in several messages.
 struct Message<'a>(&'a mut Vec<u8>);
 
 impl std::io::Write for Message<'_> {
@@ -289,8 +288,8 @@ fn channel_protocol() -> Vec<u8> {
     format!("kodosi-channel/{}", crate::protocol::CHANNEL_VERSION).into_bytes()
 }
 
-/// Each channel version up to this one, newest first. The host takes the newest that both sides
-/// have, so two versions of Kodosi still meet, and the newer one can say which side must update.
+/// The host takes the newest version that both sides have, so two versions of Kodosi still meet,
+/// and the newer one can say which side must update.
 fn channel_protocols() -> Vec<Vec<u8>> {
     (1..=crate::protocol::CHANNEL_VERSION)
         .rev()
@@ -653,7 +652,6 @@ pub(super) mod tests {
         assert_eq!(received, value);
     }
 
-    /// The keys of a Kodosi that offers only its own channel version.
     fn channel_keys_of_version(keys: &DeviceKeys, version: u32) -> ChannelKeys {
         let keys = channel_keys(keys);
         let protocol = format!("kodosi-channel/{version}").into_bytes();

@@ -50,7 +50,6 @@ pub(crate) struct FriendList {
     pub(crate) friends: BTreeMap<String, Friend>,
 }
 
-/// The newest signed list of an account, which the next list goes on top of.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Head {
     pub(crate) revision: u64,
@@ -173,10 +172,8 @@ pub(crate) fn broken() -> Error {
     ))
 }
 
-/// What a device does with the lists it followed.
 #[derive(Debug)]
 pub(crate) enum Newest {
-    /// The device takes the newest list, which an approved device signed.
     Signed(FriendList, Head, SignedFriendList),
     /// The device signs its newest trusted list again, on top of a newest list that a removed
     /// device signed.
@@ -322,7 +319,6 @@ impl FriendLists {
         Ok(())
     }
 
-    /// Forgets the list of an account, as a device with new keys starts without one.
     pub(crate) fn forget(&mut self, user_id: &str) -> Result<()> {
         if !self.lists.contains_key(user_id) {
             return Ok(());

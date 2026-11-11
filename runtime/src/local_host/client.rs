@@ -225,8 +225,8 @@ fn finalizing(events: &[Value]) -> bool {
         == Some(true)
 }
 
-/// Connects to the running host. A host that stops can take a connection and close it before its
-/// endpoint goes, so a connection that closes in the handshake tries again for a moment.
+/// A host that stops can take a connection and close it before its endpoint goes, so a connection
+/// that closes in the handshake tries again for a moment.
 async fn connect_past_stopping_host(root: &Path) -> Result<Client> {
     let deadline = tokio::time::Instant::now() + STOPPING_HOST_WAIT;
     loop {

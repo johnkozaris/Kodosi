@@ -1,6 +1,3 @@
-//! The live documents of this computer. One server owns each file here, and people and agents
-//! are its clients.
-
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
@@ -20,7 +17,6 @@ struct DocumentCommand {
     command: Command,
 }
 
-/// The documents and the agents' seats in them.
 #[derive(Clone)]
 pub(crate) struct DocumentHost {
     documents: Documents,
@@ -36,7 +32,6 @@ impl DocumentHost {
         }
     }
 
-    /// Gives a person a pipe to the live document of a file.
     pub(crate) async fn open(&self, path: &Path, viewer: Viewer) -> Result<PipeEnds, Text> {
         let pipe = self
             .documents
@@ -46,7 +41,6 @@ impl DocumentHost {
         Ok(ends_of(pipe))
     }
 
-    /// Runs one `kodosi doc` command of an agent.
     pub(crate) async fn run(
         &self,
         viewer: &Viewer,
@@ -72,13 +66,11 @@ impl DocumentHost {
         }
     }
 
-    /// Saves what waits, before the host ends.
     pub(crate) async fn close(&self) {
         self.documents.close().await;
     }
 }
 
-/// The file that an agent's `kodosi doc` command changes, if it changes one.
 pub(crate) fn changed_file(folder: &Path, arguments: &[String]) -> Option<PathBuf> {
     let words = std::iter::once("doc".to_owned()).chain(arguments.iter().cloned());
     match DocumentCommand::try_parse_from(words)
@@ -91,7 +83,6 @@ pub(crate) fn changed_file(folder: &Path, arguments: &[String]) -> Option<PathBu
     }
 }
 
-/// The ends of a document's pipe, which end when either side lets go.
 fn ends_of(mut pipe: documents::Pipe) -> PipeEnds {
     let (sender, mut incoming) = mpsc::channel::<Vec<u8>>(PIPE_QUEUE);
     let (outgoing, receiver) = mpsc::channel(PIPE_QUEUE);
@@ -116,7 +107,6 @@ fn ends_of(mut pipe: documents::Pipe) -> PipeEnds {
     PipeEnds { sender, receiver }
 }
 
-/// The path that a key of the canvas names.
 pub(crate) fn path_of(key: &str) -> PathBuf {
     PathBuf::from(key)
 }

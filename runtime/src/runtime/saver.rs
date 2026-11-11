@@ -3,9 +3,9 @@ use std::{io, path::PathBuf, sync::Arc};
 use bytes::Bytes;
 use tokio::sync::watch;
 
-/// Writes a private file away from the runtime's task, which also carries what people type. One
-/// write runs at a time, always with the newest bytes, so an earlier save never overwrites a later
-/// one, and the saves that come during a write make one write after it.
+/// Writes away from the runtime's task, which also carries what people type. One write runs at a
+/// time, always with the newest bytes, so an earlier save never overwrites a later one, and the
+/// saves that come during a write make one write after it.
 pub(super) struct Saver {
     /// The number of the newest save, and its bytes.
     newest: watch::Sender<(u64, Bytes)>,
@@ -14,7 +14,6 @@ pub(super) struct Saver {
 }
 
 impl Saver {
-    /// Saves into `file`. `what` names what the file keeps, for the log.
     pub(super) fn file(file: PathBuf, what: &'static str) -> Self {
         Self::new(what, move |bytes| {
             kodosi_os::fs::write_private(&file, bytes)
@@ -52,13 +51,11 @@ impl Saver {
         });
     }
 
-    /// Whether the last write failed, so that the same bytes are worth a save again.
     #[cfg(feature = "host")]
     pub(super) fn failed(&self) -> bool {
         self.done.borrow().1
     }
 
-    /// Returns when the newest bytes are written, or when their write failed.
     pub(super) async fn saved(&self) {
         let number = self.newest.borrow().0;
         let mut done = self.done.clone();

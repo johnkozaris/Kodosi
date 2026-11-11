@@ -25,8 +25,6 @@ impl Endpoint {
     }
 }
 
-/// The short private folder of this user's endpoints in a namespace. Other programs that Kodosi
-/// runs keep their sockets in folders under it.
 #[cfg(unix)]
 pub fn private_dir(namespace: &str) -> io::Result<std::path::PathBuf> {
     checked(namespace)?;

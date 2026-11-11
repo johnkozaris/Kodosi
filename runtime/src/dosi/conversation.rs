@@ -32,7 +32,6 @@ pub(super) struct Conversation {
     pub started_at: i64,
     pub confirmed: bool,
     entries: VecDeque<Entry>,
-    /// The turns of messages that the person took back before a computer answered them.
     withdrawn: HashSet<String>,
     #[cfg(feature = "host")]
     turn: Option<String>,
@@ -120,14 +119,12 @@ impl Conversation {
             .find(|item| item.id == id)
     }
 
-    /// Whether this device wrote the item `id`, and no other device changed it since.
     pub(super) fn mine(&self, id: &str) -> bool {
         self.entries
             .iter()
             .any(|entry| entry.item.id == id && entry.mine)
     }
 
-    /// Whether the item `id` is a question that has its answer, which no later answer changes.
     pub(super) fn answered(&self, id: &str) -> bool {
         self.entries.iter().any(|entry| {
             entry.item.id == id
@@ -197,7 +194,6 @@ impl Conversation {
         item
     }
 
-    /// Adds an item that this device wrote and the server does not hold yet.
     pub(super) fn place(&mut self, item: DosiItem) {
         self.entries.push_back(Entry {
             item,
@@ -461,7 +457,6 @@ impl Conversation {
         Ok(item.clone())
     }
 
-    /// Closes the question `id` when it is open, and answers the closed question.
     pub(super) fn close(&mut self, id: &str) -> Option<DosiItem> {
         let item = self.find(id)?;
         let DosiBody::Question { answer, .. } = &mut item.body else {
@@ -474,7 +469,6 @@ impl Conversation {
         Some(item.clone())
     }
 
-    /// Closes the open questions, or only those that this device asked.
     #[cfg(feature = "host")]
     pub(super) fn close_questions(&mut self, only_mine: bool) -> Vec<DosiItem> {
         let mut changed = Vec::new();

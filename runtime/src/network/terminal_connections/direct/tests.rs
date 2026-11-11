@@ -44,7 +44,6 @@ fn host_as_seen_by(sides: &Sides, viewer: &DeviceKeys) -> Host {
 }
 
 #[cfg(feature = "host")]
-/// Answers the request for a document with two ends that the test holds.
 async fn document(
     requests: &mut mpsc::Receiver<HostRequest>,
 ) -> (mpsc::Sender<Vec<u8>>, mpsc::Receiver<Vec<u8>>) {

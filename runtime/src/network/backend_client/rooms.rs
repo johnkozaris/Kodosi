@@ -322,8 +322,6 @@ pub(super) fn room_key_proof(user: &str, device: &str, public: &[u8]) -> Result<
     )
 }
 
-/// The rooms that two people end when they stop being friends: rooms of this person that the
-/// other may be in, rooms of the other that this person leaves, and invitations of the other.
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Parting {
     own: Vec<Uuid>,
@@ -350,7 +348,6 @@ fn parting(list: &Value, own: &str, other: &str) -> Result<Parting> {
 }
 
 impl BackendClient {
-    /// Each of two people who stop being friends leaves the rooms that the other owns.
     pub(super) async fn end_rooms_with(
         &self,
         credentials: &Credentials,
@@ -393,8 +390,6 @@ impl BackendClient {
         Ok(())
     }
 
-    /// Whether the server lists a person as a member of a room, for a room whose keys this
-    /// device cannot read.
     async fn listed_member(
         &self,
         credentials: &Credentials,
@@ -812,9 +807,9 @@ impl BackendClient {
         Ok((path, heads))
     }
 
-    /// Keeps a key history that this device verified. A history that forks from the one that this
-    /// device saved, or ends before it, fails, unless this device keeps a newer history that
-    /// continues it: a check that read the server before another one kept that history takes it.
+    /// A history that forks from the one that this device saved, or ends before it, fails, unless
+    /// this device keeps a newer history that continues it: a check that read the server before
+    /// another one kept that history takes it.
     async fn remember_room(
         &self,
         credentials: &Credentials,
@@ -1134,8 +1129,6 @@ impl BackendClient {
         self.room_keys(credentials, room).await.map(|_| ())
     }
 
-    /// The hash of the newest key state of a room that this device read. A choice of a
-    /// terminal's room signs it, and each key state before it is in its hash chain.
     pub(super) async fn room_history(
         &self,
         credentials: &Credentials,
@@ -1149,7 +1142,6 @@ impl BackendClient {
             .ok_or_else(|| Error::Text(text!("Project keys are missing.")))
     }
 
-    /// Whether the key states of a room that this device reads hold the state with this hash.
     #[cfg(feature = "host")]
     pub(super) async fn room_holds(
         &self,

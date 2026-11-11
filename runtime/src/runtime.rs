@@ -74,8 +74,8 @@ const CALL_ANSWER: Duration = Duration::from_secs(20);
 const AGENT_ANSWER: Duration = Duration::from_secs(2);
 const ENTER_PAUSE: Duration = Duration::from_millis(500);
 const STARTING: Duration = Duration::from_secs(20);
-/// The frames of documents and of the browser that wait for one client. They go to their
-/// client alone, so a busy picture never pushes the other events of each client out.
+/// The frames of documents and of the browser go to their client alone, so a busy picture never
+/// pushes the other events of each client out.
 const DIRECT_QUEUE: usize = 256;
 
 type Observation = (Vec<Event>, broadcast::Receiver<Event>);
@@ -293,8 +293,7 @@ impl RuntimeHandle {
         response.await.map_err(|_| Error::Stopped)?
     }
 
-    /// The events for this client alone, such as the frames of its documents. Reading them
-    /// lets the runtime send the next ones.
+    /// Reading these events lets the runtime send the next ones.
     pub async fn direct(&self) -> Result<mpsc::Receiver<Event>> {
         let (reply, response) = oneshot::channel();
         self.send(Request::Direct {
@@ -473,7 +472,6 @@ struct Local {
     worktree: Option<crate::worktree::Worktree>,
     wanted: Option<restore::Sharing>,
     conversation: restore::Conversation,
-    /// What Kodosi changed in the agent in front since it started.
     changed: crate::agents::AgentSettings,
 }
 
@@ -799,7 +797,6 @@ impl TerminalTarget {
         }
     }
 
-    /// Pastes a picture: here at once, and in a terminal of another computer when it arrives.
     fn paste_picture(
         &self,
         picture: crate::terminal::Picture,
@@ -811,7 +808,6 @@ impl TerminalTarget {
         }
     }
 
-    /// Asks the canvas of the terminal. An answer from another computer is checked first.
     fn canvas(
         &self,
         request: crate::canvas::CanvasRequest,
@@ -840,8 +836,6 @@ impl TerminalTarget {
         }
     }
 
-    /// Joins a live document of the terminal's canvas, on this computer or on another one. The
-    /// computer of the terminal knows a person on another computer by their connection.
     #[cfg_attr(
         not(feature = "host"),
         expect(
@@ -886,10 +880,10 @@ impl TerminalTarget {
         }
     }
 
-    /// Types the text and then presses Enter as a key of its own, as a person does: agents keep
-    /// text and Enter that arrive together as a paste. When a person types in the pause, the
-    /// text stays in the terminal for them. The terminal checks both writes of a message against
-    /// its agent's state, so Enter never answers a question that the agent asked in the pause.
+    /// Enter is a key of its own, as a person presses it: agents keep text and Enter that arrive
+    /// together as a paste. When a person types in the pause, the text stays in the terminal for
+    /// them. The terminal checks both writes of a message against its agent's state, so Enter
+    /// never answers a question that the agent asked in the pause.
     fn type_line(
         &self,
         text: String,
@@ -930,7 +924,6 @@ impl TerminalTarget {
         }
     }
 
-    /// Asks the host of a terminal on another computer to change the agent in front.
     fn change_agent(
         &self,
         change: crate::agents::AgentSettings,
@@ -1005,8 +998,6 @@ impl TerminalTarget {
     }
 }
 
-/// What Kodosi remembers of a terminal's program between two lists, to tell when it stops or
-/// starts to wait.
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Activity {
     working: bool,
@@ -1021,7 +1012,6 @@ impl Activity {
         )
     }
 
-    /// Whether Kodosi reads the title of the terminal now, so that a spinner in it is current.
     fn reads_title(entry: &SessionEntry) -> bool {
         Self::connected(entry) && entry.status == SessionStatus::Running
     }
@@ -1031,8 +1021,6 @@ impl Activity {
     }
 }
 
-/// Says what every client shows of a terminal's program: whether it works, what it waits with,
-/// and what it does in words. The program's report decides, or else the terminal's title.
 fn show_program(entry: &mut SessionEntry) {
     use crate::terminal::ProgramState;
     let closing = entry.status == SessionStatus::Closing;
@@ -1096,7 +1084,6 @@ struct TerminalNotice {
     status: Option<TerminalStatus>,
 }
 
-/// A live document that a client of this runtime holds open.
 struct OpenPipe {
     sender: mpsc::Sender<Vec<u8>>,
     filling: Vec<u8>,
@@ -1133,8 +1120,6 @@ struct Runtime {
     creating: HashMap<Uuid, Command>,
     listed: HashMap<Uuid, RemoteSession>,
     pipes: HashMap<Uuid, OpenPipe>,
-    /// The pipes whose documents are opening, and of them the ones that their client closed
-    /// already, which close as soon as they open.
     pipes_opening: HashSet<Uuid>,
     pipes_closed_early: HashSet<Uuid>,
     direct: HashMap<Uuid, mpsc::Sender<Event>>,
@@ -1438,8 +1423,6 @@ impl Runtime {
             .retain(|_, shown| !shown.lifetime.is_cancelled());
     }
 
-    /// A client that goes without closing its documents leaves them, so the others do not see
-    /// it there.
     fn prune_pipes(&mut self) {
         self.pipes
             .retain(|_, open| !open.lifetime.is_cancelled() && !open.sender.is_closed());
@@ -1457,7 +1440,6 @@ impl Runtime {
         entries
     }
 
-    /// Lists what the canvas of a terminal on this computer shows now.
     #[cfg(feature = "host")]
     fn sync_canvas(&mut self, id: &str) {
         let Some(local) = Uuid::parse_str(id)
@@ -1592,7 +1574,6 @@ impl Runtime {
         }
     }
 
-    /// Marks a terminal for its person, unless someone watches it now.
     fn mark(&mut self, id: &str) -> bool {
         if self.watched(id) {
             return false;
@@ -1601,8 +1582,7 @@ impl Runtime {
         true
     }
 
-    /// Calls the person of a marked terminal. The terminal list goes first, so that an app has
-    /// the state that the call is about.
+    /// The terminal list goes first, so that an app has the state that the call is about.
     fn call(&self, id: &str) {
         self.emit(json!({"type":"term.attention", "sessionId":id}));
     }
@@ -1674,7 +1654,6 @@ impl Runtime {
         json!({"type":"connection.state", "online":self.online})
     }
 
-    /// Kodosi is offline when the account cannot reach the server for longer than a short drop.
     fn publish_connection(&mut self) {
         let restoring = self.latest_auth.as_ref().is_some_and(|event| {
             event["type"] == "auth.restoring"
@@ -1742,7 +1721,7 @@ impl Runtime {
         let home = self.config.home.clone();
         self.spawn(async move {
             let foreground = terminal.foreground(variable).await.unwrap_or_default();
-            let outside = agent.outside(&foreground.arguments);
+            let outside = agent.started_without_note(&foreground.arguments);
             let settings = agent.started_with(&foreground.arguments);
             let account = match agent.account_folder(&home, foreground.variable) {
                 Some(folder) => launcher.account_of(agent, &folder).await,
@@ -1939,7 +1918,6 @@ impl Runtime {
         lines
     }
 
-    /// Keeps the line that names the conversation of each terminal's agent while it runs.
     #[cfg(feature = "host")]
     fn remember_conversations(&mut self) {
         let now = tokio::time::Instant::now();
@@ -1977,7 +1955,6 @@ impl Runtime {
         }
     }
 
-    /// Keeps the screen and history of each terminal that comes back, on this computer only.
     #[cfg(feature = "host")]
     async fn save_screens(&self) {
         let mut asking = JoinSet::new();
@@ -2309,8 +2286,6 @@ impl Runtime {
         }
     }
 
-    /// Queues a change of the agent in a terminal of this computer, as the agent's own
-    /// commands.
     #[cfg(feature = "host")]
     fn change_agent_here(&mut self, id: Uuid, change: &crate::agents::AgentSettings) -> Result<()> {
         let agent = self
@@ -2329,7 +2304,6 @@ impl Runtime {
         Ok(())
     }
 
-    /// Shows the change that waits for the agent of a terminal in its entry and its metadata.
     #[cfg(feature = "host")]
     fn show_pending(&mut self, id: Uuid) {
         let pending = self.agent_changes.pending(id);
@@ -2342,8 +2316,6 @@ impl Runtime {
         }
     }
 
-    /// Types the next waiting command into each agent that waits for its next prompt, unless
-    /// the agent's screen shows a question that it asks a person.
     #[cfg(feature = "host")]
     fn type_agent_changes(&mut self) {
         let now = tokio::time::Instant::now();
@@ -2471,8 +2443,6 @@ impl Runtime {
         }
     }
 
-    /// Says on a terminal of another computer that Kodosi did not send some input, until an
-    /// input that Kodosi takes after this one goes through.
     fn note_unsent_input(&mut self, session: Uuid) {
         let remotes = &self.remotes;
         self.unsent.retain(|id, _| remotes.contains_key(id));
@@ -2712,8 +2682,6 @@ impl Runtime {
         }
     }
 
-    /// Answers a request with its error. Work on a terminal that ended stops with `Stopped`, so
-    /// its answer says that the terminal is not available.
     fn error(&self, command: &Command, error: &Error) {
         let error = match error {
             Error::Stopped => &Error::NotFound,
@@ -3756,7 +3724,6 @@ impl Runtime {
     }
 }
 
-/// Removes the pictures that people pasted into terminals that are gone.
 #[cfg(feature = "host")]
 async fn remove_pictures(data_root: &Path) {
     let pictures = crate::terminal::pictures_root(data_root);

@@ -4,8 +4,7 @@ use super::saver::Saver;
 
 const MOST_BYTES: usize = 1024 * 1024;
 
-/// Which room messages each account of this device saw. All of them stay in memory, so a save
-/// reads nothing, and the saver writes them away from the runtime's task.
+/// All marks stay in memory, so a save reads nothing.
 pub(super) struct RoomSeen {
     accounts: BTreeMap<String, BTreeMap<String, u64>>,
     saver: Saver,
@@ -25,7 +24,6 @@ impl RoomSeen {
         }
     }
 
-    /// The newest message that an account saw in each room.
     pub(super) fn of(&mut self, user: String) -> &mut BTreeMap<String, u64> {
         self.accounts.entry(user).or_default()
     }
@@ -37,7 +35,6 @@ impl RoomSeen {
         }
     }
 
-    /// Returns when the newest marks are on disk.
     pub(super) async fn saved(&self) {
         self.saver.saved().await;
     }

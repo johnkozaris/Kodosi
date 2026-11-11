@@ -19,8 +19,6 @@ struct Thread {
     written: SystemTime,
 }
 
-/// The Codex conversation that the processes of the group `group` show, from the files that
-/// they hold open.
 pub(super) fn conversation(root: &Path, group: u32, folder: Option<&Path>) -> Option<String> {
     let root = kodosi_os::fs::canonicalize(root).ok()?;
     shown(
@@ -30,9 +28,8 @@ pub(super) fn conversation(root: &Path, group: u32, folder: Option<&Path>) -> Op
     )
 }
 
-/// Of the rollouts in `held`, the one written last. When `held` has none of the files of
-/// Codex's threads, as on Windows or with Codex's shared server, the one live conversation
-/// of `folder`.
+/// `held` has none of the files of Codex's threads on Windows or with Codex's shared server.
+/// Then the one live conversation of `folder` counts.
 pub(super) fn shown(root: &Path, held: Vec<PathBuf>, folder: Option<&Path>) -> Option<String> {
     let (sessions, locks) = (root.join(SESSIONS), root.join(WRITER_LOCKS));
     let held = held
@@ -48,8 +45,6 @@ pub(super) fn shown(root: &Path, held: Vec<PathBuf>, folder: Option<&Path>) -> O
         .map(|thread| thread.id)
 }
 
-/// The one conversation of `folder` that a process writes now, by the lock that Codex keeps
-/// for each thread that a process writes.
 fn live_conversation(root: &Path, folder: &Path) -> Option<String> {
     let folder = kodosi_os::fs::canonicalize(folder).ok()?;
     let live = std::fs::read_dir(root.join(WRITER_LOCKS))
@@ -77,7 +72,6 @@ fn live_conversation(root: &Path, folder: &Path) -> Option<String> {
     shown.next().is_none().then_some(id)
 }
 
-/// The rollouts of the threads `ids`, from the newest day of `sessions` back.
 fn rollouts(sessions: &Path, mut ids: HashSet<String>) -> Vec<PathBuf> {
     let days = folders(sessions)
         .into_iter()
@@ -119,7 +113,7 @@ fn folders(parent: &Path) -> Vec<PathBuf> {
     folders
 }
 
-/// The thread of a rollout `rollout-<time>-<thread>.jsonl`, which a revert names
+/// A rollout is `rollout-<time>-<thread>.jsonl`, and a revert names it
 /// `rollout-<time>-<thread>_<rollout>.jsonl`.
 fn rollout_thread(path: &Path) -> Option<&str> {
     let name = path
@@ -131,7 +125,6 @@ fn rollout_thread(path: &Path) -> Option<&str> {
     Some(ids.split_once('_').map_or(ids, |(thread, _)| thread))
 }
 
-/// A conversation of its own, not a sub-agent's, from the first record of its rollout.
 fn thread(path: &Path) -> Option<Thread> {
     rollout_thread(path)?;
     let folder = kodosi_os::fs::open_dir(path.parent()?).ok()?;

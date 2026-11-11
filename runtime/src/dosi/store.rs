@@ -23,9 +23,8 @@ const MAX_MARKS: usize = 1024;
 const MAX_HELD_MARKS: usize = 4 * MAX_MARKS;
 const MAX_MARKS_BYTES: u64 = 256 * 1024;
 
-/// What this device keeps of the person's conversation when the server loses or sends again
-/// its records: the newest conversation, the turns that started or stopped, the messages that
-/// the person took back, and the answers that Dosi took here.
+/// What this device keeps of the conversation for when the server loses its records or sends
+/// them again.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Marks {
@@ -130,8 +129,6 @@ impl Marks {
         self.answered.add(item)
     }
 
-    /// Lets the oldest ids go, but not past the turn of the message of `waiting`, which still
-    /// waits here.
     pub(super) fn trim(&mut self, waiting: Option<&str>) {
         self.settled.trim(waiting);
         self.answered.trim(None);
@@ -166,7 +163,6 @@ pub(super) struct ProviderSession {
 pub(super) struct Saved {
     pub setup: AgentChoice,
     pub sessions: Vec<ProviderSession>,
-    /// Whether Dosi runs on this computer.
     pub on: bool,
 }
 

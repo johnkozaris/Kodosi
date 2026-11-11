@@ -171,7 +171,6 @@ fn pipe_id(body: &[u8]) -> Result<Uuid> {
     Uuid::from_slice(&body[..16]).map_err(|_| invalid("Document frame is invalid."))
 }
 
-/// Whether a control's answer fits one frame.
 #[cfg(any(feature = "host", test))]
 pub(crate) fn answer_fits(value: &Value) -> bool {
     value.is_object() && serde_json::to_vec(value).is_ok_and(|body| body.len() <= CALL_ANSWER)

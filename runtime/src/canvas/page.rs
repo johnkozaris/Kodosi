@@ -2,7 +2,6 @@ use pulldown_cmark::{Options, Parser, html};
 
 const TEMPLATE: &str = include_str!("../../skills/kodosi-canvas/assets/page.html");
 
-/// Makes a Markdown or text file into a page with the look of the canvas template.
 pub(super) fn page(name: &str, source: &[u8]) -> Vec<u8> {
     let text = String::from_utf8_lossy(source);
     let markdown = std::path::Path::new(name)
@@ -47,8 +46,6 @@ fn escape(text: &str) -> String {
     escaped
 }
 
-/// The first address that a page loads from the network, which the canvas does not do. A link
-/// that a person follows is no load.
 pub(super) fn network_reference(source: &[u8]) -> Option<String> {
     let text = String::from_utf8_lossy(source);
     let lower = text.to_ascii_lowercase();

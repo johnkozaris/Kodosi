@@ -56,7 +56,6 @@ impl Transport for Tcp {
     }
 }
 
-/// The host of a terminal, as the terminal's channel proved it.
 pub(crate) struct Host {
     keys: Arc<ChannelKeys>,
     device: String,
@@ -68,7 +67,6 @@ impl Host {
         Self { keys, device, key }
     }
 
-    /// The first of its addresses that answers with the key of the host.
     async fn reach(&self, addresses: &[SocketAddr]) -> Option<Channel<Tcp>> {
         let mut tries = addresses
             .iter()
@@ -95,7 +93,6 @@ impl Host {
     }
 }
 
-/// What a pipe of a viewer needs to reach the host.
 pub(super) struct Pipe {
     pub(super) commands: mpsc::Sender<RemoteRequest>,
     pub(super) cancel: CancellationToken,
@@ -106,9 +103,6 @@ pub(super) struct Pipe {
     pub(super) from_view: mpsc::Receiver<Vec<u8>>,
 }
 
-/// Carries a pipe of a viewer. The live picture of a browser goes straight to the host when the
-/// viewer can reach it, and otherwise on the terminal's channel. The path stays as it is until the
-/// pipe ends; the view then joins again.
 pub(super) async fn run(mut pipe: Pipe) {
     if pipe.key == BROWSER_PIPE
         && let Some(mut channel) = ask(&pipe.commands, pipe.id).await
@@ -174,8 +168,6 @@ async fn ask(commands: &mpsc::Sender<RemoteRequest>, pipe: Uuid) -> Option<Chann
     host.reach(&addresses).await
 }
 
-/// Carries one pipe in both directions until a side ends it. A view that falls behind loses its
-/// pipe and joins again.
 async fn carry<T: Transport>(channel: &mut Channel<T>, pipe: Uuid, ends: PipeEnds) -> Result<()> {
     let PipeEnds {
         sender,
@@ -229,8 +221,8 @@ async fn carry<T: Transport>(channel: &mut Channel<T>, pipe: Uuid, ends: PipeEnd
     Ok(())
 }
 
-/// How one viewer of a terminal gets a straight connection to this host. The port opens only when
-/// the viewer asks, for a short time, and only the device of this viewer gets through.
+/// The port opens only when the viewer asks, for a short time, and only the device of this viewer
+/// gets through.
 #[cfg(feature = "host")]
 pub(super) struct Door {
     keys: Arc<ChannelKeys>,
@@ -260,7 +252,6 @@ impl Door {
         }
     }
 
-    /// Says where the viewer can try. No answer sends the viewer to the terminal's channel.
     pub(super) async fn open(&self) -> Vec<SocketAddr> {
         let Ok(room) = Arc::clone(&self.pipes).try_acquire_owned() else {
             return Vec::new();
@@ -331,7 +322,6 @@ fn own_addresses() -> Vec<Ipv4Addr> {
     vec![Ipv4Addr::LOCALHOST]
 }
 
-/// Takes connections until one proves the key of the viewer.
 #[cfg(feature = "host")]
 async fn welcome(
     listener: &TcpListener,

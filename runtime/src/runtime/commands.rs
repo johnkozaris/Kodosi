@@ -481,7 +481,6 @@ impl Runtime {
         Ok(())
     }
 
-    /// Joins a live document for a person. The document's frames reach only this client.
     fn open_document(
         &mut self,
         command: &Command,
@@ -528,8 +527,6 @@ impl Runtime {
         Ok(())
     }
 
-    /// Gives the frames of a document to the client that opened it, in parts. A client that
-    /// reads its own events gets them there, and a slow one holds up only its own frames.
     fn carry_document(
         &mut self,
         pipe: Uuid,
@@ -620,8 +617,6 @@ impl Runtime {
         Ok(())
     }
 
-    /// The steps of Settings › Browser. Only the app's Settings send these, for a person's own
-    /// step.
     #[cfg(feature = "host")]
     fn use_browser_settings(&mut self, command: &Command) -> Result<()> {
         self.job_capacity()?;
@@ -665,7 +660,6 @@ impl Runtime {
         Ok(())
     }
 
-    /// An agent's `kodosi show` and `kodosi browser`, on the canvas of its own terminal.
     #[cfg(feature = "host")]
     fn use_canvas(&mut self, command: &Command) -> Result<()> {
         let id = parse_id(command.session_id().unwrap_or_default())?;
@@ -1103,7 +1097,6 @@ impl Runtime {
         self.begin_creation(command, None).map(drop)
     }
 
-    /// `screen` is the file of the saved screen that the new terminal shows first.
     #[cfg(feature = "host")]
     pub(super) fn begin_creation(
         &mut self,
@@ -2370,7 +2363,6 @@ async fn provider_reply(
     Ok(result)
 }
 
-/// Takes the events of one pipe to the client that opened it.
 struct Carrier {
     events: broadcast::Sender<crate::Event>,
     direct: Option<mpsc::Sender<crate::Event>>,
@@ -2380,7 +2372,6 @@ struct Carrier {
 }
 
 impl Carrier {
-    /// Sends one event, and says whether the client still takes them.
     async fn send(&self, value: Value) -> bool {
         let Ok(mut event) = crate::Event::new(self.user.clone(), self.epoch, value) else {
             return true;

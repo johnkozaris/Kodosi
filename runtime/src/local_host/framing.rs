@@ -13,8 +13,8 @@ pub(super) const REFRESH: u8 = 7;
 
 #[derive(Debug)]
 pub enum TerminalFrame {
-    /// The answer to one input. `ended` tells that the input reached a terminal that is gone, and
-    /// `shown` that the terminal says itself that the input did not go out.
+    /// `ended` tells that the input reached a terminal that is gone, and `shown` that the
+    /// terminal says itself that the input did not go out.
     InputAck {
         accepted: bool,
         ended: bool,
@@ -63,7 +63,6 @@ pub(super) fn resize_frame(
         "cellWidthPixels":cell.width,"cellHeightPixels":cell.height,"atSequence":at_sequence}))
 }
 
-/// The frame that answers one input with how its terminal took it.
 pub fn input_ack_frame(result: &Result<()>) -> Result<Vec<u8>> {
     let mut frame = vec![INPUT_ACK];
     frame.extend(serde_json::to_vec(&json!({

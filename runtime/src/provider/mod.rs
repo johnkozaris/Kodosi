@@ -214,8 +214,6 @@ pub fn state_root(home: &Path, provider: Provider) -> Result<PathBuf, String> {
     storage::provider_root(home, provider)
 }
 
-/// The conversation that `agent` shows in the process group `group`, from the agent's own
-/// records in its account folder `root`. `folder` is the folder of its terminal.
 #[cfg(feature = "host")]
 pub(crate) async fn shown_conversation(
     agent: Agent,

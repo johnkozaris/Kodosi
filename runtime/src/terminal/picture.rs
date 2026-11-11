@@ -43,8 +43,6 @@ impl PictureFormat {
     }
 }
 
-/// A picture that a person pastes into a terminal. The same picture always has the same
-/// digest and file name.
 #[derive(Clone)]
 pub struct Picture {
     pub bytes: Bytes,
@@ -66,7 +64,6 @@ impl Picture {
         })
     }
 
-    /// Reads the picture of a file that an app wrote when the person pasted it.
     pub(crate) async fn read(path: String) -> Result<Self> {
         tokio::task::spawn_blocking(move || {
             use std::io::Read as _;
@@ -95,7 +92,6 @@ pub(crate) fn name(digest: &[u8; 32], format: PictureFormat) -> String {
     format!("picture-{}.{}", hex(&digest[..8]), format.extension())
 }
 
-/// The digest of a picture from its 64 hexadecimal characters.
 #[cfg(feature = "host")]
 pub(crate) fn picture_digest(text: &str) -> Option<[u8; 32]> {
     if text.len() != 64 || !text.is_ascii() {
@@ -117,8 +113,7 @@ pub(crate) fn hex(bytes: &[u8]) -> String {
         })
 }
 
-/// The folder of the pictures that people paste into this host's terminals. A pasted path has
-/// no spaces, so on Unix it is the host's short private folder.
+/// A pasted path has no spaces, so on Unix the pictures are in the host's short private folder.
 #[cfg(feature = "host")]
 pub(crate) fn pictures_root(data_root: &std::path::Path) -> std::path::PathBuf {
     #[cfg(unix)]
@@ -128,8 +123,6 @@ pub(crate) fn pictures_root(data_root: &std::path::Path) -> std::path::PathBuf {
     data_root.join("pictures")
 }
 
-/// Saves the picture in the terminal's folder and gives the path of its file. A picture that
-/// is there already is not written again.
 #[cfg(feature = "host")]
 pub(crate) fn save(folder: &std::path::Path, picture: &Picture) -> Result<std::path::PathBuf> {
     kodosi_os::fs::create_private_dir(folder)?;
@@ -140,8 +133,6 @@ pub(crate) fn save(folder: &std::path::Path, picture: &Picture) -> Result<std::p
     Ok(path)
 }
 
-/// The text that a pasted picture gives a program: the path of its file, in quotes where a
-/// shell would split it.
 #[cfg(feature = "host")]
 pub(crate) fn paste_text(path: &std::path::Path) -> String {
     let text = path.to_string_lossy();

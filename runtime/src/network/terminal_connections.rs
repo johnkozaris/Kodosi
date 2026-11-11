@@ -52,8 +52,6 @@ pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 pub(crate) const STABLE_CONNECTION: Duration = Duration::from_mins(1);
 pub(crate) const CONTROL_TIMEOUT: Duration = Duration::from_secs(12);
-/// How long a short drop lasts: a terminal of another computer holds what the person types,
-/// and Kodosi counts as online.
 pub(crate) const RECONNECT_WAIT: Duration = Duration::from_secs(10);
 pub(crate) fn input_not_sent() -> crate::text::Text {
     text!("Kodosi did not send some of your last input.")
@@ -111,7 +109,6 @@ impl Publication {
     }
 }
 
-/// The live documents that one connection holds open.
 #[cfg(feature = "host")]
 const MOST_PIPES: usize = 16;
 
@@ -145,7 +142,6 @@ pub(crate) enum RemoteRequest {
     },
 }
 
-/// Carries a pipe of a viewer until a side ends it.
 pub(super) fn open_pipe(
     commands: mpsc::Sender<RemoteRequest>,
     cancel: CancellationToken,

@@ -56,7 +56,6 @@ pub enum DosiState {
     Stopping,
     Connecting,
     Unavailable,
-    /// Dosi is off on this computer.
     Off,
 }
 
@@ -74,10 +73,9 @@ pub struct DosiSnapshot {
     pub items: Vec<DosiItem>,
     pub earlier: bool,
     pub queued: Vec<DosiQueued>,
-    /// The messages that wait for the computer that the person asked to answer them.
     pub asks: Vec<DosiAsk>,
-    /// The computer that answered last, which answers a message from a device that runs no
-    /// Dosi unless the person picks another.
+    /// The computer that answered last. It answers a message from a device that runs no Dosi,
+    /// unless the person picks another.
     pub last: Option<DosiComputer>,
 }
 

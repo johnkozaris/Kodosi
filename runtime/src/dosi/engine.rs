@@ -32,7 +32,6 @@ const BEAT: Duration = Duration::from_mins(3);
 const MAX_QUEUED: usize = super::chat::MAX_WAITING;
 const MAX_SESSIONS: usize = 8;
 
-/// What the work of this computer's Dosi tells it: its agent's process and its timers.
 pub(crate) enum Run {
     Prepared {
         process: u64,
@@ -333,7 +332,6 @@ impl Engine {
             .unwrap_or_else(|| folder::DEFAULT_INSTRUCTIONS.to_owned())
     }
 
-    /// Sends a message to Dosi here, or to Dosi on `computer` when it is another computer.
     pub(crate) fn send(
         &mut self,
         text: &str,
@@ -409,7 +407,6 @@ impl Engine {
         (self.saved.on && (!self.queue.is_empty() || self.wake)) || self.chat.asked_here().is_some()
     }
 
-    /// Why Dosi here does not answer a message that another device sent to this computer.
     fn refusal(&self) -> Option<crate::text::Text> {
         if !self.saved.on {
             return Some(text!(
@@ -422,7 +419,6 @@ impl Engine {
             .then(|| text!("Install Claude Code or Codex, then choose it for Dosi in Settings."))
     }
 
-    /// Answers a message for this computer with why Dosi here does not run it.
     fn refuse(&mut self, turn: &str, reason: &crate::text::Text, out: &mut Output) {
         let computer = self.chat.computer();
         let conversation = self.chat.current(out);
@@ -724,8 +720,8 @@ impl Engine {
     fn heard(&mut self, heard: Vec<Heard>, out: &mut Output) {
         for heard in heard {
             match heard {
-                Heard::Reset => self.quiet(),
-                Heard::Adopted => {
+                Heard::RecordsLost => self.quiet(),
+                Heard::ConversationReplaced => {
                     if self.phase != Phase::Idle {
                         self.end_process();
                         self.phase = Phase::Idle;
@@ -1053,7 +1049,6 @@ impl Engine {
         }
     }
 
-    /// Takes back a message that waits here or for another computer.
     pub(crate) fn unqueue(&mut self, id: &str, out: &mut Output) -> Result<()> {
         let before = self.queue.len();
         self.queue.retain(|queued| queued.id != id);
@@ -1067,8 +1062,6 @@ impl Engine {
         Err(Error::Refused(text!("You sent that message already.")))
     }
 
-    /// Answers a question. When Dosi asked it here, Dosi goes on with the answer here; when it
-    /// asked on another computer, Dosi goes on there.
     pub(crate) fn answer(
         &mut self,
         item: &str,
@@ -1083,8 +1076,6 @@ impl Engine {
         Ok(())
     }
 
-    /// Takes the answer to a question that Dosi asked here into Dosi's next turn, and types the
-    /// chosen keys in the terminal that asked.
     fn go_on(&mut self, answered: DosiItem, out: &mut Output) {
         if !self.saved.on {
             return;
@@ -1185,8 +1176,6 @@ impl Engine {
         self.chat.renew(out);
     }
 
-    /// Turns Dosi on this computer on or off. Off, Dosi here stops its turn and closes its
-    /// questions, and answers messages from other devices with a note that it is off here.
     pub(crate) fn turn(&mut self, on: bool, out: &mut Output) {
         if self.saved.on == on {
             return;

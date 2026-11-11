@@ -18,8 +18,8 @@ const MOST_BYTES: usize = 1024 * 1024;
 const SCREENS: &str = "screens";
 const SCREEN_MOST_BYTES: usize = 1024 * 1024;
 const RESTORED: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\r\n\x1b[2mRestored\x1b[0m\r\n";
-/// How long after its agent ends a terminal still comes back with that agent: at a sign-out or a
-/// shutdown, the agent and the host stop together.
+/// At a sign-out or a shutdown, the agent and the host stop together, so a terminal still comes
+/// back with an agent that ended a moment before.
 const ENDED_GRACE: Duration = Duration::from_secs(10);
 const ASK_AGAIN: Duration = Duration::from_secs(10);
 const ASK_AGAIN_KNOWN: Duration = Duration::from_secs(30);
@@ -97,13 +97,10 @@ impl Restore {
         std::mem::take(&mut self.pending)
     }
 
-    /// The terminals of the last host that come back.
     pub(super) fn returning(&self) -> HashSet<Uuid> {
         self.pending.iter().map(|terminal| terminal.id).collect()
     }
 
-    /// Saves the terminals that come back, away from the runtime's task. A list that is saved
-    /// already is saved again only after its write failed.
     pub(super) fn save(&mut self, live: Vec<Saved>) {
         let terminals = self
             .pending
@@ -124,7 +121,6 @@ impl Restore {
         }
     }
 
-    /// Returns when the newest list of the terminals that come back is on disk.
     pub(super) async fn saved(&self) {
         self.saver.saved().await;
     }
@@ -133,8 +129,6 @@ impl Restore {
         self.screens.join(id.to_string())
     }
 
-    /// Keeps the newest lines of each screen, and removes the screens of terminals that no
-    /// longer come back.
     pub(super) fn keep_screens(&self, screens: Vec<(Uuid, Vec<u8>)>) {
         let saved = self
             .written
@@ -170,7 +164,6 @@ impl Restore {
     }
 }
 
-/// The newest whole lines of a screen that fit in `most` bytes.
 pub(super) fn newest_lines(screen: &[u8], most: usize) -> &[u8] {
     if screen.len() <= most {
         return screen;
@@ -182,7 +175,6 @@ pub(super) fn newest_lines(screen: &[u8], most: usize) -> &[u8] {
         .map_or(&[], |line| &screen[start + line + 2..])
 }
 
-/// A saved screen and a line that ends it, for the terminal that comes back in its place.
 pub(super) fn earlier_screen(file: &Path) -> Vec<u8> {
     let mut screen = Vec::new();
     let read = std::fs::File::open(file).and_then(|file| {
@@ -196,16 +188,12 @@ pub(super) fn earlier_screen(file: &Path) -> Vec<u8> {
     screen
 }
 
-/// A line that brings back an agent, and whether it names the agent's conversation or only lists
-/// its conversations.
 #[derive(Debug)]
 pub(super) struct AgentLine {
     pub(super) line: String,
     pub(super) named: bool,
 }
 
-/// The line that continues the conversation of the agent `program` in `terminal`, with the
-/// account, model, effort, permissions and output that it runs with. `folder` is the folder of the terminal.
 pub(super) async fn agent_line(
     terminal: TerminalSession,
     program: String,
@@ -236,9 +224,8 @@ pub(super) async fn agent_line(
     })
 }
 
-/// The line that named the conversation of a terminal's agent while the agent ran, so that the
-/// terminal still comes back to it when the agent stops before the host asks, or the host ends
-/// without asking.
+/// Kept while the agent runs, so that the terminal still comes back to its conversation when the
+/// agent stops before the host asks, or the host ends without asking.
 #[derive(Debug, Default)]
 pub(super) struct Conversation {
     line: Option<String>,
@@ -248,7 +235,6 @@ pub(super) struct Conversation {
 }
 
 impl Conversation {
-    /// Whether to look for the conversation now: one look at a time, and less often once found.
     pub(super) fn ask(&mut self, now: Instant) -> bool {
         let wait = if self.line.is_some() {
             ASK_AGAIN_KNOWN
@@ -275,8 +261,6 @@ impl Conversation {
         }
     }
 
-    /// The terminal's program changed. The line of an agent that ended stays for a moment;
-    /// another program starts over.
     pub(super) fn program_changed(&mut self, ended: bool, now: Instant) {
         self.asked = None;
         if ended && self.line.is_some() {
@@ -295,8 +279,6 @@ impl Conversation {
     }
 }
 
-/// The line that brings back a terminal's agent: one that names its conversation now, else the
-/// one that named it while the agent ran, else one that lists its conversations.
 pub(super) fn chosen_line(
     fresh: Option<AgentLine>,
     known: &Conversation,
@@ -311,15 +293,12 @@ pub(super) fn chosen_line(
     }
 }
 
-/// The folder variable `name` of a running agent. Windows shows no other process's environment,
-/// and the programs of its terminals start with the host's.
+/// Windows shows no other process's environment, and the programs of its terminals start with
+/// the host's.
 pub(super) fn account_variable(shown: Option<String>, name: &str) -> Option<String> {
     shown.or_else(|| cfg!(windows).then(|| std::env::var(name).ok()).flatten())
 }
 
-/// The command that starts `agent` again in its account folder `account`, with the model,
-/// effort, permissions and output of the `arguments` that it runs with, and what Kodosi
-/// `changed` while it ran.
 pub(super) fn restart_command(
     agent: Agent,
     home: &Path,

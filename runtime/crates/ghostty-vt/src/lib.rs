@@ -130,8 +130,6 @@ impl Terminal {
         self.raw.encode_focus(focused)
     }
 
-    /// Pasted text without control characters, in bracketed paste marks when the program
-    /// asked for them.
     pub fn encode_paste(&mut self, text: &str) -> Result<Vec<u8>, Error> {
         let text = text
             .chars()

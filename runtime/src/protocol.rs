@@ -97,7 +97,6 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
-    /// Tries to reach the server and the terminals of other computers now.
     #[serde(rename = "connection.retry")]
     RetryConnection {
         #[serde(rename = "requestId")]
@@ -462,7 +461,6 @@ pub enum Command {
         session_id: String,
         #[serde(default)]
         paths: Vec<String>,
-        /// A web or file address for the shared browser.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         address: Option<String>,
         folder: String,
@@ -493,14 +491,11 @@ pub enum Command {
         folder: String,
         arguments: Vec<String>,
     },
-    /// What Settings › Browser shows: the browsers of this computer whose sign-ins a person can
-    /// copy, for how many sites copies gave sign-ins, and the Kodosi Browser of this computer.
     #[serde(rename = "browser.status")]
     BrowserStatus {
         #[serde(rename = "requestId")]
         request_id: String,
     },
-    /// A person's own step: copies the sign-ins of a browser into the kept profile.
     #[serde(rename = "browser.copy")]
     BrowserCopy {
         #[serde(rename = "requestId")]
@@ -519,7 +514,6 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
-    /// A person's own step: gets Kodosi Browser now, or its newest version.
     #[serde(rename = "browser.get")]
     BrowserGet {
         #[serde(rename = "requestId")]
@@ -766,7 +760,6 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
-    /// Turns Dosi on this computer on or off.
     #[serde(rename = "dosi.use")]
     DosiUse {
         #[serde(rename = "requestId")]
@@ -856,7 +849,6 @@ pub enum PushEnvironment {
     Production,
 }
 
-/// A browser of this computer whose sign-ins Settings › Browser can copy.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BrowserSource {
@@ -897,7 +889,6 @@ pub struct SessionEntry {
     /// The agent in front started without Kodosi's note, because a person started it by hand.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub program_outside: bool,
-    /// What the agent in front works with, as far as Kodosi knows.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub program_settings: Option<crate::agents::AgentSettings>,
     /// What the agent in front can change while it runs.
@@ -912,12 +903,9 @@ pub struct SessionEntry {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub program_status: Option<crate::terminal::ProgramStatus>,
-    /// Whether the program works now: its report says so, or else its title spins.
     pub working: bool,
-    /// What the terminal waits with: a person's answer, a result or a failure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub waiting: Option<crate::terminal::Waiting>,
-    /// What the program does now, in words: its report, or else its title.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub activity: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1146,8 +1134,8 @@ pub enum EventBody {
     },
     #[serde(rename = "session.show")]
     SessionShow { session_id: String },
-    /// A picture that a person pasted into a terminal of another computer. It is no control of
-    /// the terminal's view, so its name does not start with `term.`.
+    /// A pasted picture is no control of the terminal's view, so its name does not start with
+    /// `term.`.
     #[serde(rename = "session.picture")]
     SessionPicture {
         session_id: String,
@@ -1344,7 +1332,6 @@ pub enum EventBody {
     },
 }
 
-/// Where a picture that a person pasted into a terminal of another computer is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum PictureState {
@@ -1443,7 +1430,6 @@ pub struct FriendRequestEntry {
     pub created_at: String,
 }
 
-/// A person whom the user blocked: they cannot send the user friend requests.
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlockedEntry {
@@ -1461,7 +1447,6 @@ pub struct DeviceEntry {
     pub recovery_key: bool,
 }
 
-/// A device that asked to start fresh. It can start fresh after `ready_at_ms`.
 #[derive(Debug, Clone, Serialize, Deserialize, specta_macros::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DeviceReset {
@@ -2753,8 +2738,7 @@ pub fn answer_time(operation: &str) -> std::time::Duration {
     }
 }
 
-/// Whether a command gets an answer. The frames of a document get none: its pipe closes when it
-/// fails.
+/// The frames of a document get no answer: its pipe closes when it fails.
 pub fn answers(operation: &str) -> bool {
     !matches!(operation, "document.send" | "document.close")
 }
