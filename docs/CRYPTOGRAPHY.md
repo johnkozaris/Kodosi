@@ -28,11 +28,9 @@ each field carries its length.
 ## Mechanisms
 
 - **Device keys.** Each device has an ML-DSA-65 signing key and a fixed ML-KEM-768 and
-  X25519 project key pair. It keeps them in the Keychain (Apple), the Secret Service (Linux)
-  or DPAPI-sealed files (Windows). A Linux data folder chooses its store when it first
-  keeps a secret: the Secret Service when the session can open one, or else files in
-  `secrets/` that only the user can read (folder 0700, files 0600, read without following
-  links). It keeps the choice in `secrets/location`.
+  X25519 project key pair. It keeps them in the Keychain (Apple), the Secret Service
+  (Linux), DPAPI-sealed files (Windows) or the app's private files (Android). A Linux
+  session without a Secret Service keeps them in files that only the user can read.
 - **Identity root and device list.** The first device's self-signed certificate fixes
   the account's root. Approved devices certify new ones and sign a device list that they
   renew every 24 hours. Devices pin each account they verify: the root changes only when the

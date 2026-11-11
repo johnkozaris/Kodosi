@@ -3,58 +3,20 @@
 [PRODUCT.md](../../PRODUCT.md) has the shared intent and [DESIGN.md](DESIGN.md) the
 visual system.
 
-The app follows, answers and controls the terminals of your computers and of the
-friends who share with you, starts terminals on your computers, and takes part in
-projects. Starting an agent in an open terminal, sharing a terminal with friends and
-reading provider conversations stay on the computer.
+The app follows, answers and controls the terminals of the person's computers and of
+the friends who share with them, starts terminals on the person's computers, and takes
+part in projects. It hosts nothing. Starting an agent in an open terminal, sharing a
+terminal with friends and reading provider conversations stay on the computer.
 
-- Sign-in opens in a system sign-in window. You approve a new iPhone or iPad as you
-  approve a computer: with a code that you enter on an approved device, with the recovery
-  key, or by starting fresh.
-- The Terminals tab groups the terminals by computer and then by folder: your computers
-  first, then those of each friend. A friend's terminal that you have not opened has no
-  folder yet. Each terminal has the sign of its state, and the tab counts the waiting
-  terminals that you can answer: your own, and others' while you have them open.
-- The + of the Terminals tab, or of one of your computers in it, starts a terminal on one
-  of your computers where Kodosi runs: a shell, or one of that computer's agents with its
-  account, model, effort, permissions, output and a first prompt, in a recent folder or a
-  folder that you browse to. Touching and holding one of its folders starts it in that
-  folder. A project's terminals start one in the project. The terminal opens when it
-  starts.
-- In a terminal, the phone sets the size only while it has focus, and never to fewer
-  than 10 rows. With less room, the terminal shows its bottom rows, or the rows down to
-  its cursor when the cursor is above them.
-- You type either in the terminal or in the composer, one at a time. While you type in
-  the terminal, a key row on the keyboard adds the keys a phone lacks. The composer
-  sends text as one paste and Return only when you tap send, and then closes. While an
-  agent waits for an answer, 1, 2 and 3 answer it without the keyboard. In landscape,
-  the header hides while you type. A hardware keyboard types into the terminal, without
-  the composer.
-- A tap on a link opens it by the shared link rules, except in a program that uses the
-  mouse. A drag scrolls the terminal, or the program when it uses the mouse. A tap on the
-  name of your own terminal in its bar renames it.
-- The canvas key in a terminal's bar opens the canvas full screen with the keys of its
-  parts in the bar. The banner of what the agent showed or changed sits over the terminal
-  with Open and a cross; the cross, like Done on the canvas, closes the canvas. A long
-  press on a key closes its part, and the plus key opens a closed part or the browser, or
-  adds a file. The files are tabs over the file, each with the key that takes it off the
-  canvas, or all as cards, and a long press on one has Save a Copy, Ask about this and
-  Remove from canvas. Documents, sheets, presentations, PDFs and text files are live, and
-  other pictures and files show with Quick Look. In the shared browser, its tabs are over
-  the bar, taps and drags are clicks and scrolling, the address offers the pages that the
-  shared browsers showed on this device, and the keyboard key types into it.
-- Projects show the conversation, tasks and terminals, side by side on a wide iPad, and
-  the Projects tab counts invitations and projects with new messages. Settings holds the
-  account, friends, devices, recovery key, appearance, the size of terminal text on this
-  device, whether the screen stays on while a terminal is open, the document viewers,
-  notifications, the lock, the language, licenses and account deletion. Friends lists
-  requests first, then friends and their terminals, and the Settings tab counts the
-  requests.
-- The Dosi tab holds the conversation with Dosi. Above the composer, you choose the
-  computer that answers: one that runs Kodosi, or the one that answered last, also while it
-  is offline. Without either, the tab asks you to open Kodosi on a computer. The stop key
-  stops the turn on that computer, New chat asks first, and the tab counts Dosi's
-  questions, or an answer that you did not see.
-- With the lock on, Kodosi asks for Face ID, Touch ID or the passcode when it opens and
-  after a minute away, and covers what it shows while it is not in front, also in the app
-  switcher.
+- **Answer first.** The app is for the moment when an agent waits. Each terminal shows
+  its state, a waiting agent's short answers are one tap, and a notification opens the
+  terminal that needs the person, also while the app does not run.
+- **The terminal has the room.** The person types either in the terminal, with a row of
+  the keys that a phone lacks, or in a composer that sends its text as one paste. The
+  phone sets the size of a terminal only while it has focus.
+- **The canvas is full screen.** It never opens by itself: a banner names what the agent
+  showed or changed.
+- **Dosi runs on a computer.** The person writes to Dosi on one of their computers, and
+  that computer answers.
+- **Lock.** With the lock on, the app asks for Face ID, Touch ID or the passcode, and
+  covers what it shows while it is not in front.
