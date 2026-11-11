@@ -26,8 +26,18 @@ interface TerminalLink {
     }
 }
 
+interface TerminalRuntime {
+    fun connect(sessionId: String, link: TerminalLink): Int
+
+    fun disconnect(sessionId: String, link: TerminalLink)
+
+    fun input(sessionId: String, incarnationId: String, link: TerminalLink, bytes: ByteArray): Int
+}
+
 /** The embedded runtime: its handle, its events and the terminals that it streams. */
-class RuntimeHandle : RuntimeCallbacks {
+class RuntimeHandle :
+    RuntimeCallbacks,
+    TerminalRuntime {
     sealed interface Start {
         data object Started : Start
 
@@ -51,6 +61,7 @@ class RuntimeHandle : RuntimeCallbacks {
         if (NativeRuntime.abiVersion() != Ffi.ABI_VERSION || NativeRuntime.protocolVersion() != Ffi.PROTOCOL_VERSION) {
             return Start.Incompatible
         }
+        KeystoreSecrets.initialize(context)
         if (NativeRuntime.prepare(context.applicationContext) != Ffi.OK) return Start.Failed(null)
         NativeRuntime.setLanguage(language)
         val started = NativeRuntime.start(this)
@@ -70,7 +81,7 @@ class RuntimeHandle : RuntimeCallbacks {
 
     fun send(json: ByteArray): Int? = handle.takeIf { it != 0L }?.let { NativeRuntime.sendCommand(it, json) }
 
-    fun connect(sessionId: String, link: TerminalLink): Int {
+    override fun connect(sessionId: String, link: TerminalLink): Int {
         links[sessionId] = link
         val current = handle.takeIf { it != 0L } ?: return Ffi.RUNTIME_STOPPED
         return NativeRuntime.terminalConnect(current, sessionId, link.subscriptionId, link.generation)
@@ -81,13 +92,13 @@ class RuntimeHandle : RuntimeCallbacks {
         NativeRuntime.terminalRefresh(current, sessionId, link.subscriptionId, link.generation)
     }
 
-    fun disconnect(sessionId: String, link: TerminalLink) {
+    override fun disconnect(sessionId: String, link: TerminalLink) {
         links.remove(sessionId, link)
         val current = handle.takeIf { it != 0L } ?: return
         NativeRuntime.terminalDisconnect(current, sessionId, link.subscriptionId, link.generation)
     }
 
-    fun input(sessionId: String, incarnationId: String, link: TerminalLink, bytes: ByteArray): Int {
+    override fun input(sessionId: String, incarnationId: String, link: TerminalLink, bytes: ByteArray): Int {
         val current = handle.takeIf { it != 0L } ?: return Ffi.RUNTIME_STOPPED
         return NativeRuntime.terminalInput(
             current,

@@ -21,7 +21,7 @@ class TerminalStoreTest {
         "sessions.snapshot",
         "\"sessions\":" + ids.joinToString(",", "[", "]") { id ->
             """{"id":"$id","incarnationId":"i-$id","kind":"remote","name":"$id","isOwner":true,"status":"running",""" +
-                """"connectionState":"connected","attention":false,"hidden":false,"sharedWith":[],""" +
+                """"connectionState":"connected","working":false,"attention":false,"hidden":false,"sharedWith":[],""" +
                 """"connectedUsers":[],"prompt":false,"repository":false,"hostName":"John's MacBook Pro"}"""
         }
     )

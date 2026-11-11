@@ -1,7 +1,10 @@
 package com.kodosi.mobile.terminals
 
+import com.kodosi.mobile.runtime.RuntimeJson
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TerminalCatalogTest {
@@ -13,6 +16,7 @@ class TerminalCatalogTest {
         ownerUserId: String? = null,
         ownerName: String? = null,
         programStatus: ProgramStatus? = null,
+        waitState: ProgramStatus.State? = null,
         attention: Boolean = false,
         workingDir: String? = null
     ) = RuntimeSession(
@@ -26,11 +30,49 @@ class TerminalCatalogTest {
         ownerUserId = ownerUserId,
         ownerName = ownerName,
         programStatus = programStatus,
+        waitState = waitState,
         attention = attention,
         workingDir = workingDir,
         status = RuntimeSession.Status.RUNNING,
-        connectionState = RuntimeSession.Connection.CONNECTED
+        connectionState = RuntimeSession.Connection.CONNECTED,
+        isWorking = false
     )
+
+    @Test
+    fun keepsAgentIdentityInHumanReadableMessageAndBrowserNames() {
+        assertEquals(AgentKind.COPILOT, AgentKind.named("Copilot CLI"))
+        assertEquals(AgentKind.CLAUDE, AgentKind.named("Claude Code"))
+        assertEquals(AgentKind.GEMINI, AgentKind.named("Gemini CLI"))
+        assertEquals(AgentKind.SHELL, AgentKind.named("Build helper"))
+        assertEquals(AgentKind.SHELL, AgentKind.named(null))
+    }
+
+    @Test
+    fun usesTheRuntimeActivityAndWaitingStateInsteadOfInferringThemFromTheProgram() {
+        val terminal = RuntimeJson.decodeFromString<RuntimeSession>(
+            """{"id":"a","incarnationId":"i","kind":"remote","name":"Build",
+                "status":"running","connectionState":"connected","working":false,
+                "waiting":"done","activity":"Build complete","attention":true,
+                "title":"\u280b Old title","programStatus":{"state":"working"}}"""
+        )
+
+        assertFalse(terminal.isWorking)
+        assertEquals(ProgramStatus.State.DONE, terminal.waitState)
+        assertEquals("Build complete", terminal.activity)
+        assertEquals(StatusForm.DONE, terminal.sign())
+    }
+
+    @Test
+    fun showsWorkWhenTheRuntimeReportsItWithoutAProgramStatusOrTitle() {
+        val terminal = RuntimeJson.decodeFromString<RuntimeSession>(
+            """{"id":"a","incarnationId":"i","kind":"remote","name":"Build",
+                "status":"running","connectionState":"connected","working":true}"""
+        )
+
+        assertTrue(terminal.isWorking)
+        assertNull(terminal.waitState)
+        assertNull(terminal.activity)
+    }
 
     @Test
     fun groupsYourTerminalsByComputerBeforeYourFriends() {
@@ -58,7 +100,8 @@ class TerminalCatalogTest {
     fun signsWhatATerminalWaitsFor() {
         fun waiting(kind: ProgramStatus.Kind?) = session(
             "a",
-            programStatus = ProgramStatus(state = ProgramStatus.State.BLOCKED, kind = kind)
+            programStatus = ProgramStatus(state = ProgramStatus.State.BLOCKED, kind = kind),
+            waitState = ProgramStatus.State.BLOCKED
         )
 
         assertEquals(StatusForm.QUESTION, waiting(ProgramStatus.Kind.QUESTION).sign())
@@ -68,7 +111,7 @@ class TerminalCatalogTest {
 
     @Test
     fun signsAFinishedTerminalOnlyUntilItIsSeen() {
-        val done = session("a", programStatus = ProgramStatus(state = ProgramStatus.State.DONE), attention = true)
+        val done = session("a", waitState = ProgramStatus.State.DONE, attention = true)
 
         assertEquals(StatusForm.DONE, done.sign())
         assertNull(done.sign(unseen = false))

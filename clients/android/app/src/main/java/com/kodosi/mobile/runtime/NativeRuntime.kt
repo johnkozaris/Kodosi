@@ -36,6 +36,8 @@ internal object NativeRuntime {
 
     @JvmStatic external fun protocolVersion(): Int
 
+    @JvmStatic external fun setEnvironment(name: String, value: ByteArray): Boolean
+
     /** Gives the runtime the app's context, which it needs to check certificates. */
     @JvmStatic external fun prepare(context: Context): Int
 

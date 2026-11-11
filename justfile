@@ -303,6 +303,21 @@ android-rust-lint:
 android-build:
     just --justfile clients/android/justfile build
 
+# Build the optimized release APK, signed when the signing environment is set.
+[group('android')]
+android-release-build:
+    just --justfile clients/android/justfile release-build
+
+# Build the Android App Bundle with the same signing environment.
+[group('android')]
+android-bundle-build:
+    just --justfile clients/android/justfile bundle-build
+
+# Collect the Android viewer's dependency licenses.
+[group('android')]
+android-notices-build:
+    just --justfile clients/android/justfile notices-build
+
 # Install the Debug Android app on the device or emulator that adb sees, and open it.
 [group('android')]
 android-run:
@@ -313,10 +328,25 @@ android-run:
 android-lint:
     just --justfile clients/android/justfile lint
 
+# Format the Kotlin sources of the Android app.
+[group('android')]
+android-format:
+    just --justfile clients/android/justfile format
+
 # Run the unit tests of the Android app.
 [group('android')]
 android-test:
     just --justfile clients/android/justfile test
+
+# Test the JNI terminal and credential storage on an attached ARM64 Android device.
+[group('android')]
+android-device-test:
+    just --justfile clients/android/justfile device-test
+
+# Build the native Android boundary tests.
+[group('android')]
+android-device-test-build:
+    just --justfile clients/android/justfile device-test-build
 
 # Lint the runtime for Android, lint and test the Android app, build it, then check its translations.
 [group('android')]

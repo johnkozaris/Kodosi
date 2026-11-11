@@ -33,4 +33,4 @@ set_target_properties(kodosi_android PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRE
 target_include_directories(kodosi_android PRIVATE "${KODOSI_ROOT}/clients/apple/Sources/KodosiKit")
 target_compile_options(kodosi_android PRIVATE -Wall -Wextra -Werror -fvisibility=hidden)
 target_link_options(kodosi_android PRIVATE -Wl,--exclude-libs,ALL -Wl,--no-undefined)
-target_link_libraries(kodosi_android PRIVATE kodosi_runtime ghostty_vt log)
+target_link_libraries(kodosi_android PRIVATE kodosi_runtime ghostty_vt log jnigraphics)

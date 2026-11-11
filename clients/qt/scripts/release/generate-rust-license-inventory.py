@@ -26,8 +26,11 @@ def bytes_sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def cargo_metadata(manifest: Path, target: str | None) -> dict:
+def cargo_metadata(
+    manifest: Path, target: str | None, no_default_features: bool = False
+) -> dict:
     platform = ["--filter-platform", target] if target else []
+    features = ["--no-default-features"] if no_default_features else []
     result = subprocess.run(
         [
             "cargo",
@@ -36,6 +39,7 @@ def cargo_metadata(manifest: Path, target: str | None) -> dict:
             "--format-version",
             "1",
             *platform,
+            *features,
             "--manifest-path",
             str(manifest),
         ],
@@ -116,6 +120,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--target", required=True)
+    parser.add_argument("--no-default-features", action="store_true")
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument(
         "--overrides",
@@ -134,7 +139,9 @@ def main() -> None:
     except (OSError, ValueError) as error:
         fail(str(error))
 
-    metadata = cargo_metadata(arguments.manifest, arguments.target)
+    metadata = cargo_metadata(
+        arguments.manifest, arguments.target, arguments.no_default_features
+    )
     packages = {package["id"]: package for package in metadata["packages"]}
     nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
     roots = [

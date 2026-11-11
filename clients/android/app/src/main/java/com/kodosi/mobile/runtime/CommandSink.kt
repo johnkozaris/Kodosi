@@ -1,6 +1,7 @@
 package com.kodosi.mobile.runtime
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
@@ -54,7 +55,7 @@ class CommandSink(private val words: Words) {
         try {
             val result = send(type, fields + ("requestId" to JsonPrimitive(requestId)))
             if (result != Ffi.OK) throw failure(result)
-            return answer.await()
+            return withTimeoutOrNull(60_000) { answer.await() } ?: throw RuntimeFailure(words.unavailable)
         } finally {
             pending.remove(requestId)
         }

@@ -1,5 +1,6 @@
 package com.kodosi.mobile.terminals
 
+import com.kodosi.mobile.canvas.Canvas
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -52,8 +53,10 @@ data class RuntimeSession(
     val name: String,
     val program: String? = null,
     val programAccount: Int? = null,
-    val title: String? = null,
     val programStatus: ProgramStatus? = null,
+    val programSettings: AgentSettings? = null,
+    val programLive: AgentLive? = null,
+    val programPending: AgentSettings? = null,
     val workingDir: String? = null,
     val ownerUserId: String? = null,
     val ownerName: String? = null,
@@ -62,10 +65,20 @@ data class RuntimeSession(
     val isOwner: Boolean = false,
     val status: Status,
     val connectionState: Connection,
+    @SerialName("working")
+    val isWorking: Boolean,
+    @SerialName("waiting")
+    val waitState: ProgramStatus.State? = null,
+    val activity: String? = null,
     val message: String? = null,
     val missionName: String? = null,
     val attention: Boolean = false,
-    val hidden: Boolean = false
+    val hidden: Boolean = false,
+    val missionId: String? = null,
+    val connectedUsers: List<String>? = null,
+    val sharedWith: List<String> = emptyList(),
+    val restoredFrom: String? = null,
+    val canvas: Canvas? = null
 ) {
     @Serializable
     enum class Kind {
@@ -120,38 +133,12 @@ data class RuntimeSession(
     /** Whether Kodosi cannot reach this terminal of another computer because this device is offline. */
     fun unreachable(online: Boolean): Boolean = !online && kind == Kind.REMOTE && connectionState != Connection.BLOCKED
 
-    val isWorking: Boolean
-        get() = status != Status.CLOSING &&
-            (programStatus?.state?.let { it == ProgramStatus.State.WORKING } ?: (canControl && titleSpins))
-
-    val needsUser: Boolean get() = status != Status.CLOSING && programStatus?.state == ProgramStatus.State.BLOCKED
-
-    val waitState: ProgramStatus.State?
-        get() = when (programStatus?.state) {
-            ProgramStatus.State.BLOCKED -> if (needsUser) ProgramStatus.State.BLOCKED else null
-            ProgramStatus.State.DONE -> ProgramStatus.State.DONE
-            ProgramStatus.State.ERROR -> ProgramStatus.State.ERROR
-            else -> null
-        }
-
-    /** What the terminal does now: its program's report, or else the words of its title. */
-    val activity: String?
-        get() = programStatus?.caption ?: titleWords?.takeIf { it != name }
+    val needsUser: Boolean get() = waitState == ProgramStatus.State.BLOCKED
 
     val agent: AgentKind get() = AgentKind.of(program)
 
     val folderName: String? get() = workingDir?.trimEnd('/', '\\')?.substringAfterLast('/')?.substringAfterLast('\\')
-
-    private val titleSpins: Boolean get() = title?.firstOrNull()?.let { it in BRAILLE } == true
-
-    private val titleWords: String?
-        get() = title?.dropWhile { it in BRAILLE || it in STATUS_GLYPHS || it.isWhitespace() }
-            ?.filterNot { it.isISOControl() }
-            ?.ifEmpty { null }
 }
-
-private val BRAILLE = '\u2800'..'\u28FF'
-private val STATUS_GLYPHS = setOf('\u2733', '\u2722', '\u2736', '\u273B', '\u273D', '\u00B7', '\u25CF', '\u25CB')
 
 /** The program of a terminal, which picks its mark. */
 enum class AgentKind {
@@ -171,6 +158,11 @@ enum class AgentKind {
             "cursor-agent" -> CURSOR
             null -> SHELL
             else -> entries.firstOrNull { it.name.lowercase() == program } ?: SHELL
+        }
+
+        fun named(agent: String?): AgentKind {
+            val name = agent?.lowercase().orEmpty()
+            return entries.firstOrNull { it.isAgent && name.contains(it.name.lowercase()) } ?: SHELL
         }
     }
 }

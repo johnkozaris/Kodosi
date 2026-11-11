@@ -1,6 +1,5 @@
 package com.kodosi.mobile.ui
 
-import android.provider.Settings
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -13,20 +12,16 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,113 +39,44 @@ import androidx.compose.ui.geometry.toRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
 
-/** True when the person asked the system for less motion. */
 @Composable
-fun reducedMotion(): Boolean {
-    val context = LocalContext.current
-    return remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    }
-}
-
-enum class Elevation(val depth: Dp) { RESTING(2.dp), LIFTED(6.dp), FLOATING(12.dp) }
-
-/** A raised object: lit from the top left, with a hairline and a shadow that falls down and right. */
-fun Modifier.raised(
-    colors: KodosiColors,
-    shape: Shape,
-    fill: Color = colors.raised,
-    elevation: Elevation = Elevation.RESTING
-) = this
-    .shadow(
-        elevation.depth,
-        shape,
-        ambientColor = colors.shadow.copy(alpha = if (colors.isDark) 0.5f else 0.18f),
-        spotColor = colors.shadow.copy(alpha = if (colors.isDark) 0.6f else 0.22f)
-    )
-    .background(fill, shape)
-    .border(
-        BorderStroke(
-            1.dp,
-            Brush.linearGradient(
-                0f to colors.highlight,
-                0.45f to colors.highlight.copy(alpha = 0f),
-                0.6f to colors.lowlight.copy(alpha = 0f),
-                1f to colors.lowlight
-            )
-        ),
-        shape
-    )
-    .border(0.5.dp, colors.hairline.copy(alpha = if (colors.isDark) 0.5f else 0.7f), shape)
-
-enum class ButtonKind { PRIMARY, SECONDARY, TINTED, GHOST }
+fun reducedMotion(): Boolean = LocalReducedMotion.current
 
 @Composable
-fun KodosiButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    kind: ButtonKind = ButtonKind.PRIMARY,
-    large: Boolean = false,
-    enabled: Boolean = true
-) {
+fun KodosiSpinner(modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val shape = RoundedCornerShape(Radius.md)
-    val (fill, ink) = when (kind) {
-        ButtonKind.PRIMARY -> colors.accent to colors.onAccent
-        ButtonKind.SECONDARY -> colors.lifted to colors.ink
-        ButtonKind.TINTED -> colors.accentSoft to colors.accent
-        ButtonKind.GHOST -> Color.Transparent to colors.accent
-    }
-    val face = when {
-        !enabled && kind != ButtonKind.GHOST -> colors.well
-        pressed -> lerp(fill, Color.Black, 0.08f)
-        else -> fill
-    }
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .defaultMinSize(minHeight = if (large) 52.dp else 48.dp)
-            .then(if (kind == ButtonKind.GHOST) Modifier else Modifier.shadow(1.dp, shape))
-            .clip(shape)
-            .background(face, shape)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                enabled = enabled,
-                role = Role.Button,
-                onClick = onClick
-            )
-            .padding(horizontal = 18.dp)
-    ) {
-        Text(
-            text,
-            style = if (large) KodosiType.headline else KodosiType.subhead,
-            color = if (enabled) ink else colors.inkFaint,
-            textAlign = TextAlign.Center
+    val turn = if (reducedMotion()) {
+        null
+    } else {
+        rememberInfiniteTransition(label = "spinner").animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(tween(800, easing = LinearEasing), RepeatMode.Restart),
+            label = "spinner turn"
         )
+    }
+    Canvas(modifier.size(14.dp).progressSemantics()) {
+        val stroke = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round)
+        val inset = stroke.width / 2
+        val diameter = Size(size.width - stroke.width, size.height - stroke.width)
+        drawArc(colors.hairline, 0f, 360f, false, Offset(inset, inset), diameter, style = stroke)
+        drawArc(colors.accent, turn?.value ?: 0f, 100.8f, false, Offset(inset, inset), diameter, style = stroke)
     }
 }
 
@@ -162,7 +88,7 @@ fun ProgressCaption(text: String, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.Center,
         modifier = modifier
     ) {
-        CircularProgressIndicator(color = colors.accent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+        KodosiSpinner(Modifier.size(16.dp))
         Spacer(Modifier.width(10.dp))
         Text(text, style = KodosiType.callout, color = colors.inkMuted)
     }
@@ -209,7 +135,7 @@ private const val WORDMARK_ASPECT = 729f / 160f
 
 enum class MarkActivity { ASLEEP, AWAKE, WORKING }
 
-private fun AgentKind.tint(account: Int?): Color {
+internal fun AgentKind.tint(account: Int? = null): Color {
     val shades = when (this) {
         AgentKind.CLAUDE -> listOf(0xFFD97757, 0xFFC4301C, 0xFFD38A0F, 0xFF6B3420, 0xFFC9456B)
         AgentKind.CODEX -> listOf(0xFF5F6B7A, 0xFF2E5A8C, 0xFF2F7D74, 0xFF3A3F4A, 0xFF6E5A7E)
