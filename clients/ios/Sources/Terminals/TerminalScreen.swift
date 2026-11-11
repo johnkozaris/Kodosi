@@ -188,7 +188,6 @@ private struct TerminalScreenContent: View {
         }
         .sensoryFeedback(.selection, trigger: controller.presses)
         .sensoryFeedback(.impact(flexibility: .solid), trigger: controller.sent)
-        .sensoryFeedback(.impact(weight: .light), trigger: controller.bells)
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
     }
 

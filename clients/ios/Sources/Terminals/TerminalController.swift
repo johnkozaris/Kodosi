@@ -99,10 +99,6 @@ final class TerminalController {
         presence.visible && presence.rendered && presence.canControl && !lock.locked
     }
 
-    var bells: Int {
-        store.bells[sessionId] ?? 0
-    }
-
     func appear(active: Bool) {
         guard !presence.visible else { return }
         presence.visible = true

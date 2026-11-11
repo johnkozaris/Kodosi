@@ -28,7 +28,7 @@ fn this_terminal() -> Option<String> {
 #[derive(Parser)]
 #[command(
     name = "kodosi",
-    version = env!("KODOSI_VERSION"),
+    version = crate::PRODUCT_VERSION,
     about = "Shared terminals and projects for people and their coding agents."
 )]
 struct Arguments {
@@ -1634,12 +1634,12 @@ impl WaitState {
         let Some(entry) = entry else {
             return matches!(self, Self::Closed);
         };
-        let state = entry["programStatus"]["state"].as_str();
+        let waiting = entry["waiting"].as_str();
         match self {
-            Self::Working => state == Some("working"),
-            Self::Waiting => state == Some("blocked"),
-            Self::Done => state == Some("done"),
-            Self::Failed => state == Some("error"),
+            Self::Working => entry["working"] == true,
+            Self::Waiting => waiting == Some("blocked"),
+            Self::Done => waiting == Some("done"),
+            Self::Failed => waiting == Some("error"),
             Self::Prompt => entry["prompt"] == true,
             Self::Closed => false,
         }
@@ -1886,7 +1886,7 @@ mod tests {
     }
     #[test]
     fn a_wait_ends_on_the_state_the_program_reports() {
-        let entry = json!({"id":"t","prompt":false,"programStatus":{"state":"blocked"}});
+        let entry = json!({"id":"t","prompt":false,"working":false,"waiting":"blocked"});
         assert!(WaitState::Waiting.reached(Some(&entry)));
         assert!(!WaitState::Done.reached(Some(&entry)));
         assert!(!WaitState::Prompt.reached(Some(&entry)));

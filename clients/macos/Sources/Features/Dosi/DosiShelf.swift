@@ -102,7 +102,7 @@ struct DosiShelf: View {
         case .hand?, .question?, .key?: 0
         case .failed?: 1
         case .done?, .changed?: 2
-        case nil: session.isWorking ? 3 : 4
+        case nil: session.working ? 3 : 4
         }
     }
 }

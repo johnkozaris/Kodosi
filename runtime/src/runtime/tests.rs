@@ -2237,13 +2237,155 @@ async fn a_terminal_that_needs_its_person_waits_for_a_look_unless_someone_watche
     watching.cancel();
     assert!(!show(&mut runtime, ProgramState::Working));
     assert!(show(&mut runtime, ProgramState::Blocked));
+    let mut listed = None;
+    let mut calls = Vec::new();
+    while let Ok(event) = events.try_recv() {
+        match event.event {
+            crate::protocol::EventBody::SessionsSnapshot { mut sessions } => {
+                listed = sessions.pop();
+            }
+            crate::protocol::EventBody::TerminalAttention { .. } => {
+                let entry = listed.as_ref().expect("the list comes before the call");
+                assert!(entry.attention);
+                calls.push(entry.waiting);
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(
+        calls,
+        [
+            Some(crate::terminal::Waiting::Done),
+            Some(crate::terminal::Waiting::Blocked)
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_terminal_shows_what_its_program_reports_or_else_its_title() {
+    use crate::terminal::{BlockedKind, ProgramState, ProgramStatus, Waiting};
+    let (mut runtime, _root) = registry_fixture();
+    let id = Uuid::now_v7();
+    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    let report = |state, kind, title: Option<&str>, message: Option<&str>| ProgramStatus {
+        state,
+        kind,
+        progress: None,
+        title: title.map(str::to_owned),
+        message: message.map(str::to_owned),
+    };
+    let mut shown = |title: Option<&str>, status: Option<ProgramStatus>, open: bool| {
+        let entry = runtime.remotes.get_mut(&id).unwrap();
+        entry.connection_state = if open {
+            ConnectionState::Connected
+        } else {
+            ConnectionState::Offline
+        };
+        entry.title = title.map(str::to_owned);
+        entry.program_status = status;
+        let entry = runtime.entries().remove(0);
+        (entry.working, entry.waiting, entry.activity)
+    };
+    let words = |words: &str| Some(words.to_owned());
+
+    assert_eq!(
+        shown(Some("\u{2810} Draft the notes"), None, true),
+        (true, None, words("Draft the notes"))
+    );
+    assert_eq!(
+        shown(Some("\u{2733} Draft the notes"), None, true),
+        (false, None, words("Draft the notes"))
+    );
+    assert_eq!(
+        shown(Some("\u{2810} Draft the notes"), None, false),
+        (false, None, words("Draft the notes"))
+    );
+    assert_eq!(shown(Some("Remote"), None, true), (false, None, None));
+    assert_eq!(shown(None, None, true), (false, None, None));
+    assert_eq!(
+        shown(Some("safe\u{202e}txt.exe\u{7}"), None, true).2,
+        words("safetxt.exe")
+    );
+
+    let working = report(ProgramState::Working, None, None, None);
+    assert_eq!(
+        shown(Some("Draft the notes"), Some(working.clone()), false),
+        (true, None, words("Draft the notes"))
+    );
+    let idle = report(ProgramState::Idle, None, None, None);
+    assert_eq!(
+        shown(Some("\u{2810} Draft the notes"), Some(idle), true),
+        (false, None, words("Draft the notes"))
+    );
+    let asks = report(
+        ProgramState::Blocked,
+        Some(BlockedKind::Permission),
+        Some("Review"),
+        Some("Allow the command?"),
+    );
+    assert_eq!(
+        shown(Some("Draft the notes"), Some(asks.clone()), true),
+        (
+            false,
+            Some(Waiting::Blocked),
+            words("Review: Allow the command?")
+        )
+    );
+    let signs_in = report(ProgramState::Blocked, Some(BlockedKind::Auth), None, None);
+    assert_eq!(
+        shown(None, Some(signs_in), true),
+        (false, Some(Waiting::Blocked), None)
+    );
+    for (state, waiting) in [
+        (ProgramState::Done, Waiting::Done),
+        (ProgramState::Error, Waiting::Error),
+    ] {
+        assert_eq!(
+            shown(Some("Deploy"), Some(report(state, None, None, None)), true),
+            (false, Some(waiting), words("Deploy"))
+        );
+    }
+
+    runtime.remotes.get_mut(&id).unwrap().status = SessionStatus::Closing;
+    let mut closing = |status| {
+        runtime.remotes.get_mut(&id).unwrap().program_status = Some(status);
+        let entry = runtime.entries().remove(0);
+        (entry.working, entry.waiting)
+    };
+    assert_eq!(closing(working), (false, None));
+    assert_eq!(closing(asks), (false, None));
+    assert_eq!(
+        closing(report(ProgramState::Done, None, None, None)),
+        (false, Some(Waiting::Done))
+    );
+}
+
+#[tokio::test]
+async fn a_spinner_that_kodosi_cannot_read_does_not_count_as_stopped() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let id = Uuid::now_v7();
+    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
+    let mut show = |connection, title: &str| {
+        let entry = runtime.remotes.get_mut(&id).unwrap();
+        entry.is_owner = true;
+        entry.connection_state = connection;
+        entry.title = Some(title.to_owned());
+        runtime.publish_catalog();
+        runtime.entries()[0].attention
+    };
+    assert!(!show(ConnectionState::Connected, "\u{2810} Build"));
+    assert!(!show(ConnectionState::Offline, "\u{2810} Build"));
+    assert!(!show(ConnectionState::Connected, "\u{2810} Build"));
+    assert!(!show(ConnectionState::Offline, "\u{2810} Build"));
+    assert!(show(ConnectionState::Connected, "\u{2733} Build"));
     let mut notices = 0;
     while let Ok(event) = events.try_recv() {
         if event.event.kind() == "term.attention" {
             notices += 1;
         }
     }
-    assert_eq!(notices, 2);
+    assert_eq!(notices, 1);
 }
 
 #[tokio::test]
@@ -3136,8 +3278,8 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
     let entry = serde_json::from_value(json!({
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
-        "repository": false, "sharedWith": [], "restoredFrom": replaced, "attention": false,
-        "connectedUsers": [], "hidden": false,
+        "repository": false, "working": false, "sharedWith": [], "restoredFrom": replaced,
+        "attention": false, "connectedUsers": [], "hidden": false,
     }))
     .unwrap();
     let chosen = Uuid::now_v7().to_string();
@@ -3383,8 +3525,8 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
     let mut entry: SessionEntry = serde_json::from_value(json!({
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
-        "repository": false, "sharedWith": ["ana"], "missionId": room, "missionName": "Launch",
-        "attention": false, "connectedUsers": [], "hidden": false,
+        "repository": false, "working": false, "sharedWith": ["ana"], "missionId": room,
+        "missionName": "Launch", "attention": false, "connectedUsers": [], "hidden": false,
     }))
     .unwrap();
     entry.program = Some("claude".to_owned());
@@ -3864,7 +4006,7 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
         "repository": false, "sharedWith": [], "attention": false, "connectedUsers": [],
-        "hidden": false,
+        "hidden": false, "working": false,
     }))
     .unwrap();
     entry.program = Some("claude".to_owned());

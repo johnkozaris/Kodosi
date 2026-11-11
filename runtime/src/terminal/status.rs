@@ -34,6 +34,27 @@ impl ProgramState {
     }
 }
 
+/// What a terminal waits with: a person's answer, a result or a failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum Waiting {
+    Blocked,
+    Done,
+    Error,
+}
+
+impl ProgramState {
+    /// What the terminal waits with in this state. A terminal that closes asks nobody.
+    pub(crate) const fn waiting(self, closing: bool) -> Option<Waiting> {
+        match self {
+            Self::Done => Some(Waiting::Done),
+            Self::Error => Some(Waiting::Error),
+            Self::Blocked if !closing => Some(Waiting::Blocked),
+            Self::Blocked | Self::Idle | Self::Working => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum BlockedKind {
@@ -57,6 +78,16 @@ pub struct ProgramStatus {
 }
 
 impl ProgramStatus {
+    /// What the program says of its state, in words: its title and its message.
+    pub fn caption(&self) -> Option<String> {
+        let words = [self.title.as_deref(), self.message.as_deref()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(": ");
+        (!words.is_empty()).then_some(words)
+    }
+
     pub fn is_valid(&self) -> bool {
         (self.kind.is_none() || self.state == ProgramState::Blocked)
             && self.progress.is_none_or(|progress| {
@@ -271,8 +302,7 @@ pub(super) fn is_display_text(text: &str, max_chars: usize) -> bool {
             .any(|character| character.is_control() || is_invisible_format(character))
 }
 
-#[cfg(feature = "host")]
-fn display_text(text: &str, max_chars: usize) -> Option<String> {
+pub(super) fn display_text(text: &str, max_chars: usize) -> Option<String> {
     let text = text
         .chars()
         .filter(|character| !character.is_control() && !is_invisible_format(*character))

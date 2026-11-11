@@ -35,9 +35,9 @@ pub use picture::{Picture, PictureFormat, TERMINAL_PICTURE_MAX_BYTES};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::TerminalSession;
-pub use status::{BlockedKind, ProgramState, ProgramStatus};
+pub use status::{BlockedKind, ProgramState, ProgramStatus, Waiting};
 pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
-pub(crate) use title::title_spins;
+pub(crate) use title::{title_spins, title_words};
 pub use types::{
     CellPixels, Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES,
     TERMINAL_INPUT_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,

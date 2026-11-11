@@ -20,7 +20,7 @@ private func terminalFields(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28
     var fields: [String: JSONValue] = [
         "id": .string(id), "incarnationId": .string(UUIDv7.generate()),
         "kind": .string("local"), "name": .string("checkout"), "program": .string("claude"),
-        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
+        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
         "connectionState": .string("local"), "sharedWith": .array([]),
     ]
     fields["canvas"] = canvas.map(JSONValue.object)

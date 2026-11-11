@@ -234,11 +234,15 @@ struct AppModelTests {
     }
 
     private func session(id: String, state: String) -> [String: Any] {
-        [
+        var entry: [String: Any] = [
             "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",
-            "programStatus": ["state": state], "name": id, "isOwner": true, "status": "running",
+            "programStatus": ["state": state], "working": state == "working", "name": id, "isOwner": true, "status": "running",
             "attention": false, "hidden": false, "connectionState": "connected", "sharedWith": [],
         ]
+        if ["blocked", "done", "error"].contains(state) {
+            entry["waiting"] = state
+        }
+        return entry
     }
 }
 

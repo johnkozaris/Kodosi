@@ -175,7 +175,7 @@ struct AgentActions: View {
 
     @ViewBuilder
     private func note(keeps: Bool) -> some View {
-        let busy = session.isWorking || session.needsUser
+        let busy = session.working || session.needsUser
         if busy || keeps {
             Text(verbatim: [
                 busy ? String(localized: "\(agent.label) changes when it finishes its turn.") : nil,

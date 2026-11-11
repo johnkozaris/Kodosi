@@ -24,7 +24,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 84;
+pub const VERSION: u32 = 85;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -912,6 +912,14 @@ pub struct SessionEntry {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub program_status: Option<crate::terminal::ProgramStatus>,
+    /// Whether the program works now: its report says so, or else its title spins.
+    pub working: bool,
+    /// What the terminal waits with: a person's answer, a result or a failure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub waiting: Option<crate::terminal::Waiting>,
+    /// What the program does now, in words: its report, or else its title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub activity: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<crate::terminal::TerminalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1329,8 +1337,6 @@ pub enum EventBody {
     TerminalBell { session_id: String },
     #[serde(rename = "term.attention")]
     TerminalAttention { session_id: String },
-    #[serde(rename = "term.title")]
-    TerminalTitle { session_id: String, title: String },
     #[serde(rename = "term.notification")]
     TerminalNotification {
         session_id: String,
@@ -1730,7 +1736,6 @@ impl EventBody {
             Self::DocumentClosed { .. } => "document.closed",
             Self::TerminalBell { .. } => "term.bell",
             Self::TerminalAttention { .. } => "term.attention",
-            Self::TerminalTitle { .. } => "term.title",
             Self::TerminalNotification { .. } => "term.notification",
         }
     }

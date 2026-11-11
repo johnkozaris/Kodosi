@@ -196,6 +196,11 @@ void TerminalNotificationsTest::alertsTheOwnerAndThePeopleWhoHaveAWaitingTermina
         for (int number = 1; number <= 3; ++number) {
             auto entry = test::session(number, number > 1, number == 1);
             entry.insert(QStringLiteral("programStatus"), status);
+            const auto state = status.value(QStringLiteral("state")).toString();
+            if (state == QStringLiteral("working"))
+                entry.insert(QStringLiteral("working"), true);
+            else
+                entry.insert(QStringLiteral("waiting"), state);
             entry.insert(QStringLiteral("attention"), marked.contains(test::id(number)));
             if (number == 3)
                 entry.insert(QStringLiteral("connectionState"), QStringLiteral("offline"));

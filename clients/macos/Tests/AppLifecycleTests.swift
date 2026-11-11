@@ -26,6 +26,7 @@ import Testing
             "kind": .string("remote"), "name": .string("Copper Wren"), "isOwner": .bool(true), "hostName": .string("studio"),
             "status": .string(back ? "running" : "offline"), "attention": .bool(false), "hidden": .bool(hidden),
             "connectionState": .string(back ? "connected" : "offline"), "missionId": .string("room"), "sharedWith": .array([]),
+            "working": .bool(false),
         ])])])
     }
     try app.receive(snapshot(hidden: false))
@@ -70,7 +71,7 @@ import Testing
         try runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([.object([
             "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b2b"),
             "kind": .string("local"), "name": .string("Quartz Puma"), "isOwner": .bool(true),
-            "status": .string(status), "attention": .bool(false), "hidden": .bool(false),
+            "status": .string(status), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
             "connectionState": .string("local"), "sharedWith": .array([]),
         ])])])
     }
@@ -139,7 +140,8 @@ import Testing
     let entry: JSONValue = .object([
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
         "kind": .string("remote"), "name": .string("Remote terminal"), "isOwner": .bool(true),
-        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("connected"), "sharedWith": .array([]),
+        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
+        "connectionState": .string("connected"), "sharedWith": .array([]),
     ])
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([entry])]))
     try app.receive(runtimeEvent("session.result", fields: [
@@ -176,7 +178,8 @@ import Testing
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
         "kind": .string("remote"), "name": .string("Remote terminal"), "isOwner": .bool(true),
-        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("connected"), "sharedWith": .array([]),
+        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
+        "connectionState": .string("connected"), "sharedWith": .array([]),
     ])])]))
     try app.receive(runtimeEvent("session.result", fields: [
         "requestId": #require(open["requestId"]), "operation": .string("session.openRemote"), "sessionId": .string(id),
@@ -207,7 +210,8 @@ import Testing
     try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
         "kind": .string("remote"), "name": .string("Remote terminal"), "isOwner": .bool(true),
-        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "connectionState": .string("offline"), "sharedWith": .array([]),
+        "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
+        "connectionState": .string("offline"), "sharedWith": .array([]),
     ])])]))
     let failure = "Kodosi could not reach the terminal connection service."
     let opens = { sent.filter { $0["type"] == .string("session.openRemote") } }

@@ -1005,36 +1005,15 @@ impl TerminalTarget {
     }
 }
 
+/// What Kodosi remembers of a terminal's program between two lists, to tell when it stops or
+/// starts to wait.
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Activity {
     working: bool,
-    wait: Option<crate::terminal::ProgramState>,
+    wait: Option<crate::terminal::Waiting>,
 }
 
 impl Activity {
-    fn of(entry: &SessionEntry) -> Self {
-        use crate::terminal::ProgramState;
-        let closing = entry.status == SessionStatus::Closing;
-        let state = entry.program_status.as_ref().map(|status| status.state);
-        let spinning = || {
-            entry
-                .title
-                .as_deref()
-                .is_some_and(crate::terminal::title_spins)
-        };
-        let working = !closing
-            && state.map_or_else(
-                || Self::connected(entry) && spinning(),
-                |state| state == ProgramState::Working,
-            );
-        let wait = state.filter(|state| match state {
-            ProgramState::Done | ProgramState::Error => true,
-            ProgramState::Blocked => !closing,
-            ProgramState::Idle | ProgramState::Working => false,
-        });
-        Self { working, wait }
-    }
-
     fn connected(entry: &SessionEntry) -> bool {
         matches!(
             entry.connection_state,
@@ -1042,9 +1021,45 @@ impl Activity {
         )
     }
 
+    /// Whether Kodosi reads the title of the terminal now, so that a spinner in it is current.
+    fn reads_title(entry: &SessionEntry) -> bool {
+        Self::connected(entry) && entry.status == SessionStatus::Running
+    }
+
     fn calls(entry: &SessionEntry) -> bool {
         entry.is_owner || Self::connected(entry)
     }
+}
+
+/// Says what every client shows of a terminal's program: whether it works, what it waits with,
+/// and what it does in words. The program's report decides, or else the terminal's title.
+fn show_program(entry: &mut SessionEntry) {
+    use crate::terminal::ProgramState;
+    let closing = entry.status == SessionStatus::Closing;
+    let state = entry.program_status.as_ref().map(|status| status.state);
+    entry.working = !closing
+        && state.map_or_else(
+            || {
+                Activity::reads_title(entry)
+                    && entry
+                        .title
+                        .as_deref()
+                        .is_some_and(crate::terminal::title_spins)
+            },
+            |state| state == ProgramState::Working,
+        );
+    entry.waiting = state.and_then(|state| state.waiting(closing));
+    entry.activity = entry
+        .program_status
+        .as_ref()
+        .and_then(crate::terminal::ProgramStatus::caption)
+        .or_else(|| {
+            entry
+                .title
+                .as_deref()
+                .and_then(crate::terminal::title_words)
+                .filter(|words| *words != entry.name)
+        });
 }
 
 struct Shown {
@@ -1437,6 +1452,7 @@ impl Runtime {
         entries.sort_by(|left, right| left.id.cmp(&right.id));
         for entry in &mut entries {
             entry.attention = self.attention.contains(&entry.id);
+            show_program(entry);
         }
         entries
     }
@@ -1458,25 +1474,40 @@ impl Runtime {
     }
 
     fn publish_catalog(&mut self) {
-        let entries = self.entries();
+        let mut entries = self.entries();
         let mut activity = HashMap::with_capacity(entries.len());
+        let mut called = Vec::new();
         for entry in &entries {
-            let now = Activity::of(entry);
-            let before = self.activity.get(&entry.id);
+            let before = self.activity.get(&entry.id).copied();
             let away = matches!(
                 entry.status,
                 SessionStatus::Offline | SessionStatus::Reconnecting
             );
-            let stopped = !away && before.is_some_and(|before| before.working) && !now.working;
-            let waits = now.wait.is_some() && before.map(|before| before.wait) != Some(now.wait);
-            if (stopped || waits) && Activity::calls(entry) {
-                self.notice(&entry.id);
+            let known = entry.program_status.is_some() || Activity::reads_title(entry);
+            let was_working = before.is_some_and(|before| before.working);
+            let stopped = !away && known && was_working && !entry.working;
+            let waits =
+                entry.waiting.is_some() && before.map(|before| before.wait) != Some(entry.waiting);
+            if (stopped || waits) && Activity::calls(entry) && self.mark(&entry.id) {
+                called.push(entry.id.clone());
             }
-            activity.insert(entry.id.clone(), now);
+            activity.insert(
+                entry.id.clone(),
+                Activity {
+                    working: if known { entry.working } else { was_working },
+                    wait: entry.waiting,
+                },
+            );
         }
         self.activity = activity;
         self.attention.retain(|id| self.activity.contains_key(id));
-        self.emit(json!({"type":"sessions.snapshot", "sessions":self.entries()}));
+        for entry in &mut entries {
+            entry.attention = self.attention.contains(&entry.id);
+        }
+        self.emit(json!({"type":"sessions.snapshot", "sessions":entries}));
+        for id in called {
+            self.call(&id);
+        }
     }
 
     fn watched(&self, id: &str) -> bool {
@@ -1561,11 +1592,18 @@ impl Runtime {
         }
     }
 
-    fn notice(&mut self, id: &str) {
+    /// Marks a terminal for its person, unless someone watches it now.
+    fn mark(&mut self, id: &str) -> bool {
         if self.watched(id) {
-            return;
+            return false;
         }
         self.attention.insert(id.to_owned());
+        true
+    }
+
+    /// Calls the person of a marked terminal. The terminal list goes first, so that an app has
+    /// the state that the call is about.
+    fn call(&self, id: &str) {
         self.emit(json!({"type":"term.attention", "sessionId":id}));
     }
 
@@ -3257,6 +3295,9 @@ impl Runtime {
             } else {
                 shared.and_then(TerminalStatus::program_status)
             },
+            working: false,
+            waiting: None,
+            activity: None,
             context: if live {
                 previous.and_then(|entry| entry.context.clone())
             } else {
@@ -3411,10 +3452,9 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Title { id, title } => {
                 if let Some(local) = self.local.get_mut(&id) {
-                    local.entry.title = Some(title.clone());
+                    local.entry.title = Some(title);
                     self.publish_catalog();
                 }
-                self.emit(json!({"type":"term.title", "sessionId":id, "title":title}));
             }
             #[cfg(feature = "host")]
             SessionChange::Bell { id } => {
@@ -3424,9 +3464,9 @@ impl Runtime {
                     .get(&id)
                     .is_some_and(|local| Activity::calls(&local.entry));
                 let id = id.to_string();
-                if calls && !self.attention.contains(&id) {
-                    self.notice(&id);
+                if calls && !self.attention.contains(&id) && self.mark(&id) {
                     self.publish_catalog();
+                    self.call(&id);
                 }
             }
             #[cfg(feature = "host")]

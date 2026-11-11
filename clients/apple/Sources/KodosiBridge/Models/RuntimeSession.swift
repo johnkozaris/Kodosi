@@ -34,22 +34,6 @@ public struct ProgramStatus: Decodable, Equatable, Sendable {
     }
 }
 
-public struct ProgramTitle: Decodable, Equatable, Sendable {
-    public let words: String?
-    public let spinning: Bool
-
-    public init(from decoder: any Decoder) throws {
-        let title = try decoder.singleValueContainer().decode(String.self)
-        spinning = title.unicodeScalars.first.map { (0x2800 ... 0x28FF).contains($0.value) } ?? false
-        let words = String((TerminalTitle.sanitize(title) ?? "").unicodeScalars.drop { Self.isStatusGlyph($0) || $0.properties.isWhitespace })
-        self.words = words.isEmpty ? nil : words
-    }
-
-    private static func isStatusGlyph(_ scalar: Unicode.Scalar) -> Bool {
-        (0x2800 ... 0x28FF).contains(scalar.value) || [0x2733, 0x2722, 0x2736, 0x273B, 0x273D, 0x00B7, 0x25CF, 0x25CB].contains(scalar.value)
-    }
-}
-
 public struct TerminalContext: Decodable, Equatable, Sendable {
     public let place: TerminalPlace?
     public let root: Bool
@@ -66,6 +50,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Decodable, Sendable { case local, remote }
     public enum Status: String, Decodable, Sendable { case running, reconnecting, offline, closing }
     public enum Connection: String, Decodable, Sendable { case local, connecting, connected, offline, blocked }
+    public enum Waiting: String, Decodable, Sendable { case blocked, done, error }
 
     public let id: String
     public let incarnationId: String
@@ -82,8 +67,13 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let programPending: AgentSettings?
     public let prompt: Bool?
     public let repository: Bool?
-    public let title: ProgramTitle?
     public let programStatus: ProgramStatus?
+    /// Whether the program works now, as the runtime says.
+    public let working: Bool
+    /// What the terminal waits with: a person's answer, a result or a failure.
+    public let waiting: Waiting?
+    /// What the program does now, in words.
+    public let activity: String?
     public let context: TerminalContext?
     public let canvas: Canvas?
     public let name: String
@@ -104,41 +94,16 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let attention: Bool
     public let hidden: Bool
 
-    public var activity: String? {
-        if let caption = programStatus?.caption {
-            return caption
-        }
-        guard let words = title?.words, words != name else { return nil }
-        return words
-    }
-
-    public var isWorking: Bool {
-        guard status != .closing else { return false }
-        if let programStatus {
-            return programStatus.state == .working
-        }
-        return canControl && title?.spinning == true
-    }
-
     public var atPrompt: Bool {
         kind == .local && canControl && prompt == true
     }
 
     public var needsUser: Bool {
-        status != .closing && programStatus?.state == .blocked
-    }
-
-    public var waitState: ProgramStatus.State? {
-        switch programStatus?.state {
-        case .blocked: needsUser ? .blocked : nil
-        case .done: .done
-        case .error: .error
-        default: nil
-        }
+        waiting == .blocked
     }
 
     public var progress: Int? {
-        isWorking ? programStatus?.progress : nil
+        working ? programStatus?.progress : nil
     }
 
     public var place: TerminalPlace? {

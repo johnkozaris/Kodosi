@@ -94,7 +94,7 @@ struct SidebarRoomRow: View {
                     NewDot().padding(.trailing, 4).transition(AnyTransition.pop)
                 } else if live.contains(where: \.needsUser) {
                     StatusSign(form: .hand).transition(AnyTransition.pop)
-                } else if live.contains(where: \.isWorking) {
+                } else if live.contains(where: \.working) {
                     BreathingDot(color: theme.colors.glowOrange, size: 6).padding(.trailing, 4)
                 }
             }

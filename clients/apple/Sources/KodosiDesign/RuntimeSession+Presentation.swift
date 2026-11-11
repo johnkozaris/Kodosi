@@ -3,7 +3,7 @@ import KodosiBridge
 
 public extension RuntimeSession {
     var alert: String? {
-        guard canCall, waitState != nil else { return nil }
+        guard canCall, waiting != nil else { return nil }
         return programStatus?.caption ?? sign(unseen: true)?.label
     }
 
@@ -11,11 +11,11 @@ public extension RuntimeSession {
         if let progress {
             return .progress(progress)
         }
-        return isWorking ? .working : rested
+        return working ? .working : rested
     }
 
     func sign(unseen: Bool) -> StatusSign.Form? {
-        switch waitState {
+        switch waiting {
         case .blocked:
             switch programStatus?.kind {
             case .question: .question

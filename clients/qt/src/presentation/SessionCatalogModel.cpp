@@ -159,7 +159,7 @@ void SessionCatalogModel::setVisible(const QString& id, bool visible)
 bool SessionCatalogModel::waiting(const QString& id) const
 {
     const auto found = session(id);
-    return found && !waitState(*found).isEmpty();
+    return found && !found->waiting.isEmpty();
 }
 
 void SessionCatalogModel::alert(const QString& id)
@@ -169,7 +169,7 @@ void SessionCatalogModel::alert(const QString& id)
         return;
     const bool calls = found->isOwner || presentation(*found).canControl;
     const auto words = report(*found);
-    emit alertChanged(id, !calls || waitState(*found).isEmpty() ? QString {} : words.isEmpty() ? signLabel(*found) : words);
+    emit alertChanged(id, !calls || found->waiting.isEmpty() ? QString {} : words.isEmpty() ? signLabel(*found) : words);
 }
 
 void SessionCatalogModel::receivePicture(const QJsonObject& event)
@@ -198,39 +198,9 @@ void SessionCatalogModel::receivePicture(const QJsonObject& event)
     }
 }
 
-namespace {
-bool isSpinner(const char32_t scalar)
-{
-    return scalar >= 0x2800 && scalar <= 0x28FF;
-}
-
-bool isStatusGlyph(const char32_t scalar)
-{
-    static constexpr char32_t glyphs[] { 0x2733, 0x2722, 0x2736, 0x273B, 0x273D, 0x00B7, 0x25CF, 0x25CB };
-    return isSpinner(scalar) || std::ranges::find(glyphs, scalar) != std::end(glyphs);
-}
-}
-
-bool SessionCatalogModel::isWorking(const Session& session)
-{
-    if (session.status == QStringLiteral("closing"))
-        return false;
-    if (!session.programState.isEmpty())
-        return session.programState == QStringLiteral("working");
-    const auto scalars = session.title.toUcs4();
-    return presentation(session).canType && !scalars.isEmpty() && isSpinner(scalars.first());
-}
-
-QString SessionCatalogModel::waitState(const Session& session)
-{
-    const bool result = session.programState == QStringLiteral("done") || session.programState == QStringLiteral("error");
-    const bool blocked = session.programState == QStringLiteral("blocked") && session.status != QStringLiteral("closing");
-    return result || blocked ? session.programState : QString {};
-}
-
 QString SessionCatalogModel::sign(const Session& session)
 {
-    const auto state = waitState(session);
+    const auto& state = session.waiting;
     if (state == QStringLiteral("done"))
         return state;
     if (state == QStringLiteral("error"))
@@ -264,20 +234,6 @@ QString SessionCatalogModel::report(const Session& session)
             parts.append(part);
     }
     return parts.join(QStringLiteral(": "));
-}
-
-QString SessionCatalogModel::activity(const Session& session)
-{
-    if (const auto words = report(session); !words.isEmpty())
-        return words;
-    qsizetype units = 0;
-    for (const auto scalar : session.title.toUcs4()) {
-        if (!isStatusGlyph(scalar) && !QChar::isSpace(scalar))
-            break;
-        units += QChar::requiresSurrogates(scalar) ? 2 : 1;
-    }
-    const auto text = session.title.mid(units).simplified();
-    return text == session.name ? QString {} : text;
 }
 
 QString SessionCatalogModel::folderName(const QString& path)
@@ -374,10 +330,10 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
     const auto p = presentation(session);
     const bool local = s->kind == QStringLiteral("local");
     return { { QStringLiteral("id"), s->id }, { QStringLiteral("name"), s->name },
-        { QStringLiteral("activity"), activity(session) }, { QStringLiteral("working"), isWorking(session) },
-        { QStringLiteral("progress"), isWorking(session) ? session.programProgress : -1 },
+        { QStringLiteral("activity"), s->activity }, { QStringLiteral("working"), s->working },
+        { QStringLiteral("progress"), s->working ? s->programProgress : -1 },
         { QStringLiteral("sign"), sign(session) }, { QStringLiteral("signLabel"), signLabel(session) },
-        { QStringLiteral("asks"), waitState(session) == QStringLiteral("blocked") },
+        { QStringLiteral("asks"), s->waiting == QStringLiteral("blocked") },
         { QStringLiteral("atPrompt"), local && p.canControl && session.prompt },
         { QStringLiteral("folderName"), folderName(s->workingDirectory) },
         { QStringLiteral("hostLabel"), local ? tr("This computer") : computerOf(*s) },
@@ -420,7 +376,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             .contains(s.connectionState)
         || !o.value(QStringLiteral("sharedWith")).isArray())
         return std::nullopt;
-    for (const auto* key : {"ownerUserId", "ownerName", "hostDeviceId", "hostName", "missionName", "message", "workingDir", "title", "program", "restoredFrom"}) {
+    for (const auto* key : {"ownerUserId", "ownerName", "hostDeviceId", "hostName", "missionName", "message", "workingDir", "activity", "program", "restoredFrom"}) {
         const auto value = o.value(QLatin1String(key));
         if (!value.isNull() && !value.isUndefined() && (!value.isString() || value.toString().size()>4096)) return std::nullopt;
     }
@@ -432,8 +388,17 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
         return std::nullopt;
     s.hidden = hidden.toBool();
     s.workingDirectory = text("workingDir");
-    s.title = text("title");
     s.program = text("program");
+    const auto working = o.value(QStringLiteral("working"));
+    const auto waiting = o.value(QStringLiteral("waiting"));
+    if ((!working.isUndefined() && !working.isBool())
+        || !QStringList { QString {}, QStringLiteral("blocked"), QStringLiteral("done"), QStringLiteral("error") }
+            .contains(waiting.toString())
+        || (!waiting.isUndefined() && !waiting.isNull() && !waiting.isString()))
+        return std::nullopt;
+    s.working = working.toBool();
+    s.waiting = waiting.toString();
+    s.activity = text("activity");
     const auto account = o.value(QStringLiteral("programAccount"));
     if (!account.isUndefined() && !account.isNull()) {
         const auto place = account.toInt(-1);
@@ -466,10 +431,9 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
         if (!reported.isObject())
             return std::nullopt;
         const auto report = reported.toObject();
-        s.programState = report.value(QStringLiteral("state")).toString();
         if (!QStringList { QStringLiteral("idle"), QStringLiteral("working"), QStringLiteral("done"),
                 QStringLiteral("blocked"), QStringLiteral("error") }
-                .contains(s.programState))
+                .contains(report.value(QStringLiteral("state")).toString()))
             return std::nullopt;
         for (const auto* key : {"kind", "title", "message"}) {
             const auto value = report.value(QLatin1String(key));

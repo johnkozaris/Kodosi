@@ -417,7 +417,7 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     let plugin = folder.join(PLUGIN);
     let manifest = format!(
         "{{\n  \"name\": \"kodosi\",\n  \"version\": \"{}\",\n  \"description\": \"Work with the people and agents in Kodosi, and show them what you make on the canvas of a terminal.\"\n}}\n",
-        env!("KODOSI_VERSION")
+        crate::PRODUCT_VERSION
     );
     let files = [
         (

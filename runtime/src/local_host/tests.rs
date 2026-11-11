@@ -384,7 +384,7 @@ fn stop_permission_protects_a_foreground_host_and_open_terminals() {
 fn local_session_counts_ignore_remote_entries() {
     let session = |kind: &str| {
         json!({"id":"11111111-1111-4111-8111-111111111111","incarnationId":"11111111-1111-4111-8111-111111111111",
-            "kind":kind,"name":"Terminal","prompt":false,"repository":false,"isOwner":true,"status":"running",
+            "kind":kind,"name":"Terminal","prompt":false,"repository":false,"working":false,"isOwner":true,"status":"running",
             "connectionState":"local","sharedWith":[],"attention":false,"connectedUsers":[],"hidden":false})
     };
     let events = [
@@ -485,7 +485,7 @@ async fn one_app_claims_a_folder_and_later_launches_hand_it_their_request() {
     let (server, mut received) = serve_into(claim, true).await;
     let activation = json!({ "route": "kodosi://room/abc", "token": "xdg-token" });
     let mut delivered = activation.clone();
-    delivered["appVersion"] = json!(env!("KODOSI_VERSION"));
+    delivered["appVersion"] = json!(crate::PRODUCT_VERSION);
     for _ in 0..2 {
         let forwarded = forward_activation(root.path(), &activation, Duration::from_secs(5))
             .await
@@ -538,7 +538,7 @@ async fn a_closing_owner_leaves_requests_unanswered_until_its_claim_passes_on() 
     };
     assert_eq!(
         received.recv().await.unwrap(),
-        json!({ "route": null, "appVersion": env!("KODOSI_VERSION") })
+        json!({ "route": null, "appVersion": crate::PRODUCT_VERSION })
     );
     server.shutdown().await;
     assert!(matches!(

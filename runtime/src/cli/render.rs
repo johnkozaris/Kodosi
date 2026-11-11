@@ -33,7 +33,7 @@ pub(super) fn session(session: &Value, context: &Context) -> String {
         ["Name".to_owned(), text(session, "name")],
         ["Where".to_owned(), place(session)],
         ["State".to_owned(), state(session)],
-        ["Message".to_owned(), message(session)],
+        ["Message".to_owned(), text(session, "activity")],
         ["Folder".to_owned(), text(session, "workingDir")],
         ["Project".to_owned(), text(session, "missionName")],
         [
@@ -556,28 +556,24 @@ pub(super) fn offline(session: &Value) -> Option<String> {
 
 fn activity(session: &Value) -> Option<String> {
     let status = &session["programStatus"];
-    Some(match (status["state"].as_str()?, status["kind"].as_str()) {
-        ("working", _) => status["progress"].as_u64().map_or_else(
+    if session["working"] == true {
+        return Some(status["progress"].as_u64().map_or_else(
             || "working".to_owned(),
             |progress| format!("working {progress}%"),
-        ),
-        ("blocked", Some("permission")) => "needs approval".to_owned(),
-        ("blocked", Some("question")) => "needs an answer".to_owned(),
-        ("blocked", Some("auth")) => "needs sign-in".to_owned(),
-        ("blocked", _) => "needs you".to_owned(),
-        ("done", _) => "done".to_owned(),
-        ("error", _) => "failed".to_owned(),
-        _ => return None,
-    })
-}
-
-fn message(session: &Value) -> String {
-    let status = &session["programStatus"];
-    [text(status, "title"), text(status, "message")]
-        .into_iter()
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join(": ")
+        ));
+    }
+    Some(
+        match (session["waiting"].as_str()?, status["kind"].as_str()) {
+            ("blocked", Some("permission")) => "needs approval",
+            ("blocked", Some("question")) => "needs an answer",
+            ("blocked", Some("auth")) => "needs sign-in",
+            ("blocked", _) => "needs you",
+            ("done", _) => "done",
+            ("error", _) => "failed",
+            _ => return None,
+        }
+        .to_owned(),
+    )
 }
 
 fn users(session: &Value) -> BTreeSet<String> {
@@ -686,9 +682,9 @@ mod tests {
             json!({"type":"friends.snapshot","accountEpoch":1,"accountUserId":"me","friends":[{"userId":"u-bob","handle":"bob"}]}),
             json!({"type":"sessions.snapshot","accountEpoch":1,"accountUserId":"me","sessions":[
                 {"id":"01a10d06-92a7-7367-8536-65c4895d05ae","name":"work","kind":"local","status":"running","isOwner":true,"sharedWith":["u-bob","u-else"]},
-                {"id":"01a10d06-92a7-7367-8536-000000000002","name":"build","kind":"remote","status":"running","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[],"programStatus":{"state":"working"}},
-                {"id":"01a10d06-92a7-7367-8536-000000000003","name":"agent","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"blocked","kind":"permission","title":"Review","message":"Allow the command?"}},
-                {"id":"01a10d06-92a7-7367-8536-000000000004","name":"deploy","kind":"remote","status":"running","connectionState":"connected","isOwner":true,"hostName":"Studio","sharedWith":[],"programStatus":{"state":"working","progress":40}},
+                {"id":"01a10d06-92a7-7367-8536-000000000002","name":"build","kind":"remote","status":"running","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[],"working":true,"programStatus":{"state":"working"}},
+                {"id":"01a10d06-92a7-7367-8536-000000000003","name":"agent","kind":"local","status":"running","isOwner":true,"sharedWith":[],"waiting":"blocked","activity":"Review: Allow the command?","programStatus":{"state":"blocked","kind":"permission","title":"Review","message":"Allow the command?"}},
+                {"id":"01a10d06-92a7-7367-8536-000000000004","name":"deploy","kind":"remote","status":"running","connectionState":"connected","isOwner":true,"hostName":"Studio","sharedWith":[],"working":true,"programStatus":{"state":"working","progress":40}},
                 {"id":"01a10d06-92a7-7367-8536-000000000005","name":"shell","kind":"local","status":"running","isOwner":true,"sharedWith":[],"programStatus":{"state":"idle"}},
                 {"id":"01a10d06-92a7-7367-8536-000000000006","name":"away","kind":"remote","status":"offline","connectionState":"offline","isOwner":false,"ownerName":"carol","hostName":"Studio","sharedWith":[]},
                 {"id":"01a10d06-92a7-7367-8536-000000000007","name":"tv","kind":"remote","status":"offline","connectionState":"connected","isOwner":true,"hostName":"Studio","sharedWith":[]},
