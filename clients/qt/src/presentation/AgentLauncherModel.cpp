@@ -201,6 +201,19 @@ void AgentLauncherModel::loadModels(const QString& agent)
     }
 }
 
+QStringList AgentLauncherModel::accounts(const QString& agent) const
+{
+    QStringList names;
+    for (const auto& value : m_agents) {
+        const auto info = value.toMap();
+        if (info.value(QStringLiteral("agent")).toString() != agent)
+            continue;
+        for (const auto& account : info.value(QStringLiteral("accounts")).toList())
+            names.append(account.toMap().value(QStringLiteral("name")).toString());
+    }
+    return names;
+}
+
 QString AgentLauncherModel::accountTitle(const QString& name, const QString& program) const
 {
     if (name == program)

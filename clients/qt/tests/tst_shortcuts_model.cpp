@@ -57,9 +57,9 @@ private slots:
         const auto holder = model.bind(
             QStringLiteral("goTo"), QStringLiteral("Ctrl+Shift+T"), QStringLiteral("Ctrl+Shift+K"));
 
-        QCOMPARE(holder, QStringLiteral("Quick terminal"));
+        QCOMPARE(holder, QStringLiteral("Same agent"));
         QCOMPARE(keysOf(model, QStringLiteral("goTo")), QStringList(QStringLiteral("Ctrl+Shift+T")));
-        QVERIFY(!keysOf(model, QStringLiteral("quickTerminal")).contains(QStringLiteral("Ctrl+Shift+T")));
+        QVERIFY(keysOf(model, QStringLiteral("sameAgent")).isEmpty());
         QCOMPARE(changed.count(), 1);
         QVERIFY(model.changed());
     }

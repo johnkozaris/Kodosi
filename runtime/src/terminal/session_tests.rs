@@ -741,6 +741,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         input_budget: Arc::new(Semaphore::new(MAX_PENDING_BYTES)),
         subscribers: Subscribers::default(),
         queue: VecDeque::new(),
+        early: VecDeque::new(),
         focused: HashMap::new(),
         resize_owner: None,
         requested: HashMap::new(),
@@ -1168,6 +1169,23 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
     wait_text(&mut subscription, b"42-started").await;
     session.close().await.expect("close");
     drop(session);
+}
+
+#[tokio::test]
+async fn keys_typed_before_the_start_line_follow_it() {
+    let (session, _changes, _root) = shell("sleep 0.5; stty raw -echo; exec /bin/cat").await;
+    let mut subscription = session.subscribe().await.unwrap();
+    session.start("START-LINE".to_owned()).unwrap();
+    session
+        .input(subscription.connection_id, Bytes::from_static(b"EARLY-KEYS"))
+        .unwrap();
+    let received = wait_text(&mut subscription, b"EARLY-KEYS").await;
+    let at = |text: &[u8]| received.windows(text.len()).position(|window| window == text);
+    assert!(
+        matches!((at(b"START-LINE"), at(b"EARLY-KEYS")), (Some(start), Some(early)) if start < early),
+        "{received:?}"
+    );
+    session.close().await.unwrap();
 }
 
 #[tokio::test]

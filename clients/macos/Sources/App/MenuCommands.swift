@@ -11,6 +11,7 @@ struct KodosiCommands: Commands {
         }
         CommandGroup(replacing: .newItem) {
             item("New Terminal", .newTerminal)
+            item("Same Agent", .sameAgent)
             item("Quick Terminal", .quickTerminal)
             item("Resume a Conversation…", .resume)
             item("Go to…", .goTo)

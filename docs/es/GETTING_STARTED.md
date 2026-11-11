@@ -22,8 +22,9 @@ la shell del terminal nuevo.
 
 <p align="center"><img src="../media/launcher.webp" width="580" alt="Claude Code elegido en el lanzador, con una carpeta y un primer prompt."></p>
 
-- Para un terminal sin más, pulsa ⌘T (Ctrl+Mayús+T en Linux y Windows). Se abre al momento en
-  la carpeta del terminal seleccionado.
+- Para un terminal sin más, pulsa ⌘D (Ctrl+Mayús+O en Linux y Windows). Se abre al momento en
+  la carpeta del terminal seleccionado. ⌘T (Ctrl+Mayús+T) lo abre con el agente del terminal
+  seleccionado, con la misma cuenta y las mismas opciones.
 - Las teclas siguen a Ghostty. ⌘1 a ⌘9 seleccionan un terminal (Alt+1 a Alt+9 en Linux y
   Windows), ⌥⌘ con una flecha selecciona el de al lado (Ctrl+Alt con una flecha) y ⌘W cierra
   el terminal seleccionado. Ajustes › Atajos muestra todas las teclas y las cambia.

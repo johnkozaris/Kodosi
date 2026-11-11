@@ -212,6 +212,7 @@ impl TerminalSession {
             input_budget,
             subscribers: Subscribers::default(),
             queue: VecDeque::new(),
+            early: VecDeque::new(),
             focused: HashMap::new(),
             resize_owner: None,
             requested: HashMap::new(),
@@ -692,6 +693,8 @@ struct LocalActor {
     input_budget: Arc<Semaphore>,
     subscribers: Subscribers,
     queue: VecDeque<PendingWrite>,
+    /// What people typed while the start line waits; it follows the start line.
+    early: VecDeque<PendingWrite>,
     focused: HashMap<Controller, CancellationToken>,
     resize_owner: Option<ResizeOwner>,
     requested: HashMap<Controller, RequestedSize>,
@@ -849,6 +852,18 @@ impl LocalActor {
             index += 1;
             keep
         });
+        self.early.retain(|write| !write.is_cancelled());
+    }
+
+    /// Keys of a person go after the start line, which the shell would otherwise read after
+    /// them on the same line.
+    fn type_keys(&mut self, write: PendingWrite) {
+        self.typed_at = Some(tokio::time::Instant::now());
+        if self.start.is_some() {
+            self.early.push_back(write);
+        } else {
+            self.queue.push_back(write);
+        }
     }
 
     fn pending_input(&mut self) -> Option<Bytes> {
@@ -1132,6 +1147,7 @@ impl LocalActor {
         } else if let Err(error) = self.enqueue(Bytes::from(format!("{line}\r")), None) {
             tracing::warn!(id = %self.id, %error, "the start line was not typed");
         }
+        self.queue.append(&mut self.early);
     }
 
     fn busy(&self) -> bool {
@@ -1358,8 +1374,7 @@ impl LocalActor {
             return;
         };
         write.authorization = Some(authorization);
-        self.typed_at = Some(tokio::time::Instant::now());
-        self.queue.push_back(write);
+        self.type_keys(write);
     }
 
     fn accept_command_input(&mut self, mut write: PendingWrite, message: bool) {
@@ -1764,8 +1779,7 @@ impl LocalActor {
         match write {
             Ok(mut write) => {
                 write.completion = Some(completion);
-                self.typed_at = Some(tokio::time::Instant::now());
-                self.queue.push_back(write);
+                self.type_keys(write);
             }
             Err(error) => completion.send(Err(error)),
         }
@@ -1811,8 +1825,7 @@ impl LocalActor {
                         if message {
                             self.accept_command_input(write, true);
                         } else {
-                            self.typed_at = Some(tokio::time::Instant::now());
-                            self.queue.push_back(write);
+                            self.type_keys(write);
                         }
                         return None;
                     }

@@ -249,6 +249,26 @@ public struct AgentStart: Equatable, Sendable {
     }
 }
 
+extension AgentStart {
+    /// The agent in front of a terminal of this computer, to start once more: with its account,
+    /// and with what it works with as far as Kodosi knows, its waiting change included. What
+    /// Kodosi does not know stays the launcher's last choice.
+    public init?(runningIn session: RuntimeSession, info: AgentInfo?) {
+        guard session.kind == .local, let agent = session.program else { return nil }
+        let account = session.programAccount.flatMap { place in
+            info.flatMap { $0.accounts.indices.contains(place) ? $0.accounts[place].name : nil }
+        }
+        let settings = session.programSettings
+        let pending = session.programPending ?? AgentSettings()
+        let known = { (value: String?) in settings == nil ? nil : value ?? "" }
+        self.init(
+            agent: agent, account: account, model: pending.model ?? known(settings?.model),
+            effort: pending.model != nil ? pending.effort ?? "" : pending.effort ?? known(settings?.effort),
+            permissions: pending.permissions ?? settings?.permissions, output: pending.output ?? settings?.output,
+        )
+    }
+}
+
 /// What the launcher starts for an agent: its account, and the model and effort that the agent
 /// still offers.
 @MainActor

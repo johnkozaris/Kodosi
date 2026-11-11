@@ -9,7 +9,8 @@ import Testing
 
 @Test func `a key of the table finds its action and a digit its terminal`() {
     let table = ShortcutTable()
-    #expect(table.match(KeyChord("t"))?.action == .quickTerminal)
+    #expect(table.match(KeyChord("t"))?.action == .sameAgent)
+    #expect(table.match(KeyChord("d"))?.action == .quickTerminal)
     #expect(table.match(KeyChord("d", [.shift, .command]))?.action == .quickTerminal)
     #expect(table.match(KeyChord("7"))?.action == .numberedTerminal)
     #expect(table.match(KeyChord("7"))?.number == 7)
@@ -20,10 +21,10 @@ import Testing
 @Test func `a key moves to the action that takes it and a change can go back`() {
     var table = ShortcutTable()
     let holder = table.bind(KeyChord("t"), to: .goTo, replacing: KeyChord("k"))
-    #expect(holder == .quickTerminal)
+    #expect(holder == .sameAgent)
     #expect(table.match(KeyChord("t"))?.action == .goTo)
     #expect(table.match(KeyChord("k")) == nil)
-    #expect(table.keys(for: .quickTerminal) == [KeyChord("d"), KeyChord("d", [.shift, .command])])
+    #expect(table.keys(for: .sameAgent).isEmpty)
 
     table.remove(KeyChord("t"), from: .goTo)
     #expect(table.keys(for: .goTo).isEmpty)
