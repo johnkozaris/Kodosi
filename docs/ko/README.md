@@ -11,6 +11,7 @@
   <a href="#kodosi-받기"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="Apple silicon의 macOS 26 이상"></a>
   <a href="#kodosi-받기"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#kodosi-받기"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="x64의 Windows 11 24H2 이상"></a>
+  <a href="#kodosi-받기"><img src="https://img.shields.io/badge/Android-15%2B%20%C2%B7%20ARM64-c98566?style=flat-square&labelColor=2a211d" alt="ARM64의 Android 15 이상"></a>
   <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iPhone과 iPad의 iOS 26 이상"></a>
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="최신 릴리스"></a>
 </p>
@@ -86,6 +87,7 @@ ML-KEM-768과 X25519를 함께 써서 종단 간 암호화하므로 서비스는
   <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Mac용 Kodosi 다운로드"></a>
   <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Linux용 Kodosi 다운로드"></a>
   <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Windows용 Kodosi 다운로드"></a>
+  <a href="https://updates.kodosi.com/download/android"><img src="https://img.shields.io/badge/%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-Android-c98566?style=for-the-badge&labelColor=2a211d" alt="Android용 Kodosi 다운로드"></a>
 </p>
 
 - **Mac**(Apple silicon, macOS 26 이상): 디스크 이미지를 열고 Kodosi를 응용 프로그램으로
@@ -98,6 +100,8 @@ ML-KEM-768과 X25519를 함께 써서 종단 간 암호화하므로 서비스는
 - **Windows**(x64, Windows 11 24H2 이상): 다운로드한 파일을 처음 열기 전에 관리자로
   [Kodosi 인증서](https://updates.kodosi.com/windows/Kodosi.cer)를 로컬 컴퓨터 › 신뢰할 수
   있는 사람에 추가하세요. 앱은 스스로 업데이트돼요.
+- **Android**(ARM64, Android 15 이상): 기기에서 APK를 내려받아 열고, Android가 물으면
+  설치를 허용하세요. 새 릴리스도 같은 방법으로 설치해요.
 - **iPhone과 iPad:** [iPhone이나 iPad](../../clients/ios/README.md)용으로 Kodosi를 빌드하세요.
 
 그다음 [시작하기](GETTING_STARTED.md)를 따라 하세요.

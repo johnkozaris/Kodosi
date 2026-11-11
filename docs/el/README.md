@@ -11,6 +11,7 @@
   <a href="#λήψη-του-kodosi"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26 ή νεότερο σε Apple silicon"></a>
   <a href="#λήψη-του-kodosi"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#λήψη-του-kodosi"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="Windows 11 24H2 ή νεότερο σε x64"></a>
+  <a href="#λήψη-του-kodosi"><img src="https://img.shields.io/badge/Android-15%2B%20%C2%B7%20ARM64-c98566?style=flat-square&labelColor=2a211d" alt="Android 15 ή νεότερο σε ARM64"></a>
   <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 ή νεότερο σε iPhone και iPad"></a>
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="Τελευταία έκδοση"></a>
 </p>
@@ -92,6 +93,7 @@ worktree, ώστε δύο agents να μην αλλάζουν ποτέ τα ίδ
   <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Mac"></a>
   <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Linux"></a>
   <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Windows"></a>
+  <a href="https://updates.kodosi.com/download/android"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Android-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Android"></a>
 </p>
 
 - **Mac** (Apple silicon, macOS 26 ή νεότερο): ανοίξτε την εικόνα δίσκου και μετακινήστε
@@ -104,6 +106,9 @@ worktree, ώστε δύο agents να μην αλλάζουν ποτέ τα ίδ
 - **Windows** (x64, Windows 11 24H2 ή νεότερο): πριν ανοίξετε τη λήψη για πρώτη φορά,
   προσθέστε ως διαχειριστής το [πιστοποιητικό του Kodosi](https://updates.kodosi.com/windows/Kodosi.cer)
   στο Τοπικός υπολογιστής › Αξιόπιστα άτομα. Η εφαρμογή ενημερώνεται μόνη της.
+- **Android** (ARM64, Android 15 ή νεότερο): κατεβάστε το APK στη συσκευή, ανοίξτε το και
+  επιτρέψτε την εγκατάσταση όταν το ζητήσει το Android. Μια νέα έκδοση εγκαθίσταται με τον
+  ίδιο τρόπο.
 - **iPhone και iPad:** κάντε build του Kodosi για το [iPhone ή το iPad](../../clients/ios/README.md) σας.
 
 Μετά ακολουθήστε τα [Πρώτα βήματα](GETTING_STARTED.md).

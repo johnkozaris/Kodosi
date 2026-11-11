@@ -11,6 +11,7 @@
   <a href="#scarica-kodosi"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26 o successivo su Apple silicon"></a>
   <a href="#scarica-kodosi"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#scarica-kodosi"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="Windows 11 24H2 o successivo su x64"></a>
+  <a href="#scarica-kodosi"><img src="https://img.shields.io/badge/Android-15%2B%20%C2%B7%20ARM64-c98566?style=flat-square&labelColor=2a211d" alt="Android 15 o successivo su ARM64"></a>
   <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 o successivo su iPhone e iPad"></a>
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="Ultima release"></a>
 </p>
@@ -90,6 +91,7 @@ così il servizio non può leggerli. [Sicurezza](SECURITY.md)
   <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/Scarica-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Scarica Kodosi per Mac"></a>
   <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/Scarica-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Scarica Kodosi per Linux"></a>
   <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/Scarica-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Scarica Kodosi per Windows"></a>
+  <a href="https://updates.kodosi.com/download/android"><img src="https://img.shields.io/badge/Scarica-Android-c98566?style=for-the-badge&labelColor=2a211d" alt="Scarica Kodosi per Android"></a>
 </p>
 
 - **Mac** (Apple silicon, macOS 26 o successivo): apri l'immagine disco e sposta Kodosi in
@@ -102,6 +104,9 @@ così il servizio non può leggerli. [Sicurezza](SECURITY.md)
 - **Windows** (x64, Windows 11 24H2 o successivo): prima di aprire il download la prima volta,
   aggiungi come amministratore il [certificato di Kodosi](https://updates.kodosi.com/windows/Kodosi.cer)
   in Computer locale › Persone attendibili. L'app si aggiorna da sola.
+- **Android** (ARM64, Android 15 o successivo): scarica l'APK sul dispositivo, aprilo e
+  consenti l'installazione quando Android lo chiede. Una nuova versione si installa allo
+  stesso modo.
 - **iPhone e iPad:** compila Kodosi per il tuo [iPhone o iPad](../../clients/ios/README.md).
 
 Poi segui la guida [Primi passi](GETTING_STARTED.md).
