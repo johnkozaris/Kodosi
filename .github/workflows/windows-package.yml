@@ -1,28 +1,8 @@
 name: Windows package
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - clients/qt/packaging/windows/**
-      - clients/qt/scripts/release/**
-      - clients/qt/cmake/**
-      - clients/qt/CMakeLists.txt
-      - clients/qt/CMakePresets.json
-      - clients/qt/dependencies.lock.json
-      - clients/qt/justfile
-      - scripts/build-agent-browser.py
-      - scripts/build-document-views.py
-      - scripts/build-runtime-library.py
-      - scripts/windows-env.sh
-      - VERSION
-      - .github/workflows/windows-package.yml
-      - "!clients/qt/scripts/release/package-linux.sh"
-      - "!clients/qt/scripts/release/verify-linux-package.py"
-      - "!clients/qt/scripts/release/verify-native-license-evidence.py"
-      - "!clients/qt/cmake/Linux.cmake"
-      - "!clients/qt/cmake/AppArmor.cmake"
-      - "!clients/qt/cmake/AptRepository.cmake"
+  schedule:
+    - cron: "47 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -34,7 +14,6 @@ concurrency:
 
 jobs:
   package:
-    if: ${{ !github.event.pull_request.draft }}
     runs-on: windows-2025
     timeout-minutes: 90
     defaults:

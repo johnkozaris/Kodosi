@@ -40,6 +40,9 @@ decisions. Before you change a client's interface, read that client's `PRODUCT.m
 - Never reset live databases or touch real provider data, credentials, conversations,
   memory or working files.
 - Keep dependencies project-local. Run checks through the root `justfile`.
+- Check your change on your own computer before you open a pull request
+  ([Before a pull request](docs/DEVELOPMENT.md#before-a-pull-request)). Don't wait for a
+  workflow to find what your computer finds.
 - Give each new text that people read its words in each language
   ([Texts and languages](docs/DEVELOPMENT.md#texts-and-languages)).
 - Validate real workflows with native or boundary tools. Don't add automated smoke
@@ -53,10 +56,10 @@ decisions. Before you change a client's interface, read that client's `PRODUCT.m
 - A test stays only if it can fail for a real fault in behavior that people or another
   part rely on. Don't test constants, defaults, generated code, a stand-in, the language
   or the framework, or what the test itself set up.
-- A check runs in one place, where it finds its fault first. A pull request builds and
-  tests the parts that it changes. The nightly run on main finds what a change breaks in
-  another part. Package, signature and release checks run when their own files change.
-  Don't add a check for what a build, a test or another check already finds.
+- A check runs in one place, where it finds its fault first: the computer of the one who
+  makes the change. A pull request repeats only the short checks, and the nightly run on
+  main builds the Linux and Windows app and the Windows package. Don't add a check for
+  what a build, a test or another check already finds.
 - One job has one implementation. In the change that makes something unused, remove it
   with its settings, texts, assets, scripts and tests.
 

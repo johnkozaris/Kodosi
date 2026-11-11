@@ -45,6 +45,31 @@ findings in [.gitleaksignore](../.gitleaksignore).
 
 The justfile in each app's folder has its release recipes.
 
+## Before a pull request
+
+Run the check of each part that you changed:
+
+| You changed | Run |
+| --- | --- |
+| The runtime, a contract or a Rust dependency | `just rust-check` |
+| The documents or the shared browser | `just documents-check`, `just browser-check` |
+| The backend | `just backend-check` |
+| The sign-in pages | `just sign-in-check` |
+| A text that people read | `just translations-check` |
+| The Mac app, the iPhone and iPad app or their shared code | `just mac-check`, `just ios-check` |
+| The Linux and Windows app | `just linux-check` on Linux or `just windows-check` on Windows |
+| The Android app | `just android-check` |
+| The scripts of the update site | `just release-test` |
+
+A pull request runs the first five again, in a few minutes. No workflow builds an app for
+a pull request. The Linux app, the Windows app and the Windows package build each night on
+main. When you changed the Linux and Windows app and have no computer with Linux or
+Windows, start the workflow `Linux app` or `Windows app` for your branch and wait for it:
+
+```sh
+gh workflow run "Linux app" --ref <branch>
+```
+
 ## Run the backend
 
 Set `ConnectionStrings__Kodosi` and the sign-in settings of

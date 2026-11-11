@@ -1,28 +1,6 @@
 name: Linux app
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - clients/qt/**
-      - protocol/desktop-runtime.json
-      - runtime/crates/**
-      - runtime/Cargo.toml
-      - runtime/Cargo.lock
-      - terminal/ghostty/Vendor/GhosttyVt/linux-x86_64/**
-      - Ghostty.lock
-      - VERSION
-      - justfile
-      - rust-toolchain.toml
-      - AgentBrowser.lock
-      - scripts/build-agent-browser.py
-      - scripts/build-document-views.py
-      - scripts/build-runtime-library.py
-      - scripts/generate-engine-feed.py
-      - scripts/generate-update-site.py
-      - scripts/tests/**
-      - .github/workflows/linux.yml
-      - "!**/*.md"
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
@@ -36,7 +14,6 @@ concurrency:
 
 jobs:
   check:
-    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

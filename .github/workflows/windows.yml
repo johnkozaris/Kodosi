@@ -1,27 +1,6 @@
 name: Windows app
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - clients/qt/**
-      - protocol/desktop-runtime.json
-      - runtime/crates/**
-      - runtime/Cargo.toml
-      - runtime/Cargo.lock
-      - terminal/conpty/**
-      - terminal/ghostty/Vendor/GhosttyVt/windows-x86_64/**
-      - Ghostty.lock
-      - VERSION
-      - justfile
-      - rust-toolchain.toml
-      - AgentBrowser.lock
-      - scripts/build-agent-browser.py
-      - scripts/build-document-views.py
-      - scripts/build-runtime-library.py
-      - scripts/windows-env.sh
-      - .github/workflows/windows.yml
-      - "!**/*.md"
   schedule:
     - cron: "27 3 * * *"
   workflow_dispatch:
@@ -35,7 +14,6 @@ concurrency:
 
 jobs:
   check:
-    if: ${{ !github.event.pull_request.draft }}
     runs-on: windows-2025
     timeout-minutes: 60
     defaults:
