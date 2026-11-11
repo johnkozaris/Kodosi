@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "kodosi_runtime.h"
@@ -178,6 +179,31 @@ JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_protocolVers
     (void)env;
     (void)type;
     return (jint)kodosi_protocol_version();
+}
+
+// An ABI bridge can give the VM and the Rust library different libc environments.
+JNIEXPORT jboolean JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_setEnvironment(JNIEnv *env, jclass type,
+                                                                                      jstring name, jbyteArray value) {
+    (void)type;
+    const char *key = (*env)->GetStringUTFChars(env, name, NULL);
+    if (key == NULL) {
+        return JNI_FALSE;
+    }
+    jsize length = (*env)->GetArrayLength(env, value);
+    char *bytes = malloc((size_t)length + 1);
+    if (bytes == NULL) {
+        (*env)->ReleaseStringUTFChars(env, name, key);
+        return JNI_FALSE;
+    }
+    (*env)->GetByteArrayRegion(env, value, 0, length, (jbyte *)bytes);
+    bool installed = false;
+    if (!(*env)->ExceptionCheck(env) && memchr(bytes, '\0', (size_t)length) == NULL) {
+        bytes[length] = '\0';
+        installed = setenv(key, bytes, 1) == 0;
+    }
+    free(bytes);
+    (*env)->ReleaseStringUTFChars(env, name, key);
+    return installed ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_prepare(JNIEnv *env, jclass type, jobject context) {

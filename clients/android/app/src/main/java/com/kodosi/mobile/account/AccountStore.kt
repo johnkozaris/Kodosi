@@ -4,6 +4,8 @@ import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.RuntimeEvent
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.Words
+import com.kodosi.mobile.runtime.fields
+import com.kodosi.mobile.runtime.value
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -13,7 +15,18 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonPrimitive
 
 @Serializable
-data class Device(val deviceId: String, val label: String, val recoveryKey: Boolean = false)
+data class Device(
+    val deviceId: String,
+    val label: String,
+    val recoveryKey: Boolean = false,
+    val certIssuedAtMs: Long = 0
+)
+
+@Serializable
+data class DeviceRequest(val requestId: String, val deviceLabel: String)
+
+@Serializable
+data class DeviceReset(val resetId: String, val deviceLabel: String, val thisDevice: Boolean, val readyAtMs: Long)
 
 data class AccountState(
     val userId: String? = null,
@@ -26,10 +39,19 @@ data class AccountState(
     val devices: List<Device> = emptyList(),
     val onlineHosts: Set<String> = emptySet(),
     val restoring: String? = null,
-    val online: Boolean = true
+    val online: Boolean = true,
+    val requests: List<DeviceRequest> = emptyList(),
+    val reset: DeviceReset? = null,
+    val deletionPage: String? = null,
+    val deleting: Boolean = false
 ) {
     val isReady: Boolean get() = userId != null && localDeviceEnrolled
     val needsOnboarding: Boolean get() = authResolved && !isReady
+    val computers: List<Device> get() = devices.filter {
+        it.deviceId in onlineHosts && it.deviceId != selfDeviceId &&
+            !it.recoveryKey
+    }
+        .sortedBy { it.label.lowercase() }
 }
 
 /** The account of this device: sign-in, the approval of this device and the person's devices. */
@@ -61,12 +83,18 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
             }
 
             "auth.finalizing" -> mutableState.update { it.copy(stage = SignInStage.Finalizing, signInPage = null) }
+
+            "auth.deletion_pending" -> mutableState.update {
+                it.copy(deletionPage = event.string("confirmationUri")?.let(ExternalAuthUrl::parse), deleting = true)
+            }
         }
     }
 
     fun receiveDevices(event: RuntimeEvent) {
         when {
             event.type == "devices.list" -> receiveList(event)
+
+            event.type == "devices.link.snapshot" -> mutableState.update { it.copy(requests = event.value("requests")) }
 
             event.type == "devices.hosts" -> {
                 val ids = event["deviceIds"]?.let {
@@ -113,6 +141,11 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
     fun absorb(event: RuntimeEvent, message: String): Boolean {
         val current = mutableState.value
         if (event.type.startsWith("auth.")) {
+            if (event.string("operation") ==
+                "auth.deleteAccount"
+            ) {
+                mutableState.update { it.copy(deleting = false, deletionPage = null) }
+            }
             if (!current.stage.isPending && current.isReady) return false
             mutableState.update {
                 it.copy(stage = SignInStage.Failed(message, it.stage.completedSteps), signInPage = null)
@@ -162,7 +195,7 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
 
     fun finishSignIn(answer: String) {
         if (mutableState.value.stage !is SignInStage.AwaitingBrowser) return
-        mutableState.update { it.copy(signInPage = null) }
+        mutableState.update { it.copy(stage = SignInStage.Finalizing, signInPage = null) }
         commands.perform("auth.login.finish", mapOf("url" to JsonPrimitive(answer)))
     }
 
@@ -208,6 +241,41 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
         mutableState.update { it.copy(stage = SignInStage.TrustingDevice(DeviceTrust.Choose)) }
     }
 
+    fun signOut() = commands.perform("auth.logout")
+
+    suspend fun checkDevice(code: String): String? =
+        commands.request("devices.link.check", fields("code" to code.trim())).string("deviceLabel")
+
+    suspend fun approveDevice(code: String) {
+        commands.request("devices.link.approve", fields("code" to code.trim()))
+    }
+
+    suspend fun revokeDevice(device: Device) {
+        if (device.deviceId == state.value.selfDeviceId) return
+        commands.request("devices.revoke", fields("deviceId" to device.deviceId))
+    }
+
+    suspend fun createRecoveryKey(): String? = commands.request("devices.recovery.create").string("key")
+
+    fun stopReset() {
+        val reset = state.value.reset ?: return
+        commands.perform("devices.reset.cancel", fields("resetId" to reset.resetId))
+    }
+
+    fun deleteAccount() {
+        mutableState.update { it.copy(deleting = true) }
+        commands.perform("auth.deleteAccount")
+    }
+
+    fun cancelDeletion() {
+        mutableState.update { it.copy(deleting = false, deletionPage = null) }
+        commands.perform("auth.deleteAccount.cancel")
+    }
+
+    fun openedDeletionPage() {
+        mutableState.update { it.copy(deletionPage = null) }
+    }
+
     private fun receiveList(event: RuntimeEvent) {
         val enrolled = event.bool("localDeviceEnrolled") ?: false
         val devices = event["devices"]?.let {
@@ -218,8 +286,15 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
                 selfDeviceId = event.string("selfDeviceId"),
                 localDeviceEnrolled = enrolled,
                 devices = devices.orEmpty(),
+                reset = event["reset"]?.takeIf { it.toString() != "null" }?.let {
+                    RuntimeJson.decodeFromJsonElement(DeviceReset.serializer(), it)
+                },
                 stage = if (enrolled && it.stage is SignInStage.TrustingDevice) SignInStage.SignedIn else it.stage
             )
+        }
+        val reset = mutableState.value.reset
+        if (!enrolled && reset?.thisDevice == true) {
+            mutableState.update { it.copy(stage = SignInStage.TrustingDevice(DeviceTrust.Waiting(reset.readyAtMs))) }
         }
     }
 
@@ -249,6 +324,8 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
             it.copy(
                 authResolved = true,
                 signInPage = null,
+                deleting = false,
+                deletionPage = null,
                 stage = if (it.stage is SignInStage.Failed) it.stage else SignInStage.Idle
             )
         }

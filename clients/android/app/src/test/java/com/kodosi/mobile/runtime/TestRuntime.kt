@@ -38,6 +38,10 @@ class SentCommands(var result: Int = Ffi.OK) {
     val types: List<String> get() = commands.map { it.string("type") }
 
     fun last(type: String): JsonObject = commands.last { it.string("type") == type }
+
+    fun reply(operation: String, fields: String = ""): RuntimeEvent =
+        answer("${operation.substringBefore('.')}.result", last(operation).string("requestId"), operation, fields)
+            .also(sink::receive)
 }
 
 fun JsonObject.string(key: String): String = (this[key] as JsonPrimitive).content
