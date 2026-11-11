@@ -41,8 +41,6 @@ public final class AccountStore {
     public private(set) var restoring: String?
     public private(set) var credentialStore: String?
     public private(set) var credentialFolder: String?
-    /// Whether Kodosi reaches the server. A short drop, such as when the computer wakes, keeps it
-    /// online.
     public private(set) var online = true
 
     @ObservationIgnored public var notify: (String) -> Void = { _ in }
@@ -75,7 +73,6 @@ public final class AccountStore {
             + devices.filter(\.recoveryKey)
     }
 
-    /// A start fresh that another device of the account waits for.
     public var otherDeviceReset: DeviceReset? {
         pendingReset.flatMap { $0.thisDevice ? nil : $0 }
     }
@@ -89,7 +86,6 @@ public final class AccountStore {
             .sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
     }
 
-    /// Whether the account has another device, which Kodosi reaches only while it is online.
     public var hasOtherDevices: Bool {
         devices.contains { $0.deviceId != selfDeviceId && !$0.recoveryKey }
     }
@@ -100,7 +96,6 @@ public final class AccountStore {
         }
     }
 
-    /// Reaches for the server and the terminals of other computers now.
     public func retryConnection() {
         commands.perform("connection.retry")
     }
@@ -391,7 +386,6 @@ public final class AccountStore {
         await RefreshWait.until { devicesRevision != revision }
     }
 
-    /// Asks which device shows the code, so that the person sees its name before approving it.
     public func checkDevice(code: String) {
         let code = code.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !code.isEmpty, approval?.isBusy != true else { return }

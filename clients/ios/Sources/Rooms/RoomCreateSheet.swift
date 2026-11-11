@@ -147,7 +147,6 @@ struct RoomCreateSheet: View {
     }
 }
 
-/// Why a friend with the caution dot cannot be invited now.
 private struct ChangedIdentityNote: View {
     @Environment(\.theme) private var theme
     let name: String

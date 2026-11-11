@@ -158,7 +158,6 @@ signals:
     void clipboardReadRequested();
     void linkQuestionRequested(QUrl link, QString target);
     void linkRefused(QString target, QString reason);
-    // A paste of a picture with no text, saved in a file that the host reads.
     void picturePasted(QString path);
 
 protected:
@@ -246,7 +245,6 @@ private:
     bool m_canSendInput = false;
     bool m_canResize = false;
     bool m_asksBeforeClipboardRead = true;
-    // The computer that runs the terminal, when it is not this one.
     QString m_otherComputer;
     std::deque<QByteArray> m_inputQueue;
     // The newest pasted pictures, which their files keep until the host has read them.

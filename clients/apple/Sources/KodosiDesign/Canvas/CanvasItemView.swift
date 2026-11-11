@@ -1,7 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// The item of a canvas that a device shows: a page, a file or the browser.
 public struct CanvasItemView: View {
     @Environment(\.theme) private var theme
     @AppStorage(DocumentViewers.storageKey) private var viewers = DocumentViewers()
@@ -94,7 +93,6 @@ public struct CanvasItemView: View {
     }
 }
 
-/// The shape of what comes, while it comes.
 struct CanvasLoading: View {
     @Environment(\.theme) private var theme
     let kind: CanvasItem.Kind
@@ -139,7 +137,6 @@ struct CanvasLoading: View {
     }
 }
 
-/// A slot for a file that is not where the agent showed it.
 struct CanvasMissing: View {
     @Environment(\.theme) private var theme
     let item: CanvasItem

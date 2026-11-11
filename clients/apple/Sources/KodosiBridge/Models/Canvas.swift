@@ -29,27 +29,22 @@ public struct Canvas: Decodable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey { case sequence, items, browser, open, change }
 
-    /// The items, the newest first, and then the browser.
     public var shown: [CanvasShown] {
         items.map(CanvasShown.item) + (browser.map { [CanvasShown.browser($0)] } ?? [])
     }
 
-    /// The item or browser with the newest change.
     public var newest: CanvasShown? {
         shown.max { $0.changed < $1.changed }
     }
 
-    /// The files from the first shown to the last.
     public var files: [CanvasItem] {
         items.reversed()
     }
 
-    /// The parts of the canvas: its files, and its browser.
     public var sections: [CanvasSection] {
         (items.isEmpty ? [] : [.files]) + (browser == nil ? [] : [.browser])
     }
 
-    /// The newest change in a part of the canvas.
     public func changed(of section: CanvasSection) -> UInt64? {
         switch section {
         case .files: items.map(\.changed).max()
@@ -70,7 +65,6 @@ public enum CanvasSection: String, Identifiable, Sendable {
     }
 }
 
-/// The item or browser that the agent showed, by its key, and the stamp of the canvas then.
 public struct CanvasOpen: Decodable, Equatable, Sendable {
     public let key: String
     public let at: UInt64
@@ -115,7 +109,6 @@ public enum CanvasShown: Equatable, Identifiable, Sendable {
 
 public struct CanvasItem: Decodable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Decodable, Sendable { case page, picture, pdf, document, sheet, presentation }
-    /// The live view of a file that people edit together.
     public enum View: String, Decodable, Sendable { case docx, xlsx, pptx, pdf, text }
 
     public let key: String
@@ -205,8 +198,7 @@ public struct BrowserAction: Decodable, Equatable, Sendable {
     public let words: String
 }
 
-/// What the agent does in the browser while its command runs, and the middle of the element that
-/// it acts on, in the browser's CSS pixels.
+/// The point is the middle of the element that the agent acts on, in the browser's CSS pixels.
 public struct BrowserDoing: Decodable, Equatable, Sendable {
     public enum Kind: String, Decodable, Sendable { case open, click, type, scroll, read, wait, other }
 
@@ -231,12 +223,9 @@ public struct BrowserDoing: Decodable, Equatable, Sendable {
     }
 }
 
-/// What Settings › Browser shows of this computer.
 public struct BrowserStatus: Equatable, Sendable {
-    /// A browser profile whose sign-ins a person can copy.
     public struct Source: Decodable, Hashable, Sendable {
         public let name: String
-        /// The browser, such as `chrome` or `safari`.
         public let browser: String
         /// macOS keeps the data of the browser from Kodosi until the person gives Kodosi Full Disk
         /// Access.
@@ -249,11 +238,8 @@ public struct BrowserStatus: Equatable, Sendable {
         }
     }
 
-    /// The browsers whose sign-ins a person can copy.
     public let sources: [Source]
-    /// For how many sites copies gave sign-ins.
     public let sites: Int
-    /// The Kodosi Browser of this computer, when it has one.
     public let engine: String?
     /// The part of a download of Kodosi Browser, from 0 to 100, while one runs.
     public let getting: Int?
@@ -274,7 +260,6 @@ public enum CanvasError: LocalizedError, Equatable {
     }
 }
 
-/// What a window tells a viewer around the picture.
 public struct BrowserWindow: Decodable, Equatable, Sendable {
     public struct Pointer: Decodable, Equatable, Identifiable, Sendable {
         public let viewer: String
@@ -311,7 +296,6 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
         public let several: Bool
     }
 
-    /// A tab of the window, as the viewer sees it now.
     public struct Tab: Decodable, Equatable, Identifiable, Sendable {
         public let id: String
         public let title: String
@@ -360,7 +344,7 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey { case tabs, width, height, shape, pointers, menu, dialog, chooser, copied }
 }
 
-/// A person's step in the shared browser, in the CSS pixels of its page.
+/// Positions are in the CSS pixels of the page.
 public enum BrowserInput: Encodable, Equatable, Sendable {
     public enum MouseEvent: String, Encodable, Sendable {
         case mousePressed = "press", mouseReleased = "release", mouseMoved = "move", mouseWheel = "wheel"
@@ -472,7 +456,6 @@ public enum BrowserInput: Encodable, Equatable, Sendable {
     }
 }
 
-/// A person's step that needs no view of the browser.
 public enum BrowserAct: Equatable, Sendable {
     case wake
 

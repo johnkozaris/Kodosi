@@ -2,9 +2,6 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Shapes
 
-// The body of a terminal and its canvas: two lobes of one surface in the terminal's color with
-// a soft waist at `seam`, a header bar on each lobe, and the neck up to `tab`, the tab that the
-// terminal flows out of. With no depth, the waist and the gap between the bars close.
 Item {
     id: root
 
@@ -50,7 +47,6 @@ Item {
             + n(y + value) + " " + n(x) + " " + n(y + value) + " C " + n(x + wide / 2) + " " + n(y + value) + " "
             + n(x + wide / 2) + " " + n(y) + " " + n(x + wide) + " " + n(y);
     }
-    // The top edge from `from` to `to` (left to right), with the waist when it lies between them.
     function topEdge(from: real, to: real): string {
         if (dipTop > 0.5 && seam - reach >= from && seam + reach <= to)
             return valley(0, dipTop, reach) + " L " + n(to) + " 0";
@@ -93,7 +89,6 @@ Item {
         const q0 = lerp(p0, p1), q1 = lerp(p1, p2), q2 = lerp(p2, p3), s0 = lerp(q0, q1), s1 = lerp(q1, q2);
         return { c1: q0, c2: s0, point: lerp(s0, s1) };
     }
-    // The header bar of the left lobe, or of the whole body with no waist.
     function leftBand(): string {
         const w = width;
         if (seam <= 0.5 || seam >= w - 0.5)
@@ -111,7 +106,6 @@ Item {
         return path + " L " + n(edge) + " " + n(band - end) + " Q " + n(edge) + " " + n(band) + " " + n(edge - end) + " "
             + n(band) + " Z";
     }
-    // The header bar of the right lobe, the mirror of the left one at the waist.
     function rightBand(): string {
         const w = width;
         if (seam <= 0.5 || seam >= w - 0.5)
@@ -128,7 +122,6 @@ Item {
         return path + " L " + n(edge) + " " + n(band - end) + " Q " + n(edge) + " " + n(band) + " " + n(edge + end) + " "
             + n(band) + " Z";
     }
-    // One side of the neck, from the tab down to the body's top edge.
     function neckSide(sign: real): string {
         const m = neckMiddle, t = neckTop, w = neckNarrow, f = sign < 0 ? flareLeft : flareRight;
         const low = tab.y + tab.height, gap = -low, waist = low + gap / 2;
@@ -149,7 +142,6 @@ Item {
             + " " + n(m + w) + " " + n(waist) + " C " + n(m + w) + " " + n(waist - gap * 0.3) + " " + n(m + t - (t - w) * 0.6) + " "
             + n(low) + " " + n(m + t) + " " + n(low) + " L " + n(m + t) + " " + n(low - 0.5) + " Z";
     }
-    // The hairline around the body and the neck, open where the neck meets the body.
     function outline(): string {
         if (!necked)
             return lobes();

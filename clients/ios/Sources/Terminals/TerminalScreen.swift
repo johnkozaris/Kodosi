@@ -198,8 +198,6 @@ private struct TerminalScreenContent: View {
         .sensoryFeedback(.warning, trigger: session?.needsUser == true) { old, new in !old && new }
     }
 
-    /// Acts once on each show and change on the canvas. An open canvas switches to a show. A closed
-    /// one offers a show in a banner, and a change too unless the person closed the canvas.
     private func followCanvas() {
         guard let session = controller.session else { return }
         let store = model.terminals.canvas

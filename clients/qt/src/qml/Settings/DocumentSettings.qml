@@ -4,7 +4,6 @@ import QtQuick
 import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
-// The live viewers of this device: which ones show their files on the canvas, and how.
 ColumnLayout {
     id: root
 

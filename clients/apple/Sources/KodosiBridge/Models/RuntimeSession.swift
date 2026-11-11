@@ -59,7 +59,6 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let programAccount: Int?
     /// The agent in front started without Kodosi's note, because a person started it by hand.
     public let programOutside: Bool?
-    /// What the agent in front works with, as far as Kodosi knows.
     public let programSettings: AgentSettings?
     /// What the agent in front can change while it runs.
     public let programLive: AgentLive?
@@ -68,11 +67,8 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let prompt: Bool?
     public let repository: Bool?
     public let programStatus: ProgramStatus?
-    /// Whether the program works now, as the runtime says.
     public let working: Bool
-    /// What the terminal waits with: a person's answer, a result or a failure.
     public let waiting: Waiting?
-    /// What the program does now, in words.
     public let activity: String?
     public let context: TerminalContext?
     public let canvas: Canvas?
@@ -155,7 +151,6 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
             : hostName ?? ownerName ?? String(localized: "Remote computer", bundle: .module)
     }
 
-    /// The computer that runs the terminal, when it is not this device.
     public var otherComputer: String? {
         kind == .local ? nil : hostLabel
     }

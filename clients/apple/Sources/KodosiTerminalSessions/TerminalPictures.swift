@@ -2,7 +2,6 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// A pasted picture on its way to the computer of its terminal.
 public struct TerminalPicture: Equatable, Sendable {
     public let sent: UInt64
     public let total: UInt64
@@ -16,8 +15,7 @@ public struct TerminalPicture: Equatable, Sendable {
 enum TerminalPictureFile {
     private static let readable: Set<String> = Set([UTType.png, .jpeg, .gif, .webP].map(\.identifier))
 
-    /// The picture in a format that agents read: PNG, JPEG, GIF and WebP stay as they are, and
-    /// other formats become PNG.
+    /// Agents read PNG, JPEG, GIF and WebP, so other formats become PNG.
     static func readable(_ picture: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(picture as CFData, nil),
               let type = CGImageSourceGetType(source) as String?
@@ -33,7 +31,6 @@ enum TerminalPictureFile {
         return CGImageDestinationFinalize(destination) ? png as Data : nil
     }
 
-    /// Writes the picture where the computer's Kodosi host reads it.
     static func write(_ picture: Data) async throws -> URL {
         let file = FileManager.default.temporaryDirectory.appending(path: "kodosi-picture-\(UUID().uuidString)")
         try await Task.detached {

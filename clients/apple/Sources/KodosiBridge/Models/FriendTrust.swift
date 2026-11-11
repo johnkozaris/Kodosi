@@ -1,7 +1,5 @@
 import Foundation
 
-/// A person that you are about to trust as a friend: by their invite or username, or by their
-/// request.
 public enum FriendTrust: Equatable, Sendable {
     case add(String)
     case accept(FriendRequestEntry)

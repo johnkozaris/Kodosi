@@ -1,15 +1,12 @@
 import Foundation
 import Observation
 
-/// A part of a room that can be on screen.
 public enum RoomPart: Hashable, Sendable {
     case conversation
     case tasks
     case repositories
 }
 
-/// What a person does in one room, the same in each app: the draft, where they read, what is new
-/// to them, and how they look at the tasks.
 @MainActor
 @Observable
 public final class RoomViewState {
@@ -28,7 +25,6 @@ public final class RoomViewState {
     public var failure: String?
     public internal(set) var loading = false
     public var readFailure: String?
-    /// The parts of the room on screen now.
     public private(set) var shown: Set<RoomPart> = [] {
         didSet {
             fresh.subtract(shown)
@@ -74,7 +70,6 @@ public final class RoomViewState {
         }
     }
 
-    /// Whether the person reads the latest messages now.
     public var reading: Bool {
         shown.contains(.conversation) && followsLatest
     }

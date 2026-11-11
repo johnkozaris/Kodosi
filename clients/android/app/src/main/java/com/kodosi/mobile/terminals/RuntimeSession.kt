@@ -117,7 +117,6 @@ data class RuntimeSession(
         get() = connectionState == Connection.BLOCKED || status == Status.OFFLINE ||
             (connectionState == Connection.OFFLINE && message != null)
 
-    /** Whether Kodosi cannot reach this terminal of another computer because this device is offline. */
     fun unreachable(online: Boolean): Boolean = !online && kind == Kind.REMOTE && connectionState != Connection.BLOCKED
 
     val isWorking: Boolean
@@ -134,7 +133,6 @@ data class RuntimeSession(
             else -> null
         }
 
-    /** What the terminal does now: its program's report, or else the words of its title. */
     val activity: String?
         get() = programStatus?.caption ?: titleWords?.takeIf { it != name }
 
@@ -153,7 +151,6 @@ data class RuntimeSession(
 private val BRAILLE = '\u2800'..'\u28FF'
 private val STATUS_GLYPHS = setOf('\u2733', '\u2722', '\u2736', '\u273B', '\u273D', '\u00B7', '\u25CF', '\u25CB')
 
-/** The program of a terminal, which picks its mark. */
 enum class AgentKind {
     CLAUDE,
     CODEX,

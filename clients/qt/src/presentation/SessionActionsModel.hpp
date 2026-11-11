@@ -53,7 +53,6 @@ public:
     Q_INVOKABLE bool startAgent(const QString& sessionId, const QString& agent);
     Q_INVOKABLE bool changeAgent(const QString& sessionId, const QVariantMap& change);
     Q_INVOKABLE bool input(const QString& sessionId, const QString& text);
-    // Pastes the picture of a file: the host of the terminal saves it and types its path.
     Q_INVOKABLE bool pastePicture(const QString& sessionId, const QString& path);
     Q_INVOKABLE bool takeCreated(const QString& sessionId);
     Q_INVOKABLE void giveTypedKeys(const QString& sessionId);

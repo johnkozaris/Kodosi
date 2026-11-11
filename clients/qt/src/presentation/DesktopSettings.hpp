@@ -46,8 +46,6 @@ public:
     QString branchFolder() const { return m_branchFolder; }
     QString lastComputer() const { return m_computer; }
     bool keepRunning() const { return m_keepRunning.value_or(m_keepRunningByDefault); }
-    // Whether the canvas opens by itself when the agent shows something or a file or the browser
-    // on it changes.
     bool opensCanvas() const { return m_opensCanvas; }
     bool closeHintShown() const { return m_closeHintShown; }
     QVariantMap viewers() const;
@@ -71,7 +69,6 @@ public:
     Q_INVOKABLE void setViewer(const QString& name, bool on);
     Q_INVOKABLE void resetTerminal();
     Q_INVOKABLE [[nodiscard]] static QString agentOf(const QString& program);
-    // The agent that a name such as Claude Code or GitHub Copilot names.
     Q_INVOKABLE [[nodiscard]] static QString agentNamed(const QString& name);
     Q_INVOKABLE [[nodiscard]] static QString agentLabel(const QString& agent);
     Q_INVOKABLE [[nodiscard]] static QString effortLabel(const QString& effort);

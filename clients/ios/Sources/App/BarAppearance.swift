@@ -2,8 +2,6 @@ import KodosiDesign
 import SwiftUI
 import UIKit
 
-/// The system bars in the app's type and colors: titles in the text styles of the app, and the
-/// counts on the tabs in copper.
 enum BarAppearance {
     static func apply() {
         let ink = color(\.ink)

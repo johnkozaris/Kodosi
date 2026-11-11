@@ -439,7 +439,6 @@ QString CanvasModel::about(const QString& place, const QString& words)
     return line.isEmpty() ? tr("About %1: ").arg(place) : tr("About %1: \"%2\" ").arg(place, line);
 }
 
-// A link on a page or in a file of the canvas opens by the rules of terminal links.
 void CanvasModel::follow(const QString& sessionId, const QUrl& link)
 {
     const auto session = m_sessions.session(sessionId);

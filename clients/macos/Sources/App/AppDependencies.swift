@@ -262,7 +262,6 @@ final class AppDependencies {
         }
     }
 
-    /// Brings a terminal to the stage, and says whether it is there.
     @discardableResult
     func activateSession(_ id: String, inRoom roomId: String? = nil) -> Bool {
         guard stageHasRoom(for: id) else {
@@ -371,7 +370,6 @@ final class AppDependencies {
         openMission(id: mission.id)
     }
 
-    /// Shows a room. The room's view loads it.
     func openMission(id: String) {
         workbench.selectedMissionId = id
     }

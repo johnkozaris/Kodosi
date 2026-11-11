@@ -10,10 +10,6 @@ import UniformTypeIdentifiers
     private let closeKey: CGFloat = 16
 #endif
 
-/// The shared browser of a terminal: its tabs, the bar, and the picture that people click and
-/// type in, with the agent's pointer over it. Asleep, the last picture stays in grey. The address
-/// field offers the pages that this device's browsers showed, and words that are no address go
-/// to the search engine.
 public struct CanvasBrowserView: View {
     @Environment(\.theme) private var theme
     @AppStorage(BrowserHistory.storageKey) private var history = BrowserHistory()
@@ -104,7 +100,7 @@ public struct CanvasBrowserView: View {
         }
     }
 
-    /// The page of a tab. A page that a tab opens counts as a visit; a change of tab does not.
+    /// A page that a tab opens counts as a visit; a change of tab does not.
     private struct TabPage: Hashable {
         let tab: String
         let address: String
@@ -115,8 +111,6 @@ public struct CanvasBrowserView: View {
         }
     }
 
-    /// The tabs of the window: as the picture's link tells them while it is open, and else as the
-    /// terminal's canvas does.
     private var tabs: [BrowserWindow.Tab] {
         if !feed.window.tabs.isEmpty {
             return feed.window.tabs
@@ -280,7 +274,6 @@ public struct CanvasBrowserView: View {
         browser.activeTab?.url.hasPrefix("https://") == true
     }
 
-    /// What Enter opens: the words as they are, then the pages that fit them.
     private enum Suggestion: Identifiable, Equatable {
         case words(String)
         case page(BrowserHistory.Page)
@@ -341,8 +334,8 @@ public struct CanvasBrowserView: View {
         .contentShape(Rectangle())
     }
 
-    /// Whether the host takes the words as a search, by the rule of its address bar: they hold a
-    /// space or an `@`, or no computer's name or address comes before their path.
+    /// The rule of the host's address bar: words are a search when they hold a space or an `@`,
+    /// or no computer's name or address comes before their path.
     private static func searches(_ words: String) -> Bool {
         if words.contains("://") || words.hasPrefix("about:") || words.hasPrefix("data:") {
             return false

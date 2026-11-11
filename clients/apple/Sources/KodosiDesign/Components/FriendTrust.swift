@@ -13,8 +13,6 @@ extension FriendTrust {
     }
 }
 
-/// The question before a person becomes your friend: what a friend can do, and the keys to trust
-/// them or not.
 public struct FriendTrustQuestion: View {
     @Environment(\.theme) private var theme
     let trust: FriendTrust

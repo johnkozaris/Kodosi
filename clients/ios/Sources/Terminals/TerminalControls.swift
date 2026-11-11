@@ -51,7 +51,6 @@ struct TerminalControls: View {
         .animation(theme.motion.soft, value: input)
     }
 
-    /// The room between the controls and the sides of the screen.
     static func margin(compact: Bool) -> CGFloat {
         compact ? 8 : 12
     }
@@ -97,8 +96,6 @@ private struct TerminalAsk: View {
     }
 }
 
-/// The keys that a phone lacks, all in view over the keyboard, then the keys that write a message
-/// instead and hide the keyboard.
 private struct TerminalKeyBar: View {
     let enabled: Bool
     let compact: Bool
@@ -130,9 +127,6 @@ private struct TerminalKeyBar: View {
     }
 }
 
-/// Lays out the key row in one line: every key as wide as the others, in whole points, with a
-/// wider gap between groups. On a wide screen, the keys stop at the width of a keyboard's keys and
-/// the groups move apart.
 nonisolated struct TerminalKeyRow: Layout {
     static let gap: CGFloat = 3
     static let groupGap: CGFloat = 8
@@ -182,16 +176,12 @@ private nonisolated struct StartsKeyGroup: LayoutValueKey {
     static let defaultValue = false
 }
 
-/// The place of a key on the key row to a finger: out to the middle of the gaps beside it, and at
-/// least 44 points high.
 private nonisolated struct KeySlot: Shape {
     func path(in rect: CGRect) -> Path {
         Path(rect.insetBy(dx: -TerminalKeyRow.gap / 2, dy: min(0, (rect.height - 44) / 2)))
     }
 }
 
-/// The face of a key: a quiet key, copper while it answers what an agent asks, with faint words
-/// while it does not type. With `fills`, it takes the place that the key row gives it.
 struct TerminalCapFace: ViewModifier {
     @Environment(\.theme) private var theme
     @Environment(\.isEnabled) private var isEnabled

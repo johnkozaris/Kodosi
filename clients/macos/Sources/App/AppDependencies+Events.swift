@@ -263,8 +263,6 @@ extension AppDependencies {
         return sessions.map(\.id).filter(isShown).sorted()
     }
 
-    /// The terminal that the person looks at: the one in single view, the selected one on the
-    /// stage or the only one there, or the terminal that a room shows.
     var frontSessionId: String? {
         guard windowShown() else { return nil }
         let staged = workbench.stagedSessionIds
@@ -284,10 +282,6 @@ extension AppDependencies {
         }
     }
 
-    /// Acts once on each show and change on the canvas of the terminal in front. A show opens the
-    /// canvas at it, or switches an open canvas to it. A change opens a closed canvas at it, unless
-    /// the person closed that canvas; an open one keeps what it shows. With Open the canvas by
-    /// itself off, nothing opens a closed canvas.
     func followCanvas() {
         guard let id = frontSessionId, let session = session(id) else { return }
         var open = canvasOpen(id)

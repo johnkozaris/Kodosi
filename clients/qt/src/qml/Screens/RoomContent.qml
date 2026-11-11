@@ -39,7 +39,6 @@ Item {
     function newTerminal() {
         root.newTerminalRequested(Models.Missions.selectedMissionId);
     }
-    // Where the chosen tab is over the terminal, so the terminal flows out of it.
     function placeTab() {
         if (!selectedTab || !roomStage.visible) {
             tabRect = Qt.rect(0, 0, 0, 0);

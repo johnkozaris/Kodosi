@@ -11,7 +11,6 @@ public struct RoomMention: Identifiable, Equatable, Sendable {
     public let name: String
     public var detail: String?
     public let kind: Kind
-    /// The user name of a person, which a message can also mention.
     public let handle: String?
 
     public init(id: String, name: String, detail: String? = nil, kind: Kind, handle: String? = nil) {

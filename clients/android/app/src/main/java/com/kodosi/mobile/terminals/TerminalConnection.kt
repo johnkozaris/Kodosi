@@ -22,20 +22,14 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 
-/** The size of a terminal view, in cells and in pixels. */
 data class Viewport(val cols: Int, val rows: Int, val cellWidth: Int, val cellHeight: Int)
 
-/** What a terminal view needs to say to the person. */
 interface TerminalWords {
     val fellBehind: String
     val couldNotConnect: String
     val invalidControl: String
 }
 
-/**
- * One live view of a terminal on another computer: it opens the terminal, follows its checkpoint
- * and data into Ghostty's state, takes the focus and the size while it shows, and sends input.
- */
 class TerminalConnection(
     val sessionId: String,
     private val runtime: RuntimeHandle,
@@ -85,7 +79,6 @@ class TerminalConnection(
         }
     }
 
-    /** The screen shows this terminal or stops showing it. */
     fun show(visible: Boolean) {
         if (shown == visible) return
         shown = visible
@@ -98,7 +91,6 @@ class TerminalConnection(
         }
     }
 
-    /** Follows the catalog: connects when the terminal is reachable, again after it restarted. */
     fun refresh() {
         val session = store.session(sessionId) ?: return
         val current = link
@@ -116,7 +108,6 @@ class TerminalConnection(
         scheduleResize()
     }
 
-    /** Sends the size of this view again, so that the terminal takes it. */
     fun takeSize() {
         sizedTo = null
         scheduleResize()
@@ -128,7 +119,6 @@ class TerminalConnection(
         input.trySend(bytes)
     }
 
-    /** Opens the terminal again and connects to it once it is reachable. */
     fun retry() {
         link?.let(::leave)
         mutableState.value = State.Connecting
@@ -136,7 +126,6 @@ class TerminalConnection(
         refresh()
     }
 
-    /** Ends the view: it leaves the terminal and frees Ghostty's state. */
     fun close() {
         show(false)
         link?.let(::leave)

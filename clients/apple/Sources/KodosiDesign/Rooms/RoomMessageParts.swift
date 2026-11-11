@@ -1,7 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// The day of the messages that follow it.
 public struct RoomDayDivider: View {
     #if os(iOS)
         private static let height: CGFloat = 22
@@ -32,7 +31,6 @@ public struct RoomDayDivider: View {
     }
 }
 
-/// The face of who wrote a message: the mark of the agent, or the person.
 public struct RoomMessageFace: View {
     let message: RoomMessage
     let terminal: RuntimeSession?
@@ -54,7 +52,6 @@ public struct RoomMessageFace: View {
     }
 }
 
-/// Who wrote a message: the person with their user name, or the agent and whom it works for.
 public struct RoomMessageAuthor: View {
     @Environment(\.theme) private var theme
     let message: RoomMessage
@@ -86,7 +83,6 @@ public struct RoomMessageAuthor: View {
     }
 }
 
-/// When a message was written.
 public struct RoomMessageTime: View {
     @Environment(\.theme) private var theme
     let date: Date
@@ -102,7 +98,6 @@ public struct RoomMessageTime: View {
     }
 }
 
-/// The words of a message, with its mentions and links.
 public struct RoomMessageBody: View {
     #if os(iOS)
         private static let lineSpacing: CGFloat = 2
@@ -131,7 +126,6 @@ public struct RoomMessageBody: View {
     }
 }
 
-/// The shape of your own message: round, but for the corner that points at you.
 public struct RoomBubble: Shape {
     public init() {}
 
@@ -141,7 +135,6 @@ public struct RoomBubble: Shape {
     }
 }
 
-/// The terminal that an agent wrote from, as a chip.
 public struct RoomTerminalChip: View {
     #if os(iOS)
         private static let spacing: CGFloat = 5
@@ -184,12 +177,10 @@ public struct RoomTerminalChip: View {
 }
 
 public extension View {
-    /// Your own message, in a copper-soft bubble.
     func roomBubble() -> some View {
         modifier(RoomBubbleFill())
     }
 
-    /// A message of someone else that mentions you, tinted copper.
     func roomMention(_ mentioned: Bool) -> some View {
         modifier(RoomMentionTint(mentioned: mentioned))
     }

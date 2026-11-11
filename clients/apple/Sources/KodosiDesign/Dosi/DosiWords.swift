@@ -1,7 +1,6 @@
 import Foundation
 import KodosiBridge
 
-/// The words of Dosi's steps.
 public enum DosiWords {
     public struct Phrase: Sendable {
         let alone: String

@@ -60,7 +60,6 @@ public struct RoomTask: Decodable, Identifiable {
     public let issue: RoomIssue?
 }
 
-/// The tasks of a room for one repository or for all, in the lanes that people see.
 public struct RoomTaskLanes {
     public let tasks: [RoomTask]
 

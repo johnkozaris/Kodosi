@@ -4,7 +4,6 @@ import android.content.Context
 import com.kodosi.mobile.runtime.Words
 import com.kodosi.mobile.terminals.TerminalWords
 
-/** The app's sentences for the stores, in the language that the app shows. */
 class AndroidWords(private val context: Context) :
     Words,
     TerminalWords {

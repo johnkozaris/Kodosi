@@ -2,8 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The part of a terminal's menu that changes the agent in front while it runs: only what the
-/// agent can change without starting again.
 struct AgentMenuSection: View {
     @Environment(AppModel.self) private var model
     let session: RuntimeSession
@@ -21,7 +19,6 @@ struct AgentMenuSection: View {
         session.programPending ?? AgentSettings()
     }
 
-    /// The models and efforts of the computer that runs the agent, when it is the person's own.
     private var launcher: LauncherState? {
         guard session.isOwner, let host = session.hostDeviceId else { return nil }
         return model.launcher(for: host)

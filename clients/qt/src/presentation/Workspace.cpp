@@ -25,8 +25,8 @@ QString requestId()
     return QUuid::createUuidV7().toString(QUuid::WithoutBraces);
 }
 
-/// Whether an operation is a refresh that the app asks for by itself. Its failure is no news to
-/// the person: the runtime refreshes again when the connection is back.
+/// The failure of a refresh that the app asks for by itself is no news to the person: the runtime
+/// refreshes again when the connection is back.
 bool isRefresh(const QString& operation)
 {
     static const QStringList refreshes { QStringLiteral("session.list"), QStringLiteral("auth.refresh"),
@@ -184,9 +184,6 @@ bool Workspace::canvasOpen(const QString& sessionId) const
     return m_desktop.canvasSessionId() == sessionId;
 }
 
-// A show opens the canvas at it, or switches an open canvas to it. A change opens a closed canvas
-// at it, unless the person closed that canvas; an open one keeps what it shows. With Open the
-// canvas by itself off, nothing opens a closed canvas.
 void Workspace::followCanvas()
 {
     const auto id = frontSessionId();

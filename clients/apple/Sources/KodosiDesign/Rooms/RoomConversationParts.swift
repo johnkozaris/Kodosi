@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// The key that loads the messages before the first one shown.
 public struct RoomEarlierKey: View {
     let loading: Bool
     let identifier: String
@@ -27,7 +26,6 @@ public struct RoomEarlierKey: View {
     }
 }
 
-/// Says that the room let its oldest messages go to make space.
 public struct RoomTrimmedNote: View {
     @Environment(\.theme) private var theme
 
@@ -42,7 +40,6 @@ public struct RoomTrimmedNote: View {
     }
 }
 
-/// The key that goes down to the latest messages, with how many of them are new.
 public struct RoomLatestKey: View {
     let unread: Int
     let identifier: String

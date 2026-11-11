@@ -5,8 +5,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
-// The shared browser of this computer: its Kodosi Browser, the sign-ins that a person copies
-// from another browser, and the data of the private terminals. Each step is a person's own.
 ColumnLayout {
     id: root
 

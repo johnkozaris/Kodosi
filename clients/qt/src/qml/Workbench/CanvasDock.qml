@@ -5,11 +5,6 @@ import QtQuick
 import QtQuick.Controls
 import Kodosi.Models 1.0 as Models
 
-// The keys of a terminal's canvas, one for each of its parts: its files and its browser. The
-// chosen part shows its name. When a file comes or changes, the files key shows that file's name
-// for a moment, and a command of the agent in the browser shows the browser key's name. On the
-// canvas, a pointer on a key shows the key that closes the part on this device, and the plus key
-// lists the parts to open.
 Row {
     id: root
 

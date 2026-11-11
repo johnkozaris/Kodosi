@@ -1,9 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// The mark of a file: a sheet with a turned corner, lit from the top left like a tile, in the
-/// color that people know for its kind and with its letter or sign, as a Word file is blue
-/// with a W.
 public struct FileIcon: View {
     @Environment(\.theme) private var theme
     let look: FileLook
@@ -55,7 +52,6 @@ public struct FileIcon: View {
     }
 }
 
-/// The color and the sign of a kind of file, by its extension, and else by what it shows as.
 struct FileLook: Equatable {
     enum Mark: Equatable {
         case letters(String)
@@ -65,18 +61,18 @@ struct FileLook: Equatable {
     let color: Color
     let mark: Mark
 
-    private static let word = FileLook(0x2F64C0, .letters("W"))
-    private static let excel = FileLook(0x1F8A52, .letters("X"))
-    private static let powerPoint = FileLook(0xD2552F, .letters("P"))
+    private static let document = FileLook(0x2F64C0, .letters("W"))
+    private static let sheet = FileLook(0x1F8A52, .letters("X"))
+    private static let presentation = FileLook(0xD2552F, .letters("P"))
     private static let pdf = FileLook(0xD8463E, .letters("PDF"))
     private static let markup = FileLook(0xE06A3B, .symbol("chevron.left.forwardslash.chevron.right"))
     private static let text = FileLook(0x7A6F68, .symbol("text.alignleft"))
     private static let table = FileLook(0x3F9E6B, .symbol("tablecells"))
 
     private static let byEnding: [String: FileLook] = [
-        "docx": word, "docm": word, "doc": word, "dotx": word,
-        "xlsx": excel, "xlsm": excel, "xls": excel, "xltx": excel,
-        "pptx": powerPoint, "pptm": powerPoint, "ppt": powerPoint, "potx": powerPoint,
+        "docx": document, "docm": document, "doc": document, "dotx": document,
+        "xlsx": sheet, "xlsm": sheet, "xls": sheet, "xltx": sheet,
+        "pptx": presentation, "pptm": presentation, "ppt": presentation, "potx": presentation,
         "pdf": pdf,
         "md": FileLook(0x5E6B85, .symbol("number")), "markdown": FileLook(0x5E6B85, .symbol("number")),
         "json": FileLook(0xD9A441, .symbol("curlybraces")),
@@ -110,7 +106,6 @@ struct FileLook: Equatable {
     }
 }
 
-/// A sheet whose top trailing corner is cut for the turned corner.
 private struct FileSheet: Shape {
     let fold: CGFloat
     let radius: CGFloat
@@ -134,7 +129,6 @@ private struct FileSheet: Shape {
     }
 }
 
-/// The turned corner: a triangle under the cut, with a soft inner corner.
 private struct FileFold: Shape {
     let radius: CGFloat
 

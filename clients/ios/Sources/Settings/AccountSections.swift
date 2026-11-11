@@ -93,8 +93,6 @@ struct AboutSection: View {
     }
 }
 
-/// Deleting the account: a key in danger's color, then the page of the sign-in service where the
-/// person confirms it.
 struct AccountDeletion: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme

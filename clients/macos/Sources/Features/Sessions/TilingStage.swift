@@ -15,7 +15,6 @@ struct TilingStage: View {
         workbench.stagedSessionIds.filter { deps.session($0).map { $0.status != .closing } == true }
     }
 
-    /// The terminal whose canvas is open beside it.
     private var canvasSession: RuntimeSession? {
         workbench.canvasSessionId.flatMap { id in
             presentedSessionIds.contains(id) ? deps.session(id).flatMap { deps.canvas.showsSomething($0) ? $0 : nil } : nil

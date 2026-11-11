@@ -65,7 +65,6 @@ struct TerminalsHome: View {
         .accessibilityIdentifier("terminals.home")
     }
 
-    /// The terminals of a folder step in by a hair from their computer.
     private static let folderIndent: CGFloat = 8
 
     private func starting(_ request: NewTerminalRequest?) -> (() -> Void)? {
@@ -140,8 +139,6 @@ struct TerminalsHome: View {
     }
 }
 
-/// The name of a computer over its folders, or the face and name of the friend who shares them.
-/// One of your computers that is online has the key that starts a terminal on it.
 private struct ComputerHeader: View {
     @Environment(\.theme) private var theme
     let group: SessionComputerGroup
@@ -177,8 +174,6 @@ private struct ComputerHeader: View {
     }
 }
 
-/// The name of a folder over its terminals. Touching and holding a folder on one of your
-/// computers that is online starts a terminal in it.
 private struct FolderHeader: View {
     @Environment(\.theme) private var theme
     let folder: SessionFolderGroup
@@ -214,7 +209,6 @@ private struct FolderHeader: View {
     }
 }
 
-/// What shows when a search finds nothing.
 struct NothingMatches: View {
     @Environment(\.theme) private var theme
 
@@ -228,8 +222,6 @@ struct NothingMatches: View {
 }
 
 extension View {
-    /// A card in a list: on the list's ground, with room for its shadow and no separator. An
-    /// `indent` steps it in from the list's edge.
     func cardRow(top: CGFloat = 5, bottom: CGFloat = 5, indent: CGFloat = 0) -> some View {
         listRowInsets(EdgeInsets(top: top, leading: 16 + indent, bottom: bottom, trailing: 16))
             .listRowSeparator(.hidden)

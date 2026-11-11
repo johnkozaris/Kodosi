@@ -132,7 +132,6 @@ bool ShortcutsModel::changed() const
     return std::ranges::any_of(actions(), [this](const Action& action) { return m_settings->contains(settingsKey(action.id)); });
 }
 
-/// Every key that the programs in terminals do not get.
 QList<QKeySequence> ShortcutsModel::taken() const
 {
     QList<QKeySequence> taken;
@@ -149,7 +148,7 @@ QList<QKeySequence> ShortcutsModel::taken() const
     return taken;
 }
 
-/// Gives a key to an action, in place of `old`. Returns the title of the action that had it.
+/// Returns the title of the action that had the key.
 QString ShortcutsModel::bind(const QString& action, const QString& sequence, const QString& old)
 {
     if (find(action) == nullptr || sequence.isEmpty() || (action == numbered && !sequence.back().isDigit()))

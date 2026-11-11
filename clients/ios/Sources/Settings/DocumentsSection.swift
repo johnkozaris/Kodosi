@@ -1,7 +1,6 @@
 import KodosiDesign
 import SwiftUI
 
-/// The live viewers of this device: which ones show their files on the canvas, and how.
 struct DocumentsSection: View {
     @Environment(\.theme) private var theme
     @AppStorage(DocumentViewers.storageKey) private var viewers = DocumentViewers()

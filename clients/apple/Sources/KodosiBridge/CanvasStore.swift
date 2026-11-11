@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-/// What the agent of a terminal showed on its canvas, or what changed there, which a device acts
-/// on once.
 public enum CanvasNews: Equatable, Sendable {
     case shown(CanvasShown)
     case changed(CanvasShown)
@@ -14,8 +12,6 @@ public enum CanvasNews: Equatable, Sendable {
     }
 }
 
-/// What this device knows of the canvases of the terminals: what a person saw and picked, and
-/// the content of the items that it showed.
 @MainActor
 @Observable
 public final class CanvasStore {
@@ -76,28 +72,24 @@ public final class CanvasStore {
         self.started = started
     }
 
-    /// A link to the live picture of a terminal's browser.
     func browser(of session: String) -> DocumentLink {
         let link = DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey)
         documents.add(link)
         return link
     }
 
-    /// A link to the live document of an item.
     public func document(_ item: CanvasItem, in session: String) -> DocumentLink {
         let link = DocumentLink(commands: commands, session: session, key: item.key)
         documents.add(link)
         return link
     }
 
-    /// Takes the frames of live documents, which reach only the client that opened them.
     public func receive(_ event: RuntimeEvent) {
         for link in documents.allObjects {
             link.receive(event)
         }
     }
 
-    /// Follows the terminal list. What a canvas showed before this device saw it is not news.
     public func observe(_ sessions: [RuntimeSession]) {
         let ids = Set(sessions.map(\.id))
         for session in sessions where firstSeen[session.id] == nil {
@@ -144,8 +136,6 @@ public final class CanvasStore {
         session.canvas?.shown.contains { isNew($0, in: session.id) } ?? false
     }
 
-    /// A person saw an item: it is no longer news, and an open canvas stays at it until the
-    /// person picks another or the agent shows something.
     public func saw(_ shown: CanvasShown, in session: String) {
         if picks[session] == nil {
             picks[session] = shown.key
@@ -154,8 +144,6 @@ public final class CanvasStore {
         marks[session, default: [:]][shown.key] = shown.changed
     }
 
-    /// What an open canvas shows: the item that the person picked, or else the newest, in the
-    /// parts that are open.
     public func current(_ session: RuntimeSession) -> CanvasShown? {
         guard let canvas = session.canvas else { return nil }
         let open = sections(session)
@@ -165,7 +153,6 @@ public final class CanvasStore {
         return canvas.shown.filter { open.contains($0.section) }.max { $0.changed < $1.changed }
     }
 
-    /// The parts of a canvas that are open on this device.
     public func sections(_ session: RuntimeSession) -> [CanvasSection] {
         guard let canvas = session.canvas else { return [] }
         return canvas.sections.filter { section in
@@ -173,13 +160,10 @@ public final class CanvasStore {
         }
     }
 
-    /// Whether an open canvas of a terminal shows something on this device: a part that a person
-    /// did not close here.
     public func showsSomething(_ session: RuntimeSession) -> Bool {
         !sections(session).isEmpty
     }
 
-    /// The parts that a person can open on a canvas: the ones they closed, and a browser.
     public func closedSections(_ session: RuntimeSession) -> [CanvasSection] {
         let open = sections(session)
         return [CanvasSection.files, .browser].filter { section in
@@ -187,7 +171,6 @@ public final class CanvasStore {
         }
     }
 
-    /// Closes a part of a canvas on this device until it changes.
     public func close(_ section: CanvasSection, in session: RuntimeSession) {
         guard let canvas = session.canvas else { return }
         settle(session)
@@ -200,8 +183,6 @@ public final class CanvasStore {
         }
     }
 
-    /// Opens the canvas of a terminal at a part, or else at something: when a person closed all its
-    /// parts on this device, the part with the newest change opens again.
     public func open(_ session: RuntimeSession, at section: CanvasSection? = nil) {
         shut.remove(session.id)
         if let section {
@@ -211,9 +192,6 @@ public final class CanvasStore {
         }
     }
 
-    /// What the agent of a terminal showed and what changed on its canvas since this device last
-    /// acted on it, the older first, each once. One from before the app started, or of an item that
-    /// the canvas no longer has, is not news.
     public func news(_ session: RuntimeSession) -> [CanvasNews] {
         guard let canvas = session.canvas else { return [] }
         var news: [(at: UInt64, news: CanvasNews)] = []
@@ -233,8 +211,6 @@ public final class CanvasStore {
         return news.sorted { $0.at < $1.at }.map(\.news)
     }
 
-    /// Opens the canvas of a terminal at what its agent showed or what changed: its part opens
-    /// again on this device.
     public func reveal(_ shown: CanvasShown, in session: RuntimeSession) {
         settle(session)
         shut.remove(session.id)
@@ -242,20 +218,14 @@ public final class CanvasStore {
         pick(shown.key, in: session.id)
     }
 
-    /// A person closed the canvas of a terminal on this device, so a change does not open it
-    /// again until it opens or its agent shows something.
     public func closeCanvas(_ session: String) {
         shut.insert(session)
     }
 
-    /// Whether a person closed the canvas of a terminal on this device since it last opened or its
-    /// agent last showed something.
     public func isShut(_ session: String) -> Bool {
         shut.contains(session)
     }
 
-    /// A person on this device opened or closed the canvas, so what its agent showed or changed
-    /// until now is not news.
     private func settle(_ session: RuntimeSession) {
         if let at = session.canvas?.open?.at {
             opened[session.id] = max(opened[session.id] ?? started, at)
@@ -265,7 +235,6 @@ public final class CanvasStore {
         }
     }
 
-    /// The pictures and input of a terminal's browser on this device.
     public func feed(_ session: String) -> BrowserFeed {
         if let feed = feeds[session] {
             return feed
@@ -283,8 +252,6 @@ public final class CanvasStore {
         }
     }
 
-    /// Shows a part of a canvas, which opens if it was closed: the browser, or the file that the
-    /// person saw last there, else the newest file.
     public func show(_ section: CanvasSection, in session: RuntimeSession) {
         settle(session)
         shut.remove(session.id)
@@ -299,7 +266,6 @@ public final class CanvasStore {
         }
     }
 
-    /// Whether the canvas of a terminal shows all its files as cards.
     public func showsShelf(_ session: String) -> Bool {
         shelves.contains(session)
     }
@@ -312,12 +278,10 @@ public final class CanvasStore {
         }
     }
 
-    /// The content of an item that this device already has, for its card.
     public func stored(_ item: CanvasItem, in session: String) -> Data? {
         stored[Stored(session: session, key: item.key, revision: item.revision)]
     }
 
-    /// How much of an item's content came, from 0 to 1, while this device reads it.
     public func read(_ key: String, in session: String) -> Double? {
         reads[Self.place(session, key)]
     }
@@ -326,7 +290,6 @@ public final class CanvasStore {
         session + "\u{1F}" + key
     }
 
-    /// The bytes of an item and their revision, which can be newer than the item's.
     public func content(of item: CanvasItem, in session: String) async throws -> (revision: UInt64, data: Data) {
         let key = Stored(session: session, key: item.key, revision: item.revision)
         if let data = stored[key] {
@@ -345,41 +308,32 @@ public final class CanvasStore {
         return (revision, data)
     }
 
-    /// What Settings › Browser shows of this computer.
     public func browserStatus() async throws -> BrowserStatus {
         let event = try await commands.request("browser.status", [:])
         return try BrowserStatus(sources: event.value("sources"), sites: event.value("sites"), engine: event.string("engine"),
                                  getting: try? event.value("getting", as: Int.self))
     }
 
-    /// Gets the Kodosi Browser of this computer now, or its newest version.
     public func getBrowser() async throws {
         _ = try await commands.request("browser.get", [:])
     }
 
-    /// Copies the sign-ins of a browser into the profile of this person's private terminals, and
-    /// says for how many sites.
     public func copySignIns(from source: String) async throws -> Int {
         try await commands.request("browser.copy", ["name": .string(source)]).value("sites")
     }
 
-    /// Removes what copies brought, and says for how many sites.
     public func removeCopiedSignIns() async throws -> Int {
         try await commands.request("browser.forget", [:]).value("sites")
     }
 
-    /// Removes the profile of this person's private terminals, with every sign-in and all site data.
     public func removeBrowsingData() async throws {
         _ = try await commands.request("browser.clear", [:])
     }
 
-    /// Whether a person on this device opens the browser of a terminal, which did not come yet.
     public func opensBrowser(_ session: String) -> Bool {
         opening.contains(session)
     }
 
-    /// Shows the shared browser of a terminal on its canvas, and opens it there when the terminal
-    /// has none.
     public func openBrowser(of session: RuntimeSession) async throws {
         guard session.canvas?.browser == nil else {
             show(.browser, in: session)
@@ -400,14 +354,10 @@ public final class CanvasStore {
         _ = try await ask(session, .object(["type": .string("act"), "action": act.json]))
     }
 
-    /// Adds a file to the canvas of a terminal. It goes into the folder of the terminal, on the
-    /// computer of the terminal.
     public func attach(_ file: URL, in session: String) async throws {
         try await pick(upload(file, to: session), in: session)
     }
 
-    /// Puts a file into the folder of a terminal, and says where it is on that computer. A file
-    /// for a page of the browser can be of any kind, and stays off the canvas.
     func upload(_ file: URL, to session: String, page: Bool = false) async throws -> String? {
         let granted = file.startAccessingSecurityScopedResource()
         defer {

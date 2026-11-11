@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// The effort of an agent as bars that grow to the right, copper up to its level.
 public struct EffortBars: View {
     @Environment(\.theme) private var theme
     let level: Int?

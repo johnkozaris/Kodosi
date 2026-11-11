@@ -1,8 +1,5 @@
 import Foundation
 
-/// One live document of a canvas on this device. Frames from the view go to the runtime in parts,
-/// and the runtime's parts come back whole. When the pipe breaks, the link says so, and the view
-/// joins again on a new pipe, at once when the terminal can be reached again.
 @MainActor
 public final class DocumentLink {
     private static let partBytes = 256 * 1024
@@ -42,7 +39,6 @@ public final class DocumentLink {
         }
     }
 
-    /// Waits `wait`, or less when the terminal of this link can be reached again. True when it can.
     public func pause(_ wait: Duration) async -> Bool {
         if reachedWhileBusy {
             reachedWhileBusy = false
@@ -63,7 +59,6 @@ public final class DocumentLink {
         }
     }
 
-    /// The store saw the terminal of this link come back.
     func reachable() {
         if pausing == nil {
             reachedWhileBusy = true

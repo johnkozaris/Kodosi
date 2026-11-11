@@ -2,9 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The title of a terminal in its bar: its mark, its name with the sign of what it needs, and
-/// where it runs or what it does, or that Kodosi is offline with a key that tries again. The title
-/// of your own terminal is a key that renames it.
 struct TerminalTitle: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
@@ -99,8 +96,6 @@ struct TerminalTitle: View {
     }
 }
 
-/// The actions of a terminal, in the system's menu: copper sliders in its bar, or a key cap in
-/// the key row.
 struct TerminalMenu: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession

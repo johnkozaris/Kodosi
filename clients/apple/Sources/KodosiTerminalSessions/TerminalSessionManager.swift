@@ -279,7 +279,6 @@ public final class TerminalSessionManager {
         }
     }
 
-    /// Sends the size of this view again, so that the terminal takes it.
     public func takeSize(for sessionId: String) {
         guard let managed = sessions[sessionId], let viewport = managed.renderer.currentViewport else { return }
         managed.resizeDelivery.reset()
@@ -335,7 +334,6 @@ public final class TerminalSessionManager {
         connectToRuntime(sessionId: sessionId, token: token)
     }
 
-    /// The viewport of a terminal on screen, which has the cell size of them all.
     public var viewportOnScreen: TerminalViewport? {
         sessions.values.lazy.compactMap(\.renderer.currentViewport).first
     }
@@ -364,9 +362,6 @@ public final class TerminalSessionManager {
         picturesBySession[sessionId]
     }
 
-    /// Pastes a picture into a terminal. Kodosi saves it on the terminal's computer and pastes
-    /// the path of its file; in a terminal of another computer, `session.picture` tells how much
-    /// of it arrived.
     public func pastePicture(_ picture: Data, sessionId: String) {
         guard let incarnation = runtimeIncarnationsBySession[sessionId] else { return }
         Task {

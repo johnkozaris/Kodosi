@@ -1,7 +1,6 @@
 import Foundation
 
-/// What a push from the Kodosi server says about one of the person's terminals. The push names
-/// no terminal and no computer, so the words come from this device.
+/// The push names no terminal and no computer, so the words come from this device.
 nonisolated struct TerminalAlert: Equatable {
     let terminal: String
     let agent: String?

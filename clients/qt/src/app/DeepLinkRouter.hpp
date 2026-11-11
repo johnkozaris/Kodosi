@@ -35,7 +35,6 @@ public:
 
     [[nodiscard]] static DeepLinkParseResult parse(QStringView rawUrl);
     [[nodiscard]] static QString url(const DeepLinkDestination& destination);
-    // The lowercase ID of a terminal, for a UUID in any letter case.
     [[nodiscard]] static std::optional<QString> sessionId(QStringView value);
     [[nodiscard]] static QString userMessage(DeepLinkParseError error);
 };

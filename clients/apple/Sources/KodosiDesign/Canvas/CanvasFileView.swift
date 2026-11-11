@@ -5,8 +5,6 @@ import SwiftUI
     import QuickLook
 #endif
 
-/// A picture, PDF, document, sheet or presentation of a canvas, which Quick Look shows from a copy in the
-/// temporary folder that goes when the view goes.
 public struct CanvasFileView: View {
     let content: Data
     let name: String
@@ -49,7 +47,7 @@ final class CanvasCopy: Sendable {
         try content.write(to: url, options: .atomic)
     }
 
-    /// Writes the copy away from the main actor, as a file can have 32 MB.
+    /// Runs away from the main actor, as a file can have 32 MB.
     @concurrent
     static func write(_ content: Data, name: String, revision: UInt64) async -> CanvasCopy? {
         try? CanvasCopy(content, name: name, revision: revision)

@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// A room in the list: its card, with the last message and its time.
 struct RoomListCard: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
@@ -47,7 +46,6 @@ struct RoomListCard: View {
     }
 }
 
-/// An invitation to a room in the list, with the keys to join it or not.
 struct RoomInvitationRow: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme

@@ -17,8 +17,6 @@ public struct ProgressCaption: View {
     }
 }
 
-/// A pasted picture on its way to another computer: how much of it arrived, and then that it
-/// arrived.
 public struct PictureNotice: View {
     @Environment(\.theme) private var theme
     #if os(iOS)

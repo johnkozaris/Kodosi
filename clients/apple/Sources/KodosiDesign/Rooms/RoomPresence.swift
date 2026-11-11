@@ -2,13 +2,10 @@ import KodosiBridge
 import SwiftUI
 
 public extension View {
-    /// Opens a room while this view shows it: loads its people and latest messages, and keeps its
-    /// people fresh.
     func showsRoom(_ roomId: String, in rooms: RoomStore) -> some View {
         modifier(RoomShown(roomId: roomId, rooms: rooms))
     }
 
-    /// Tells the room that this view shows one of its parts.
     func showsRoomPart(_ part: RoomPart, of state: RoomViewState) -> some View {
         onAppear { state.show(part) }
             .onDisappear { state.hide(part) }

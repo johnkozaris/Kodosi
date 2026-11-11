@@ -2,7 +2,6 @@ import Kodosi 1.0
 import QtQuick
 import Kodosi.Models 1.0 as Models
 
-// A canvas file that this app does not show itself: its name and size, and the way to open it.
 Item {
     id: root
 

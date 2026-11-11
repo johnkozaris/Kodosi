@@ -21,7 +21,6 @@ final class AppModel {
     let people: PeopleStore
     let dosi: DosiStore
     let push: PushNotifications
-    /// The computer that the person picked to answer Dosi on this device.
     var dosiDevice: String?
 
     @ObservationIgnored private let inbox: RuntimeEventInbox
@@ -98,7 +97,6 @@ final class AppModel {
         }
     }
 
-    /// Whether the person sees what Kodosi shows: it is in front and not locked.
     private var inFront: Bool {
         active && !lock.locked
     }
@@ -111,7 +109,6 @@ final class AppModel {
         refresh()
     }
 
-    /// How the phone shows a room, kept while the person moves around.
     func roomScreen(_ roomId: String) -> RoomScreenState {
         if let screen = roomScreens[roomId] {
             return screen
@@ -121,7 +118,6 @@ final class AppModel {
         return screen
     }
 
-    /// The agents, choices and folders of one of the person's computers, for a new terminal there.
     func launcher(for computer: String) -> LauncherState {
         if let known = launchers[computer] {
             return known

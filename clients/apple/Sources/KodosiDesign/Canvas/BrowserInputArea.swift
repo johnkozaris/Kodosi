@@ -1,8 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// Takes a person's pointer, keys and text for the shared browser, over the picture that
-/// fills the view scaled to fit.
 struct BrowserInputArea {
     let feed: BrowserFeed
     let typing: Bool
@@ -28,8 +26,8 @@ private extension BrowserFeed {
 }
 
 extension BrowserKeys {
-    /// The key that types this character on a US keyboard, for text that an on-screen keyboard
-    /// types.
+    /// An on-screen keyboard gives only text, so the key is the one that types this character on
+    /// a US keyboard.
     static func key(character: Character) -> Key? {
         guard let ascii = character.asciiValue else { return nil }
         switch character {

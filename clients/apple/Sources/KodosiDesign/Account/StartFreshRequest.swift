@@ -1,7 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// What an approved device shows while another device of the account waits to start fresh.
 public struct StartFreshRequest: View {
     @Environment(\.theme) private var theme
     let reset: DeviceReset

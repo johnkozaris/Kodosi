@@ -60,11 +60,8 @@ public:
     qreal canvasWidth() const { return m_canvasWidth; }
     void setCanvasWide(bool value);
     void setCanvasWidth(qreal value);
-    // Shows a terminal alone on the stage with its canvas beside it, at a part or else at
-    // something, now or when its canvas has something to show on this device.
     Q_INVOKABLE void openCanvas(const QString& id, const QString& section = {});
     Q_INVOKABLE void hideCanvas();
-    // The person closes the canvas, which a change does not open again until it opens.
     Q_INVOKABLE void closeCanvas();
     StageLayoutMode stageLayoutMode() const { return m_mode; }
     QString lastError() const { return m_error; }

@@ -62,7 +62,6 @@ import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.raised
 
-/** A terminal of another computer, live, in a dark tile, with the keys that a phone lacks. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: () -> Unit) {
@@ -263,7 +262,6 @@ private fun StateCard(title: String, message: String?, working: Boolean, action:
     }
 }
 
-/** The keys that a phone keyboard lacks, on the keyboard while you type in the terminal. */
 @Composable
 private fun KeyRow(view: TerminalView?, control: Boolean) {
     Row(

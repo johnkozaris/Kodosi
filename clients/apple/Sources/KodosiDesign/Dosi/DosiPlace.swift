@@ -1,8 +1,6 @@
 import KodosiBridge
 import Observation
 
-/// What Dosi's thread needs from the app that shows it: Dosi's conversation, the person's
-/// terminals and rooms, and what a step, an answer or a suggestion does there.
 @MainActor
 @Observable
 public final class DosiPlace {

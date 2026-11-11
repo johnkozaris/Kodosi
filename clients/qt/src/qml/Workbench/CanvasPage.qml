@@ -3,8 +3,8 @@ import QtQuick
 import QtWebEngine
 import Kodosi.Models 1.0 as Models
 
-// A page of a canvas in a closed frame. It runs its own scripts, but it reaches no network,
-// no files and no storage that stays. A web or mail link opens on this device.
+// A page runs its own scripts in a closed frame, but it reaches no network, no files and no
+// storage that stays.
 WebEngineView {
     id: root
 
@@ -13,7 +13,6 @@ WebEngineView {
     property var place: null
     property string shown: ""
 
-    // Calls `done` with the words that the person selected on the page.
     function selection(done) {
         runJavaScript("getSelection().toString()", WebEngineScript.ApplicationWorld, result => done(String(result || "")));
     }

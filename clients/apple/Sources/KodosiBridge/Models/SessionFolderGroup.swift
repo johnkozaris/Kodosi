@@ -1,7 +1,7 @@
 import Foundation
 
-/// The terminals of one folder of a computer. A terminal whose folder is not known, such as a
-/// friend's terminal that you have not opened, is in the group without a directory.
+/// A terminal whose folder is not known, such as a friend's terminal that you have not opened, is
+/// in the group without a directory.
 public struct SessionFolderGroup: Identifiable, Sendable {
     public struct Owner: Equatable, Sendable {
         public let name: String
@@ -33,8 +33,6 @@ public struct SessionFolderGroup: Identifiable, Sendable {
     }
 }
 
-/// The terminals of one computer in their folders: this device's, another of yours, or a
-/// friend's.
 public struct SessionComputerGroup: Identifiable, Sendable {
     public let id: String
     public let computer: String?
@@ -46,7 +44,6 @@ public struct SessionComputerGroup: Identifiable, Sendable {
         computer != nil && folders.allSatisfy(\.away)
     }
 
-    /// The computer's device, when it is not this device.
     public var computerId: String? {
         folders.first?.computerId
     }
@@ -59,8 +56,6 @@ public struct SessionComputerGroup: Identifiable, Sendable {
         session.kind == .local ? "local" : session.hostDeviceId ?? session.ownerUserId ?? session.id
     }
 
-    /// This device's terminals, then those of your other computers, then those of each friend's
-    /// computer, each in its folders and then the terminals without a known folder.
     public static func groups(_ sessions: [RuntimeSession]) -> [Self] {
         let computers = Dictionary(grouping: sessions, by: key)
         let friendsComputers = Dictionary(grouping: computers.values.compactMap(\.first).filter { $0.kind != .local && !$0.isOwner }) {

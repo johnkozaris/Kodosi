@@ -20,7 +20,6 @@ public struct DosiSnapshot: Decodable, Equatable, Sendable {
     public var last: DosiComputer?
 }
 
-/// One of the person's computers, whose Dosi answers a message.
 public struct DosiComputer: Decodable, Equatable, Hashable, Sendable, Identifiable {
     public let device: String
     public let name: String
@@ -35,7 +34,6 @@ public struct DosiComputer: Decodable, Equatable, Hashable, Sendable, Identifiab
     }
 }
 
-/// A message that waits for the computer that the person asked to answer it.
 public struct DosiAsk: Decodable, Equatable, Sendable {
     public let item: String
     public let computer: DosiComputer

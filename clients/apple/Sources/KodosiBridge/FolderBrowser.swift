@@ -1,8 +1,7 @@
 import Foundation
 import Observation
 
-/// The folders of a launcher's computer to choose from: its places and recent folders, then the
-/// folders in one folder at a time. The newest question wins.
+/// The newest question wins.
 @MainActor
 @Observable
 public final class FolderBrowser {
@@ -27,7 +26,6 @@ public final class FolderBrowser {
         }
     }
 
-    /// Lists the folders in `path`, or in the home folder of the computer.
     public func open(_ path: String?) async {
         let asked = UUID()
         asking = asked

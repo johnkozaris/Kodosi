@@ -2,7 +2,6 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
 
-// The small round key that takes a file off the canvas.
 AbstractButton {
     id: root
 

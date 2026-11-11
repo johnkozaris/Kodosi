@@ -2,8 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The rows of the Actions menu that change the agent in front of a terminal while it runs,
-/// each with a flyout. They show only what the agent can change without starting again.
 struct AgentActions: View {
     enum Flyout {
         case model, permissions
@@ -26,7 +24,6 @@ struct AgentActions: View {
         session.programPending ?? AgentSettings()
     }
 
-    /// The models and efforts of the computer that runs the agent, when the person can ask it.
     private var launcher: LauncherState? {
         if session.kind == .local {
             return deps.launcher
@@ -142,8 +139,8 @@ struct AgentActions: View {
         }
     }
 
-    /// Every mode of the agent: those that it changes to while it runs, and those that it takes
-    /// only when it starts, which show so that a person sees why they can't choose them.
+    /// The modes that the agent takes only when it starts show too, so that a person sees why
+    /// they can't choose them.
     private var permissionOptions: [AgentPermissions] {
         let known = launcher?.agent(agent.rawValue)?.permissions ?? []
         return AgentPermissions.allCases.filter { known.contains($0) || live.permissions.contains($0) || $0 == permissions }
@@ -189,7 +186,6 @@ struct AgentActions: View {
     }
 }
 
-/// A row of the Actions menu with a value and a flyout that opens as the pointer comes.
 private struct FlyoutRow<Accessory: View>: View {
     @Environment(\.theme) private var theme
     let title: Text
@@ -247,7 +243,6 @@ private struct FlyoutRow<Accessory: View>: View {
 }
 
 extension View {
-    /// Closes the open flyout of a menu as the pointer comes to this row.
     func closesFlyout(_ flyout: Binding<AgentActions.Flyout?>) -> some View {
         onHover { inside in
             if inside {

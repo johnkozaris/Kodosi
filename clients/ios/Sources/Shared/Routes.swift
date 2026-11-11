@@ -8,8 +8,6 @@ struct RoomRoute: Hashable {
     let roomId: String
 }
 
-/// Shows a route in the navigation stack of the current tab, for a row that is a key and not a
-/// navigation link.
 struct OpenRouteAction {
     private let push: (any Hashable) -> Void
 

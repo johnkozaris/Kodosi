@@ -49,7 +49,6 @@ public extension CanvasItem.Kind {
 }
 
 public extension CanvasItem {
-    /// What a person calls the file: its kind, or text for a text file that people edit live.
     var label: String {
         view == .text ? String(localized: "Text", bundle: .module) : kind.label
     }
@@ -77,7 +76,6 @@ public enum CanvasSymbol {
 }
 
 public extension BrowserDoing.Kind {
-    /// What the agent does, in a few words.
     var words: String {
         switch self {
         case .open: String(localized: "Opening a page", bundle: .module)
@@ -92,7 +90,6 @@ public extension BrowserDoing.Kind {
 }
 
 public extension RuntimeSession {
-    /// "Ask Claude Code about this", or "Ask about this" in a shell.
     var askTitle: String {
         let agent = AgentKind(program: program)
         return agent.isAgent ? String(localized: "Ask \(agent.label) about this", bundle: .module)
@@ -100,8 +97,6 @@ public extension RuntimeSession {
     }
 }
 
-/// The words that "Ask about this" types into the terminal: one line, which the person
-/// finishes with a question.
 public enum CanvasQuestion {
     public static func about(_ shown: CanvasShown, words: String?) -> String {
         let place = switch shown {

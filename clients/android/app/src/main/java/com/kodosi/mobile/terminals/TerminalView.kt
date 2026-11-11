@@ -23,7 +23,6 @@ import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
-/** Draws a terminal from Ghostty's state and types into it with the keyboard. */
 @SuppressLint("ViewConstructor")
 class TerminalView(context: Context, private val connection: TerminalConnection) : View(context) {
     /** Control for the next key, from the key row. */
@@ -86,7 +85,6 @@ class TerminalView(context: Context, private val connection: TerminalConnection)
         context.getSystemService(InputMethodManager::class.java)?.showSoftInput(this, 0)
     }
 
-    /** Presses `key`, with control when the key row holds it for the next key. */
     fun press(key: TerminalKernel.Key) {
         val modifiers = if (control) TerminalKernel.Modifier.CONTROL else 0
         control = false

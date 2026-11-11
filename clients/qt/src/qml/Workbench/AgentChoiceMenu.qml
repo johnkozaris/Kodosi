@@ -4,7 +4,6 @@ import Kodosi 1.0
 import QtQuick
 import QtQuick.Controls
 
-// A submenu of the Actions menu that changes one setting of the agent in front while it runs.
 KMenu {
     id: root
 

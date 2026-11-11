@@ -1,8 +1,6 @@
 import SwiftUI
 
-/// The name of a computer over its terminals: the computer's glyph, or the friend's face for a
-/// friend's computer, and a crossed wave while the computer is away. Its parts sit in the stack
-/// around it, so that a fold key can follow them.
+/// The parts of the caption sit in the stack around it, so that a fold key can follow them.
 public struct ComputerCaption: View {
     let title: String
     let ownerName: String?
@@ -35,8 +33,6 @@ public struct ComputerCaption: View {
     }
 }
 
-/// Where a terminal runs, in one line: its computer, a faint chevron, then the folder or place
-/// in brighter ink.
 public struct TerminalLocation: View {
     @Environment(\.theme) private var theme
     let host: String?
@@ -82,8 +78,6 @@ public struct TerminalLocation: View {
     }
 }
 
-/// The face of a terminal's actions key: two copper sliders, on a copper-soft face while it is
-/// lit or its menu is open.
 public struct ActionsKey: View {
     @Environment(\.theme) private var theme
     let lit: Bool
@@ -105,9 +99,6 @@ public struct ActionsKey: View {
     }
 }
 
-/// The face of a ghost key around words, such as the name of a terminal that renames it: the words
-/// alone, on a quiet face while the key is lit. On iPhone and iPad it also lights while a finger
-/// presses the button around it.
 public struct GhostKeyFace<Content: View>: View {
     @Environment(\.theme) private var theme
     @Environment(\.bezelPressed) private var pressed

@@ -1,8 +1,6 @@
 import CoreGraphics
 import Observation
 
-/// How the Mac shows one room: its work area, the conversation beside it, the task being written
-/// and the open popovers.
 @MainActor
 @Observable
 final class RoomWorkspace {

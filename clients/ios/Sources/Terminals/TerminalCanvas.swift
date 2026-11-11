@@ -3,8 +3,6 @@ import KodosiDesign
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The canvas key in a terminal's bar: there when the canvas shows something, in a well, with a
-/// breathing dot for news and a hop when the news comes.
 struct CanvasKey: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
@@ -34,8 +32,6 @@ struct CanvasKey: View {
     }
 }
 
-/// What the agent showed or changed on a closed canvas, over the terminal: Open opens the canvas
-/// there, and the cross puts the banner away.
 struct CanvasBanner: View {
     @Environment(\.theme) private var theme
     @ScaledMetric(relativeTo: .footnote) private var glyph: CGFloat = 12
@@ -73,7 +69,6 @@ private struct CanvasCopy {
     let data: Data
 }
 
-/// Lets a person pick files for the canvas of a terminal.
 struct CanvasFilePicker: ViewModifier {
     @Environment(AppModel.self) private var model
     @Binding var isPresented: Bool
@@ -95,8 +90,6 @@ struct CanvasFilePicker: ViewModifier {
     }
 }
 
-/// The canvas of a terminal full screen: its parts in the bar, the files as tabs or cards, and
-/// the part that it shows.
 struct CanvasScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -242,7 +235,6 @@ struct CanvasScreen: View {
         }
     }
 
-    /// The words that the person selected in what shows of an item: its page or its live document.
     private func selectedWords(of item: CanvasItem, in session: RuntimeSession) async -> String? {
         if let words = await frames.selectedWords(of: item.key) {
             return words

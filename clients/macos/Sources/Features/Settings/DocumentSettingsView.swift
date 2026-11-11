@@ -1,7 +1,6 @@
 import KodosiDesign
 import SwiftUI
 
-/// The live viewers of this Mac: which ones show their files on the canvas, and how.
 struct DocumentSettingsView: View {
     @Environment(\.theme) private var theme
     @AppStorage(DocumentViewers.storageKey) private var viewers = DocumentViewers()

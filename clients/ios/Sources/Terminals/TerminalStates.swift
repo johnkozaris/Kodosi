@@ -4,7 +4,6 @@ import KodosiTerminalSessions
 import SwiftUI
 
 extension AppModel {
-    /// A terminal of another computer that Kodosi cannot reach because Kodosi is offline.
     func unreachable(_ session: RuntimeSession) -> Bool {
         session.kind == .remote && !account.online && session.connectionState != .blocked
     }

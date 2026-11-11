@@ -1,8 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// What a room's header says under its name: that it is encrypted, and its people and
-/// terminals.
 public struct RoomFacts: View {
     @Environment(\.theme) private var theme
     @ScaledMetric(relativeTo: .caption) private var lock: CGFloat = 8
@@ -28,7 +26,6 @@ public struct RoomFacts: View {
 }
 
 public extension DockItem {
-    /// The tasks of a room in its section dock: how many are open, in a ring of the done ones.
     static func roomTasks(id: Int, tasks: [RoomTask], fresh: Bool) -> DockItem {
         let open = tasks.count { !$0.closed }
         return DockItem(

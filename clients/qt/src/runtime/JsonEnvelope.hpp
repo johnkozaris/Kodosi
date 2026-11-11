@@ -19,7 +19,6 @@ struct JsonField {
     QByteArrayView value;
 };
 
-// The fields of `json`, which the caller parsed as `object`.
 inline std::optional<QVector<JsonField>> jsonObjectFields(const QByteArray& json, const QJsonObject& object)
 {
     if (object.size() > 256) return std::nullopt;

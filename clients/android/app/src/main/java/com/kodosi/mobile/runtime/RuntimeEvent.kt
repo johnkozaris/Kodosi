@@ -14,7 +14,6 @@ val RuntimeJson = Json { ignoreUnknownKeys = true }
 
 class InvalidEvent(message: String) : Exception(message)
 
-/** An event of the runtime: its type, the account it belongs to, and its fields. */
 class RuntimeEvent(val type: String, val accountUserId: String?, val accountEpoch: Long, val payload: JsonObject) {
     fun string(key: String): String? = (payload[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
@@ -22,8 +21,8 @@ class RuntimeEvent(val type: String, val accountUserId: String?, val accountEpoc
 
     operator fun get(key: String): JsonElement? = payload[key]
 
-    /** Whether this is the failure of a refresh that the app asks for by itself. It is no news to
-     *  the person: the runtime refreshes again when the connection is back. */
+    /** The failure of a refresh that the app asks for by itself is no news to the person: the
+     *  runtime refreshes again when the connection is back. */
     val failedRefresh: Boolean
         get() = type.endsWith(".error") && string("operation") in REFRESHES
 
@@ -72,7 +71,6 @@ object UuidV7 {
     }
 }
 
-/** The sentences for people that the stores need, in the app's language. */
 interface Words {
     val unavailable: String
     val didNotWork: String

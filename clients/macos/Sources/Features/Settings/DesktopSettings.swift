@@ -63,8 +63,6 @@ final class DesktopSettings {
         didSet { defaults.set(keepRunning, forKey: Self.keepRunningKey) }
     }
 
-    /// Whether the canvas opens by itself when the agent shows something or a file or the browser
-    /// on it changes.
     var opensCanvas = true {
         didSet { defaults.set(opensCanvas, forKey: Self.opensCanvasKey) }
     }

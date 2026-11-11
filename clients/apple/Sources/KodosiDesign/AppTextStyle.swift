@@ -63,8 +63,8 @@ public extension View {
 }
 
 extension View {
-    /// The height of a control around text: exactly this on a Mac, and at least this on iPhone
-    /// and iPad, where the text grows with Dynamic Type.
+    /// Exactly this height on a Mac, and at least this on iPhone and iPad, where the text grows
+    /// with Dynamic Type.
     func controlHeight(_ height: CGFloat) -> some View {
         #if os(iOS)
             frame(minHeight: height)
@@ -73,8 +73,8 @@ extension View {
         #endif
     }
 
-    /// A font of `size` points on a Mac, and of the text style `style` on iPhone and iPad, where
-    /// it grows with Dynamic Type.
+    /// `size` points on a Mac, and the text style `style` on iPhone and iPad, where it grows with
+    /// Dynamic Type.
     func font(mac size: CGFloat, ios style: Font.TextStyle, weight: Font.Weight = .regular, design: Font.Design = .default) -> some View {
         #if os(iOS)
             font(.system(style, design: design, weight: weight))

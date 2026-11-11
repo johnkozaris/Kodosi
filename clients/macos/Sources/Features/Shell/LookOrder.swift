@@ -1,5 +1,3 @@
-/// The order in which a person looked at terminals, so that the stage knows which one waited
-/// longest.
 struct LookOrder {
     private var looks: [String: Int] = [:]
     private var count = 0

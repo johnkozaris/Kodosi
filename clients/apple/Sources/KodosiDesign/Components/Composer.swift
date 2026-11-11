@@ -1,8 +1,6 @@
 import SwiftUI
 
 public extension View {
-    /// The field of a composer: lifted on its ground, more while it has focus, with a copper ring
-    /// then.
     func composerField(focused: Bool) -> some View {
         modifier(ComposerField(focused: focused))
     }
@@ -25,8 +23,6 @@ private struct ComposerField: ViewModifier {
     }
 }
 
-/// The key that sends what a composer holds: copper when there is something to send, and lit
-/// around its edge while it sends.
 public struct SendKey: View {
     @Environment(\.theme) private var theme
     let enabled: Bool
@@ -64,7 +60,6 @@ public struct SendKey: View {
     }
 }
 
-/// A short note about something that did not work, with a key that dismisses it.
 public struct CautionNote<Actions: View>: View {
     @Environment(\.theme) private var theme
     let message: String

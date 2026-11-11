@@ -3,8 +3,6 @@ import KodosiDesign
 import SwiftUI
 
 extension View {
-    /// Shows the new terminal sheet for a request, then the terminal that it starts once the list
-    /// has it.
     func newTerminalSheet(_ request: Binding<NewTerminalRequest?>) -> some View {
         modifier(NewTerminalPresenter(request: request))
     }
@@ -31,8 +29,6 @@ private struct NewTerminalPresenter: ViewModifier {
     }
 }
 
-/// Starts a terminal on one of the person's computers: a shell or one of its agents, in one of
-/// its folders.
 struct NewTerminalSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
@@ -52,7 +48,6 @@ struct NewTerminalSheet: View {
         model.account.computers
     }
 
-    /// The chosen computer while it is online, else the first one that is.
     private var computer: String? {
         let online = computers.map(\.deviceId)
         return draft.computer.flatMap { online.contains($0) ? $0 : nil } ?? online.first
@@ -113,7 +108,6 @@ struct NewTerminalSheet: View {
         computers.first { $0.deviceId == computer }?.label ?? ""
     }
 
-    /// A page of the folders of the route's own computer, which keeps its pick there.
     private func folderPage(_ route: FolderRoute) -> some View {
         let launcher = model.launcher(for: route.computer)
         return FolderPage(
@@ -190,7 +184,6 @@ struct NewTerminalSheet: View {
         }
     }
 
-    /// Asks the computer for its agents and its folders at once.
     private func load(_ launcher: LauncherState, again: Bool = false) async {
         async let agents: Void = launcher.refresh(force: again)
         _ = try? await launcher.folders()

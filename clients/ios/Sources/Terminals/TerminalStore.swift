@@ -124,8 +124,7 @@ final class TerminalStore {
         live.reconcile(with: received)
     }
 
-    /// Asks for the account's terminals. Until the answer comes, the list is not known to be
-    /// empty, so the empty state waits for it.
+    /// Until the answer comes, the list is not known to be empty, so the empty state waits for it.
     func list() {
         let request = UUIDv7.generate()
         listing = request
@@ -148,7 +147,6 @@ final class TerminalStore {
         await RefreshWait.until { revision != before }
     }
 
-    /// Asks a computer to start a terminal, and gives its identifier.
     func start(_ terminal: TerminalStart) async throws -> String? {
         try await commands.request("session.create", terminal.fields).string("sessionId")
     }
@@ -183,8 +181,6 @@ final class TerminalStore {
         act("session.interrupt", on: session)
     }
 
-    /// Changes what the agent in front of `session` works with. The agent's host types the
-    /// agent's own commands once it waits for its next prompt.
     func changeAgent(_ change: AgentSettings, in session: RuntimeSession) {
         act("session.agent", on: session, fields: ["change": change.json])
     }

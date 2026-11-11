@@ -75,7 +75,6 @@ public enum AgentKind: String, CaseIterable, Sendable {
         }
     }
 
-    /// The tint of the account at `place` in the launcher's account list of its computer.
     public func tint(account place: Int?) -> Color {
         guard let place, place > 0 else { return tint }
         return shades[place % shades.count]

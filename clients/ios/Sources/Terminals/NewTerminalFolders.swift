@@ -2,14 +2,11 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// A page of the folders of one computer: its home folder with its recent folders, or `path`.
 struct FolderRoute: Hashable {
     let computer: String
     let path: String?
 }
 
-/// The folders of a computer to start in: its recent folders over its home folder, or the folders
-/// in one folder.
 struct FolderPage: View {
     @Environment(\.theme) private var theme
     let computer: String

@@ -21,8 +21,6 @@ namespace kodosi {
 class CommandDispatcher;
 class SessionCatalogModel;
 
-// What this device knows of the canvases of the terminals: what a person saw and picked, and
-// the content of the items that it showed.
 class CanvasModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(int revision READ revision NOTIFY changed)
@@ -41,7 +39,6 @@ public:
         QString named;
         int windows = 0;
     };
-    // What the agent of a terminal showed on its canvas, or what changed there, by its key.
     struct News {
         bool shown = false;
         QString key;
@@ -63,11 +60,8 @@ public:
     [[nodiscard]] QString browserWork() const { return m_browserWork; }
     [[nodiscard]] QVariantMap browserDone() const { return m_browserDone; }
     [[nodiscard]] QString browserProblem() const { return m_browserProblem; }
-    // Starts the page afresh, with no notes from before and the status of now.
     Q_INVOKABLE void openBrowserSettings();
-    // Asks for the status of now again, as while Kodosi Browser comes.
     Q_INVOKABLE void refreshBrowser();
-    // Gets Kodosi Browser now, or its newest version.
     Q_INVOKABLE void getBrowser();
     Q_INVOKABLE void copySignIns(const QString& source);
     Q_INVOKABLE void forgetSignIns();
@@ -76,32 +70,19 @@ public:
     Q_INVOKABLE [[nodiscard]] QString current(const QString& sessionId) const;
     Q_INVOKABLE void pick(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QStringList sections(const QString& sessionId) const;
-    // Whether the canvas of a terminal shows something on this device: a part that a person did
-    // not close here.
     Q_INVOKABLE [[nodiscard]] bool showsSomething(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] QStringList closedSections(const QString& sessionId) const;
     Q_INVOKABLE void close(const QString& sessionId, const QString& section);
     Q_INVOKABLE void show(const QString& sessionId, const QString& section);
-    // Opens the canvas of a terminal at a part, or else at something: when a person closed all its
-    // parts on this device, the part with the newest change opens again.
     Q_INVOKABLE void open(const QString& sessionId, const QString& section = {});
     Q_INVOKABLE [[nodiscard]] bool showsShelf(const QString& sessionId) const;
     Q_INVOKABLE void showShelf(const QString& sessionId, bool shown);
     Q_INVOKABLE void openBrowser(const QString& sessionId);
     Q_INVOKABLE [[nodiscard]] bool opensBrowser(const QString& sessionId) const;
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
-    // A person saw an item: it is no longer news, and an open canvas stays at it until the person
-    // picks another or the agent shows something.
     Q_INVOKABLE void saw(const QString& sessionId, const QString& key);
-    // What the agent of a terminal showed and what changed on its canvas since this device last
-    // acted on it, the older first, each once. One from before the app started, or of an item that
-    // the canvas no longer has, is not news.
     QList<News> news(const QString& sessionId);
-    // Opens the canvas of a terminal at what its agent showed or what changed: its part opens
-    // again on this device.
     void reveal(const QString& sessionId, const QString& key);
-    // A person closed the canvas of a terminal on this device, so a change does not open it again
-    // until it opens or its agent shows something.
     Q_INVOKABLE void closeCanvas(const QString& sessionId);
     [[nodiscard]] bool isShut(const QString& sessionId) const;
     Q_INVOKABLE void remove(const QString& sessionId, const QString& key);
@@ -112,7 +93,6 @@ public:
     Q_INVOKABLE [[nodiscard]] QString pageAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString pictureAddress(const QString& sessionId, const QString& key);
     Q_INVOKABLE void saveCopy(const QString& sessionId, const QString& key);
-    // Puts a file on the canvas of a terminal, and says whether it started to go up.
     bool attach(const QString& sessionId, const QUrl& file);
     void giveFiles(const QString& sessionId, const QList<QUrl>& files);
     [[nodiscard]] std::optional<std::pair<QByteArray, QByteArray>> published(const QUrl& address) const;
@@ -145,7 +125,6 @@ private:
         QString key;
         quint64 changed = 0;
     };
-    // What the agent showed last, or what changed last, by its key, and when.
     struct Mark {
         QString key;
         quint64 at = 0;

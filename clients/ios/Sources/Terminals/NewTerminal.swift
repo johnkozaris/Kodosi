@@ -2,8 +2,6 @@ import Foundation
 import KodosiBridge
 import Observation
 
-/// A new terminal to start from this device: on a computer of the list, in one of its folders,
-/// or in a room.
 struct NewTerminalRequest: Identifiable {
     let id = UUID()
     var computer: String?
@@ -11,7 +9,6 @@ struct NewTerminalRequest: Identifiable {
     var roomId: String?
 }
 
-/// The choices of a new terminal on one of the person's computers, and its start there.
 @Observable
 final class NewTerminal {
     static let lastComputerKey = "terminals.lastComputer"
@@ -33,13 +30,10 @@ final class NewTerminal {
         }
     }
 
-    /// The computer of the list's section, else the one that started a terminal last, else the
-    /// first one online.
     static func computer(section: String?, last: String?, online: [String]) -> String? {
         [section, last].compactMap(\.self).first { online.contains($0) } ?? online.first
     }
 
-    /// The agent that the computer's last choice names, when that computer has it.
     func agent(in launcher: LauncherState) -> AgentInfo? {
         launcher.choice.agent.flatMap { agent in launcher.installed.first { $0.agent == agent } }
     }
@@ -57,8 +51,6 @@ final class NewTerminal {
         agent(in: launcher).map { LaunchPlan(launcher: launcher, agent: $0.agent).start != nil } ?? true
     }
 
-    /// Starts the terminal on the launcher's computer and gives its identifier, or keeps the
-    /// computer's words when it does not start.
     func start(in launcher: LauncherState, on terminals: TerminalStore) async -> String? {
         guard !starting, let computer = launcher.computer, ready(in: launcher) else { return nil }
         let agent = agent(in: launcher).flatMap { LaunchPlan(launcher: launcher, agent: $0.agent).start }

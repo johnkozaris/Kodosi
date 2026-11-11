@@ -45,13 +45,8 @@ public:
     void reset();
     void route(const DeepLinkDestination& destination);
     void setError(QString error);
-    // Opens the canvas of the terminal in front at what its agent shows and changes, once for each.
     void attachCanvas(CanvasModel& canvas);
-    // Puts files on the canvas of a terminal and opens the canvas at its files where the person
-    // is: in the room that shows the terminal, or else on the stage.
     Q_INVOKABLE void addFiles(const QString& sessionId, const QList<QUrl>& files);
-    // The terminal that the person looks at while its view shows: the one in single view, the
-    // selected one on the stage or the only one there, or the one that a room shows.
     [[nodiscard]] QString frontSessionId() const;
 
 signals:

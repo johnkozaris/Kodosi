@@ -2,8 +2,7 @@ import KodosiTerminal
 import UIKit
 
 enum TerminalAppearance {
-    /// The size of terminal text that a person picks on this device. A larger size gives the
-    /// terminal fewer columns while this device types in it.
+    /// A larger size gives the terminal fewer columns while this device types in it.
     enum TextSize: String, CaseIterable {
         case smaller
         case standard
@@ -43,7 +42,6 @@ enum TerminalAppearance {
     }
 }
 
-/// Keeps the screen of this device on while a terminal shows, when the person chose it.
 enum ScreenAwake {
     static let storageKey = "terminal.keepScreenOn"
     private static var terminals = 0

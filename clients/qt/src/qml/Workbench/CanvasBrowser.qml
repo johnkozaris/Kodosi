@@ -7,7 +7,6 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 import Kodosi.Models 1.0 as Models
 
-// The shared browser of a terminal: the bar, and the picture that people click and type in.
 Item {
     id: root
 

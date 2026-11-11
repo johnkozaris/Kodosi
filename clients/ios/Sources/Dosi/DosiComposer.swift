@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// What the person writes to Dosi, and the computer that answers it.
 struct DosiComposer: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
@@ -94,7 +93,6 @@ struct DosiComposer: View {
     }
 }
 
-/// The computer that answers Dosi here, and the menu of the person's computers.
 private struct DosiComputerMenu: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
@@ -143,7 +141,6 @@ private struct DosiComputerMenu: View {
     }
 }
 
-/// The key that stops the turn that Dosi works on: a square on a quiet face.
 private struct StopKey: View {
     @Environment(\.theme) private var theme
     let action: () -> Void

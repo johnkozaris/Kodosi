@@ -6,8 +6,6 @@ public extension EnvironmentValues {
     @Entry var cardFill: Color?
 }
 
-/// A raised card that is a button. It lifts while the pointer is on it, and on iPhone and iPad
-/// while a finger presses it.
 public struct CardButtonStyle: ButtonStyle {
     let radius: CGFloat
     let rise: CGFloat
@@ -53,13 +51,11 @@ private struct CardFace<Label: View>: View {
 }
 
 public extension RuntimeSession {
-    /// Whether the terminal is in a room or shared with people.
     var isShared: Bool {
         missionId != nil || isOwner && !sharedWith.isEmpty
     }
 }
 
-/// A terminal as a card: its mark, its name and a line about it, and at the end what it needs.
 public struct TerminalCard<Detail: View, Accessory: View>: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
@@ -70,8 +66,6 @@ public struct TerminalCard<Detail: View, Accessory: View>: View {
     let detail: Detail
     let accessory: Accessory
 
-    /// With `badged`, a terminal in a room or shared with people has a small square on its mark.
-    /// A `muted` name is for a terminal that does not open now.
     public init(
         session: RuntimeSession, rested: AgentMark.Activity, badged: Bool = false, muted: Bool = false, open: @escaping () -> Void,
         @ViewBuilder detail: () -> Detail, @ViewBuilder accessory: () -> Accessory,
@@ -122,7 +116,6 @@ private struct CardShareBadge: View {
     }
 }
 
-/// What a terminal does now: why it does not connect, or its activity, or else where it runs.
 public struct TerminalCaption: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
@@ -154,8 +147,6 @@ public struct TerminalCaption: View {
     }
 }
 
-/// A room as a card: its mark, its name and the marks of its terminals. A copper dot says that
-/// someone wrote in it since you looked, and a tag says that it is yours.
 public struct RoomCard<Detail: View>: View {
     @Environment(\.theme) private var theme
     let mission: MissionEntry
@@ -216,7 +207,6 @@ public struct RoomCard<Detail: View>: View {
     }
 }
 
-/// An invitation to a room, with the keys to join it or not.
 public struct InvitationCard: View {
     @Environment(\.theme) private var theme
     let invitation: MissionInvitationEntry
@@ -278,8 +268,6 @@ public struct InvitationCard: View {
     }
 }
 
-/// Who asks and the keys to answer: in one row when they fit, else the keys under who asks, else
-/// the keys under each other at the width of the card.
 struct AnswerLayout<Identity: View, Keys: View>: View {
     let identity: Identity
     let keys: (Bool) -> Keys

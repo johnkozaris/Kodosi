@@ -4,10 +4,6 @@ import os
 import UIKit
 import UserNotifications
 
-/// Tells the Kodosi server this device's push token, so that the person's own terminals reach
-/// the phone when they wait, finish or fail, also while Kodosi does not run. Keeps the names
-/// that the notification extension shows, and opens the terminal of a notification that the
-/// person taps.
 @Observable
 final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     enum Permission { case unknown, allowed, denied }
@@ -27,7 +23,6 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// The terminal of the notification that the person tapped.
     var opened: String?
 
     @ObservationIgnored private let commands: CommandSink
@@ -40,8 +35,6 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().delegate = self
     }
 
-    /// Registers this device once its account is signed in and approved, and forgets the names
-    /// of the terminals when it is not.
     func accountChanged(ready: Bool) {
         self.ready = ready
         if ready {
@@ -86,7 +79,6 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         Self.logger.error("This device got no push token: \(error.localizedDescription, privacy: .public)")
     }
 
-    /// Keeps the names of the person's own terminals for the notification extension.
     func remember(_ sessions: [RuntimeSession]) {
         guard ready else { return }
         var known = TerminalNames()
@@ -98,12 +90,10 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         known.write()
     }
 
-    /// Shows the number of the person's terminals that wait on the app's icon.
     func showWaiting(_ count: Int) {
         UNUserNotificationCenter.current().setBadgeCount(count)
     }
 
-    /// Takes away the notifications of a terminal that the person opened.
     func seen(_ terminal: String) {
         Task {
             let center = UNUserNotificationCenter.current()
@@ -148,7 +138,6 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
-/// Hands the push token of this device to the app's model.
 final class AppDelegate: NSObject, UIApplicationDelegate {
     weak static var push: PushNotifications?
 

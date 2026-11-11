@@ -67,7 +67,6 @@ struct MainTabView: View {
         }
     }
 
-    /// Dosi's open questions, or one for an answer that the person did not see.
     private var dosiCalls: Int {
         let questions = model.dosi.openQuestions.count
         return questions > 0 ? questions : model.dosi.unseen ? 1 : 0

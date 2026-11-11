@@ -37,8 +37,6 @@ extension AppDependencies {
         }
     }
 
-    /// Changes what the agent in front of `session` works with. The agent's host types the
-    /// agent's own commands once it waits for its next prompt.
     func changeAgent(_ change: AgentSettings, in session: RuntimeSession) {
         Task { @MainActor in
             do {
@@ -51,7 +49,6 @@ extension AppDependencies {
         session.sign(unseen: session.attention)
     }
 
-    /// A terminal of another computer that Kodosi cannot reach because Kodosi is offline.
     func unreachable(_ session: RuntimeSession) -> Bool {
         session.kind == .remote && !account.online && session.connectionState != .blocked
     }

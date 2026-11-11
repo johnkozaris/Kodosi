@@ -3,10 +3,8 @@ pragma ComponentBehavior: Bound
 import Kodosi 1.0
 import QtQuick
 
-// A terminal with its canvas open: two lobes of one body with a soft waist between them, or
-// the canvas over all the stage with the terminal live and zoomed out in its corner. The
-// terminal keeps its size in both. With `always`, the body is there without a canvas too, and
-// `tab` is the tab that the terminal flows out of.
+// With `always`, the body is there without a canvas too, and `tab` is the tab that the terminal
+// flows out of.
 Item {
     id: root
 

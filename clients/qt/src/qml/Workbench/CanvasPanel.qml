@@ -6,8 +6,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Kodosi.Models 1.0 as Models
 
-// The canvas of a terminal, as the second lobe of its body: the keys of its parts in its own
-// header, then the part that it shows. The files show as tabs over the file, or all as cards.
 Item {
     id: root
 
@@ -62,13 +60,10 @@ Item {
             ++readyCount;
         }
     }
-    // The live view of a file, when this device shows it in one.
     function liveView(item) {
         return item && item.missing !== true && Models.CanvasWeb.available
             && Models.DesktopSettings.shownViews[item.view] === true ? item.view : "";
     }
-    // Puts the view of the current file in its place, and takes the one before off the screen,
-    // where it waits a while with its place and its undo.
     function placeDocument() {
         const key = !shelf && documentView.length > 0 ? currentKey : "";
         if (key === placedKey)

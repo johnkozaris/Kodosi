@@ -6,7 +6,6 @@ import SwiftUI
 struct SessionTileView: View {
     private static let terminalInsets = EdgeInsets(top: 3, leading: 5, bottom: 5, trailing: 5)
 
-    /// The room that a tile of this size has for its terminal.
     static func terminalSize(in tile: CGSize) -> CGSize {
         CGSize(
             width: tile.width - terminalInsets.leading - terminalInsets.trailing,
@@ -301,7 +300,6 @@ private struct JoinCard: View {
     }
 }
 
-/// Says on a terminal that its agent, which a person started by hand, does not see Kodosi.
 private struct OutsideNote: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession

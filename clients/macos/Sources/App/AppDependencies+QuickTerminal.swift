@@ -3,7 +3,6 @@ import Foundation
 import KodosiBridge
 
 extension AppDependencies {
-    /// The selected terminal's folder on this computer, or else the folder that the launcher offers.
     var quickFolder: String? {
         [selectedLocalDirectory, settings.lastWorkingDir, storageBootstrap.defaultWorkingDirectory?.path]
             .compactMap(\.self)
@@ -13,12 +12,10 @@ extension AppDependencies {
             }
     }
 
-    /// The agent in front of the selected terminal of this computer, to start beside it.
     var selectedAgent: AgentStart? {
         workbench.selectedSessionId.flatMap(session).flatMap { AgentStart(runningIn: $0, info: launcher.agent($0.program)) }
     }
 
-    /// A terminal that opens at once: plain, or with `agent`.
     func openQuickTerminal(agent: AgentStart? = nil) {
         if let event = NSApp?.currentEvent, event.type == .keyDown, event.isARepeat {
             return
