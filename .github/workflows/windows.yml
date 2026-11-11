@@ -5,11 +5,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - clients/qt/**
-      - documents/**
-      - browser/**
       - protocol/**
-      - runtime/**
-      - terminal/**
+      - runtime/crates/**
+      - runtime/Cargo.toml
+      - runtime/Cargo.lock
+      - terminal/conpty/**
+      - terminal/ghostty/Vendor/GhosttyVt/windows-x86_64/**
       - Ghostty.lock
       - VERSION
       - justfile
