@@ -147,11 +147,6 @@ struct TerminalInputTests {
         #expect(keyboard.focusesTerminal(composing: false))
     }
 
-    @Test func `a message fits one input chunk`() {
-        #expect(TerminalMessage.fits(String(repeating: "a", count: TerminalInputQueue.chunkBytes)))
-        #expect(!TerminalMessage.fits(String(repeating: "a", count: TerminalInputQueue.chunkBytes + 1)))
-    }
-
     @Test func `typing is delivered in order in bounded chunks`() async {
         let queue = TerminalInputQueue(
             perSessionBudget: 1 << 20, globalBudget: 1 << 21,

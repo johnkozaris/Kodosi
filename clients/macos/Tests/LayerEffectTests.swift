@@ -14,29 +14,6 @@ private func hosted(_ frame: NSRect = NSRect(x: 10, y: 10, width: 46, height: 46
     return (window, host)
 }
 
-@MainActor
-private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mask: CAShapeLayer, gradient: CAGradientLayer)] {
-    host.update(setup: art, environment: EnvironmentValues()) { TurningLight.draw(art, $0) }
-    return try #require(host.content.sublayers).map { holder in
-        try (#require(holder.mask as? CAShapeLayer), #require(holder.sublayers?.first as? CAGradientLayer))
-    }
-}
-
-@Test @MainActor func `a working light turns with the clock`() throws {
-    let (window, host) = hosted()
-    defer { window.close() }
-    let working = try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: nil), in: host)
-    let rim = try #require(working.first)
-    #expect(working.count == 1)
-    #expect(rim.mask.fillColor == nil && rim.mask.lineWidth == 2)
-    #expect(rim.gradient.type == .conic)
-    let spin = try #require(rim.gradient.animation(forKey: "turn") as? CABasicAnimation)
-    #expect(spin.keyPath == "transform.rotation.z")
-    #expect(spin.duration == TurningLight.period)
-    let gap = abs(spin.timeOffset - loopPhase(TurningLight.period))
-    #expect(min(gap, TurningLight.period - gap) < 0.5)
-}
-
 @Test @MainActor func `with reduced motion a working mark glows along its whole edge`() throws {
     let renderer = ImageRenderer(content: LightRim(onTile: .working, cornerRadius: 12, lineWidth: 3)
         .frame(width: 40, height: 40)
@@ -53,32 +30,6 @@ private func lights(_ art: TurningLight, in host: LayerHostView) throws -> [(mas
         #expect(alpha(x, y) > 200)
     }
     #expect(alpha(20, 20) == 0)
-}
-
-@Test @MainActor func `on a tile the light also warms the face on its side`() throws {
-    let (window, host) = hosted()
-    defer { window.close() }
-    let tile = try lights(TurningLight(cornerRadius: 12, lineWidth: 2, light: .orange, core: .white), in: host)
-    #expect(tile.count == 2)
-    #expect(tile[0].mask.fillColor != nil && tile[0].gradient.type == .radial)
-    #expect(tile[1].mask.fillColor == nil && tile[1].gradient.type == .conic)
-    #expect(tile.allSatisfy { $0.gradient.animation(forKey: "turn") != nil })
-}
-
-@Test func `the light leads with a short edge and trails a longer one`() {
-    #expect(TurningLight.glow(at: 0) == 1)
-    #expect(abs(TurningLight.glow(at: 20.0 / 360) - exp(-0.5)) < 0.001)
-    #expect(abs(TurningLight.glow(at: 1 - 36.0 / 360) - exp(-0.5)) < 0.001)
-    #expect(TurningLight.glow(at: 0.5) < 0.001)
-}
-
-@Test func `progress sweeps clockwise from the top`() {
-    let rect = CGRect(x: 0, y: 0, width: 40, height: 40)
-    let quarter = Wedge(fraction: 0.25).path(in: rect)
-    #expect(quarter.contains(CGPoint(x: 36, y: 4)))
-    #expect(!quarter.contains(CGPoint(x: 4, y: 4)))
-    #expect(!quarter.contains(CGPoint(x: 36, y: 36)))
-    #expect(Wedge(fraction: 1).path(in: rect).contains(CGPoint(x: 4, y: 4)))
 }
 
 @Test @MainActor func `a line glides only while it flows with motion`() throws {

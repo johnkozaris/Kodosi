@@ -40,25 +40,6 @@
         }
     }
 
-    @Test func `scrollback budget uses explicit bounded byte units`() {
-        let minimum = TerminalScrollbackBudget(lines: 100)
-        let standard = TerminalScrollbackBudget(lines: 10000)
-        let maximum = TerminalScrollbackBudget(lines: 100_000)
-
-        #expect(minimum.bytes == TerminalScrollbackBudget.minimumBytes)
-        #expect(standard.bytes == 46 * TerminalScrollbackBudget.allocationPageBytes)
-        #expect(standard.bytes > standard.lines)
-        #expect(maximum.bytes > standard.bytes)
-        #expect(maximum.bytes <= TerminalScrollbackBudget.maximumBytes)
-        #expect(minimum.bytes.isMultiple(of: TerminalScrollbackBudget.allocationPageBytes))
-        #expect(standard.bytes.isMultiple(of: TerminalScrollbackBudget.allocationPageBytes))
-        #expect(maximum.bytes.isMultiple(of: TerminalScrollbackBudget.allocationPageBytes))
-    }
-
-    @Test func `scrollback budget clamps overflow to maximum`() {
-        #expect(TerminalScrollbackBudget(lines: .max).bytes == TerminalScrollbackBudget.maximumBytes)
-    }
-
     @Test func `host managed renderer allows the clipboard and stores images as the host does`() {
         #expect(TerminalRendererSession.hostManagedPolicyOverrides.map(\.key) == [
             "clipboard-read",

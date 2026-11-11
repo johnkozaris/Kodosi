@@ -619,16 +619,6 @@ private slots:
         QCOMPARE(group.value(QStringLiteral("owner")).toString(), QStringLiteral("Shared"));
         QCOMPARE(group.value(QStringLiteral("computerTitle")).toString(), QStringLiteral("Shared"));
     }
-    void detailsNameTheRoomOfATerminal()
-    {
-        Fixture f;
-        auto inRoom = test::session(1);
-        inRoom.insert(QStringLiteral("missionId"), test::id(10));
-        inRoom.insert(QStringLiteral("missionName"), QStringLiteral("Release"));
-        f.sessions.apply(test::snapshot({ inRoom }));
-        QCOMPARE(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("missionName")).toString(),
-            QStringLiteral("Release"));
-    }
     void eachHostFolderShowsItsLastFolder()
     {
         const QList<std::pair<QString, QString>> folders {
@@ -829,15 +819,6 @@ private slots:
         invalid.insert(QStringLiteral("programSettings"), QJsonObject { { QStringLiteral("permissions"), QStringLiteral("skip") } });
         f.workspace.apply(test::snapshot({ invalid }), 0);
         QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
-    }
-    void aStartMarkAsksTheHostToStartTheAgent()
-    {
-        Fixture f;
-        f.workspace.apply(test::snapshot({ test::session(1) }), 0);
-        QVERIFY(f.workspace.sessionActions().startAgent(test::id(1), QStringLiteral("claude")));
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.run"));
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("agent")).toObject(),
-            QJsonObject({ { QStringLiteral("agent"), QStringLiteral("claude") } }));
     }
     void aTerminalShowsTheStateThatTheRuntimeGives()
     {

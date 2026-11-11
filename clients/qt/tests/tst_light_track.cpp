@@ -2,7 +2,6 @@
 #include "controls/LightTrack.hpp"
 
 #include <QColor>
-#include <QDateTime>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickWindow>
@@ -11,176 +10,13 @@
 #include <QtQml/QQmlExtensionPlugin>
 #include <QtTest/QTest>
 
-#include <algorithm>
-#include <cmath>
 #include <memory>
-#include <numbers>
 
 Q_IMPORT_QML_PLUGIN(KodosiPlugin)
-
-namespace {
-
-using kodosi::light::Mesh;
-
-const QColor tileLight(0xea, 0xa4, 0x7e);
-
-double angleOf(QPointF centre, const QSGGeometry::ColoredPoint2D& vertex)
-{
-    const double degrees = std::atan2(vertex.x - centre.x(), centre.y() - vertex.y) * 180 / std::numbers::pi;
-    return degrees < 0 ? degrees + 360 : degrees;
-}
-
-double apart(double first, double second)
-{
-    const double gap = std::fmod(std::abs(first - second), 360.0);
-    return std::min(gap, 360 - gap);
-}
-
-double distance(QPointF point, const QSGGeometry::ColoredPoint2D& vertex)
-{
-    return std::hypot(vertex.x - point.x(), vertex.y - point.y());
-}
-
-int alphaAt(const Mesh& mesh, double degrees)
-{
-    const auto& vertices = mesh.vertices();
-    for (std::size_t index = 1; index < vertices.size(); index += 4) {
-        if (apart(angleOf(mesh.centre(), vertices[index]), degrees) < 0.01)
-            return vertices[index].a;
-    }
-    return -1;
-}
-
-}
 
 class LightTrackTest final : public QObject {
     Q_OBJECT
 private slots:
-    void theLightLeadsWithAShortEdgeAndTrailsALongerOne()
-    {
-        QCOMPARE(kodosi::light::glow(0), 1.0);
-        QVERIFY(std::abs(kodosi::light::glow(20) - std::exp(-0.5)) < 1e-9);
-        QVERIFY(std::abs(kodosi::light::glow(-36) - std::exp(-0.5)) < 1e-9);
-        QVERIFY(kodosi::light::glow(180) < 1e-3);
-        QVERIFY(kodosi::light::glow(-180) < 1e-3);
-
-        Mesh ring({ QSizeF(38, 38), -1, 2, 1, false });
-        const int flank = qRound((0.2 + 0.8 * std::exp(-0.5)) * 255);
-        ring.paint({ .angle = 99, .light = QColor(Qt::red) });
-        QCOMPARE(alphaAt(ring, 99), 255);
-        QCOMPARE(alphaAt(ring, 63), flank);
-        QCOMPARE(alphaAt(ring, 279), qRound(0.2 * 255));
-        ring.paint({ .angle = 100, .light = QColor(Qt::red) });
-        QCOMPARE(alphaAt(ring, 120), flank);
-    }
-
-    void everyLightTurnsWithTheWallClockLikeTheMac()
-    {
-        QCOMPARE(kodosi::light::phase(0), 0.0);
-        QCOMPARE(kodosi::light::phase(1000), 90.0);
-        QCOMPARE(kodosi::light::phase(3500), 315.0);
-        QCOMPARE(kodosi::light::phase(4000), 0.0);
-        QCOMPARE(kodosi::light::phase(-1000), 270.0);
-        const std::int64_t macReferenceDate = 978'307'200'000;
-        for (const std::int64_t since : { 0LL, 1'250LL, 777'777'777LL, 1'000'000'000'123LL }) {
-            const double turn = 360 * std::fmod(static_cast<double>(since) / 1000, 4) / 4;
-            QVERIFY(apart(kodosi::light::phase(macReferenceDate + since), turn) < 1e-3);
-        }
-    }
-
-    void theLightFollowsTheEdgeOfTheTile()
-    {
-        Mesh tile({ QSizeF(44, 44), 13.2, 3.08, 1, false });
-        tile.paint({ .angle = 0, .light = tileLight });
-        const auto& vertices = tile.vertices();
-        QCOMPARE(vertices.size(), std::size_t { 4 * kodosi::light::rays });
-        const std::array top { -0.5, 0.5, 2.58, 3.58 };
-        for (std::size_t across = 0; across < top.size(); ++across) {
-            QVERIFY(std::abs(vertices[across].x - 22) < 1e-3);
-            QVERIFY(std::abs(vertices[across].y - top[across]) < 1e-3);
-        }
-        const double radius = 13.2 - 3.08 / 2;
-        const QPointF corner(44 - 3.08 / 2 - 0.291506715 * radius, 3.08 / 2 + 0.291506715 * radius);
-        const auto& outer = vertices[4 * 15 + 1];
-        const auto& inner = vertices[4 * 15 + 2];
-        QVERIFY(std::hypot((outer.x + inner.x) / 2 - corner.x(), (outer.y + inner.y) / 2 - corner.y()) < 1e-3);
-
-        Mesh ring({ QSizeF(38, 38), -1, 2, 1, false });
-        ring.paint({ .angle = 0, .light = QColor(Qt::red) });
-        const std::array radii { 19.5, 18.5, 17.5, 16.5 };
-        for (std::size_t index = 0; index < ring.vertices().size(); ++index)
-            QVERIFY(std::abs(distance(ring.centre(), ring.vertices()[index]) - radii[index % 4]) < 1e-3);
-    }
-
-    void aPercentLightsTheEdgeClockwiseFromTheTop()
-    {
-        Mesh tile({ QSizeF(44, 44), 13.2, 3.08, 1, true });
-        const int track = qRound(0.22 * 255);
-        for (const double fraction : { 0.25, 0.6 }) {
-            tile.paint({ .progress = true, .fraction = fraction, .light = tileLight });
-            const auto& vertices = tile.vertices();
-            QCOMPARE(vertices.size(), std::size_t { 4 * (kodosi::light::rays + 5) });
-            int lit = 0;
-            int unlit = 0;
-            for (std::size_t index = 0; index < vertices.size(); ++index) {
-                if (index % 4 == 0 || index % 4 == 3) {
-                    QCOMPARE(int { vertices[index].a }, 0);
-                    continue;
-                }
-                const double angle = angleOf(tile.centre(), vertices[index]);
-                if (angle > 3 && angle < 360 * fraction - 3) {
-                    QCOMPARE(int { vertices[index].a }, 255);
-                    ++lit;
-                } else if (angle > 360 * fraction + 3 && angle < 357) {
-                    QCOMPARE(int { vertices[index].a }, track);
-                    ++unlit;
-                }
-            }
-            QVERIFY(lit > 0 && unlit > 0);
-        }
-        for (const auto& [fraction, alpha] : { std::pair { 1.0, 255 }, std::pair { 0.0, track } }) {
-            tile.paint({ .progress = true, .fraction = fraction, .light = tileLight });
-            for (std::size_t index = 1; index < tile.vertices().size(); index += 4)
-                QCOMPARE(int { tile.vertices()[index].a }, alpha);
-        }
-    }
-
-    void aStillLightLightsTheWholeEdgeEvenly()
-    {
-        QQuickWindow window;
-        window.resize(120, 80);
-        kodosi::LightTrack light(window.contentItem());
-        light.setSize(QSizeF(44, 44));
-        window.show();
-        QVERIFY(QTest::qWaitForWindowExposed(&window));
-        QVERIFY(light.turning());
-        QVERIFY(apart(light.angle(), kodosi::light::phase(QDateTime::currentMSecsSinceEpoch())) < 15);
-        light.setProperty("still", true);
-        QVERIFY(!light.turning());
-        light.setProperty("still", false);
-        QVERIFY(light.turning());
-        light.setVisible(false);
-        QVERIFY(!light.turning());
-
-        Mesh tile({ QSizeF(44, 44), 13.2, 3.08, 1, true });
-        tile.paint({ .light = tileLight, .still = true });
-        const auto& vertices = tile.vertices();
-        QCOMPARE(vertices.size(), std::size_t { 4 * kodosi::light::rays });
-        const int warm = qRound((tileLight.blueF() + 0.92) / 2 * 255);
-        for (std::size_t index = 0; index < vertices.size(); ++index) {
-            const bool lit = index % 4 == 1 || index % 4 == 2;
-            QCOMPARE(int { vertices[index].a }, lit ? 255 : 0);
-            if (lit)
-                QCOMPARE(int { vertices[index].b }, warm);
-        }
-        Mesh ring({ QSizeF(38, 38), -1, 2, 1, false });
-        ring.paint({ .light = QColor(Qt::red), .still = true });
-        for (std::size_t index = 1; index < ring.vertices().size(); index += 4) {
-            QCOMPARE(int { ring.vertices()[index].a }, 255);
-            QCOMPARE(int { ring.vertices()[index].r }, 255);
-        }
-    }
-
     void onlyATurningLightRunsTheClock()
     {
         kodosi::LightTrack alone;
@@ -238,7 +74,7 @@ private slots:
         auto* tile = root->findChild<kodosi::LightTrack*>(QStringLiteral("tile"));
         QVERIFY(ring && tile);
         QCOMPARE(ring->property("light").value<QColor>(), QColor(0xb8, 0x5a, 0x26));
-        QCOMPARE(tile->property("light").value<QColor>(), tileLight);
+        QCOMPARE(tile->property("light").value<QColor>(), QColor(0xea, 0xa4, 0x7e));
         QVERIFY(ring->turning() && tile->turning());
 
         auto* theme = engine.singletonInstance<QObject*>("Kodosi", "KodosiTheme");

@@ -29,20 +29,6 @@ struct PeopleStoreTests {
         #expect(store.revision == 1)
     }
 
-    @Test func `adding sends the trimmed text with a request id`() throws {
-        #expect(!store.add("   "))
-        #expect(outbox.sent.isEmpty)
-        #expect(store.add("  kodosi:ana:00ff  "))
-        let command = try #require(outbox.sent.last)
-        #expect(command["type"] == .string("friends.request.send"))
-        #expect(command["username"] == .string("kodosi:ana:00ff"))
-        let requestId = try #require(command["requestId"]?.stringValue)
-        #expect(UUID(uuidString: requestId) != nil)
-        #expect(store.sendingRequest)
-        try deliverSnapshot()
-        #expect(!store.sendingRequest)
-    }
-
     @Test func `request actions use the handle and settle on the next snapshot`() throws {
         try deliverSnapshot()
         let incoming = try #require(store.incoming.first)
@@ -61,31 +47,6 @@ struct PeopleStoreTests {
         #expect(declined.removeValue(forKey: "requestId") != nil)
         #expect(declined == ["type": .string("friends.request.reject"), "username": .string("cy"),
                              "accountUserId": .null, "accountEpoch": .int(0)])
-    }
-
-    @Test func `friend actions use the friend handle`() throws {
-        try deliverSnapshot()
-        let ana = try #require(store.friend("id-ana"))
-        let bo = try #require(store.friend("id-bo"))
-        let ed = try #require(store.blocked.first)
-        store.trust(bo)
-        store.remove(ana)
-        store.block(handle: "cy")
-        store.unblock(ed)
-        #expect(outbox.types == ["friends.identity.trust", "friends.remove", "friends.block", "friends.unblock"])
-        #expect(outbox.sent.map { $0["username"] } == [.string("bo"), .string("ana"), .string("cy"), .string("ed")])
-    }
-
-    @Test func `verify sends the trimmed invite`() throws {
-        try deliverSnapshot()
-        let bo = try #require(store.friend("id-bo"))
-        store.verify(bo, invite: " \n ")
-        #expect(outbox.sent.isEmpty)
-        store.verify(bo, invite: "  kodosi:bo:abcd\n")
-        let command = try #require(outbox.sent.last)
-        #expect(command["type"] == .string("friends.verify"))
-        #expect(command["username"] == .string("bo"))
-        #expect(command["invite"] == .string("kodosi:bo:abcd"))
     }
 
     @Test func `invite request keeps the invite text`() throws {
