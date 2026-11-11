@@ -6,7 +6,7 @@ struct CommandPalette: View {
     enum Icon {
         case symbol(String, Color)
         case agent(AgentKind, AgentMark.Activity)
-        case room(String)
+        case project(String)
         case person(name: String, key: String)
     }
 
@@ -28,7 +28,7 @@ struct CommandPalette: View {
 
     private var items: [Item] {
         let needle = query.trimmingCharacters(in: .whitespaces).lowercased()
-        let all = terminalItems + roomItems + actionItems + peopleItems
+        let all = terminalItems + projectItems + actionItems + peopleItems
         guard !needle.isEmpty else { return all }
         return all.filter { $0.title.lowercased().contains(needle) || ($0.detail?.lowercased().contains(needle) ?? false) }
     }
@@ -104,7 +104,7 @@ struct CommandPalette: View {
                 switch item.icon {
                 case let .symbol(name, tint): IconTile(symbol: name, tint: tint, size: 24)
                 case let .agent(kind, activity): AgentMark(kind: kind, size: 24, activity: activity)
-                case let .room(key): RoomSigil(key: key, size: 24)
+                case let .project(key): ProjectSigil(key: key, size: 24)
                 case let .person(name, key): PersonAvatar(name: name, key: key, size: 24)
                 }
             }
@@ -152,12 +152,12 @@ struct CommandPalette: View {
         }
     }
 
-    private var roomItems: [Item] {
-        deps.rooms.missions.map { mission in
-            Item(id: "room.\(mission.id)", group: String(localized: "Projects"), title: mission.name,
-                 icon: .room(mission.id))
+    private var projectItems: [Item] {
+        deps.projects.entries.map { project in
+            Item(id: "project.\(project.id)", group: String(localized: "Projects"), title: project.name,
+                 icon: .project(project.id))
             {
-                deps.workbench.section = .missions; deps.openMission(mission)
+                deps.workbench.section = .projects; deps.openProject(project)
             }
         }
     }
@@ -190,8 +190,8 @@ struct CommandPalette: View {
             },
         ]
         if deps.account.isReady {
-            actions.append(Item(id: "action.room", group: group, title: String(localized: "New project"), icon: .symbol("square.grid.2x2.fill", TileTint.purple)) {
-                deps.workbench.showsNewRoom = true
+            actions.append(Item(id: "action.project", group: group, title: String(localized: "New project"), icon: .symbol("square.grid.2x2.fill", TileTint.purple)) {
+                deps.workbench.showsNewProject = true
             })
         }
         actions.append(Item(id: "action.people", group: group, title: String(localized: "Friends"), icon: .symbol("person.2.fill", TileTint.blue)) {

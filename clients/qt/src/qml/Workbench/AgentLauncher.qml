@@ -13,7 +13,7 @@ ColumnLayout {
     property bool centered: false
     property bool inSheet: false
     readonly property string folder: Models.DesktopState.launcherFolder
-    property string roomId: ""
+    property string projectId: ""
     property bool showsAll: false
     property string menuKind: ""
     property bool adding: false
@@ -56,7 +56,7 @@ ColumnLayout {
     readonly property bool listsModels: !modelSet || modelSet.models.length > 0
     readonly property bool ready: !info ? agentId.length === 0 : !info.installed || !!(plan && plan.start)
     readonly property string hint: !info ? qsTr("Type a command") : qsTr("Type a task")
-    readonly property string roomName: (Models.Missions.missions.find(room => room.id === roomId) || {}).name || ""
+    readonly property string projectName: (Models.Projects.projects.find(project => project.id === projectId) || {}).name || ""
 
     signal closeRequested
     signal resumeRequested
@@ -96,7 +96,7 @@ ColumnLayout {
         const words = promptInput.text.trim()
         const installed = !!info && info.installed
         const command = !info ? words : installed ? "" : info.install
-        if (Models.SessionActions.create("", directory, command, installed ? words : "", roomId, installed ? plan.start : ({}), computer)) {
+        if (Models.SessionActions.create("", directory, command, installed ? words : "", projectId, installed ? plan.start : ({}), computer)) {
             Models.DesktopState.clearLauncherDraft()
             root.started()
         }
@@ -662,22 +662,22 @@ ColumnLayout {
                 }
                 PlainLabel {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.roomName.length > 0
+                    visible: root.projectName.length > 0
                     text: "·"
                     color: KodosiTheme.terminalInkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
-                RoomSigil {
+                ProjectSigil {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.roomName.length > 0
-                    key: root.roomId
+                    visible: root.projectName.length > 0
+                    key: root.projectId
                     size: 13
                 }
                 PlainLabel {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.roomName.length > 0
+                    visible: root.projectName.length > 0
                     width: Math.min(implicitWidth, 160)
-                    text: root.roomName
+                    text: root.projectName
                     elide: Text.ElideRight
                     color: KodosiTheme.terminalInkMuted
                     font.pixelSize: KodosiTheme.fontFootnote

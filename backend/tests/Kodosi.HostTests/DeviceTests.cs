@@ -2,7 +2,7 @@ using System.Text.Json;
 using Kodosi.Accounts;
 using Kodosi.Data;
 using Kodosi.Devices;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Plans;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
@@ -221,14 +221,14 @@ public sealed class DeviceTests(PostgresFixture postgres)
         var owner = await store.UserAsync("owner");
         var recovery = new DeviceFixture(owner.User.Id, "0a1b2c3d-4e5f-8a6b-9c7d-0e1f2a3b4c5d");
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var roomKey = new byte[MissionService.RoomPublicKeyLength];
-        DeviceService.RecoveryKeyWrite Write(DeviceFixture entry, long generation, DeviceFixture roomKeySigner, params (string Device, string Signer)[] known)
+        var projectKey = new byte[ProjectService.ProjectPublicKeyLength];
+        DeviceService.RecoveryKeyWrite Write(DeviceFixture entry, long generation, DeviceFixture projectKeySigner, params (string Device, string Signer)[] known)
         {
             var cert = entry.CertificateBody(owner.Device.Id, now);
             var list = DeviceFixture.ListBody(owner.User.Id, generation, [.. known, (entry.DeviceId, owner.Device.Id)], owner.Device.Id, now + generation);
-            var signature = roomKeySigner.Sign(Proofs.RoomRecipient(owner.User.Id, entry.DeviceId, roomKey));
+            var signature = projectKeySigner.Sign(Proofs.ProjectRecipient(owner.User.Id, entry.DeviceId, projectKey));
             return new(Convert.ToBase64String(cert), owner.Fixture.SignedCertificate(cert), Convert.ToBase64String(list), owner.Fixture.SignedList(list),
-                Convert.ToBase64String(new byte[64]), new(Convert.ToBase64String(roomKey), Convert.ToBase64String(signature)));
+                Convert.ToBase64String(new byte[64]), new(Convert.ToBase64String(projectKey), Convert.ToBase64String(signature)));
         }
         var plain = new DeviceFixture(owner.User.Id, "a-computer");
         Assert.Equal(400, (await Assert.ThrowsAsync<ApiException>(() => store.Devices.AddRecoveryKeyAsync(owner.User.Id, owner.Approved,
@@ -239,7 +239,7 @@ public sealed class DeviceTests(PostgresFixture postgres)
         await store.Devices.AddRecoveryKeyAsync(owner.User.Id, owner.Approved, Write(recovery, 2, recovery, (owner.Device.Id, owner.Device.Id)), ct);
         var box = JsonSerializer.SerializeToElement(await store.Devices.RecoveryBoxAsync(owner.User.Id, ct), TestJson.Options);
         Assert.Equal(recovery.DeviceId, box.GetProperty("deviceId").GetString());
-        var keys = JsonSerializer.SerializeToElement(await store.Missions.RecipientKeysAsync(owner.User.Id, owner.User.Id, ct), TestJson.Options);
+        var keys = JsonSerializer.SerializeToElement(await store.Projects.RecipientKeysAsync(owner.User.Id, owner.User.Id, ct), TestJson.Options);
         Assert.Equal(recovery.DeviceId, Assert.Single(keys.EnumerateArray()).GetProperty("deviceId").GetString());
         var challenge = JsonSerializer.SerializeToElement(store.Devices.CreateChallenge(owner.User.Id), TestJson.Options).GetProperty("challengeId").GetGuid();
         var session = await Assert.ThrowsAsync<ApiException>(() => store.Devices.OpenSessionAsync(owner.User.Id,
@@ -282,12 +282,12 @@ public sealed class DeviceTests(PostgresFixture postgres)
         var owner = await store.UserAsync("owner");
         var recovery = new DeviceFixture(owner.User.Id, "0a1b2c3d-4e5f-8a6b-9c7d-0e1f2a3b4c5d");
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var roomKey = new byte[MissionService.RoomPublicKeyLength];
+        var projectKey = new byte[ProjectService.ProjectPublicKeyLength];
         var keyCert = recovery.CertificateBody(owner.Device.Id, now);
         var keyList = DeviceFixture.ListBody(owner.User.Id, 2, [(owner.Device.Id, owner.Device.Id), (recovery.DeviceId, owner.Device.Id)], owner.Device.Id, now);
         await store.Devices.AddRecoveryKeyAsync(owner.User.Id, owner.Approved, new(Convert.ToBase64String(keyCert), owner.Fixture.SignedCertificate(keyCert),
             Convert.ToBase64String(keyList), owner.Fixture.SignedList(keyList), Convert.ToBase64String(new byte[64]),
-            new(Convert.ToBase64String(roomKey), Convert.ToBase64String(recovery.Sign(Proofs.RoomRecipient(owner.User.Id, recovery.DeviceId, roomKey))))), ct);
+            new(Convert.ToBase64String(projectKey), Convert.ToBase64String(recovery.Sign(Proofs.ProjectRecipient(owner.User.Id, recovery.DeviceId, projectKey))))), ct);
 
         var next = new DeviceFixture(owner.User.Id, "new-computer");
         var cert = next.CertificateBody(recovery.DeviceId, now + 10);

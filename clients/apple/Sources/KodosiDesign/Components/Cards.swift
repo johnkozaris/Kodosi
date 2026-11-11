@@ -52,7 +52,7 @@ private struct CardFace<Label: View>: View {
 
 public extension RuntimeSession {
     var isShared: Bool {
-        missionId != nil || isOwner && !sharedWith.isEmpty
+        projectId != nil || isOwner && !sharedWith.isEmpty
     }
 }
 
@@ -85,7 +85,7 @@ public struct TerminalCard<Detail: View, Accessory: View>: View {
                 AgentMark(session: session, size: 34, activity: session.mark(rested: rested))
                     .overlay(alignment: .bottomTrailing) {
                         if badged, session.isShared {
-                            CardShareBadge(room: session.missionId).offset(x: 4, y: 4)
+                            CardShareBadge(project: session.projectId).offset(x: 4, y: 4)
                         }
                     }
                 VStack(alignment: .leading, spacing: 3) {
@@ -109,10 +109,10 @@ public struct TerminalCard<Detail: View, Accessory: View>: View {
 private struct CardShareBadge: View {
     @Environment(\.theme) private var theme
     @Environment(\.cardFill) private var fill
-    let room: String?
+    let project: String?
 
     var body: some View {
-        ShareBadge(room: room, ring: fill ?? theme.colors.raised)
+        ShareBadge(project: project, ring: fill ?? theme.colors.raised)
     }
 }
 
@@ -147,18 +147,18 @@ public struct TerminalCaption: View {
     }
 }
 
-public struct RoomCard<Detail: View>: View {
+public struct ProjectCard<Detail: View>: View {
     @Environment(\.theme) private var theme
-    let mission: MissionEntry
+    let project: ProjectEntry
     let sessions: [RuntimeSession]
     let yours: Bool
     let open: () -> Void
     let detail: Detail
 
     public init(
-        mission: MissionEntry, sessions: [RuntimeSession], yours: Bool, open: @escaping () -> Void, @ViewBuilder detail: () -> Detail,
+        project: ProjectEntry, sessions: [RuntimeSession], yours: Bool, open: @escaping () -> Void, @ViewBuilder detail: () -> Detail,
     ) {
-        self.mission = mission
+        self.project = project
         self.sessions = sessions
         self.yours = yours
         self.open = open
@@ -169,16 +169,16 @@ public struct RoomCard<Detail: View>: View {
         Button(action: open) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
-                    RoomSigil(key: mission.id, size: 44)
+                    ProjectSigil(key: project.id, size: 44)
                     Spacer()
-                    if mission.unread {
+                    if project.unread {
                         NewDot().padding(4)
                     } else if yours {
                         Tag(text: String(localized: "Yours", bundle: .module))
                     }
                 }
                 Spacer(minLength: 14)
-                Text(mission.name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
+                Text(project.name).appTextStyle(.headline).foregroundStyle(theme.colors.ink).lineLimit(1)
                 detail
                 HStack(spacing: 6) {
                     if sessions.isEmpty {
@@ -203,20 +203,20 @@ public struct RoomCard<Detail: View>: View {
             #endif
         }
         .buttonStyle(CardButtonStyle(radius: Radius.xl, rise: 2))
-        .accessibilityValue(mission.unread ? Text("New messages", bundle: .module) : Text(verbatim: ""))
+        .accessibilityValue(project.unread ? Text("New messages", bundle: .module) : Text(verbatim: ""))
     }
 }
 
 public struct InvitationCard: View {
     @Environment(\.theme) private var theme
-    let invitation: MissionInvitationEntry
+    let invitation: ProjectInvitationEntry
     let joining: Bool
     let identifier: String
     let decline: () -> Void
     let join: () -> Void
 
     public init(
-        invitation: MissionInvitationEntry, joining: Bool = false, identifier: String, decline: @escaping () -> Void,
+        invitation: ProjectInvitationEntry, joining: Bool = false, identifier: String, decline: @escaping () -> Void,
         join: @escaping () -> Void,
     ) {
         self.invitation = invitation
@@ -245,9 +245,9 @@ public struct InvitationCard: View {
 
     private var identity: some View {
         HStack(spacing: 14) {
-            RoomSigil(key: invitation.missionId, size: 40)
+            ProjectSigil(key: invitation.projectId, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(invitation.missionName).appTextStyle(.headline).foregroundStyle(theme.colors.ink)
+                Text(invitation.projectName).appTextStyle(.headline).foregroundStyle(theme.colors.ink)
                 Text("\(invitation.inviterName) invited you", bundle: .module).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
             }
         }

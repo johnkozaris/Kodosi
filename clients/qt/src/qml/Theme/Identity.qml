@@ -5,15 +5,15 @@ import Kodosi.Models 1.0 as Models
 
 QtObject {
     readonly property var people: ["#3c8db5", "#8573d1", "#2f92a3", "#c2659a", "#b58428", "#b362b6", "#607fcc"]
-    readonly property var rooms: ["#d98a5f", "#d9a441", "#c96f7e", "#8c7bd1", "#4f9bb0", "#b8743c", "#a86aae"]
+    readonly property var projects: ["#d98a5f", "#d9a441", "#c96f7e", "#8c7bd1", "#4f9bb0", "#b8743c", "#a86aae"]
     readonly property string selfName: Models.Account.displayName.length > 0 ? Models.Account.displayName : qsTr("You")
 
     function personTint(key: string): color {
         return people[Models.Appearance.stableIndex(key, people.length)]
     }
 
-    function roomTint(key: string): color {
-        return rooms[Models.Appearance.stableIndex(key, rooms.length)]
+    function projectTint(key: string): color {
+        return projects[Models.Appearance.stableIndex(key, projects.length)]
     }
 
     function initials(name: string): string {
@@ -32,7 +32,7 @@ QtObject {
         const name = Models.People.displayName(userId)
         if (name.length > 0)
             return name
-        const member = Models.Missions.members.find(member => member.userId === userId)
+        const member = Models.Projects.members.find(member => member.userId === userId)
         return member ? (member.displayName || member.handle) : qsTr("Someone")
     }
 

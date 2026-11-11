@@ -164,14 +164,14 @@ public struct RepositoryChoice: Decodable, Equatable, Identifiable, Sendable {
     }
 }
 
-public struct MissionEntry: Decodable, Equatable, Identifiable, Sendable {
+public struct ProjectEntry: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
     public let name: String
     public let ownerUserId: String
     public let unread: Bool
 }
 
-public struct MissionMemberEntry: Decodable, Equatable, Identifiable, Sendable {
+public struct ProjectMemberEntry: Decodable, Equatable, Identifiable, Sendable {
     public let userId: String
     public let handle: String
     public let displayName: String
@@ -189,19 +189,19 @@ public struct MissionMemberEntry: Decodable, Equatable, Identifiable, Sendable {
     }
 }
 
-public struct MissionInvitationEntry: Decodable, Equatable, Identifiable, Sendable {
+public struct ProjectInvitationEntry: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
-    public let missionId: String
-    public let missionName: String
+    public let projectId: String
+    public let projectName: String
     public let inviterName: String
 }
 
-public struct MissionDetail: Equatable {
-    public let mission: MissionEntry
-    public let members: [MissionMemberEntry]
+public struct ProjectDetail: Equatable {
+    public let project: ProjectEntry
+    public let members: [ProjectMemberEntry]
 
-    public init(mission: MissionEntry, members: [MissionMemberEntry]) {
-        self.mission = mission
+    public init(project: ProjectEntry, members: [ProjectMemberEntry]) {
+        self.project = project
         self.members = members
     }
 }

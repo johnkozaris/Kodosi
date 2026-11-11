@@ -104,8 +104,8 @@ public final class AccountStore {
         localDeviceEnrolled && device.deviceId != selfDeviceId
     }
 
-    public func deletionSummary(rooms: [MissionEntry], terminals: String) -> String {
-        let owned = rooms.filter { $0.ownerUserId == userId }.map(\.name)
+    public func deletionSummary(projects: [ProjectEntry], terminals: String) -> String {
+        let owned = projects.filter { $0.ownerUserId == userId }.map(\.name)
         var parts = [String(localized: "Kodosi deletes your devices, friends and sharing. What you wrote in other projects stays there.", bundle: .module)]
         if !owned.isEmpty {
             parts.append(String(localized: "These projects close for everyone in them: \(owned.formatted(.list(type: .and))).", bundle: .module))

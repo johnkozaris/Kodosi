@@ -154,49 +154,49 @@ struct DosiMoreTerminals: View {
     }
 }
 
-struct DosiMoreRooms: View {
+struct DosiMoreProjects: View {
     @Environment(AppDependencies.self) private var deps
-    let missions: [MissionEntry]
+    let projects: [ProjectEntry]
     let order: Int
     @State private var glints = 0
     @State private var glintDelay = 0.0
 
     var body: some View {
         DosiMoreChip(
-            count: missions.count, needs: missions.contains(where: \.unread), selected: missions.contains { selected($0) },
-            label: Text("\(missions.count) more projects"), identifier: "dosi.marks.room.more", glints: glints, glintDelay: glintDelay,
+            count: projects.count, needs: projects.contains(where: \.unread), selected: projects.contains { selected($0) },
+            label: Text("\(projects.count) more projects"), identifier: "dosi.marks.project.more", glints: glints, glintDelay: glintDelay,
         ) {
-            DosiMoreList(count: missions.count) {
-                ForEach(Array(missions.enumerated()), id: \.element.id) { index, mission in
-                    DosiMoreRow(name: mission.name, detail: nil, selected: selected(mission)) {
-                        RoomSigil(key: mission.id, size: 18)
+            DosiMoreList(count: projects.count) {
+                ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
+                    DosiMoreRow(name: project.name, detail: nil, selected: selected(project)) {
+                        ProjectSigil(key: project.id, size: 18)
                     } sign: {
-                        if mission.unread {
+                        if project.unread {
                             NewDot()
                         }
                     } action: {
-                        deps.workbench.section = .missions
-                        deps.openMission(mission)
+                        deps.workbench.section = .projects
+                        deps.openProject(project)
                     }
                     .arrive(delay: Double(min(index, 10)) * 0.025, rise: 6)
-                    .accessibilityIdentifier("dosi.marks.room.more.\(AccessibilityIdentifier.token(mission.id))")
+                    .accessibilityIdentifier("dosi.marks.project.more.\(AccessibilityIdentifier.token(project.id))")
                 }
             }
         }
         .background {
             ZStack {
-                ForEach(missions) { mission in
-                    Color.clear.frame(width: 20, height: 20).fold(.room(mission.id), at: .slot, tucked: true)
+                ForEach(projects) { project in
+                    Color.clear.frame(width: 20, height: 20).fold(.project(project.id), at: .slot, tucked: true)
                 }
             }
         }
         .onChange(of: deps.dosi.reading?.id) { _, id in
             guard id != nil, case let .tool(tool)? = deps.dosi.reading?.body, let target = tool.target else { return }
             switch target.kind {
-            case .rooms:
+            case .projects:
                 glintDelay = Double(min(order, 10)) * 0.07
                 glints += 1
-            case .room where missions.contains(where: { $0.id == deps.room(named: target.value)?.id }):
+            case .project where projects.contains(where: { $0.id == deps.project(named: target.value)?.id }):
                 glintDelay = 0
                 glints += 1
             default:
@@ -205,7 +205,7 @@ struct DosiMoreRooms: View {
         }
     }
 
-    private func selected(_ mission: MissionEntry) -> Bool {
-        deps.workbench.section == .missions && deps.workbench.selectedMissionId == mission.id
+    private func selected(_ project: ProjectEntry) -> Bool {
+        deps.workbench.section == .projects && deps.workbench.selectedProjectId == project.id
     }
 }

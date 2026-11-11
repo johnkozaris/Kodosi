@@ -6,7 +6,7 @@ struct NewTerminalRequest: Identifiable {
     let id = UUID()
     var computer: String?
     var folder: String?
-    var roomId: String?
+    var projectId: String?
 }
 
 @Observable
@@ -15,14 +15,14 @@ final class NewTerminal {
 
     var computer: String?
     var prompt = ""
-    let roomId: String?
+    let projectId: String?
     private(set) var folders: [String: String] = [:]
     private(set) var starting = false
     private(set) var failure: String?
     @ObservationIgnored private let defaults: UserDefaults
 
     init(request: NewTerminalRequest, online: [String], defaults: UserDefaults = .standard) {
-        roomId = request.roomId
+        projectId = request.projectId
         self.defaults = defaults
         computer = Self.computer(section: request.computer, last: defaults.string(forKey: Self.lastComputerKey), online: online)
         if let section = request.computer, let folder = request.folder {
@@ -56,7 +56,7 @@ final class NewTerminal {
         let agent = agent(in: launcher).flatMap { LaunchPlan(launcher: launcher, agent: $0.agent).start }
         let words = String(prompt.map { $0.isNewline || $0 == "\t" ? " " : $0 }).trimmingCharacters(in: .whitespaces)
         let terminal = TerminalStart(
-            name: generateSessionName(), directory: folder(in: launcher), computer: computer, roomId: roomId, agent: agent,
+            name: generateSessionName(), directory: folder(in: launcher), computer: computer, projectId: projectId, agent: agent,
             prompt: agent == nil || words.isEmpty ? nil : words,
         )
         starting = true

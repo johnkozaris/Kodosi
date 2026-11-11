@@ -19,7 +19,7 @@ private val personColors = listOf(
     Color(0xFFB362B6),
     Color(0xFF607FCC)
 )
-private val roomColors = listOf(
+private val projectColors = listOf(
     Color(0xFFD98A5F),
     Color(0xFFD9A441),
     Color(0xFFC96F7E),
@@ -30,4 +30,4 @@ private val roomColors = listOf(
 )
 
 internal fun personTint(id: String): Color = personColors[(identityHash(id) % personColors.size.toULong()).toInt()]
-internal fun roomTint(id: String): Color = roomColors[(identityHash(id) % roomColors.size.toULong()).toInt()]
+internal fun projectTint(id: String): Color = projectColors[(identityHash(id) % projectColors.size.toULong()).toInt()]

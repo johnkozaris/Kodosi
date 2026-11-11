@@ -472,7 +472,7 @@ async fn one_app_claims_a_folder_and_later_launches_hand_it_their_request() {
     let claim = claim_app(root.path()).unwrap().unwrap();
     assert!(claim_app(root.path()).unwrap().is_none());
     let (server, mut received) = serve_into(claim, true).await;
-    let activation = json!({ "route": "kodosi://room/abc", "token": "xdg-token" });
+    let activation = json!({ "route": "kodosi://project/abc", "token": "xdg-token" });
     let mut delivered = activation.clone();
     delivered["appVersion"] = json!(crate::PRODUCT_VERSION);
     for _ in 0..2 {
@@ -544,7 +544,7 @@ async fn activations_from_another_version_or_of_another_shape_are_refused() {
         role_endpoint(&kodosi_os::fs::canonicalize(root.path()).unwrap(), "app").unwrap();
     for request in [
         json!({ "version": 2, "activation": {} }),
-        json!({ "version": 1, "activation": "kodosi://room/abc" }),
+        json!({ "version": 1, "activation": "kodosi://project/abc" }),
     ] {
         let mut stream = kodosi_os::ipc::connect(&endpoint).await.unwrap();
         write_json(&mut stream, &request).await.unwrap();
@@ -552,7 +552,7 @@ async fn activations_from_another_version_or_of_another_shape_are_refused() {
         assert_eq!(reply, json!({ "version": 1, "accepted": false }));
     }
     for activation in [
-        json!("kodosi://room/abc"),
+        json!("kodosi://project/abc"),
         json!({ "pad": "x".repeat(MAX_ACTIVATION_BYTES) }),
     ] {
         assert!(matches!(

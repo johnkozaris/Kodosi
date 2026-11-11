@@ -41,7 +41,7 @@ public struct RuntimeEvent: Decodable, Sendable {
 
     /// The failure of a refresh that an app asks for by itself is no news to the person: the
     /// runtime refreshes again when the connection is back.
-    public static let refreshes: Set<String> = ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "mission.list"]
+    public static let refreshes: Set<String> = ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "project.list"]
 
     public var failedRefresh: Bool {
         type.hasSuffix(".error") && Self.refreshes.contains(string("operation") ?? "")

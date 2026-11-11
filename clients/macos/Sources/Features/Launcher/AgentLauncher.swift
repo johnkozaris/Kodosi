@@ -5,7 +5,7 @@ import SwiftUI
 struct AgentLauncher: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    var roomId: String?
+    var projectId: String?
     var defaultFolder: String?
     var centered = false
     var focus = 0
@@ -78,8 +78,8 @@ struct AgentLauncher: View {
         info == nil ? String(localized: "Type a command") : String(localized: "Type a task")
     }
 
-    private var roomName: String? {
-        roomId.flatMap { id in deps.rooms.missions.first { $0.id == id }?.name }
+    private var projectName: String? {
+        projectId.flatMap { id in deps.projects.entries.first { $0.id == id }?.name }
     }
 
     private var tabItems: [AgentTabs.Item] {
@@ -190,10 +190,10 @@ struct AgentLauncher: View {
                     .buttonStyle(.kodosi(.ghost, size: .small))
                     .accessibilityIdentifier("launcher.offline.retry")
             }
-            if let roomName {
+            if let projectName {
                 Text(verbatim: "·")
-                RoomSigil(key: roomId ?? "", size: 13)
-                Text(roomName).lineLimit(1)
+                ProjectSigil(key: projectId ?? "", size: 13)
+                Text(projectName).lineLimit(1)
             }
         }
         .appTextStyle(.footnote).foregroundStyle(ink.inkMuted)
@@ -397,7 +397,7 @@ struct AgentLauncher: View {
             defer { starting = false }
             do {
                 try await deps.createSession(
-                    name: generateSessionName(), directory: directory, computer: computer, roomId: roomId,
+                    name: generateSessionName(), directory: directory, computer: computer, projectId: projectId,
                     command: command, agent: agent, prompt: first,
                 )
                 deps.workbench.launcherDraft = LauncherDraft()

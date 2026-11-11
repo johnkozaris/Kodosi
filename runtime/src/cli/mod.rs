@@ -15,8 +15,8 @@ use uuid::Uuid;
 
 mod canvas;
 mod dosi;
+mod projects;
 mod render;
-mod rooms;
 mod terminal;
 
 fn this_terminal() -> Option<String> {
@@ -53,7 +53,7 @@ enum Action {
         name = "project",
         about = "Work with projects and their members, conversation, tasks, repositories and terminals."
     )]
-    Room(rooms::Arguments),
+    Project(projects::Arguments),
     #[command(subcommand, about = "Work with Dosi, an agent for your other agents.")]
     Dosi(DosiAction),
     #[command(subcommand, about = "Add, verify and remove friends.")]
@@ -222,7 +222,7 @@ enum TerminalAction {
         computer: Option<String>,
         /// Start the terminal in this project, by its name or ID.
         #[arg(long = "project", value_name = "PROJECT")]
-        room: Option<String>,
+        project: Option<String>,
         /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
         #[arg(long)]
         branch: Option<String>,
@@ -549,8 +549,8 @@ async fn dispatch(args: Arguments) -> Result<u8> {
         return canvas::show(things, &mut client, &mut context, json_output).await;
     }
     match args.command {
-        Action::Room(arguments) => {
-            rooms::run(arguments, &mut client, &mut context, json_output).await
+        Action::Project(arguments) => {
+            projects::run(arguments, &mut client, &mut context, json_output).await
         }
         Action::Status => print_status(&context, json_output, render::status),
         Action::Terminal(TerminalAction::List) => {
@@ -708,7 +708,7 @@ async fn command(
         Action::Devices(action) => device_command(action, client, context).await?,
         Action::Friends(action) => friend_command(action, &request),
         Action::Provider(action) => provider_command(action, &request)?,
-        Action::Room(_)
+        Action::Project(_)
         | Action::Dosi(_)
         | Action::Skill { .. }
         | Action::Show { .. }
@@ -730,13 +730,13 @@ async fn start_command(
     context: &mut Context,
     name: Option<String>,
     (directory, computer): (Option<PathBuf>, Option<String>),
-    room: Option<String>,
+    project: Option<String>,
     branch: Option<String>,
     agent: Option<Value>,
     prompt: Option<String>,
 ) -> Result<Value> {
-    let room = if let Some(reference) = room {
-        Some(mission_id(&missions(client, context).await?, &reference)?)
+    let project = if let Some(reference) = project {
+        Some(project_id(&projects(client, context).await?, &reference)?)
     } else {
         None
     };
@@ -766,7 +766,7 @@ async fn start_command(
         None => path(directory)?,
     };
     Ok(
-        json!({"type":"session.create","requestId":request,"name":name,"workingDir":directory,"missionId":room,"branch":branch,"agent":agent,"prompt":prompt,"computer":computer}),
+        json!({"type":"session.create","requestId":request,"name":name,"workingDir":directory,"projectId":project,"branch":branch,"agent":agent,"prompt":prompt,"computer":computer}),
     )
 }
 
@@ -872,7 +872,7 @@ async fn terminal_command(
             name,
             directory,
             computer,
-            room,
+            project,
             branch,
             agent,
             account,
@@ -899,7 +899,7 @@ async fn terminal_command(
                 context,
                 name,
                 (directory, computer),
-                room,
+                project,
                 branch,
                 agent,
                 prompt,
@@ -1136,11 +1136,11 @@ async fn friends(client: &mut local_host::Client, context: &mut Context) -> Resu
     Ok(context.friends.clone())
 }
 
-async fn missions(client: &mut local_host::Client, context: &mut Context) -> Result<Value> {
-    request(client, context, json!({"type":"mission.list"}), true).await?;
+async fn projects(client: &mut local_host::Client, context: &mut Context) -> Result<Value> {
+    request(client, context, json!({"type":"project.list"}), true).await?;
     context
         .latest
-        .get("missions.snapshot")
+        .get("projects.snapshot")
         .cloned()
         .ok_or_else(|| Error::Other("Kodosi did not list the projects.".into()))
 }
@@ -1160,9 +1160,9 @@ fn friend_id(friends: &[Value], reference: &str) -> Result<String> {
     only(&matches, "friend", reference, "kodosi friends list").map(str::to_owned)
 }
 
-fn mission_id(snapshot: &Value, reference: &str) -> Result<String> {
-    let missions = snapshot["missions"].as_array().into_iter().flatten();
-    let matches = referred(missions, ("id", "name"), reference);
+fn project_id(snapshot: &Value, reference: &str) -> Result<String> {
+    let projects = snapshot["projects"].as_array().into_iter().flatten();
+    let matches = referred(projects, ("id", "name"), reference);
     only(&matches, "project", reference, "kodosi project list").map(str::to_owned)
 }
 
@@ -1453,7 +1453,7 @@ struct Context {
     restoring: Option<Value>,
     friends: Vec<Value>,
     latest: BTreeMap<String, Value>,
-    rooms: BTreeMap<String, Value>,
+    contents: BTreeMap<String, Value>,
 }
 impl Context {
     fn from_events(events: &[Value]) -> Self {
@@ -1465,7 +1465,7 @@ impl Context {
             restoring: None,
             friends: vec![],
             latest: BTreeMap::new(),
-            rooms: BTreeMap::new(),
+            contents: BTreeMap::new(),
         };
         for event in events {
             value.observe(event);
@@ -1483,7 +1483,7 @@ impl Context {
                 self.account = None;
                 self.restoring = None;
                 self.latest.clear();
-                self.rooms.clear();
+                self.contents.clear();
             }
             self.epoch = epoch;
             self.user = event
@@ -1499,9 +1499,10 @@ impl Context {
             self.latest.insert(kind.to_owned(), event.clone());
         }
         match event.get("type").and_then(Value::as_str) {
-            Some("room.snapshot") => {
-                if let Some(room) = event["room"]["roomId"].as_str() {
-                    self.rooms.insert(room.to_owned(), event["room"].clone());
+            Some("project.snapshot") => {
+                if let Some(project) = event["content"]["projectId"].as_str() {
+                    self.contents
+                        .insert(project.to_owned(), event["content"].clone());
                 }
             }
             Some("sessions.snapshot") => {
@@ -1982,7 +1983,7 @@ mod tests {
         assert_eq!(context.sessions, [] as [Value; 0]);
     }
     #[test]
-    fn terminals_rooms_and_friends_are_found_by_name_or_id() {
+    fn terminals_projects_and_friends_are_found_by_name_or_id() {
         let context = Context::from_events(&[
             json!({"type":"sessions.snapshot","accountUserId":"me","accountEpoch":1,"sessions":[
                 {"id":"01a10d06-92a7-7367-8536-65c4895d05ae","name":"work"},
@@ -1999,20 +2000,20 @@ mod tests {
         for reference in ["ae", "01a10d06", "other", ""] {
             assert!(context.session_id(reference).is_err());
         }
-        let rooms = json!({"missions":[
+        let projects = json!({"projects":[
             {"id":"019f0000-0000-7000-8000-00000000a1b2","name":"Launch"},
             {"id":"019f0000-0000-7000-8000-00000000c3d4","name":"Launch"},
             {"id":"019f0000-0000-7000-8000-00000000e5f6","name":"api"},
             {"id":"019f0000-0000-7000-8000-00000000f7a8","name":"API"},
         ]});
-        assert!(mission_id(&rooms, "launch").is_err());
+        assert!(project_id(&projects, "launch").is_err());
         assert_eq!(
-            mission_id(&rooms, "API").unwrap(),
+            project_id(&projects, "API").unwrap(),
             "019f0000-0000-7000-8000-00000000f7a8"
         );
-        assert!(mission_id(&rooms, "Api").is_err());
+        assert!(project_id(&projects, "Api").is_err());
         assert_eq!(
-            mission_id(&rooms, "c3d4").unwrap(),
+            project_id(&projects, "c3d4").unwrap(),
             "019f0000-0000-7000-8000-00000000c3d4"
         );
         let friends = [json!({"userId":"u-bob","handle":"bob"})];

@@ -3,7 +3,7 @@ import KodosiDesign
 import SwiftUI
 
 enum MainTab: Hashable {
-    case terminals, rooms, dosi, settings
+    case terminals, projects, dosi, settings
 }
 
 struct MainTabView: View {
@@ -11,7 +11,7 @@ struct MainTabView: View {
     @Environment(\.theme) private var theme
     @State private var tab = MainTab.terminals
     @State private var terminals = NavigationPath()
-    @State private var rooms = NavigationPath()
+    @State private var projects = NavigationPath()
     @State private var dosi = NavigationPath()
     @State private var settings = NavigationPath()
 
@@ -25,13 +25,13 @@ struct MainTabView: View {
             .badge(model.terminals.needsYou.count)
             .accessibilityIdentifier("tab.terminals")
 
-            Tab("Projects", systemImage: "square.grid.2x2", value: .rooms) {
-                NavigationStack(path: $rooms) { RoomsHome() }
-                    .environment(\.openRoute, OpenRouteAction { rooms.append($0) })
+            Tab("Projects", systemImage: "square.grid.2x2", value: .projects) {
+                NavigationStack(path: $projects) { ProjectsHome() }
+                    .environment(\.openRoute, OpenRouteAction { projects.append($0) })
                     .tint(theme.colors.ink)
             }
-            .badge(model.rooms.invitations.count + model.rooms.missions.count(where: \.unread))
-            .accessibilityIdentifier("tab.rooms")
+            .badge(model.projects.invitations.count + model.projects.entries.count(where: \.unread))
+            .accessibilityIdentifier("tab.projects")
 
             Tab("Dosi", systemImage: "eyes", value: .dosi) {
                 NavigationStack(path: $dosi) { DosiHome { tab = $0 } }

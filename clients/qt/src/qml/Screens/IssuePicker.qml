@@ -8,8 +8,8 @@ import Kodosi.Models 1.0 as Models
 ColumnLayout {
     id: root
 
-    readonly property var repositories: Models.Missions.room.repositories || []
-    readonly property var tasks: Models.Missions.room.tasks || []
+    readonly property var repositories: Models.Projects.content.repositories || []
+    readonly property var tasks: Models.Projects.content.tasks || []
     readonly property string words: search.text.trim().toLowerCase()
     readonly property int number: {
         const match = /^#?(\d{1,9})$/.exec(words)
@@ -19,7 +19,7 @@ ColumnLayout {
         const result = []
         for (const repository of repositories) {
             result.push({ header: true, name: repository.name, id: repository.id })
-            const issues = (Models.Missions.issuesByRepository[repository.id] || [])
+            const issues = (Models.Projects.issuesByRepository[repository.id] || [])
                 .filter(issue => !issue.closed && (words.length === 0 || issue.title.toLowerCase().indexOf(words) >= 0 || ("#" + issue.number).indexOf(words) >= 0))
             for (const issue of issues)
                 result.push(Object.assign({ repositoryId: repository.id }, issue))
@@ -31,7 +31,7 @@ ColumnLayout {
 
     function load() {
         for (const repository of repositories)
-            Models.Missions.roomAction({ type: "issues", repositoryId: repository.id })
+            Models.Projects.act({ type: "issues", repositoryId: repository.id })
     }
 
     spacing: 8
@@ -69,7 +69,7 @@ ColumnLayout {
                 selectionColor: KodosiTheme.accent
                 selectedTextColor: KodosiTheme.accentInk
                 clip: true
-                objectName: "room.issue.find"
+                objectName: "project.issue.find"
                 Accessible.id: objectName
                 Accessible.name: qsTr("Find an issue")
                 Accessible.role: Accessible.EditableText
@@ -133,7 +133,7 @@ ColumnLayout {
                 color: KodosiTheme.alpha(KodosiTheme.ink, row.hovered && row.enabled ? 0.06 : 0)
             }
             onClicked: {
-                Models.Missions.roomAction({ type: "importIssue", repositoryId: modelData.repositoryId, number: modelData.number })
+                Models.Projects.act({ type: "importIssue", repositoryId: modelData.repositoryId, number: modelData.number })
                 if (modelData.byNumber)
                     search.clear()
             }

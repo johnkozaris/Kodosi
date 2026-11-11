@@ -8,7 +8,7 @@ struct DosiPersonBubble: View {
     var body: some View {
         HStack {
             Spacer(minLength: 48)
-            Text(RoomMessageText.formatted(text))
+            Text(ProjectMessageText.formatted(text))
                 .appTextStyle(.body).lineSpacing(2.5).foregroundStyle(theme.colors.ink).textSelection(.enabled)
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background {
@@ -65,7 +65,7 @@ struct DosiProse: View {
 
     var body: some View {
         HStack(alignment: .lastTextBaseline, spacing: 3) {
-            Text(RoomMessageText.formatted(text))
+            Text(ProjectMessageText.formatted(text))
                 .appTextStyle(.body).lineSpacing(3).foregroundStyle(theme.colors.ink).textSelection(.enabled)
                 .tint(theme.colors.accentStrong)
             if live {

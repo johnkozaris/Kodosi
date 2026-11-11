@@ -7,7 +7,7 @@ struct TerminalSharingSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     let sessionId: String
-    @State private var room: String?
+    @State private var projectId: String?
     @State private var saving = false
     @State private var failure: String?
 
@@ -34,7 +34,7 @@ struct TerminalSharingSheet: View {
         }
         .presentationDetents([.medium, .large])
         .kodosiSheet()
-        .onAppear { room = model.terminals.session(sessionId)?.missionId }
+        .onAppear { projectId = model.terminals.session(sessionId)?.projectId }
     }
 
     private func content(_ session: RuntimeSession) -> some View {
@@ -66,11 +66,11 @@ struct TerminalSharingSheet: View {
                         .accessibilityIdentifier("terminal.sharing.access")
                 }
                 if session.isOwner {
-                    rooms(session)
+                    projects(session)
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Everyone you share with can type, resize and close this terminal.")
-                    if room != nil {
+                    if projectId != nil {
                         Text("Your friends in the project get full control, including friends who join later.")
                     }
                     if session.isOwner {
@@ -84,29 +84,29 @@ struct TerminalSharingSheet: View {
             .frame(maxWidth: 640, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .animation(theme.motion.snappy, value: room)
+        .animation(theme.motion.snappy, value: projectId)
         .animation(theme.motion.spring, value: failure)
     }
 
     @ViewBuilder
-    private func rooms(_ session: RuntimeSession) -> some View {
+    private func projects(_ session: RuntimeSession) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("A project").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
-            if model.rooms.missions.isEmpty {
+            if model.projects.entries.isEmpty {
                 Text("You have no projects yet.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
             }
             FlowLayout(spacing: 6) {
-                ForEach(model.rooms.missions) { mission in
-                    let selected = room == mission.id
+                ForEach(model.projects.entries) { project in
+                    let selected = projectId == project.id
                     Button {
-                        room = selected ? nil : mission.id
+                        projectId = selected ? nil : project.id
                     } label: {
-                        RoomChoice(name: mission.name, key: mission.id, selected: selected)
+                        ProjectChoice(name: project.name, key: project.id, selected: selected)
                     }
                     .buttonStyle(PressScaleStyle())
                     .disabled(saving)
                     .accessibilityAddTraits(selected ? .isSelected : [])
-                    .accessibilityIdentifier("terminal.sharing.room.\(AccessibilityIdentifier.token(mission.id))")
+                    .accessibilityIdentifier("terminal.sharing.project.\(AccessibilityIdentifier.token(project.id))")
                 }
             }
         }
@@ -117,15 +117,15 @@ struct TerminalSharingSheet: View {
             Text(saving ? String(localized: "Sharing…") : actionTitle(session)).frame(maxWidth: .infinity).shimmer(saving)
         }
         .buttonStyle(.kodosi(.primary, size: .large))
-        .disabled(saving || room == session.missionId)
+        .disabled(saving || projectId == session.projectId)
         .accessibilityIdentifier("terminal.sharing.save")
     }
 
     private func actionTitle(_ session: RuntimeSession) -> String {
-        guard room != session.missionId else {
-            return session.missionId == nil ? String(localized: "Share") : String(localized: "Shared")
+        guard projectId != session.projectId else {
+            return session.projectId == nil ? String(localized: "Share") : String(localized: "Shared")
         }
-        guard let room, let name = model.rooms.mission(room)?.name else { return String(localized: "Stop sharing") }
+        guard let projectId, let name = model.projects.project(projectId)?.name else { return String(localized: "Stop sharing") }
         return String(localized: "Share with \(name)")
     }
 
@@ -139,22 +139,22 @@ struct TerminalSharingSheet: View {
     private func access(_ session: RuntimeSession) -> String {
         if !session.isOwner {
             let owner = session.ownerName ?? session.hostLabel
-            return session.missionName.map { String(localized: "Shared by \(owner) in \($0)") } ?? String(localized: "Shared by \(owner)")
+            return session.projectName.map { String(localized: "Shared by \(owner) in \($0)") } ?? String(localized: "Shared by \(owner)")
         }
-        if let room = session.missionName {
-            return String(localized: "Shared with \(room)")
+        if let name = session.projectName {
+            return String(localized: "Shared with \(name)")
         }
         let names = model.sharedNames(of: session)
         return names.isEmpty ? String(localized: "Only you and your devices") : names.joined(separator: ", ")
     }
 
     private func save(_ session: RuntimeSession) {
-        guard room != session.missionId else { return }
+        guard projectId != session.projectId else { return }
         saving = true
         failure = nil
         Task {
             do {
-                try await model.terminals.share(session, inRoom: room)
+                try await model.terminals.share(session, inProject: projectId)
                 dismiss()
             } catch {
                 failure = error.localizedDescription

@@ -12,7 +12,7 @@ struct DosiHome: View {
         DosiScreen()
             .environment(place)
             .navigationDestination(for: TerminalRoute.self) { TerminalScreen(sessionId: $0.sessionId) }
-            .navigationDestination(for: RoomRoute.self) { RoomScreen(roomId: $0.roomId) }
+            .navigationDestination(for: ProjectRoute.self) { ProjectScreen(projectId: $0.projectId) }
     }
 
     private var place: DosiPlace {
@@ -20,9 +20,9 @@ struct DosiHome: View {
         return DosiPlace(
             dosi: model.dosi,
             terminal: { referred($0, in: model.terminals.sessions, id: \.id, name: \.name) },
-            room: { referred($0, in: model.rooms.missions, id: \.id, name: \.name) },
+            project: { referred($0, in: model.projects.entries, id: \.id, name: \.name) },
             sessions: { model.terminals.sessions.filter { !$0.hidden } },
-            rooms: { model.rooms.missions },
+            projects: { model.projects.entries },
             open: open,
             answer: model.answerDosi,
             send: { model.sendToDosi($0) },
@@ -36,14 +36,14 @@ struct DosiHome: View {
             if let session = referred(target.value, in: model.terminals.sessions, id: \.id, name: \.name) {
                 openRoute(TerminalRoute(sessionId: session.id))
             }
-        case .room:
-            if let mission = referred(target.value, in: model.rooms.missions, id: \.id, name: \.name) {
-                openRoute(RoomRoute(roomId: mission.id))
+        case .project:
+            if let project = referred(target.value, in: model.projects.entries, id: \.id, name: \.name) {
+                openRoute(ProjectRoute(projectId: project.id))
             }
         case .terminals:
             showTab(.terminals)
-        case .rooms:
-            showTab(.rooms)
+        case .projects:
+            showTab(.projects)
         case .url:
             if let url = URL(string: target.value), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
                 openURL(url)

@@ -9,13 +9,13 @@ import Kodosi.Models 1.0 as Models
 Item {
     id: root
 
-    property bool roomEmbedded: false
+    property bool projectEmbedded: false
     property bool joined: false
     property bool canvasOpen: false
     property bool accessibilitySuppressed: false
     property bool interactionEnabled: true
     readonly property bool active: Models.DesktopState.selectedSessionId === sessionId
-    readonly property bool ringed: active && !roomEmbedded
+    readonly property bool ringed: active && !projectEmbedded
     property bool componentReady: false
     property bool renaming: false
     readonly property bool shown: componentReady && visible && Window.visibility !== Window.Minimized
@@ -151,17 +151,17 @@ Item {
             TapHandler { onTapped: root.select() }
             TerminalDragSource {
                 anchors.fill: parent
-                enabled: !root.roomEmbedded
+                enabled: !root.projectEmbedded
                 sessionId: root.sessionId
             }
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: root.roomEmbedded ? 11 : 9
+                anchors.leftMargin: root.projectEmbedded ? 11 : 9
                 anchors.rightMargin: root.canvasOpen ? 16 : 6
                 spacing: 8
 
                 AgentMark {
-                    visible: !root.roomEmbedded
+                    visible: !root.projectEmbedded
                     program: root.session.program || ""
                     size: 20
                     session: root.session
@@ -173,7 +173,7 @@ Item {
                     Layout.leftMargin: -6
                     Layout.rightMargin: -6
                     implicitHeight: 24
-                    visible: !root.roomEmbedded && !root.renaming
+                    visible: !root.projectEmbedded && !root.renaming
                     enabled: root.session.isOwner === true
                     hoverEnabled: true
                     leftPadding: 6
@@ -240,9 +240,9 @@ Item {
                 RowLayout {
                     id: location
 
-                    readonly property string host: root.roomEmbedded || root.session.kind === "remote" ? root.session.hostLabel || "" : ""
-                    readonly property string place: root.roomEmbedded ? root.session.folderName || "" : root.session.placeName || ""
-                    readonly property string placeGlyph: root.roomEmbedded ? "folder" : root.session.placeKind === "container" ? "container"
+                    readonly property string host: root.projectEmbedded || root.session.kind === "remote" ? root.session.hostLabel || "" : ""
+                    readonly property string place: root.projectEmbedded ? root.session.folderName || "" : root.session.placeName || ""
+                    readonly property string placeGlyph: root.projectEmbedded ? "folder" : root.session.placeKind === "container" ? "container"
                         : root.session.placeKind === "vm" ? "cube" : "server"
 
                     Layout.maximumWidth: Math.max(80, root.width * 0.45)
@@ -250,7 +250,7 @@ Item {
                     spacing: 4
                     Accessible.role: Accessible.StaticText
                     Accessible.name: host.length > 0 && place.length > 0 ? qsTr("%1 on %2").arg(place).arg(host) : host + place
-                    ToolTip.text: root.roomEmbedded ? root.session.displayDirectory || host : root.session.placeLabel || host
+                    ToolTip.text: root.projectEmbedded ? root.session.displayDirectory || host : root.session.placeLabel || host
                     ToolTip.visible: locationHover.hovered && ToolTip.text.length > 0
                     ToolTip.delay: Tip.delay
 
@@ -540,9 +540,9 @@ Item {
                                 text: qsTr("Remove from project")
                                 iconName: "leave"
                                 destructive: true
-                                visible: root.roomEmbedded && root.session.isOwner === true
-                                objectName: root.objectName + ".removeFromRoom"
-                                onTriggered: Models.SessionActions.attachMission(root.sessionId, "")
+                                visible: root.projectEmbedded && root.session.isOwner === true
+                                objectName: root.objectName + ".removeFromProject"
+                                onTriggered: Models.SessionActions.attachProject(root.sessionId, "")
                             }
                         }
                     }
@@ -573,7 +573,7 @@ Item {
                         onTerminal: true
                         active: root.zoomed
                         objectName: root.objectName + ".focus"
-                        visible: !root.roomEmbedded && !root.canvasOpen
+                        visible: !root.projectEmbedded && !root.canvasOpen
 
                         onClicked: {
                             Models.DesktopState.selectSession(root.sessionId);
@@ -806,7 +806,7 @@ Item {
 
                         onClicked: {
                             root.terminalError = "";
-                            const activated = root.roomEmbedded ? Models.SessionActions.activateInRoom(root.sessionId) : Models.SessionActions.activate(root.sessionId);
+                            const activated = root.projectEmbedded ? Models.SessionActions.activateInProject(root.sessionId) : Models.SessionActions.activate(root.sessionId);
                             if (activated && !Models.TerminalSurfaces.retry(terminal, root.sessionId))
                                 root.terminalError = qsTr("The terminal could not connect again.");
                         }
@@ -884,7 +884,7 @@ Item {
     }
     TerminalDropArea {
         anchors.fill: parent
-        enabled: !root.roomEmbedded
+        enabled: !root.projectEmbedded
         radius: KodosiTheme.radiusTile
         dashed: false
         objectName: root.objectName + ".drop"

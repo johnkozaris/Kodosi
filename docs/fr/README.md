@@ -73,7 +73,7 @@ n'importe quel dossier et ordinateur, avec une conversation et des tâches. Les 
 et écrivent dans la conversation et prennent des tâches, et les issues GitHub ou Gitea
 deviennent des tâches. Invitez des amis quand vous le souhaitez.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Un projet avec un terminal partagé et une conversation entre personnes et agents."></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="Un projet avec un terminal partagé et une conversation entre personnes et agents."></p>
 
 **Une branche pour chaque agent.** Lancez un agent sur une nouvelle branche, dans son propre
 worktree Git, pour que deux agents ne modifient jamais les mêmes fichiers.

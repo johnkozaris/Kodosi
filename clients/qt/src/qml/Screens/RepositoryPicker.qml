@@ -8,8 +8,8 @@ import Kodosi.Models 1.0 as Models
 ColumnLayout {
     id: root
 
-    readonly property var choices: Models.Missions.repositoryChoices
-    readonly property var linked: (Models.Missions.room.repositories || []).map(repository => repository.url.toLowerCase())
+    readonly property var choices: Models.Projects.repositoryChoices
+    readonly property var linked: (Models.Projects.content.repositories || []).map(repository => repository.url.toLowerCase())
     readonly property string words: search.text.trim()
     readonly property bool looksLikeAddress: words.length > 0 && words.indexOf(" ") < 0
         && (words.indexOf("://") >= 0 || words.startsWith("git@") || words.split("/").length > 2)
@@ -20,7 +20,7 @@ ColumnLayout {
     function add(url) {
         if (root.linked.indexOf(url.toLowerCase()) >= 0)
             return
-        Models.Missions.roomAction({ type: "addRepository", url: url })
+        Models.Projects.act({ type: "addRepository", url: url })
         search.clear()
         root.done()
     }
@@ -33,7 +33,7 @@ ColumnLayout {
 
     spacing: 8
     Component.onCompleted: {
-        Models.Missions.listRepositories()
+        Models.Projects.listRepositories()
         search.forceActiveFocus()
     }
 
@@ -57,7 +57,7 @@ ColumnLayout {
                 selectionColor: KodosiTheme.accent
                 selectedTextColor: KodosiTheme.accentInk
                 clip: true
-                objectName: "room.repository.find"
+                objectName: "project.repository.find"
                 Accessible.id: objectName
                 Accessible.name: qsTr("Find or paste a repository")
                 Accessible.role: Accessible.EditableText
@@ -93,7 +93,7 @@ ColumnLayout {
                 compact: true
                 variant: KButton.Tinted
                 text: root.choices.github === "missing" ? qsTr("Get it") : qsTr("Connect")
-                objectName: "room.github.connect"
+                objectName: "project.github.connect"
                 Accessible.id: objectName
                 onClicked: {
                     if (root.choices.github === "missing") {
@@ -124,7 +124,7 @@ ColumnLayout {
             height: modelData.folder ? 44 : 36
             hoverEnabled: true
             enabled: !done
-            objectName: "room.repository.choice." + (modelData.url || "")
+            objectName: "project.repository.choice." + (modelData.url || "")
             Accessible.id: objectName
             Accessible.name: modelData.name || ""
             contentItem: RowLayout {

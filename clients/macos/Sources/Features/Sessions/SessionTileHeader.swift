@@ -10,7 +10,7 @@ struct SessionTileHeader: View {
     @Environment(\.canvasPlace) private var canvasPlace
     let session: RuntimeSession
     let isFocused: Bool
-    let roomEmbedded: Bool
+    let projectEmbedded: Bool
     let showsActions: Bool
     let viewers: [AvatarStack.Person]
     let isClosing: Bool
@@ -28,7 +28,7 @@ struct SessionTileHeader: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            if roomEmbedded {
+            if projectEmbedded {
                 TerminalLocation(host: session.hostLabel, glyph: "folder", name: session.folderName)
                     .help(session.workingDir ?? session.hostLabel)
                 if session.activity != nil || session.progress != nil {
@@ -98,13 +98,13 @@ struct SessionTileHeader: View {
 
     private var actions: some View {
         HStack(spacing: 0) {
-            TerminalActions(session: session, roomEmbedded: roomEmbedded, stageId: stageId)
+            TerminalActions(session: session, projectEmbedded: projectEmbedded, stageId: stageId)
             if !canvasOpen {
                 IconButton(title: "Minimize", symbol: "minus", identifier: "\(stageId).minimize", size: 26) {
                     deps.dismissSession(session.id)
                 }
             }
-            if !roomEmbedded, !canvasOpen {
+            if !projectEmbedded, !canvasOpen {
                 IconButton(title: isFocused ? "Show all" : "Zoom",
                            symbol: isFocused ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                            identifier: "\(stageId).focus", size: 26)
@@ -176,7 +176,7 @@ private struct TerminalActions: View {
     @Environment(\.theme) private var theme
     @Environment(\.canvasPlace) private var canvasPlace
     let session: RuntimeSession
-    let roomEmbedded: Bool
+    let projectEmbedded: Bool
     let stageId: String
     @State private var open = false
     @State private var hovered = false
@@ -249,13 +249,13 @@ private struct TerminalActions: View {
                 deps.workbench.detailsSessionId = session.id
             }
             .closesFlyout($flyout)
-            if roomEmbedded, session.isOwner {
+            if projectEmbedded, session.isOwner {
                 PanelMenuRow(Text("Remove from project"), icon: .symbol("rectangle.portrait.and.arrow.right"),
-                             identifier: "\(stageId).removeFromRoom", destructive: true)
+                             identifier: "\(stageId).removeFromProject", destructive: true)
                 {
                     Task { @MainActor in
                         do {
-                            try await deps.removeFromRoom(session)
+                            try await deps.removeFromProject(session)
                         } catch { deps.errorMessage = error.localizedDescription }
                     }
                 }

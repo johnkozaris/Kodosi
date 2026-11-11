@@ -9,7 +9,7 @@ struct SessionSharingPopover: View {
     let session: RuntimeSession
     @State private var people: Set<String> = []
     @State private var originalPeople: Set<String> = []
-    @State private var room: String?
+    @State private var projectId: String?
     @State private var saving = false
     @State private var error: String?
 
@@ -18,17 +18,17 @@ struct SessionSharingPopover: View {
     }
 
     private var changed: Bool {
-        room != current.missionId || people != originalPeople
+        projectId != current.projectId || people != originalPeople
     }
 
     private var actionTitle: String {
-        if room != current.missionId {
-            if let room, let name = deps.rooms.missions.first(where: { $0.id == room })?.name {
+        if projectId != current.projectId {
+            if let projectId, let name = deps.projects.entries.first(where: { $0.id == projectId })?.name {
                 return String(localized: "Share with \(name)")
             }
             return String(localized: "Stop sharing")
         }
-        if !changed, room != nil || !people.isEmpty {
+        if !changed, projectId != nil || !people.isEmpty {
             return String(localized: "Shared")
         }
         if people.isEmpty {
@@ -81,28 +81,28 @@ struct SessionSharingPopover: View {
         .padding(20)
         .popoverSheet(width: 360)
         .animation(theme.motion.snappy, value: people)
-        .animation(theme.motion.snappy, value: room)
+        .animation(theme.motion.snappy, value: projectId)
         .onAppear {
-            originalPeople = Set(current.sharedWith); people = originalPeople; room = current.missionId
+            originalPeople = Set(current.sharedWith); people = originalPeople; projectId = current.projectId
         }
         .onChange(of: deps.accountEpoch) { _, _ in dismiss() }
     }
 
     @ViewBuilder
     private var choices: some View {
-        if !deps.rooms.missions.isEmpty {
+        if !deps.projects.entries.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text("A project").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                 FlowLayout(spacing: 6) {
-                    ForEach(deps.rooms.missions) { mission in
-                        let selected = room == mission.id
+                    ForEach(deps.projects.entries) { project in
+                        let selected = projectId == project.id
                         Button {
-                            room = selected ? nil : mission.id
+                            projectId = selected ? nil : project.id
                             if !selected {
                                 people = originalPeople
                             }
                         } label: {
-                            RoomChoice(name: mission.name, key: mission.id, selected: selected)
+                            ProjectChoice(name: project.name, key: project.id, selected: selected)
                         }
                         .buttonStyle(PressScaleStyle()).disabled(saving)
                         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -110,7 +110,7 @@ struct SessionSharingPopover: View {
                 }
             }
         }
-        if room == nil, current.missionId == nil {
+        if projectId == nil, current.projectId == nil {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Friends").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                 if deps.people.friends.isEmpty {
@@ -154,9 +154,9 @@ struct SessionSharingPopover: View {
         Task { @MainActor in
             defer { saving = false }
             do {
-                if room != current.missionId {
-                    try await deps.mutateSession("session.attachMission", session: session,
-                                                 fields: ["missionId": room.map(JSONValue.string) ?? .null])
+                if projectId != current.projectId {
+                    try await deps.mutateSession("session.attachProject", session: session,
+                                                 fields: ["projectId": projectId.map(JSONValue.string) ?? .null])
                 } else {
                     try await deps.mutateSession("session.share", session: session, fields: [
                         "userIds": .array(people.sorted().map(JSONValue.string)),

@@ -31,7 +31,7 @@ Item {
             }
             if (rect.y + rect.height <= 0 || rect.y >= height)
                 continue
-            found[spot.key] = { rect: rect, shown: shown, asleep: spot.asleep, session: spot.session, room: spot.sigil, fill: spot.fill, radius: spot.radius }
+            found[spot.key] = { rect: rect, shown: shown, asleep: spot.asleep, session: spot.session, project: spot.sigil, fill: spot.fill, radius: spot.radius }
         }
         return found
     }
@@ -46,7 +46,7 @@ Item {
     function fly() {
         const arrivals = collect(place)
         const keys = Object.keys(planes)
-        const marks = keys.filter(key => arrivals[key] !== undefined && (key.startsWith("terminal:") || key.startsWith("room:")))
+        const marks = keys.filter(key => arrivals[key] !== undefined && (key.startsWith("terminal:") || key.startsWith("project:")))
         marks.sort((a, b) => arrivals[a].rect.y - arrivals[b].rect.y || arrivals[a].rect.x - arrivals[b].rect.x)
         if (place === "row")
             marks.reverse()
@@ -120,7 +120,7 @@ Item {
             Loader {
                 anchors.fill: parent
                 sourceComponent: plane.key.startsWith("terminal:") ? terminal
-                    : plane.key.startsWith("room:") ? room
+                    : plane.key.startsWith("project:") ? project
                     : plane.key === "face" ? face : shape
             }
             Component {
@@ -133,10 +133,10 @@ Item {
                 }
             }
             Component {
-                id: room
-                RoomSigil {
+                id: project
+                ProjectSigil {
                     size: plane.width
-                    key: plane.from.room
+                    key: plane.from.project
                 }
             }
             Component {

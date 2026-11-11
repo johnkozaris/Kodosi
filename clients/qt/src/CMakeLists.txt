@@ -64,8 +64,8 @@ qt_add_library(kodosi-application STATIC
     presentation/DosiWords.hpp
     presentation/KeyedListModel.cpp
     presentation/KeyedListModel.hpp
-    presentation/MissionsModel.cpp
-    presentation/MissionsModel.hpp
+    presentation/ProjectsModel.cpp
+    presentation/ProjectsModel.hpp
     presentation/PeopleModel.cpp
     presentation/PeopleModel.hpp
     presentation/ProviderFilesModel.cpp
@@ -280,12 +280,12 @@ qt_add_qml_module(kodosi-ui
         qml/Screens/FriendTrustDialog.qml
         qml/Screens/IssuePicker.qml
         qml/Screens/RepositoryPicker.qml
-        qml/Screens/MissionsView.qml
-        qml/Screens/RoomContent.qml
-        qml/Screens/RoomSkeleton.qml
-        qml/Screens/RoomConversation.qml
-        qml/Screens/RoomTasks.qml
-        qml/Screens/RoomRepositories.qml
+        qml/Screens/ProjectsView.qml
+        qml/Screens/ProjectContent.qml
+        qml/Screens/ProjectSkeleton.qml
+        qml/Screens/ProjectConversation.qml
+        qml/Screens/ProjectTasks.qml
+        qml/Screens/ProjectRepositories.qml
         qml/Settings/SettingsView.qml
         qml/Settings/GeneralSettings.qml
         qml/Settings/DeviceSettings.qml
@@ -355,7 +355,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/ProgressRing.qml
         qml/Controls/Raised.qml
         qml/Controls/RollingText.qml
-        qml/Controls/RoomSigil.qml
+        qml/Controls/ProjectSigil.qml
         qml/Controls/SegmentedPill.qml
         qml/Controls/SessionPlace.qml
         qml/Controls/ShareBadge.qml
@@ -406,7 +406,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/PickerKey.qml
         qml/Workbench/PickerList.qml
         qml/Workbench/RemoveKey.qml
-        qml/Workbench/RoomShareDialog.qml
+        qml/Workbench/ProjectShareDialog.qml
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml

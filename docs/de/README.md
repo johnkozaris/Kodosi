@@ -73,7 +73,7 @@ jedem Computer, mit einer Unterhaltung und Aufgaben. Agents lesen und schreiben 
 Unterhaltung und übernehmen Aufgaben, und GitHub- oder Gitea-Issues werden zu Aufgaben. Lade
 Freunde ein, wenn du möchtest.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Ein Projekt mit einem geteilten Terminal und einer Unterhaltung von Menschen und Agents."></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="Ein Projekt mit einem geteilten Terminal und einer Unterhaltung von Menschen und Agents."></p>
 
 **Ein Branch für jeden Agent.** Starte einen Agent auf einem neuen Branch in seinem eigenen
 Git-Worktree, damit zwei Agents nie dieselben Dateien ändern.

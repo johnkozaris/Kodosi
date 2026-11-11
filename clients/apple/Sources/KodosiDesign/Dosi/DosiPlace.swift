@@ -6,24 +6,24 @@ import Observation
 public final class DosiPlace {
     public let dosi: DosiStore
     let terminal: (String) -> RuntimeSession?
-    let room: (String) -> MissionEntry?
+    let project: (String) -> ProjectEntry?
     let sessions: () -> [RuntimeSession]
-    let rooms: () -> [MissionEntry]
+    let projects: () -> [ProjectEntry]
     let open: (DosiTarget) -> Void
     let answer: (DosiItem, [String]) -> Void
     let send: (String) -> Void
     let canSend: () -> Bool
     let openSettings: (() -> Void)?
 
-    /// `terminal` and `room` find what Dosi names, and `sessions` and `rooms` are the person's
-    /// terminals and rooms in the order of their lists. `send` sends a suggestion while `canSend`
+    /// `terminal` and `project` find what Dosi names, and `sessions` and `projects` are the person's
+    /// terminals and projects in the order of their lists. `send` sends a suggestion while `canSend`
     /// says so. Without `openSettings`, a notice that Dosi needs a sign-in has no key.
     public init(
         dosi: DosiStore,
         terminal: @escaping (String) -> RuntimeSession?,
-        room: @escaping (String) -> MissionEntry?,
+        project: @escaping (String) -> ProjectEntry?,
         sessions: @escaping () -> [RuntimeSession],
-        rooms: @escaping () -> [MissionEntry],
+        projects: @escaping () -> [ProjectEntry],
         open: @escaping (DosiTarget) -> Void,
         answer: @escaping (DosiItem, [String]) -> Void,
         send: @escaping (String) -> Void,
@@ -32,9 +32,9 @@ public final class DosiPlace {
     ) {
         self.dosi = dosi
         self.terminal = terminal
-        self.room = room
+        self.project = project
         self.sessions = sessions
-        self.rooms = rooms
+        self.projects = projects
         self.open = open
         self.answer = answer
         self.send = send

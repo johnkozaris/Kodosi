@@ -4,7 +4,7 @@ public struct TerminalStart: Equatable, Sendable {
     public var name: String
     public var directory: String?
     public var computer: String?
-    public var roomId: String?
+    public var projectId: String?
     public var command: String?
     public var agent: AgentStart?
     public var prompt: String?
@@ -13,13 +13,13 @@ public struct TerminalStart: Equatable, Sendable {
     public var size: JSONValue?
 
     public init(
-        name: String, directory: String? = nil, computer: String? = nil, roomId: String? = nil, command: String? = nil,
+        name: String, directory: String? = nil, computer: String? = nil, projectId: String? = nil, command: String? = nil,
         agent: AgentStart? = nil, prompt: String? = nil, branch: String? = nil, worktrees: String? = nil, size: JSONValue? = nil,
     ) {
         self.name = name
         self.directory = directory
         self.computer = computer
-        self.roomId = roomId
+        self.projectId = projectId
         self.command = command
         self.agent = agent
         self.prompt = prompt
@@ -31,7 +31,7 @@ public struct TerminalStart: Equatable, Sendable {
     public var fields: [String: JSONValue] {
         var fields: [String: JSONValue] = ["name": .string(name)]
         let words = [
-            ("missionId", roomId), ("workingDir", directory), ("computer", computer), ("command", command), ("prompt", prompt),
+            ("projectId", projectId), ("workingDir", directory), ("computer", computer), ("command", command), ("prompt", prompt),
             ("branch", branch), ("worktrees", worktrees),
         ]
         for case let (key, value?) in words {

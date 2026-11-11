@@ -68,7 +68,7 @@ pages.
 computer, with a conversation and tasks. Agents read and post in the conversation and take
 tasks, and GitHub or Gitea issues become tasks. Invite friends when you want.
 
-<p align="center"><img src="docs/media/room.webp" width="900" alt="A project with a shared terminal and a conversation of people and agents."></p>
+<p align="center"><img src="docs/media/project.webp" width="900" alt="A project with a shared terminal and a conversation of people and agents."></p>
 
 **A branch for each agent.** Start an agent on a new branch in its own Git worktree, so
 two agents never change the same files.

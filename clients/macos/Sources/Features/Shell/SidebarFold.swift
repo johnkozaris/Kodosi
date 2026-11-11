@@ -8,12 +8,12 @@ enum FoldPlace: String {
 
 enum FoldMark: Hashable {
     case terminal(String)
-    case room(String)
+    case project(String)
 
     func id(_ place: FoldPlace) -> String {
         switch self {
         case let .terminal(id): "terminal.\(id).\(place.rawValue)"
-        case let .room(id): "room.\(id).\(place.rawValue)"
+        case let .project(id): "project.\(id).\(place.rawValue)"
         }
     }
 }
@@ -128,9 +128,9 @@ struct FoldFlights: View {
                          lane: lanes[.terminal(session.id)])
                 }
             }
-            ForEach(deps.rooms.missions) { mission in
-                if let flight = flights[.room(mission.id)] {
-                    copy(RoomSigil(key: mission.id, size: flight.size), flight, lane: lanes[.room(mission.id)])
+            ForEach(deps.projects.entries) { project in
+                if let flight = flights[.project(project.id)] {
+                    copy(ProjectSigil(key: project.id, size: flight.size), flight, lane: lanes[.project(project.id)])
                 }
             }
         }
@@ -167,7 +167,7 @@ struct FoldFlights: View {
         guard let frames, !theme.motion.reduced else { return }
         flight += 1
         let current = flight
-        let marks = deps.listedSessions.map { FoldMark.terminal($0.id) } + deps.rooms.missions.map { FoldMark.room($0.id) }
+        let marks = deps.listedSessions.map { FoldMark.terminal($0.id) } + deps.projects.entries.map { FoldMark.project($0.id) }
         var start = flights
         var starts = lanes
         var fresh: Set<FoldMark> = []

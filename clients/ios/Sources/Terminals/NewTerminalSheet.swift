@@ -153,10 +153,10 @@ struct NewTerminalSheet: View {
                         .terminalScope()
                         .transition(.opacity)
                 }
-                if let roomId = draft.roomId, let room = model.rooms.mission(roomId) {
+                if let projectId = draft.projectId, let project = model.projects.project(projectId) {
                     HStack(spacing: 8) {
-                        RoomSigil(key: roomId, size: 18)
-                        Text("In \(room.name)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        ProjectSigil(key: projectId, size: 18)
+                        Text("In \(project.name)").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                     }
                     .padding(.leading, 4)
                     .accessibilityElement(children: .combine)

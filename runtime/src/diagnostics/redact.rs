@@ -411,7 +411,7 @@ mod tests {
     fn ordinary_text_is_kept() {
         for text in [
             "session 0190a0b2-7c1e-7d3a-9f00-123456789abc resized to 120x40",
-            "opened https://kodosi.com/rooms/abc",
+            "opened https://kodosi.com/projects/abc",
             "eyJ.not.a.token and a short eyJabc",
             "naïve ünïcode: keeps its 😀 characters",
         ] {

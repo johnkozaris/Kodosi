@@ -54,7 +54,7 @@ output and `--help` lists every option.
   as `@ana`, gets that person's attention.
 - `kodosi project post "message"`: post in the chat. A post from your terminal carries
   your agent's name; `--agent "name"` gives another. With `--json`, the field
-  `room.sequence` is the project's sequence after your message.
+  `project.sequence` is the project's sequence after your message.
 - `kodosi project wait --after <sequence> --timeout 60`: wait for activity after that
   sequence. It prints the whole project; read only the messages after your sequence.
   `timedOut` means nothing new.

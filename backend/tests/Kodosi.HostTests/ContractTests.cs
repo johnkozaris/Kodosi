@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Kodosi.Accounts;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Plans;
 using Kodosi.Security;
 using Kodosi.TerminalConnections;
@@ -52,10 +52,10 @@ public sealed partial class ContractTests(PostgresFixture postgres)
         Assert.Equal(ContractVersions.Auth, api.GetProperty("authContractVersion").GetInt32());
         Assert.Equal(ContractVersions.TerminalConnection, connections.GetProperty("terminalConnectionProtocolVersion").GetInt32());
         Assert.Equal(ContractVersions.OldestTerminalConnection, connections.GetProperty("oldestTerminalConnectionProtocolVersion").GetInt32());
-        var room = api.GetProperty("roomContent").GetProperty("limits");
-        Assert.Equal(PlanLimits.Safety.RoomPeople, room.GetProperty("people").GetInt32());
-        Assert.Equal(MissionService.MaxRoomRecipients, room.GetProperty("recipients").GetInt32());
-        Assert.Equal(PlanLimits.Safety.RoomPeople * (Limits.MaxDevicesPerUser + 1), room.GetProperty("recipients").GetInt32());
+        var project = api.GetProperty("projectContent").GetProperty("limits");
+        Assert.Equal(PlanLimits.Safety.ProjectPeople, project.GetProperty("people").GetInt32());
+        Assert.Equal(ProjectService.MaxProjectRecipients, project.GetProperty("recipients").GetInt32());
+        Assert.Equal(PlanLimits.Safety.ProjectPeople * (Limits.MaxDevicesPerUser + 1), project.GetProperty("recipients").GetInt32());
         var pipes = connections.GetProperty("pipes");
         Assert.Equal(ConnectionEndpoints.MessageBytes, pipes.GetProperty("messageMaxBytes").GetInt32());
         Assert.Equal(ConnectionDirectory.MaximumSessionPipes, pipes.GetProperty("viewersMax").GetInt32());
@@ -71,11 +71,11 @@ public sealed partial class ContractTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public void TheTerminalRoomProofHasTheBytesOfTheSharedVector()
+    public void TheTerminalProjectProofHasTheBytesOfTheSharedVector()
     {
-        var vector = Contract("crypto-domains.json").GetProperty("deviceProofPreimageVectors").GetProperty("terminalRoomV2");
+        var vector = Contract("crypto-domains.json").GetProperty("deviceProofPreimageVectors").GetProperty("terminalProjectV2");
         Guid Id(string name) => Guid.Parse(vector.GetProperty(name).GetString()!);
-        var bytes = Proofs.TerminalRoom(Id("ownerId"), Id("terminalId"), Id("incarnationId"), Id("roomId"),
+        var bytes = Proofs.TerminalProject(Id("ownerId"), Id("terminalId"), Id("incarnationId"), Id("projectId"),
             vector.GetProperty("history").GetString()!, vector.GetProperty("sequence").GetInt64(), vector.GetProperty("deviceId").GetString()!);
         Assert.Equal(vector.GetProperty("preimageHex").GetString(), Convert.ToHexStringLower(bytes));
     }

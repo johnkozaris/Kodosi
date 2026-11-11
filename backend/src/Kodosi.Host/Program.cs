@@ -4,7 +4,7 @@ using Kodosi.Admission;
 using Kodosi.Data;
 using Kodosi.Devices;
 using Kodosi.Friends;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Plans;
 using Kodosi.Push;
 using Kodosi.Security;
@@ -45,7 +45,7 @@ builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<FriendService>();
 builder.Services.AddScoped<NameChecks>();
-builder.Services.AddScoped<MissionService>();
+builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<PushTokens>();
 builder.Services.ConfigureHttpJsonOptions(options => StrictJson.Configure(options.SerializerOptions));
@@ -85,7 +85,7 @@ app.MapGet("/health/ready", async (KodosiDbContext db, ConnectionLease lease, Ca
     lease.Held && await db.Database.CanConnectAsync(ct) ? Results.Ok(ContractVersions.Report()) : Results.StatusCode(StatusCodes.Status503ServiceUnavailable))
     .DisableRateLimiting();
 var api = app.MapGroup("").AddEndpointFilter<AdmissionFilter>();
-api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapMissions(); api.MapPush();
+api.MapAccounts(); api.MapDevices(); api.MapFriends(); api.MapSessions(); api.MapProjects(); api.MapPush();
 app.MapTerminalConnections();
 app.Run();
 

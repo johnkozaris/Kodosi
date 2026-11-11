@@ -99,7 +99,7 @@ impl Publication {
     pub(crate) async fn clear_sharing(&self) {
         let mut info = self.info.write().await;
         info.shared_with.clear();
-        info.mission_id = None;
+        info.project_id = None;
         drop(info);
         *self.pending_shares.lock().await = None;
     }

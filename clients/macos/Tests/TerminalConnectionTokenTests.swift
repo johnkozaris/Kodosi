@@ -34,12 +34,12 @@ import Testing
 @Test func `a view that goes away does not stop the input of the view that replaced it`() {
     let token = TerminalConnectionToken()
     let grid = UUID()
-    let room = UUID()
+    let project = UUID()
     token.setInputAllowed(true, by: grid)
-    token.setInputAllowed(true, by: room)
+    token.setInputAllowed(true, by: project)
     token.setInputAllowed(false, by: grid)
     #expect(token.canSendInput)
-    token.setInputAllowed(false, by: room)
+    token.setInputAllowed(false, by: project)
     #expect(!token.canSendInput)
 }
 

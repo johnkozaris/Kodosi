@@ -2,18 +2,18 @@ use serde::Deserialize;
 
 use super::*;
 use crate::identity::{
-    keys::RoomKeyPair,
+    keys::ProjectKeyPair,
     pins::decode,
     recovery::{self, RecoveryKey},
 };
 
-const SAVED_ROOM_KEY_BYTES: usize = 4096;
+const SAVED_PROJECT_KEY_BYTES: usize = 4096;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SavedRoomKey {
+struct SavedProjectKey {
     device_id: String,
-    room_key_box: String,
+    project_key_box: String,
 }
 
 impl BackendClient {
@@ -34,7 +34,7 @@ impl BackendClient {
         }
         let text = recovery::new_text()?;
         let key = RecoveryKey::derive(&text, &credentials.user_id, &verified.root)?;
-        let room_keys = RoomKeyPair::generate()?;
+        let project_keys = ProjectKeyPair::generate()?;
         let mut body = device_identity::sign_addition(
             &verified,
             &device_identity::NewDevice {
@@ -45,11 +45,14 @@ impl BackendClient {
             &credentials.keys.device_id,
             &credentials.keys.signing_key()?,
         )?;
-        let proof =
-            rooms::room_key_proof(&credentials.user_id, &key.device_id, room_keys.public())?;
-        body["roomKeyBox"] = json!(BASE64.encode(key.seal(&room_keys)?));
-        body["roomKey"] = json!({
-            "publicKey": BASE64.encode(room_keys.public()),
+        let proof = projects::project_key_proof(
+            &credentials.user_id,
+            &key.device_id,
+            project_keys.public(),
+        )?;
+        body["projectKeyBox"] = json!(BASE64.encode(key.seal(&project_keys)?));
+        body["projectKey"] = json!({
+            "publicKey": BASE64.encode(project_keys.public()),
             "signature": BASE64.encode(crypto::sign(key.signing_key(), &proof)?),
         });
         let _response: Value = self
@@ -102,7 +105,7 @@ impl BackendClient {
             )));
         }
         if !known.devices.contains_key(&credentials.keys.device_id) {
-            let saved: SavedRoomKey = self
+            let saved: SavedProjectKey = self
                 .inner
                 .http
                 .bearer(Method::GET, "api/me/recovery-key", &credentials.token, None)
@@ -112,9 +115,13 @@ impl BackendClient {
                     "This is not the recovery key of this account."
                 )));
             }
-            let room_keys = key.open(&decode(&saved.room_key_box, SAVED_ROOM_KEY_BYTES)?)?;
+            let project_keys =
+                key.open(&decode(&saved.project_key_box, SAVED_PROJECT_KEY_BYTES)?)?;
             credentials.keys = self
-                .keep_recovery_room_key(&credentials, Some((key.device_id.clone(), room_keys)))
+                .keep_recovery_project_key(
+                    &credentials,
+                    Some((key.device_id.clone(), project_keys)),
+                )
                 .await?;
             self.approve_with_recovery_key(&credentials, &key, &known)
                 .await?;
@@ -142,10 +149,10 @@ impl BackendClient {
         Ok(events)
     }
 
-    pub(super) async fn keep_recovery_room_key(
+    pub(super) async fn keep_recovery_project_key(
         &self,
         credentials: &Credentials,
-        recovery: Option<(String, RoomKeyPair)>,
+        recovery: Option<(String, ProjectKeyPair)>,
     ) -> Result<Arc<DeviceKeys>> {
         let secrets = self.inner.state.lock().await.secrets.clone();
         let (user, device) = (

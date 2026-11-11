@@ -83,8 +83,7 @@ language and native interaction, show progress where work happens, and add a con
 when it helps someone do the work.
 
 Visible text uses one word for one thing: terminal, project, friend, agent, device.
-Session, host, runtime, room and mission are internal words: the code calls a project a
-room, and the runtime's contract calls it a mission.
+Session, host and runtime are internal words.
 
 Kodosi speaks English, German, Greek, Spanish, French, Italian, Japanese, Korean and
 Simplified Chinese. The `kodosi` command, the logs and the details of an internal fault

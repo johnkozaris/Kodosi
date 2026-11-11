@@ -10,7 +10,7 @@ class TerminalTilingLayoutModelTest final : public QObject {
     Q_OBJECT
 
 private slots:
-    void knowsTheRoomOfTheNextTerminal();
+    void knowsTheProjectOfTheNextTerminal();
     void findsTheTileBesideThisOne();
     void laysOutOneThroughSixSessions_data();
     void laysOutOneThroughSixSessions();
@@ -80,7 +80,7 @@ qreal roleReal(
 
 }
 
-void TerminalTilingLayoutModelTest::knowsTheRoomOfTheNextTerminal()
+void TerminalTilingLayoutModelTest::knowsTheProjectOfTheNextTerminal()
 {
     kodosi::TerminalTilingLayoutModel model;
     model.setViewportWidth(1200);

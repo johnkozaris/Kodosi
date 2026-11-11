@@ -34,25 +34,25 @@ Item {
         return pinned.length > 0 ? [{ key: "pinned", name: qsTr("Pinned"), pinned: true, folder: true, sessions: pinned }].concat(rest) : rest
     }
     readonly property bool titled: groups.some(group => !group.pinned && group.computer !== "local")
-    readonly property var rooms: Models.Missions.missions
-    readonly property var invitations: Models.Missions.invitations
+    readonly property var projects: Models.Projects.projects
+    readonly property var invitations: Models.Projects.invitations
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
     readonly property var approvalSign: ({ sign: "hand", asks: true, signLabel: qsTr("Needs your approval") })
-    readonly property var roomWork: {
+    readonly property var projectWork: {
         const work = {}
         for (const session of Models.Sessions.sessions) {
-            if (!session.missionId)
+            if (!session.projectId)
                 continue
-            const room = work[session.missionId] || (work[session.missionId] = { asks: false, working: false })
-            room.asks = room.asks || session.asks === true
-            room.working = room.working || session.working === true
+            const project = work[session.projectId] || (work[session.projectId] = { asks: false, working: false })
+            project.asks = project.asks || session.asks === true
+            project.working = project.working || session.working === true
         }
         return work
     }
     readonly property string selection: {
         switch (Models.DesktopState.activeView) {
         case Models.DesktopState.Sessions: return Models.DesktopState.selectedSessionId.length > 0 ? "terminal:" + Models.DesktopState.selectedSessionId : ""
-        case Models.DesktopState.Missions: return Models.Missions.selectedMissionId.length > 0 ? "room:" + Models.Missions.selectedMissionId : "rooms"
+        case Models.DesktopState.Projects: return Models.Projects.selectedProjectId.length > 0 ? "project:" + Models.Projects.selectedProjectId : "projects"
         case Models.DesktopState.People: return "people"
         default: return "settings"
         }
@@ -78,7 +78,7 @@ Item {
     signal shareRequested(string sessionId)
     signal resumeRequested(string provider)
     signal paletteRequested
-    signal newRoomRequested
+    signal newProjectRequested
     signal dosiSettingsRequested
     signal accountSettingsRequested
     signal aboutRequested
@@ -88,13 +88,13 @@ Item {
         if (!Models.Account.signedIn)
             Models.Account.login()
     }
-    function showRooms() {
-        Models.DesktopState.activeView = Models.DesktopState.Missions
-        Models.Missions.open("")
+    function showProjects() {
+        Models.DesktopState.activeView = Models.DesktopState.Projects
+        Models.Projects.open("")
     }
-    function openRoom(id) {
-        Models.DesktopState.activeView = Models.DesktopState.Missions
-        Models.Missions.open(id)
+    function openProject(id) {
+        Models.DesktopState.activeView = Models.DesktopState.Projects
+        Models.Projects.open(id)
     }
     function openTerminal(id) {
         Models.SessionActions.activate(id)
@@ -127,7 +127,7 @@ Item {
     Component.onCompleted: Fold.stage = root
     onPillTargetChanged: Qt.callLater(syncPill)
     onGroupsChanged: Qt.callLater(syncPill)
-    onRoomsChanged: Qt.callLater(syncPill)
+    onProjectsChanged: Qt.callLater(syncPill)
     onInvitationsChanged: Qt.callLater(syncPill)
     onCollapsedChanged: Qt.callLater(syncPill)
 
@@ -305,41 +305,41 @@ Item {
                 spacing: 6
 
                 Repeater {
-                    model: root.rooms.length
+                    model: root.projects.length
 
                     RailItem {
-                        id: railRoom
+                        id: railProject
 
                         required property int index
-                        readonly property var entry: root.rooms[index] || ({})
+                        readonly property var entry: root.projects[index] || ({})
 
-                        selected: root.selection === "room:" + entry.id
+                        selected: root.selection === "project:" + entry.id
                         Accessible.name: entry.name || ""
                         contentItem: Item {
-                            RoomSigil {
+                            ProjectSigil {
                                 id: railSigil
                                 anchors.centerIn: parent
-                                key: railRoom.entry.id || ""
+                                key: railProject.entry.id || ""
                                 size: 26
-                                opacity: railRoomSpot.hidden ? 0 : 1
+                                opacity: railProjectSpot.hidden ? 0 : 1
 
                                 FoldSpot {
-                                    id: railRoomSpot
+                                    id: railProjectSpot
                                     anchors.fill: parent
-                                    key: "room:" + (railRoom.entry.id || "")
+                                    key: "project:" + (railProject.entry.id || "")
                                     place: "rail"
-                                    sigil: railRoom.entry.id || ""
+                                    sigil: railProject.entry.id || ""
                                     view: railFlick
                                 }
                             }
                             NewDot {
                                 x: railSigil.x + railSigil.width - width / 2 - 1
                                 y: railSigil.y - height / 2 + 1
-                                visible: Models.Missions.unreadRooms.indexOf(railRoom.entry.id) >= 0
+                                visible: Models.Projects.unreadProjects.indexOf(railProject.entry.id) >= 0
                                 ring: KodosiTheme.ground
                             }
                         }
-                        onClicked: root.openRoom(entry.id)
+                        onClicked: root.openProject(entry.id)
                     }
                 }
                 Rectangle {
@@ -348,7 +348,7 @@ Item {
                     height: 1
                     radius: 0.5
                     color: KodosiTheme.alpha(KodosiTheme.hairline, 0.7)
-                    visible: root.rooms.length > 0 && Models.Sessions.listedSessions.length > 0
+                    visible: root.projects.length > 0 && Models.Sessions.listedSessions.length > 0
                 }
                 Repeater {
                     model: Models.Sessions.listedSessions.length
@@ -610,7 +610,7 @@ Item {
             Layout.fillHeight: true
             visible: root.dosi
             onNewTerminalRequested: root.newTerminalRequested()
-            onNewRoomRequested: root.accountReady ? root.newRoomRequested() : root.signIn()
+            onNewProjectRequested: root.accountReady ? root.newProjectRequested() : root.signIn()
             onSettingsRequested: root.dosiSettingsRequested()
         }
         Flickable {
@@ -659,9 +659,9 @@ Item {
                 SectionHeader {
                     title: qsTr("Projects")
                     addName: qsTr("New project")
-                    identifier: "sidebar.rooms"
-                    onClicked: root.showRooms()
-                    onAddClicked: root.accountReady ? root.newRoomRequested() : root.signIn()
+                    identifier: "sidebar.projects"
+                    onClicked: root.showProjects()
+                    onAddClicked: root.accountReady ? root.newProjectRequested() : root.signIn()
                 }
                 AbstractButton {
                     id: signInHint
@@ -727,14 +727,14 @@ Item {
 
                             RowLayout {
                                 spacing: 9
-                                RoomSigil { key: invitation.entry.missionId || ""; size: 22 }
+                                ProjectSigil { key: invitation.entry.projectId || ""; size: 22 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     spacing: 1
 
                                     PlainLabel {
                                         Layout.fillWidth: true
-                                        text: invitation.entry.missionName || ""
+                                        text: invitation.entry.projectName || ""
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -757,8 +757,8 @@ Item {
                                     objectName: "sidebar.invitation.accept." + invitation.entry.id
                                     Accessible.id: objectName
                                     onClicked: {
-                                        Models.DesktopState.activeView = Models.DesktopState.Missions
-                                        Models.Missions.acceptInvitation(invitation.entry.id)
+                                        Models.DesktopState.activeView = Models.DesktopState.Projects
+                                        Models.Projects.acceptInvitation(invitation.entry.id)
                                     }
                                 }
                                 KButton {
@@ -767,97 +767,97 @@ Item {
                                     text: qsTr("Not now")
                                     objectName: "sidebar.invitation.decline." + invitation.entry.id
                                     Accessible.id: objectName
-                                    onClicked: Models.Missions.declineInvitation(invitation.entry.id)
+                                    onClicked: Models.Projects.declineInvitation(invitation.entry.id)
                                 }
                             }
                         }
                     }
                 }
                 Repeater {
-                    model: root.rooms.length
+                    model: root.projects.length
 
                     AbstractButton {
-                        id: room
+                        id: project
 
                         required property int index
-                        readonly property var entry: root.rooms[index] || ({})
-                        readonly property bool selected: root.selection === "room:" + entry.id
-                        readonly property bool unread: Models.Missions.unreadRooms.indexOf(entry.id) >= 0
-                        readonly property var work: root.roomWork[entry.id] || ({ asks: false, working: false })
+                        readonly property var entry: root.projects[index] || ({})
+                        readonly property bool selected: root.selection === "project:" + entry.id
+                        readonly property bool unread: Models.Projects.unreadProjects.indexOf(entry.id) >= 0
+                        readonly property var work: root.projectWork[entry.id] || ({ asks: false, working: false })
 
                         width: parent ? parent.width : 0
                         height: 34
                         hoverEnabled: true
                         activeFocusOnTab: true
-                        objectName: "sidebar.room." + entry.id
+                        objectName: "sidebar.project." + entry.id
                         Accessible.id: objectName
                         Accessible.name: entry.name || ""
                         Accessible.description: unread ? qsTr("New messages") : ""
                         Accessible.selected: selected
 
-                        onSelectedChanged: root.claimPill(room, selected)
-                        Component.onCompleted: root.claimPill(room, selected)
-                        Component.onDestruction: root.claimPill(room, false)
+                        onSelectedChanged: root.claimPill(project, selected)
+                        Component.onCompleted: root.claimPill(project, selected)
+                        Component.onDestruction: root.claimPill(project, false)
 
                         contentItem: RowLayout {
                             spacing: 9
 
-                            RoomSigil {
+                            ProjectSigil {
                                 Layout.leftMargin: 8
-                                key: room.entry.id || ""
+                                key: project.entry.id || ""
                                 size: 22
-                                opacity: roomSpot.hidden ? 0 : 1
+                                opacity: projectSpot.hidden ? 0 : 1
 
                                 FoldSpot {
-                                    id: roomSpot
+                                    id: projectSpot
                                     anchors.fill: parent
-                                    key: "room:" + (room.entry.id || "")
+                                    key: "project:" + (project.entry.id || "")
                                     place: "row"
-                                    sigil: room.entry.id || ""
+                                    sigil: project.entry.id || ""
                                     view: flick
                                 }
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
-                                text: room.entry.name || ""
-                                color: room.selected || room.hovered || room.unread ? KodosiTheme.ink : KodosiTheme.inkMuted
-                                font.weight: room.selected || room.unread ? Font.DemiBold : Font.Medium
+                                text: project.entry.name || ""
+                                color: project.selected || project.hovered || project.unread ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                font.weight: project.selected || project.unread ? Font.DemiBold : Font.Medium
                                 elide: Text.ElideRight
                             }
                             NewDot {
                                 Layout.rightMargin: 12
-                                visible: room.unread
+                                visible: project.unread
                             }
                             StatusSign {
                                 Layout.rightMargin: 8
-                                visible: !room.unread && room.work.asks
+                                visible: !project.unread && project.work.asks
                                 session: ({ sign: "hand", asks: true, signLabel: qsTr("Needs your approval") })
                             }
                             BreathingDot {
                                 Layout.rightMargin: 13
-                                visible: !room.unread && !room.work.asks && room.work.working
+                                visible: !project.unread && !project.work.asks && project.work.working
                                 size: 6
                                 color: KodosiTheme.glowOrange
                             }
                         }
                         background: Rectangle {
                             radius: KodosiTheme.radiusMd
-                            color: KodosiTheme.alpha(KodosiTheme.ink, !room.selected && (room.hovered || room.visualFocus) ? 0.06 : 0)
+                            color: KodosiTheme.alpha(KodosiTheme.ink, !project.selected && (project.hovered || project.visualFocus) ? 0.06 : 0)
                         }
 
-                        onClicked: root.openRoom(entry.id)
+                        onClicked: root.openProject(entry.id)
 
                         TerminalDropArea {
                             anchors.fill: parent
-                            objectName: room.objectName + ".drop"
-                            onTerminalDropped: id => roomShare.ask(id, room.entry.id)
+                            objectName: project.objectName + ".drop"
+                            onTerminalDropped: id => projectShare.ask(id, project.entry.id)
                         }
                     }
                 }
                 PlainLabel {
                     width: parent.width
                     leftPadding: 10
-                    visible: Models.Missions.catalogTruncated
+                    visible: Models.Projects.catalogTruncated
                     text: qsTr("More projects exist. Use Go to… to find them.")
                     color: KodosiTheme.inkFaint
                     font.pixelSize: KodosiTheme.fontCaption
@@ -1078,9 +1078,9 @@ Item {
                                             anchors.bottom: parent.bottom
                                             anchors.rightMargin: -4
                                             anchors.bottomMargin: -4
-                                            visible: !!row.session.missionId
+                                            visible: !!row.session.projectId
                                                 || (row.session.isOwner !== false && (row.session.sharedWith || []).length > 0)
-                                            room: row.session.missionId || ""
+                                            project: row.session.projectId || ""
                                             ring: row.selected ? KodosiTheme.raised : KodosiTheme.ground
                                         }
                                         FoldSpot {
@@ -1495,8 +1495,8 @@ Item {
     CloseTerminalDialog {
         id: closeDialog
     }
-    RoomShareDialog {
-        id: roomShare
-        onShared: id => root.openRoom(id)
+    ProjectShareDialog {
+        id: projectShare
+        onShared: id => root.openProject(id)
     }
 }

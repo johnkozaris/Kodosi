@@ -52,16 +52,16 @@ struct AppShell: View {
         .buttonStyle(.kodosi(.secondary))
         .textFieldStyle(WellTextFieldStyle()).toggleStyle(KodosiSwitchStyle())
         .confirmationDialog(
-            roomShareTitle, isPresented: Binding(get: { workbench.roomShare != nil }, set: {
+            projectShareTitle, isPresented: Binding(get: { workbench.projectShare != nil }, set: {
                 if !$0 {
-                    workbench.roomShare = nil
+                    workbench.projectShare = nil
                 }
-            }), titleVisibility: .visible, presenting: workbench.roomShare,
+            }), titleVisibility: .visible, presenting: workbench.projectShare,
         ) { share in
             Button("Share") { deps.share(share) }
             Button("Cancel", role: .cancel) {}
         } message: { share in
-            Text(roomShareMessage(share))
+            Text(projectShareMessage(share))
         }
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
@@ -76,27 +76,27 @@ struct AppShell: View {
         case .sessions:
             TilingStage(workbench: workbench)
                 .environment(\.terminalInteractionEnabled, terminalsInteractive)
-        case .missions: MissionsView()
+        case .projects: ProjectsView()
         case .people: PeopleView()
         case .settings: SettingsView()
         }
     }
 
-    private var roomShareTitle: String {
-        guard let share = deps.workbench.roomShare else { return "" }
+    private var projectShareTitle: String {
+        guard let share = deps.workbench.projectShare else { return "" }
         let terminal = deps.session(share.sessionId)?.name ?? String(localized: "this terminal")
-        return String(localized: "Share \(terminal) with \(roomName(share.roomId))?")
+        return String(localized: "Share \(terminal) with \(projectName(share.projectId))?")
     }
 
-    private func roomShareMessage(_ share: RoomShare) -> String {
-        let room = roomName(share.roomId)
-        let control = String(localized: "Everyone in \(room) gets full control of it.")
-        guard let other = deps.session(share.sessionId)?.missionId else { return control }
-        return control + " " + String(localized: "It leaves \(roomName(other)).")
+    private func projectShareMessage(_ share: ProjectShare) -> String {
+        let project = projectName(share.projectId)
+        let control = String(localized: "Everyone in \(project) gets full control of it.")
+        guard let other = deps.session(share.sessionId)?.projectId else { return control }
+        return control + " " + String(localized: "It leaves \(projectName(other)).")
     }
 
-    private func roomName(_ id: String) -> String {
-        deps.rooms.missions.first { $0.id == id }?.name ?? String(localized: "the project")
+    private func projectName(_ id: String) -> String {
+        deps.projects.entries.first { $0.id == id }?.name ?? String(localized: "the project")
     }
 
     private var terminalsInteractive: Bool {
@@ -104,7 +104,7 @@ struct AppShell: View {
     }
 
     private enum Sheet: Equatable {
-        case signIn, recoveryKey, trust(FriendTrust), details(String), newRoom, history, launcher
+        case signIn, recoveryKey, trust(FriendTrust), details(String), newProject, history, launcher
     }
 
     private var sheet: Sheet? {
@@ -121,8 +121,8 @@ struct AppShell: View {
         if let id = workbench.detailsSessionId, deps.session(id) != nil {
             return .details(id)
         }
-        if workbench.showsNewRoom {
-            return .newRoom
+        if workbench.showsNewProject {
+            return .newProject
         }
         if workbench.showsHistory {
             return .history
@@ -146,14 +146,14 @@ struct AppShell: View {
                     SessionDetailsView(session: session)
                 }
             })
-        case .newRoom:
-            SheetLayer(close: { workbench.showsNewRoom = false }, content: { NewRoomSheet() })
+        case .newProject:
+            SheetLayer(close: { workbench.showsNewProject = false }, content: { NewProjectSheet() })
         case .history:
             SheetLayer(close: { workbench.showsHistory = false }, content: { HistoryView() })
         case .launcher:
             SheetLayer(close: { workbench.launcher = nil }, rises: false, content: {
                 AgentLauncher(
-                    roomId: workbench.launcher?.roomId, defaultFolder: deps.selectedLocalDirectory,
+                    projectId: workbench.launcher?.projectId, defaultFolder: deps.selectedLocalDirectory,
                     started: { workbench.launcher = nil }, close: { workbench.launcher = nil },
                 )
                 .padding(24)

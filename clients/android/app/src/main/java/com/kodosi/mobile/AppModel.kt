@@ -10,7 +10,7 @@ import com.kodosi.mobile.dosi.DosiStore
 import com.kodosi.mobile.notifications.FirebaseConfiguration
 import com.kodosi.mobile.notifications.PushRegistration
 import com.kodosi.mobile.people.PeopleStore
-import com.kodosi.mobile.rooms.RoomStore
+import com.kodosi.mobile.projects.ProjectStore
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.InvalidEvent
 import com.kodosi.mobile.runtime.RuntimeEnvironment
@@ -64,7 +64,7 @@ class AppModel(
     )
     data class TerminalTarget(val id: String, val account: String)
     val terminalTarget = MutableStateFlow<TerminalTarget?>(null)
-    val rooms = RoomStore(commands)
+    val projects = ProjectStore(commands)
     val people = PeopleStore(commands)
     val dosi = DosiStore(commands)
     val canvas = CanvasStore(commands, words)
@@ -122,7 +122,7 @@ class AppModel(
         account.reset(null)
         terminals.reset()
         notifications.reset()
-        rooms.reset(null)
+        projects.reset(null)
         people.reset()
         dosi.reset()
         documents.reset()
@@ -142,7 +142,7 @@ class AppModel(
         commands.perform("auth.refresh")
         commands.perform("devices.refresh")
         people.refresh()
-        rooms.refresh()
+        projects.refresh()
     }
 
     fun updatePush(force: Boolean = false): Long? {
@@ -212,7 +212,7 @@ class AppModel(
             account.reset(event.accountUserId)
             terminals.reset()
             notifications.reset()
-            rooms.reset(event.accountUserId)
+            projects.reset(event.accountUserId)
             people.reset()
             dosi.reset()
             documents.reset()
@@ -251,7 +251,7 @@ class AppModel(
                 if (event.type == "auth.ready") {
                     commands.perform("devices.refresh")
                     people.refresh()
-                    rooms.refresh()
+                    projects.refresh()
                 }
             }
 
@@ -273,7 +273,7 @@ class AppModel(
 
             "friends" -> people.receive(event)
 
-            "mission", "missions", "room" -> rooms.receive(event)
+            "project", "projects" -> projects.receive(event)
 
             "dosi" -> dosi.receive(event)
 

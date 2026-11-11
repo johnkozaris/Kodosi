@@ -42,8 +42,8 @@ struct DosiShelf: View {
         .map(\.element)
     }
 
-    private var rooms: [MissionEntry] {
-        deps.rooms.missions.enumerated().sorted { left, right in
+    private var projects: [ProjectEntry] {
+        deps.projects.entries.enumerated().sorted { left, right in
             left.element.unread == right.element.unread ? left.offset < right.offset : left.element.unread
         }
         .map(\.element)
@@ -51,7 +51,7 @@ struct DosiShelf: View {
 
     var body: some View {
         let terminals = terminals
-        let rooms = rooms
+        let projects = projects
         VStack(spacing: 4) {
             DosiShelfRow(items: terminals, widths: terminals.map { chipWidth(of: $0) }, estimate: estimate) { session, order, width in
                 DosiTerminalChip(session: session, order: order, width: width).transition(Self.chip)
@@ -61,13 +61,13 @@ struct DosiShelf: View {
                 DosiAddMark(title: "New terminal", identifier: "dosi.marks.new") { deps.openLauncher() }
                     .fold(FoldPart.newTerminal)
             }
-            if !rooms.isEmpty {
-                DosiShelfRow(items: rooms, widths: rooms.map { chipWidth(of: $0) }, estimate: estimate) { mission, order, width in
-                    DosiRoomChip(mission: mission, order: order, width: width).transition(Self.chip)
+            if !projects.isEmpty {
+                DosiShelfRow(items: projects, widths: projects.map { chipWidth(of: $0) }, estimate: estimate) { project, order, width in
+                    DosiProjectChip(project: project, order: order, width: width).transition(Self.chip)
                 } more: { hidden, order in
-                    DosiMoreRooms(missions: hidden, order: order).transition(Self.chip)
+                    DosiMoreProjects(projects: hidden, order: order).transition(Self.chip)
                 } trailing: {
-                    DosiAddMark(title: "New project", identifier: "dosi.marks.room.new") { deps.workbench.showsNewRoom = true }
+                    DosiAddMark(title: "New project", identifier: "dosi.marks.project.new") { deps.workbench.showsNewProject = true }
                 }
                 .transition(AnyTransition.unfold)
             }
@@ -78,7 +78,7 @@ struct DosiShelf: View {
                 .arrive(delay: 0.08, rise: 0)
         }
         .animation(theme.motion.spring, value: terminals.map(\.id))
-        .animation(theme.motion.spring, value: rooms.map(\.id))
+        .animation(theme.motion.spring, value: projects.map(\.id))
     }
 
     private var estimate: CGFloat {
@@ -93,8 +93,8 @@ struct DosiShelf: View {
         DosiShelfFit.chip(session.name, sign: deps.sign(of: session) == nil ? nil : 14)
     }
 
-    private func chipWidth(of mission: MissionEntry) -> CGFloat {
-        DosiShelfFit.chip(mission.name, sign: mission.unread ? 8 : nil)
+    private func chipWidth(of project: ProjectEntry) -> CGFloat {
+        DosiShelfFit.chip(project.name, sign: project.unread ? 8 : nil)
     }
 
     private func need(_ session: RuntimeSession) -> Int {
@@ -225,10 +225,10 @@ private struct DosiTerminalChip: View {
     }
 }
 
-private struct DosiRoomChip: View {
+private struct DosiProjectChip: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
-    let mission: MissionEntry
+    let project: ProjectEntry
     let order: Int
     let width: CGFloat
     @State private var glints = 0
@@ -236,43 +236,43 @@ private struct DosiRoomChip: View {
     @State private var rings = 0
 
     private var selected: Bool {
-        deps.workbench.section == .missions && deps.workbench.selectedMissionId == mission.id
+        deps.workbench.section == .projects && deps.workbench.selectedProjectId == project.id
     }
 
     var body: some View {
-        Button { deps.workbench.section = .missions; deps.openMission(mission) } label: {
+        Button { deps.workbench.section = .projects; deps.openProject(project) } label: {
             DosiChip(
-                name: mission.name, width: width, selected: selected, shown: true,
-                mark: RoomSigil(key: mission.id, size: 20).fold(.room(mission.id), at: .slot),
-                sign: mission.unread ? AnyView(NewDot()) : nil,
+                name: project.name, width: width, selected: selected, shown: true,
+                mark: ProjectSigil(key: project.id, size: 20).fold(.project(project.id), at: .slot),
+                sign: project.unread ? AnyView(NewDot()) : nil,
             )
             .glint(trigger: glints, delay: glintDelay, radius: Radius.sm)
             .ring(trigger: rings, color: theme.colors.accent, radius: Radius.sm)
         }
         .buttonStyle(PressScaleStyle(scale: 0.95))
-        .tip(verbatim: mission.name)
-        .accessibilityLabel(mission.name)
-        .accessibilityIdentifier("dosi.marks.room.\(AccessibilityIdentifier.token(mission.id))")
+        .tip(verbatim: project.name)
+        .accessibilityLabel(project.name)
+        .accessibilityIdentifier("dosi.marks.project.\(AccessibilityIdentifier.token(project.id))")
         .accessibilityAddTraits(selected ? .isSelected : [])
         .onChange(of: deps.dosi.reading?.id) { _, id in
             guard id != nil, case let .tool(tool)? = deps.dosi.reading?.body, let target = tool.target else { return }
             switch target.kind {
-            case .rooms:
+            case .projects:
                 glintDelay = Double(min(order, 10)) * 0.07
                 glints += 1
-            case .room where deps.room(named: target.value)?.id == mission.id:
+            case .project where deps.project(named: target.value)?.id == project.id:
                 glintDelay = 0
                 glints += 1
             default:
                 break
             }
         }
-        .onChange(of: mission.unread) { _, now in
+        .onChange(of: project.unread) { _, now in
             if now {
                 rings += 1
             }
         }
-        .animation(theme.motion.snappy, value: mission.unread)
+        .animation(theme.motion.snappy, value: project.unread)
     }
 }
 

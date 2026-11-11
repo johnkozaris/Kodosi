@@ -2128,111 +2128,6 @@
     </message>
 </context>
 <context>
-    <name>MissionsView</name>
-    <message>
-        <source>Work in projects</source>
-        <translation>プロジェクトで作業</translation>
-    </message>
-    <message>
-        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
-        <translation>プロジェクトは、どのフォルダやコンピュータのターミナルも、タスクやリポジトリと一緒にまとめます。フレンドはいつでも招待できます。</translation>
-    </message>
-    <message>
-        <source>Sign in</source>
-        <translation>サインイン</translation>
-    </message>
-    <message>
-        <source>Approve this device</source>
-        <translation>このデバイスを承認</translation>
-    </message>
-    <message>
-        <source>Projects</source>
-        <translation>プロジェクト</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n projects</source>
-        <translation>
-            <numerusform>プロジェクト %n 件</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%n shared terminals</source>
-        <translation>
-            <numerusform>共有ターミナル %n 個</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>New project</source>
-        <translation>新しいプロジェクト</translation>
-    </message>
-    <message>
-        <source>More projects exist. Use Go to… to find them.</source>
-        <translation>ほかにもプロジェクトがあります。「移動…」で探せます。</translation>
-    </message>
-    <message>
-        <source>Some projects are not shown</source>
-        <translation>一部のプロジェクトは表示されていません</translation>
-    </message>
-    <message>
-        <source>%1 invited you</source>
-        <translation>%1 さんから招待されました</translation>
-    </message>
-    <message>
-        <source>You are invited</source>
-        <translation>招待が届いています</translation>
-    </message>
-    <message>
-        <source>Not now</source>
-        <translation>今はしない</translation>
-    </message>
-    <message>
-        <source>Decline invitation</source>
-        <translation>招待を辞退</translation>
-    </message>
-    <message>
-        <source>Join</source>
-        <translation>参加</translation>
-    </message>
-    <message>
-        <source>New messages</source>
-        <translation>新着メッセージ</translation>
-    </message>
-    <message>
-        <source>Yours</source>
-        <translation>自分の</translation>
-    </message>
-    <message>
-        <source>No terminals yet</source>
-        <translation>まだターミナルはありません</translation>
-    </message>
-    <message>
-        <source>Working</source>
-        <translation>作業中</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals</source>
-        <translation>
-            <numerusform>ターミナル %n 個</numerusform>
-        </translation>
-    </message>
-    <message>
-        <source>Make your first project</source>
-        <translation>最初のプロジェクトを作成</translation>
-    </message>
-    <message>
-        <source>Project name</source>
-        <translation>プロジェクト名</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>キャンセル</translation>
-    </message>
-    <message>
-        <source>Create project</source>
-        <translation>プロジェクトを作成</translation>
-    </message>
-</context>
-<context>
     <name>NoticePill</name>
     <message>
         <source>Dismiss</source>
@@ -2427,93 +2322,7 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>確認中</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Kodosi はこれらのファイルを開くだけで、変更はしません。</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>未作成</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>開く</translation>
-    </message>
-</context>
-<context>
-    <name>QuitDialog</name>
-    <message>
-        <source>Restart Kodosi?</source>
-        <translation>Kodosi を再起動しますか？</translation>
-    </message>
-    <message>
-        <source>Quit Kodosi?</source>
-        <translation>Kodosi を終了しますか？</translation>
-    </message>
-    <message>
-        <source>Restart</source>
-        <translation>再起動</translation>
-    </message>
-    <message>
-        <source>Quit</source>
-        <translation>終了</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
-        <translation>
-            <numerusform>このコンピュータのターミナル %n 個が停止します。Kodosi を開くと再び起動します。</numerusform>
-        </translation>
-    </message>
-</context>
-<context>
-    <name>RemoveKey</name>
-    <message>
-        <source>Remove from canvas</source>
-        <translation>キャンバスから削除</translation>
-    </message>
-</context>
-<context>
-    <name>RepositoryPicker</name>
-    <message>
-        <source>Find or paste a repository</source>
-        <translation>リポジトリを検索または貼り付け</translation>
-    </message>
-    <message>
-        <source>Install GitHub CLI to see your repositories</source>
-        <translation>リポジトリを表示するには GitHub CLI をインストールしてください</translation>
-    </message>
-    <message>
-        <source>Connect GitHub to see your repositories</source>
-        <translation>リポジトリを表示するには GitHub と連携してください</translation>
-    </message>
-    <message>
-        <source>Get it</source>
-        <translation>入手</translation>
-    </message>
-    <message>
-        <source>Connect</source>
-        <translation>接続</translation>
-    </message>
-    <message>
-        <source>GitHub sign-in</source>
-        <translation>GitHub サインイン</translation>
-    </message>
-    <message>
-        <source>No match</source>
-        <translation>一致なし</translation>
-    </message>
-    <message>
-        <source>No repositories found</source>
-        <translation>リポジトリが見つかりません</translation>
-    </message>
-</context>
-<context>
-    <name>RoomContent</name>
+    <name>ProjectContent</name>
     <message>
         <source>Project name</source>
         <translation>プロジェクト名</translation>
@@ -2690,7 +2499,7 @@
     </message>
 </context>
 <context>
-    <name>RoomConversation</name>
+    <name>ProjectConversation</name>
     <message>
         <source>Today</source>
         <translation>今日</translation>
@@ -2799,7 +2608,7 @@
     </message>
 </context>
 <context>
-    <name>RoomRepositories</name>
+    <name>ProjectRepositories</name>
     <message>
         <source>Link a repository</source>
         <translation>リポジトリをリンク</translation>
@@ -2838,7 +2647,7 @@
     </message>
 </context>
 <context>
-    <name>RoomShareDialog</name>
+    <name>ProjectShareDialog</name>
     <message>
         <source>the project</source>
         <translation>プロジェクト</translation>
@@ -2865,14 +2674,14 @@
     </message>
 </context>
 <context>
-    <name>RoomSkeleton</name>
+    <name>ProjectSkeleton</name>
     <message>
         <source>Loading</source>
         <translation>読み込み中</translation>
     </message>
 </context>
 <context>
-    <name>RoomTasks</name>
+    <name>ProjectTasks</name>
     <message>
         <source>Reopen %1</source>
         <translation>%1 を再オープン</translation>
@@ -2972,6 +2781,197 @@
     <message>
         <source>Done</source>
         <translation>完了</translation>
+    </message>
+</context>
+<context>
+    <name>ProjectsView</name>
+    <message>
+        <source>Work in projects</source>
+        <translation>プロジェクトで作業</translation>
+    </message>
+    <message>
+        <source>A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.</source>
+        <translation>プロジェクトは、どのフォルダやコンピュータのターミナルも、タスクやリポジトリと一緒にまとめます。フレンドはいつでも招待できます。</translation>
+    </message>
+    <message>
+        <source>Sign in</source>
+        <translation>サインイン</translation>
+    </message>
+    <message>
+        <source>Approve this device</source>
+        <translation>このデバイスを承認</translation>
+    </message>
+    <message>
+        <source>Projects</source>
+        <translation>プロジェクト</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n projects</source>
+        <translation>
+            <numerusform>プロジェクト %n 件</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n shared terminals</source>
+        <translation>
+            <numerusform>共有ターミナル %n 個</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>New project</source>
+        <translation>新しいプロジェクト</translation>
+    </message>
+    <message>
+        <source>More projects exist. Use Go to… to find them.</source>
+        <translation>ほかにもプロジェクトがあります。「移動…」で探せます。</translation>
+    </message>
+    <message>
+        <source>Some projects are not shown</source>
+        <translation>一部のプロジェクトは表示されていません</translation>
+    </message>
+    <message>
+        <source>%1 invited you</source>
+        <translation>%1 さんから招待されました</translation>
+    </message>
+    <message>
+        <source>You are invited</source>
+        <translation>招待が届いています</translation>
+    </message>
+    <message>
+        <source>Not now</source>
+        <translation>今はしない</translation>
+    </message>
+    <message>
+        <source>Decline invitation</source>
+        <translation>招待を辞退</translation>
+    </message>
+    <message>
+        <source>Join</source>
+        <translation>参加</translation>
+    </message>
+    <message>
+        <source>New messages</source>
+        <translation>新着メッセージ</translation>
+    </message>
+    <message>
+        <source>Yours</source>
+        <translation>自分の</translation>
+    </message>
+    <message>
+        <source>No terminals yet</source>
+        <translation>まだターミナルはありません</translation>
+    </message>
+    <message>
+        <source>Working</source>
+        <translation>作業中</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals</source>
+        <translation>
+            <numerusform>ターミナル %n 個</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Make your first project</source>
+        <translation>最初のプロジェクトを作成</translation>
+    </message>
+    <message>
+        <source>Project name</source>
+        <translation>プロジェクト名</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Create project</source>
+        <translation>プロジェクトを作成</translation>
+    </message>
+</context>
+<context>
+    <name>ProviderSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>確認中</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Kodosi はこれらのファイルを開くだけで、変更はしません。</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>未作成</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>開く</translation>
+    </message>
+</context>
+<context>
+    <name>QuitDialog</name>
+    <message>
+        <source>Restart Kodosi?</source>
+        <translation>Kodosi を再起動しますか？</translation>
+    </message>
+    <message>
+        <source>Quit Kodosi?</source>
+        <translation>Kodosi を終了しますか？</translation>
+    </message>
+    <message>
+        <source>Restart</source>
+        <translation>再起動</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>終了</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n terminals on this computer stop. They start again when Kodosi opens.</source>
+        <translation>
+            <numerusform>このコンピュータのターミナル %n 個が停止します。Kodosi を開くと再び起動します。</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>RemoveKey</name>
+    <message>
+        <source>Remove from canvas</source>
+        <translation>キャンバスから削除</translation>
+    </message>
+</context>
+<context>
+    <name>RepositoryPicker</name>
+    <message>
+        <source>Find or paste a repository</source>
+        <translation>リポジトリを検索または貼り付け</translation>
+    </message>
+    <message>
+        <source>Install GitHub CLI to see your repositories</source>
+        <translation>リポジトリを表示するには GitHub CLI をインストールしてください</translation>
+    </message>
+    <message>
+        <source>Connect GitHub to see your repositories</source>
+        <translation>リポジトリを表示するには GitHub と連携してください</translation>
+    </message>
+    <message>
+        <source>Get it</source>
+        <translation>入手</translation>
+    </message>
+    <message>
+        <source>Connect</source>
+        <translation>接続</translation>
+    </message>
+    <message>
+        <source>GitHub sign-in</source>
+        <translation>GitHub サインイン</translation>
+    </message>
+    <message>
+        <source>No match</source>
+        <translation>一致なし</translation>
+    </message>
+    <message>
+        <source>No repositories found</source>
+        <translation>リポジトリが見つかりません</translation>
     </message>
 </context>
 <context>
@@ -4228,7 +4228,7 @@
     </message>
 </context>
 <context>
-    <name>kodosi::MissionsModel</name>
+    <name>kodosi::ProjectsModel</name>
     <message>
         <source>Use a name of 1 to 128 UTF-8 bytes.</source>
         <translation>名前は 1〜128 バイト（UTF-8）にしてください。</translation>

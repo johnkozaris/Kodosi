@@ -147,7 +147,7 @@ fn kodosi_commands_become_receipts_and_other_commands_stay_commands() {
         ),
         Some((
             DosiAction::Post,
-            Some(target(DosiTargetKind::Room, "Launch week")),
+            Some(target(DosiTargetKind::Project, "Launch week")),
             Some("Docs are live.".to_owned())
         ))
     );
@@ -229,4 +229,17 @@ fn marks_keep_old_turns_settled_after_they_let_their_ids_go() {
     marks.trim(None);
     assert!(turns.iter().all(|turn| marks.settled(turn)));
     assert!(!marks.settled(&Uuid::now_v7().to_string()));
+}
+
+#[test]
+fn a_saved_conversation_reads_the_first_names_of_a_project_target() {
+    for (saved, kind) in [
+        ("room", DosiTargetKind::Project),
+        ("rooms", DosiTargetKind::Projects),
+    ] {
+        assert_eq!(
+            serde_json::from_value::<DosiTargetKind>(json!(saved)).unwrap(),
+            kind
+        );
+    }
 }

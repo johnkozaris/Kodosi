@@ -48,8 +48,8 @@ public sealed class ConnectionDirectory
         lock (sync) return entries.Keys.Where(x => x.IsOpen).ToArray();
     }
 
-    public void Notify(IEnumerable<Guid> users, string surface, Guid? roomId = null, long? sequence = null) =>
-        Send(users, Wire.Encode(new ChangedNotice(surface, roomId, sequence)));
+    public void Notify(IEnumerable<Guid> users, string surface, Guid? projectId = null, long? sequence = null) =>
+        Send(users, Wire.Encode(new ChangedNotice(surface, projectId, sequence)));
 
     public void NotifyTerminal(Guid sessionId, Guid incarnationId, Guid ownerId, string hostDeviceId, IEnumerable<Guid> people)
     {

@@ -1,6 +1,6 @@
 using Kodosi.Accounts;
 using Kodosi.Data;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
 
@@ -89,7 +89,7 @@ public sealed partial class DeviceService
         sessions.Remove(userId);
         foreach (var device in replaced.Devices) connections.RemoveDevice(userId, device.Id);
         await PublishSessionChangesAsync(userId, replaced.Sessions, replaced.Devices, ct);
-        await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
+        await ProjectMembership.NotifyProjectsOfAsync(db, connections, userId, ct);
     }
 
     private static object ResetView(IdentityReset reset, DateTimeOffset now) => new

@@ -63,7 +63,7 @@ impl Pacer {
         )
     }
 
-    pub(super) fn room(&mut self) -> bool {
+    pub(super) fn project(&mut self) -> bool {
         if self.in_transit() < self.window() {
             return true;
         }
@@ -160,20 +160,20 @@ mod tests {
         let start = Instant::now();
         let mut pacer = Pacer::default();
         assert_eq!(pacer.window(), INITIAL_WINDOW);
-        assert!(pacer.room());
+        assert!(pacer.project());
         pacer.sent(128 * 1024, start);
-        assert!(!pacer.room());
+        assert!(!pacer.project());
         pacer.acknowledge(16 * 1024, at(start, 100)).unwrap();
         pacer.acknowledge(32 * 1024, at(start, 200)).unwrap();
         assert_eq!(pacer.window(), INITIAL_WINDOW);
         pacer.acknowledge(64 * 1024, at(start, 350)).unwrap();
         assert_eq!(pacer.window(), 48 * 1024 * 4 / 2);
         assert_eq!(pacer.in_transit(), 64 * 1024);
-        assert!(pacer.room());
+        assert!(pacer.project());
 
         let mut slow = Pacer::default();
         slow.sent(64 * 1024, start);
-        assert!(!slow.room());
+        assert!(!slow.project());
         slow.acknowledge(1024, at(start, 1000)).unwrap();
         slow.acknowledge(2048, at(start, 2000)).unwrap();
         assert_eq!(slow.window(), MINIMUM_WINDOW);

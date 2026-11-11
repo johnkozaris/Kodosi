@@ -45,7 +45,7 @@ pub struct DosiContext {
     #[serde(default)]
     pub terminal: Option<String>,
     #[serde(default)]
-    pub room: Option<String>,
+    pub project: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -208,8 +208,11 @@ pub struct DosiTarget {
 pub enum DosiTargetKind {
     Terminal,
     Terminals,
-    Room,
-    Rooms,
+    /// The conversations that Dosi saved before this name say `room` and `rooms`.
+    #[serde(alias = "room")]
+    Project,
+    #[serde(alias = "rooms")]
+    Projects,
     Agent,
     File,
     Url,
@@ -239,9 +242,9 @@ impl DosiBody {
         };
         let target = target.as_ref().map(|target| match target.kind {
             DosiTargetKind::Terminal => format!("the terminal {}", target.value),
-            DosiTargetKind::Room => format!("the project {}", target.value),
+            DosiTargetKind::Project => format!("the project {}", target.value),
             DosiTargetKind::Terminals => "the terminals".to_owned(),
-            DosiTargetKind::Rooms => "the projects".to_owned(),
+            DosiTargetKind::Projects => "the projects".to_owned(),
             _ => target.value.clone(),
         });
         let line = format!("{} {}", action.done(), target.unwrap_or_default());
@@ -357,6 +360,6 @@ pub struct DosiLog {
     pub sequence: u64,
     pub instructions: Option<SharedInstructions>,
     pub reset: bool,
-    /// The person's devices now, as the keys of the Dosi room prove.
+    /// The person's devices now, as the keys of the Dosi project prove.
     pub devices: std::collections::BTreeSet<String>,
 }

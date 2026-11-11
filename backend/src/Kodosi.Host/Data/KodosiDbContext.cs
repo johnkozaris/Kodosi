@@ -17,13 +17,13 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<SessionMember> SessionMembers => Set<SessionMember>();
     public DbSet<HiddenSession> HiddenSessions => Set<HiddenSession>();
-    public DbSet<Mission> Missions => Set<Mission>();
-    public DbSet<MissionMember> MissionMembers => Set<MissionMember>();
-    public DbSet<MissionInvitation> MissionInvitations => Set<MissionInvitation>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+    public DbSet<ProjectInvitation> ProjectInvitations => Set<ProjectInvitation>();
 
-    public DbSet<RoomRecipientKey> RoomRecipientKeys => Set<RoomRecipientKey>();
-    public DbSet<MissionKeyState> MissionKeyStates => Set<MissionKeyState>();
-    public DbSet<MissionItem> MissionItems => Set<MissionItem>();
+    public DbSet<ProjectRecipientKey> ProjectRecipientKeys => Set<ProjectRecipientKey>();
+    public DbSet<ProjectKeyState> ProjectKeyStates => Set<ProjectKeyState>();
+    public DbSet<ProjectItem> ProjectItems => Set<ProjectItem>();
 
     public Task<User> LockUserAsync(Guid id, CancellationToken ct) =>
         Users.FromSqlInterpolated($"SELECT * FROM users WHERE \"Id\" = {id} FOR UPDATE").SingleAsync(ct);
@@ -117,8 +117,8 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.Property(x => x.HostDeviceId).HasMaxLength(256);
             e.Property(x => x.HostName).HasMaxLength(128);
             e.Property(x => x.Name).HasMaxLength(128);
-            e.Property(x => x.RoomDeviceId).HasMaxLength(256);
-            e.Property(x => x.RoomHistory).HasMaxLength(64);
+            e.Property(x => x.ProjectDeviceId).HasMaxLength(256);
+            e.Property(x => x.ProjectHistory).HasMaxLength(64);
             e.Property(x => x.CloseDeviceId).HasMaxLength(256);
             e.Property(x => x.AuthorizationRevision).IsConcurrencyToken();
             e.HasIndex(x => x.IncarnationId).IsUnique();
@@ -126,7 +126,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.HasIndex(x => new { x.OwnerUserId, x.Ended });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Device>().WithMany().HasForeignKey(x => x.HostDeviceId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.SetNull);
         });
         model.Entity<SessionMember>(e =>
         {
@@ -141,46 +141,46 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.HasOne<Session>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
-        model.Entity<Mission>(e =>
+        model.Entity<Project>(e =>
         {
-            e.ToTable("missions"); e.HasKey(x => x.Id);
+            e.ToTable("projects"); e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(128);
             e.HasIndex(x => new { x.Dosi, x.OwnerUserId }).IsUnique().HasFilter("\"Dosi\"");
             e.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         });
-        model.Entity<MissionMember>(e =>
+        model.Entity<ProjectMember>(e =>
         {
-            e.ToTable("mission_members"); e.HasKey(x => new { x.MissionId, x.UserId });
-            e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Cascade);
+            e.ToTable("project_members"); e.HasKey(x => new { x.ProjectId, x.UserId });
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         });
-        model.Entity<RoomRecipientKey>(e =>
+        model.Entity<ProjectRecipientKey>(e =>
         {
-            e.ToTable("room_recipient_keys"); e.HasKey(x => x.DeviceId);
+            e.ToTable("project_recipient_keys"); e.HasKey(x => x.DeviceId);
             e.Property(x => x.DeviceId).HasMaxLength(256);
-            e.HasOne<Device>().WithOne().HasForeignKey<RoomRecipientKey>(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Device>().WithOne().HasForeignKey<ProjectRecipientKey>(x => x.DeviceId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
-        model.Entity<MissionKeyState>(e =>
+        model.Entity<ProjectKeyState>(e =>
         {
-            e.ToTable("mission_key_states"); e.HasKey(x => new { x.MissionId, x.Version });
-            e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Cascade);
+            e.ToTable("project_key_states"); e.HasKey(x => new { x.ProjectId, x.Version });
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
-        model.Entity<MissionItem>(e =>
+        model.Entity<ProjectItem>(e =>
         {
-            e.ToTable("mission_items"); e.HasKey(x => new { x.MissionId, x.Id });
+            e.ToTable("project_items"); e.HasKey(x => new { x.ProjectId, x.Id });
             e.Property(x => x.Kind).HasMaxLength(16);
             e.Property(x => x.DeviceId).HasMaxLength(256);
             e.Property(x => x.Version).IsConcurrencyToken();
-            e.HasIndex(x => new { x.MissionId, x.Sequence }).IsUnique();
-            e.HasIndex(x => new { x.MissionId, x.Kind, x.Sequence });
-            e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.ProjectId, x.Sequence }).IsUnique();
+            e.HasIndex(x => new { x.ProjectId, x.Kind, x.Sequence });
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
-        model.Entity<MissionInvitation>(e =>
+        model.Entity<ProjectInvitation>(e =>
         {
-            e.ToTable("mission_invitations"); e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.MissionId, x.UserId }).IsUnique();
-            e.HasOne<Mission>().WithMany().HasForeignKey(x => x.MissionId).OnDelete(DeleteBehavior.Cascade);
+            e.ToTable("project_invitations"); e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         });
     }

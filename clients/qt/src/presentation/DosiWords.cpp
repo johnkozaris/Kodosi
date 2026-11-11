@@ -79,7 +79,7 @@ QString DosiWords::target(const QVariantMap& where)
     const auto kind = where.value(QStringLiteral("kind")).toString();
     if (kind == QStringLiteral("terminals"))
         return tr("the terminals");
-    if (kind == QStringLiteral("rooms"))
+    if (kind == QStringLiteral("projects"))
         return tr("the projects");
     return where.value(QStringLiteral("value")).toString();
 }

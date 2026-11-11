@@ -112,8 +112,8 @@ private struct DosiTouched: View {
                 Group {
                     if target.kind == .terminal, let session = deps.terminal(named: target.value) {
                         AgentMark(session: session, size: 16)
-                    } else if let room = deps.room(named: target.value) {
-                        RoomSigil(key: room.id, size: 16)
+                    } else if let project = deps.project(named: target.value) {
+                        ProjectSigil(key: project.id, size: 16)
                     }
                 }
                 .transition(AnyTransition.pop)

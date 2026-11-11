@@ -149,7 +149,7 @@ public struct DosiTool: Decodable, Equatable, Sendable {
 
 public struct DosiTarget: Decodable, Equatable, Sendable {
     public enum Kind: String, Decodable, Sendable {
-        case terminal, terminals, room, rooms, agent, file, url, query, command, tool
+        case terminal, terminals, project, projects, agent, file, url, query, command, tool
     }
 
     public let kind: Kind
@@ -202,16 +202,16 @@ public struct DosiPage: Decodable, Sendable {
 
 public struct DosiContext: Equatable, Sendable {
     public var terminal: String?
-    public var room: String?
+    public var project: String?
 
-    public init(terminal: String? = nil, room: String? = nil) {
+    public init(terminal: String? = nil, project: String? = nil) {
         self.terminal = terminal
-        self.room = room
+        self.project = project
     }
 
     var json: JSONValue? {
-        guard terminal != nil || room != nil else { return nil }
+        guard terminal != nil || project != nil else { return nil }
         let value: (String?) -> JSONValue = { $0.map(JSONValue.string) ?? .null }
-        return .object(["terminal": value(terminal), "room": value(room)])
+        return .object(["terminal": value(terminal), "project": value(project)])
     }
 }

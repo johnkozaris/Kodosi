@@ -17,45 +17,45 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 #[test]
-fn notices_for_one_room_collapse_into_one_read_up_to_the_highest_sequence() {
+fn notices_for_one_project_collapse_into_one_read_up_to_the_highest_sequence() {
     let (first, second) = (Uuid::now_v7(), Uuid::now_v7());
-    let room = |room, sequence| Change {
-        surface: "rooms".into(),
-        room: Some(room),
+    let project = |project, sequence| Change {
+        surface: "projectContent".into(),
+        project: Some(project),
         sequence,
     };
     let mut waiting = Waiting::default();
     for change in [
-        room(first, Some(4)),
-        room(first, Some(9)),
-        room(first, Some(7)),
+        project(first, Some(4)),
+        project(first, Some(9)),
+        project(first, Some(7)),
     ] {
         waiting.add(&change).unwrap();
     }
-    waiting.add(&room(second, Some(2))).unwrap();
+    waiting.add(&project(second, Some(2))).unwrap();
     assert_eq!(
-        waiting.rooms,
+        waiting.content,
         BTreeMap::from([(first, Some(9)), (second, Some(2))])
     );
-    waiting.add(&room(second, None)).unwrap();
+    waiting.add(&project(second, None)).unwrap();
     assert_eq!(
-        waiting.rooms,
+        waiting.content,
         BTreeMap::from([(first, Some(9)), (second, None)])
     );
-    assert!(waiting.add(&Change::of("rooms")).is_err());
+    assert!(waiting.add(&Change::of("projectContent")).is_err());
     waiting
         .add(&Change {
-            surface: "missions".into(),
-            room: Some(first),
+            surface: "projects".into(),
+            project: Some(first),
             sequence: None,
         })
         .unwrap();
     assert_eq!(
-        waiting.missions,
-        Some(Scope::Rooms(BTreeSet::from([first])))
+        waiting.projects,
+        Some(Scope::Projects(BTreeSet::from([first])))
     );
-    waiting.add(&Change::of("missions")).unwrap();
-    assert_eq!(waiting.missions, Some(Scope::All));
+    waiting.add(&Change::of("projects")).unwrap();
+    assert_eq!(waiting.projects, Some(Scope::All));
     assert!(waiting.add(&Change::of("unknown")).is_err());
 }
 
@@ -89,20 +89,20 @@ fn a_list_refresh_replaces_the_terminal_notices_that_came_before_it() {
 }
 
 #[tokio::test]
-async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
+async fn project_notifications_use_the_renewed_token_on_the_existing_connection() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
-    let room = Uuid::now_v7();
+    let project = Uuid::now_v7();
     let server = tokio::spawn(async move {
         let replies = [
             crate::network::http::current_versions(),
             json!({"challengeId": Uuid::now_v7(), "challengeBytes": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}),
             json!({"session": "fixture-session"}),
-            json!({"missions": [{"id": room}], "invitations": []}),
+            json!({"projects": [{"id": project}], "invitations": []}),
             json!({}),
-            json!({"error": "fixture room is no longer available"}),
+            json!({"error": "fixture project is no longer available"}),
         ];
-        let mut room_request = String::new();
+        let mut project_request = String::new();
         for (index, body) in replies.into_iter().enumerate() {
             let (stream, _) = listener.accept().await.unwrap();
             let mut reader = BufReader::new(stream);
@@ -125,7 +125,7 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
                 .unwrap_or(0);
             reader.read_exact(&mut vec![0; length]).await.unwrap();
             if index == 5 {
-                room_request = headers;
+                project_request = headers;
             }
             let status = if index == 5 {
                 "403 Forbidden"
@@ -144,7 +144,7 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
                 .unwrap();
             reader.get_mut().shutdown().await.unwrap();
         }
-        room_request
+        project_request
     });
     let storage = tempfile::tempdir().unwrap();
     let network = BackendClient::new(BackendConfig {
@@ -175,7 +175,7 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
     renewed.token = Zeroizing::new("renewed-token".into());
     *network.inner.credentials.write().unwrap() = Some(renewed);
     let mut waiting = Waiting::default();
-    waiting.add(&Change::of("missions")).unwrap();
+    waiting.add(&Change::of("projects")).unwrap();
     tokio::time::timeout(
         Duration::from_secs(5),
         network.refresh_waiting(&admitted, &mut waiting),
@@ -184,7 +184,7 @@ async fn room_notifications_use_the_renewed_token_on_the_existing_connection() {
     .unwrap()
     .unwrap();
     let request = server.await.unwrap().to_ascii_lowercase();
-    assert!(request.starts_with(&format!("get /api/missions/{room}/keys?")));
+    assert!(request.starts_with(&format!("get /api/projects/{project}/keys?")));
     assert!(request.contains("authorization: bearer renewed-token\r\n"));
     assert!(!request.contains("expired-token"));
 }

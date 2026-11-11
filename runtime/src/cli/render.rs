@@ -35,7 +35,7 @@ pub(super) fn session(session: &Value, context: &Context) -> String {
         ["State".to_owned(), state(session)],
         ["Message".to_owned(), text(session, "activity")],
         ["Folder".to_owned(), text(session, "workingDir")],
-        ["Project".to_owned(), text(session, "missionName")],
+        ["Project".to_owned(), text(session, "projectName")],
         [
             "Shared with".to_owned(),
             names(&users(session), &context.friends),
@@ -81,13 +81,13 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         ),
         ("devices.result", "devices.link.cancelSelf") => "The request is cancelled.".to_owned(),
         ("devices.result", _) => devices(&latest("devices.list"), &latest("devices.hosts")),
-        ("friends.result" | "mission.result", _) if unapproved(context) => account(context),
+        ("friends.result" | "project.result", _) if unapproved(context) => account(context),
         ("friends.result", "friends.invite") => text(event, "text"),
         ("friends.result", _) => friends(&latest("friends.snapshot")),
-        ("mission.result", "mission.show") => {
+        ("project.result", "project.show") => {
             "The Kodosi app shows the project when it is open.".to_owned()
         }
-        ("mission.result", _) => "Done.".to_owned(),
+        ("project.result", _) => "Done.".to_owned(),
         ("session.result", _) => session_result(event, context),
         ("provider.result", "provider.agents") => agents(&event["result"]),
         ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
@@ -474,21 +474,21 @@ fn friends(event: &Value) -> String {
     lines.join("\n")
 }
 
-pub(super) fn missions(event: &Value) -> String {
+pub(super) fn projects(event: &Value) -> String {
     let list = |key: &str| event[key].as_array().cloned().unwrap_or_default();
     let mut lines = Vec::new();
-    let rows = list("missions")
+    let rows = list("projects")
         .iter()
-        .map(|mission| {
-            let unread = if mission["unread"] == true {
+        .map(|project| {
+            let unread = if project["unread"] == true {
                 "new messages"
             } else {
                 ""
             };
             [
-                text(mission, "name"),
+                text(project, "name"),
                 unread.to_owned(),
-                short(mission, "id"),
+                short(project, "id"),
             ]
         })
         .collect::<Vec<_>>();
@@ -503,8 +503,8 @@ pub(super) fn missions(event: &Value) -> String {
         lines.push(format!(
             "{} invited you to {}: kodosi project accept \"{}\"",
             text(&invitation, "inviterName"),
-            text(&invitation, "missionName"),
-            text(&invitation, "missionName")
+            text(&invitation, "projectName"),
+            text(&invitation, "projectName")
         ));
     }
     lines.join("\n")
@@ -767,14 +767,14 @@ mod tests {
     }
 
     #[test]
-    fn a_room_list_names_the_rooms_and_the_command_that_accepts_an_invitation() {
+    fn a_project_list_names_the_projects_and_the_command_that_accepts_an_invitation() {
         assert_eq!(
-            missions(&json!({
-                "missions":[
+            projects(&json!({
+                "projects":[
                     {"id":"019f0000-0000-7000-8000-00000000a1b2","name":"Work","unread":true},
                     {"id":"019f0000-0000-7000-8000-00000000c3d4","name":"Design"},
                 ],
-                "invitations":[{"inviterName":"bob","missionName":"Launch"}]
+                "invitations":[{"inviterName":"bob","projectName":"Launch"}]
             })),
             "PROJECT                ID\n\
              Work     new messages  00a1b2\n\
@@ -782,7 +782,7 @@ mod tests {
              bob invited you to Launch: kodosi project accept \"Launch\""
         );
         assert_eq!(
-            missions(&json!({})),
+            projects(&json!({})),
             "No projects. Make one: kodosi project create <name>"
         );
     }

@@ -223,12 +223,12 @@ async fn open(
             .get(&dto.host_device_id)
             .map(|certificate| certificate.sig_public_key.clone())
     };
-    let known = if let Some(room) = dto
-        .mission_id
+    let known = if let Some(project) = dto
+        .project_id
         .filter(|_| dto.owner_user_id != credentials.user_id)
     {
         network
-            .room_identity(credentials, room, &dto.owner_user_id)
+            .project_identity(credentials, project, &dto.owner_user_id)
             .await?
     } else {
         network
@@ -305,12 +305,12 @@ async fn host_trusted(
     if current.incarnation_id != dto.incarnation_id {
         return Err(Error::Stale);
     }
-    let owner = if let Some(room) = dto
-        .mission_id
+    let owner = if let Some(project) = dto
+        .project_id
         .filter(|_| dto.owner_user_id != credentials.user_id)
     {
         network
-            .room_identity(&current_credentials, room, &dto.owner_user_id)
+            .project_identity(&current_credentials, project, &dto.owner_user_id)
             .await?
     } else {
         network

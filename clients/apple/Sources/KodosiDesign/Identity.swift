@@ -108,7 +108,7 @@ public extension AgentInfo {
     }
 }
 
-enum RoomTint {
+enum ProjectTint {
     private static let palette: [Color] = [
         hex(0xD98A5F), hex(0xD9A441), hex(0xC96F7E), hex(0x8C7BD1),
         hex(0x4F9BB0), hex(0xB8743C), hex(0xA86AAE),

@@ -96,7 +96,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
-data class NewTerminalRequest(val computer: String? = null, val folder: String? = null, val room: String? = null)
+data class NewTerminalRequest(val computer: String? = null, val folder: String? = null, val project: String? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -256,7 +256,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                         failure = null
                         scope.launch {
                             try {
-                                launcher.start(unnamed, folder, prompt, request.room)?.let { id ->
+                                launcher.start(unnamed, folder, prompt, request.project)?.let { id ->
                                     model.preferences.launched(launcher.computer, folder)
                                     dismiss()
                                     started(id)

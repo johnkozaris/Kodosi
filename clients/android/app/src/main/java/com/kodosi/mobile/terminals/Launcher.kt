@@ -172,7 +172,7 @@ class Launcher(private val commands: CommandSink, val computer: String) {
         mutableState.update { it.copy(usage = result.objects("accounts")) }
     }
 
-    suspend fun start(name: String, directory: String?, prompt: String, room: String?): String? {
+    suspend fun start(name: String, directory: String?, prompt: String, project: String?): String? {
         val current = state.value
         val agent = current.agents.firstOrNull { it.agent == current.agent }
         val pick = current.pick
@@ -198,7 +198,7 @@ class Launcher(private val commands: CommandSink, val computer: String) {
                 "name" to name.trim(),
                 "computer" to computer,
                 "workingDir" to directory,
-                "missionId" to room,
+                "projectId" to project,
                 "agent" to plan,
                 "prompt" to words.takeIf { agent != null && it.isNotEmpty() }
             )

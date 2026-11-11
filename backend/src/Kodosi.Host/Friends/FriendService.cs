@@ -131,7 +131,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
                 await RequireUnblockedAsync(userId, other.Id, ct);
                 await RequireFriendSpaceAsync(userId, other.Id, ct);
                 link.Accepted = true;
-                shared = await TerminalAccess.InRoomsBetween(db, userId, other.Id).ToListAsync(ct);
+                shared = await TerminalAccess.InProjectsBetween(db, userId, other.Id).ToListAsync(ct);
                 foreach (var session in shared) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
                 break;
             case "reject":
@@ -178,7 +178,7 @@ public sealed class FriendService(KodosiDbContext db, ConnectionDirectory connec
         db.SessionMembers.RemoveRange(grants);
         var sessionIds = grants.Select(x => x.SessionId).Distinct().ToArray();
         var shared = await db.Sessions.Where(x => sessionIds.Contains(x.Id) && !x.Ended)
-            .Union(TerminalAccess.InRoomsBetween(db, userId, otherId)).ToListAsync(ct);
+            .Union(TerminalAccess.InProjectsBetween(db, userId, otherId)).ToListAsync(ct);
         foreach (var session in shared) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
         return shared;
     }

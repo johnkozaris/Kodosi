@@ -1,6 +1,6 @@
 using Kodosi.Admission;
 using Kodosi.Data;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Security;
 using Kodosi.Sessions;
 using Kodosi.TerminalConnections;
@@ -40,19 +40,19 @@ public sealed class AccountService(KodosiDbContext db, ConnectionDirectory conne
         var owned = await db.Sessions.Where(x => x.OwnerUserId == userId).ToListAsync(ct);
         var others = await db.Sessions.UsableBy(db, userId).Where(x => x.OwnerUserId != userId && !x.Ended).ToListAsync(ct);
         var viewers = (await TerminalAccess.PeopleAsync(db, owned.Select(x => x.Id).ToArray(), ct)).SelectMany(x => x).ToHashSet();
-        var rooms = RoomMembership.RoomsOf(db, userId, invited: true);
-        var roomPeople = await RoomMembership.People(db, invited: true).Where(x => rooms.Contains(x.MissionId)).Select(x => x.UserId).Distinct().ToListAsync(ct);
+        var joinedProjects = ProjectMembership.ProjectsOf(db, userId, invited: true);
+        var projectPeople = await ProjectMembership.People(db, invited: true).Where(x => joinedProjects.Contains(x.ProjectId)).Select(x => x.UserId).Distinct().ToListAsync(ct);
         var memberships = await db.SessionMembers.Where(x => x.UserId == userId).ToListAsync(ct);
-        var missions = await db.Missions.Where(x => x.OwnerUserId == userId).ToListAsync(ct);
-        var missionMemberships = await db.MissionMembers.Where(x => x.UserId == userId).ToListAsync(ct);
-        var invitations = await db.MissionInvitations.Where(x => x.UserId == userId || x.InviterUserId == userId).ToListAsync(ct);
+        var ownedProjects = await db.Projects.Where(x => x.OwnerUserId == userId).ToListAsync(ct);
+        var projectMemberships = await db.ProjectMembers.Where(x => x.UserId == userId).ToListAsync(ct);
+        var invitations = await db.ProjectInvitations.Where(x => x.UserId == userId || x.InviterUserId == userId).ToListAsync(ct);
         var devices = await db.Devices.Where(x => x.UserId == userId).ToListAsync(ct);
         foreach (var session in others) session.AuthorizationRevision = checked(session.AuthorizationRevision + 1);
         db.SessionMembers.RemoveRange(memberships);
         db.Sessions.RemoveRange(owned);
-        db.MissionInvitations.RemoveRange(invitations);
-        db.MissionMembers.RemoveRange(missionMemberships);
-        db.Missions.RemoveRange(missions);
+        db.ProjectInvitations.RemoveRange(invitations);
+        db.ProjectMembers.RemoveRange(projectMemberships);
+        db.Projects.RemoveRange(ownedProjects);
         db.Friendships.RemoveRange(friendships);
         await db.SaveChangesAsync(ct);
         db.DeviceLists.RemoveRange(await db.DeviceLists.Where(x => x.UserId == userId).ToListAsync(ct));
@@ -67,9 +67,9 @@ public sealed class AccountService(KodosiDbContext db, ConnectionDirectory conne
         foreach (var device in devices) connections.RemoveDevice(userId, device.Id);
         foreach (var session in owned) connections.RemoveSession(session.Id);
         await TerminalAccess.RevokeAsync(db, connections, others, ct);
-        var people = roomPeople.Where(x => x != userId).ToArray();
+        var people = projectPeople.Where(x => x != userId).ToArray();
         connections.Notify(friendships.Select(x => x.FirstUserId == userId ? x.SecondUserId : x.FirstUserId), "friends");
-        connections.Notify(people, "missions");
+        connections.Notify(people, "projects");
         connections.Notify(viewers.Concat(people).Concat(others.Select(x => x.OwnerUserId)).Where(x => x != userId), "sessions");
     }
 

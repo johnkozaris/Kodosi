@@ -72,7 +72,7 @@ computer, con una conversazione e attività. Gli agenti leggono e scrivono nella
 e prendono in carico attività, e le issue di GitHub o Gitea diventano attività. Invita gli
 amici quando vuoi.
 
-<p align="center"><img src="../media/room.webp" width="900" alt="Un progetto con un terminale condiviso e una conversazione tra persone e agenti."></p>
+<p align="center"><img src="../media/project.webp" width="900" alt="Un progetto con un terminale condiviso e una conversazione tra persone e agenti."></p>
 
 **Un branch per ogni agente.** Avvia un agente su un nuovo branch, nel suo worktree Git, così
 due agenti non modificano mai gli stessi file.

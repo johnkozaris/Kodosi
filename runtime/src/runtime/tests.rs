@@ -54,7 +54,7 @@ impl TestRuntime {
             request_id: request.clone(),
             name: "Test terminal".to_owned(),
             working_dir: None,
-            mission_id: None,
+            project_id: None,
             resume: None,
             branch: None,
             worktrees: None,
@@ -135,7 +135,7 @@ async fn a_terminal_on_a_new_branch_keeps_its_folder_until_it_closes_unchanged()
                 request_id: request.clone(),
                 name: branch.to_owned(),
                 working_dir: Some(folder.to_string_lossy().into_owned()),
-                mission_id: None,
+                project_id: None,
                 resume: None,
                 branch: Some(branch.to_owned()),
                 worktrees: None,
@@ -386,7 +386,7 @@ async fn a_stale_epoch_creates_nothing_and_hears_why() {
                 request_id: stale.clone(),
                 name: "stale".to_owned(),
                 working_dir: None,
-                mission_id: None,
+                project_id: None,
                 resume: None,
                 branch: None,
                 worktrees: None,
@@ -450,7 +450,7 @@ async fn a_viewer_says_that_terminals_and_conversations_stay_on_a_computer() {
             request_id: create.clone(),
             name: "Viewer".to_owned(),
             working_dir: None,
-            mission_id: None,
+            project_id: None,
             resume: None,
             branch: None,
             worktrees: None,
@@ -528,7 +528,7 @@ async fn create_retry_is_exact_and_does_not_launch_a_second_process() {
         request_id: Uuid::now_v7().to_string(),
         name: "same".to_owned(),
         working_dir: None,
-        mission_id: None,
+        project_id: None,
         resume: None,
         branch: None,
         worktrees: None,
@@ -612,7 +612,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
 fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     let root = tempfile::tempdir().unwrap();
     let config = Config::isolated(&kodosi_os::fs::canonicalize(root.path()).unwrap()).unwrap();
-    let room_seen = room_seen::RoomSeen::load(&config.data_root);
+    let project_seen = project_seen::ProjectSeen::load(&config.data_root);
     let network = BackendClient::new(BackendConfig {
         api_url: config.backend_url.clone(),
         issuer: config.oidc_issuer.clone(),
@@ -707,8 +707,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             visible: HashMap::new(),
             attention: BTreeSet::new(),
             activity: HashMap::new(),
-            room_latest: HashMap::new(),
-            room_seen,
+            project_latest: HashMap::new(),
+            project_seen,
         },
         root,
     )
@@ -723,8 +723,8 @@ fn remote_session(id: Uuid, incarnation_id: Uuid) -> RemoteSession {
         owner_name: "Friend".to_owned(),
         host_device_id: "other-device".to_owned(),
         host_name: "Other computer".to_owned(),
-        mission_id: None,
-        mission_name: None,
+        project_id: None,
+        project_name: None,
         shared_with: vec![],
         online: true,
         status: None,
@@ -957,7 +957,7 @@ async fn a_terminal_started_on_another_computer_is_answered_when_it_shows_here()
         request_id: request.clone(),
         name: "Terminal".to_owned(),
         working_dir: None,
-        mission_id: None,
+        project_id: None,
         resume: None,
         branch: None,
         worktrees: None,
@@ -1328,12 +1328,12 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
     let runtime = TestRuntime::new().await;
     let (_, mut events) = runtime.handle.observe().await.unwrap();
     let request_id = Uuid::now_v7().to_string();
-    let room_id = Uuid::now_v7().to_string();
+    let project_id = Uuid::now_v7().to_string();
     let command = Command::CreateSession {
         request_id: request_id.clone(),
         name: "ordered".to_owned(),
         working_dir: None,
-        mission_id: Some(room_id.clone()),
+        project_id: Some(project_id.clone()),
         resume: None,
         branch: None,
         worktrees: None,
@@ -1344,15 +1344,15 @@ async fn create_completion_publishes_catalog_before_its_result_and_retry_checks_
     };
     runtime.send(command).await;
     assert_eq!(
-        created(&mut events, &request_id).await["missionId"],
-        room_id
+        created(&mut events, &request_id).await["projectId"],
+        project_id
     );
     runtime
         .send(Command::CreateSession {
             request_id: request_id.clone(),
             name: "ordered".to_owned(),
             working_dir: Some(ROOT.to_owned()),
-            mission_id: Some(room_id.clone()),
+            project_id: Some(project_id.clone()),
             resume: None,
             branch: None,
             worktrees: None,
@@ -2362,32 +2362,34 @@ async fn a_spinner_that_kodosi_cannot_read_does_not_count_as_stopped() {
 }
 
 #[tokio::test]
-async fn a_room_stays_unread_until_its_person_sees_what_others_wrote() {
+async fn a_project_stays_unread_until_its_person_sees_what_others_wrote() {
     let (mut runtime, _root) = registry_fixture();
     runtime.scope.user = Some("me".to_owned());
-    let room = Uuid::now_v7().to_string();
+    let project = Uuid::now_v7().to_string();
     runtime.cached_events.insert(
-        "missions.snapshot".to_owned(),
-        json!({"type":"missions.snapshot","missions":[{"id":room,"name":"Room","ownerUserId":"me"}],"invitations":[]}),
+        "projects.snapshot".to_owned(),
+        json!({"type":"projects.snapshot","projects":[{"id":project,"name":"Project","ownerUserId":"me"}],"invitations":[]}),
     );
     let message = |sequence: u64, author: &str, agent: Option<&str>| {
         json!({"id":Uuid::now_v7().to_string(),"sequence":sequence,"authorId":author,"authorName":author,
             "agent":agent,"terminalId":null,"text":"hello","createdAt":"2026-10-17T00:00:00Z"})
     };
     let unread = |runtime: &Runtime| {
-        runtime.cached_events["missions.snapshot"]["missions"][0]["unread"] == true
+        runtime.cached_events["projects.snapshot"]["projects"][0]["unread"] == true
     };
-    runtime.room_changed(&json!({"roomId":room,"messages":[message(1, "friend", None)]}));
+    runtime.content_changed(&json!({"projectId":project,"messages":[message(1, "friend", None)]}));
     assert!(!unread(&runtime));
-    runtime.room_changed(&json!({"roomId":room,"messages":[message(2, "me", None)]}));
+    runtime.content_changed(&json!({"projectId":project,"messages":[message(2, "me", None)]}));
     assert!(!unread(&runtime));
-    runtime.room_changed(&json!({"roomId":room,"messages":[message(3, "me", Some("claude"))]}));
+    runtime.content_changed(
+        &json!({"projectId":project,"messages":[message(3, "me", Some("claude"))]}),
+    );
     assert!(unread(&runtime));
-    runtime.see_room(&room, 3).unwrap();
+    runtime.see_project(&project, 3).unwrap();
     assert!(!unread(&runtime));
-    runtime.room_seen.saved().await;
-    runtime.room_seen = room_seen::RoomSeen::load(&runtime.network.inner.config.data_root);
-    assert_eq!(runtime.seen_rooms().unwrap()[&room], 3);
+    runtime.project_seen.saved().await;
+    runtime.project_seen = project_seen::ProjectSeen::load(&runtime.network.inner.config.data_root);
+    assert_eq!(runtime.seen_projects().unwrap()[&project], 3);
 }
 
 #[tokio::test]
@@ -3043,7 +3045,7 @@ async fn create_named(
         request_id: request.clone(),
         name: name.to_owned(),
         working_dir: Some(folder.to_string_lossy().into_owned()),
-        mission_id: None,
+        project_id: None,
         resume: None,
         branch: None,
         worktrees: None,
@@ -3216,7 +3218,7 @@ async fn terminals_come_back_after_the_host_stopped_once_an_app_asks() {
 
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refused_room() {
+async fn a_restored_terminal_rejoins_its_project_for_its_account_and_leaves_a_refused_project() {
     let (mut runtime, storage) = registry_fixture();
     let id = Uuid::now_v7();
     let terminal = TerminalSession::spawn(
@@ -3254,7 +3256,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
                 request_id: Uuid::now_v7().to_string(),
             },
             published: false,
-            room_sequence: 0,
+            project_sequence: 0,
             worktree: None,
             wanted: restore::Sharing::of(Some(&"owner".to_owned()), Some(&chosen), &[]),
             conversation: restore::Conversation::default(),
@@ -3265,15 +3267,15 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         runtime.local[&id].publication(id).0.restored_from,
         Some(replaced)
     );
-    let room_of = |runtime: &Runtime| runtime.local[&id].entry.mission_id.clone();
+    let project_of = |runtime: &Runtime| runtime.local[&id].entry.project_id.clone();
     for user in [None, Some("someone else")] {
         runtime.scope.user = user.map(str::to_owned);
         runtime.apply_wanted();
-        assert_eq!(room_of(&runtime), None);
+        assert_eq!(project_of(&runtime), None);
     }
     runtime.scope.user = Some("owner".to_owned());
     runtime.apply_wanted();
-    assert_eq!(room_of(&runtime), Some(chosen.clone()));
+    assert_eq!(project_of(&runtime), Some(chosen.clone()));
     assert!(runtime.local[&id].wanted.is_none());
 
     runtime.published(
@@ -3283,7 +3285,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         Err(Error::Other("offline".to_owned())),
         true,
     );
-    assert_eq!(room_of(&runtime), Some(chosen));
+    assert_eq!(project_of(&runtime), Some(chosen));
     runtime.published(
         id,
         incarnation,
@@ -3291,7 +3293,7 @@ async fn a_restored_terminal_rejoins_its_room_for_its_account_and_leaves_a_refus
         Err(Error::Invalid("gone".to_owned())),
         true,
     );
-    assert_eq!(room_of(&runtime), None);
+    assert_eq!(project_of(&runtime), None);
     terminal.close().await.unwrap();
     drop(terminal);
 }
@@ -3361,7 +3363,7 @@ fn a_message_line_says_who_wrote_and_from_where_and_leaves_the_choice_to_the_age
         }),
     };
     let mention = |from: &Sender, text: &str, sequence| Mention {
-        room: "Launch".to_owned(),
+        project: "Launch".to_owned(),
         from: from.clone(),
         text: text.to_owned(),
         sequence,
@@ -3415,7 +3417,7 @@ async fn a_delivery_that_ends_after_its_terminal_leaves_nothing_behind() {
     let (mut runtime, _storage) = registry_fixture();
     let gone = Uuid::now_v7();
     let mention = messages::Mention {
-        room: "Launch".to_owned(),
+        project: "Launch".to_owned(),
         from: messages::Sender::Person("Ana".to_owned()),
         text: "@Build".to_owned(),
         sequence: 3,
@@ -3431,17 +3433,17 @@ async fn a_delivery_that_ends_after_its_terminal_leaves_nothing_behind() {
 
 #[cfg(feature = "host")]
 #[test]
-fn only_messages_after_the_first_look_at_a_room_name_agents() {
+fn only_messages_after_the_first_look_at_a_project_name_agents() {
     let message = |sequence: u64| json!({"sequence": sequence, "text": "@Build"});
     let mut mentions = messages::Mentions::default();
     assert_eq!(
-        mentions.new_messages("room", &[message(3), message(4)]),
+        mentions.new_messages("project", &[message(3), message(4)]),
         Vec::<Value>::new()
     );
-    let fresh = mentions.new_messages("room", &[message(4), message(5), message(6)]);
+    let fresh = mentions.new_messages("project", &[message(4), message(5), message(6)]);
     assert_eq!(fresh, [message(5), message(6)]);
     assert_eq!(
-        mentions.new_messages("room", &[message(6)]),
+        mentions.new_messages("project", &[message(6)]),
         Vec::<Value>::new()
     );
 }
@@ -3457,9 +3459,9 @@ fn stand_in_canvas() -> crate::canvas::CanvasHandle {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[expect(
     clippy::too_many_lines,
-    reason = "one room message from its mention to the line that the agent gets"
+    reason = "one project message from its mention to the line that the agent gets"
 )]
-async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it_asks() {
+async fn a_working_agent_gets_the_project_message_that_names_its_terminal_unless_it_asks() {
     use crate::terminal::{ProgramState, ProgramStatus};
     let (mut runtime, storage) = registry_fixture();
     let id = Uuid::now_v7();
@@ -3482,12 +3484,12 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
     )
     .await
     .unwrap();
-    let room = Uuid::now_v7().to_string();
+    let project = Uuid::now_v7().to_string();
     let mut entry: SessionEntry = serde_json::from_value(json!({
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
-        "repository": false, "working": false, "sharedWith": ["ana"], "missionId": room,
-        "missionName": "Launch", "attention": false, "connectedUsers": [], "hidden": false,
+        "repository": false, "working": false, "sharedWith": ["ana"], "projectId": project,
+        "projectName": "Launch", "attention": false, "connectedUsers": [], "hidden": false,
     }))
     .unwrap();
     entry.program = Some("claude".to_owned());
@@ -3500,14 +3502,14 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
                 request_id: Uuid::now_v7().to_string(),
             },
             published: true,
-            room_sequence: 0,
+            project_sequence: 0,
             worktree: None,
             wanted: None,
             conversation: restore::Conversation::default(),
             changed: crate::agents::AgentSettings::default(),
         },
     );
-    let snapshot = |messages: Value| json!({"roomId": room, "messages": messages});
+    let snapshot = |messages: Value| json!({"projectId": project, "messages": messages});
     runtime.note_mentions(&snapshot(
         json!([{"sequence": 1, "text": "hello", "authorId": "ana", "authorName": "Ana"}]),
     ));
@@ -3539,7 +3541,7 @@ async fn a_working_agent_gets_the_room_message_that_names_its_terminal_unless_it
             mentions: vec![(
                 id,
                 messages::Mention {
-                    room: "Launch".to_owned(),
+                    project: "Launch".to_owned(),
                     from: messages::Sender::Person("Ana".to_owned()),
                     text: "@Build please print came-through".to_owned(),
                     sequence: 2,
@@ -3625,11 +3627,11 @@ async fn a_mention_whose_check_gets_no_answer_waits_a_while_for_a_later_check() 
         enrolled: true,
     });
     let unchecked = messages::Unchecked {
-        room: Uuid::now_v7(),
+        project: Uuid::now_v7(),
         author: "ana".to_owned(),
         terminal: Uuid::now_v7(),
         mention: messages::Mention {
-            room: "Launch".to_owned(),
+            project: "Launch".to_owned(),
             from: messages::Sender::Person("Ana".to_owned()),
             text: "@Build hello".to_owned(),
             sequence: 2,
@@ -3984,7 +3986,7 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
                 request_id: Uuid::now_v7().to_string(),
             },
             published: true,
-            room_sequence: 0,
+            project_sequence: 0,
             worktree: None,
             wanted: None,
             conversation: restore::Conversation::default(),
@@ -4086,4 +4088,12 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
     assert_eq!(runtime.local[&id].entry.program_pending, None);
     terminal.close().await.unwrap();
     drop(terminal);
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn a_saved_terminal_reads_its_project_under_the_name_in_the_file() {
+    let sharing: restore::Sharing =
+        serde_json::from_value(json!({"owner": "owner", "room": "project"})).unwrap();
+    assert_eq!(sharing.project.as_deref(), Some("project"));
 }

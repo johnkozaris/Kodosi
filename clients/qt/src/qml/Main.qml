@@ -40,11 +40,11 @@ ApplicationWindow {
             : qsTr("This computer needs approval before it can share.");
     }
 
-    function openLauncher(roomId) {
+    function openLauncher(projectId) {
         const stage = stageLoader.item as TerminalStage;
-        if (!roomId && stage && stage.focusLauncher())
+        if (!projectId && stage && stage.focusLauncher())
             return;
-        window.launcherSheet().openFor(roomId || "");
+        window.launcherSheet().openFor(projectId || "");
     }
     function sessionDetails() {
         detailsLoader.active = true;
@@ -74,9 +74,9 @@ ApplicationWindow {
         quitLoader.active = true;
         return quitLoader.item as QuitDialog;
     }
-    function missionsView() {
-        missionsLoader.active = true;
-        return missionsLoader.item as MissionsView;
+    function projectsView() {
+        projectsLoader.active = true;
+        return projectsLoader.item as ProjectsView;
     }
     function settingsView() {
         settingsLoader.active = true;
@@ -86,9 +86,9 @@ ApplicationWindow {
         Models.DesktopState.activeView = Models.DesktopState.Settings;
         window.settingsView().section = 4;
     }
-    function openNewRoom() {
-        Models.DesktopState.activeView = Models.DesktopState.Missions;
-        window.missionsView().openCreate();
+    function openNewProject() {
+        Models.DesktopState.activeView = Models.DesktopState.Projects;
+        window.projectsView().openCreate();
     }
     function openTerminalBeside(direction) {
         const id = Models.TerminalTiling.neighbor(Models.DesktopState.selectedSessionId, direction);
@@ -212,7 +212,7 @@ ApplicationWindow {
                 onNewTerminalRequested: window.openLauncher()
                 onResumeRequested: provider => window.historyView().openModal(provider)
                 onPaletteRequested: window.commandPalette().open()
-                onNewRoomRequested: window.openNewRoom()
+                onNewProjectRequested: window.openNewProject()
                 onDosiSettingsRequested: window.showDosiSettings()
                 onAccountSettingsRequested: {
                     Models.DesktopState.activeView = Models.DesktopState.Settings
@@ -251,13 +251,13 @@ ApplicationWindow {
                         }
                     }
                     Loader {
-                        id: missionsLoader
-                        readonly property bool current: Models.DesktopState.activeView === Models.DesktopState.Missions
+                        id: projectsLoader
+                        readonly property bool current: Models.DesktopState.activeView === Models.DesktopState.Projects
                         active: false
                         onCurrentChanged: if (current) active = true
                         Component.onCompleted: if (current) active = true
-                        sourceComponent: MissionsView {
-                            onNewTerminalRequested: roomId => window.openLauncher(roomId)
+                        sourceComponent: ProjectsView {
+                            onNewTerminalRequested: projectId => window.openLauncher(projectId)
                             onInspectSessionRequested: id => window.sessionDetails().openSession(id)
                             onShareSessionRequested: id => window.shareSheet().openSession(id)
                         }
@@ -451,7 +451,7 @@ ApplicationWindow {
         active: false
         sourceComponent: CommandPalette {
             onNewTerminalRequested: window.openLauncher()
-            onNewRoomRequested: window.openNewRoom()
+            onNewProjectRequested: window.openNewProject()
             onResumeRequested: window.historyView().openModal()
         }
     }

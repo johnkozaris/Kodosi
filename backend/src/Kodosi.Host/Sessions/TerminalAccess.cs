@@ -1,5 +1,5 @@
 using Kodosi.Data;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.TerminalConnections;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,23 +16,23 @@ internal static class TerminalAccess
     public static IQueryable<TerminalPerson> People(KodosiDbContext db) =>
         db.Sessions.Select(x => new TerminalPerson { SessionId = x.Id, UserId = x.OwnerUserId })
             .Concat(from session in db.Sessions
-                    where session.MissionId == null
+                    where session.ProjectId == null
                     join member in db.SessionMembers on session.Id equals member.SessionId
                     select new TerminalPerson { SessionId = session.Id, UserId = member.UserId })
             .Concat(from session in db.Sessions
-                    join person in RoomMembership.People(db) on session.MissionId equals (Guid?)person.MissionId
+                    join person in ProjectMembership.People(db) on session.ProjectId equals (Guid?)person.ProjectId
                     where db.Friendships.Any(x => x.Accepted
                         && ((x.FirstUserId == session.OwnerUserId && x.SecondUserId == person.UserId)
                             || (x.FirstUserId == person.UserId && x.SecondUserId == session.OwnerUserId)))
                     select new TerminalPerson { SessionId = session.Id, UserId = person.UserId });
 
-    public static IQueryable<Session> InRoomsBetween(KodosiDbContext db, Guid one, Guid other)
+    public static IQueryable<Session> InProjectsBetween(KodosiDbContext db, Guid one, Guid other)
     {
-        var roomsOfOne = RoomMembership.RoomsOf(db, one);
-        var roomsOfOther = RoomMembership.RoomsOf(db, other);
-        return db.Sessions.Where(x => !x.Ended && x.MissionId != null
-            && ((x.OwnerUserId == one && roomsOfOther.Contains(x.MissionId.Value))
-                || (x.OwnerUserId == other && roomsOfOne.Contains(x.MissionId.Value))));
+        var projectsOfOne = ProjectMembership.ProjectsOf(db, one);
+        var projectsOfOther = ProjectMembership.ProjectsOf(db, other);
+        return db.Sessions.Where(x => !x.Ended && x.ProjectId != null
+            && ((x.OwnerUserId == one && projectsOfOther.Contains(x.ProjectId.Value))
+                || (x.OwnerUserId == other && projectsOfOne.Contains(x.ProjectId.Value))));
     }
 
     public static IQueryable<Session> UsableBy(this IQueryable<Session> sessions, KodosiDbContext db, Guid userId)

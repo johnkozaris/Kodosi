@@ -48,21 +48,21 @@ struct NewTerminalTests {
         ])
         #expect(create["prompt"] as? String == "fix the failing test")
         #expect(create["size"] == nil)
-        #expect(create["missionId"] == nil)
+        #expect(create["projectId"] == nil)
         #expect((create["name"] as? String)?.isEmpty == false)
         try deliver("session.result", ["requestId": create["requestId"] ?? "", "operation": "session.create", "sessionId": "s1"])
         #expect(await starting.value == "s1")
         #expect(defaults.string(forKey: NewTerminal.lastComputerKey) == "studio")
     }
 
-    @Test func `a shell starts in a room without a prompt, and a refusal keeps the computer's words`() async throws {
+    @Test func `a shell starts in a project without a prompt, and a refusal keeps the computer's words`() async throws {
         let studio = model.launcher(for: "studio")
-        let draft = NewTerminal(request: NewTerminalRequest(computer: "studio", roomId: "room"), online: ["studio"], defaults: defaults)
+        let draft = NewTerminal(request: NewTerminalRequest(computer: "studio", projectId: "project"), online: ["studio"], defaults: defaults)
         draft.prompt = "ls"
         let starting = Task { await draft.start(in: studio, on: model.terminals) }
         let create = try await request("session.create")
         #expect(create["computer"] as? String == "studio")
-        #expect(create["missionId"] as? String == "room")
+        #expect(create["projectId"] as? String == "project")
         #expect(create["agent"] == nil)
         #expect(create["prompt"] == nil)
         #expect(create["workingDir"] == nil)

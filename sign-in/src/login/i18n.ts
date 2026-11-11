@@ -178,7 +178,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteTitle: "Delete your Kodosi account?",
       kdsDeleteLead: "You cannot undo this.",
       kdsDeleteGoes: "Kodosi deletes your sign-in, devices, friends and sharing.",
-      kdsDeleteRooms: "Projects that you own close for everyone in them.",
+      kdsDeleteProjects: "Projects that you own close for everyone in them.",
       kdsDeleteWords:
         'What you wrote in other people\'s projects stays there, from "deleted account".',
       kdsDeleteTerminals: "Terminals on your computers keep running.",
@@ -458,7 +458,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteTitle: "Dein Kodosi-Konto löschen?",
       kdsDeleteLead: "Du kannst das nicht rückgängig machen.",
       kdsDeleteGoes: "Kodosi löscht deine Anmeldung, Geräte und Freunde und beendet das Teilen.",
-      kdsDeleteRooms: "Projekte, die dir gehören, werden für alle darin geschlossen.",
+      kdsDeleteProjects: "Projekte, die dir gehören, werden für alle darin geschlossen.",
       kdsDeleteWords:
         "Was du in den Projekten anderer geschrieben hast, bleibt dort, mit „gelöschtes Konto“ als Absender.",
       kdsDeleteTerminals: "Die Terminals auf deinen Computern laufen weiter.",
@@ -734,7 +734,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteLead: "Δεν μπορείτε να το αναιρέσετε.",
       kdsDeleteGoes:
         "Το Kodosi διαγράφει τη σύνδεση, τις συσκευές και τους φίλους σας και σταματά ό,τι μοιράζεστε.",
-      kdsDeleteRooms: "Τα έργα που σας ανήκουν κλείνουν για όλα τα μέλη τους.",
+      kdsDeleteProjects: "Τα έργα που σας ανήκουν κλείνουν για όλα τα μέλη τους.",
       kdsDeleteWords: "Ό,τι γράψατε σε έργα άλλων μένει εκεί, ως «διαγραμμένος λογαριασμός».",
       kdsDeleteTerminals: "Τα τερματικά στους υπολογιστές σας συνεχίζουν να τρέχουν.",
       kdsDelete: "Διαγραφή λογαριασμού",
@@ -1014,7 +1014,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteLead: "No puedes deshacerlo.",
       kdsDeleteGoes:
         "Kodosi elimina tu inicio de sesión, tus dispositivos y tus amigos, y deja de compartir tus terminales.",
-      kdsDeleteRooms: "Los proyectos que son tuyos se cierran para todos sus miembros.",
+      kdsDeleteProjects: "Los proyectos que son tuyos se cierran para todos sus miembros.",
       kdsDeleteWords:
         "Lo que hayas escrito en proyectos de otras personas se queda allí, firmado como «cuenta eliminada».",
       kdsDeleteTerminals: "Los terminales de tus ordenadores siguen en marcha.",
@@ -1291,7 +1291,8 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteLead: "Cette action est irréversible.",
       kdsDeleteGoes:
         "Kodosi supprime votre connexion, vos appareils et vos amis, et arrête vos partages.",
-      kdsDeleteRooms: "Les projets dont vous êtes propriétaire se ferment pour tous leurs membres.",
+      kdsDeleteProjects:
+        "Les projets dont vous êtes propriétaire se ferment pour tous leurs membres.",
       kdsDeleteWords:
         "Ce que vous avez écrit dans les projets des autres y reste, signé « compte supprimé ».",
       kdsDeleteTerminals: "Les terminaux de vos ordinateurs continuent de fonctionner.",
@@ -1564,7 +1565,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteTitle: "Eliminare il tuo account Kodosi?",
       kdsDeleteLead: "Non puoi annullare questa azione.",
       kdsDeleteGoes: "Kodosi elimina il tuo accesso, i dispositivi, gli amici e le condivisioni.",
-      kdsDeleteRooms: "I progetti che possiedi verranno chiusi per tutti i membri.",
+      kdsDeleteProjects: "I progetti che possiedi verranno chiusi per tutti i membri.",
       kdsDeleteWords:
         "Ciò che hai scritto nei progetti di altri resta lì, firmato «account eliminato».",
       kdsDeleteTerminals: "I terminali sui tuoi computer continuano a funzionare.",
@@ -1839,7 +1840,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteTitle: "Kodosi アカウントを削除しますか？",
       kdsDeleteLead: "この操作は元に戻せません。",
       kdsDeleteGoes: "Kodosi はサインイン情報、デバイス、フレンド、共有を削除します。",
-      kdsDeleteRooms: "あなたがオーナーのプロジェクトは、全員に対して閉じられます。",
+      kdsDeleteProjects: "あなたがオーナーのプロジェクトは、全員に対して閉じられます。",
       kdsDeleteWords: "ほかの人のプロジェクトに書いた内容は「削除済みアカウント」として残ります。",
       kdsDeleteTerminals: "コンピュータのターミナルは実行を続けます。",
       kdsDelete: "アカウントを削除",
@@ -2114,7 +2115,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteTitle: "Kodosi 계정을 삭제할까요?",
       kdsDeleteLead: "되돌릴 수 없어요.",
       kdsDeleteGoes: "Kodosi가 로그인 정보, 기기, 친구, 공유를 삭제해요.",
-      kdsDeleteRooms: "내가 소유한 프로젝트는 모든 멤버에게 닫혀요.",
+      kdsDeleteProjects: "내가 소유한 프로젝트는 모든 멤버에게 닫혀요.",
       kdsDeleteWords: '다른 사람의 프로젝트에 쓴 글은 "삭제된 계정" 이름으로 남아요.',
       kdsDeleteTerminals: "컴퓨터의 터미널은 계속 실행돼요.",
       kdsDelete: "계정 삭제",
@@ -2378,7 +2379,7 @@ const { getI18n, ofTypeI18n } = i18nBuilder
       kdsDeleteTitle: "删除你的 Kodosi 账号？",
       kdsDeleteLead: "此操作无法撤销。",
       kdsDeleteGoes: "Kodosi 会删除你的登录信息、设备和好友，并停止所有共享。",
-      kdsDeleteRooms: "你拥有的项目会对所有成员关闭。",
+      kdsDeleteProjects: "你拥有的项目会对所有成员关闭。",
       kdsDeleteWords: "你在他人项目中写的内容会保留，署名为“已删除的账号”。",
       kdsDeleteTerminals: "你电脑上的终端会继续运行。",
       kdsDelete: "删除账号",

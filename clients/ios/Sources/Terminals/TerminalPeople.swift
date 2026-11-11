@@ -16,7 +16,7 @@ extension AppModel {
         if let name = people.name(of: id) {
             return name
         }
-        if let room = session.missionId, let member = rooms.member(id, in: room) {
+        if let project = session.projectId, let member = projects.member(id, in: project) {
             return member.personName
         }
         return String(localized: "Guest")

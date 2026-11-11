@@ -285,7 +285,7 @@ namespace Kodosi.Data.Migrations
                     b.ToTable("identity_resets", (string)null);
                 });
 
-            modelBuilder.Entity("Kodosi.Data.Mission", b =>
+            modelBuilder.Entity("Kodosi.Data.Project", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -322,10 +322,10 @@ namespace Kodosi.Data.Migrations
                         .IsUnique()
                         .HasFilter("\"Dosi\"");
 
-                    b.ToTable("missions", (string)null);
+                    b.ToTable("projects", (string)null);
                 });
 
-            modelBuilder.Entity("Kodosi.Data.MissionInvitation", b =>
+            modelBuilder.Entity("Kodosi.Data.ProjectInvitation", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -337,7 +337,7 @@ namespace Kodosi.Data.Migrations
                     b.Property<Guid>("InviterUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("MissionId")
+                    b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("UserId")
@@ -347,15 +347,15 @@ namespace Kodosi.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("MissionId", "UserId")
+                    b.HasIndex("ProjectId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("mission_invitations", (string)null);
+                    b.ToTable("project_invitations", (string)null);
                 });
 
-            modelBuilder.Entity("Kodosi.Data.MissionItem", b =>
+            modelBuilder.Entity("Kodosi.Data.ProjectItem", b =>
                 {
-                    b.Property<Guid>("MissionId")
+                    b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("Id")
@@ -395,19 +395,19 @@ namespace Kodosi.Data.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("bigint");
 
-                    b.HasKey("MissionId", "Id");
+                    b.HasKey("ProjectId", "Id");
 
-                    b.HasIndex("MissionId", "Sequence")
+                    b.HasIndex("ProjectId", "Sequence")
                         .IsUnique();
 
-                    b.HasIndex("MissionId", "Kind", "Sequence");
+                    b.HasIndex("ProjectId", "Kind", "Sequence");
 
-                    b.ToTable("mission_items", (string)null);
+                    b.ToTable("project_items", (string)null);
                 });
 
-            modelBuilder.Entity("Kodosi.Data.MissionKeyState", b =>
+            modelBuilder.Entity("Kodosi.Data.ProjectKeyState", b =>
                 {
-                    b.Property<Guid>("MissionId")
+                    b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
                     b.Property<long>("Version")
@@ -424,24 +424,48 @@ namespace Kodosi.Data.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
-                    b.HasKey("MissionId", "Version");
+                    b.HasKey("ProjectId", "Version");
 
-                    b.ToTable("mission_key_states", (string)null);
+                    b.ToTable("project_key_states", (string)null);
                 });
 
-            modelBuilder.Entity("Kodosi.Data.MissionMember", b =>
+            modelBuilder.Entity("Kodosi.Data.ProjectMember", b =>
                 {
-                    b.Property<Guid>("MissionId")
+                    b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("MissionId", "UserId");
+                    b.HasKey("ProjectId", "UserId");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("mission_members", (string)null);
+                    b.ToTable("project_members", (string)null);
+                });
+
+            modelBuilder.Entity("Kodosi.Data.ProjectRecipientKey", b =>
+                {
+                    b.Property<string>("DeviceId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<byte[]>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("Signature")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("DeviceId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("project_recipient_keys", (string)null);
                 });
 
             modelBuilder.Entity("Kodosi.Data.PushToken", b =>
@@ -479,30 +503,6 @@ namespace Kodosi.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("push_tokens", (string)null);
-                });
-
-            modelBuilder.Entity("Kodosi.Data.RoomRecipientKey", b =>
-                {
-                    b.Property<string>("DeviceId")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<byte[]>("PublicKey")
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
-                    b.Property<byte[]>("Signature")
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("DeviceId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("room_recipient_keys", (string)null);
                 });
 
             modelBuilder.Entity("Kodosi.Data.Session", b =>
@@ -547,9 +547,6 @@ namespace Kodosi.Data.Migrations
                     b.Property<Guid>("IncarnationId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("MissionId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -558,22 +555,25 @@ namespace Kodosi.Data.Migrations
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("RestoredFrom")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("RoomDeviceId")
+                    b.Property<string>("ProjectDeviceId")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<string>("RoomHistory")
+                    b.Property<string>("ProjectHistory")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
-                    b.Property<long>("RoomSequence")
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("ProjectSequence")
                         .HasColumnType("bigint");
 
-                    b.Property<byte[]>("RoomSignature")
+                    b.Property<byte[]>("ProjectSignature")
                         .HasColumnType("bytea");
+
+                    b.Property<Guid?>("RestoredFrom")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -582,7 +582,7 @@ namespace Kodosi.Data.Migrations
                     b.HasIndex("IncarnationId")
                         .IsUnique();
 
-                    b.HasIndex("MissionId");
+                    b.HasIndex("ProjectId");
 
                     b.HasIndex("Ended", "ExpiresAt");
 
@@ -752,7 +752,7 @@ namespace Kodosi.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Kodosi.Data.Mission", b =>
+            modelBuilder.Entity("Kodosi.Data.Project", b =>
                 {
                     b.HasOne("Kodosi.Data.User", null)
                         .WithMany()
@@ -761,11 +761,11 @@ namespace Kodosi.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Kodosi.Data.MissionInvitation", b =>
+            modelBuilder.Entity("Kodosi.Data.ProjectInvitation", b =>
                 {
-                    b.HasOne("Kodosi.Data.Mission", null)
+                    b.HasOne("Kodosi.Data.Project", null)
                         .WithMany()
-                        .HasForeignKey("MissionId")
+                        .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -776,29 +776,29 @@ namespace Kodosi.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Kodosi.Data.MissionItem", b =>
+            modelBuilder.Entity("Kodosi.Data.ProjectItem", b =>
                 {
-                    b.HasOne("Kodosi.Data.Mission", null)
+                    b.HasOne("Kodosi.Data.Project", null)
                         .WithMany()
-                        .HasForeignKey("MissionId")
+                        .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Kodosi.Data.MissionKeyState", b =>
+            modelBuilder.Entity("Kodosi.Data.ProjectKeyState", b =>
                 {
-                    b.HasOne("Kodosi.Data.Mission", null)
+                    b.HasOne("Kodosi.Data.Project", null)
                         .WithMany()
-                        .HasForeignKey("MissionId")
+                        .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Kodosi.Data.MissionMember", b =>
+            modelBuilder.Entity("Kodosi.Data.ProjectMember", b =>
                 {
-                    b.HasOne("Kodosi.Data.Mission", null)
+                    b.HasOne("Kodosi.Data.Project", null)
                         .WithMany()
-                        .HasForeignKey("MissionId")
+                        .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -806,6 +806,21 @@ namespace Kodosi.Data.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kodosi.Data.ProjectRecipientKey", b =>
+                {
+                    b.HasOne("Kodosi.Data.Device", null)
+                        .WithOne()
+                        .HasForeignKey("Kodosi.Data.ProjectRecipientKey", "DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Kodosi.Data.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -824,21 +839,6 @@ namespace Kodosi.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Kodosi.Data.RoomRecipientKey", b =>
-                {
-                    b.HasOne("Kodosi.Data.Device", null)
-                        .WithOne()
-                        .HasForeignKey("Kodosi.Data.RoomRecipientKey", "DeviceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Kodosi.Data.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Kodosi.Data.Session", b =>
                 {
                     b.HasOne("Kodosi.Data.Device", null)
@@ -847,16 +847,16 @@ namespace Kodosi.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Kodosi.Data.Mission", null)
-                        .WithMany()
-                        .HasForeignKey("MissionId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Kodosi.Data.User", null)
                         .WithMany()
                         .HasForeignKey("OwnerUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Kodosi.Data.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Kodosi.Data.SessionMember", b =>

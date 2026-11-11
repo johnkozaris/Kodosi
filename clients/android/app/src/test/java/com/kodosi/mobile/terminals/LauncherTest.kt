@@ -35,14 +35,14 @@ class LauncherTest {
         )
         loading.await()
         val starting = async(start = CoroutineStart.UNDISPATCHED) {
-            launcher.start(" Work ", "/code", " a\nb\tc ", "room")
+            launcher.start(" Work ", "/code", " a\nb\tc ", "project")
         }
         val command = sent.last("session.create")
         assertEquals("work", command["agent"]!!.jsonObject.string("account"))
         assertEquals("opus", command["agent"]!!.jsonObject.string("model"))
         assertEquals("", command["agent"]!!.jsonObject.string("effort"))
         assertEquals("a b c", command.string("prompt"))
-        assertEquals("room", command.string("missionId"))
+        assertEquals("project", command.string("projectId"))
         sent.reply("session.create", """"sessionId":"terminal"""")
         assertEquals("terminal", starting.await())
     }

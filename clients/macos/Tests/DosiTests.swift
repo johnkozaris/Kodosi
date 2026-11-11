@@ -153,7 +153,7 @@ private struct Named {
     }
     let send = try #require(sent.last { $0["type"] == .string("dosi.send") })
     #expect(send["text"] == .string("What does it need?"))
-    #expect(send["context"] == .object(["terminal": .string("01992e43-53db-7040-8e02-f6ebf4149b28"), "room": .null]))
+    #expect(send["context"] == .object(["terminal": .string("01992e43-53db-7040-8e02-f6ebf4149b28"), "project": .null]))
 }
 
 @Test @MainActor func `in the thread Dosi thinks until its turn shows something`() throws {

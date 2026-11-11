@@ -39,7 +39,7 @@ class DesktopStateModel final : public QObject {
     Q_PROPERTY(QString launcherFolder READ launcherFolder WRITE setLauncherFolder NOTIFY launcherDraftChanged)
     Q_PROPERTY(QVariantMap launcherRemoteFolders READ launcherRemoteFolders NOTIFY launcherDraftChanged)
 public:
-    enum ActiveView { Sessions, Missions, People, Settings };
+    enum ActiveView { Sessions, Projects, People, Settings };
     Q_ENUM(ActiveView)
     enum StageLayoutMode { Grid, Focus };
     Q_ENUM(StageLayoutMode)

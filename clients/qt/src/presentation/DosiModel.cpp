@@ -1,7 +1,7 @@
 #include "presentation/DosiModel.hpp"
 #include "presentation/DesktopStateModel.hpp"
 #include "presentation/DosiWords.hpp"
-#include "presentation/MissionsModel.hpp"
+#include "presentation/ProjectsModel.hpp"
 #include "presentation/SessionActionsModel.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 #include "presentation/Workspace.hpp"
@@ -74,7 +74,7 @@ DosiModel::DosiModel(Workspace& workspace, SessionCatalogModel& sessions)
     , m_sessions(sessions)
 {
     connect(&sessions, &SessionCatalogModel::folderGroupsChanged, this, &DosiModel::rebuild);
-    connect(&workspace.m_missions, &MissionsModel::catalogChanged, this, &DosiModel::rebuild);
+    connect(&workspace.m_projects, &ProjectsModel::catalogChanged, this, &DosiModel::rebuild);
     connect(&workspace.m_desktop, &DesktopStateModel::dosiOpenChanged, this, &DosiModel::refreshSeen);
     connect(&workspace.m_desktop, &DesktopStateModel::sidebarOpenChanged, this, &DosiModel::refreshSeen);
 }
@@ -167,9 +167,9 @@ QVariantList DosiModel::touched() const
         const auto kind = target.value(QStringLiteral("kind")).toString();
         const auto value = target.value(QStringLiteral("value")).toString();
         const auto key = kind + QLatin1Char(':') + value;
-        if ((kind != QStringLiteral("terminal") && kind != QStringLiteral("room")) || keys.contains(key))
+        if ((kind != QStringLiteral("terminal") && kind != QStringLiteral("project")) || keys.contains(key))
             continue;
-        const auto id = kind == QStringLiteral("terminal") ? terminalId(value) : roomId(value);
+        const auto id = kind == QStringLiteral("terminal") ? terminalId(value) : projectId(value);
         if (id.isEmpty())
             continue;
         keys.append(key);
@@ -217,8 +217,8 @@ QVariantMap DosiModel::reading() const
         { QStringLiteral("value"), value } };
     if (targetKind == QStringLiteral("terminal"))
         result.insert(QStringLiteral("sessionId"), terminalId(value));
-    if (targetKind == QStringLiteral("room"))
-        result.insert(QStringLiteral("roomId"), roomId(value));
+    if (targetKind == QStringLiteral("project"))
+        result.insert(QStringLiteral("projectId"), projectId(value));
     return result;
 }
 
@@ -261,17 +261,17 @@ QJsonObject DosiModel::context() const
 {
     const auto& desktop = m_workspace.m_desktop;
     QString terminal;
-    QString room;
+    QString project;
     if (desktop.activeView() == DesktopStateModel::Sessions) {
         terminal = desktop.selectedSessionId();
-    } else if (desktop.activeView() == DesktopStateModel::Missions) {
-        room = m_workspace.m_missions.selectedMissionId();
-        if (!room.isEmpty())
-            terminal = m_workspace.m_missions.presentation().value(QStringLiteral("terminal")).toString();
+    } else if (desktop.activeView() == DesktopStateModel::Projects) {
+        project = m_workspace.m_projects.selectedProjectId();
+        if (!project.isEmpty())
+            terminal = m_workspace.m_projects.presentation().value(QStringLiteral("terminal")).toString();
     }
-    if (terminal.isEmpty() && room.isEmpty())
+    if (terminal.isEmpty() && project.isEmpty())
         return {};
-    return { { QStringLiteral("terminal"), optional(terminal) }, { QStringLiteral("room"), optional(room) } };
+    return { { QStringLiteral("terminal"), optional(terminal) }, { QStringLiteral("project"), optional(project) } };
 }
 
 void DosiModel::send(const QString& text)
@@ -361,14 +361,14 @@ void DosiModel::open(const QString& place, const QString& value)
     if (place == QStringLiteral("terminal")) {
         if (const auto id = terminalId(value); !id.isEmpty())
             m_workspace.m_sessionActions.activate(id);
-    } else if (place == QStringLiteral("room")) {
-        if (const auto id = roomId(value); !id.isEmpty()) {
-            desktop.setActiveView(DesktopStateModel::Missions);
-            m_workspace.m_missions.open(id);
+    } else if (place == QStringLiteral("project")) {
+        if (const auto id = projectId(value); !id.isEmpty()) {
+            desktop.setActiveView(DesktopStateModel::Projects);
+            m_workspace.m_projects.open(id);
         }
-    } else if (place == QStringLiteral("rooms")) {
-        desktop.setActiveView(DesktopStateModel::Missions);
-        m_workspace.m_missions.open({});
+    } else if (place == QStringLiteral("projects")) {
+        desktop.setActiveView(DesktopStateModel::Projects);
+        m_workspace.m_projects.open({});
     } else if (place == QStringLiteral("terminals")) {
         desktop.setActiveView(DesktopStateModel::Sessions);
     }
@@ -379,9 +379,9 @@ QString DosiModel::terminalId(const QString& reference) const
     return referredId(m_sessions.sessions(), reference);
 }
 
-QString DosiModel::roomId(const QString& reference) const
+QString DosiModel::projectId(const QString& reference) const
 {
-    return referredId(m_workspace.m_missions.missions(), reference);
+    return referredId(m_workspace.m_projects.projects(), reference);
 }
 
 QString DosiModel::moodLabel(const QString& name)
@@ -551,7 +551,7 @@ QVariantMap DosiModel::present(const QVariantMap& tool, const QString& itemId) c
     const auto targetValue = target.value(QStringLiteral("value")).toString();
     const auto action = tool.value(QStringLiteral("action")).toString();
     const auto progress = tool.value(QStringLiteral("status")).toString();
-    static const QStringList openable { QStringLiteral("terminal"), QStringLiteral("room"), QStringLiteral("rooms"),
+    static const QStringList openable { QStringLiteral("terminal"), QStringLiteral("project"), QStringLiteral("projects"),
         QStringLiteral("terminals"), QStringLiteral("url") };
     QVariantMap shown { { QStringLiteral("item"), itemId }, { QStringLiteral("action"), action },
         { QStringLiteral("status"), progress }, { QStringLiteral("running"), progress == QStringLiteral("running") },
@@ -563,8 +563,8 @@ QVariantMap DosiModel::present(const QVariantMap& tool, const QString& itemId) c
         { QStringLiteral("openable"), openable.contains(targetKind) } };
     if (targetKind == QStringLiteral("terminal"))
         shown.insert(QStringLiteral("sessionId"), terminalId(targetValue));
-    if (targetKind == QStringLiteral("room"))
-        shown.insert(QStringLiteral("roomId"), roomId(targetValue));
+    if (targetKind == QStringLiteral("project"))
+        shown.insert(QStringLiteral("projectId"), projectId(targetValue));
     return shown;
 }
 

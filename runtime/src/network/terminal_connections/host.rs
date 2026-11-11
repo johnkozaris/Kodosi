@@ -193,14 +193,16 @@ async fn current_publication(
             {
                 return Err(Error::Stale);
             }
-            let local = (info.mission_id, info.room_sequence);
-            if let Some((room, sequence)) = network.room_change(credentials, local, &dto).await {
+            let local = (info.project_id, info.project_sequence);
+            if let Some((project, sequence)) =
+                network.project_change(credentials, local, &dto).await
+            {
                 let mut local = publication.info.write().await;
-                if local.mission_id != room {
+                if local.project_id != project {
                     local.shared_with.clear();
                 }
-                local.mission_id = room;
-                local.room_sequence = sequence;
+                local.project_id = project;
+                local.project_sequence = sequence;
             }
             *publication.dto.write().await = dto.clone();
             Ok(dto)
@@ -237,8 +239,8 @@ async fn allowed(publication: &Publication, credentials: &Credentials, user: &st
     }
     let local = publication.info.read().await;
     let published = publication.dto.read().await;
-    let chosen_room = local.mission_id.is_some() && local.mission_id == published.mission_id;
-    (chosen_room || local.shared_with.contains(user))
+    let chosen_project = local.project_id.is_some() && local.project_id == published.project_id;
+    (chosen_project || local.shared_with.contains(user))
         && published.shared_with.iter().any(|member| member == user)
 }
 
@@ -277,12 +279,15 @@ async fn review(
             continue;
         }
         if !identities.contains_key(&viewer.user) {
-            let room = publication.info.read().await.mission_id;
-            let identity = if let Some(room) = room.filter(|_| viewer.user != credentials.user_id) {
-                network.room_identity(credentials, room, &viewer.user).await
-            } else {
-                network.fetch_identity_with(credentials, &viewer.user).await
-            };
+            let project = publication.info.read().await.project_id;
+            let identity =
+                if let Some(project) = project.filter(|_| viewer.user != credentials.user_id) {
+                    network
+                        .project_identity(credentials, project, &viewer.user)
+                        .await
+                } else {
+                    network.fetch_identity_with(credentials, &viewer.user).await
+                };
             identities.insert(viewer.user.clone(), identity);
         }
         match &identities[&viewer.user] {
@@ -318,22 +323,22 @@ async fn close_when_asked(
     if allowed(publication, credentials, &request.user_id).await
         && !crate::identity::recovery::is_recovery_device(&request.device_id)
     {
-        let room = publication.info.read().await.mission_id;
+        let project = publication.info.read().await.project_id;
         let key = |identity: &crate::identity::pins::VerifiedIdentity| {
             identity
                 .devices
                 .get(&request.device_id)
                 .map(|certificate| certificate.sig_public_key.clone())
         };
-        let mut identity = match room.filter(|_| request.user_id != credentials.user_id) {
-            Some(room) => {
+        let mut identity = match project.filter(|_| request.user_id != credentials.user_id) {
+            Some(project) => {
                 network
-                    .room_identity(credentials, room, &request.user_id)
+                    .project_identity(credentials, project, &request.user_id)
                     .await
             }
             None => network.known_identity(credentials, &request.user_id).await,
         };
-        if room.is_none()
+        if project.is_none()
             && identity
                 .as_ref()
                 .is_ok_and(|identity| key(identity).is_none())
@@ -537,13 +542,13 @@ async fn admit(
             .get(device)
             .is_some_and(|certificate| certificate.sig_public_key == key)
     };
-    let room = publication.info.read().await.mission_id;
-    let mut identity = if let Some(room) = room.filter(|_| user != credentials.user_id) {
-        network.room_identity(credentials, room, user).await
+    let project = publication.info.read().await.project_id;
+    let mut identity = if let Some(project) = project.filter(|_| user != credentials.user_id) {
+        network.project_identity(credentials, project, user).await
     } else {
         network.known_identity(credentials, user).await
     };
-    if room.is_none() && identity.as_ref().is_ok_and(|identity| !approved(identity)) {
+    if project.is_none() && identity.as_ref().is_ok_and(|identity| !approved(identity)) {
         identity = network.fetch_identity_with(credentials, user).await;
     }
     match identity {
@@ -788,12 +793,12 @@ impl<'a, T: Transport> Stream<'a, T> {
         Ok(end)
     }
 
-    /// Terminal output goes first. Documents use the room that it leaves.
+    /// Terminal output goes first. Documents use the project that it leaves.
     async fn send_pipe_parts(&mut self) -> Result<()> {
         while !self.pipe_parts.is_empty()
             && self.parts.is_empty()
             && (!self.live || self.waiting.is_empty())
-            && self.pacer.room()
+            && self.pacer.project()
         {
             let Some(frame) = self.pipe_parts.pop_front() else {
                 break;
@@ -915,7 +920,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
                 return Ok(None);
             }
-            if !self.pacer.room() {
+            if !self.pacer.project() {
                 return Ok(None);
             }
             self.send_next().await?;

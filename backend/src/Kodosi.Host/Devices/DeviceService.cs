@@ -1,6 +1,6 @@
 using Kodosi.Accounts;
 using Kodosi.Data;
-using Kodosi.Missions;
+using Kodosi.Projects;
 using Kodosi.Plans;
 using Kodosi.Security;
 using Kodosi.Sessions;
@@ -152,7 +152,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
         foreach (var device in removed) { sessions.Remove(userId, device.Id); connections.RemoveDevice(userId, device.Id); }
         await PublishSessionChangesAsync(userId, affected, removed, ct);
         connections.Notify([userId], "devices");
-        await RoomMembership.NotifyRoomsOfAsync(db, connections, userId, ct);
+        await ProjectMembership.NotifyProjectsOfAsync(db, connections, userId, ct);
     }
 
     public async Task RequireRelationAsync(Guid callerId, Guid userId, CancellationToken ct)
@@ -165,7 +165,7 @@ public sealed partial class DeviceService(KodosiDbContext db, ConnectionDirector
                 && ((s.OwnerUserId == userId && people.Any(p => p.SessionId == s.Id && p.UserId == callerId))
                     || (s.OwnerUserId == callerId && people.Any(p => p.SessionId == s.Id && p.UserId == userId))), ct))
             return;
-        if (await RoomMembership.RoomsOf(db, callerId, invited: true).Intersect(RoomMembership.RoomsOf(db, userId, invited: true)).AnyAsync(ct)) return;
+        if (await ProjectMembership.ProjectsOf(db, callerId, invited: true).Intersect(ProjectMembership.ProjectsOf(db, userId, invited: true)).AnyAsync(ct)) return;
         throw ApiException.Missing();
     }
 

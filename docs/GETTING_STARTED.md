@@ -193,7 +193,7 @@ A project gathers terminals from any folder and computer, with a conversation an
 Select + beside Projects, then start a terminal in the project or share one into it, and
 invite friends when you want.
 
-<p align="center"><img src="media/room.webp" width="900" alt="A project with a shared terminal and a conversation of people and agents."></p>
+<p align="center"><img src="media/project.webp" width="900" alt="A project with a shared terminal and a conversation of people and agents."></p>
 
 - All members can use the shared terminals and share their own. People who join later
   get the terminals and the full conversation. Files stay on the computer of each

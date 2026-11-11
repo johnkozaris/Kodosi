@@ -58,8 +58,8 @@ import com.kodosi.mobile.dosi.DosiScreen
 import com.kodosi.mobile.onboarding.OnboardingScreen
 import com.kodosi.mobile.people.FriendScreen
 import com.kodosi.mobile.people.PeopleScreen
-import com.kodosi.mobile.rooms.RoomScreen
-import com.kodosi.mobile.rooms.RoomsScreen
+import com.kodosi.mobile.projects.ProjectScreen
+import com.kodosi.mobile.projects.ProjectsScreen
 import com.kodosi.mobile.settings.LicensesScreen
 import com.kodosi.mobile.settings.SettingsScreen
 import com.kodosi.mobile.terminals.NewTerminalRequest
@@ -141,7 +141,7 @@ private fun Home(model: AppModel) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val stacks = listOf(
         rememberNavBackStack(Destination("terminals")),
-        rememberNavBackStack(Destination("rooms")),
+        rememberNavBackStack(Destination("projects")),
         rememberNavBackStack(Destination("dosi")),
         rememberNavBackStack(Destination("settings"))
     )
@@ -164,7 +164,7 @@ private fun Home(model: AppModel) {
         onDispose { visibleTerminal?.let(model.terminals::disconnect) }
     }
     val links = LocalLinkOpener.current
-    val rooms by model.rooms.state.collectAsStateWithLifecycle()
+    val projects by model.projects.state.collectAsStateWithLifecycle()
     val account by model.account.state.collectAsStateWithLifecycle()
     val people by model.people.state.collectAsStateWithLifecycle()
     val dosi by model.dosi.state.collectAsStateWithLifecycle()
@@ -219,12 +219,12 @@ private fun Home(model: AppModel) {
         }
     }
     var starting by remember { mutableStateOf<NewTerminalRequest?>(null) }
-    val titles = listOf(R.string.terminals, R.string.rooms, R.string.dosi, R.string.settings)
-    val symbols = listOf(AppSymbol.TERMINAL, AppSymbol.ROOMS, AppSymbol.DOSI, AppSymbol.SETTINGS)
+    val titles = listOf(R.string.terminals, R.string.projects, R.string.dosi, R.string.settings)
+    val symbols = listOf(AppSymbol.TERMINAL, AppSymbol.PROJECTS, AppSymbol.DOSI, AppSymbol.SETTINGS)
     val waiting = terminals.sessions.count { !it.hidden && it.needsUser && (it.isOwner || it.canControl) }
     val counts = listOf(
         waiting,
-        rooms.badge,
+        projects.badge,
         dosi.badge,
         people.incoming.size + account.requests.size + if (account.reset?.thisDevice == false) 1 else 0
     )
@@ -265,11 +265,11 @@ private fun Home(model: AppModel) {
                             }
                         )
 
-                        "rooms" -> RoomsScreen(model) { stack.add(Destination("room", it)) }
+                        "projects" -> ProjectsScreen(model) { stack.add(Destination("project", it)) }
 
-                        "room" -> RoomScreen(model, destination.id, back, terminal) {
+                        "project" -> ProjectScreen(model, destination.id, back, terminal) {
                             starting =
-                                NewTerminalRequest(room = it)
+                                NewTerminalRequest(project = it)
                         }
 
                         "friends" -> PeopleScreen(model, back) { stack.add(Destination("friend", it)) }
@@ -282,13 +282,13 @@ private fun Home(model: AppModel) {
                                     it.id == value || it.name == value
                                 }?.let { terminal(it.id) }
 
-                                "room" -> rooms.rooms.firstOrNull { it.id == value || it.name == value }?.let {
-                                    stack.add(Destination("room", it.id))
+                                "project" -> projects.projects.firstOrNull { it.id == value || it.name == value }?.let {
+                                    stack.add(Destination("project", it.id))
                                 }
 
                                 "terminals" -> tab = 0
 
-                                "rooms" -> tab = 1
+                                "projects" -> tab = 1
 
                                 "url" -> links.open(value)
                             }
@@ -325,7 +325,7 @@ private fun Home(model: AppModel) {
     val adaptive = currentWindowAdaptiveInfo()
     val compact = !adaptive.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
     val destination = (stack.lastOrNull() as? Destination)?.kind
-    val fullScreen = destination in setOf("terminal", "canvas") || (destination == "room" && compact)
+    val fullScreen = destination in setOf("terminal", "canvas") || (destination == "project" && compact)
     val layoutType = if (fullScreen) {
         NavigationSuiteType.None
     } else if (compact) {

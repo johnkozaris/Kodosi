@@ -189,8 +189,8 @@ final class TerminalStore {
         act("session.leave", on: session)
     }
 
-    func share(_ session: RuntimeSession, inRoom roomId: String?) async throws {
-        try await mutate("session.attachMission", session: session, fields: ["missionId": roomId.map(JSONValue.string) ?? .null])
+    func share(_ session: RuntimeSession, inProject projectId: String?) async throws {
+        try await mutate("session.attachProject", session: session, fields: ["projectId": projectId.map(JSONValue.string) ?? .null])
     }
 
     private func act(_ operation: String, on session: RuntimeSession, fields: [String: JSONValue] = [:]) {

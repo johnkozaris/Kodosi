@@ -3,7 +3,7 @@ import KodosiBridge
 import Observation
 
 struct LauncherRequest: Equatable {
-    var roomId: String?
+    var projectId: String?
 }
 
 struct LauncherDraft: Equatable {
@@ -16,7 +16,7 @@ struct LauncherDraft: Equatable {
 @Observable
 final class WorkbenchState {
     enum Section {
-        case sessions, missions, people, settings
+        case sessions, projects, people, settings
     }
 
     enum SettingsSection: String, CaseIterable { case terminal, providers, dosi, browser, documents, devices, general, shortcuts }
@@ -49,15 +49,15 @@ final class WorkbenchState {
     var showsHistory = false
     var historyProvider: Provider = .claude
     var showsPalette = false
-    var showsNewRoom = false
+    var showsNewProject = false
     var trusting: FriendTrust?
-    var roomShare: RoomShare?
+    var projectShare: ProjectShare?
     var friendDraft = ""
     private(set) var pinnedSessionIds: [String] = []
     var launcher: LauncherRequest?
     var launcherDraft = LauncherDraft()
     var launcherFocus = 0
-    var selectedMissionId: String?
+    var selectedProjectId: String?
     var dismissedDeviceRequests: Set<String> = []
     var dismissedReset: String?
     /// The terminals where the person dismissed the note that their agent, started by hand,
@@ -193,11 +193,11 @@ final class WorkbenchState {
         focusesDeviceCode = focusingCode
     }
 
-    func showSession(_ id: String, inRoom roomId: String? = nil) {
+    func showSession(_ id: String, inProject projectId: String? = nil) {
         guard stagedSessionIds.contains(id) || stagedSessionIds.count < Self.maximumStagedSessions else { return }
-        section = roomId == nil ? .sessions : .missions
-        if let roomId {
-            selectedMissionId = roomId
+        section = projectId == nil ? .sessions : .projects
+        if let projectId {
+            selectedProjectId = projectId
         }
         selectedSessionId = id
         if !stagedSessionIds.contains(id) {
@@ -288,12 +288,12 @@ final class WorkbenchState {
         focusedSessionId = nil
         detailsSessionId = nil
         sharingSessionId = nil
-        selectedMissionId = nil
+        selectedProjectId = nil
         showsHistory = false
         showsPalette = false
-        showsNewRoom = false
+        showsNewProject = false
         trusting = nil
-        roomShare = nil
+        projectShare = nil
         friendDraft = ""
         launcher = nil
         launcherDraft = LauncherDraft()

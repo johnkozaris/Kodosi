@@ -711,7 +711,7 @@ impl BackendClient {
                 if let Some(other) = self.parting_user(&credentials, typed).await? {
                     #[cfg(feature = "host")]
                     self.exclude_friend(&other).await;
-                    self.end_rooms_with(&credentials, &other).await?;
+                    self.end_projects_with(&credentials, &other).await?;
                 }
                 self.friend_request(&credentials, "block", typed).await?;
                 self.change_friends(&credentials, |list| {
@@ -731,7 +731,7 @@ impl BackendClient {
                         })?;
                     #[cfg(feature = "host")]
                     self.exclude_friend(&other).await;
-                    self.end_rooms_with(&credentials, &other).await?;
+                    self.end_projects_with(&credentials, &other).await?;
                 }
                 let action = operation.rsplit('.').next().unwrap_or_default();
                 self.friend_request(&credentials, action, typed).await?;

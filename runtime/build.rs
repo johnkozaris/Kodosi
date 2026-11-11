@@ -24,10 +24,14 @@ fn main() {
             &[
                 ("/apiContractVersion", "BACKEND_API_VERSION", "u32"),
                 ("/authContractVersion", "AUTH_VERSION", "u32"),
-                ("/roomContent/limits/people", "ROOM_PEOPLE_MOST", "usize"),
                 (
-                    "/roomContent/limits/recipients",
-                    "ROOM_RECIPIENTS_MOST",
+                    "/projectContent/limits/people",
+                    "PROJECT_PEOPLE_MOST",
+                    "usize",
+                ),
+                (
+                    "/projectContent/limits/recipients",
+                    "PROJECT_RECIPIENTS_MOST",
                     "usize",
                 ),
             ][..],

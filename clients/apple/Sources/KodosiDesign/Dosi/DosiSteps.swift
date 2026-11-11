@@ -78,8 +78,8 @@ struct DosiMini: View {
             } else {
                 glyph("apple.terminal")
             }
-        case .room:
-            RoomSigil(key: target.map { place.room($0.value)?.id ?? $0.value } ?? "", size: 14)
+        case .project:
+            ProjectSigil(key: target.map { place.project($0.value)?.id ?? $0.value } ?? "", size: 14)
         case .terminals where !place.sessions().isEmpty:
             HStack(spacing: -5) {
                 ForEach(place.sessions().prefix(3)) { session in
@@ -87,10 +87,10 @@ struct DosiMini: View {
                         .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.ground, lineWidth: 1.5) }
                 }
             }
-        case .rooms where !place.rooms().isEmpty:
+        case .projects where !place.projects().isEmpty:
             HStack(spacing: -5) {
-                ForEach(place.rooms().prefix(3)) { mission in
-                    RoomSigil(key: mission.id, size: 14)
+                ForEach(place.projects().prefix(3)) { project in
+                    ProjectSigil(key: project.id, size: 14)
                         .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.ground, lineWidth: 1.5) }
                 }
             }
@@ -123,7 +123,7 @@ struct DosiReceipt: View {
     @State private var open = false
 
     private var openable: Bool {
-        tool.target.map { [.terminal, .room, .rooms, .terminals, .url].contains($0.kind) } ?? false
+        tool.target.map { [.terminal, .project, .projects, .terminals, .url].contains($0.kind) } ?? false
     }
 
     var body: some View {

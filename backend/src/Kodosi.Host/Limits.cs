@@ -7,10 +7,10 @@ internal static class Limits
     public const int MaxSessionsPerUser = 128;
     public const int MaxLiveSessionsPerUser = 2 * MaxSessionsPerUser;
     public const int MaxSessionMembers = 64;
-    public const int MaxMissionsPerUser = 64;
-    public const int MaxVisibleMissions = 256;
-    public const int MaxPendingMissionInvitations = 128;
-    public const int MaxMissionMembers = 64;
+    public const int MaxProjectsPerUser = 64;
+    public const int MaxVisibleProjects = 256;
+    public const int MaxPendingProjectInvitations = 128;
+    public const int MaxProjectMembers = 64;
     public const int SessionCatalog = 4096;
 
     public static string Count(long count, string one, string many)

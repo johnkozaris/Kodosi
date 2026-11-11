@@ -5,7 +5,7 @@ use aws_lc_rs::{
 use uuid::Uuid;
 use zeroize::Zeroizing;
 
-use super::{keys::RoomKeyPair, pins::Root};
+use super::{keys::ProjectKeyPair, pins::Root};
 use crate::network::{Error, Result, crypto, invalid};
 
 const DOMAIN: &[u8] = b"kodosi-recovery-v1";
@@ -72,7 +72,7 @@ pub(crate) fn is_recovery_device(device_id: &str) -> bool {
 pub(crate) struct RecoveryKey {
     pub(crate) device_id: String,
     signing: PqdsaKeyPair,
-    room_key: Zeroizing<[u8; 32]>,
+    project_key: Zeroizing<[u8; 32]>,
     context: Vec<u8>,
 }
 
@@ -98,7 +98,7 @@ impl RecoveryKey {
                 .into_uuid()
                 .to_string(),
             signing,
-            room_key: part(b"room-key")?,
+            project_key: part(b"room-key")?,
             context,
         })
     }
@@ -111,25 +111,28 @@ impl RecoveryKey {
         self.signing.public_key().as_ref().to_vec()
     }
 
-    pub(crate) fn seal(&self, room: &RoomKeyPair) -> Result<Vec<u8>> {
-        let (nonce, ciphertext) =
-            crypto::seal(self.room_key.as_ref(), &self.context, &room.to_bytes())
-                .ok_or_else(|| invalid("Cannot protect the recovery key."))?;
+    pub(crate) fn seal(&self, project: &ProjectKeyPair) -> Result<Vec<u8>> {
+        let (nonce, ciphertext) = crypto::seal(
+            self.project_key.as_ref(),
+            &self.context,
+            &project.to_bytes(),
+        )
+        .ok_or_else(|| invalid("Cannot protect the recovery key."))?;
         Ok([nonce.as_slice(), &ciphertext].concat())
     }
 
-    pub(crate) fn open(&self, sealed: &[u8]) -> Result<RoomKeyPair> {
+    pub(crate) fn open(&self, sealed: &[u8]) -> Result<ProjectKeyPair> {
         let (nonce, ciphertext) = sealed
             .split_at_checked(crypto::NONCE_BYTES)
             .ok_or_else(|| invalid("The saved recovery data is not valid."))?;
         let bytes = crypto::open(
-            self.room_key.as_ref(),
+            self.project_key.as_ref(),
             &self.context,
             nonce,
             ciphertext.to_vec(),
         )
         .ok_or_else(|| Error::Trust(text!("This is not the recovery key of this account.")))?;
-        RoomKeyPair::from_bytes(&bytes)
+        ProjectKeyPair::from_bytes(&bytes)
     }
 }
 
@@ -180,11 +183,11 @@ mod tests {
     }
 
     #[test]
-    fn the_sealed_room_key_opens_only_with_the_same_recovery_key() {
+    fn the_sealed_project_key_opens_only_with_the_same_recovery_key() {
         let key = RecoveryKey::derive(&new_text().unwrap(), USER, &[1; 32]).unwrap();
-        let room = RoomKeyPair::generate().unwrap();
-        let sealed = key.seal(&room).unwrap();
-        assert_eq!(key.open(&sealed).unwrap().public(), room.public());
+        let project = ProjectKeyPair::generate().unwrap();
+        let sealed = key.seal(&project).unwrap();
+        assert_eq!(key.open(&sealed).unwrap().public(), project.public());
         let other = RecoveryKey::derive(&new_text().unwrap(), USER, &[1; 32]).unwrap();
         assert!(matches!(other.open(&sealed), Err(Error::Trust(_))));
         let mut changed = sealed;

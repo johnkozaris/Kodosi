@@ -148,9 +148,9 @@ Item {
                                 session: mark.session
                                 working: false
                             }
-                            RoomSigil {
+                            ProjectSigil {
                                 anchors.fill: parent
-                                visible: mark.modelData.kind === "room"
+                                visible: mark.modelData.kind === "project"
                                 key: mark.modelData.id
                                 size: 16
                             }
