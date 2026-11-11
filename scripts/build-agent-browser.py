@@ -59,11 +59,12 @@ def build(folder: Path, target: str) -> Path:
     flags = f"--remap-path-prefix={Path.home()}=~"
     name = "agent-browser.exe" if target.endswith("-windows-msvc") else "agent-browser"
     program = folder / "target" / target / "release" / name
-    made_with = program.with_name("agent-browser.made-with")
+    mark = program.with_name("agent-browser.made-with")
     # Rust takes the pinned version of rust-toolchain.toml from the folder that it runs in.
     rust = subprocess.run(["rustc", "--version", "--verbose"], cwd=ROOT, check=True, capture_output=True, text=True).stdout
+    made_with = "\n".join([rust, flags, os.environ.get("CFLAGS", ""), os.environ.get("CXXFLAGS", "")])
     # Cargo downloads each crate before it can say that nothing changed, and a workflow has none of them.
-    if not program.is_file() or not made_with.is_file() or made_with.read_text(encoding="utf-8") != rust + flags:
+    if not program.is_file() or not mark.is_file() or mark.read_text(encoding="utf-8") != made_with:
         environment = {
             **os.environ,
             "CARGO_ENCODED_RUSTFLAGS": flags,
@@ -76,7 +77,7 @@ def build(folder: Path, target: str) -> Path:
              "--manifest-path", str(folder / "cli/Cargo.toml"),
              "--target", target, "--target-dir", str(folder / "target")],
             cwd=ROOT, env=environment, check=True, stdout=sys.stderr)
-        made_with.write_text(rust + flags, encoding="utf-8")
+        mark.write_text(made_with, encoding="utf-8")
     if str(Path.home()).encode() in program.read_bytes():
         raise SystemExit(f"{program} names the home folder of the build")
     return program
