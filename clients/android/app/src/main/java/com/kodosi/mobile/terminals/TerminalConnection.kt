@@ -329,9 +329,19 @@ class TerminalConnection(
 
     private inner class Link(override val subscriptionId: String, override val generation: Long) : TerminalLink {
         val ready = CompletableDeferred<Boolean>()
+        private var checkpointInstalled = false
+        private var connected = false
 
         @Volatile
         var active = true
+
+        private fun render() {
+            if (link !== this || !active || !checkpointInstalled || !connected) return
+            restored = true
+            ready.complete(true)
+            mutableState.value = State.Rendered
+            refresh()
+        }
 
         override fun onData(sequence: Long, bytes: ByteBuffer) {
             if (!active) return
@@ -383,11 +393,8 @@ class TerminalConnection(
             }
             changed()
             scope.launch {
-                if (link !== this@Link) return@launch
-                restored = true
-                ready.complete(true)
-                mutableState.value = State.Rendered
-                refresh()
+                checkpointInstalled = true
+                render()
             }
             return Ffi.OK
         }
@@ -395,7 +402,8 @@ class TerminalConnection(
         override fun onConnectResult(result: Int) {
             scope.launch {
                 if (result == Ffi.OK) {
-                    if (link === this@Link && restored) mutableState.value = State.Rendered
+                    connected = true
+                    render()
                 } else {
                     fail(this@Link, words.couldNotConnect)
                 }

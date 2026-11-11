@@ -7,6 +7,7 @@ import android.content.Context
 import android.graphics.SurfaceTexture
 import android.text.InputType
 import android.view.GestureDetector
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.Surface
@@ -409,7 +410,7 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser) {
 }
 
 @SuppressLint("ViewConstructor")
-private class BrowserSurface(context: Context, private val feed: BrowserFeed) :
+internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
     FrameLayout(context),
     TextureView.SurfaceTextureListener {
     private val texture = TextureView(context).also {
@@ -419,6 +420,7 @@ private class BrowserSurface(context: Context, private val feed: BrowserFeed) :
     }
     private var surface: Surface? = null
     private var pressed = "left"
+    private var accent = 0
     var window = fields()
         set(value) {
             field = value
@@ -640,7 +642,13 @@ private class BrowserSurface(context: Context, private val feed: BrowserFeed) :
             event.metaState and (KeyEvent.META_CTRL_MASK or KeyEvent.META_ALT_MASK or KeyEvent.META_META_MASK).inv()
         )
         if (char == 0) return super.onKeyDown(keyCode, event)
-        val text = String(Character.toChars(char))
+        if (char and KeyCharacterMap.COMBINING_ACCENT != 0) {
+            accent = char and KeyCharacterMap.COMBINING_ACCENT_MASK
+            return true
+        }
+        val composed = KeyCharacterMap.getDeadChar(accent, char).takeIf { accent != 0 && it != 0 }
+        accent = 0
+        val text = String(Character.toChars(composed ?: char))
         if (modifiers and 7 ==
             0
         ) {

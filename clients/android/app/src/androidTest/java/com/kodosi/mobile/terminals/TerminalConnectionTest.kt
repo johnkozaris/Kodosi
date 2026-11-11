@@ -27,7 +27,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class TerminalConnectionTest {
     @Test
-    fun inputWaitsForItsCheckpointAndKeepsItsOrder() = runBlocking {
+    fun inputWaitsForItsCheckpointAndConnectResultAndKeepsItsOrder() = runBlocking {
         Fixture().use { fixture ->
             val link = withTimeout(5_000) { fixture.runtime.connections.receive() }
             assertTrue(fixture.connection.send("first".encodeToByteArray()))
@@ -35,6 +35,8 @@ class TerminalConnectionTest {
             assertTrue(fixture.runtime.inputs.tryReceive().isFailure)
 
             assertEquals(Ffi.OK, install(link))
+            assertEquals(TerminalConnection.State.Connecting, fixture.connection.state.value)
+            fixture.runtime.succeed(link)
             assertArrayEquals("first".encodeToByteArray(), withTimeout(5_000) { fixture.runtime.inputs.receive() })
             assertArrayEquals("second".encodeToByteArray(), withTimeout(5_000) { fixture.runtime.inputs.receive() })
             assertTrue(fixture.connection.send("third".encodeToByteArray()))
@@ -44,14 +46,18 @@ class TerminalConnectionTest {
 
     @Test
     fun closingDiscardsUnsentInputAndRejectsALateCheckpoint() = runBlocking {
-        Fixture().use { fixture ->
-            val link = withTimeout(5_000) { fixture.runtime.connections.receive() }
-            assertTrue(fixture.connection.send("never".encodeToByteArray()))
-            fixture.connection.close()
+        for (checkpointInstalled in listOf(false, true)) {
+            Fixture().use { fixture ->
+                val link = withTimeout(5_000) { fixture.runtime.connections.receive() }
+                assertTrue(fixture.connection.send("never".encodeToByteArray()))
+                if (checkpointInstalled) assertEquals(Ffi.OK, install(link))
+                fixture.connection.close()
 
-            assertEquals(Ffi.STALE_SUBSCRIPTION, install(link))
-            withTimeout(5_000) { fixture.scope.coroutineContext[Job]!!.children.toList().joinAll() }
-            assertTrue(fixture.runtime.inputs.tryReceive().isFailure)
+                fixture.runtime.succeed(link)
+                assertEquals(Ffi.STALE_SUBSCRIPTION, install(link))
+                withTimeout(5_000) { fixture.scope.coroutineContext[Job]!!.children.toList().joinAll() }
+                assertTrue(fixture.runtime.inputs.tryReceive().isFailure)
+            }
         }
     }
 
@@ -92,14 +98,25 @@ class TerminalConnectionTest {
         val connections = Channel<TerminalLink>(Channel.UNLIMITED)
         val inputs = Channel<ByteArray>(Channel.UNLIMITED)
 
+        @Volatile
+        private var connected: TerminalLink? = null
+
+        fun succeed(link: TerminalLink) {
+            connected = link
+            link.onConnectResult(Ffi.OK)
+        }
+
         override fun connect(sessionId: String, link: TerminalLink): Int {
             connections.trySend(link)
             return Ffi.OK
         }
 
-        override fun disconnect(sessionId: String, link: TerminalLink) = Unit
+        override fun disconnect(sessionId: String, link: TerminalLink) {
+            if (connected === link) connected = null
+        }
 
         override fun input(sessionId: String, incarnationId: String, link: TerminalLink, bytes: ByteArray): Int {
+            if (connected !== link) return Ffi.STALE_SUBSCRIPTION
             inputs.trySend(bytes.copyOf())
             return Ffi.OK
         }
