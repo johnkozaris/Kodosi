@@ -312,7 +312,7 @@ pub unsafe extern "C" fn kodosi_cli_main(length: i32, values: *const *const c_ch
     run_cli(invocation)
 }
 
-#[cfg(feature = "cli")]
+#[cfg(feature = "host")]
 fn run_cli(invocation: Vec<OsString>) -> i32 {
     if !kodosi_runtime::cli::is_invocation(&invocation) {
         return KODOSI_CLI_NOT_INVOKED;
@@ -326,7 +326,7 @@ fn run_cli(invocation: Vec<OsString>) -> i32 {
     .unwrap_or(KODOSI_CLI_FAILED)
 }
 
-#[cfg(not(feature = "cli"))]
+#[cfg(not(feature = "host"))]
 fn run_cli(invocation: Vec<OsString>) -> i32 {
     drop(invocation);
     KODOSI_CLI_NOT_INVOKED

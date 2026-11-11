@@ -23,7 +23,7 @@ compile_error!("Phones view terminals hosted elsewhere; build it with --no-defau
 pub mod text;
 pub mod agents;
 pub mod canvas;
-#[cfg(feature = "cli")]
+#[cfg(feature = "host")]
 pub mod cli;
 mod config;
 pub mod diagnostics;

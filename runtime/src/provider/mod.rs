@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use crate::agents::Agent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
-#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
+#[cfg_attr(feature = "host", derive(clap::ValueEnum))]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     Claude,

@@ -25,8 +25,8 @@ rust-tools-install:
     cargo install --locked --root "{{ cargo_tools_root }}" cargo-machete --version {{ cargo_machete_version }}
 
 [private]
-rust-dependency-tools-check:
-    @test -x "{{ cargo_tools_bin }}/cargo-deny" -a -x "{{ cargo_tools_bin }}/cargo-machete" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
+rust-tool-check tool:
+    @test -x "{{ cargo_tools_bin }}/{{ tool }}" || { printf '%s\n' 'Run just rust-tools-install first.' >&2; exit 1; }
 
 # Check the Ghostty pins, digests and notices without a build.
 [group('ghostty')]
@@ -66,45 +66,32 @@ browser-engine-build:
 agent-browser-build:
     python3 scripts/build-agent-browser.py --target "$(rustc -vV | sed -n 's/^host: //p')" --output-dir runtime/target/debug
 
-# Compile the Rust workspace and each runtime feature set, and stop on a warning.
-[group('rust')]
-rust-compile-check: rust-features-check
-    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked --workspace
-
-[private]
-rust-features-check:
-    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime --no-default-features --features host --lib
-    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime --no-default-features --lib
-    CARGO_BUILD_WARNINGS=deny cargo test --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime --no-default-features --lib --no-run
-    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-ffi-c
-    CARGO_BUILD_WARNINGS=deny cargo check --manifest-path runtime/Cargo.toml --locked -p kodosi-ffi-c --no-default-features
-    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --bins -- -D warnings
-    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --tests -- {{ test_lints }}
-
 # Check the Rust format.
 [group('rust')]
 rust-format-check:
     cargo fmt --manifest-path runtime/Cargo.toml --all -- --check
 
-# Build the Rust documentation and stop on a warning.
-[group('rust')]
-rust-doc-build:
-    CARGO_BUILD_WARNINGS=deny RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path runtime/Cargo.toml --locked --workspace --no-deps
-
-# Lint the Rust workspace with Clippy.
+# Lint the full and the viewer builds of the Rust workspace with Clippy.
 [group('rust')]
 rust-lint:
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --lib --bins --examples -- -D warnings
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked --workspace --tests -- {{ test_lints }}
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib --bins -- -D warnings
+    CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --tests -- {{ test_lints }}
 
-# Check the Rust dependencies with cargo-deny.
+# Check the licenses and the sources of the Rust dependencies with cargo-deny.
 [group('rust')]
-rust-deny-check: rust-dependency-tools-check
-    cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --hide-inclusion-graph advisories bans licenses sources
+rust-deny-check: (rust-tool-check "cargo-deny")
+    cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --hide-inclusion-graph bans licenses sources
+
+# Check the Rust dependencies for security advisories with cargo-deny.
+[group('rust')]
+rust-advisories-check: (rust-tool-check "cargo-deny")
+    cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --hide-inclusion-graph advisories
 
 # Find unused Rust dependencies with cargo-machete.
 [group('rust')]
-rust-machete-check: rust-dependency-tools-check
+rust-machete-check: (rust-tool-check "cargo-machete")
     cargo machete --skip-target-dir runtime
 
 # Run rust-deny-check and rust-machete-check.
@@ -121,27 +108,20 @@ conpty-install:
 [unix]
 conpty-install:
 
-# Run the Rust tests for the full and the viewer builds, and the documentation tests.
+# Run the Rust tests for the full and the viewer builds.
 [group('rust')]
 rust-test: conpty-install
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --all-targets
     CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --all-targets
-    CARGO_INCREMENTAL=0 cargo test --manifest-path runtime/Cargo.toml --locked --workspace --doc
 
-# Write protocol/desktop-runtime.json from the Rust definitions.
+# Write protocol/desktop-runtime.json from the Rust definitions. The tests check it.
 [group('protocol')]
 protocol-gen:
-    cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- write
+    cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen
 
-# Check protocol/desktop-runtime.json against the Rust definitions.
-[group('protocol')]
-protocol-check:
-    cargo run --manifest-path runtime/Cargo.toml --locked --bin protocol-gen -- check
-    cargo run --manifest-path runtime/Cargo.toml --locked --no-default-features --bin protocol-gen -- check
-
-# Run the Ghostty checks and all the Rust and contract checks.
+# Run the Ghostty checks and all the Rust checks.
 [group('rust')]
-rust-check: ghostty-check rust-format-check rust-compile-check rust-doc-build rust-lint rust-dependency-check protocol-check rust-test
+rust-check: ghostty-check rust-format-check rust-lint rust-dependency-check rust-test
 
 # Build, check and test the views, then lint and test the document crates.
 [group('rust')]

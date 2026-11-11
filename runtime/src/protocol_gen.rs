@@ -1,4 +1,7 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use kodosi_runtime::{Error, Result, protocol};
 use serde_json::{Map, Value, json};
@@ -316,29 +319,13 @@ fn rendered() -> Result<String> {
     Ok(serde_json::to_string_pretty(&value)? + "\n")
 }
 
+fn contract_file() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../protocol/desktop-runtime.json")
+}
+
 fn main() -> Result<()> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .ok_or_else(|| invalid("runtime parent missing"))?;
-    let path = root.join("protocol/desktop-runtime.json");
-    let generated = rendered()?;
-    let args = std::env::args().skip(1).collect::<Vec<_>>();
-    match args.as_slice() {
-        [mode] if mode == "write" => {
-            fs::write(path, generated)?;
-            Ok(())
-        }
-        [mode] if mode == "check" => {
-            if fs::read_to_string(path)? == generated {
-                Ok(())
-            } else {
-                Err(invalid(
-                    "desktop runtime contract is stale; run just protocol-gen",
-                ))
-            }
-        }
-        _ => Err(invalid("usage: protocol-gen <write|check>")),
-    }
+    fs::write(contract_file(), rendered()?)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -441,6 +428,14 @@ mod tests {
         assert!(
             matches(&schema, &encoded),
             "schema {schema} did not match {encoded}"
+        );
+    }
+
+    #[test]
+    fn the_contract_file_is_what_the_rust_definitions_give() {
+        assert!(
+            fs::read_to_string(contract_file()).unwrap() == rendered().unwrap(),
+            "protocol/desktop-runtime.json is stale. Run just protocol-gen."
         );
     }
 

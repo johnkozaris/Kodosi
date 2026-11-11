@@ -68,8 +68,8 @@ Windows app and the CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180`, and
 
 ## Contracts and Ghostty
 
-`just protocol-gen` writes `protocol/desktop-runtime.json` from the Rust types and
-`just protocol-check` checks it. After a change of the C API, copy the header that the
+`just protocol-gen` writes `protocol/desktop-runtime.json` from the Rust types, and the
+Rust tests check it. After a change of the C API, copy the header that the
 `kodosi-ffi-c` build writes to `clients/apple/Sources/KodosiKit/kodosi_runtime.h`.
 `just ghostty-check` checks the Ghostty pins, and
 [Ghostty provenance](../terminal/ghostty/PROVENANCE.md) explains updates.

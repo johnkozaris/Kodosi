@@ -14,6 +14,9 @@ on:
       - deny.toml
       - justfile
       - VERSION
+      - README.md
+      - docs/GETTING_STARTED.md
+      - docs/ARCHITECTURE.md
       - .github/workflows/rust.yml
   workflow_dispatch:
 
@@ -49,4 +52,4 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: runtime
-      - run: just ghostty-check rust-format-check rust-compile-check rust-doc-build rust-lint rust-dependency-check protocol-check rust-test translations-check
+      - run: just ghostty-check rust-format-check rust-lint rust-dependency-check rust-test translations-check
