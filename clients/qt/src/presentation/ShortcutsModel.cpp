@@ -24,8 +24,9 @@ const QList<Action>& actions()
     using namespace Qt::StringLiterals;
     static const QList<Action> list {
         { u"newTerminal"_s, 0, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "New terminal"), { u"Ctrl+Shift+N"_s } },
+        { u"sameAgent"_s, 0, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Same agent"), { u"Ctrl+Shift+T"_s } },
         { u"quickTerminal"_s, 0, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Quick terminal"),
-            { u"Ctrl+Shift+T"_s, u"Ctrl+Shift+O"_s, u"Ctrl+Shift+E"_s } },
+            { u"Ctrl+Shift+O"_s, u"Ctrl+Shift+E"_s } },
         { u"resume"_s, 0, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Resume a conversation"), { u"Ctrl+Shift+R"_s } },
         { u"close"_s, 0, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Close terminal"), { u"Ctrl+Shift+W"_s } },
         { u"minimize"_s, 0, QT_TRANSLATE_NOOP("kodosi::ShortcutsModel", "Minimize"), { u"Ctrl+Shift+M"_s } },

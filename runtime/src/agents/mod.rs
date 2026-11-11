@@ -306,14 +306,16 @@ impl Agent {
         words
     }
 
-    /// The words that give a launched agent Kodosi's note. Codex reads it only from its command
-    /// line; Claude Code and Copilot CLI read Kodosi's note and skills from the environment of
-    /// each Kodosi terminal, also when a person starts them by hand.
+    /// The words that give a launched agent Kodosi's note and keep it in its terminal. Codex
+    /// reads the note only from its command line, and without `--no-daemon` it works in its
+    /// shared background server, which has the variables of whatever started that server.
+    /// Claude Code and Copilot CLI read Kodosi's note and skills from the environment of each
+    /// Kodosi terminal, also when a person starts them by hand.
     #[cfg(feature = "host")]
     pub(crate) fn context_words(self, shell: &Path) -> Option<String> {
         match self {
             Self::Codex => Some(format!(
-                "-c {}",
+                "--no-daemon -c {}",
                 variable_word(shell, "developer_instructions=", CONTEXT_VARIABLE)
             )),
             Self::Claude | Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,

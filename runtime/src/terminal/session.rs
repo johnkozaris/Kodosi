@@ -550,6 +550,14 @@ impl PendingWrite {
     }
 }
 
+/// The line that starts the terminal's program once the shell waits at its prompt, and what
+/// people typed meanwhile, which follows it.
+struct StartLine {
+    line: String,
+    since: tokio::time::Instant,
+    early: VecDeque<PendingWrite>,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Controller {
     Local(Uuid),
@@ -704,7 +712,7 @@ struct LocalActor {
     account: Option<u8>,
     agent: RunningAgent,
     clear_line: &'static str,
-    start: Option<(String, tokio::time::Instant)>,
+    start: Option<StartLine>,
     output_at: Option<tokio::time::Instant>,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
@@ -849,6 +857,19 @@ impl LocalActor {
             index += 1;
             keep
         });
+        if let Some(start) = &mut self.start {
+            start.early.retain(|write| !write.is_cancelled());
+        }
+    }
+
+    /// Keys of a person go after the start line, which the shell would otherwise read after
+    /// them on the same line.
+    fn type_keys(&mut self, write: PendingWrite) {
+        self.typed_at = Some(tokio::time::Instant::now());
+        match &mut self.start {
+            Some(start) => start.early.push_back(write),
+            None => self.queue.push_back(write),
+        }
     }
 
     fn pending_input(&mut self) -> Option<Bytes> {
@@ -1110,10 +1131,10 @@ impl LocalActor {
     }
 
     fn type_start_line(&mut self) {
-        let Some((_, since)) = &self.start else {
+        let Some(start) = &self.start else {
             return;
         };
-        let waited = since.elapsed();
+        let waited = start.since.elapsed();
         let quiet = self
             .output_at
             .is_some_and(|output| output.elapsed() >= PROMPT_QUIET);
@@ -1124,7 +1145,7 @@ impl LocalActor {
         if !prompt && waited < START_LIMIT {
             return;
         }
-        let Some((line, _)) = self.start.take() else {
+        let Some(StartLine { line, early, .. }) = self.start.take() else {
             return;
         };
         if !prompt {
@@ -1132,6 +1153,7 @@ impl LocalActor {
         } else if let Err(error) = self.enqueue(Bytes::from(format!("{line}\r")), None) {
             tracing::warn!(id = %self.id, %error, "the start line was not typed");
         }
+        self.queue.extend(early);
     }
 
     fn busy(&self) -> bool {
@@ -1358,8 +1380,7 @@ impl LocalActor {
             return;
         };
         write.authorization = Some(authorization);
-        self.typed_at = Some(tokio::time::Instant::now());
-        self.queue.push_back(write);
+        self.type_keys(write);
     }
 
     fn accept_command_input(&mut self, mut write: PendingWrite, message: bool) {
@@ -1507,7 +1528,11 @@ impl LocalActor {
                 drop(reply.send(result));
             }
             Request::Start(line) => {
-                self.start = Some((line, tokio::time::Instant::now()));
+                self.start = Some(StartLine {
+                    line,
+                    since: tokio::time::Instant::now(),
+                    early: VecDeque::new(),
+                });
             }
             Request::Foreground { variable, reply } => {
                 drop(reply.send(Ok(Foreground {
@@ -1764,8 +1789,7 @@ impl LocalActor {
         match write {
             Ok(mut write) => {
                 write.completion = Some(completion);
-                self.typed_at = Some(tokio::time::Instant::now());
-                self.queue.push_back(write);
+                self.type_keys(write);
             }
             Err(error) => completion.send(Err(error)),
         }
@@ -1811,8 +1835,7 @@ impl LocalActor {
                         if message {
                             self.accept_command_input(write, true);
                         } else {
-                            self.typed_at = Some(tokio::time::Instant::now());
-                            self.queue.push_back(write);
+                            self.type_keys(write);
                         }
                         return None;
                     }

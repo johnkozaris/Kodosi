@@ -2809,7 +2809,7 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
     );
     assert_eq!(
         line(Agent::Codex, &codex, None).unwrap(),
-        "codex -m gpt-5.6-sol -c model_reasoning_effort=high -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\" resume"
+        "codex -m gpt-5.6-sol -c model_reasoning_effort=high --no-daemon -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\" resume"
     );
 }
 
@@ -2957,7 +2957,7 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
     assert_eq!(
         codex,
         format!(
-            "codex -m gpt-5.6-sol -c model_reasoning_effort=high -a on-request -s workspace-write -c hide_agent_reasoning=true -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\" resume {id}"
+            "codex -m gpt-5.6-sol -c model_reasoning_effort=high -a on-request -s workspace-write -c hide_agent_reasoning=true --no-daemon -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\" resume {id}"
         )
     );
 }

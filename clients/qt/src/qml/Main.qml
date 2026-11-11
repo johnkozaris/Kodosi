@@ -470,6 +470,13 @@ ApplicationWindow {
     Shortcut {
         autoRepeat: false
         enabled: !window.modalOpen
+        sequences: Models.Shortcuts.keys.sameAgent
+
+        onActivated: Models.SessionActions.createSameAgent()
+    }
+    Shortcut {
+        autoRepeat: false
+        enabled: !window.modalOpen
         sequences: Models.Shortcuts.keys.quickTerminal
 
         onActivated: Models.SessionActions.createQuick()

@@ -607,7 +607,7 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
     let zsh = Path::new("/bin/zsh");
     assert_eq!(
         Agent::Codex.with_context("codex", zsh),
-        "codex -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\""
+        "codex --no-daemon -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\""
     );
     for agent in [Agent::Claude, Agent::Copilot, Agent::Gemini] {
         assert_eq!(agent.with_context(agent.program(), zsh), agent.program());

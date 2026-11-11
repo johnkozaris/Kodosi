@@ -13,7 +13,13 @@ extension AppDependencies {
             }
     }
 
-    func openQuickTerminal() {
+    /// The agent in front of the selected terminal of this computer, to start beside it.
+    var selectedAgent: AgentStart? {
+        workbench.selectedSessionId.flatMap(session).flatMap { AgentStart(runningIn: $0, info: launcher.agent($0.program)) }
+    }
+
+    /// A terminal that opens at once: plain, or with `agent`.
+    func openQuickTerminal(agent: AgentStart? = nil) {
         if let event = NSApp?.currentEvent, event.type == .keyDown, event.isARepeat {
             return
         }
@@ -28,7 +34,7 @@ extension AppDependencies {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await typeAhead.expect(createSession(name: generateSessionName(), directory: directory))
+                try await typeAhead.expect(createSession(name: generateSessionName(), directory: directory, agent: agent))
             } catch {
                 typeAhead.drop()
                 errorMessage = error.localizedDescription

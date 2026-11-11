@@ -189,6 +189,7 @@ int main(int argc, char* argv[])
     for (const auto signal : { &kodosi::DesktopStateModel::stagedSessionIdsChanged,
              &kodosi::DesktopStateModel::selectedSessionIdChanged, &kodosi::DesktopStateModel::stageLayoutModeChanged })
         QObject::connect(&desktop, signal, &tiling, followStage);
+    workspace.sessionActions().setAccounts([&](const QString& agent) { return launcher.accounts(agent); });
     workspace.sessionActions().setStartSize([&] {
         const auto* window = QGuiApplication::focusWindow();
         return kodosi::TerminalView::startSize(tiling.nextTerminalSize(), desktopSettings.fontFamily(),

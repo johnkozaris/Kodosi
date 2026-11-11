@@ -201,8 +201,10 @@ from another device with a note that Dosi is off there.
   model and effort that it changes to for its next sessions, and the actions say so. A
   terminal that starts again keeps the changes.
 - Quick terminal skips the launcher and opens a plain terminal on this computer at once:
-  in the folder of the selected terminal, or else in the launcher's folder. What the
-  person types while it opens goes into it.
+  in the folder of the selected terminal, or else in the launcher's folder. Same agent
+  opens it with the agent of the selected terminal of this computer, with that agent's
+  account, model, effort, permissions and output as far as Kodosi knows them. What the
+  person types while it opens goes into it, after the agent's command.
 - The app's keys are Ghostty's for the actions that Kodosi has too, plus Kodosi's own, and
   Settings changes each of them. Any other key goes to the program in the terminal.
 - The launcher can also start the terminal on another of the person's computers where
