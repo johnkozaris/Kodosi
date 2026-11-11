@@ -2090,54 +2090,54 @@
         }
       }
     },
-    "Add friends in the Friends tab to invite them." : {
+    "Add friends in Settings to invite them." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Füge im Tab „Freunde“ Freunde hinzu, um sie einzuladen."
+            "value" : "Füge in den Einstellungen Freunde hinzu, um sie einzuladen."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Προσθέστε φίλους στην καρτέλα Φίλοι για να τους προσκαλέσετε."
+            "value" : "Προσθέστε φίλους στις Ρυθμίσεις για να τους προσκαλέσετε."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Añade amigos en la pestaña Amigos para invitarlos."
+            "value" : "Añade amigos en Ajustes para invitarlos."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ajoutez des amis dans l'onglet Amis pour les inviter."
+            "value" : "Ajoutez des amis dans Réglages pour les inviter."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aggiungi amici nella scheda Amici per invitarli."
+            "value" : "Aggiungi amici in Impostazioni per invitarli."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "招待するには、「フレンド」タブでフレンドを追加してください。"
+            "value" : "招待するには、「設定」でフレンドを追加してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "초대하려면 친구 탭에서 친구를 추가하세요."
+            "value" : "초대하려면 설정에서 친구를 추가하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在“好友”标签页中添加好友后即可邀请。"
+            "value" : "在“设置”中添加好友后即可邀请。"
           }
         }
       }

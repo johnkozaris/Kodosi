@@ -3,7 +3,7 @@ import KodosiDesign
 import SwiftUI
 
 enum MainTab: Hashable {
-    case terminals, rooms, dosi, people, settings
+    case terminals, rooms, dosi, settings
 }
 
 struct MainTabView: View {
@@ -13,7 +13,7 @@ struct MainTabView: View {
     @State private var terminals = NavigationPath()
     @State private var rooms = NavigationPath()
     @State private var dosi = NavigationPath()
-    @State private var people = NavigationPath()
+    @State private var settings = NavigationPath()
 
     var body: some View {
         TabView(selection: $tab) {
@@ -41,19 +41,12 @@ struct MainTabView: View {
             .badge(dosiCalls)
             .accessibilityIdentifier("tab.dosi")
 
-            Tab("Friends", systemImage: "person.2", value: .people) {
-                NavigationStack(path: $people) { PeopleHome() }
-                    .environment(\.openRoute, OpenRouteAction { people.append($0) })
-                    .tint(theme.colors.ink)
-            }
-            .badge(model.people.incoming.count)
-            .accessibilityIdentifier("tab.people")
-
             Tab("Settings", systemImage: "gearshape", value: .settings) {
-                NavigationStack { SettingsHome() }
+                NavigationStack(path: $settings) { SettingsHome() }
+                    .environment(\.openRoute, OpenRouteAction { settings.append($0) })
                     .tint(theme.colors.ink)
             }
-            .badge(model.account.deviceRequests.count + (model.account.otherDeviceReset == nil ? 0 : 1))
+            .badge(model.people.incoming.count + model.account.deviceRequests.count + (model.account.otherDeviceReset == nil ? 0 : 1))
             .accessibilityIdentifier("tab.settings")
         }
         .tabViewStyle(.sidebarAdaptable)
