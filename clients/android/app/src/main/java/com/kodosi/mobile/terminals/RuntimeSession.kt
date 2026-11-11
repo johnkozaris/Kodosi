@@ -161,8 +161,6 @@ enum class AgentKind {
     SHELL
     ;
 
-    val isAgent: Boolean get() = this != SHELL
-
     companion object {
         fun of(program: String?): AgentKind = when (program) {
             "cursor-agent" -> CURSOR

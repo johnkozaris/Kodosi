@@ -533,34 +533,6 @@ static jbyteArray encode_key(JNIEnv *env, Kernel *kernel, jint key, jint modifie
     return array;
 }
 
-static jbyteArray encode_paste(JNIEnv *env, Kernel *kernel, char *text, size_t length) {
-    if (!kernel->admitted || length == 0) {
-        return NULL;
-    }
-    GhosttyTerminalModeConfig bracketed = {.mode = GHOSTTY_MODE_BRACKETED_PASTE, .value = false};
-    if (ghostty_terminal_get(kernel->terminal, GHOSTTY_TERMINAL_DATA_MODE, &bracketed) != GHOSTTY_SUCCESS) {
-        return NULL;
-    }
-    size_t needed = 0;
-    GhosttyResult result = ghostty_paste_encode(text, length, bracketed.value, NULL, 0, &needed);
-    if (result != GHOSTTY_OUT_OF_SPACE || needed > KODOSI_MAX_FRAME_BYTES) {
-        return NULL;
-    }
-    char *encoded = malloc(needed);
-    size_t written = 0;
-    if (encoded == NULL ||
-        ghostty_paste_encode(text, length, bracketed.value, encoded, needed, &written) != GHOSTTY_SUCCESS) {
-        free(encoded);
-        return NULL;
-    }
-    jbyteArray array = (*env)->NewByteArray(env, (jsize)written);
-    if (array != NULL) {
-        (*env)->SetByteArrayRegion(env, array, 0, (jsize)written, (const jbyte *)encoded);
-    }
-    free(encoded);
-    return array;
-}
-
 JNIEXPORT jlong JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nativeCreate(JNIEnv *env, jclass type) {
     (void)env;
     (void)type;
@@ -670,24 +642,6 @@ JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
     if (utf8 != NULL) {
         (*env)->ReleaseStringUTFChars(env, text, utf8);
     }
-    return encoded;
-}
-
-JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nativeEncodePaste(JNIEnv *env, jclass type,
-                                                                                               jlong handle,
-                                                                                               jbyteArray text) {
-    (void)type;
-    Kernel *kernel = kernel_of(handle);
-    jsize length = (*env)->GetArrayLength(env, text);
-    char *copy = malloc((size_t)length + 1);
-    if (copy == NULL) {
-        return NULL;
-    }
-    (*env)->GetByteArrayRegion(env, text, 0, length, (jbyte *)copy);
-    pthread_mutex_lock(&kernel->lock);
-    jbyteArray encoded = encode_paste(env, kernel, copy, (size_t)length);
-    pthread_mutex_unlock(&kernel->lock);
-    free(copy);
     return encoded;
 }
 

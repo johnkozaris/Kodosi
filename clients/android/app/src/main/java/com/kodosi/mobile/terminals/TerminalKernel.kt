@@ -62,10 +62,6 @@ class TerminalKernel : AutoCloseable {
         if (handle == 0L) null else nativeEncodeKey(handle, key.ordinal, modifiers, text)
     }
 
-    fun encodePaste(text: String): ByteArray? = synchronized(this) {
-        if (handle == 0L) null else nativeEncodePaste(handle, text.encodeToByteArray())
-    }
-
     /** Zero returns to the bottom. Tells whether the view moved. */
     fun scroll(rows: Int): Boolean = synchronized(this) { handle != 0L && nativeScroll(handle, rows) }
 
@@ -113,8 +109,6 @@ class TerminalKernel : AutoCloseable {
 
         @JvmStatic
         private external fun nativeEncodeKey(handle: Long, key: Int, modifiers: Int, text: String?): ByteArray?
-
-        @JvmStatic private external fun nativeEncodePaste(handle: Long, text: ByteArray): ByteArray?
 
         @JvmStatic private external fun nativeScroll(handle: Long, rows: Int): Boolean
     }

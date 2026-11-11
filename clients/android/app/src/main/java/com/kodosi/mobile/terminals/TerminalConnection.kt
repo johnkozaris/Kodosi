@@ -108,11 +108,6 @@ class TerminalConnection(
         scheduleResize()
     }
 
-    fun takeSize() {
-        sizedTo = null
-        scheduleResize()
-    }
-
     fun send(bytes: ByteArray) {
         if (bytes.isEmpty() || state.value != State.Rendered) return
         kernel.scroll(0)
