@@ -18,6 +18,8 @@ on:
       - docs/GETTING_STARTED.md
       - docs/ARCHITECTURE.md
       - .github/workflows/rust.yml
+  schedule:
+    - cron: "7 3 * * *"
   workflow_dispatch:
 
 permissions:

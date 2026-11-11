@@ -23,6 +23,8 @@ on:
       - scripts/tests/**
       - .github/workflows/linux.yml
       - "!**/*.md"
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:

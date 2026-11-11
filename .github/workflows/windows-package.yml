@@ -4,11 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - clients/qt/packaging/**
+      - clients/qt/packaging/windows/**
       - clients/qt/scripts/release/**
       - clients/qt/cmake/**
       - clients/qt/CMakeLists.txt
-      - clients/qt/src/CMakeLists.txt
       - clients/qt/CMakePresets.json
       - clients/qt/dependencies.lock.json
       - clients/qt/justfile
@@ -18,7 +17,12 @@ on:
       - scripts/windows-env.sh
       - VERSION
       - .github/workflows/windows-package.yml
-      - "!**/*.md"
+      - "!clients/qt/scripts/release/package-linux.sh"
+      - "!clients/qt/scripts/release/verify-linux-package.py"
+      - "!clients/qt/scripts/release/verify-native-license-evidence.py"
+      - "!clients/qt/cmake/Linux.cmake"
+      - "!clients/qt/cmake/AppArmor.cmake"
+      - "!clients/qt/cmake/AptRepository.cmake"
   workflow_dispatch:
 
 permissions:

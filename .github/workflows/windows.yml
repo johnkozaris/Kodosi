@@ -21,6 +21,8 @@ on:
       - scripts/windows-env.sh
       - .github/workflows/windows.yml
       - "!**/*.md"
+  schedule:
+    - cron: "27 3 * * *"
   workflow_dispatch:
 
 permissions:
