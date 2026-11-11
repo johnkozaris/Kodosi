@@ -30,7 +30,7 @@ Run these from the repository root; `just --list` shows the rest.
 | `just browser-engine-build` | Build Kodosi Browser for development in `.tools/kodosi-browser/` |
 | `just rust-check` | All Rust checks |
 | `just backend-check` | Build and test the backend (database tests need Docker) |
-| `just check-all` | The Rust and backend checks |
+| `just check-all` | The Rust, documents, browser, backend and translation checks |
 | `just mac-build`, `just mac-check` | Build or check the Mac app |
 | `just linux-build`, `just linux-check` | Build or check the Linux app |
 | `just windows-check` | Build and check the Windows app, on Windows |

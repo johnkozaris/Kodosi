@@ -15,7 +15,7 @@ The issuer's discovery document must give its authorization, device authorizatio
 token endpoints on the issuer's origin, over HTTPS (loopback HTTP for development).
 Access tokens must be RS256 or ES256, name the issuer and the audience `kodosi-app`, and
 carry `sub`, an expiry and `auth_time`; deleting an account or starting fresh needs a
-sign-in at most 15 minutes old. The backend keys accounts by issuer and subject. Each
+recent sign-in. The backend keys accounts by issuer and subject. Each
 account must also have a `preferred_username` of 3 to 64 characters from `a` to `z`, `0` to
 `9`, `_` and `-` (capital letters become small) that belongs to that account only and never
 changes: it is the person's user name in Kodosi. The backend refuses a sign-in without such
@@ -52,9 +52,9 @@ URL, each HTTPS (or loopback HTTP) without a query.
 
 ## Account deletion
 
-With Keycloak, the backend follows account deletions in Keycloak's events every 15
-seconds. Give it a confidential client with only a service account and the
-`realm-management` role `view-events`:
+With Keycloak, the backend follows account deletions in Keycloak's events. Give it a
+confidential client with only a service account and the `realm-management` role
+`view-events`:
 
 | Variable | Value |
 | --- | --- |
@@ -82,9 +82,7 @@ A part of either set, or a key that does not load, stops the backend at start.
 
 ## Plans
 
-Without plans, an account can have 10 devices, own 64 projects of 64 members, share a
-terminal with 64 people and send 64 open friend requests; project data and friends are
-unlimited. The setting `Plans` defines smaller limits, and the column `users.Plan` names
+The setting `Plans` limits what an account can have, and the column `users.Plan` names
 an account's plan (the default plan otherwise):
 
 ```json
@@ -99,23 +97,21 @@ an account's plan (the default plan otherwise):
 }
 ```
 
-The limits are `Devices` (1 to 16), `OwnedRooms` (1 to 64), `RoomPeople` in an owned
-project, counting the owner and open invitations (1 to 65), `SharePeople` who can see one of
-the account's terminals (1 to 64), `RoomBytes` of encrypted data per owned project (at
-least 131072), `Friends`, `SentFriendRequests` (1 to 64) and `ReceivedFriendRequests`. An unset limit
-keeps its default, and the owner's plan applies to a project or terminal. Past `RoomBytes`
-a project drops its oldest messages. A smaller plan removes nothing, recovery is never
-limited, a changed `users.Plan` applies at once, and an invalid setting stops the
-backend at start.
+The limits are `Devices`, `OwnedRooms`, `RoomPeople` in an owned project (with the owner
+and open invitations), `SharePeople` who can see one of the account's terminals,
+`RoomBytes` of encrypted data in an owned project, `Friends`, `SentFriendRequests` and
+`ReceivedFriendRequests`. An unset limit keeps the backend's own limit, and the owner's
+plan applies to a project or terminal. Past `RoomBytes` a project drops its oldest
+messages. A smaller plan removes nothing, recovery is never limited, and a changed
+`users.Plan` applies at once. The backend does not start with a setting that is not
+valid, and names the value that it refuses.
 
 ## Bans
 
-A user name tells whether its account exists, so an account can try 20 user names of
-people that it has no friendship or friend request with, and then one each 30 minutes.
-An account that the backend refuses in each of 10 half-hours in a row is banned: the
-backend ends its connections and refuses all its requests. Many refusals in one
-half-hour count once. The column `users.BannedAt` holds the time of the ban; set it to
-null to remove the ban.
+A user name tells whether its account exists, so the backend limits how many user names
+of strangers an account can try. It bans an account that keeps trying for hours: it ends
+the account's connections and refuses all its requests. The column `users.BannedAt` holds
+the time of the ban; set it to null to remove the ban.
 
 ## Image
 

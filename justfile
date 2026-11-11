@@ -222,7 +222,7 @@ backend-sdk-check:
 [group('backend')]
 backend-check: backend-sdk-check backend-test
 
-# Run the Rust, backend and translation checks.
+# Run the Rust, documents, browser, backend and translation checks.
 check-all: rust-check documents-check browser-check backend-check translations-check
 
 # Check that each text that people read has its words in each language.
@@ -290,16 +290,6 @@ android-build:
 [group('android')]
 android-run:
     just --justfile clients/android/justfile run
-
-# Check the Kotlin style and run Android lint on the Android app.
-[group('android')]
-android-lint:
-    just --justfile clients/android/justfile lint
-
-# Run the unit tests of the Android app.
-[group('android')]
-android-test:
-    just --justfile clients/android/justfile test
 
 # Lint the runtime for Android, lint and test the Android app, build it, then check its translations.
 [group('android')]
