@@ -4442,6 +4442,10 @@
         <translation>Νέο τερματικό</translation>
     </message>
     <message>
+        <source>Same agent</source>
+        <translation>Ίδιος agent</translation>
+    </message>
+    <message>
         <source>Quick terminal</source>
         <translation>Γρήγορο τερματικό</translation>
     </message>

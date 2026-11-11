@@ -16,7 +16,7 @@
 
 <p align="center"><img src="../media/launcher.webp" width="580" alt="在启动器中选择了 Claude Code，并填写了文件夹和第一条提示词。"></p>
 
-- 想要普通终端，按 ⌘T（Linux 和 Windows 上为 Ctrl+Shift+T）。它会立即在所选终端的文件夹中打开。
+- 想要普通终端，按 ⌘D（Linux 和 Windows 上为 Ctrl+Shift+O）。它会立即在所选终端的文件夹中打开。⌘T（Ctrl+Shift+T）会用所选终端的 Agent 打开它，账户和选择都相同。
 - 按键与 Ghostty 一致。⌘1 到 ⌘9 选择终端（Linux 和 Windows 上为 Alt+1 到 Alt+9），⌥⌘ 加方向键选择相邻的终端（Ctrl+Alt 加方向键），⌘W 关闭所选终端。“设置 › 快捷键”列出了所有按键，并可以修改。
 - 如果缺少某个 Agent，启动器会显示它的安装命令。
 - Agent 启动时为“不受限制”：会直接修改文件、运行命令，不会先询问你。若想让某个 Agent 先询问，在模型后面的按钮上选择“询问”。在那里还可以选择 Claude Code 和 Codex 显示多少工作内容，开始时为“简洁”。

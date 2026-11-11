@@ -4425,6 +4425,10 @@
         <translation>새 터미널</translation>
     </message>
     <message>
+        <source>Same agent</source>
+        <translation>같은 에이전트</translation>
+    </message>
+    <message>
         <source>Quick terminal</source>
         <translation>빠른 터미널</translation>
     </message>

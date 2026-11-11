@@ -23,8 +23,9 @@ Befehl in die Shell des neuen Terminals.
 
 <p align="center"><img src="../media/launcher.webp" width="580" alt="Claude Code im Launcher ausgewählt, mit einem Ordner und einem ersten Prompt."></p>
 
-- Für ein einfaches Terminal drückst du ⌘T (Strg+Umschalt+T unter Linux und Windows). Es
-  öffnet sich sofort im Ordner des ausgewählten Terminals.
+- Für ein einfaches Terminal drückst du ⌘D (Strg+Umschalt+O unter Linux und Windows). Es
+  öffnet sich sofort im Ordner des ausgewählten Terminals. ⌘T (Strg+Umschalt+T) öffnet es mit
+  dem Agent des ausgewählten Terminals, mit demselben Konto und denselben Einstellungen.
 - Die Tasten folgen Ghostty. ⌘1 bis ⌘9 wählen ein Terminal aus (Alt+1 bis Alt+9 unter Linux
   und Windows), ⌥⌘ mit einem Pfeil wählt das daneben (Strg+Alt mit einem Pfeil), und ⌘W
   schließt das ausgewählte Terminal. Einstellungen › Kurzbefehle listet jede Taste auf und

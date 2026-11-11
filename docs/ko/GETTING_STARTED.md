@@ -22,8 +22,9 @@ Kodosi를 열고 사이드바 아래쪽의 로그인을 선택하세요. Kodosi�
 
 <p align="center"><img src="../media/launcher.webp" width="580" alt="런처에서 Claude Code를 고르고 폴더와 첫 프롬프트를 입력한 모습."></p>
 
-- 일반 터미널은 ⌘T(Linux와 Windows에서는 Ctrl+Shift+T)를 누르세요. 선택한 터미널의 폴더에서
-  바로 열려요.
+- 일반 터미널은 ⌘D(Linux와 Windows에서는 Ctrl+Shift+O)를 누르세요. 선택한 터미널의 폴더에서
+  바로 열려요. ⌘T(Ctrl+Shift+T)는 선택한 터미널의 에이전트를 같은 계정과 같은 선택으로
+  열어요.
 - 키는 Ghostty를 따라요. ⌘1~⌘9로 터미널을 고르고(Linux와 Windows에서는 Alt+1~Alt+9), ⌥⌘와
   화살표로 옆 터미널을 고르고(Ctrl+Alt와 화살표), ⌘W로 선택한 터미널을 닫아요. 설정 ›
   단축키에서 모든 키를 보고 바꿀 수 있어요.

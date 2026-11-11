@@ -4425,6 +4425,10 @@
         <translation>新建终端</translation>
     </message>
     <message>
+        <source>Same agent</source>
+        <translation>同一 Agent</translation>
+    </message>
+    <message>
         <source>Quick terminal</source>
         <translation>快速终端</translation>
     </message>

@@ -4425,6 +4425,10 @@
         <translation>新しいターミナル</translation>
     </message>
     <message>
+        <source>Same agent</source>
+        <translation>同じエージェント</translation>
+    </message>
+    <message>
         <source>Quick terminal</source>
         <translation>クイックターミナル</translation>
     </message>

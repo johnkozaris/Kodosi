@@ -82,7 +82,7 @@ struct KeyChord: Codable, Hashable {
 
 /// What a key can do in the app. The defaults are Ghostty's keys and Kodosi's own.
 enum AppShortcut: String, CaseIterable, Identifiable {
-    case newTerminal, quickTerminal, resume, close, minimize, zoom, details
+    case newTerminal, sameAgent, quickTerminal, resume, close, minimize, zoom, details
     case previousTerminal, nextTerminal, leftTerminal, rightTerminal, upTerminal, downTerminal, numberedTerminal
     case goTo, sidebar, dosi, stopDosi, settings, fullScreen
 
@@ -93,6 +93,7 @@ enum AppShortcut: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .newTerminal: String(localized: "New Terminal")
+        case .sameAgent: String(localized: "Same Agent")
         case .quickTerminal: String(localized: "Quick Terminal")
         case .resume: String(localized: "Resume a Conversation")
         case .close: String(localized: "Close Terminal")
@@ -118,7 +119,8 @@ enum AppShortcut: String, CaseIterable, Identifiable {
     var defaults: [KeyChord] {
         switch self {
         case .newTerminal: [KeyChord("n")]
-        case .quickTerminal: [KeyChord("t"), KeyChord("d"), KeyChord("d", [.shift, .command])]
+        case .sameAgent: [KeyChord("t")]
+        case .quickTerminal: [KeyChord("d"), KeyChord("d", [.shift, .command])]
         case .resume: [KeyChord("n", [.shift, .command])]
         case .close: [KeyChord("w")]
         case .minimize: [KeyChord("w", [.shift, .command])]

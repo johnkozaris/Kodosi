@@ -1072,6 +1072,42 @@ private slots:
         QVERIFY(!sent.contains(QStringLiteral("command")));
         QVERIFY(!sent.contains(QStringLiteral("computer")));
     }
+    void sameAgentStartsTheAgentOfTheSelectedTerminalWithItsAccountAndChoices()
+    {
+        Fixture f;
+        f.workspace.sessionActions().setAccounts([](const QString& agent) {
+            return agent == QStringLiteral("claude") ? QStringList { QStringLiteral("claude"), QStringLiteral("work") }
+                                                     : QStringList {};
+        });
+        auto claude = test::session(1);
+        claude.insert(QStringLiteral("workingDir"), f.dir.path());
+        claude.insert(QStringLiteral("program"), QStringLiteral("claude"));
+        claude.insert(QStringLiteral("programAccount"), 1);
+        claude.insert(QStringLiteral("programSettings"),
+            QJsonObject { { QStringLiteral("model"), QStringLiteral("opus") }, { QStringLiteral("effort"), QStringLiteral("high") },
+                { QStringLiteral("permissions"), QStringLiteral("auto") }, { QStringLiteral("output"), QStringLiteral("detailed") } });
+        claude.insert(QStringLiteral("programPending"), QJsonObject { { QStringLiteral("model"), QStringLiteral("sonnet") } });
+        f.workspace.apply(test::snapshot({ claude, test::session(2) }), 0);
+        QVERIFY(f.workspace.sessionActions().activate(test::id(1)));
+        QVERIFY(f.workspace.sessionActions().createSameAgent());
+        const auto sent = f.commands.values.last();
+        QCOMPARE(sent.value(QStringLiteral("workingDir")).toString(), f.dir.path());
+        QCOMPARE(sent.value(QStringLiteral("agent")).toObject(),
+            (QJsonObject { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("account"), QStringLiteral("work") },
+                { QStringLiteral("model"), QStringLiteral("sonnet") }, { QStringLiteral("effort"), QString() },
+                { QStringLiteral("permissions"), QStringLiteral("auto") }, { QStringLiteral("output"), QStringLiteral("detailed") } }));
+
+        f.workspace.apply(test::snapshot({ claude, test::session(2), test::session(3) }), 0);
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("session.result") },
+                              { QStringLiteral("requestId"), sent.value(QStringLiteral("requestId")) },
+                              { QStringLiteral("operation"), QStringLiteral("session.create") },
+                              { QStringLiteral("sessionId"), test::id(3) } },
+            0);
+        f.workspace.sessionActions().giveTypedKeys(test::id(3));
+        QVERIFY(f.workspace.sessionActions().activate(test::id(2)));
+        QVERIFY(f.workspace.sessionActions().createSameAgent());
+        QVERIFY(!f.commands.values.last().contains(QStringLiteral("agent")));
+    }
     void aTerminalOfThisComputerAsksForTheGridOfItsTile()
     {
         Fixture f;

@@ -8,7 +8,7 @@ struct ShortcutSettingsView: View {
     }
 
     private static let groups: [[AppShortcut]] = [
-        [.newTerminal, .quickTerminal, .resume, .close, .minimize, .zoom, .details],
+        [.newTerminal, .sameAgent, .quickTerminal, .resume, .close, .minimize, .zoom, .details],
         [.previousTerminal, .nextTerminal, .leftTerminal, .rightTerminal, .upTerminal, .downTerminal, .numberedTerminal],
         [.goTo, .sidebar, .dosi, .stopDosi, .settings, .fullScreen],
     ]
