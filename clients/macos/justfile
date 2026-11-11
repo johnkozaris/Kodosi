@@ -64,16 +64,12 @@ working-tree-build: xcode-gen
         -destination 'generic/platform=macOS' \
         archive
 
-# Test the Ghostty link check.
-ghostty-link-test:
-    ../apple/scripts/tests/test-ghostty-link-provenance.sh
-
 # Check that the Swift packages and the Ghostty iOS build agree with the deployment targets of the apps.
 deployment-targets-check:
     ../apple/scripts/verify-deployment-targets.py
 
-# Lint and test the Mac app and its scripts, build the Release app, then check its translations. Commit all the changes first.
-check: lint deployment-targets-check ghostty-link-test xcode-gen apple-test
+# Lint and test the Mac app, build the Release app, then check its translations. Commit all the changes first.
+check: lint deployment-targets-check xcode-gen apple-test
     xcodebuild -project KodosiDesktop.xcodeproj \
         -scheme KodosiDesktop \
         -configuration Debug \

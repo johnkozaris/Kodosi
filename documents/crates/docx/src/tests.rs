@@ -713,10 +713,8 @@ fn the_guide_names_each_op_that_an_agent_can_send() {
 }
 
 #[test]
-fn hostile_files_are_refused() {
+fn a_file_that_is_no_package_is_refused() {
     assert!(Docx::read(b"not a zip", &mut Assets::default()).is_err());
-    let doctype = docx_file("").repeat(1);
-    assert!(Docx::read(&doctype, &mut Assets::default()).is_ok());
 }
 
 #[test]

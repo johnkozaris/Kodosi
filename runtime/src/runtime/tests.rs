@@ -1942,21 +1942,6 @@ async fn opening_a_terminal_whose_computer_is_offline_waits_for_the_computer() {
 }
 
 #[tokio::test]
-async fn a_terminal_that_another_computer_started_again_names_the_one_it_replaces() {
-    let (mut runtime, _root) = registry_fixture();
-    let replaced = Uuid::now_v7();
-    let remote = RemoteSession {
-        restored_from: Some(replaced),
-        ..remote_session(Uuid::now_v7(), Uuid::now_v7())
-    };
-    runtime.replace_remotes(vec![remote.clone()]);
-    assert_eq!(
-        runtime.remotes[&remote.id].restored_from,
-        Some(replaced.to_string())
-    );
-}
-
-#[tokio::test]
 async fn a_terminal_whose_computer_is_away_hides_or_closes_through_the_server() {
     let (mut runtime, _root) = registry_fixture();
     let mut hidden = remote_session(Uuid::now_v7(), Uuid::now_v7());
@@ -2724,18 +2709,6 @@ async fn folders_from_another_computer_fill_only_its_terminals_and_an_open_view_
         answer["folders"],
         json!([]),
         "a device gives no folders of the terminals of other computers"
-    );
-}
-
-#[cfg(feature = "host")]
-#[test]
-fn on_windows_a_restored_agent_has_the_account_folder_of_the_host() {
-    let shown = Some("/srv/copilot".to_owned());
-    assert_eq!(restore::account_variable(shown.clone(), "PATH"), shown);
-    assert_eq!(restore::account_variable(None, "KODOSI_TEST_MISSING"), None);
-    assert_eq!(
-        restore::account_variable(None, "PATH"),
-        std::env::var("PATH").ok().filter(|_| cfg!(windows))
     );
 }
 

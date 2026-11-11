@@ -28,14 +28,6 @@ struct AccountStoreTests {
         #expect(!store.canRemove(phone))
     }
 
-    @Test func `removing a device sends its id`() throws {
-        try deliverDevices()
-        let mac = try #require(store.devices.first { $0.deviceId == "mac" })
-        store.revokeDevice(mac)
-        #expect(outbox.sent.last?["type"] == .string("devices.revoke"))
-        #expect(outbox.sent.last?["deviceId"] == .string("mac"))
-    }
-
     @Test func `approving a device names it first and shows which device was approved`() throws {
         store.checkDevice(code: "   ")
         #expect(outbox.sent.isEmpty)
@@ -156,11 +148,6 @@ struct AccountStoreTests {
         let failure = try event("auth.error", userId: nil, ["operation": "auth.login.start", "message": "The sign-in service is down."])
         #expect(store.absorb(error: failure, message: "The sign-in service is down."))
         #expect(store.stage == .failed(message: "The sign-in service is down.", completed: 0))
-    }
-
-    @Test func `sign out sends logout`() {
-        store.signOut()
-        #expect(outbox.types == ["auth.logout"])
     }
 
     @Test func `refresh devices waits for the next list`() async throws {

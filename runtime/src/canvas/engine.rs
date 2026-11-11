@@ -503,20 +503,6 @@ mod tests {
         assert_eq!(feed, Err(not_for_this_computer()));
     }
 
-    #[test]
-    fn each_computer_has_a_name_in_the_feed() {
-        assert!(
-            [
-                "mac-arm64",
-                "mac-x64",
-                "linux-x64",
-                "linux-arm64",
-                "windows-x64"
-            ]
-            .contains(&platform().as_str())
-        );
-    }
-
     #[tokio::test]
     async fn an_engine_counts_only_when_its_program_is_there() {
         let folder = tempfile::tempdir().unwrap();

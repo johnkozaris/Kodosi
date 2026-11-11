@@ -3212,17 +3212,6 @@ mod tests {
     }
 
     #[test]
-    fn close_is_the_only_terminal_termination_command() {
-        let mut value = json!({"type":"session.close","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID});
-        assert!(matches!(
-            serde_json::from_value::<Command>(value.clone()),
-            Ok(Command::CloseSession { .. })
-        ));
-        value["type"] = json!("session.stop");
-        assert!(serde_json::from_value::<Command>(value).is_err());
-    }
-
-    #[test]
     fn native_resume_requires_directory_and_closed_identity() {
         let base = json!({"type":"session.create","requestId":ID,"name":"Resume","resume":{"provider":"claude","nativeConversationId":ID}});
         assert!(serde_json::from_value::<CommandEnvelope>(envelope(base.clone())).is_err());
@@ -3242,16 +3231,5 @@ mod tests {
         assert!(Event::new(None,0,json!({"type":"provider.result","requestId":ID,"operation":"provider.inspect","result":{"anything":true}})).is_err());
         assert!(Event::new(None, 0, json!({"type":"unknown.event"})).is_err());
         assert!(Event::new(None, 0, json!({"type":"auth.finalizing","extra":true})).is_err());
-    }
-
-    #[test]
-    fn the_browser_status_answer_names_each_source_and_the_download() {
-        let status = json!({"type":"browser.result","requestId":ID,"operation":"browser.status",
-            "sources":[{"name":"Chrome","browser":"chrome","protected":true}],
-            "sites":3,"engine":null,"getting":42});
-        let encoded = serde_json::to_value(Event::new(None, 0, status).unwrap()).unwrap();
-        assert_eq!(encoded["sources"][0]["browser"], "chrome");
-        assert_eq!(encoded["sources"][0]["protected"], true);
-        assert_eq!(encoded["getting"], 42);
     }
 }

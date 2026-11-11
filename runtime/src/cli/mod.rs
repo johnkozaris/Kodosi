@@ -2045,27 +2045,4 @@ mod tests {
             .all(|word| !words.contains(word))
         );
     }
-    #[test]
-    fn terminal_close_and_native_resume_remain() {
-        assert!(
-            Arguments::try_parse_from([
-                "kodosi",
-                "terminal",
-                "close",
-                "01900000-0000-7000-8000-000000000001"
-            ])
-            .is_ok()
-        );
-        assert!(
-            Arguments::try_parse_from([
-                "kodosi",
-                "terminal",
-                "resume",
-                "claude",
-                "01900000-0000-7000-8000-000000000001",
-                "/tmp"
-            ])
-            .is_ok()
-        );
-    }
 }

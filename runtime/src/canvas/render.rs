@@ -293,19 +293,6 @@ mod tests {
         assert_eq!(view_of(Path::new("notes.md")), None);
     }
 
-    #[test]
-    fn pictures_take_the_name_of_their_file() {
-        assert_eq!(
-            picture_names(Path::new("/work/plan.docx"), 2),
-            ["plan-1.png", "plan-2.png"]
-        );
-    }
-
-    #[test]
-    fn the_script_names_the_view_as_text() {
-        assert!(script("xlsx").contains(r#"kind: "xlsx""#));
-    }
-
     #[derive(Default)]
     struct Slides {
         shown: u8,

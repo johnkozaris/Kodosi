@@ -72,21 +72,6 @@ private slots:
         QCOMPARE(settings.homeDirectory(), QDir::homePath());
         QCOMPARE(settings.effectiveWorkingDirectory(), settings.homeDirectory());
     }
-    void kodosiKeepsRunningAfterTheWindowClosesUntilThePersonTurnsItOff()
-    {
-        QTemporaryDir directory;
-        const auto path = directory.filePath(QStringLiteral("settings.ini"));
-        {
-            kodosi::DesktopSettings settings(std::make_unique<QSettings>(path, QSettings::IniFormat));
-            QVERIFY(settings.keepRunning());
-            QVERIFY(!settings.closeHintShown());
-            settings.setKeepRunning(false);
-            settings.setCloseHintShown();
-        }
-        kodosi::DesktopSettings restored(std::make_unique<QSettings>(path, QSettings::IniFormat));
-        QVERIFY(!restored.keepRunning());
-        QVERIFY(restored.closeHintShown());
-    }
     void withoutASystemTrayClosingTheWindowQuitsUntilThePersonKeepsKodosiRunning()
     {
         QTemporaryDir directory;

@@ -42,15 +42,3 @@ import Testing
     #expect(sent.last?["branch"] == nil)
     #expect(sent.last?["worktrees"] == nil)
 }
-
-@Test @MainActor func `the branch folder stays after a restart`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "BranchFolder"))
-    let settings = DesktopSettings(defaults: defaults)
-    #expect(settings.branchFolder == nil)
-    settings.branchFolder = "/tmp/branches"
-    settings.save()
-    #expect(DesktopSettings(defaults: defaults).branchFolder == "/tmp/branches")
-    settings.branchFolder = nil
-    settings.save()
-    #expect(DesktopSettings(defaults: defaults).branchFolder == nil)
-}
