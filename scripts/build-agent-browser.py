@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "https://github.com/vercel-labs/agent-browser.git"
 WORK = ROOT / ".tools/agent-browser"
+CALLER_SETTINGS = ("CFLAGS", "CXXFLAGS", "MACOSX_DEPLOYMENT_TARGET")
 
 
 def pin() -> dict[str, str]:
@@ -62,7 +63,7 @@ def build(folder: Path, target: str) -> Path:
     mark = program.with_name("agent-browser.made-with")
     # Rust takes the pinned version of rust-toolchain.toml from the folder that it runs in.
     rust = subprocess.run(["rustc", "--version", "--verbose"], cwd=ROOT, check=True, capture_output=True, text=True).stdout
-    made_with = "\n".join([rust, flags, os.environ.get("CFLAGS", ""), os.environ.get("CXXFLAGS", "")])
+    made_with = "\n".join([rust, flags, *(os.environ.get(name, "") for name in CALLER_SETTINGS)])
     # Cargo downloads each crate before it can say that nothing changed, and a workflow has none of them.
     if not program.is_file() or not mark.is_file() or mark.read_text(encoding="utf-8") != made_with:
         environment = {
