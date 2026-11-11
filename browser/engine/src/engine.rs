@@ -73,7 +73,6 @@ pub(crate) fn start(link: Link) {
     });
 }
 
-/// Hands a command to the UI thread.
 pub(crate) fn post(command: ToEngine) {
     let mut task = CommandTaskBuilder::new(Arc::new(Mutex::new(Some(command))));
     post_task(ThreadId::UI, Some(&mut task));
@@ -114,8 +113,7 @@ wrap_task! {
     }
 }
 
-/// Asks the watched tab of a window to draw again after `delay_ms`, from any thread. A still
-/// page draws nothing by itself, so a picture that never reached the viewers would stay
+/// A still page draws nothing by itself, so a picture that never reached the viewers would stay
 /// missing.
 pub(crate) fn redraw(window: i64, delay_ms: i64) {
     let mut task = RedrawTaskBuilder::new(window);
@@ -172,7 +170,7 @@ pub(crate) struct Capture {
     pub encoder: Encoder,
 }
 
-/// Where a browser belongs. CEF gives each browser its id only when it exists.
+/// CEF gives each browser its id only when it exists, so a browser carries where it belongs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Origin {
     Tab {
@@ -185,7 +183,6 @@ pub(crate) enum Origin {
     },
 }
 
-/// A window of the host. The pages that its tabs open are tabs of it too.
 struct Window {
     shared: Shared,
     active: Option<i64>,
@@ -202,7 +199,6 @@ struct Tab {
     /// The host's ask that opened the tab, until the tab's target is known.
     ask: Option<i64>,
     ended: Option<Instant>,
-    /// The page's dialog, until the host answers it.
     dialog: Option<JsdialogCallback>,
     target: Option<String>,
     title: String,
@@ -335,9 +331,8 @@ impl Engine {
         ))
     }
 
-    /// Takes in a browser that CEF made. Gives the id of the message that asks for its target,
-    /// or `None` when it must close at once: its window or page closed, or the engine quits,
-    /// before it existed.
+    /// Gives the id of the message that asks for the browser's target, or `None` when the browser
+    /// must close at once: its window or page closed, or the engine quits, before it existed.
     pub(crate) fn created(&mut self, browser: &Browser, origin: Origin) -> Option<c_int> {
         let id = i64::from(browser.identifier());
         let quitting = self.quitting;
@@ -419,8 +414,7 @@ impl Engine {
         }
     }
 
-    /// Forgets a browser that closed. The window's next active tab is the closed tab's opener,
-    /// or else its last tab.
+    /// The window's next active tab is the closed tab's opener, or else its last tab.
     fn closed(&mut self, browser: i64) -> Closed {
         let Some(tab) = self.tabs.remove(&browser) else {
             if let Some(page) = self.page_of_browser.remove(&browser) {
@@ -480,7 +474,6 @@ impl Engine {
         self.quitting && self.tabs.is_empty() && self.page_of_browser.is_empty()
     }
 
-    /// Closes a window's tabs; the window goes with its last tab.
     fn close_window(&mut self, window: i64) -> Vec<Browser> {
         let Some(known) = self.windows.get_mut(&window) else {
             return Vec::new();
@@ -495,7 +488,7 @@ impl Engine {
         browsers
     }
 
-    /// Closes a host page. A page that CEF still makes closes once it exists.
+    /// A page that CEF still makes closes once it exists.
     fn close_page(&mut self, page: i64) -> Option<Browser> {
         let known = self.pages.get_mut(&page)?;
         known.closing = true;
@@ -520,8 +513,8 @@ impl Engine {
         }
     }
 
-    /// Whether a tab whose page process ended loads its page again. A page that ends its
-    /// process again within a minute stays as it is, and the person's Reload tries again.
+    /// A page that ends its process again within a minute stays as it is, and the person's
+    /// Reload tries again.
     fn reloads(&mut self, browser: i64, now: Instant) -> bool {
         let Some(tab) = self.tabs.get_mut(&browser) else {
             return false;
@@ -533,8 +526,7 @@ impl Engine {
         again
     }
 
-    /// Takes in a page's dialog, which the host shows and answers. A tab has one dialog at a
-    /// time, and the host's own pages have none.
+    /// A tab has one dialog at a time, and the host's own pages have none.
     pub(crate) fn dialog_opened(
         &mut self,
         browser: i64,
@@ -555,7 +547,6 @@ impl Engine {
         true
     }
 
-    /// The dialog of a tab, which closes now.
     pub(crate) fn take_dialog(&mut self, browser: i64) -> Option<JsdialogCallback> {
         let callback = self.tabs.get_mut(&browser)?.dialog.take()?;
         self.link.send(&FromEngine::DialogClosed { tab: browser });
@@ -630,7 +621,7 @@ impl Engine {
         handle
     }
 
-    /// The tabs of a window with whether each shows: only the active one draws.
+    /// Only the active tab draws.
     fn shown(&self, window: i64) -> Vec<(Browser, bool)> {
         let active = self.windows.get(&window).and_then(|window| window.active);
         self.tabs
@@ -641,8 +632,6 @@ impl Engine {
     }
 }
 
-/// What a closed browser leaves: a window whose active tab changed, and whether the engine
-/// may end now.
 struct Closed {
     window: Option<i64>,
     end: bool,
@@ -733,8 +722,8 @@ fn resize(window: i64, size: Size) {
     }
 }
 
-/// The commands for a window's video. A new capture or a key frame asks the page to draw again,
-/// since a still page sends no pictures.
+/// A new capture or a key frame asks the page to draw again, since a still page sends no
+/// pictures.
 fn capture(command: &ToEngine) {
     let repaint_tab = with(|engine| match *command {
         ToEngine::Capture {
@@ -822,7 +811,7 @@ fn pick(tab: i64, frame: i64, menu: u32, choice: Option<u32>) {
     }
 }
 
-/// Closes every browser; the engine ends when the last one closed, or after `QUIT_LIMIT_MS`.
+/// The engine ends when the last browser closed, or after `QUIT_LIMIT_MS`.
 fn quit() {
     let browsers = with(|engine| {
         engine.quitting = true;
@@ -877,7 +866,7 @@ fn page_size(width: u32, height: u32) -> Size {
     }
 }
 
-/// Opens a page of the host's own, in a request context with no stored data.
+/// The page has a request context with no stored data.
 fn open_page(page: i64, width: u32, height: u32) {
     let shared = Shared::new(page_size(width, height));
     let context = with(|engine| {
@@ -962,8 +951,6 @@ fn close(browser: Option<Browser>) {
     }
 }
 
-/// Called by a client when its browser exists: it learns its target on the debug port, or it
-/// closes when nobody wants it any more.
 pub(crate) fn after_created(browser: &mut Browser, origin: Origin) {
     let Some(message) = with(|engine| engine.created(browser, origin)) else {
         return;

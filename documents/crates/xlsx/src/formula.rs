@@ -38,7 +38,6 @@ pub(crate) fn parse_cell(name: &str) -> Option<(u32, u32)> {
     Some((row.checked_sub(1)?, column_number(letters)?))
 }
 
-/// `A1:C9` as its first and last cell.
 pub(crate) fn parse_range(name: &str) -> Option<[u32; 4]> {
     let (first, last) = name.split_once(':').unwrap_or((name, name));
     let (top, left) = parse_cell(first)?;
@@ -46,7 +45,6 @@ pub(crate) fn parse_range(name: &str) -> Option<[u32; 4]> {
     Some([top, left, bottom, right])
 }
 
-/// `A1` for one cell, or `A1:C9`.
 pub(crate) fn range_name([top, left, bottom, right]: [u32; 4]) -> String {
     if (top, left) == (bottom, right) {
         return cell_name(top, left);
@@ -54,7 +52,6 @@ pub(crate) fn range_name([top, left, bottom, right]: [u32; 4]) -> String {
     format!("{}:{}", cell_name(top, left), cell_name(bottom, right))
 }
 
-/// One end of a reference in a formula.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Reference {
     pub row: Option<u32>,
@@ -124,7 +121,6 @@ type ReferenceEnds = (Reference, Option<Reference>);
 type MapReference<'a> =
     dyn Fn(Option<&str>, Reference, Option<Reference>) -> Option<ReferenceEnds> + 'a;
 
-/// Rewrites each reference of a formula, and leaves text, names and functions alone.
 /// `change` takes the sheet that the reference names and both of its ends, and it can give
 /// nothing, which makes the reference `#REF!`.
 pub(crate) fn map_references(formula: &str, change: &MapReference<'_>) -> String {
@@ -251,7 +247,6 @@ fn copy_reference(
     last
 }
 
-/// A line of rows or columns that was inserted or deleted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Shift {
     pub at: u32,
@@ -259,7 +254,6 @@ pub(crate) struct Shift {
 }
 
 impl Shift {
-    /// Where a line goes, or nothing when it was deleted.
     pub(crate) fn line(self, line: u32) -> Option<u32> {
         if self.count >= 0 {
             return Some(if line >= self.at {
@@ -278,7 +272,6 @@ impl Shift {
         }
     }
 
-    /// Where a range goes: it shrinks when part of it was deleted.
     pub(crate) fn span(self, first: u32, last: u32) -> Option<(u32, u32)> {
         if self.count >= 0 {
             return Some((self.line(first)?, self.line(last)?));
@@ -294,7 +287,6 @@ impl Shift {
     }
 }
 
-/// Moves the references of a formula across inserted or deleted rows or columns of one sheet.
 pub(crate) fn shift_formula(
     formula: &str,
     own_sheet: bool,
@@ -330,7 +322,6 @@ pub(crate) fn shift_formula(
     })
 }
 
-/// Moves a list of ranges across inserted or deleted rows or columns. A deleted range goes.
 pub(crate) fn shift_ranges(ranges: &str, shift: Shift, rows: bool) -> String {
     ranges
         .split_whitespace()
@@ -370,7 +361,6 @@ fn move_axis(
     Some(())
 }
 
-/// The formula of a cell in a shared group, from the formula of the group's first cell.
 pub(crate) fn translate_shared(formula: &str, rows: i64, columns: i64) -> String {
     map_references(formula, &|_, first, second| {
         let moved = |mut reference: Reference| {

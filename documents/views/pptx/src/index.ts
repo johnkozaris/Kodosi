@@ -421,10 +421,6 @@ class PptxEditor implements Editor, Pictures {
     layer.add(group);
   }
 
-  /**
-   * A shape or words that open a link: with a click where a person only looks, and with ⌘ or Ctrl
-   * where they edit, since there a click picks the shape.
-   */
   private linkOn(node: Konva.Node, link: Link, editing: boolean): void {
     const holder = () => this.stage?.container();
     node.on("mouseenter", () => {
@@ -616,7 +612,6 @@ class PptxEditor implements Editor, Pictures {
     this.textView.focus();
   }
 
-  /** Lays the text editor over its shape, at the slide's scale. */
   private placeText(): void {
     const view = this.textView;
     const shape = this.slide()?.shapes.find((known) => known.id === this.textShape);
@@ -789,7 +784,7 @@ class PptxEditor implements Editor, Pictures {
     if (this.current === slide && this.textShape === shape) this.textView?.updateState(next);
   }
 
-  /** Shows a change on this copy. A view's own change is here already, but for its text. */
+  /** A view's own change is on this copy already, but for its text. */
   private showChange(change: Change, own = false, author: string = this.clientKey): void {
     const deck = this.deck;
     if (!deck) return;
@@ -877,7 +872,6 @@ class PptxEditor implements Editor, Pictures {
     return this.deck?.slides.length ?? 0;
   }
 
-  /** Each slide in turn, as the stage draws it. */
   async picture(index: number): Promise<Area> {
     const slide = this.deck?.slides[index];
     if (!slide) throw new Error(`There is no slide ${index + 1}.`);

@@ -8,7 +8,6 @@ use crate::{
     model::{Model, Query, schema},
 };
 
-/// What an agent means. The server turns each op into normal steps.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Op {
@@ -81,7 +80,6 @@ pub enum Op {
 }
 
 impl Op {
-    /// The blocks that this op acts on.
     pub(crate) fn targets(&self) -> Vec<String> {
         let block = match self {
             Self::ReplaceText { block, .. }
@@ -210,12 +208,11 @@ fn mark_of(name: &str, attrs: Option<&Value>) -> Result<Mark, String> {
     Mark::new(schema(), kind, attrs).map_err(|failed| failed.0)
 }
 
-/// Who makes a tracked change. A change of an agent has no date.
+/// A change of an agent has no date.
 fn by(author: &str) -> Value {
     json!({ "author": author, "date": "" })
 }
 
-/// A new paragraph. A tracked one is an insertion: its words and the mark that ends it.
 fn paragraph_of(
     text: &str,
     style: Option<&str>,
@@ -300,7 +297,6 @@ fn end_after(doc: &Node, after: Option<&str>) -> Result<usize, String> {
     Ok(start + node.node_size())
 }
 
-/// An id that no block has yet.
 fn new_id(doc: &Node, taken: usize) -> String {
     let highest = doc
         .content()
@@ -446,13 +442,10 @@ fn replace_text_steps(
     Ok(steps)
 }
 
-/// Whether the tree keeps this node as XML of its own, such as a bookmark or a field.
 fn is_opaque(node: &Node) -> bool {
     schema().node_name(node.kind()) == "inlineOpaque"
 }
 
-/// Deletion marks on the words, breaks and pictures of a textblock whose content starts at
-/// `offset`, where no deletion is yet. What the tree keeps as XML of its own stays as it is.
 fn word_deletions(node: &Node, offset: usize, deletion: &Mark) -> Vec<Step> {
     let mut steps = Vec::new();
     let mut position = offset;
@@ -482,7 +475,6 @@ fn has_change(node: &Node, name: &str) -> bool {
     node.attrs().get(name).is_some_and(|value| !value.is_null())
 }
 
-/// A tracked deletion of a paragraph at `start`: its words and the mark that ends it.
 fn deletion_steps(start: usize, node: &Node, by: &Value) -> Result<Vec<Step>, String> {
     let mut steps = word_deletions(node, start + 1, &mark_of("deletion", Some(by))?);
     if !has_change(node, "deleted") {
@@ -495,8 +487,6 @@ fn deletion_steps(start: usize, node: &Node, by: &Value) -> Result<Vec<Step>, St
     Ok(steps)
 }
 
-/// A tracked change of the text of a cell at `position`: its words and the marks that end its
-/// paragraphs but the last are deletions, and the new text follows them as an insertion.
 fn cell_steps(position: usize, cell: &Node, text: &str, by: &Value) -> Result<Vec<Step>, String> {
     let deletion = mark_of("deletion", Some(by))?;
     let blocks = cell.content().children();
@@ -566,8 +556,8 @@ fn cell_position(
     Ok((position, cell.clone()))
 }
 
-/// The steps of an op. With `by`, text and paragraphs change as tracked changes, and what cannot
-/// be one, such as a look or a table, changes directly.
+/// With `by`, text and paragraphs change as tracked changes, and what cannot be one, such as a
+/// look or a table, changes directly.
 #[expect(clippy::too_many_lines, reason = "one arm for each op")]
 fn op_steps(doc: &Node, op: &Op, by: Option<&Value>, taken: usize) -> Result<Vec<Step>, String> {
     match op {
@@ -705,8 +695,6 @@ fn op_steps(doc: &Node, op: &Op, by: Option<&Value>, taken: usize) -> Result<Vec
 /// The attributes of a paragraph that say whether the mark that ends it is a tracked change.
 const ENDS: [&str; 2] = ["inserted", "deleted"];
 
-/// The tracked changes of a part of a document: words and pictures with each mark, and the
-/// paragraphs whose ending mark is a change, with the name of its attribute.
 #[derive(Default)]
 struct Changes {
     words: Vec<(usize, usize, Mark)>,
@@ -722,7 +710,6 @@ impl Changes {
         }
     }
 
-    /// Adds the changes under a node whose content starts at `offset`.
     fn add_under(&mut self, node: &Node, offset: usize) {
         let mut position = offset;
         for child in node.content().children() {
@@ -748,9 +735,8 @@ fn is_change(mark: &Mark) -> bool {
     matches!(schema().mark_name(mark.kind()), "insertion" | "deletion")
 }
 
-/// Accepts or rejects the tracked changes of the body or of one block. An accepted insertion
-/// and a rejected deletion lose their mark. The text of the others goes, from the end, and then
-/// the marks that end paragraphs.
+/// An accepted insertion and a rejected deletion lose their mark. The text of the others goes,
+/// from the end, and then the marks that end paragraphs.
 fn decide_steps(doc: &Node, block: Option<&str>, accept: bool) -> Result<Vec<Step>, String> {
     let mut changes = Changes::default();
     match block {
@@ -868,7 +854,6 @@ fn end_removal(doc: &Node, at: usize, name: &str) -> Result<Vec<Step>, String> {
     }])
 }
 
-/// Turns ops into steps, each one on the document as the ops before it left it, all or none.
 pub(crate) fn to_steps(
     doc: &Node,
     ops: &[Op],
@@ -890,8 +875,8 @@ pub(crate) fn to_steps(
     Ok(all)
 }
 
-/// As [`to_steps`], for a merge: a block that a person removed meanwhile stays removed, and an
-/// insertion after it goes to the end.
+/// In a merge, a block that a person removed meanwhile stays removed, and an insertion after it
+/// goes to the end.
 pub(crate) fn merge_steps(doc: &Node, ops: &[Op]) -> Result<Vec<Value>, String> {
     let mut doc = doc.clone();
     let mut all = Vec::new();

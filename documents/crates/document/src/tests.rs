@@ -554,7 +554,6 @@ struct Packet {
     frame: Vec<u8>,
 }
 
-/// One view: its confirmed copy, and its edits that wait for an answer.
 struct View {
     client: String,
     pipe: Option<PipeId>,
@@ -629,7 +628,6 @@ impl View {
         Some(change_frame(*seq, rev, change))
     }
 
-    /// Takes one message, and returns what it sends in answer.
     fn receive(&mut self, frame: &[u8]) -> Vec<Vec<u8>> {
         let Ok(Frame::Message(message)) = contract::decode::<ToClient>(frame) else {
             return Vec::new();
@@ -696,8 +694,6 @@ impl Random {
     }
 }
 
-/// A server with its journal, many views, late packets, lost links, restarts and outside
-/// writes.
 struct World {
     document: Document<Sheet>,
     original: Vec<u8>,

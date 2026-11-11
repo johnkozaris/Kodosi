@@ -1,5 +1,4 @@
-//! Blocks the ads and trackers that pages load, by the filter lists that ship beside the
-//! engine. Only the people's tabs use it; a page itself always loads.
+//! Only the people's tabs filter their requests, and a page itself always loads.
 
 use std::{fs, path::PathBuf, sync::OnceLock};
 
@@ -34,7 +33,7 @@ const KINDS: [(ResourceType, &str); 18] = [
     (ResourceType::PREFETCH, "other"),
 ];
 
-/// Reads the lists on a thread of its own. Until it is done, every request goes through.
+/// Until the lists are read, every request goes through.
 pub(crate) fn load() {
     let Some(folder) = folder() else {
         return;

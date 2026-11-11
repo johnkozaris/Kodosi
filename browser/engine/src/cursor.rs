@@ -36,7 +36,6 @@ const NAMES: &[(CursorType, &str)] = &[
     (CursorType::ZOOMOUT, "zoom-out"),
 ];
 
-/// The CSS name of a cursor, which every viewer knows.
 pub(crate) fn css_name(cursor: CursorType) -> &'static str {
     NAMES
         .iter()

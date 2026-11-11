@@ -15,7 +15,6 @@ export function colorOf(person: string): string {
   return PEOPLE_COLORS[Number(hash % BigInt(PEOPLE_COLORS.length))] ?? "#3c8db5";
 }
 
-/** The first letters of up to two words of a name, as the apps show a person. */
 export function initialsOf(name: string): string {
   const letters = name
     .trim()
@@ -28,7 +27,6 @@ export function initialsOf(name: string): string {
   return letters || "·";
 }
 
-/** What every format shows: who is here, and the state of the save. */
 export class Status {
   readonly element = document.createElement("div");
   private readonly state = document.createElement("span");
@@ -65,7 +63,6 @@ export class Status {
       reason === "removed" ? say("Someone removed this file.") : say("This document closed.");
   }
 
-  /** Shows that edits no longer fit the file, with their words, so the person can write them again. */
   kept(text: string): void {
     const notice = this.root.appendChild(document.createElement("div"));
     notice.className = "document-kept";

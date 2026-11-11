@@ -36,7 +36,6 @@ impl Opener for GcmKey {
     }
 }
 
-/// Opens a secret that this person's Windows sign-in protects.
 #[expect(unsafe_code, reason = "the system's secret store has only a C call")]
 fn unprotected(secret: &[u8]) -> Option<Vec<u8>> {
     let mut input = CRYPT_INTEGER_BLOB {
@@ -70,8 +69,7 @@ fn unprotected(secret: &[u8]) -> Option<Vec<u8>> {
     }
 }
 
-/// The key of a browser of the Chromium family. A browser with app-bound values keeps those
-/// out of reach, and they stay behind.
+/// A browser with app-bound values keeps those out of reach, and they stay behind.
 pub(super) fn opener(name: &str, folder: &Path) -> Result<Box<dyn Opener>, CopyError> {
     let no_access = || CopyError::NoAccess(name.to_owned());
     let root = folder.parent().ok_or_else(no_access)?;

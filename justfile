@@ -166,7 +166,7 @@ documents-check:
     cd documents/views && bun install --frozen-lockfile && bun run build && bun run format:check && bun run test
     cargo fmt --manifest-path documents/Cargo.toml --all -- --check
     CARGO_BUILD_WARNINGS=deny CARGO_INCREMENTAL=0 cargo clippy --manifest-path documents/Cargo.toml --locked --workspace --all-targets -- {{ test_lints }}
-    cargo test --manifest-path documents/Cargo.toml --locked --workspace
+    cd documents && cargo test --locked --workspace
 
 # Build the views, then lint the documents app, which has its own workspace and Cargo.lock.
 [group('rust')]

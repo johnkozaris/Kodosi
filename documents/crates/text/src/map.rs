@@ -1,5 +1,4 @@
-/// The ranges of a step: for each one its start, its old size and its new size. It moves a
-/// position across the step.
+/// The ranges of a step: for each one its start, its old size and its new size.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StepMap {
     ranges: Vec<usize>,
@@ -10,8 +9,7 @@ impl StepMap {
         Self { ranges }
     }
 
-    /// Moves a position across this step. With a negative `assoc`, a position at an insertion
-    /// stays before it.
+    /// With a negative `assoc`, a position at an insertion stays before it.
     pub fn map(&self, pos: usize, assoc: i8) -> usize {
         let mut diff = 0_isize;
         for [start, old_size, new_size] in self.ranges.as_chunks::<3>().0.iter().copied() {

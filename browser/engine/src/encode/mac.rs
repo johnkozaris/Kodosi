@@ -316,7 +316,6 @@ impl Encoder {
         self.encode_buffer(&source, width, height);
     }
 
-    /// Encodes a picture that CEF drew in memory, as BGRA rows.
     pub(crate) fn encode_pixels(&mut self, pixels: &[u8], width: usize, height: usize) {
         let mut source = ptr::null_mut();
         // SAFETY: the out pointer is valid; a failure leaves it null.
@@ -691,7 +690,6 @@ unsafe fn annex_b(sample: *mut c_void) -> Option<(bool, Vec<u8>)> {
     Some((key, out))
 }
 
-/// Rewrites length-prefixed NAL units as Annex B units with start codes.
 fn annex_b_units(data: &[u8], length_size: usize, out: &mut Vec<u8>) -> Option<()> {
     let mut rest = data;
     while !rest.is_empty() {

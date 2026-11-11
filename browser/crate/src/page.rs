@@ -17,14 +17,11 @@ use crate::{
 
 /// The address of a host page's own files, which never reach the network.
 const ORIGIN: &str = "https://kodosi.invalid/";
-/// The one function that a host page calls to give the host a message.
 const BINDING: &str = "kodosiHost";
 const MESSAGES: usize = 256;
 const MOST_SIDE: u32 = 8192;
 const RESIZE_LIMIT: Duration = Duration::from_secs(5);
 
-/// A page of the host's own. It is apart from the people's tabs, it shows files of one folder,
-/// and it talks with the host through one binding.
 pub struct HostPage {
     engine: Arc<Engine>,
     page: i64,
@@ -86,13 +83,12 @@ impl HostPage {
             .await
     }
 
-    /// The next message of the page.
     pub async fn message(&mut self) -> Option<String> {
         self.messages.recv().await
     }
 
-    /// Runs a script in the page and gives its value. A script that waits for the page's files
-    /// answers through the binding instead, since the page gets no files during the call.
+    /// A script that waits for the page's files answers through the binding instead, since the
+    /// page gets no files during the call.
     pub async fn run(&self, script: &str) -> Result<Value, Error> {
         let answer = self
             .call(
@@ -142,8 +138,7 @@ impl HostPage {
         }
     }
 
-    /// A PNG picture of a part of the page, in CSS pixels from the top of the document. The part
-    /// must fit in the view.
+    /// In CSS pixels from the top of the document. The part must fit in the view.
     pub async fn picture(&self, x: f64, y: f64, width: f64, height: f64) -> Result<Vec<u8>, Error> {
         if width > f64::from(self.width) || height > f64::from(self.height) {
             return Err(Error::Engine(
@@ -166,7 +161,6 @@ impl HostPage {
             .map_err(|_| Error::Malformed)
     }
 
-    /// Closes the page, and the browser with it when nothing else uses it.
     pub async fn close(self) {
         let engine = Arc::clone(&self.engine);
         drop(self);
@@ -196,7 +190,6 @@ fn side(length: f64) -> Result<u32, Error> {
     }
 }
 
-/// Gives a host page its files and passes on what it says, until the page closes.
 async fn serve(
     devtools: Devtools,
     session: String,

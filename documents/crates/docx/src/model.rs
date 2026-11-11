@@ -20,17 +20,14 @@ pub(crate) fn schema() -> &'static Schema {
     &SCHEMA
 }
 
-/// The .docx format.
 pub struct Docx;
 
-/// A top-level block as it came from the file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Source {
     pub node: Node,
     pub xml: String,
 }
 
-/// The live copy of a .docx file.
 #[derive(Debug, Clone)]
 pub struct Model {
     pub(crate) doc: Node,
@@ -41,8 +38,8 @@ pub struct Model {
     pub(crate) view: Value,
 }
 
-/// One batch of edits. A view sends steps. The CLI sends named ops, and the server turns them
-/// into steps, so a view never sees an op.
+/// A view sends steps. The CLI sends named ops, and the server turns them into steps, so a view
+/// never sees an op.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -68,7 +65,6 @@ pub enum Change {
         #[serde(default)]
         author: String,
     },
-    /// What a compare found in a write of another program.
     Merge {
         ops: Vec<Op>,
         keep: BTreeMap<String, String>,
@@ -76,7 +72,6 @@ pub enum Change {
     },
 }
 
-/// What read and check ask.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",

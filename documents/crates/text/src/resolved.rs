@@ -7,7 +7,6 @@ struct Level {
     offset: usize,
 }
 
-/// A position with the path of nodes down to it.
 #[derive(Debug, Clone)]
 pub struct ResolvedPos {
     pos: usize,
@@ -120,7 +119,6 @@ impl ResolvedPos {
         self.parent().child(index - 1).cloned().map(Some)
     }
 
-    /// The deepest level whose node holds both this position and `pos`.
     pub fn shared_depth(&self, pos: usize) -> usize {
         (1..=self.depth())
             .rev()

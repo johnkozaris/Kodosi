@@ -13,14 +13,11 @@ use crate::{
     format::{Assets, Format, Ordered, Refused, Unreadable},
 };
 
-/// New assets that one document holds in memory.
 const MOST_ASSET_BYTES: usize = 128 * 1024 * 1024;
-/// Saved states that an outside write can start from.
 const MOST_SAVED_STATES: usize = 32;
 
 pub type PipeId = u64;
 
-/// What happens to a document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Input {
     /// A pipe opened for this viewer. Its first message must be `join`.
@@ -35,16 +32,14 @@ pub enum Input {
     Left {
         pipe: PipeId,
     },
-    /// Another program changed the file.
     FileChanged {
         file: Vec<u8>,
         writer: String,
     },
-    /// It is time to save. `file` is the file as it is on disk.
+    /// `file` is the file as it is on disk.
     Save {
         file: Vec<u8>,
     },
-    /// The file holds each change up to this rev.
     Saved {
         rev: Rev,
     },
@@ -69,15 +64,12 @@ pub enum Effect {
         frame: Arc<[u8]>,
         catchup: bool,
     },
-    /// Ends a pipe that broke the contract or that a newer pipe replaces.
     Drop {
         pipe: PipeId,
     },
     /// Writes this change to the journal before anyone hears of it.
     Append(Vec<u8>),
-    /// Keeps a new asset with the journal.
     KeepAsset(Hash),
-    /// A change waits to be saved.
     Unsaved,
     /// The new file reads well, so it is the file on disk now.
     FileTaken,
@@ -89,7 +81,6 @@ pub enum Effect {
     Seal,
 }
 
-/// What a journal keeps of a document, to build it again after a restart.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Restored {
     pub epoch: u64,
@@ -105,8 +96,7 @@ struct Seat {
     place: Value,
 }
 
-/// One file while someone has it open. It takes an input and returns effects, and it holds no
-/// network, disk, clock or thread.
+/// Takes an input and returns effects, and holds no network, disk, clock or thread.
 pub struct Document<F: Format> {
     model: F::Model,
     assets: Assets,
@@ -146,8 +136,6 @@ impl<F: Format> Document<F> {
         })
     }
 
-    /// Builds a document again from its journal: the file as it was opened and each change
-    /// since.
     pub fn restore(
         original: Vec<u8>,
         restored: Restored,
@@ -342,7 +330,7 @@ impl<F: Format> Document<F> {
         effects
     }
 
-    /// What a view missed, when it knows this epoch, or else a snapshot. A new view knows epoch 0.
+    /// A new view knows epoch 0.
     fn catchup(&self, epoch: u64, rev: Rev) -> Catchup {
         let missed = (epoch != 0 && epoch == self.epoch)
             .then(|| self.log_since(rev))
@@ -357,7 +345,6 @@ impl<F: Format> Document<F> {
         )
     }
 
-    /// The changes after a rev, if the log still holds them.
     fn log_since(&self, rev: Rev) -> Option<&[Ordered<F::Change>]> {
         let skip = usize::try_from(rev.checked_sub(self.first_rev)?).ok()?;
         self.log.get(skip..)
@@ -468,8 +455,6 @@ impl<F: Format> Document<F> {
         effects
     }
 
-    /// Keeps where a person is as the document is now, and tells the others, who are at this rev
-    /// when the place reaches them. A place from before the log is dropped.
     fn place(&mut self, pipe: PipeId, rev: Rev, mut body: Value) -> Vec<Effect> {
         let Some(since) = self.log_since(rev) else {
             return Vec::new();

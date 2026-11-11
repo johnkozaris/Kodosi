@@ -8,13 +8,12 @@ use shared_browser::link::{Address, EncodedFrame, FromEngine, ToEngine};
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 
-/// Reports that wait for the link. A host that leaves this many unread is gone.
+/// A host that leaves this many reports unread is gone.
 const REPORTS_WAITING: usize = 1024;
-/// Pictures that wait for the link. One that finds no room is lost, so a slow host never piles
-/// up pictures.
+/// A picture that finds no room is lost, so a slow host never piles up pictures.
 const FRAMES_WAITING: usize = 4;
 
-/// The engine's way to its host. Any thread may send on it.
+/// Any thread may send on the link.
 #[derive(Clone)]
 pub(crate) struct Link {
     reports: mpsc::Sender<Message>,
@@ -31,8 +30,6 @@ impl Link {
         }
     }
 
-    /// Sends a picture unless the link is full, and says whether its window now needs a key
-    /// frame.
     pub(crate) fn send_frame(&self, frame: &EncodedFrame) -> bool {
         let mut broken = self.broken.lock().unwrap_or_else(PoisonError::into_inner);
         if !frame.key && broken.contains(&frame.window) {
@@ -48,8 +45,7 @@ impl Link {
     }
 }
 
-/// Connects to the host on a thread of its own. The engine quits when the link ends, so it never
-/// outlives its host.
+/// The engine quits when the link ends, so it never outlives its host.
 pub(crate) fn connect(address: Address) -> Link {
     let (reports, waiting_reports) = mpsc::channel(REPORTS_WAITING);
     let (frames, waiting_frames) = mpsc::channel(FRAMES_WAITING);

@@ -71,8 +71,6 @@ fn deck() -> Vec<u8> {
     writer.finish().unwrap().into_inner()
 }
 
-/// The deck with links on its first slide: a web link on the title, a step to the next slide,
-/// and a box that goes to the second slide.
 fn linked_deck() -> Vec<u8> {
     let slide = slide_xml("First")
         .replace(
@@ -111,7 +109,6 @@ fn labelled_deck() -> Vec<u8> {
     with_parts(&deck(), &[("ppt/slides/slide1.xml", &slide)])
 }
 
-/// A file with some of its parts written again.
 fn with_parts(file: &[u8], parts: &[(&str, &str)]) -> Vec<u8> {
     let mut original = Package::open(file).unwrap();
     let names: Vec<String> = original.names().map(str::to_owned).collect();
@@ -446,7 +443,6 @@ fn a_new_text_box_reads_back_as_it_is_and_keeps_what_people_did_with_it() {
     );
 }
 
-/// A text box as the presentation view adds one.
 fn view_text_box(id: &str) -> Value {
     json!({
         "id": id,

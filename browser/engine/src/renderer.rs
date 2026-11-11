@@ -7,7 +7,6 @@ use std::{
 use cef::*;
 use serde::Deserialize;
 
-/// The page script's messages to the browser process, and the browser's answer to a menu.
 pub(crate) const FROM_PAGE: &str = "kodosi";
 const TO_PAGE: &str = "kodosi-pick";
 /// Marks a host page, where no page script runs.
@@ -38,7 +37,6 @@ pub(crate) fn handler() -> RenderProcessHandler {
     RenderProcessHandlerBuilder::new()
 }
 
-/// Gives a frame's page script the choice that a viewer made in its menu.
 pub(crate) fn pick(browser: &Browser, frame: &str, menu: u32, choice: Option<u32>) {
     let Some(frame) = browser.frame_by_identifier(Some(&CefString::from(frame))) else {
         return;

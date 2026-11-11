@@ -138,7 +138,6 @@ class PlainEditor implements ViewEditor, Pictures {
     this.showKeys();
   }
 
-  /** The numbers of the lines take the room of the largest. */
   private numberLines(): void {
     const digits = String(String(this.view?.state.doc.childCount ?? 1).length);
     if (this.page.style.getPropertyValue("--digits") !== digits) {
@@ -173,7 +172,6 @@ class PlainEditor implements ViewEditor, Pictures {
     this.redoKey.show({ enabled: redoDepth(state) > 0 });
   }
 
-  /** The text in pictures as tall as the window, each of whole lines. */
   async pictures(): Promise<number> {
     await settled();
     const root = this.view?.dom;

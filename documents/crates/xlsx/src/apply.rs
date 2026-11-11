@@ -145,8 +145,7 @@ fn apply_one(model: &mut Model, change: &mut Change) -> Result<(), Refused> {
     Ok(())
 }
 
-/// The index of a look, which is new when no cell has it yet. The change keeps the look too,
-/// so that views which do not have it yet can draw it.
+/// The change keeps a new look too, so that views which do not have it yet can draw it.
 fn look_index(model: &mut Model, look: &Look) -> u32 {
     let found = model.looks.iter().position(|known| known == look);
     let index = found.unwrap_or_else(|| {
@@ -237,7 +236,6 @@ fn moved_keys<Value: Clone>(lines: &BTreeMap<u32, Value>, shift: Shift) -> BTree
         .collect()
 }
 
-/// What turns one state of the workbook into another, by cell.
 pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
     let mut changes = Vec::new();
     for sheet in &to.sheets {

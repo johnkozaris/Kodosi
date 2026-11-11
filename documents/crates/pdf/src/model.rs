@@ -5,7 +5,6 @@ use serde_json::{Value, json};
 
 use crate::Op;
 
-/// The PDF format.
 pub struct Pdf;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -16,7 +15,7 @@ pub struct Page {
     pub rotation: i64,
 }
 
-/// One note on a page, in PDF points from the bottom left.
+/// In PDF points from the bottom left.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Note {
@@ -31,7 +30,6 @@ pub struct Note {
     pub author: String,
 }
 
-/// Work on whole pages, which only the server can do.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -45,8 +43,8 @@ pub enum PageWork {
     Redact { page: String, rects: Vec<[f64; 4]> },
 }
 
-/// One change. Notes and form values name a key, so the last one wins. Page work names a page,
-/// the server does it, and views load the file again from the asset that the change names.
+/// Notes and form values name a key, so the last one wins. Page work names a page, the server
+/// does it, and views load the file again from the asset that the change names.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -82,7 +80,6 @@ pub enum Change {
     },
 }
 
-/// What read and check ask.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -97,7 +94,6 @@ pub enum Query {
     Check,
 }
 
-/// The live copy of a PDF file.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Model {
     /// The file as the last page work left it. A save appends to these bytes.

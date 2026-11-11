@@ -129,7 +129,6 @@ function sizeText(size: number): string {
   return String(Math.round(size * 2) / 2);
 }
 
-/** The bar of a sheet: what the person changes most, and the rest in the Text panel. */
 export class XlsxBar {
   private readonly bar: Bar;
   private refresh: (() => void) | undefined;
@@ -261,7 +260,6 @@ export class XlsxBar {
     this.refresh();
   }
 
-  /** Shows what is true at the selection, once a frame however many changes come. */
   update(): void {
     if (this.pending || !this.refresh) return;
     this.pending = requestAnimationFrame(() => {

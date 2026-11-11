@@ -1,5 +1,3 @@
-//! Where a person is in a text: the positions `from` and `to` of their selection.
-
 use serde_json::{Map, Value, json};
 use text::{Node, Step};
 
@@ -9,7 +7,6 @@ fn position(place: &Value, key: &str) -> Option<usize> {
     usize::try_from(place.get(key)?.as_u64()?).ok()
 }
 
-/// Moves a place across the steps of a change, as a selection moves.
 pub(crate) fn map(place: &mut Value, change: &Change) {
     let Change::Steps { steps } = change else {
         return;
@@ -29,8 +26,6 @@ pub(crate) fn map(place: &mut Value, change: &Change) {
     place["to"] = json!(to.max(from));
 }
 
-/// The lines of a place as a read names them, the column where it starts, and the text that it
-/// selects.
 pub(crate) fn describe(doc: &Node, place: &Value) -> Value {
     let (Some(from), Some(to)) = (position(place, "from"), position(place, "to")) else {
         return Value::Null;
@@ -66,7 +61,7 @@ pub(crate) fn describe(doc: &Node, place: &Value) -> Value {
     Value::Object(described)
 }
 
-/// The line and the column of a position, both from 1, with columns in characters.
+/// Both count from 1, with columns in characters.
 fn line_and_column(doc: &Node, position: usize) -> (usize, usize) {
     let Ok(at) = doc.resolve(position) else {
         return (1, 1);

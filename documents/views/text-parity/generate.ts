@@ -149,7 +149,6 @@ function randomMark(random: Random) {
   ]);
 }
 
-/** One edit through the same commands that editors use, which can make any kind of step. */
 function randomEdit(random: Random, transform: Transform, other: Node) {
   const doc = transform.doc;
   const [from, to] = randomRange(random, doc, 12);

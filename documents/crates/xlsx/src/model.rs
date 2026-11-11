@@ -5,10 +5,8 @@ use serde_json::{Map, json};
 
 use crate::Op;
 
-/// The .xlsx format.
 pub struct Xlsx;
 
-/// What a cell holds.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
@@ -18,7 +16,7 @@ pub enum Value {
     Error { error: String },
 }
 
-/// One cell. A cell that the file holds as a formula also holds its last value.
+/// A cell that the file holds as a formula also holds its last value.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Cell {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -35,17 +33,14 @@ impl Cell {
     }
 }
 
-/// A range that some element of a sheet names, which moves with the rows and columns.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Anchor {
     pub(crate) tag: &'static str,
     pub(crate) attribute: &'static str,
     pub(crate) ranges: String,
-    /// Where a click goes, for a hyperlink. The element keeps it in the file.
     pub(crate) link: Option<Link>,
 }
 
-/// An address, or a place in the workbook such as `Sheet2!A1`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Link {
@@ -72,7 +67,6 @@ pub(crate) struct Sheet {
     pub(crate) moved: bool,
 }
 
-/// One look that cells can share.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[expect(
@@ -106,20 +100,17 @@ pub struct Look {
     pub wrap: bool,
 }
 
-/// The live copy of a .xlsx file.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Model {
     pub(crate) sheets: Vec<Sheet>,
     /// The looks that cells name by index. A file's styles hold the first of them: those that
     /// it had and those that saves added.
     pub(crate) looks: Vec<Look>,
-    /// The defined names, in the order of the file.
     pub(crate) names: Vec<DefinedName>,
     /// The highest sheet number so far, so that a new sheet never takes a removed one's.
     pub(crate) last_number: u32,
 }
 
-/// A name of the workbook, such as a range that formulas use.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DefinedName {
     pub(crate) name: String,
@@ -128,7 +119,7 @@ pub(crate) struct DefinedName {
     pub(crate) text: String,
 }
 
-/// A change to one cell, by its key. What it does not name stays.
+/// What a change does not name stays.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CellChange {
     pub row: u32,
@@ -144,8 +135,8 @@ pub struct CellChange {
     pub look: Option<Look>,
 }
 
-/// One change. Cells name a key, so the last change wins. Rows and columns name positions, so
-/// a view moves its older cell changes across them.
+/// Cells name a key, so the last change wins. Rows and columns name positions, so a view moves
+/// its older cell changes across them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -201,7 +192,6 @@ pub enum Change {
     },
 }
 
-/// What read and check ask.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -212,7 +202,6 @@ pub enum Query {
     Read {
         #[serde(default)]
         sheet: Option<String>,
-        /// Such as `A1:C9`.
         #[serde(default)]
         range: Option<String>,
     },
@@ -264,7 +253,6 @@ impl Sheet {
         })
     }
 
-    /// The part of a sheet, which a sheet made here gets at its first save.
     pub(crate) fn part_name(&self) -> String {
         self.part
             .clone()

@@ -70,7 +70,6 @@ fn failed(error: impl std::fmt::Display) -> Unwritable {
     Unwritable(error.to_string())
 }
 
-/// The type and the inner XML of a cell, after its formula element when it has one.
 fn value_xml(value: Option<&Value>, formula: &str) -> (Option<&'static str>, String) {
     match value {
         None => (None, formula.to_owned()),
@@ -105,8 +104,8 @@ fn cell_xml(row: u32, column: u32, cell: &Cell) -> String {
     xml
 }
 
-/// A cell with its formula element as the file has it, so that a shared or an array formula
-/// stays one, and with the value and the style of the model.
+/// The cell keeps its formula element as the file has it, so that a shared or an array formula
+/// stays one.
 fn kept_formula_cell(xml: &str, element: Xml<'_, '_>, formula: Xml<'_, '_>, cell: &Cell) -> String {
     let (kind, inner) = value_xml(cell.value.as_ref(), &xml[formula.range()]);
     let mut text = String::from("<c");
@@ -137,7 +136,6 @@ fn kept_formula_cell(xml: &str, element: Xml<'_, '_>, formula: Xml<'_, '_>, cell
     text
 }
 
-/// The shared strings of the file, which a cell needs to compare itself with the model.
 fn strings_of(package: &mut Package<'_>) -> Vec<String> {
     package
         .text("xl/sharedStrings.xml")
@@ -161,16 +159,12 @@ fn strings_of(package: &mut Package<'_>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// The shared formulas of a sheet so far: the text of each group with the cell that holds it,
-/// and the groups whose holding cell changes, so that their other cells take their own text.
 #[derive(Default)]
 struct Shared {
     groups: HashMap<String, (String, u32, u32)>,
     lost: HashSet<String>,
 }
 
-/// The new XML of a cell of the file, when the model holds it otherwise. A formula that the
-/// model keeps keeps its element, with the result and the style of the model.
 fn cell_edit(
     xml: &str,
     element: Xml<'_, '_>,
@@ -213,7 +207,6 @@ fn cell_edit(
     }
 }
 
-/// Swaps the cells that differ from the model, and copies all other bytes.
 fn patch_sheet(xml: &str, sheet: &Sheet, strings: &[String]) -> Result<Option<String>, String> {
     let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
     let data = local(parsed.root_element(), "sheetData").ok_or("the sheet has no data")?;
@@ -293,7 +286,6 @@ fn dimension_edit(
     Some((dimension.range(), text))
 }
 
-/// The edit that adds cells at the end of a row, which can be a tag with no end tag.
 fn close_row_edit(
     xml: &str,
     row: Xml<'_, '_>,
@@ -358,7 +350,6 @@ fn end_of_rows(xml: &str, data: Xml<'_, '_>, rows: &[(u32, Xml<'_, '_>)]) -> Res
     Ok(data.range().start + text.rfind("</").unwrap_or(text.len()))
 }
 
-/// The edits that bring the ranges of a moved sheet's other elements up to date.
 fn anchor_edits(xml: &str, root: Xml<'_, '_>, sheet: &Sheet) -> Vec<Edit> {
     let elements = root
         .descendants()
@@ -389,8 +380,6 @@ fn anchor_edits(xml: &str, root: Xml<'_, '_>, sheet: &Sheet) -> Vec<Edit> {
         .collect()
 }
 
-/// Writes a whole sheet, for a sheet whose rows or columns moved: the empty end tag form of
-/// `sheetData` also comes here.
 fn whole_sheet(xml: &str, sheet: &Sheet) -> Result<String, String> {
     let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
     let root = parsed.root_element();
@@ -447,7 +436,6 @@ fn rows_xml(sheet: &Sheet) -> String {
     text
 }
 
-/// `cols` as the model holds it, when the file differs.
 fn columns_edit(root: Xml<'_, '_>, data_start: usize, sheet: &Sheet) -> Option<Edit> {
     if widths_of(root) == sheet.widths {
         return None;
@@ -472,7 +460,6 @@ fn columns_edit(root: Xml<'_, '_>, data_start: usize, sheet: &Sheet) -> Option<E
     ))
 }
 
-/// `mergeCells` as the model holds it, when the file differs.
 fn merges_edit(root: Xml<'_, '_>, xml: &str, sheet: &Sheet) -> Option<Edit> {
     if merges_of(root) == sheet.merges {
         return None;
@@ -542,7 +529,6 @@ fn tag_name<'x>(xml: &'x str, element: Xml<'_, '_>) -> &'x str {
         .unwrap_or_default()
 }
 
-/// The edits that bring the file's column widths, row heights and merges up to the model.
 fn layout_edits(xml: &str, sheet: &Sheet) -> Result<Vec<Edit>, String> {
     let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
     let root = parsed.root_element();
@@ -574,7 +560,6 @@ fn layout_edits(xml: &str, sheet: &Sheet) -> Result<Vec<Edit>, String> {
     Ok(edits)
 }
 
-/// A sheet with its changed cells swapped, and its layout as the model holds it.
 fn write_sheet(xml: &str, sheet: &Sheet, strings: &[String]) -> Result<Option<String>, String> {
     let cells = if sheet.moved {
         Some(whole_sheet(xml, sheet)?)
@@ -596,7 +581,6 @@ fn new_sheet_xml(sheet: &Sheet) -> String {
     )
 }
 
-/// The XML without the children of its root that `gone` names.
 fn without(xml: &str, gone: impl Fn(Xml<'_, '_>) -> bool) -> Result<String, String> {
     let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
     let edits = parsed
@@ -608,15 +592,11 @@ fn without(xml: &str, gone: impl Fn(Xml<'_, '_>) -> bool) -> Result<String, Stri
     Ok(spliced(xml, edits))
 }
 
-/// The XML with more children at the end of its root.
 fn with_added(xml: &str, added: &str) -> Result<String, String> {
     let closing = xml.rfind("</").ok_or("the package is broken")?;
     Ok(format!("{}{added}{}", &xml[..closing], &xml[closing..]))
 }
 
-/// Takes the sheets that the model no longer has out of the package: their parts, their
-/// relationships and their content types. Gives the relationships and the content types that
-/// stay, and whether a sheet went.
 fn removed_sheets(
     model: &Model,
     list: Xml<'_, '_>,
@@ -665,8 +645,6 @@ fn removed_sheets(
     Ok((relations_xml, types_xml, !removed.is_empty()))
 }
 
-/// Puts the sheets of the model in the workbook. A new sheet gets its part, and a removed one
-/// takes its part, its relationship and its content type with it.
 fn workbook_edits(
     model: &Model,
     package: &mut Package<'_>,
@@ -747,7 +725,6 @@ fn workbook_edits(
     Ok(())
 }
 
-/// Brings the text of the defined names up to the model.
 fn names_edit(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Result<(), String> {
     let edited = parts.get(WORKBOOK_PART).and_then(Option::as_ref);
     let xml = match edited {
@@ -803,7 +780,6 @@ fn font_xml(look: &Look) -> String {
     xml
 }
 
-/// The number formats of a file: its own ones by id, and those that a save adds.
 struct NumberFormats {
     codes: Vec<(u32, String)>,
     next: u32,
@@ -833,7 +809,6 @@ impl NumberFormats {
         }
     }
 
-    /// The id of a format: a built-in one, the file's, or a new one at the next free id.
     fn id(&mut self, code: &str) -> u32 {
         if let Some(id) = formats::built_in_id(code) {
             return id;
@@ -875,8 +850,7 @@ fn cell_format_xml(look: &Look, font: usize, fill: usize, format: u32) -> String
     xml
 }
 
-/// Adds the looks that the file's styles lack, after the ones that it holds, so that each look
-/// keeps its index.
+/// New looks go after the ones that the file holds, so that each look keeps its index.
 fn add_looks(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Result<(), String> {
     let Some(xml) = package.text(STYLES_PART) else {
         return if model.looks.is_empty() {
@@ -952,8 +926,7 @@ fn add_looks(model: &Model, package: &mut Package<'_>, parts: &mut Parts) -> Res
     Ok(())
 }
 
-/// Removes the `count` attributes of the style lists, which no longer fit and which are
-/// optional.
+/// The `count` attributes of the style lists no longer fit, and they are optional.
 fn strip_counts(xml: &str) -> Result<String, String> {
     let parsed = Document::parse(xml).map_err(|error| error.to_string())?;
     let mut edits = Vec::new();
@@ -1001,9 +974,8 @@ fn write_parts(model: &Model, file: &[u8]) -> Result<Option<Vec<u8>>, String> {
         .map_err(|error| error.to_string())
 }
 
-/// Writes the file with the current result of each formula. A formula keeps the result that the
-/// file holds when the edits did not change what it works out to, so a save changes only the
-/// results that follow an edit.
+/// A formula keeps the result that the file holds when the edits did not change what it works out
+/// to, so a save changes only the results that follow an edit.
 pub(crate) fn write(model: &Model, file: &[u8]) -> Result<Vec<u8>, Unwritable> {
     let mut current = calculated(model);
     if let Ok(saved) = read::read(file) {

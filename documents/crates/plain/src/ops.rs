@@ -7,13 +7,11 @@ use crate::{
     lines::{Edit, Text, lines_of},
 };
 
-/// The most lines that one read gives.
 const MOST_READ: usize = 2000;
-/// The most characters of a line that a read gives.
 const MOST_LINE: usize = 2000;
 
-/// What an agent means. Line numbers count from 1 in the text as the agent read it, and each op
-/// of one change counts in that text, so the ops of one change do not move each other's lines.
+/// Line numbers count from 1 in the text as the agent read it, and each op of one change counts
+/// in that text, so the ops of one change do not move each other's lines.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "op",
@@ -47,7 +45,6 @@ pub enum Op {
 }
 
 impl Op {
-    /// Whether this op names lines by number, which a change after the read moves.
     pub(crate) fn counts_lines(&self) -> bool {
         match self {
             Self::ReplaceText { .. } | Self::InsertLines { after: None, .. } => false,
@@ -114,7 +111,6 @@ impl Op {
     }
 }
 
-/// The lines `from` to `to` that an op names, from 0.
 fn lines_in(
     from: usize,
     to: Option<usize>,
@@ -133,8 +129,7 @@ fn lines_in(
     Ok(from - 1..to)
 }
 
-/// The edits of ops, in order. Ops that change the same text are refused, since their order
-/// would be a guess.
+/// Ops that change the same text are refused, since their order would be a guess.
 pub(crate) fn edits(text: &Text, ops: &[Op]) -> Result<Vec<Edit>, String> {
     if ops.is_empty() {
         return Err("There are no ops.".to_owned());
@@ -171,7 +166,6 @@ pub(crate) fn answer(text: &Text, query: &Query) -> Value {
     }
 }
 
-/// A line as a read gives it, cut at [`MOST_LINE`] characters.
 pub(crate) fn cut(line: &str) -> String {
     match line.char_indices().nth(MOST_LINE) {
         Some((at, _)) => format!("{}…", &line[..at]),

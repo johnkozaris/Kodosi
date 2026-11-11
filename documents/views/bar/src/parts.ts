@@ -13,20 +13,16 @@ import {
 
 const APPLE = /Mac|iPhone|iPad/.test(navigator.userAgent);
 
-/** A chord as the computer shows it: ⌘ on a Mac and Ctrl elsewhere. */
 export function keys(key: string, { shift = false } = {}): string {
   return APPLE ? `${shift ? "⇧" : ""}⌘${key}` : `Ctrl+${shift ? "Shift+" : ""}${key}`;
 }
 
-/** Whether a key comes with ⌘ on a Mac, or with Ctrl elsewhere, and with no Option or Alt. */
 export function commandKey(event: KeyboardEvent): boolean {
   return !event.altKey && (APPLE ? event.metaKey : event.ctrlKey);
 }
 
-/** How much a bar holds: parts that need more room leave a narrower bar. */
 export type Room = "wide" | "mid" | "narrow" | "tiny";
 
-/** The narrowest room in which a part stays in the bar. */
 export type Fit = Exclude<Room, "tiny">;
 
 const ROOMS: readonly (readonly [Room, number])[] = [
@@ -41,7 +37,6 @@ function rank(room: string | undefined): number {
   return at < 0 ? 0 : at;
 }
 
-/** Whether a part stays in the bar of the view that holds this element. */
 export function fits(element: HTMLElement, part: Fit): boolean {
   return rank(viewOf(element).dataset.room) <= rank(part);
 }
@@ -55,10 +50,7 @@ function icon(node: IconNode): SVGElement {
   return createElement(node);
 }
 
-/**
- * The bar of a document. A press on it keeps the focus where it is, so the caret or the cell
- * stays, and its width sets the room of the view.
- */
+/** A press on the bar keeps the focus where it is, so the caret or the cell stays. */
 export class Bar {
   readonly element = document.createElement("div");
   private readonly sizing: ResizeObserver;
@@ -108,7 +100,6 @@ export function gap(): HTMLElement {
   return space;
 }
 
-/** Whether a part can be used, and whether it is on. */
 export interface Look {
   active?: boolean;
   enabled?: boolean;
@@ -119,10 +110,6 @@ export interface Key {
   show(look: Look): void;
 }
 
-/**
- * A key with a symbol: a quiet face on hover, the raised face while its menu is open, and the
- * raised face with a copper symbol while it is on.
- */
 export function keyOf(options: {
   label: string;
   icon: IconNode;
@@ -161,7 +148,6 @@ function opener(
   };
 }
 
-/** A key that opens a list of choices, which it builds each time from what is true then. */
 export function menuKey(options: {
   label: string;
   icon: IconNode;
@@ -173,7 +159,6 @@ export function menuKey(options: {
   return keyOf({ ...options, press: open });
 }
 
-/** Opens a panel from a part, such as the next step of a menu's choice. */
 export function openPanel(anchor: HTMLElement, content: HTMLElement): void {
   openPopover(anchor, content, { kind: "panel" });
   const field = content.querySelector("input");
@@ -181,7 +166,6 @@ export function openPanel(anchor: HTMLElement, content: HTMLElement): void {
   field?.select();
 }
 
-/** A key that opens a panel of controls, which it builds each time it opens. */
 export function panelKey(options: {
   label: string;
   icon: IconNode;
@@ -207,7 +191,6 @@ export interface Toggles {
   show(looks: readonly Look[]): void;
 }
 
-/** Toggles side by side in one well, such as bold, italic and underline. */
 export function wellOf(legend: string, toggles: readonly Toggle[], fits?: Fit): Toggles {
   const well = fit(document.createElement("div"), fits);
   well.className = "bar-well";
@@ -237,7 +220,6 @@ export function wellOf(legend: string, toggles: readonly Toggle[], fits?: Fit): 
 export interface Choice<V extends string> {
   value: V;
   label: string;
-  /** The symbol of the choice. A choice without one shows its label. */
   icon?: IconNode;
   shortcut?: string;
 }
@@ -247,7 +229,6 @@ interface Segments<V extends string> {
   show(value: V | null, enabled?: boolean): void;
 }
 
-/** One choice of a few, with a raised thumb that slides to the chosen one. */
 export function segmentsOf<V extends string>(
   label: string,
   choices: readonly Choice<V>[],
@@ -302,7 +283,6 @@ interface Picker {
   show(text: string, enabled?: boolean, look?: Partial<CSSStyleDeclaration>): void;
 }
 
-/** A face that names the current choice and lists the others, such as a style or a format. */
 export function pickerOf(options: {
   label: string;
   width: number;
@@ -335,7 +315,6 @@ interface Stepper {
   show(value: string, canShrink: boolean, canGrow: boolean): void;
 }
 
-/** A size between a key that makes it smaller and one that makes it larger. */
 export function stepperOf(label: string, step: (larger: boolean) => void, fits?: Fit): Stepper {
   const well = fit(document.createElement("div"), fits);
   well.className = "bar-well bar-stepper";
@@ -369,10 +348,6 @@ export interface ZoomPart {
   show(percent: number, canShrink: boolean, canGrow: boolean): void;
 }
 
-/**
- * The size of the pages between a key that makes them smaller and one that makes them larger.
- * The size opens the ways to fit the pages. A narrow bar keeps only the size.
- */
 export function zoomOf(options: {
   step(larger: boolean): void;
   entries(): readonly MenuEntry[];
@@ -412,12 +387,10 @@ export function zoomOf(options: {
 export interface Swatch {
   value: string | null;
   label: string;
-  /** The color that the swatch shows. */
   fill: string;
   icon?: IconNode;
 }
 
-/** A row of colors, the chosen one with a copper ring. */
 export function swatchesOf(
   legend: string,
   swatches: readonly Swatch[],
@@ -447,7 +420,6 @@ export function swatchesOf(
   return row;
 }
 
-/** Columns and rows to pick by pointing or with the arrows, as for a new table. */
 export function sizeGridOf(options: {
   label: string;
   columns: number;
@@ -505,7 +477,6 @@ export function sizeGridOf(options: {
   return panel;
 }
 
-/** A text well that takes its words with Enter. */
 export function fieldOf(label: string, value: string, take: (text: string) => void): HTMLElement {
   const field = document.createElement("input");
   field.className = "bar-field";
@@ -523,7 +494,6 @@ export function fieldOf(label: string, value: string, take: (text: string) => vo
 
 export type PanelRow = readonly [name: string, control: HTMLElement];
 
-/** A panel's rows, each with a short name on the left of its control. */
 export function panelOf(rows: readonly PanelRow[], foot?: HTMLElement): HTMLElement {
   const panel = document.createElement("div");
   const grid = panel.appendChild(document.createElement("div"));
@@ -538,7 +508,6 @@ export function panelOf(rows: readonly PanelRow[], foot?: HTMLElement): HTMLElem
   return panel;
 }
 
-/** A row of wide keys under a panel, each with its symbol over its name. */
 export function footOf(
   keys: readonly { label: string; icon: IconNode; enabled?: boolean; press(): void }[],
 ): HTMLElement {

@@ -3,21 +3,14 @@ import { commandKey, keys, type ZoomPart, zoomOf } from "./parts";
 
 export type Fitting = "width" | "page";
 
-/** What sets the size of the pages: a way to fit them, or a scale that the person chose. */
 type Sizing = Fitting | number;
 
-/** A view of pages that a zoom sizes. */
 interface Zoomable {
-  /** The part that scrolls. A pinch over it zooms around the pointer. */
   area: HTMLElement;
   /** The space inside the area that keeps its size at each scale. */
   inset: number;
-  /**
-   * The scales at which the pages fill the width of the area, and at which a whole page fits.
-   * A view without them has no fitting: it starts at its actual size.
-   */
+  /** A view without fits has no fitting: it starts at its actual size. */
   fits?(): Record<Fitting, number>;
-  /** Shows the pages at a scale. */
   scale(scale: number): void;
 }
 
@@ -31,7 +24,6 @@ interface GestureEvent extends UIEvent, Point {
   scale: number;
 }
 
-/** The scales that the keys step through. */
 const STEPS = [
   0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4,
 ] as const;
@@ -43,17 +35,12 @@ const PINCH_STEP = 100;
 const MOST_WHEEL = 25;
 const SAME = 0.001;
 
-/** The next scale of the keys from a scale, which may lie between two of them. */
 export function stepFrom(scale: number, larger: boolean): number | undefined {
   return larger
     ? STEPS.find((step) => step > scale + SAME)
     : STEPS.findLast((step) => step < scale - SAME);
 }
 
-/**
- * The zoom of a view of pages. The pages fit the width of the view, never above their actual
- * size, until the person zooms with the bar, the keys or a pinch.
- */
 export class Zoom {
   private readonly part: ZoomPart;
   private readonly watching: ResizeObserver;
@@ -118,7 +105,6 @@ export class Zoom {
     return this.part.element;
   }
 
-  /** The pages or the view changed. A fitting follows them, and the top of the view stays. */
   refit(): void {
     const area = this.view.area;
     if (area.clientWidth === 0 || area.clientHeight === 0) return;
@@ -147,7 +133,6 @@ export class Zoom {
     if (next !== undefined) this.set(next);
   }
 
-  /** Shows the pages at a scale, and keeps the point under `at`, or the middle of the view. */
   private apply(scale: number, at?: Point): void {
     const area = this.view.area;
     const before = this.current;

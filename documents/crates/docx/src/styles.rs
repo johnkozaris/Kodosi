@@ -21,7 +21,7 @@ fn number(text: Option<&str>) -> Option<f64> {
     text.and_then(|text| text.parse().ok())
 }
 
-/// What one style sets, in points for sizes.
+/// Sizes are in points.
 #[derive(Debug, Clone, Default)]
 struct Look {
     based_on: Option<String>,
@@ -88,7 +88,6 @@ fn resolve(styles: &HashMap<String, Look>, name: &str, depth: usize) -> Map<Stri
     values
 }
 
-/// Each style with all that it inherits, and the defaults of the document.
 pub(crate) fn styles(text: &str) -> Value {
     let Ok(parsed) = Document::parse(text) else {
         return Value::Null;
@@ -145,7 +144,6 @@ pub(crate) fn styles(text: &str) -> Value {
     })
 }
 
-/// Each list's levels, for the marks that a view draws before an item.
 pub(crate) fn numbering(text: &str) -> Value {
     let Ok(parsed) = Document::parse(text) else {
         return Value::Null;

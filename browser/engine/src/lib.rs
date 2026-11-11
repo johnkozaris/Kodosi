@@ -1,6 +1,3 @@
-//! Kodosi Browser: Chromium through CEF, with no window. It renders each page off screen, encodes
-//! the page that its host watches, and talks with its host on one local link.
-
 mod client;
 mod cursor;
 mod encode;

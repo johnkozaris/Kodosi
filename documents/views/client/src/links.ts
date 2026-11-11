@@ -1,11 +1,7 @@
 /** Schemes that would run in the view's own page instead of going to the host. */
 const IN_PAGE = new Set(["javascript:", "data:", "blob:", "vbscript:", "about:"]);
 
-/**
- * Hands a link to the host, which opens it by the rules of terminal links: in the browser or an
- * app of the device, after a question, or not at all with the reason. A link that would run in
- * this page goes nowhere.
- */
+/** A link that would run in this page goes nowhere. The host opens the others by its rules. */
 export function followLink(address: string): void {
   if (!passesOn(address)) return;
   const link = document.createElement("a");

@@ -8,7 +8,6 @@ const MOST_DEPTH: usize = 128;
 
 pub type Attrs = Arc<Map<String, Value>>;
 
-/// A piece of information on a node, such as bold or a link.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mark {
     kind: MarkId,
@@ -47,7 +46,6 @@ impl Mark {
         json
     }
 
-    /// Places this mark in a set, by its rank, and removes what it excludes.
     pub(crate) fn add_to_set(&self, schema: &Schema, set: &[Self]) -> Vec<Self> {
         let mut copy: Option<Vec<Self>> = None;
         let mut placed = false;
@@ -95,8 +93,7 @@ struct Inner {
     leaf: bool,
 }
 
-/// One node of a tree. Nodes are shared and never change: an edit makes new nodes along one
-/// path.
+/// Nodes are shared and never change: an edit makes new nodes along one path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node(Arc<Inner>);
 
@@ -165,7 +162,7 @@ impl Node {
         self.0.leaf
     }
 
-    /// The text of a text node, in UTF-16 units.
+    /// In UTF-16 units.
     pub(crate) fn units(&self) -> Option<&[u16]> {
         self.0.text.as_deref()
     }
@@ -174,7 +171,6 @@ impl Node {
         self.units().map(String::from_utf16_lossy)
     }
 
-    /// All the text under this node, in order.
     pub fn text_content(&self) -> String {
         self.text_of().unwrap_or_else(|| {
             self.content()
@@ -388,7 +384,6 @@ impl Node {
     }
 }
 
-/// A node's children.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Fragment {
     content: Arc<[Node]>,
@@ -404,7 +399,7 @@ impl Fragment {
         }
     }
 
-    /// Builds a fragment, and joins adjacent text with the same marks.
+    /// Joins adjacent text with the same marks.
     pub fn from_array(nodes: Vec<Node>) -> Self {
         let mut joined: Vec<Node> = Vec::with_capacity(nodes.len());
         for node in nodes {
@@ -522,7 +517,6 @@ impl Fragment {
         })
     }
 
-    /// The index of the child at a position, and the offset where that child starts.
     pub(crate) fn find_index(&self, position: usize) -> Result<(usize, usize), Failed> {
         if position == 0 {
             return Ok((0, position));
@@ -576,8 +570,6 @@ impl Fragment {
     }
 }
 
-/// A piece cut out of a larger document, with the depth up to which nodes on both sides are
-/// open.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Slice {
     pub content: Fragment,
@@ -598,7 +590,6 @@ impl Slice {
         Self::default()
     }
 
-    /// The size this slice adds when it goes in a document.
     pub fn size(&self) -> usize {
         self.content
             .size()

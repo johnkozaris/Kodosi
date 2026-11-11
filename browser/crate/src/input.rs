@@ -5,7 +5,6 @@ use crate::message::{KeyAction, MouseAction, MouseButton};
 const META: u8 = 4;
 const CONTROL: u8 = 2;
 const SHIFT: u8 = 8;
-/// Where words that are no address go.
 const SEARCH: &str = "https://www.google.com/search?q=";
 
 /// The address of what a person typed. An address with no scheme gets `https`, and one on this

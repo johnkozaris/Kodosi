@@ -10,7 +10,6 @@ import { decodeFrame, encodeAsset, encodeMessage } from "./frame";
 
 const PLACE_EVERY = 100;
 
-/** The host's end of a view: it carries bytes in any way it likes. */
 export interface Pipe {
   send(frame: Uint8Array): void;
   onMessage(handler: (frame: Uint8Array) => void): void;
@@ -29,12 +28,9 @@ export interface Person {
  */
 export type Sent = "none" | "taken" | "lost" | "refused" | "unknown";
 
-/** What an editor does for its client. */
 export interface Editor {
-  /** Shows the document of a snapshot. `sent` says what became of the batch on its way. */
   load(snapshot: unknown, person: Person, sent: Sent): void;
   apply(changed: Changed, own: boolean): void;
-  /** The next batch of edits, or null when none waits. */
   batch(): unknown | null;
   peers(peers: readonly Peer[]): void;
   saved(rev: number, waits: boolean): void;
@@ -43,8 +39,8 @@ export interface Editor {
 }
 
 /**
- * Join, unanswered edits and connecting again. Once the document took a client in, the client
- * sends one batch at a time, and an editor's own edit never waits for it.
+ * Once the document took a client in, the client sends one batch at a time, and an editor's own
+ * edit never waits for it.
  */
 export class Client {
   private readonly id = crypto.randomUUID();
@@ -64,14 +60,12 @@ export class Client {
   private nextPlace: { rev: number; body: ToDocumentBody } | undefined;
   private placeSentAt = 0;
 
-  /** `joined` runs each time that the document takes this client in. */
   constructor(private readonly joined: () => void = () => {}) {}
 
   use(editor: Editor): void {
     this.editor = editor;
   }
 
-  /** Takes a new pipe, at the start and after each lost link. */
   attach(pipe: Pipe): void {
     this.pipe = pipe;
     this.joining = true;
@@ -87,7 +81,6 @@ export class Client {
     });
   }
 
-  /** The link is gone. Edits wait here until the next pipe. */
   detach(): void {
     this.pipe = undefined;
   }
@@ -167,10 +160,7 @@ export class Client {
     this.editor?.apply(changed, own);
   }
 
-  /**
-   * What became of the batch on its way, by the last number of this client that the document
-   * took. A document that opened again knows no number of this client.
-   */
+  /** A document that opened again knows no number of this client. */
   private sentOf(seq: number): Sent {
     const waiting = this.waitingSeq;
     if (this.refused) return "refused";
@@ -194,7 +184,6 @@ export class Client {
     });
   }
 
-  /** Sends the next batch, when none waits for its answer. */
   pull(): void {
     if (this.joining || this.waitingSeq !== null || !this.pipe) return;
     const body = this.editor?.batch();
@@ -210,8 +199,8 @@ export class Client {
   }
 
   /**
-   * Where the person is, at most ten times a second, as the document is at this client's rev.
-   * The document moves the place across the changes that come after that rev.
+   * The place is as the document is at this client's rev. The document moves it across the
+   * changes that come after that rev.
    */
   place(body: unknown): void {
     this.nextPlace = { rev: this.rev, body: body as ToDocumentBody };
@@ -224,7 +213,6 @@ export class Client {
     }, wait);
   }
 
-  /** An asset by its hash. It comes once, and a copy stays here. */
   asset(hash: string): Promise<Uint8Array> {
     const known = this.assets.get(hash);
     if (known) return Promise.resolve(known);
@@ -239,7 +227,6 @@ export class Client {
     });
   }
 
-  /** Gives the document an asset that this view added. */
   addAsset(hash: string, bytes: Uint8Array): void {
     this.assets.set(hash, bytes);
     this.pipe?.send(encodeAsset(hash, bytes));

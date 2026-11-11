@@ -24,7 +24,6 @@ pub(crate) const SHAPE_IDS: RangeInclusive<u64> = 0..=4_294_967_295;
 /// The id of the shape tree of a new slide, which holds all its shapes.
 pub(crate) const ROOT_SHAPE: u64 = 1;
 
-/// The number of an id that a file can hold: digits alone, in the range of its kind.
 pub(crate) fn number_in(id: &str, range: &RangeInclusive<u64>) -> Option<u64> {
     if id.is_empty() || !id.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
@@ -32,10 +31,8 @@ pub(crate) fn number_in(id: &str, range: &RangeInclusive<u64>) -> Option<u64> {
     id.parse().ok().filter(|number| range.contains(number))
 }
 
-/// The .pptx format.
 pub struct Pptx;
 
-/// One shape on a slide.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Shape {
     pub id: String,
@@ -51,7 +48,6 @@ pub struct Shape {
     pub fill: Option<String>,
     pub line: Option<String>,
     pub asset: Option<String>,
-    /// Where a click on the whole shape goes, as a link mark of its text says.
     pub link: Option<Value>,
     pub text: Option<Node>,
     /// The look that its text takes from the master, the layout and the shape, by level.
@@ -60,7 +56,6 @@ pub struct Shape {
     pub order: u64,
 }
 
-/// One slide.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Slide {
     pub id: String,
@@ -78,7 +73,6 @@ pub struct Slide {
     pub last_shape: u64,
 }
 
-/// The live copy of a .pptx file.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Model {
     pub(crate) width: i64,
@@ -88,8 +82,7 @@ pub struct Model {
     pub(crate) theme: Value,
 }
 
-/// The fields of a shape that a key names. What a change does not name stays. A fill or a line
-/// that a change names as null goes.
+/// What a change does not name stays. A fill or a line that a change names as null goes.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShapeFields {
@@ -128,8 +121,7 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
-/// One change. Fields and orders name a key, so the last one wins. Text names positions in one
-/// shape's tree.
+/// Fields and orders name a key, so the last one wins. Text names positions in one shape's tree.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -174,7 +166,6 @@ pub enum Change {
     },
 }
 
-/// What read and check ask.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",

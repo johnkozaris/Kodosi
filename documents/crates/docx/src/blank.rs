@@ -55,7 +55,6 @@ const NUMBER_LIST: u32 = 2;
 const BULLETS: [&str; 3] = ["•", "◦", "▪"];
 const NUMBERS: [&str; 3] = ["decimal", "lowerLetter", "lowerRoman"];
 
-/// A list with nine levels, each one step further in.
 fn list(id: u32, level: impl Fn(usize) -> (&'static str, String)) -> String {
     let mut xml = format!(
         r#"<w:abstractNum w:abstractNumId="{id}"><w:multiLevelType w:val="hybridMultilevel"/>"#
@@ -112,7 +111,6 @@ fn paragraph(properties: &str, text: &str) -> String {
     format!("<w:p>{properties}{runs}</w:p>")
 }
 
-/// A Markdown list item: its list, bullets or numbers, and its words.
 fn list_item(line: &str) -> Option<(u32, &str)> {
     if let Some(item) = line.strip_prefix("- ").or_else(|| line.strip_prefix("* ")) {
         return Some((BULLET_LIST, item));
@@ -145,7 +143,6 @@ fn body_of(markdown: &str) -> String {
     body
 }
 
-/// A new .docx file, from Markdown when there is some.
 pub fn new_file(markdown: Option<&str>) -> Result<Vec<u8>, String> {
     let mut document = format!(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="{MAIN}"><w:body>"#

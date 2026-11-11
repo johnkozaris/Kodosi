@@ -1,4 +1,3 @@
-// Shows the window's file once the view bundle loads, and carries its pipe on Tauri channels.
 (() => {
   const dark = matchMedia("(prefers-color-scheme: dark)");
   const look = () => ({ scheme: dark.matches ? "dark" : "light" });

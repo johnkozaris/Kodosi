@@ -1,8 +1,6 @@
 export interface StyleLook {
   name?: string;
-  /** Whom the style is for: a paragraph, a run of letters, a table or a list. */
   kind?: string;
-  /** Apps show the style in their gallery. */
   quick?: boolean;
   bold?: boolean;
   italic?: boolean;
@@ -48,7 +46,7 @@ const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
 const PAGE_MARGIN = 72;
 
-/** The size of a page in CSS pixels. */
+/** In CSS pixels. */
 export function pageSize(view: DocxView) {
   const page = view.page;
   return {
@@ -82,7 +80,6 @@ function counterOf(list: string, level: number): string {
   return `list-${list.replace(/[^\w-]/g, "")}-${level}`;
 }
 
-/** The mark before an item: a bullet, or the level's words with each level's number in them. */
 function markerOf(list: string, levels: readonly Level[], index: number): string {
   const level = levels[index];
   if (level?.format === "bullet") return cssText(bulletOf(level.text));
@@ -107,7 +104,6 @@ const CSS_ALIGNS: Readonly<Record<string, string>> = {
   end: "right",
 };
 
-/** How CSS aligns the lines of a paragraph that a file aligns so: the rest fill the line. */
 export function cssAlign(align: string): string {
   return CSS_ALIGNS[align] ?? "justify";
 }
@@ -129,7 +125,6 @@ function rules(look: StyleLook): string {
   return parts.filter(Boolean).join(";");
 }
 
-/** The look of a file, as a style sheet for its page. */
 export function styleSheet(view: DocxView): string {
   const page = view.page;
   const sheet = [

@@ -62,7 +62,6 @@ fn cookie_of(record: &[u8]) -> Option<Cookie> {
     })
 }
 
-/// The cookies of one page of the file.
 fn page_cookies(page: &[u8], cookies: &mut Vec<Cookie>) -> Option<()> {
     let count = number_le(page, 4)? as usize;
     for index in 0..count {

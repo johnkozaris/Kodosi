@@ -107,7 +107,6 @@ pub(crate) enum Event {
     },
 }
 
-/// One window of the shared browser, for a host.
 #[derive(Clone)]
 pub struct Window {
     driver: Arc<str>,
@@ -118,7 +117,7 @@ pub struct Window {
 }
 
 impl Window {
-    /// Gives a viewer its end of the pipe. Its first message is `watch`.
+    /// The viewer's first message is `watch`.
     pub async fn watch(&self, viewer: Viewer) -> Result<Pipe, Error> {
         let (outgoing, incoming) = mpsc::channel(VIEWER_QUEUE);
         let id = viewer.id.clone();
@@ -139,7 +138,6 @@ impl Window {
         })
     }
 
-    /// The debug connection for the agent's driver, which shows the tabs of this window only.
     pub fn driver(&self) -> &str {
         &self.driver
     }
@@ -152,13 +150,11 @@ impl Window {
         *self.open.borrow()
     }
 
-    /// Returns when the window closed.
     pub async fn closed(&self) {
         let mut open = self.open.clone();
         drop(open.wait_for(|open| !open).await);
     }
 
-    /// When a person last clicked, typed or moved between pages.
     pub fn used_at(&self) -> Option<Instant> {
         *self.used.borrow()
     }
@@ -173,7 +169,6 @@ impl Window {
     }
 }
 
-/// A viewer's end. The host carries these bytes in any way it likes.
 pub struct Pipe {
     viewer: String,
     seat: u64,
@@ -273,7 +268,6 @@ struct Waiting {
     node: i64,
 }
 
-/// What the items of the right-click menu copy, in their order.
 struct Context {
     copies: Vec<String>,
 }
@@ -428,8 +422,8 @@ impl Live {
         }
     }
 
-    /// What one viewer sees. A list, a copy and a file picker belong to the viewer whose press
-    /// opened them, and a viewer's own pointer is on its own screen.
+    /// A list, a copy and a file picker belong to the viewer whose press opened them, and a
+    /// viewer's own pointer is on its own screen.
     fn state_for(&self, viewer: &str) -> State {
         let pressed = self.last_press.as_deref() == Some(viewer);
         let mut state = self.state.clone();
@@ -669,7 +663,6 @@ impl Live {
         self.engine.session_of(target)
     }
 
-    /// Input for the page that the person sees. With no page there is nothing to point at.
     fn page(&self, method: &str, params: &serde_json::Value) {
         if let Some(session) = self.active_session() {
             self.engine.devtools().send(method, params, Some(&session));
@@ -678,8 +671,8 @@ impl Live {
         }
     }
 
-    /// A step that the page must get, such as an address. A new window learns its page a
-    /// moment after it opens, so the step waits for it.
+    /// A new window learns its page a moment after it opens, so a step that the page must get,
+    /// such as an address, waits for it.
     fn page_soon(&mut self, method: &'static str, params: serde_json::Value) {
         if let Some(session) = self.active_session() {
             self.engine.devtools().send(method, &params, Some(&session));
@@ -895,7 +888,6 @@ impl Live {
         }
     }
 
-    /// Answers the dialog that the window shows, and shows the one before it.
     fn answer_dialog(&mut self, accept: bool, text: Option<String>) {
         if let Some((tab, _)) = self.dialogs.pop() {
             self.engine.command(ToEngine::Dialog { tab, accept, text });
@@ -994,8 +986,7 @@ fn cut(text: &str, most: usize) -> String {
     text[..end].to_owned()
 }
 
-/// Moves a finished download into the folder. A page names the file, so only its last part
-/// counts, and an equal name gets a number.
+/// A page names the file, so only its last part counts, and an equal name gets a number.
 async fn deliver(source: &Path, folder: &Path, name: &str) -> Result<PathBuf, Error> {
     let name = Path::new(name)
         .file_name()

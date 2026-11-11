@@ -7,7 +7,6 @@ import type { DocxView } from "./styles";
 
 const schema = getSchema(extensions);
 
-/** Two replacements of an agent, each a deletion next to an insertion, with the caret in "month". */
 function replaced(): EditorState {
   const deleted = schema.mark("deletion", { author: "Agent" });
   const inserted = schema.mark("insertion", { author: "Agent" });
@@ -38,7 +37,6 @@ test("a decision at the caret takes the whole replacement there and nothing else
   expect(hasChanges(rejected.child(0))).toBe(false);
 });
 
-/** An agent's tracked paragraph between two of a person's, with the caret at its start. */
 function tracked(end: "inserted" | "deleted", text: string): EditorState {
   const by = { author: "Agent", date: "" };
   const mark = schema.mark(end === "inserted" ? "insertion" : "deletion", by);

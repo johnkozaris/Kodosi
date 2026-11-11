@@ -156,8 +156,7 @@ pub(crate) fn cell_of(element: Xml<'_, '_>, strings: &[String]) -> Cell {
     }
 }
 
-/// The attributes that this crate does not read, as XML text. Prefixed ones stay out of it,
-/// as their prefix has no meaning away from the file's own tag.
+/// Prefixed attributes stay out, as their prefix has no meaning away from the file's own tag.
 fn kept_attributes(element: Xml<'_, '_>, read_here: &[&str]) -> String {
     element
         .attributes()
@@ -187,7 +186,6 @@ fn column_entries<'a, 'input: 'a>(
     })
 }
 
-/// The width of each column that the sheet names.
 pub(crate) fn widths_of(root: Xml<'_, '_>) -> BTreeMap<u32, f64> {
     column_entries(root)
         .flat_map(|(first, last, width, _)| (first..=last).map(move |index| (index, width)))
@@ -271,7 +269,6 @@ fn read_sheet(
     Ok(sheet)
 }
 
-/// A hyperlink goes to an address through its relationship, or to a place in the workbook.
 fn link_of(element: Xml<'_, '_>, relations: &HashMap<String, Relation>) -> Option<Link> {
     let relation = element
         .attributes()
@@ -290,8 +287,8 @@ fn link_of(element: Xml<'_, '_>, relations: &HashMap<String, Relation>) -> Optio
     }
 }
 
-/// The text of a formula. A cell of a shared group holds only the group's number, so its
-/// formula comes from the group's first cell.
+/// A cell of a shared group holds only the group's number, so its formula comes from the group's
+/// first cell.
 pub(crate) fn formula_of(
     formula: Xml<'_, '_>,
     row: u32,

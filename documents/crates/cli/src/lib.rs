@@ -1,8 +1,3 @@
-//! The agent's commands. An agent is one more client of the contract: a command joins a live
-//! document as a viewer in the agent's name, and its edits show at once, as a person's do. A
-//! host keeps the agent's seat for a short time after the last command, so the agent stays among
-//! the people who are here.
-
 use std::{
     collections::HashMap,
     fmt::Write as _,
@@ -24,11 +19,8 @@ use tokio::time::Instant;
 use xlsx::Xlsx;
 
 const ANSWER_LIMIT: Duration = Duration::from_mins(1);
-/// How long an agent stays among the people after its last command.
 const SEAT_KEPT: Duration = Duration::from_secs(30);
-/// How often a host looks for seats that no command used for a while.
 const FORGET_EVERY: Duration = Duration::from_secs(5);
-/// The largest file of ops or text to start from that an agent can give.
 const MOST_TEXT: u64 = 32 * 1024 * 1024;
 
 #[derive(Debug, thiserror::Error)]
@@ -43,7 +35,6 @@ pub enum Failed {
     Refused(String),
 }
 
-/// One command of an agent.
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
     /// Makes a .docx, .xlsx or .pptx file.
@@ -105,7 +96,6 @@ pub struct GuideArguments {
 }
 
 impl Command {
-    /// Takes relative paths from the folder of the agent.
     #[must_use]
     pub fn rooted(self, folder: &Path) -> Self {
         match self {
@@ -137,10 +127,8 @@ impl Command {
     }
 }
 
-/// The extensions of plain text files, which open as text.
 const TEXT_EXTENSIONS: [&str; 6] = ["txt", "json", "yaml", "yml", "toml", "xml"];
 
-/// Each format, by file extension.
 pub fn formats() -> Formats {
     TEXT_EXTENSIONS.into_iter().fold(
         Formats::default()
@@ -196,7 +184,6 @@ fn read_query(kind: &str, place: Option<&str>) -> Result<Value, Failed> {
     })
 }
 
-/// The lines that `--where` names in a text file: one line, `10-20`, or `10-` to the end.
 fn lines_of(place: &str) -> Result<(Option<usize>, Option<usize>), Failed> {
     let number = |text: &str| text.trim().parse::<usize>().ok().filter(|line| *line > 0);
     let lines = match place.split_once('-') {
@@ -319,8 +306,7 @@ fn new_file(file: &Path, from: Option<&Path>) -> Result<String, Failed> {
     Ok(format!("Made {}.\n", file.display()))
 }
 
-/// The text of a file that an agent names. The host reads it, so it reads only a file of a
-/// bounded size.
+/// The host reads the file that an agent names, so it reads only a file of a bounded size.
 fn read_text(path: &Path) -> Result<String, Failed> {
     if !std::fs::metadata(path)?.is_file() {
         return Err(Failed::Says(format!("{} is not a file.", path.display())));
@@ -345,7 +331,6 @@ fn random_client() -> Result<String, Failed> {
     Ok(format!("agent-{}", u64::from_be_bytes(bytes)))
 }
 
-/// One agent's place in one document.
 struct Seat {
     pipe: Pipe,
     client: String,
@@ -473,7 +458,6 @@ fn lock(seats: &Mutex<Seats>) -> MutexGuard<'_, Seats> {
     seats.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// Lets go of the seats that no command used for a while, until no seat is left.
 async fn forget_idle(seats: Weak<Mutex<Seats>>) {
     let mut every = tokio::time::interval(FORGET_EVERY);
     loop {
@@ -492,7 +476,6 @@ async fn forget_idle(seats: Weak<Mutex<Seats>>) {
     }
 }
 
-/// The agents of one host, each with its seats in the documents that it works on.
 pub struct Agents {
     documents: Documents,
     seats: Arc<Mutex<Seats>>,
@@ -528,7 +511,6 @@ impl Agents {
         Ok(seat)
     }
 
-    /// Runs one command and gives the text that the agent reads.
     pub async fn run(&self, viewer: &Viewer, command: Command) -> Result<String, Failed> {
         match command {
             Command::New(arguments) => new_file(&arguments.file, arguments.from.as_deref()),

@@ -65,7 +65,6 @@ fn first_id(model: &Model) -> String {
     blocks(model)[0]["id"].as_str().unwrap().to_owned()
 }
 
-/// Runs steps as a view sends them.
 fn stepped(model: &mut Model, steps: Vec<Value>) {
     let change = Change::Steps {
         steps,
@@ -365,7 +364,6 @@ fn tracked_edits_become_tracked_changes_in_the_file() {
     assert_eq!(Docx::query(&again, Query::Check).0["trackedChanges"], 2);
 }
 
-/// Applies ops as an agent does with `--track`.
 fn tracked(model: &mut Model, ops: Vec<Op>) -> Result<Change, Refused> {
     let change = Change::Ops {
         ops,
@@ -375,7 +373,6 @@ fn tracked(model: &mut Model, ops: Vec<Op>) -> Result<Change, Refused> {
     applied(model, change)
 }
 
-/// A person accepts or rejects tracked changes, and the saved file reads with none left.
 fn decided(model: &Model, file: &[u8], op: Op) -> Model {
     let mut model = model.clone();
     let change = Change::Ops {

@@ -40,7 +40,7 @@ const STYLES: &str = concat!(
     r#"</styleSheet>"#,
 );
 
-/// Splits one line of CSV, with quotes as in RFC 4180.
+/// Quotes are as in RFC 4180.
 fn csv_line(line: &str) -> Vec<String> {
     let mut cells = vec![String::new()];
     let mut quoted = false;
@@ -79,7 +79,6 @@ fn rows_of_csv(text: &str) -> Vec<Vec<Json>> {
         .collect()
 }
 
-/// Rows from a JSON list of lists, or from a list of objects with their keys as the first row.
 fn rows_of_json(text: &str) -> Result<Vec<Vec<Json>>, String> {
     let parsed: Json = serde_json::from_str(text).map_err(|error| error.to_string())?;
     let items = parsed.as_array().ok_or("the JSON must be a list")?;
@@ -138,7 +137,6 @@ fn sheet_xml(rows: &[Vec<Json>]) -> String {
     )
 }
 
-/// A new .xlsx file, from CSV or JSON when there is some.
 pub fn new_file(source: Option<(&str, &str)>) -> Result<Vec<u8>, String> {
     let rows = match source {
         None => Vec::new(),

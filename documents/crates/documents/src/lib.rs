@@ -1,5 +1,4 @@
-//! Runs open documents. One task owns each document and does its disk and timer work, so a
-//! document needs no locks. A host gives a path and a viewer, and it gets a [`Pipe`].
+//! One task owns each document and does its disk and timer work, so a document needs no locks.
 
 mod journal;
 mod live;
@@ -56,7 +55,6 @@ struct Shared {
     next_pipe: AtomicU64,
 }
 
-/// The open documents of one computer.
 #[derive(Clone)]
 pub struct Documents {
     shared: Arc<Shared>,
@@ -75,8 +73,6 @@ impl Documents {
         }
     }
 
-    /// Opens a file, or joins it if it is open, and gives a viewer its pipe. The viewer's first
-    /// frame is `join`.
     pub async fn open(&self, path: &Path, viewer: Viewer) -> Result<Pipe, OpenError> {
         let path = real_path(path)?;
         let commands = self.task_of(&path).await?;
@@ -125,7 +121,6 @@ impl Documents {
         Ok(commands)
     }
 
-    /// The task of an open file, after the tasks that ended go.
     fn running(&self, path: &Path) -> Option<mpsc::Sender<Command>> {
         let mut open = self.lock();
         open.retain(|_, document| !document.commands.is_closed());
@@ -139,7 +134,6 @@ impl Documents {
             .unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Saves and closes each document, and leaves no journal behind.
     pub async fn close(&self) {
         let open: Vec<_> = self.lock().drain().map(|(_, open)| open.commands).collect();
         for commands in open {
@@ -174,7 +168,6 @@ fn name_of(path: &Path) -> String {
         .fold(String::new(), |text, byte| text + &format!("{byte:02x}"))
 }
 
-/// A viewer's end of a document. The host carries these frames in any way it likes.
 pub struct Pipe {
     id: PipeId,
     commands: mpsc::Sender<Command>,
@@ -194,7 +187,6 @@ impl Pipe {
             .map_err(|_| Closed)
     }
 
-    /// The next frame for the view, or nothing when the document ended this pipe.
     pub async fn receive(&mut self) -> Option<Arc<[u8]>> {
         let frame = self.incoming.recv().await?;
         self.waiting.fetch_sub(frame.len(), Ordering::Relaxed);

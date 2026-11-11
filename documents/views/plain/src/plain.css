@@ -4,7 +4,6 @@
   background: var(--surface);
 }
 
-/* Each line wraps at the edge of the view, and its number stands in the room before it. */
 .plain-text {
   box-sizing: border-box;
   min-height: 100%;

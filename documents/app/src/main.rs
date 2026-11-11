@@ -1,6 +1,3 @@
-//! A desktop app for documents, sheets, presentations and PDFs. Each window shows one file as one
-//! viewer of its live document, so two windows on one file edit it together.
-
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
@@ -25,7 +22,6 @@ use tauri_plugin_opener::OpenerExt as _;
 use tokio::sync::mpsc;
 
 const PAGE: &str = include_str!("page.js");
-/// The kinds of file that the views show, which are also their extensions.
 const KINDS: [&str; 4] = ["docx", "xlsx", "pptx", "pdf"];
 const OPEN: &str = "open";
 const OPEN_AGAIN: &str = "open-again";
@@ -39,7 +35,6 @@ struct App {
     next_window: AtomicU64,
 }
 
-/// A window's file, and the way to its pipe while its page is open.
 struct Shown {
     file: PathBuf,
     frames: Option<mpsc::UnboundedSender<Vec<u8>>>,
@@ -113,8 +108,8 @@ fn main() -> tauri::Result<()> {
     Ok(())
 }
 
-/// Opens each file of a launch in its own window, or asks for files when it names none. A second
-/// launch of the app ends at once and gives its files to this one, so one server owns each file.
+/// A second launch of the app ends at once and gives its files to this one, so one server owns
+/// each file.
 fn launched(app: &AppHandle, files: &[PathBuf]) -> tauri::Result<()> {
     if files.is_empty() {
         pick(app);
@@ -200,7 +195,6 @@ fn chosen(app: &AppHandle, event: &MenuEvent) {
     }
 }
 
-/// Asks for files and opens each in its own window. The app ends when the first ask gives none.
 fn pick(app: &AppHandle) {
     let shows = app.clone();
     app.dialog()
@@ -245,7 +239,6 @@ fn is_own(url: &Url) -> bool {
         || matches!(url.as_str(), "about:blank" | "about:srcdoc")
 }
 
-/// A link that a view opens goes to the person's own browser or mail app.
 fn follow(app: &AppHandle, url: &Url) {
     if matches!(url.scheme(), "http" | "https" | "mailto") {
         drop(app.opener().open_url(url.as_str(), None::<&str>));
@@ -257,7 +250,6 @@ fn kind_of(file: &Path) -> Option<&'static str> {
     KINDS.into_iter().find(|kind| *kind == extension)
 }
 
-/// Joins the window's file and sends its frames on `frames`. Gives the kind of view to show.
 #[tauri::command]
 async fn open(
     window: WebviewWindow,
@@ -303,7 +295,6 @@ async fn open(
     Ok(kind)
 }
 
-/// Takes one frame of the window's view, as bytes.
 #[tauri::command]
 #[expect(
     clippy::needless_pass_by_value,

@@ -15,7 +15,6 @@ pub use resolved::ResolvedPos;
 pub use schema::{BadSchema, MarkId, NodeId, Schema, SchemaSpec};
 pub use step::Step;
 
-/// Why a step does not apply, or JSON that is no node.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{0}")]
 pub struct Failed(pub String);

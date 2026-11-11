@@ -27,7 +27,6 @@ const FIRST_CHANGE_ID: u32 = 90_000;
 const EMU_PER_PIXEL: f64 = 9525.0;
 /// The width of the text on an A4 page with margins of an inch, in twentieths of a point.
 const TEXT_WIDTH: u64 = 9026;
-/// The look of a new table: as wide as its columns, with thin lines around each cell.
 const NEW_TABLE: &str = concat!(
     r#"<w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>"#,
     r#"<w:top w:val="single" w:sz="4" w:space="0" w:color="auto"/>"#,
@@ -155,18 +154,16 @@ struct Out<'m> {
     model: &'m Model,
     assets: &'m Assets,
     namespaces: String,
-    /// The relationships of the document part, and those that this write adds, by id.
     relations: HashMap<String, Relation>,
     links: Vec<(String, String)>,
     images: Vec<(String, Hash, String)>,
-    /// The width of the text on a page, in twentieths of a point, which a new table fills.
+    /// In twentieths of a point.
     text_width: u64,
     next_relation: u32,
     next_change: u32,
     next_picture: u32,
 }
 
-/// Whether a cell of a table goes on down into the cells below it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Merge {
     Apart,
@@ -182,7 +179,6 @@ fn merge_of(properties: Xml<'_, '_>) -> Merge {
     }
 }
 
-/// Where a cell lies in the grid of its table.
 struct Place {
     start: u64,
     span: u64,
@@ -319,7 +315,6 @@ fn look_of(marks: &[Mark]) -> RunLook {
     }
 }
 
-/// The marks that wrap runs in an element of their own.
 #[derive(PartialEq, Eq, Clone)]
 struct Wrappers {
     link: Option<Mark>,
@@ -368,7 +363,6 @@ impl Out<'_> {
             .ok_or_else(|| "an empty piece".to_owned())
     }
 
-    /// Reads pieces of XML side by side, under one element that holds them.
     fn parse_pieces<T>(&self, xml: &str, read: impl FnOnce(Xml<'_, '_>) -> T) -> Result<T, String> {
         let wrapped = format!("<piece{}>{xml}</piece>", self.namespaces);
         let parsed = roxmltree::Document::parse(&wrapped).map_err(|error| error.to_string())?;
@@ -460,7 +454,6 @@ impl Out<'_> {
         })
     }
 
-    /// The tracked changes of the mark that ends a paragraph, each with an id of its own.
     fn mark_changes(&mut self, look: &ParagraphLook) -> String {
         let mut xml = String::new();
         for (tag, change) in [("ins", &look.inserted), ("del", &look.deleted)] {
@@ -520,7 +513,6 @@ impl Out<'_> {
         format!("<w:{tag}{attributes}>")
     }
 
-    /// A new id, the author and the date of a tracked change. A change with no date has none.
     fn change_attributes(&mut self, author: &str, date: &str) -> String {
         let id = self.next_change;
         self.next_change += 1;
@@ -548,8 +540,6 @@ impl Out<'_> {
         )
     }
 
-    /// The relationship to a target: the one that the file has, or a new one that the write
-    /// adds. A later write finds the one that an earlier write added.
     fn relation_to(&mut self, kind: &str, target: &str, external: bool) -> (String, bool) {
         let known = self
             .relations
@@ -737,8 +727,6 @@ impl Out<'_> {
         Ok(xml)
     }
 
-    /// The properties and grid of a table. The grid keeps its widths while it has a column for
-    /// each column of the cells, and else shares their sum out again.
     fn table_props(&self, node: &Node, columns: u64) -> Result<String, String> {
         let raw = match text_attr(node, "props") {
             Some(name) => self.raw(name)?.to_owned(),
@@ -781,7 +769,6 @@ impl Out<'_> {
         })
     }
 
-    /// The properties of a cell, with the span and the vertical merge that its place gives.
     fn cell_props(&self, cell: &Node, span: u64, merge: Merge) -> Result<String, String> {
         let mut children = Vec::new();
         if let Some(name) = text_attr(cell, "props") {
@@ -912,14 +899,11 @@ impl Out<'_> {
     }
 }
 
-/// The range of a child in the text of its piece, from a range in the wrapped document.
 fn shifted(properties: Xml<'_, '_>, child: Xml<'_, '_>) -> std::ops::Range<usize> {
     let start = properties.range().start;
     child.range().start - start..child.range().end - start
 }
 
-/// An element of a piece with some of its attributes gone and others added, or nothing when it
-/// has none left.
 fn with_attributes(
     element: Xml<'_, '_>,
     xml: &str,
@@ -954,7 +938,6 @@ fn with_attributes(
     Some(text)
 }
 
-/// The properties that a save writes for the look of a paragraph alone.
 pub(crate) fn look_properties(look: &ParagraphLook) -> String {
     let mut children = Vec::new();
     add_paragraph_look(look, &mut children);
@@ -1042,8 +1025,6 @@ fn add_run_look(look: &RunLook, children: &mut Vec<(usize, String)>) {
     }
 }
 
-/// The properties of the mark that ends a paragraph, with these tracked changes first in place of
-/// its own, or nothing when none are left.
 fn mark_props(properties: Xml<'_, '_>, xml: &str, changes: &str) -> Option<String> {
     let kept: String = properties
         .children()
@@ -1063,7 +1044,6 @@ fn add_mark_props(changes: &str, children: &mut Vec<(usize, String)>) {
     }
 }
 
-/// Properties in the order of the schema, in their element, or nothing when there are none.
 fn wrapped(name: &str, mut children: Vec<(usize, String)>) -> String {
     if children.is_empty() {
         return String::new();
@@ -1073,7 +1053,7 @@ fn wrapped(name: &str, mut children: Vec<(usize, String)>) -> String {
     format!("<w:{name}>{inner}</w:{name}>")
 }
 
-/// A grid of columns of one width that fill a table's width, in twentieths of a point.
+/// `width` is in twentieths of a point.
 fn grid_of(columns: u64, width: u64) -> String {
     let columns = columns.max(1);
     let mut xml = "<w:tblGrid>".to_owned();
@@ -1084,7 +1064,6 @@ fn grid_of(columns: u64, width: u64) -> String {
     xml
 }
 
-/// The part of a new picture, beside the document part.
 fn media_of(hash: &Hash, extension: &str) -> String {
     let name: String = hash.iter().take(8).fold(String::new(), |mut text, byte| {
         let _ = write!(text, "{byte:02x}");

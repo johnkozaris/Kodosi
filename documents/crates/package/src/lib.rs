@@ -1,6 +1,6 @@
-//! An Open XML file as a package of parts. A document can come from anyone, so reading limits the
-//! entries, the unpacked size and the compression ratio, and it checks each entry name. Writing
-//! copies each part that did not change byte for byte.
+//! A document can come from anyone, so reading limits the entries, the unpacked size and the
+//! compression ratio, and it checks each entry name. Writing copies each part that did not change
+//! byte for byte.
 
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -34,7 +34,6 @@ fn safe_name(name: &str) -> bool {
         && name.split('/').all(|part| part != "..")
 }
 
-/// A checked package.
 pub struct Package<'a> {
     archive: ZipArchive<Cursor<&'a [u8]>>,
     names: HashSet<String>,
@@ -87,8 +86,6 @@ impl<'a> Package<'a> {
         String::from_utf8(self.bytes(name)?).ok()
     }
 
-    /// The relationships of a part: each id with its target, as a part name when it is inside
-    /// the package.
     pub fn relations(&mut self, part: &str) -> HashMap<String, Relation> {
         let (folder, file) = part.rsplit_once('/').unwrap_or(("", part));
         let name = format!("{folder}/_rels/{file}.rels");
@@ -121,10 +118,8 @@ impl<'a> Package<'a> {
     }
 }
 
-/// The namespace of the relationships between parts.
 pub const PACKAGE_RELATIONSHIPS: &str =
     "http://schemas.openxmlformats.org/package/2006/relationships";
-/// The namespace of the relationship ids in a part.
 pub const RELATIONSHIPS: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 /// The same namespace in the strict form of the standard.
@@ -137,7 +132,6 @@ pub struct Relation {
     pub external: bool,
 }
 
-/// The part that a relative target names, seen from a folder.
 fn join_part(folder: &str, target: &str) -> String {
     let mut parts: Vec<&str> = if target.starts_with('/') {
         Vec::new()
@@ -156,10 +150,9 @@ fn join_part(folder: &str, target: &str) -> String {
     parts.join("/")
 }
 
-/// New bytes for parts of a package. `None` removes a part.
+/// `None` removes a part.
 pub type Parts = BTreeMap<String, Option<Vec<u8>>>;
 
-/// One stretch of a Markdown line with its look.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Span {
     pub text: String,
@@ -167,7 +160,6 @@ pub struct Span {
     pub italic: bool,
 }
 
-/// Splits a Markdown line at its `**` and `*` marks. A mark with no partner stays as text.
 #[must_use]
 pub fn spans(line: &str) -> Vec<Span> {
     let mut out = Vec::new();
@@ -209,7 +201,7 @@ pub fn spans(line: &str) -> Vec<Span> {
     out
 }
 
-/// Writes a package with some parts changed. All others keep their compressed bytes.
+/// The parts that do not change keep their compressed bytes.
 pub fn rewrite(file: &[u8], parts: &Parts) -> Result<Vec<u8>, PackageError> {
     let mut archive = ZipArchive::new(Cursor::new(file)).map_err(broken)?;
     let mut writer = ZipWriter::new(Cursor::new(Vec::with_capacity(file.len())));
@@ -240,8 +232,7 @@ pub fn rewrite(file: &[u8], parts: &Parts) -> Result<Vec<u8>, PackageError> {
     Ok(writer.finish().map_err(broken)?.into_inner())
 }
 
-/// Text for XML content. The characters that XML 1.0 cannot hold, such as most control
-/// characters, go.
+/// The characters that XML 1.0 cannot hold, such as most control characters, go.
 pub fn escape(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for letter in text.chars() {

@@ -46,7 +46,6 @@ const MERGED = tableOf([
   [{ text: "D", span: 2 }],
 ]);
 
-/** A document of a table and a paragraph, with the caret in the cell with these words. */
 function caretIn(table: ProseNode, words: string): EditorState {
   const doc = schema.node("doc", null, [table, paragraph()]);
   let caret = -1;
@@ -57,7 +56,6 @@ function caretIn(table: ProseNode, words: string): EditorState {
   return EditorState.create({ doc, selection: TextSelection.create(doc, caret) });
 }
 
-/** Each row of the first table as its cells: the words, the span, and ^ inside a merge. */
 function cellsOf(state: EditorState, change: Transaction | null): string[][] {
   const table = state.apply(change ?? state.tr).doc.child(0);
   const rows: string[][] = [];

@@ -58,7 +58,6 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
-/// A position and size from `a:xfrm`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct Frame {
     pub x: i64,
@@ -126,7 +125,6 @@ fn mark(name: &str, attrs: Option<&Value>) -> Result<Mark, text::Failed> {
     Mark::new(schema(), kind, attrs)
 }
 
-/// The look of a run, which marks hold apart from its original XML.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct RunLook {
     pub bold: bool,
@@ -218,7 +216,6 @@ fn merge_levels(levels: &mut Levels, list: Xml<'_, '_>) {
     }
 }
 
-/// The text look of a placeholder in a layout or a master.
 #[derive(Debug, Clone, Default)]
 struct Placeholder {
     frame: Option<Frame>,
@@ -226,7 +223,6 @@ struct Placeholder {
     anchor: Option<String>,
 }
 
-/// What a slide's shapes take from their layout and master.
 #[derive(Debug, Default)]
 struct Inherited {
     master: HashMap<String, Placeholder>,
@@ -292,7 +288,6 @@ struct Reader<'p, 'file, 'input> {
     source: &'input str,
     raws: &'p mut HashMap<String, String>,
     relations: &'p HashMap<String, Relation>,
-    /// The id of each slide, by its part, for a link to another slide.
     slides: &'p HashMap<String, String>,
     package: &'p mut Package<'file>,
     assets: &'p mut Assets,
@@ -456,8 +451,7 @@ impl<'input> Reader<'_, '_, 'input> {
         }))
     }
 
-    /// Where a click goes: a web or mail address, another slide, or a step of the show. The
-    /// run or shape keeps its click in its own XML, so a save keeps it.
+    /// The run or shape keeps its click in its own XML, so a save keeps it.
     fn link_of(&self, click: Xml<'_, '_>) -> Option<Value> {
         let action = click.attribute("action").unwrap_or_default();
         if let Some(jump) = action.strip_prefix("ppaction://hlinkshowjump?jump=") {
@@ -504,7 +498,6 @@ impl<'input> Reader<'_, '_, 'input> {
     }
 }
 
-/// The placeholders of a layout or a master, which a slide's shape takes from.
 fn placeholders(xml: &str) -> HashMap<String, Placeholder> {
     let Ok(parsed) = Document::parse(xml) else {
         return HashMap::new();
@@ -531,7 +524,6 @@ fn placeholders(xml: &str) -> HashMap<String, Placeholder> {
         .collect()
 }
 
-/// The master's text styles for titles, bodies and all other text.
 fn text_styles(xml: &str) -> [Levels; 3] {
     let mut styles = [Levels::new(), Levels::new(), Levels::new()];
     let Ok(parsed) = Document::parse(xml) else {
@@ -555,7 +547,6 @@ fn background_of(root: Xml<'_, '_>) -> Option<String> {
     color_of(Some(background))
 }
 
-/// The theme's colors by name, with its heading font and its body font.
 fn theme_of(package: &mut Package<'_>, master: Option<&str>) -> Value {
     let Some(master) = master else {
         return Value::Null;
@@ -605,7 +596,6 @@ fn linked_part(relations: &HashMap<String, Relation>, kind: &str) -> Option<Stri
         .map(|relation| relation.target.clone())
 }
 
-/// The id of each slide by its part, for links that jump to a slide.
 fn slide_ids(
     entries: &[Xml<'_, '_>],
     relations: &HashMap<String, Relation>,
@@ -619,7 +609,6 @@ fn slide_ids(
         .collect()
 }
 
-/// The highest id of a shape on a slide, in a group too.
 fn last_shape(root: Xml<'_, '_>) -> u64 {
     root.descendants()
         .filter(|node| node.is_element() && node.tag_name().name() == "cNvPr")

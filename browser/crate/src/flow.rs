@@ -24,7 +24,6 @@ struct Sent {
     at: Instant,
 }
 
-/// One viewer's side of the stream.
 struct Seat {
     live: bool,
     sent: VecDeque<Sent>,
@@ -68,7 +67,6 @@ impl Seat {
     }
 }
 
-/// What to do with one new frame.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct Delivery {
     pub to: Vec<String>,
@@ -169,14 +167,12 @@ impl Flow {
         allowed
     }
 
-    /// A viewer's own ask for a key frame: now, or when the floor passes.
     pub(crate) fn ask_keyframe(&mut self, now: Instant) -> bool {
         let allowed = self.keyframe_allowed(now);
         self.keyframe_owed |= !allowed;
         allowed
     }
 
-    /// A key frame that goes out at once, for a viewer that joins.
     pub(crate) fn keyframe_sent(&mut self, now: Instant) {
         self.keyframe_at = Some(now);
         self.keyframe_owed = false;
@@ -217,7 +213,6 @@ impl Flow {
         }
     }
 
-    /// The new bitrate for the encoder, when it must change.
     pub(crate) fn steer(&mut self, now: Instant) -> Option<u32> {
         if self
             .steered_at

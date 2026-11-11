@@ -4,7 +4,6 @@ import type { EditorState } from "@tiptap/pm/state";
 import { Mapping, ReplaceStep, type Step, Transform } from "@tiptap/pm/transform";
 import { sendableSteps } from "prosemirror-collab";
 
-/** This copy's steps on a snapshot, and the text of the edits that stay off it. */
 export interface Carried {
   steps: Step[];
   /** The text of the edits that stay off the snapshot, when they change what shows. */
@@ -54,7 +53,6 @@ function around(a: Range | null, b: Range | null): Range | null {
   return [Math.min(a[0], b[0]), Math.max(a[1], b[1])];
 }
 
-/** Where the blocks of `range` of `doc` show in `snapshot`, when they show there once. */
 function placeOf(doc: ProseNode, [from, to]: Range, snapshot: ProseNode): number | null {
   let place: number | null = null;
   for (let at = 0; at + to - from <= snapshot.childCount; at++) {
@@ -68,7 +66,6 @@ function placeOf(doc: ProseNode, [from, to]: Range, snapshot: ProseNode): number
   return place;
 }
 
-/** Where `block` is in `doc`, when it shows there once. */
 function onlyPlaceOf(doc: ProseNode, block: ProseNode): number | null {
   let place: number | null = null;
   let count = 0;
@@ -81,7 +78,6 @@ function onlyPlaceOf(doc: ProseNode, block: ProseNode): number | null {
   return count === 1 ? place : null;
 }
 
-/** Where the block `index` of `base` is in `snapshot`, when it shows once in both. */
 function anchorOf(base: ProseNode, index: number, snapshot: ProseNode): number | null {
   const block = base.child(index);
   return onlyPlaceOf(base, block) === index ? onlyPlaceOf(snapshot, block) : null;
@@ -187,7 +183,6 @@ function way(typed: Transform, from: number, proving: boolean, snapshot: ProseNo
   return range ? onto(typed, from, range, snapshot) : [];
 }
 
-/** The text that some steps of `typed` put in, as it shows when all its steps are made. */
 function textOf(typed: Transform, steps: readonly number[]): string {
   const ranges: Range[] = [];
   for (const index of steps) {
@@ -254,17 +249,13 @@ function carry(
  * what the person did meanwhile moves onto it.
  */
 export class Waiting {
-  /** The document at the client's rev, as the changes in the order made it. */
   private confirmed: ProseNode | undefined;
-  /** How many of the steps that wait are in the batch on its way. */
   private sent = 0;
 
-  /** A batch with this many steps goes to the document. */
   sending(steps: number): void {
     this.sent = steps;
   }
 
-  /** A change came in the order. */
   changed(steps: readonly Step[], own: boolean): void {
     if (own) this.sent = 0;
     for (const step of steps) {
@@ -272,7 +263,6 @@ export class Waiting {
     }
   }
 
-  /** The copy shows `snapshot` now, in place of `before`. It gives the steps that go on it. */
   loaded(snapshot: ProseNode, before: EditorState | undefined, sent: Sent): Carried {
     const waiting = before ? (sendableSteps(before)?.steps ?? []) : [];
     const confirmed = this.confirmed;

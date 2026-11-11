@@ -133,9 +133,8 @@ pub(crate) async fn start(
     Ok(commands)
 }
 
-/// Opens a file, or builds its document again from the journal of an earlier run. When another
-/// program changed the file since the journal's last save, it also gives the file that the
-/// journal holds, so the task takes the file on disk as a write of that program.
+/// When another program changed the file since the journal's last save, this also gives the file
+/// that the journal holds, so the task takes the file on disk as a write of that program.
 fn open_or_restore(
     path: &Path,
     folder: &Path,
@@ -172,7 +171,6 @@ struct Task {
     path: PathBuf,
     folder: PathBuf,
     disk: Vec<u8>,
-    /// The size and time of the file when the task last read or wrote it.
     stamp: Option<Stamp>,
     pipes: HashMap<PipeId, Outgoing>,
     first_unsaved: Option<Instant>,
@@ -283,8 +281,7 @@ impl Task {
         false
     }
 
-    /// Runs what a document asked for. Each change is safe in the journal before any view hears
-    /// of it.
+    /// Each change is safe in the journal before any view hears of it.
     async fn run_effects(&mut self, effects: Vec<Effect>) {
         let mut appended = false;
         let mut sends = Vec::new();
@@ -427,8 +424,7 @@ impl Task {
         }
     }
 
-    /// Looks at the file, as one quick check of its size and time, and takes a write of another
-    /// program. It returns true when the file is gone.
+    /// Returns true when the file is gone.
     async fn look_at_file(&mut self) -> bool {
         let metadata = match tokio::fs::metadata(&self.path).await {
             Ok(metadata) => metadata,

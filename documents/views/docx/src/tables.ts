@@ -1,7 +1,6 @@
 import type { Node as ProseNode, Schema } from "@tiptap/pm/model";
 import { type EditorState, TextSelection, type Transaction } from "@tiptap/pm/state";
 
-/** A cell, with its first column in the grid of its table and the columns that it spans. */
 interface Cell {
   node: ProseNode;
   pos: number;
@@ -15,7 +14,6 @@ interface Row {
   cells: Cell[];
 }
 
-/** The table that holds the caret, its rows, and the row and the cell of the caret. */
 interface Around {
   table: ProseNode;
   pos: number;
@@ -74,7 +72,6 @@ function merged(cell: Cell | undefined): boolean {
   return cell?.node.attrs.merged === true;
 }
 
-/** A new empty cell with the look of another, and its paragraph with the look of the other's. */
 function cellLike(schema: Schema, like: Cell, span: number, inMerge: boolean): ProseNode | null {
   const types = typesOf(schema);
   if (!types) return null;
@@ -94,7 +91,6 @@ function cellLike(schema: Schema, like: Cell, span: number, inMerge: boolean): P
   );
 }
 
-/** A row above or below the caret's, with a cell for each of its cells, inside the merges that go on across it. */
 export function rowAdded(state: EditorState, below: boolean): Transaction | null {
   const at = around(state);
   const row = at?.rows[at.row];
@@ -110,10 +106,6 @@ export function rowAdded(state: EditorState, below: boolean): Transaction | null
   return state.tr.insert(below ? row.pos + row.node.nodeSize : row.pos, added);
 }
 
-/**
- * A column to the left or the right of the caret's cell. A cell that spans across the new
- * column spans it too.
- */
 export function columnAdded(state: EditorState, right: boolean): Transaction | null {
   const at = around(state);
   if (!at) return null;
@@ -133,10 +125,6 @@ export function columnAdded(state: EditorState, right: boolean): Transaction | n
   return tr;
 }
 
-/**
- * Takes away the caret's row. A cell of it that starts a merge gives its words and the start
- * to the cell below it.
- */
 export function rowRemoved(state: EditorState): Transaction | null {
   const at = around(state);
   const row = at?.rows[at.row];
@@ -156,7 +144,6 @@ export function rowRemoved(state: EditorState): Transaction | null {
   return tr.delete(row.pos, row.pos + row.node.nodeSize);
 }
 
-/** Takes away the columns of the caret's cell. A cell that spans more keeps the rest. */
 export function columnRemoved(state: EditorState): Transaction | null {
   const at = around(state);
   if (!at) return null;
@@ -182,7 +169,6 @@ export function columnRemoved(state: EditorState): Transaction | null {
   return tr;
 }
 
-/** Takes away the table that holds the caret. A place that needs a block keeps a paragraph. */
 export function tableRemoved(state: EditorState): Transaction | null {
   const at = around(state);
   const paragraph = state.schema.nodes.paragraph;
@@ -197,10 +183,6 @@ export function tableRemoved(state: EditorState): Transaction | null {
   return tr.setSelection(TextSelection.near(tr.doc.resolve(at.pos)));
 }
 
-/**
- * A new table of empty cells at the caret, between the two halves of its paragraph, with a
- * paragraph after it to go on writing. The caret goes into its first cell.
- */
 export function tableInserted(
   state: EditorState,
   columns: number,

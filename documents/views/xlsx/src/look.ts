@@ -1,4 +1,3 @@
-/** The look of a cell, as the server holds it. */
 export interface Look {
   bold?: boolean;
   italic?: boolean;
@@ -14,7 +13,6 @@ export interface Look {
   wrap?: boolean;
 }
 
-/** The look of a cell, as Univer holds it. */
 export interface UniverStyle {
   bl?: number;
   it?: number;

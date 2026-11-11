@@ -41,13 +41,11 @@ pub(crate) struct Routes {
     sessions: HashMap<String, String>,
     session_of_target: HashMap<String, String>,
     downloads: HashMap<String, i64>,
-    /// The host's own pages, by their sessions.
     pages: HashMap<String, mpsc::UnboundedSender<devtools::Event>>,
     /// Host pages that the engine opens, until it names their targets.
     opening: HashMap<i64, oneshot::Sender<String>>,
     /// Tabs that a window's driver asked for, until the engine names their targets.
     asked: HashMap<i64, oneshot::Sender<String>>,
-    /// Targets that the host attaches to now.
     attaching: HashSet<String>,
     /// The engine's last report of its tabs, which the windows get again once the host attached.
     last_tabs: Vec<EngineTab>,
@@ -67,8 +65,6 @@ impl Routes {
         Some((window, self.windows.get(&window)?.clone()))
     }
 
-    /// Places each tab in its window, and tells each window its tabs and the engine's active
-    /// one.
     fn place(&mut self, tabs: &[EngineTab]) -> Vec<(mpsc::Sender<Event>, Event)> {
         let mut placed: HashMap<i64, Vec<EngineTab>> = HashMap::new();
         self.tabs.clear();
@@ -123,7 +119,6 @@ impl Drop for PageOpening<'_> {
     }
 }
 
-/// A page that the host opened for itself, with the events of its session.
 pub(crate) struct OpenedPage {
     pub page: i64,
     pub target: String,
@@ -133,7 +128,6 @@ pub(crate) struct OpenedPage {
 
 pub(crate) struct Engine {
     devtools: Devtools,
-    /// The browser's own debug connection.
     address: String,
     commands: mpsc::Sender<ToEngine>,
     routes: Arc<Mutex<Routes>>,
@@ -233,7 +227,6 @@ impl Engine {
         self.placed.subscribe()
     }
 
-    /// The window of a tab's target, once the engine placed the tab.
     pub(crate) fn window_of(&self, target: &str) -> Option<i64> {
         self.routes().targets.get(target).copied()
     }
@@ -254,7 +247,6 @@ impl Engine {
             .and_then(|tab| tab.target.clone())
     }
 
-    /// Opens a tab in a window, which becomes its active tab, and gives the tab's target.
     pub(crate) async fn open_tab(&self, window: i64, address: &str) -> Option<String> {
         let ask = self.next_ask.fetch_add(1, Ordering::Relaxed);
         let (named, target) = oneshot::channel();
@@ -288,7 +280,6 @@ impl Engine {
         window
     }
 
-    /// Opens a page apart from the people's tabs, with no stored data.
     pub(crate) async fn open_page(&self, width: u32, height: u32) -> Result<OpenedPage, Error> {
         let page = self.next_page.fetch_add(1, Ordering::Relaxed);
         let (named, target) = oneshot::channel();
@@ -326,9 +317,8 @@ impl Engine {
         })
     }
 
-    /// The host attaches to each new target itself, and the windows get their tabs again with
-    /// its session. CEF's browser-wide auto-attach misses the pages that the engine opens and
-    /// holds back the popups that a page opens.
+    /// CEF's browser-wide auto-attach misses the pages that the engine opens and holds back the
+    /// popups that a page opens, so the host attaches to each new target itself.
     fn attach_new(self: &Arc<Self>, tabs: &[EngineTab]) {
         let targets: Vec<String> = {
             let mut routes = self.routes();
@@ -395,12 +385,10 @@ impl Engine {
         self.command(ToEngine::ClosePage { page });
     }
 
-    /// The host page that an event belongs to.
     fn page_of(&self, event: &devtools::Event) -> Option<mpsc::UnboundedSender<devtools::Event>> {
         self.routes().pages.get(event.session.as_deref()?).cloned()
     }
 
-    /// Stops the browser when its last window closed and no host page is open.
     pub(crate) async fn window_closed(&self, window: i64) {
         let last = {
             let mut routes = self.routes();
@@ -413,7 +401,6 @@ impl Engine {
         }
     }
 
-    /// Stops a browser that started only for work with no window.
     pub(crate) async fn stop_if_idle(&self) {
         let idle = {
             let routes = self.routes();
@@ -424,7 +411,7 @@ impl Engine {
         }
     }
 
-    /// Ends the browser and waits until it is gone, so its profile is free.
+    /// Waits until the browser is gone, so its profile is free.
     pub(crate) async fn stop(&self) {
         if self.is_stopped() {
             return;
@@ -701,8 +688,7 @@ async fn free_port() -> Result<u16, Error> {
     Ok(listener.local_addr()?.port())
 }
 
-/// Waits for the address that the engine prints when its debug port listens, and keeps reading
-/// the rest of its error output so that the engine never waits for it.
+/// Keeps reading the rest of the engine's error output, so that the engine never waits for it.
 async fn wait_for_address(port: u16, process: &mut Child) -> Result<String, Error> {
     let output = process
         .stderr
@@ -725,9 +711,8 @@ async fn wait_for_address(port: u16, process: &mut Child) -> Result<String, Erro
     Ok(address)
 }
 
-/// The address in the line that the engine prints when its debug port listens. Only the engine
-/// writes this output, so a program that held the port first cannot give the host its address.
-/// When the port of `127.0.0.1` is taken, the engine listens on `::1` instead.
+/// Only the engine writes this output, so a program that held the port first cannot give the
+/// host its address. When the port of `127.0.0.1` is taken, the engine listens on `::1` instead.
 fn debug_address(line: &str, port: u16) -> Option<String> {
     let address = line.trim().strip_prefix("DevTools listening on ")?;
     let browser = ["127.0.0.1", "[::1]"]
@@ -748,7 +733,6 @@ fn ended(status: std::process::ExitStatus) -> String {
     }
 }
 
-/// Reaps the engine when it ends, and ends it when the host lets go of it first.
 fn keep(mut process: Child, released: oneshot::Receiver<()>) {
     tokio::spawn(async move {
         tokio::select! {
@@ -758,8 +742,6 @@ fn keep(mut process: Child, released: oneshot::Receiver<()>) {
     });
 }
 
-/// Starts the program of an app bundle, or the program itself. The engine is a child of the
-/// host and ends with its link.
 fn launch(engine: &Path, arguments: &[String]) -> Result<Child, Error> {
     let program = if cfg!(target_os = "macos")
         && engine
