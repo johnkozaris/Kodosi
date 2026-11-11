@@ -20,6 +20,18 @@ fn contract() -> serde_json::Value {
 }
 
 #[test]
+fn the_apple_apps_compile_against_this_header() {
+    let committed = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../clients/apple/Sources/KodosiKit/kodosi_runtime.h"
+    ));
+    assert!(
+        header() == committed,
+        "After a change of the C API, copy the header that this build writes to clients/apple/Sources/KodosiKit/kodosi_runtime.h."
+    );
+}
+
+#[test]
 fn desktop_contract_states_the_header_abi() {
     assert_eq!(
         contract()["ffiAbiVersion"],

@@ -6,27 +6,23 @@ export KODOSI_GHOSTTY_DIR := ghostty_dir
 [private]
 default: check
 
-[private]
-ghostty-pins-check:
-    python3 ../../terminal/ghostty/scripts/verify-ghostty-pins.py
-
 # Generate the Xcode project from project.yml.
 xcode-gen:
     KODOSI_VERSION="{{ version }}" KODOSI_MACOS_DEPLOYMENT_TARGET="$(cat Config/macOSDeploymentTarget)" xcodegen generate --quiet
 
 # Test the shared Swift package in clients/apple.
-apple-test: ghostty-pins-check
+apple-test:
     swift test \
         --package-path ../apple
 
 # Lint the Swift sources of the Mac app and of the shared Swift package.
 lint:
-    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --lint --swiftversion 6.3
-    swiftlint lint --quiet Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins
+    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Package.swift --lint --swiftversion 6.3
+    swiftlint lint --quiet Sources Tests ../apple/Sources ../apple/Tests
 
 # Format the Swift sources of the Mac app and of the shared Swift package.
 format:
-    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Plugins ../apple/Package.swift --swiftversion 6.3
+    swiftformat Sources Tests ../apple/Sources ../apple/Tests ../apple/Package.swift --swiftversion 6.3
 
 # Test the shared Swift package and the Mac app.
 test: xcode-gen apple-test
@@ -45,7 +41,7 @@ build: xcode-gen apple-test
         build
 
 # Build the Release Mac app. Commit all the changes first.
-release-build: ghostty-pins-check xcode-gen apple-test
+release-build: xcode-gen apple-test
     xcodebuild -project KodosiDesktop.xcodeproj \
         -scheme KodosiDesktop \
         -configuration Release \

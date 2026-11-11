@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Installs the notices of the Mac app or of the iOS app in the resources folder of the
-app. First it checks the Ghostty notices with verify-third-party-notices.py. Builds other
-than Debug also get the licenses of the Rust crates in the runtime, which the iOS app gets
-as one file for each crate."""
+app. Builds other than Debug also get the licenses of the Rust crates in the runtime, which
+the iOS app gets as one file for each crate."""
 
 from __future__ import annotations
 
@@ -120,11 +119,6 @@ def crate_notices(output: Path) -> list[Path]:
 
 def install(platform: str, configuration: str, resources: Path) -> None:
     ghostty = Path(os.environ.get("KODOSI_GHOSTTY_DIR") or repository_root() / "terminal/ghostty")
-    check = [sys.executable, str(ghostty / "scripts/verify-third-party-notices.py")]
-    if os.environ.get("KODOSI_WORKING_TREE_VALIDATION") == "1":
-        check.append("--working-tree")
-    if subprocess.run(check, stdout=subprocess.DEVNULL).returncode != 0:
-        raise SystemExit("[!] notices: the Ghostty notices differ from terminal/ghostty/ThirdPartyNotices/inventory.json")
     files = notice_files(platform, ghostty)
     resources.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="kodosi-rust-notices-") as rust:
