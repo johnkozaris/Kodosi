@@ -43,9 +43,7 @@ Run these from the repository root; `just --list` shows the rest.
 `gitleaks git`, run by hand, looks for secrets in the Git history and skips the reviewed
 findings in [.gitleaksignore](../.gitleaksignore).
 
-The justfile in each app's folder has its release recipes. Name a new recipe component
-first and verb last (`mac-build`), a script verb first (`build-ghostty.sh`), and other
-files like their neighbors.
+The justfile in each app's folder has its release recipes.
 
 ## Run the backend
 
