@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Builds the kodosi-ffi-c static library and copies it, with its C header, to
-<output-dir>/<target>/<profile>. Prints that folder."""
+<output-dir>/<target>/<profile>. With --program, the same build also makes the kodosi program
+and copies it there. Prints that folder."""
 
 from __future__ import annotations
 
@@ -17,7 +18,11 @@ def archive_name(target: str) -> str:
     return "kodosi_ffi_c.lib" if target.endswith("-windows-msvc") else "libkodosi_ffi_c.a"
 
 
-def build(manifest: Path, output: Path, profile: str, target: str, default_features: bool) -> Path:
+def program_name(target: str) -> str:
+    return "kodosi.exe" if target.endswith("-windows-msvc") else "kodosi"
+
+
+def build(manifest: Path, output: Path, profile: str, target: str, default_features: bool, program: bool) -> Path:
     bundle = output.resolve() / target / profile
     # cl.exe cannot write a path longer than 259 characters, and Cargo repeats the target
     # and the profile below its own folder. Windows builds share one Cargo folder.
@@ -25,12 +30,15 @@ def build(manifest: Path, output: Path, profile: str, target: str, default_featu
     command = ["cargo", "build", "--locked", "--manifest-path", str(manifest),
         "--target-dir", str(cargo), "--target", target, "--profile", profile,
         "-p", "kodosi-ffi-c", "--message-format=json-render-diagnostics"]
+    if program:
+        command += ["-p", "kodosi-runtime", "--lib", "--bin", "kodosi"]
     if not default_features:
         command.append("--no-default-features")
     process = subprocess.Popen(command, cwd=manifest.parent, stdout=subprocess.PIPE, text=True)
     assert process.stdout is not None
     archives: dict[str, Path] = {}
     out_dirs: dict[str, Path] = {}
+    programs: list[Path] = []
     for line in process.stdout:
         try:
             message = json.loads(line)
@@ -41,6 +49,8 @@ def build(manifest: Path, output: Path, profile: str, target: str, default_featu
             for name in message["filenames"]:
                 if Path(name).name == archive_name(target):
                     archives[message["package_id"]] = Path(name)
+            if message["target"]["name"] == "kodosi" and message.get("executable"):
+                programs.append(Path(message["executable"]))
         elif message.get("reason") == "build-script-executed":
             out_dirs[message["package_id"]] = Path(message["out_dir"])
     if process.wait() != 0:
@@ -48,12 +58,16 @@ def build(manifest: Path, output: Path, profile: str, target: str, default_featu
     if len(archives) != 1:
         raise SystemExit("Cargo did not report one runtime library")
     [(package, archive)] = archives.items()
-    header = out_dirs[package] / "kodosi_runtime.h"
-    for source, destination in ((archive, bundle / archive_name(target)),
-                                (header, bundle / "include/kodosi_runtime.h")):
+    copies = [(archive, bundle / archive_name(target)),
+              (out_dirs[package] / "kodosi_runtime.h", bundle / "include/kodosi_runtime.h")]
+    if program:
+        if len(programs) != 1:
+            raise SystemExit("Cargo did not report one kodosi program")
+        copies.append((programs[0], bundle / program_name(target)))
+    for source, destination in copies:
         destination.parent.mkdir(parents=True, exist_ok=True)
         if not destination.exists() or not filecmp.cmp(source, destination, shallow=False):
-            shutil.copyfile(source, destination)
+            shutil.copy(source, destination)
     return bundle
 
 
@@ -64,9 +78,10 @@ def main() -> None:
     parser.add_argument("--profile", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--no-default-features", action="store_true")
+    parser.add_argument("--program", action="store_true")
     arguments = parser.parse_args()
     print(build(arguments.manifest.resolve(), arguments.output_dir, arguments.profile,
-        arguments.target, not arguments.no_default_features))
+        arguments.target, not arguments.no_default_features, arguments.program))
 
 
 if __name__ == "__main__":

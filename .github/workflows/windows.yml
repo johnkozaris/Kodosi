@@ -20,6 +20,7 @@ on:
       - scripts/build-runtime-library.py
       - scripts/windows-env.sh
       - .github/workflows/windows.yml
+      - "!**/*.md"
   workflow_dispatch:
 
 permissions:
@@ -33,7 +34,7 @@ jobs:
   check:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: windows-2025
-    timeout-minutes: 120
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -65,35 +66,9 @@ jobs:
           key: qt-tools-windows-${{ hashFiles('clients/qt/dependencies.lock.json') }}
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          workspaces: runtime
+          workspaces: runtime -> ../clients/qt/build/windows-dev/runtime-library/cargo
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tools/agent-browser
           key: agent-browser-windows-${{ hashFiles('AgentBrowser.lock', 'rust-toolchain.toml') }}
-      - name: Make a test certificate like the release certificate
-        run: clients/qt/scripts/release/make-signing-certificate.sh "$(cygpath -u "$RUNNER_TEMP")/certificate"
-      - name: Put the test key in the certificate store
-        shell: pwsh
-        run: |
-          Import-PfxCertificate -FilePath "$env:RUNNER_TEMP\certificate\Kodosi.pfx" `
-            -CertStoreLocation Cert:\CurrentUser\My -Password (New-Object System.Security.SecureString) | Out-Null
-      - name: Build, test and package the app
-        run: KODOSI_MSIX_PUBLISHER="CN=Kodosi" just --justfile clients/qt/justfile windows-package
-      - name: Bundle the package and sign the bundle
-        working-directory: clients/qt
-        run: |
-          just windows-bundle
-          KODOSI_SIGNING_CERTIFICATE="$(cygpath -u "$RUNNER_TEMP")/certificate/Kodosi.cer" \
-            just windows-sign "build/release/Kodosi-$(cat ../../VERSION).msixbundle"
-      - name: Trust the certificate, install the bundle and run kodosi
-        shell: pwsh
-        run: |
-          Import-Certificate -FilePath "$env:RUNNER_TEMP\certificate\Kodosi.cer" `
-            -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
-          $version = (Get-Content VERSION).Trim()
-          Add-AppxPackage -Path (Resolve-Path "clients\qt\build\release\Kodosi-$version.msixbundle").Path
-          $output = & "$env:LOCALAPPDATA\Microsoft\WindowsApps\kodosi.exe" --version
-          if ($LASTEXITCODE -ne 0 -or "$output" -notmatch [regex]::Escape($version)) {
-            throw "kodosi --version printed '$output'"
-          }
-          Get-AppxPackage com.kodosi.Kodosi | Remove-AppxPackage
+      - run: just windows-check

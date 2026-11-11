@@ -22,6 +22,7 @@ on:
       - scripts/generate-update-site.py
       - scripts/tests/**
       - .github/workflows/linux.yml
+      - "!**/*.md"
   workflow_dispatch:
 
 permissions:
@@ -40,10 +41,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Make room on the disk
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-          df -h /
+      - name: Make room on the disk while the next steps run
+        run: sudo nohup rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL > /dev/null 2>&1 &
       - name: Install the system libraries
         run: |
           sudo apt-get update
@@ -66,7 +65,7 @@ jobs:
           key: qt-tools-${{ hashFiles('clients/qt/dependencies.lock.json') }}
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          workspaces: runtime
+          workspaces: runtime -> ../clients/qt/build/dev/runtime-library/x86_64-unknown-linux-gnu/dev/cargo
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tools/agent-browser
