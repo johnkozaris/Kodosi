@@ -1177,10 +1177,17 @@ async fn keys_typed_before_the_start_line_follow_it() {
     let mut subscription = session.subscribe().await.unwrap();
     session.start("START-LINE".to_owned()).unwrap();
     session
-        .input(subscription.connection_id, Bytes::from_static(b"EARLY-KEYS"))
+        .input(
+            subscription.connection_id,
+            Bytes::from_static(b"EARLY-KEYS"),
+        )
         .unwrap();
     let received = wait_text(&mut subscription, b"EARLY-KEYS").await;
-    let at = |text: &[u8]| received.windows(text.len()).position(|window| window == text);
+    let at = |text: &[u8]| {
+        received
+            .windows(text.len())
+            .position(|window| window == text)
+    };
     assert!(
         matches!((at(b"START-LINE"), at(b"EARLY-KEYS")), (Some(start), Some(early)) if start < early),
         "{received:?}"
