@@ -11,6 +11,7 @@
   <a href="#kodosi-を入手"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="Apple silicon 搭載の macOS 26 以降"></a>
   <a href="#kodosi-を入手"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
   <a href="#kodosi-を入手"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="x64 の Windows 11 24H2 以降"></a>
+  <a href="#kodosi-を入手"><img src="https://img.shields.io/badge/Android-15%2B%20%C2%B7%20ARM64-c98566?style=flat-square&labelColor=2a211d" alt="ARM64 の Android 15 以降"></a>
   <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iPhone と iPad の iOS 26 以降"></a>
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="最新リリース"></a>
 </p>
@@ -66,11 +67,13 @@
   <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Mac 版 Kodosi をダウンロード"></a>
   <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Linux 版 Kodosi をダウンロード"></a>
   <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Windows 版 Kodosi をダウンロード"></a>
+  <a href="https://updates.kodosi.com/download/android"><img src="https://img.shields.io/badge/%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-Android-c98566?style=for-the-badge&labelColor=2a211d" alt="Android 版 Kodosi をダウンロード"></a>
 </p>
 
 - **Mac**（Apple silicon、macOS 26 以降）：ディスクイメージを開いて Kodosi をアプリケーションフォルダに移動するか、`brew install --cask johnkozaris/tap/kodosi` を実行します。アプリは自動でアップデートされます。
 - **Linux**（x86-64、Ubuntu 24.04 または Debian 13 以降）：Debian パッケージをインストールします。Kodosi の apt リポジトリが追加されるので、システムのアップデートで Kodosi もアップデートされます。[リリース](https://github.com/johnkozaris/Kodosi/releases/latest) には Arch 用パッケージとポータブル版のアーカイブもあります。
 - **Windows**（x64、Windows 11 24H2 以降）：ダウンロードしたファイルを初めて開く前に、管理者として [Kodosi の証明書](https://updates.kodosi.com/windows/Kodosi.cer) をローカルコンピューター › 信頼されたユーザーに追加してください。アプリは自動でアップデートされます。
+- **Android**（ARM64、Android 15 以降）：端末で APK をダウンロードして開き、Android に確認されたらインストールを許可します。新しいリリースも同じ方法でインストールします。
 - **iPhone と iPad**：[iPhone または iPad](../../clients/ios/README.md) 向けに Kodosi をビルドします。
 
 続いて[はじめに](GETTING_STARTED.md)をお読みください。

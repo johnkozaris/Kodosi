@@ -149,6 +149,7 @@ def main() -> None:
         "linux": release / f"kodosi_{version}_amd64.deb",
         "linuxArchive": release / f"kodosi-{version}-linux-x86_64.tar.gz",
         "archLinux": release / f"kodosi-bin-{version}-1-x86_64.pkg.tar.zst",
+        "android": release / f"kodosi-{version}-android-arm64.apk",
     }
     for path in files.values():
         if not path.is_file():
@@ -177,7 +178,7 @@ def main() -> None:
     apt_repository(files["linux"], version, apt)
     shutil.copyfile(APT_KEY, apt / "kodosi-archive-keyring.pgp")
     sign(arguments.sign, apt / "dists/stable/Release", apt / "dists/stable/InRelease", "--clearsign")
-    downloads = ["macos", "linux"]
+    downloads = ["macos", "linux", "android"]
     if "windows" in files:
         (site / "windows").mkdir()
         (site / "windows/Kodosi.appinstaller").write_bytes(windows_appinstaller(bundle, version))

@@ -23,6 +23,7 @@ RELEASE_FILES = {
     f"kodosi_{VERSION}_amd64.deb",
     f"kodosi-{VERSION}-linux-x86_64.tar.gz",
     f"kodosi-bin-{VERSION}-1-x86_64.pkg.tar.zst",
+    f"kodosi-{VERSION}-android-arm64.apk",
 }
 GNUPG: dict[str, str] = {}
 
@@ -104,6 +105,7 @@ def generate(
     (release / f"kodosi_{VERSION}_amd64.deb").write_bytes(debian_package(package_version))
     (release / f"kodosi-{VERSION}-linux-x86_64.tar.gz").write_bytes(b"archive")
     (release / f"kodosi-bin-{VERSION}-1-x86_64.pkg.tar.zst").write_bytes(b"arch package")
+    (release / f"kodosi-{VERSION}-android-arm64.apk").write_bytes(b"android package")
     (root / "appcast.xml").write_text("<rss/>", encoding="utf-8")
     return subprocess.run(
         [sys.executable, str(SCRIPT), str(release), str(root / site), "--version", VERSION,
@@ -126,6 +128,7 @@ class UpdateSiteTest(unittest.TestCase):
             redirects = (site / "_redirects").read_text(encoding="utf-8")
             download = f"https://github.com/johnkozaris/Kodosi/releases/download/v{VERSION}"
             self.assertIn(f"/download/macos {download}/Kodosi-{VERSION}.dmg 302\n", redirects)
+            self.assertIn(f"/download/android {download}/kodosi-{VERSION}-android-arm64.apk 302\n", redirects)
             self.assertIn("/apt/pool/:version/:file https://github.com/johnkozaris/Kodosi/releases/download/v:version/:file 302\n", redirects)
             listing = json.loads((site / "release.json").read_text(encoding="utf-8"))
             self.assertEqual(listing["files"]["linux"]["url"], f"{download}/kodosi_{VERSION}_amd64.deb")
