@@ -12,6 +12,8 @@ final class AppModel {
     }
 
     private(set) var phase: Phase = .launching
+    private(set) var updateRequired = false
+    var updateNoticeDismissed = false
     let notices = NoticeCenter()
     let lock = AppLock()
     let commands: CommandSink
@@ -212,6 +214,10 @@ final class AppModel {
     }
 
     private func receiveSystem(_ event: RuntimeEvent) throws {
+        if event.type == "system.updateRequired" {
+            updateRequired = true
+            return
+        }
         guard event.type == "system.ready" else { return }
         let version: UInt32 = try event.value("protocolVersion")
         guard version == RuntimeHandle.expectedProtocolVersion else {

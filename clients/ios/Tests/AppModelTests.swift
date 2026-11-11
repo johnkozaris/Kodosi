@@ -39,6 +39,21 @@ struct AppModelTests {
         #expect(model.terminals.listed)
     }
 
+    @Test func `a saved sign-in that the server finds too old asks for an update`() throws {
+        try deliver("system.ready", userId: nil, ["protocolVersion": RuntimeHandle.expectedProtocolVersion])
+        try deliver("system.updateRequired", userId: nil)
+        try deliver("auth.restoring", userId: nil, ["reason": "updateRequired"])
+        #expect(model.updateRequired)
+        #expect(model.account.restoring == "updateRequired")
+    }
+
+    @Test func `a running Kodosi that the server finds too old asks for an update`() throws {
+        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
+        #expect(!model.updateRequired)
+        try deliver("system.updateRequired")
+        #expect(model.updateRequired)
+    }
+
     @Test func `sign in opens only secure pages and gives the answer back`() throws {
         try deliver("auth.required", userId: nil)
         model.account.signIn()
