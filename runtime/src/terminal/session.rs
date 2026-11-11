@@ -212,7 +212,6 @@ impl TerminalSession {
             input_budget,
             subscribers: Subscribers::default(),
             queue: VecDeque::new(),
-            early: VecDeque::new(),
             focused: HashMap::new(),
             resize_owner: None,
             requested: HashMap::new(),
@@ -551,6 +550,14 @@ impl PendingWrite {
     }
 }
 
+/// The line that starts the terminal's program once the shell waits at its prompt, and what
+/// people typed meanwhile, which follows it.
+struct StartLine {
+    line: String,
+    since: tokio::time::Instant,
+    early: VecDeque<PendingWrite>,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Controller {
     Local(Uuid),
@@ -693,8 +700,6 @@ struct LocalActor {
     input_budget: Arc<Semaphore>,
     subscribers: Subscribers,
     queue: VecDeque<PendingWrite>,
-    /// What people typed while the start line waits; it follows the start line.
-    early: VecDeque<PendingWrite>,
     focused: HashMap<Controller, CancellationToken>,
     resize_owner: Option<ResizeOwner>,
     requested: HashMap<Controller, RequestedSize>,
@@ -707,7 +712,7 @@ struct LocalActor {
     account: Option<u8>,
     agent: RunningAgent,
     clear_line: &'static str,
-    start: Option<(String, tokio::time::Instant)>,
+    start: Option<StartLine>,
     output_at: Option<tokio::time::Instant>,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
@@ -852,17 +857,18 @@ impl LocalActor {
             index += 1;
             keep
         });
-        self.early.retain(|write| !write.is_cancelled());
+        if let Some(start) = &mut self.start {
+            start.early.retain(|write| !write.is_cancelled());
+        }
     }
 
     /// Keys of a person go after the start line, which the shell would otherwise read after
     /// them on the same line.
     fn type_keys(&mut self, write: PendingWrite) {
         self.typed_at = Some(tokio::time::Instant::now());
-        if self.start.is_some() {
-            self.early.push_back(write);
-        } else {
-            self.queue.push_back(write);
+        match &mut self.start {
+            Some(start) => start.early.push_back(write),
+            None => self.queue.push_back(write),
         }
     }
 
@@ -1125,10 +1131,10 @@ impl LocalActor {
     }
 
     fn type_start_line(&mut self) {
-        let Some((_, since)) = &self.start else {
+        let Some(start) = &self.start else {
             return;
         };
-        let waited = since.elapsed();
+        let waited = start.since.elapsed();
         let quiet = self
             .output_at
             .is_some_and(|output| output.elapsed() >= PROMPT_QUIET);
@@ -1139,7 +1145,7 @@ impl LocalActor {
         if !prompt && waited < START_LIMIT {
             return;
         }
-        let Some((line, _)) = self.start.take() else {
+        let Some(StartLine { line, early, .. }) = self.start.take() else {
             return;
         };
         if !prompt {
@@ -1147,7 +1153,7 @@ impl LocalActor {
         } else if let Err(error) = self.enqueue(Bytes::from(format!("{line}\r")), None) {
             tracing::warn!(id = %self.id, %error, "the start line was not typed");
         }
-        self.queue.append(&mut self.early);
+        self.queue.extend(early);
     }
 
     fn busy(&self) -> bool {
@@ -1522,7 +1528,11 @@ impl LocalActor {
                 drop(reply.send(result));
             }
             Request::Start(line) => {
-                self.start = Some((line, tokio::time::Instant::now()));
+                self.start = Some(StartLine {
+                    line,
+                    since: tokio::time::Instant::now(),
+                    early: VecDeque::new(),
+                });
             }
             Request::Foreground { variable, reply } => {
                 drop(reply.send(Ok(Foreground {

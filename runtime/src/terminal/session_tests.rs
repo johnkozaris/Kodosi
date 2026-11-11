@@ -741,7 +741,6 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         input_budget: Arc::new(Semaphore::new(MAX_PENDING_BYTES)),
         subscribers: Subscribers::default(),
         queue: VecDeque::new(),
-        early: VecDeque::new(),
         focused: HashMap::new(),
         resize_owner: None,
         requested: HashMap::new(),
