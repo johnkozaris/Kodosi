@@ -44,11 +44,12 @@ reading provider conversations stay on the computer.
   offers the pages that the shared browsers showed on this device, and the keyboard key
   types into it.
 - Projects show the conversation, tasks and terminals, side by side on a wide iPad, and
-  the Projects tab counts invitations and projects with new messages. Friends lists
-  requests first, then friends and their terminals. Settings holds the account, devices,
-  recovery key, appearance, the size of terminal text on this device, whether the screen
-  stays on while a terminal is open, the document viewers, notifications, the lock,
-  the language, licenses and account deletion.
+  the Projects tab counts invitations and projects with new messages. Settings holds the
+  account, friends, devices, recovery key, appearance, the size of terminal text on this
+  device, whether the screen stays on while a terminal is open, the document viewers,
+  notifications, the lock, the language, licenses and account deletion. Friends lists
+  requests first, then friends and their terminals, and the Settings tab counts the
+  requests.
 - The Dosi tab holds the conversation with Dosi. Above the composer, you choose the
   computer that answers: one that runs Kodosi, or the one that answered last, also while it
   is offline. Without either, the tab asks you to open Kodosi on a computer. The stop key

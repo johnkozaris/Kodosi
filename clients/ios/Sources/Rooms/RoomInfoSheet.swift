@@ -127,7 +127,7 @@ struct RoomInfoSheet: View {
         let candidates = rooms.invitable(model.people.friends, to: roomId)
         ListGroup(title: "Invite friends") {
             if candidates.isEmpty {
-                Text(model.people.friends.isEmpty ? "Add friends in the Friends tab to invite them." : "All your friends are here.")
+                Text(model.people.friends.isEmpty ? "Add friends in Settings to invite them." : "All your friends are here.")
                     .appTextStyle(.footnote)
                     .foregroundStyle(theme.colors.inkMuted)
                     .padding(14)

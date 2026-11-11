@@ -14,6 +14,7 @@ struct SettingsHome: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 AccountHeader()
+                FriendsSection()
                 DevicesSection()
                 if account.localDeviceEnrolled {
                     RecoverySection()
@@ -33,6 +34,10 @@ struct SettingsHome: View {
         }
         .background(theme.colors.surface)
         .navigationTitle("Settings")
+        .navigationDestination(for: PeopleRoute.self) { _ in PeopleHome() }
+        .navigationDestination(for: FriendRoute.self) { FriendDetailView(userId: $0.userId) }
+        .navigationDestination(for: TerminalRoute.self) { TerminalScreen(sessionId: $0.sessionId) }
+        .navigationDestination(for: RoomRoute.self) { RoomScreen(roomId: $0.roomId) }
         .animation(theme.motion.spring, value: account.devices)
         .animation(theme.motion.spring, value: account.deviceRequests)
         .animation(theme.motion.spring, value: account.pendingReset)

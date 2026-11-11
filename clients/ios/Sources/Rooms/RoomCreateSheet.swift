@@ -82,7 +82,7 @@ struct RoomCreateSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Invite friends").appTextStyle(.subhead).foregroundStyle(theme.colors.inkMuted).padding(.leading, 4)
             if model.people.friends.isEmpty {
-                Text("Add friends in the Friends tab to invite them.")
+                Text("Add friends in Settings to invite them.")
                     .appTextStyle(.footnote)
                     .foregroundStyle(theme.colors.inkMuted)
                     .padding(.leading, 4)

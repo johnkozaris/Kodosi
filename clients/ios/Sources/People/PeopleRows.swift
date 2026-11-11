@@ -3,6 +3,8 @@ import KodosiDesign
 import SwiftUI
 import UIKit
 
+struct PeopleRoute: Hashable {}
+
 struct FriendRoute: Hashable {
     let userId: String
 }

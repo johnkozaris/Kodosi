@@ -31,7 +31,7 @@ struct PeopleHome: View {
         .background(theme.colors.surface)
         .readableWidth()
         .navigationTitle("Friends")
-        .pageFacts(facts)
+        .pageFacts(people.facts)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 InviteShareButton(identifier: "people.shareInvite") {
@@ -43,9 +43,6 @@ struct PeopleHome: View {
             }
             .sharedBackgroundVisibility(.hidden)
         }
-        .navigationDestination(for: FriendRoute.self) { FriendDetailView(userId: $0.userId) }
-        .navigationDestination(for: TerminalRoute.self) { TerminalScreen(sessionId: $0.sessionId) }
-        .navigationDestination(for: RoomRoute.self) { RoomScreen(roomId: $0.roomId) }
         .sheet(isPresented: $adding) { AddFriendSheet() }
         .friendTrust($trusting) { trust in
             if case let .accept(request) = trust {
@@ -70,13 +67,6 @@ struct PeopleHome: View {
         .sensoryFeedback(trigger: people.inFlight.count + (people.sendingRequest ? 1 : 0)) { old, new in
             new > old ? .impact(weight: .light) : nil
         }
-    }
-
-    private var facts: String {
-        guard people.loaded, !people.friends.isEmpty || !people.incoming.isEmpty else { return "" }
-        let waiting = people.incoming.count
-        let friends = Counted.friends(people.friends.count)
-        return waiting > 0 ? friends + " · " + String(localized: "\(waiting) waiting") : friends
     }
 
     private var loading: some View {
@@ -176,6 +166,16 @@ struct PeopleHome: View {
                 .cardRow()
             }
         }
+    }
+}
+
+extension PeopleStore {
+    /// How many friends the person has and how many requests wait, or nothing before the first
+    /// list and while there are neither.
+    var facts: String {
+        guard loaded, !friends.isEmpty || !incoming.isEmpty else { return "" }
+        let count = Counted.friends(friends.count)
+        return incoming.isEmpty ? count : count + " · " + String(localized: "\(incoming.count) waiting")
     }
 }
 
