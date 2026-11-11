@@ -138,8 +138,10 @@ own credentials. See [Security](SECURITY.md) and the [encryption design](CRYPTOG
 Each terminal has Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`. Claude Code and
 Copilot CLI find the note and Kodosi's skills through the terminal's variables, so they
 get them also when a person starts them there by hand. The launcher gives the note to
-Codex on its command line, its only way in; when the host sees a Codex in front that a
-person started without it, the terminal says so to the apps of its computer. A host types
+Codex on its command line, its only way in, with `--no-daemon`: Codex then works in the
+terminal, and not in its shared background server, which keeps the variables of whatever
+started it. When the host sees a Codex in front that a person started without the note,
+the terminal says so to the apps of its computer. A host types
 the new project messages that name one of its terminals with `@` into the agent in that
 terminal, as one line with who wrote it and from where.
 `kodosi terminal message <terminal> "text"` sends such a line to an agent on any computer,
