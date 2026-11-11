@@ -38,7 +38,6 @@ pub(super) const WITH_KEY: &[u8] = b"v10";
 const WITH_SYSTEM_KEY: &[u8] = b"v11";
 const BOUND_TO_APP: &[u8] = b"v20";
 
-/// Where one browser of the Chromium family keeps its profiles, and the name of its secret.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Family {
     name: &'static str,
@@ -149,8 +148,7 @@ fn store_of(profile: &Path) -> Option<PathBuf> {
         .find(|store| store.is_file())
 }
 
-/// Each profile of each browser of the family on this computer. A browser whose data macOS
-/// keeps from Kodosi is one source, as its profiles are in that data.
+/// A browser whose data macOS keeps from Kodosi is one source, as its profiles are in that data.
 pub(super) fn sources(home: &Path) -> Vec<SignInSource> {
     let mut sources = Vec::new();
     for family in &FAMILIES {
@@ -202,12 +200,10 @@ pub(super) fn sources(home: &Path) -> Vec<SignInSource> {
     sources
 }
 
-/// What opens the values of a store.
 pub(crate) trait Opener {
     fn open(&self, sealed: &[u8]) -> Option<Vec<u8>>;
 }
 
-/// The keys of a store on a Mac or on Linux.
 #[cfg(unix)]
 #[derive(Default)]
 struct SealKeys {
@@ -372,7 +368,6 @@ fn now() -> f64 {
         .map_or(0.0, |elapsed| elapsed.as_secs_f64())
 }
 
-/// The value of a row, when this computer can open it.
 fn value_of(row: &Row, opener: &dyn Opener, hashed: bool) -> Option<String> {
     if row.sealed.is_empty() {
         return Some(row.value.clone());

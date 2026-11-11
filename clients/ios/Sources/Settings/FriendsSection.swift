@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The row that opens the friends, with the requests that wait for the person.
 struct FriendsSection: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme

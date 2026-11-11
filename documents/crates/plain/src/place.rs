@@ -1,45 +1,21 @@
-//! Where a person is in a text: the positions `from` and `to` of their selection.
-
 use serde_json::{Map, Value, json};
-use text::{Node, Step};
+use text::{Node, Selection};
 
 use crate::{Change, ops::cut, schema};
 
-fn position(place: &Value, key: &str) -> Option<usize> {
-    usize::try_from(place.get(key)?.as_u64()?).ok()
-}
-
-/// Moves a place across the steps of a change, as a selection moves.
 pub(crate) fn map(place: &mut Value, change: &Change) {
-    let Change::Steps { steps } = change else {
-        return;
-    };
-    let (Some(mut from), Some(mut to)) = (position(place, "from"), position(place, "to")) else {
-        return;
-    };
-    for json in steps {
-        let Ok(step) = Step::from_json(schema(), json) else {
-            return;
-        };
-        let map = step.map();
-        from = map.map(from, 1);
-        to = map.map(to, 1);
+    if let Change::Steps { steps } = change {
+        Selection::map(place, schema(), steps);
     }
-    place["from"] = json!(from);
-    place["to"] = json!(to.max(from));
 }
 
-/// The lines of a place as a read names them, the column where it starts, and the text that it
-/// selects.
 pub(crate) fn describe(doc: &Node, place: &Value) -> Value {
-    let (Some(from), Some(to)) = (position(place, "from"), position(place, "to")) else {
+    let Some(selection) = Selection::read(place) else {
         return Value::Null;
     };
-    let size = doc.content().size();
-    let from = from.min(size);
-    let to = to.clamp(from, size);
-    let (first, column) = line_and_column(doc, from);
-    let (last, _) = line_and_column(doc, to);
+    let selection = selection.within(doc);
+    let (first, column) = line_and_column(doc, selection.from);
+    let (last, _) = line_and_column(doc, selection.to);
     let mut described = Map::new();
     let lines = if first == last {
         first.to_string()
@@ -48,25 +24,14 @@ pub(crate) fn describe(doc: &Node, place: &Value) -> Value {
     };
     described.insert("lines".to_owned(), json!(lines));
     described.insert("column".to_owned(), json!(column));
-    let selected = doc.slice(from, to).map_or_else(
-        |_| String::new(),
-        |slice| {
-            slice
-                .content
-                .children()
-                .iter()
-                .map(Node::text_content)
-                .collect::<Vec<_>>()
-                .join("\n")
-        },
-    );
+    let selected = selection.text(doc);
     if !selected.is_empty() {
         described.insert("selected".to_owned(), json!(cut(&selected)));
     }
     Value::Object(described)
 }
 
-/// The line and the column of a position, both from 1, with columns in characters.
+/// Both count from 1, with columns in characters.
 fn line_and_column(doc: &Node, position: usize) -> (usize, usize) {
     let Ok(at) = doc.resolve(position) else {
         return (1, 1);

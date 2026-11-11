@@ -2,8 +2,7 @@ use serde_json::{Value, json};
 
 use crate::{Failed, Fragment, Mark, Node, Schema, Slice, StepMap, failed};
 
-/// One atomic change of a document, with the same result as the step of the same name in
-/// `ProseMirror`.
+/// Each step has the same result as the step of the same name in `ProseMirror`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Step {
     Replace {
@@ -271,7 +270,6 @@ impl Step {
         }
     }
 
-    /// The positions that this step reads or changes in the document before it.
     pub fn range(&self) -> Option<(usize, usize)> {
         match self {
             Self::Replace { from, to, .. }

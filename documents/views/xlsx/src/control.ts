@@ -9,7 +9,6 @@ export type Vertical = "top" | "center" | "bottom";
 export type MarkName = "bold" | "italic" | "underline" | "strike";
 export type Merge = "all" | "rows" | "columns";
 
-/** The look of the cell where the selection starts. */
 export interface CellLook {
   bold: boolean;
   italic: boolean;
@@ -60,7 +59,6 @@ function nameOf<V extends string>(
   return (Object.entries(table).find(([, known]) => known === value)?.[0] as V | undefined) ?? null;
 }
 
-/** What the bar can do to a workbook, through the commands of Univer's own controls. */
 export class SheetControl {
   constructor(
     private readonly api: Api,
@@ -154,7 +152,6 @@ export class SheetControl {
     this.setStyle("tb", wrap ? WRAP : UNSPECIFIED);
   }
 
-  /** Gives the selected cells a number format, or takes it away with an empty one. */
   setNumberFormat(pattern: string): void {
     const values = this.ranges().flatMap((range) => {
       const cells = [];
@@ -180,7 +177,6 @@ export class SheetControl {
     void this.commands.executeCommand(CLEAR_LOOK);
   }
 
-  /** The next selection takes the look of this one. */
   copyLook(): void {
     void this.commands.executeCommand(COPY_LOOK);
   }

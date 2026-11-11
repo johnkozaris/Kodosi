@@ -12,284 +12,122 @@ flowchart LR
     Host --> OIDC["OIDC sign-in"]
 ```
 
-Each person's computer runs one Kodosi host, a process of the Rust runtime. It runs
-shells on a PTY (ConPTY on Windows) and owns terminals, identity, encryption and projects.
-The desktop apps and the `kodosi` command are its clients over a local connection; the
-first client that needs the host starts it in the background. Each client gets the
-answers to its own requests, and every client gets the state of terminals and projects, so
-what one client does, the others show. The host keeps terminal state with Ghostty's
-terminal library, and the apps draw it with Ghostty. The iPhone, iPad and Android apps
-embed the viewer build of the runtime and host no terminals. The Android app loads it as a
-shared library through a small JNI layer in C, which also keeps the state of the terminal
-on the screen in the app's own copy of Ghostty's terminal library, and the app draws that
-state.
+Each computer runs one Kodosi host, a process of the Rust runtime. The host runs shells
+on a PTY and owns the computer's terminals, identity, encryption and projects. The
+desktop apps and the `kodosi` command are its clients over a local connection, and the
+first client that needs the host starts it. Every client gets the state of terminals and
+projects, so what one client does, the others show. The host keeps terminal state with
+Ghostty's terminal library, and the apps draw it with Ghostty.
 
-Quit in a desktop app stops a background host and its terminals. A host that runs in a
-terminal with `kodosi host` stops only there. An app that finds a background host of an
-earlier version restarts it, and asks first when that host still has terminals.
+The iPhone, iPad and Android apps embed the viewer build of the runtime, which hosts no
+terminals.
 
-The host saves its terminals in `terminals.json` in its data folder while they change, and
-again as it stops, with the command that continues the conversation that each agent shows.
-The host looks for that conversation while the agent runs and keeps the last one that it
-found, so the command still names it when the agent stops with the host or the host ends
-without a last look; an agent that ended more than a few seconds earlier does not come
-back. It finds the conversation in the agent's own records: Claude Code's record of each
-Claude process, the lock that Copilot CLI keeps in the folder of a session while a process
-uses it, and the rollout that a Codex process holds open, or else the one live Codex
-conversation of the terminal's folder. The command keeps the account, model, effort,
-permissions and output of the agent's environment and arguments, which Windows does not
-show, with the changes that Kodosi typed while the agent ran. When the host finds no
-conversation, the command opens the agent's own list of conversations. A new host keeps
-the saved terminals until an app sends `session.restore`; then it starts each one again
-with a new terminal ID, and the terminal's `restoredFrom` names the ID that it replaces.
-The host also gives `restoredFrom` to the backend, so that views on other devices can
-follow the terminal. A restored terminal joins its project or its people again when the
-account that chose them is signed in.
-
-As it stops, the host also saves the primary screen and history of each terminal that
-comes back. It writes them as VT text to a file in `screens/` in its data folder. The file
-has at most 1 MiB of the newest lines, and only the user can read it. A restored terminal
-starts with that text and a `Restored` line above the output of its shell, and the host
-then deletes the file. A Windows terminal moves the text into its history first, because
-ConPTY draws the screen as if it were empty.
+The host saves its terminals while they change. After Quit, a new host starts them again
+when an app asks, each with its earlier screen and the command that continues its
+agent's conversation. A restored terminal has a new ID and names the one that it
+replaces, so views on other devices follow it.
 
 ## Terminals
 
 The computer that starts a terminal hosts it: it owns the process, the terminal state
 and the order of its output. Each view gets a checkpoint and then ordered updates, with
-bounded buffering; a view on another device gets them over its own end-to-end encrypted
-channel through the backend. When that channel drops, work that it did not send yet, such
-as typing, a resize or a canvas request, waits up to 10 seconds and goes out once on the
-next channel, or fails after that time; typing that fails shows on its terminal. When the
-device's link to the backend stays down longer than that, or the device cannot restore its
-sign-in because the backend is out of reach, the runtime tells its clients that the device
-is offline. The host does not replay input whose delivery is uncertain, and a stale view
-cannot control a replacement terminal.
+bounded buffering. A view on another device gets them over its own end-to-end encrypted
+channel, which the backend relays. The host does not replay input whose delivery is
+uncertain, and a stale view cannot control a replacement terminal. Work that a short
+drop of the channel holds back goes out once on the next channel.
 
-Each app tells its host which terminals are on its screen and whether the person is in
-the app; the second part decides only alerts. The host keeps the channel of a terminal on
-another computer open while a client shows it, or while a client that sends no such
-report, such as the `kodosi` command, has it open. The channel of a hidden terminal closes
-when nothing is in flight. Its views keep their screen, and its status and alerts come from
-the backend. Work for it, such as input, a close or a read, opens the channel again; the
-work waits, and the next channel resumes the views with a new checkpoint, without the
-reconnecting state.
+Each app tells its host which terminals are on its screen. The channel to a terminal of
+another computer is open only while a client shows the terminal or has work for it. A
+hidden terminal keeps its last screen, and its state and alerts come from the backend.
 
-A pasted picture travels as a file. The app gives its host the picture, and a view of a
-terminal on another computer sends it on its channel, only when that host does not have it
-yet. Twice the bytes that the link carries in its shortest round trip are in transit, so
-the link stays full and input waits behind the picture for about one round trip. The
-terminal's host saves it in a private folder of the terminal, which goes when the terminal
-ends, and pastes the path of the file as input of the view.
+The view in focus sets the size of its terminal. Input from a view is a person's, and
+input from the `kodosi` command gives way while a person types.
 
-A client asks for the grid of the view that will show a new terminal, so its program
-starts at its final width. The view in focus sets the size of its terminal. When that view
-leaves, the focused view whose size the terminal had before sets it again. Input from a
-view is a person's; input from the `kodosi` command stops with a message while a person
-types in the terminal. When a terminal stops working or starts to wait while no client
-shows it, the host marks it until a client shows it. The runtime sends the list of
-terminals with the mark and the new state first, and then the call for that terminal, so a
-client alerts with the state that the call is about.
+The runtime decides what a terminal shows of its program: whether it works, what it
+waits for and what it does. The program's own report decides, and each client presents
+the result.
 
-The runtime says in each list of terminals whether a terminal's program works, what the
-terminal waits with and what the program does in words, and each client shows that. The
-program's report decides. Without a report, a spinner at the start of the terminal's title
-means work, and the words of the title are what it does, without the characters that hide or
-reorder text. A title that the runtime does not read now, as of a terminal of another
-computer that is not open, says nothing new.
+The host sends each terminal's agent and state to the backend, without its text. The
+backend shows them to everyone who can open the terminal, and sends a push notification
+to the owner's phones when a terminal starts to wait, finishes or fails.
 
-A terminal starts with its host's environment and Kodosi's terminal variables. A host
-that a client starts gets the user session's environment from Windows or the systemd
-user manager, plus the client's `KODOSI` settings, and otherwise the client's
-environment.
-
-The host also sends each terminal's agent and state, unencrypted and without its text,
-to the backend, which shows the newest to everyone who can open the terminal while the
-host is connected.
-
-The iPhone, iPad and Android apps give the backend a push token of their device. When the
-state that a host reports for a terminal turns into waiting, done or failed, and the
-terminal still has that state 15 seconds later, the backend sends a push through Apple's or
-Google's push service to each device of the terminal's owner that gave a token. The first
-state that a host reports after it connects sends none. A push carries only the ID of the
-terminal, its agent and its state, so Apple and Google see no more, and the app shows the
-names that it knows.
-
-A device can call another computer of the same person whose host is connected. The call
-is an end-to-end encrypted channel like a view, but to the host itself. The caller sends
-the launcher's requests (agents and choices, folders, a new terminal) and a request for
-the folders of that computer's terminals as desktop commands, and the host answers them
-as one more client. The host takes calls only from the person's own approved devices and
-runs no other command.
+A device can call another computer of the same person. The call is an end-to-end
+encrypted channel like a view, but to the host itself, which answers the launcher's
+requests as one more client. The host takes calls only from the person's own approved
+devices.
 
 ## Backend and projects
 
-One ASP.NET Core process serves the API and the WebSockets, holds the live connections
-under a PostgreSQL lease, and stores its records in PostgreSQL. It relays terminal
-traffic without storing it.
+One ASP.NET Core process serves the API and the WebSockets and stores its records in
+PostgreSQL. It relays terminal traffic without storing it.
 
-Devices encrypt and sign project messages, tasks and repository links. The backend stores
-the ciphertext, numbers the items and tells members' devices that a project changed; each
-device fetches the newer items. Issue actions run on the participant's computer with its
-own credentials. See [Security](SECURITY.md) and the [encryption design](CRYPTOGRAPHY.md).
+Devices encrypt and sign project messages, tasks and repository links. The backend
+stores the ciphertext, numbers the items and tells members' devices that a project
+changed; each device fetches the newer items. Issue actions run on the participant's
+computer with its own credentials. See [Security](SECURITY.md) and the
+[encryption design](CRYPTOGRAPHY.md).
 
 ## Agents
 
-Each terminal has Kodosi's note for agents in `KODOSI_AGENT_CONTEXT`. Claude Code and
-Copilot CLI find the note and Kodosi's skills through the terminal's variables, so they
-get them also when a person starts them there by hand. The launcher gives the note to
-Codex on its command line, its only way in, with `--no-daemon`: Codex then works in the
-terminal, and not in its shared background server, which keeps the variables of whatever
-started it. When the host sees a Codex in front that a person started without the note,
-the terminal says so to the apps of its computer. A host types
-the new project messages that name one of its terminals with `@` into the agent in that
-terminal, as one line with who wrote it and from where.
-`kodosi terminal message <terminal> "text"` sends such a line to an agent on any computer,
-as a terminal control. The terminal types a message only while its agent reports a state
-other than waiting for a person and nobody types there, and Enter follows as a key of its
-own.
-A change of a running agent's model, effort or permissions, from a terminal's actions or
-`kodosi terminal agent <terminal>`, goes to the host as `session.agent`, or as a terminal control from
-another computer. The host turns it into the agent's own commands, which only some agents
-have for each setting, and types them by the rules of a message once the agent reports
-that it waits for its next prompt, and not while its screen shows a question that it asks
-without reporting it, as Claude Code asks a person to confirm a new model or effort for a
-conversation whose cache is warm; until then the terminal's metadata shows the change as
-waiting. The host reads what the agent started with from its arguments, and the metadata
-carries that with each change that Kodosi typed.
+Kodosi reaches an agent only through what the agent's own CLI offers. Each terminal
+carries Kodosi's note for agents and the place of Kodosi's skills in its environment, and
+the host writes them into a folder of its own. Kodosi writes nothing into an agent's own
+folders, so an agent outside a Kodosi terminal does not change.
 
-The host also writes a plugin folder in its `agents` folder at each start, with the
-`kodosi`, `kodosi-canvas` and `kodosi-documents` skills and a hook that gives Claude Code
-the note at the start of each session with `kodosi skill context`. Claude Code finds the
-plugin through `CLAUDE_CODE_PLUGIN_DIRS`, and Copilot CLI finds its skills through
-`COPILOT_SKILLS_DIRS` and the note, an instructions file for every path in the `agents`
-folder, through `COPILOT_CUSTOM_INSTRUCTIONS_DIRS`, each after the person's own folders.
-Other agents can read a skill with `kodosi skill`. Kodosi writes nothing into an agent's
-own folders, so an agent outside a Kodosi terminal does not change.
+The host types a project message that names one of its terminals into the agent in that
+terminal, and the `kodosi` command sends such a line to an agent on any computer. A change
+of a running agent's model, effort or permissions is also typed, as the agent's own
+command. The host types only while the agent can take it: not while it waits for a
+person, and not while a person types there.
 
 ## Canvas
 
-The host keeps the canvas of each terminal: the files that an agent showed with
-`kodosi show <file>`, by path, each with a revision: the canvas's stamp when the file came
-or last changed, so a path never gets the same revision twice. Once a second, while the
-canvas has files, it compares their size and change time, and a change gives a new
-revision. Each show also names what it showed, a file or the browser, as `open`, with the
-time on the terminal's computer, later than each show and change before. Each change names
-what changed the same way, as `change`: each `kodosi browser <command>` of the agent, its
-`kodosi doc apply` to a file of the canvas, and each new revision of a file. An app acts on
-each once, after the app started, while the terminal is in front or when it comes to the
-front: a show opens its canvas there, and a change opens a canvas that a person did not
-close on that device. `kodosi show <address>`, and an HTML page that loads from the network,
-open in the shared browser with agent-browser's `open`. Markdown, text and data files
-become pages with the style of the skill's page template. The list goes with the
-terminal's state to each client and to each device on the terminal's encrypted channel. An
-app asks for the content of one revision with `canvas.request` and gets it in parts of
-256 KiB, so a device of another computer reads it over the same channel. Each app keeps
-what it read by revision.
-
-A person adds a file with `canvas.request` in parts too. The host writes the parts beside
-the file's place in the terminal's folder, so an agent never sees a part of it, and a new
-empty file claims the free name before the whole file moves there.
+The host keeps the canvas of each terminal: the files that its agent showed, and its
+shared browser. The list travels with the terminal's state to each client, and to other
+devices on the terminal's encrypted channel. An app reads a file's content, and adds a
+file, over that same channel.
 
 ### Live documents
 
-[documents/](../documents/) is a decoupled system: its crates and views import nothing of
-Kodosi. One task on the host owns each open file and keeps a plain document value. Each
-change goes through that value in order, reaches the journal, and then goes to every view
-with its rev. A key-named change is always valid. A change that names a position is valid
-only on the latest positions; else the view moves its edit and sends it again. So there is
-no CRDT. The host saves two seconds after the last change and at most 15 seconds after the
-first, swaps only the changed parts of the file, and renames it into place. After a crash
-it opens the file and replays the journal. An outside write merges by comparing it with the
-last saved state. The document closes 60 seconds after its last view leaves.
+[documents/](../documents/) is a separate system: its crates and views import nothing of
+Kodosi. One task on the host owns each open file. Every change goes through it in order
+and then to every view, so there is no CRDT: a change that names a position is valid only
+on the latest state, and otherwise the view moves its edit and sends it again. The host
+keeps a journal, saves the file in place and merges what another program writes.
 
-The view bundle is one static page in each app, in a closed web page with no way to the
-network. Each app keeps the web page of a file apart from its canvas, so a page that leaves
-the screen keeps its place and its undo, and it closes after five minutes out of sight.
-A view's frames go through the app to `document.open`, `document.send` and
-`document.frame`. On the same computer the host's local connection carries them. From
-another device they travel on the terminal's encrypted channel as pipe frames, when the
-pacer has room and no terminal output waits. Agents use the same server with `kodosi doc`,
-which the host runs by its arguments. The Tauri app in `documents/app/` is a second host,
-with one viewer for each window. It is a separate build with its own workspace and
-`Cargo.lock`, so Kodosi links only the crates.
+The views are one static page in each app, in a closed web page with no way to the
+network. Their frames go through the app to the host, over the terminal's encrypted
+channel from another device. Agents use the same server with `kodosi doc`. The Tauri app
+in `documents/app/` is a second host of the same crates and a separate build.
 
 ### Shared browser
 
-[browser/](../browser/) is decoupled too. The host opens one window of Kodosi Browser for
-each terminal. Kodosi Browser is [browser/engine/](../browser/engine/) on a ready-built CEF:
-Chromium that draws each page off screen, with no window, no icon and no display, and a
-debug port on `127.0.0.1`, or on `::1` when that port is taken. The host takes the port's
-address only from the line that the engine prints when the port listens, so a program that
-holds the port first gets nothing from the host. It talks with its host on one local WebSocket, which it opens
-with a one-time token, and it ends when that link ends. Its tabs cancel the requests that
-EasyList and EasyPrivacy name; each engine build takes the lists of that day. The first
-window, or a person in Settings, gets the engine from a signed feed, one download at a time.
-The host looks at the feed each day: a browser that starts after an update uses the new
-engine, a browser that runs keeps its own, and the old engine goes when the host starts
-again. Words that a person types as an address and that name no computer go to Google's
-search.
+[browser/](../browser/) is a separate system too. The host runs one window of Kodosi
+Browser for each terminal: Chromium on a ready-built CEF that draws off screen and shows
+nothing on the computer. The host gets it from a signed feed and keeps it up to date.
 
-While a device looks, the engine encodes the window's tab as H.264, with VideoToolbox on
-the Mac and OpenH264 on Linux and Windows, and sends the frames on its link. A viewer's
-pipe carries these frames, and the viewer sends back an ack for each one. One encoder
-serves all viewers of a window, and the host steers its bitrate from the round trip, so no
-queue forms. A viewer that falls behind gets nothing until the next key frame, which comes
-once the floor of a second between key frames passes, also on a still page. A picture that
-the encoder or the link drops makes the page draw again, so a page that stops changing
-still reaches the viewers as it is. The Mac and iPhone apps show frames on a display
-layer. The Linux and Windows app decodes with OpenH264 in the runtime library. Clicks,
-keys and text come back on the pipe, and the host gives them to the page on the debug
-port. A `<select>`, a right-click, a dialog and a file picker reach the viewer as state,
-and the app draws them.
+While a device looks, the engine encodes the page as video. The frames, and the clicks
+and keys that come back, travel on the terminal's encrypted channel, or straight between
+two devices that can reach each other, under the same device keys. The agent drives its
+window with agent-browser through a port that the host serves, where it sees only the
+tabs of its own terminal.
 
-A viewer on another device asks on the terminal's channel for a straight connection. The
-host opens a port from 47360 to 47379 for a few seconds, and answers with its addresses.
-The viewer tries them at once, and the channel's TLS runs on TCP with the same device keys.
-The host lets only the viewer's device through. When no address answers, the pipe uses the
-terminal's channel, where terminal output goes first. The path stays until the pipe ends,
-and the view then joins again.
-
-The host runs each `kodosi browser <command>` in the agent's folder as agent-browser, with
-the terminal's own session, Kodosi's settings and none of the person's `AGENT_BROWSER_*`
-variables. agent-browser connects to its window's driver port, which the host serves on
-`127.0.0.1` in front of the debug port. There it sees only the tabs of its window, the
-active one first; a tab that it opens is a tab of the window, and a tab that it switches to
-becomes the window's active tab. The host answers the commands that would change the
-browser for every window, such as auto-attach and downloads, and refuses the ones that
-would end the browser. agent-browser leaves after a minute with no command, because a page
-can notice a client on the debug port. While a command runs, the browser's state names
-the agent, what it does and the point of its target, which agent-browser's `get box --json`
-gives, and the command waits a moment, so the agent's pointer arrives first.
-
-After 10 minutes with no use and nobody looking, the window closes. The browser exits with
-its last window, and the terminal's restore record keeps the last page. A person's private
-terminals share one kept profile. A shared terminal has a profile of its own, which goes
-with the terminal, and a new host deletes the profiles that no terminal has. Settings ›
-Browser reads the cookies of another browser's store before a browser starts, puts them
-into the kept profile on the debug port, and notes which ones, so a button can remove them
-again. Another button deletes the kept profile. macOS keeps the data of Safari and of other
-browsers from apps without Full Disk Access. The host asks the system whether it may read a
-browser's data before it reads any, so looking at the browsers is never a refused read, and a
-browser that macOS keeps waits for Full Disk Access.
+A person's private terminals share one kept browser profile. A shared terminal has a
+profile of its own, which goes with the terminal.
 
 ## Languages
 
-Each part takes the words of the language that it shows. The apps keep their own words in
-String Catalogs, Qt translation files and Android string resources, and the document views in
-[documents/views/words](../documents/views/words/). The runtime marks each sentence for
-people with `text!` and gives it to an app as its English template and values; the app's
-runtime fills it in the language that the app set with `kodosi_set_language`, from
-`runtime/texts/<language>.json`. The `kodosi` command, the host and the logs use English,
-and the detail of an internal fault stays English after a general sentence. The backend
-answers in English, and the runtime turns its known answers into such sentences. The
-sign-in pages, the account page and the mails are the Keycloak theme in
-[sign-in/](../sign-in/).
+Each part takes the words of the language that it shows. The apps keep their own words,
+and the runtime marks each sentence for people and gives it to an app as an English
+template with values, which the app's runtime fills in the app's language. The `kodosi`
+command, the host and the logs use English. The backend answers in English, and the
+runtime turns its known answers into such sentences. The sign-in pages, the account page
+and the e-mails are the Keycloak theme in [sign-in/](../sign-in/).
 
 ## Contracts
 
 The runtime, the apps and the backend meet at the contracts in [protocol/](../protocol/)
 and the [C header](../clients/apple/Sources/KodosiKit/kodosi_runtime.h); change them
-together. The backend's `/health/live` names the range of API and terminal protocol
-versions it serves. An older app asks the person to update, and a newer one says that
-the server is behind.
+together. The backend names the range of API and terminal protocol versions that it
+serves. An older app asks the person to update, and a newer one says that the server is
+behind.

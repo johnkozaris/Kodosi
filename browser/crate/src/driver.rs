@@ -1,6 +1,5 @@
-//! The debug connection that the agent's driver gets for one window. A person's terminals share
-//! one browser, so a driver sees only the tabs of its own window, and the commands that would
-//! change the browser for every window get their answer here.
+//! A person's terminals share one browser, so a driver sees only the tabs of its own window, and
+//! the commands that would change the browser for every window get their answer here.
 
 use std::{
     borrow::Cow,
@@ -28,7 +27,6 @@ const MOST_DRIVERS: usize = 8;
 const MOST_OPENING: usize = 8;
 const MOST_ASKED: usize = 1024;
 const MOST_HELD: usize = 256;
-/// How long a new page waits to be placed in a window. The host's own pages never are.
 const HOLD_LIMIT: Duration = Duration::from_secs(5);
 const BLANK: &str = "about:blank";
 /// The host attaches to each tab itself, because CEF's browser-wide auto-attach holds back the
@@ -44,8 +42,8 @@ const REFUSED: [&str; 6] = [
     "Target.disposeBrowserContext",
 ];
 
-/// The driver port of a window, bound before the window opens. Only the path with its token opens
-/// it, so a page that finds the port gets nothing.
+/// Only the path with its token opens the driver port, so a page that finds the port gets
+/// nothing.
 pub(crate) struct Listener {
     tcp: TcpListener,
     port: u16,
@@ -198,7 +196,6 @@ async fn serve(stream: TcpStream, engine: Arc<Engine>, window: i64, path: String
 #[derive(Debug, PartialEq, Eq)]
 enum Ask {
     Pass,
-    /// It goes to the browser, and the window shows this tab to its people too.
     Show(String),
     Answer(String),
     /// The engine answers the dialog of this tab, and the view answers the driver.
@@ -208,7 +205,6 @@ enum Ask {
         text: Option<String>,
         answer: String,
     },
-    /// A new tab of this window, whose target answers the command.
     Open {
         id: u64,
         address: String,
@@ -251,7 +247,6 @@ struct Command {
     params: Value,
 }
 
-/// The parts of a browser message that decide its way, read without its body.
 #[derive(Deserialize)]
 struct Head<'a> {
     id: Option<u64>,
@@ -267,7 +262,6 @@ struct View {
     opened: HashSet<String>,
     /// Targets that the driver knows of.
     told: HashSet<String>,
-    /// The driver's sessions, with their targets.
     sessions: HashMap<String, String>,
     asked: HashMap<u64, Asked>,
     /// News of pages that are not placed yet, in their order.
@@ -509,7 +503,7 @@ impl View {
         }
     }
 
-    /// The window's pages, with its active tab first, which a driver takes when it starts.
+    /// The active tab comes first, because a driver takes the first page when it starts.
     fn targets(
         &mut self,
         text: &str,
@@ -537,7 +531,6 @@ impl View {
         Tell::Changed(answer.to_string())
     }
 
-    /// News of pages that are now placed, in their order. The rest wait a little longer.
     fn release(&mut self, place: impl Fn(&str) -> Option<i64>, now: Instant) -> Vec<String> {
         let mut released = Vec::new();
         for held in std::mem::take(&mut self.held) {

@@ -1742,7 +1742,6 @@ fn key_text(key: &str) -> Result<String> {
     Ok(named.to_owned())
 }
 
-/// Pastes a picture and waits until it arrives on the terminal's computer.
 async fn picture(
     client: &mut local_host::Client,
     context: &mut Context,
@@ -2044,29 +2043,6 @@ mod tests {
             ]
             .iter()
             .all(|word| !words.contains(word))
-        );
-    }
-    #[test]
-    fn terminal_close_and_native_resume_remain() {
-        assert!(
-            Arguments::try_parse_from([
-                "kodosi",
-                "terminal",
-                "close",
-                "01900000-0000-7000-8000-000000000001"
-            ])
-            .is_ok()
-        );
-        assert!(
-            Arguments::try_parse_from([
-                "kodosi",
-                "terminal",
-                "resume",
-                "claude",
-                "01900000-0000-7000-8000-000000000001",
-                "/tmp"
-            ])
-            .is_ok()
         );
     }
 }

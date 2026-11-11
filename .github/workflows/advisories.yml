@@ -1,0 +1,42 @@
+name: Advisories
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - runtime/Cargo.lock
+      - deny.toml
+      - .github/workflows/advisories.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: just
+      - id: versions
+        run: echo "tool=cargo-deny@$(just --evaluate cargo_deny_version)" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: ${{ steps.versions.outputs.tool }}
+      - name: Put the check tool where the recipe finds it
+        run: |
+          mkdir -p .tools/rust/bin
+          ln -s "$(command -v cargo-deny)" .tools/rust/bin/
+      - run: just rust-advisories-check

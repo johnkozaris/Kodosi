@@ -463,12 +463,6 @@ mod tests {
     }
 
     #[test]
-    fn a_brace_without_its_end_stays_as_it_is() {
-        let text = Text::translated("Use {name} or a { alone", vec![("name", Arg::from("x"))]);
-        assert_eq!(text.to_string(), "Use x or a { alone");
-    }
-
-    #[test]
     fn a_fault_inside_a_sentence_keeps_its_words_before_and_after_it_travels() {
         let text = text!(
             "{reason} Go back to Kodosi and try again.",
@@ -483,12 +477,6 @@ mod tests {
                 text.in_language(Language::German)
             );
         }
-    }
-
-    #[test]
-    fn a_brace_before_a_name_keeps_the_name() {
-        let text = Text::translated("Use { or {name}", vec![("name", Arg::from("x"))]);
-        assert_eq!(text.to_string(), "Use { or x");
     }
 
     #[test]

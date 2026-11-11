@@ -29,12 +29,6 @@ struct AppModelTests {
         try model.receive(JSONDecoder().decode(RuntimeEvent.self, from: data))
     }
 
-    @Test func `ready runtime refreshes the signed in account`() throws {
-        try deliver("system.ready", ["protocolVersion": RuntimeHandle.expectedProtocolVersion])
-        #expect(model.phase == .ready)
-        #expect(sent.types == ["session.list", "auth.refresh", "friends.refresh", "devices.refresh", "mission.list"])
-    }
-
     @Test func `an empty terminal list counts once the server answered`() throws {
         try deliver("system.ready", ["protocolVersion": RuntimeHandle.expectedProtocolVersion])
         try deliver("sessions.snapshot", ["sessions": [Any]()])

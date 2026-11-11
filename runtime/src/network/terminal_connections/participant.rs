@@ -20,11 +20,10 @@ fn picture_not_confirmed() -> Text {
     text!("The other computer did not confirm the picture. Paste it again.")
 }
 
-/// A picture on its way to the host. The host asks for its parts when it does not have the
-/// picture. In transit are twice the bytes that the link carries in the shortest round trip of
-/// a part, and at most half a second of them, as of output: so the link stays full, and input
-/// waits behind the parts for about one round trip. The speed is how fast the parts arrived on
-/// the host's clock, which answers that come late or together do not change.
+/// In transit are twice the bytes that the link carries in the shortest round trip of a part, and
+/// at most half a second of them, as of output: so the link stays full, and input waits behind
+/// the parts for about one round trip. The speed is how fast the parts arrived on the host's
+/// clock, which answers that come late or together do not change.
 struct Upload {
     id: Uuid,
     picture: crate::terminal::Picture,
@@ -90,8 +89,6 @@ impl Upload {
         Ok(frame)
     }
 
-    /// The host had `received` bytes at `at`. Each part that arrived tells a round trip, and the
-    /// bytes that arrived in the last round trip on the host's clock tell the speed.
     #[expect(
         clippy::cast_precision_loss,
         reason = "a speed does not need exact byte counts"
@@ -789,8 +786,6 @@ impl<T: Transport> Viewer<T> {
         self.channel.send(&frame).await.map(|_| ())
     }
 
-    /// Follows the host's answer for the picture on its way. A late answer, for a picture that
-    /// this view stopped waiting for, changes nothing.
     async fn picture_state(&mut self, state: PictureState) -> Result<()> {
         let Some(upload) = self.upload.as_mut().filter(|upload| upload.id == state.id) else {
             return Ok(());

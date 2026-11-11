@@ -37,7 +37,7 @@ final class TerminalTypeAhead {
         terminal = id
     }
 
-    /// The new terminal took the keyboard. A responder changes after it accepts, so the keys go next.
+    /// A responder changes after it accepts, so the keys go next.
     func deliver(to id: String) {
         guard isHolding, id == terminal else { return }
         let held = keys

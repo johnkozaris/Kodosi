@@ -1,0 +1,78 @@
+name: Windows package
+
+on:
+  schedule:
+    - cron: "47 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
+        with:
+          tool: just
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - name: Install Rust, NASM and python3
+        run: |
+          rustup toolchain install
+          choco install nasm --no-progress --yes
+          echo 'C:\Program Files\NASM' >> "$GITHUB_PATH"
+          # The runner's Git Bash has python, not python3.
+          tools="$(cygpath -u "$RUNNER_TEMP")/kodosi-tools"
+          mkdir -p "$tools"
+          printf '#!/bin/sh\nexec python "$@"\n' > "$tools/python3"
+          chmod +x "$tools/python3"
+          cygpath -w "$tools" >> "$GITHUB_PATH"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: clients/qt/.tools
+          key: qt-tools-windows-${{ hashFiles('clients/qt/dependencies.lock.json') }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .tools/agent-browser
+          key: agent-browser-windows-release-${{ hashFiles('AgentBrowser.lock', 'rust-toolchain.toml', 'scripts/build-agent-browser.py') }}
+      - name: Make a test certificate like the release certificate
+        run: clients/qt/scripts/release/make-signing-certificate.sh "$(cygpath -u "$RUNNER_TEMP")/certificate"
+      - name: Put the test key in the certificate store
+        shell: pwsh
+        run: |
+          Import-PfxCertificate -FilePath "$env:RUNNER_TEMP\certificate\Kodosi.pfx" `
+            -CertStoreLocation Cert:\CurrentUser\My -Password (New-Object System.Security.SecureString) | Out-Null
+      - name: Build, test and package the app
+        run: KODOSI_MSIX_PUBLISHER="CN=Kodosi" just --justfile clients/qt/justfile windows-package
+      - name: Bundle the package and sign the bundle
+        working-directory: clients/qt
+        run: |
+          just windows-bundle
+          KODOSI_SIGNING_CERTIFICATE="$(cygpath -u "$RUNNER_TEMP")/certificate/Kodosi.cer" \
+            just windows-sign "build/release/Kodosi-$(cat ../../VERSION).msixbundle"
+      - name: Trust the certificate, install the bundle and run kodosi
+        shell: pwsh
+        run: |
+          Import-Certificate -FilePath "$env:RUNNER_TEMP\certificate\Kodosi.cer" `
+            -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
+          $version = (Get-Content VERSION).Trim()
+          Add-AppxPackage -Path (Resolve-Path "clients\qt\build\release\Kodosi-$version.msixbundle").Path
+          $output = & "$env:LOCALAPPDATA\Microsoft\WindowsApps\kodosi.exe" --version
+          if ($LASTEXITCODE -ne 0 -or "$output" -notmatch [regex]::Escape($version)) {
+            throw "kodosi --version printed '$output'"
+          }
+          Get-AppxPackage com.kodosi.Kodosi | Remove-AppxPackage

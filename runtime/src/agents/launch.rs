@@ -11,7 +11,7 @@ use std::{
 use super::{
     Agent, AgentAccount, AgentCatalog, AgentChoice, AgentChoiceChange, AgentInfo, AgentModel,
     AgentModels, AgentModelsReply, AgentOption, AgentPick, AgentStart, AgentUsageReply, Output,
-    Permissions, typed, usage,
+    Permissions, as_shell_word, usage,
 };
 
 const FILE: &str = "launcher.json";
@@ -173,8 +173,6 @@ impl Launcher {
         Ok(start.agent.with_context(&line, &self.shell))
     }
 
-    /// The place of `folder` among the accounts of `agent`, in the order of the launcher; a
-    /// folder that the accounts do not have comes after them.
     pub(crate) async fn account_of(&self, agent: Agent, folder: &Path) -> Option<u8> {
         let mut place = None;
         for refresh in [false, true] {
@@ -294,14 +292,12 @@ impl State {
     }
 }
 
-/// The permissions that an agent starts with: the last choice that it has, else its default.
 fn permissions_of(agent: Agent, saved: Option<Permissions>) -> Permissions {
     saved
         .filter(|permissions| agent.permission_words(*permissions).is_some())
         .unwrap_or_else(|| agent.default_permissions())
 }
 
-/// The output that an agent starts with: the last choice that it has, else its default.
 fn output_of(agent: Agent, saved: Option<Output>) -> Output {
     saved
         .filter(|output| agent.output_words(*output).is_some())
@@ -409,7 +405,7 @@ pub(super) fn plan(
     ]
     .into_iter()
     .flatten()
-    .chain(words.map(|word| typed(shell, word)))
+    .chain(words.map(|word| as_shell_word(shell, word)))
     .collect::<Vec<_>>()
     .join(" ");
     Ok((
@@ -425,7 +421,6 @@ pub(super) fn plan(
     ))
 }
 
-/// The permissions and the output that an agent starts with, and their words.
 fn modes(
     agent: Agent,
     saved: &AgentPick,

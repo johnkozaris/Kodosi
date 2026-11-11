@@ -3,8 +3,7 @@ import KodosiDesign
 import SwiftUI
 import UserNotifications
 
-/// The permissions of macOS that Kodosi uses, with their state and the way to give them. macOS
-/// tells no app whether it has App Management, so its row only opens the list.
+/// macOS tells no app whether it has App Management, so its row only opens the list.
 struct PermissionsGroup: View {
     @Environment(\.theme) private var theme
     @State private var notifications: UNAuthorizationStatus?
@@ -51,7 +50,7 @@ struct PermissionsGroup: View {
         }
     }
 
-    /// The name of the list of Accessibility in System Settings, which macOS 27 renamed.
+    /// macOS 27 renamed the list of Accessibility in System Settings.
     private static var deviceControl: String {
         if #available(macOS 27, *) {
             String(localized: "Device Control and Data Access")
@@ -74,8 +73,6 @@ struct PermissionsGroup: View {
     }
 }
 
-/// Full Disk Access: on, or a button that opens it in System Settings with Kodosi's icon to drag
-/// into the list.
 struct FullDiskAccessRow: View {
     @Environment(\.theme) private var theme
     @State private var granted = Privacy.fullDiskAccess
@@ -97,8 +94,6 @@ struct FullDiskAccessRow: View {
     }
 }
 
-/// A permission that Kodosi asks macOS for: on, or a button that asks, which lists Kodosi in
-/// System Settings, and opens that list with Kodosi's icon beside it.
 private struct GrantRow: View {
     @Environment(\.theme) private var theme
     let pane: Privacy.Pane

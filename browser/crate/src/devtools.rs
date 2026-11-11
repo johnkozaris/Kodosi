@@ -18,7 +18,6 @@ use crate::Error;
 const CALL_LIMIT: Duration = Duration::from_secs(10);
 const OUTGOING: usize = 1024;
 
-/// One event of the browser or of a page.
 #[derive(Debug)]
 pub(crate) struct Event {
     pub session: Option<String>,
@@ -28,7 +27,6 @@ pub(crate) struct Event {
 
 type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, Error>>>>>;
 
-/// The browser's debug connection.
 #[derive(Clone)]
 pub(crate) struct Devtools {
     outgoing: mpsc::Sender<String>,
@@ -110,7 +108,6 @@ impl Devtools {
         ))
     }
 
-    /// Sends a command and waits for its answer.
     pub(crate) async fn call(
         &self,
         method: &str,
@@ -139,8 +136,7 @@ impl Devtools {
             .map_err(|_| Error::Stopped)?
     }
 
-    /// Sends a command in order with the others, with no wait for its answer. A person's input
-    /// must not wait for the page to take the event before it.
+    /// A person's input must not wait for the page to take the event before it.
     pub(crate) fn send(&self, method: &str, params: &Value, session: Option<&str>) {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let message = command(method, params, session, id);

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// A room to choose: a raised capsule with a copper check while it is chosen, else a well.
 public struct RoomChoice: View {
     @Environment(\.theme) private var theme
     let name: String
@@ -35,8 +34,6 @@ public struct RoomChoice: View {
     }
 }
 
-/// A friend to choose: their face, with a copper ring and check while they are chosen, and their
-/// first name.
 public struct FriendChoice: View {
     @Environment(\.theme) private var theme
     let name: String

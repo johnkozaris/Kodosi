@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// A key with its modifiers. `key` is the character of the key without modifiers, or its symbol.
+/// `key` is the character of the key without modifiers, or its symbol.
 struct KeyChord: Codable, Hashable {
     struct Modifiers: OptionSet, Codable, Hashable {
         let rawValue: Int
@@ -80,7 +80,6 @@ struct KeyChord: Codable, Hashable {
     }
 }
 
-/// What a key can do in the app. The defaults are Ghostty's keys and Kodosi's own.
 enum AppShortcut: String, CaseIterable, Identifiable {
     case newTerminal, sameAgent, quickTerminal, resume, close, minimize, zoom, details
     case previousTerminal, nextTerminal, leftTerminal, rightTerminal, upTerminal, downTerminal, numberedTerminal
@@ -147,7 +146,7 @@ enum AppShortcut: String, CaseIterable, Identifiable {
     }
 }
 
-/// The keys of each action. Only what the person changed is kept.
+/// Only what the person changed is kept.
 struct ShortcutTable: Codable, Equatable {
     private var changed: [AppShortcut.RawValue: [KeyChord]] = [:]
 
@@ -159,7 +158,6 @@ struct ShortcutTable: Codable, Equatable {
         changed[action.rawValue] ?? action.defaults
     }
 
-    /// The action of a key, and the digit of a numbered terminal.
     func match(_ chord: KeyChord) -> (action: AppShortcut, number: Int?)? {
         if let action = AppShortcut.allCases.first(where: { $0 != .numberedTerminal && keys(for: $0).contains(chord) }) {
             return (action, nil)
@@ -170,7 +168,7 @@ struct ShortcutTable: Codable, Equatable {
         return (.numberedTerminal, number)
     }
 
-    /// Gives `chord` to `action`, in place of `old`. Returns the action that had the key.
+    /// Returns the action that had the key.
     @discardableResult
     mutating func bind(_ chord: KeyChord, to action: AppShortcut, replacing old: KeyChord? = nil) -> AppShortcut? {
         var chord = chord

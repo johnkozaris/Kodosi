@@ -4,10 +4,6 @@ use serde::{Deserialize, Serialize};
 use super::last_value;
 use super::{Agent, Output, Permissions};
 
-/// The model, effort, permissions and output of a running agent.
-///
-/// Kodosi knows what the agent started with and what Kodosi changed since. In a change, the
-/// fields that are set are the ones to change.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AgentSettings {
@@ -33,8 +29,7 @@ impl AgentSettings {
             .all(|value| is_value(value))
     }
 
-    /// These settings with the fields that `change` sets. A new model without an effort runs
-    /// at its own effort, which Kodosi doesn't know.
+    /// A new model without an effort runs at its own effort, which Kodosi doesn't know.
     #[must_use]
     pub fn changed(&self, change: &Self) -> Self {
         let effort = match (&change.model, &change.effort) {
@@ -59,13 +54,11 @@ pub(crate) const NO_RUNNING_AGENT: &str = "No agent runs in front in this termin
 #[cfg(feature = "host")]
 const CLAUDE_QUESTIONS: [&str; 2] = ["Switch model?", "Change effort level?"];
 
-/// Whether `screen` shows one of `questions` on a line of its own.
 #[cfg(feature = "host")]
 pub(crate) fn asks(questions: &[&str], screen: &str) -> bool {
     screen.lines().any(|line| questions.contains(&line.trim()))
 }
 
-/// What the agent `program` can change while it runs, when it can change anything.
 pub(crate) fn live_of(program: Option<&str>) -> Option<AgentLive> {
     program
         .and_then(Agent::named)
@@ -73,14 +66,12 @@ pub(crate) fn live_of(program: Option<&str>) -> Option<AgentLive> {
         .filter(|live| !live.is_empty())
 }
 
-/// What a running agent can change with its own commands, without starting again.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentLive {
     pub model: bool,
     pub effort: bool,
     pub permissions: Vec<Permissions>,
-    /// The agent also keeps a model or effort that it changes to for its next sessions.
     pub keeps: bool,
 }
 
@@ -91,8 +82,6 @@ impl AgentLive {
 }
 
 impl Agent {
-    /// The questions that the agent asks a person on its screen without reporting that it
-    /// waits. Kodosi types none of the agent's commands while one shows.
     #[cfg(feature = "host")]
     pub(crate) const fn screen_questions(self) -> &'static [&'static str] {
         match self {
@@ -132,8 +121,6 @@ impl Agent {
         }
     }
 
-    /// The agent's own commands that make `change` while it runs, each with the part of the
-    /// change that it makes.
     #[cfg(feature = "host")]
     pub(crate) fn live_lines(
         self,
@@ -223,7 +210,6 @@ impl Agent {
         Ok(lines)
     }
 
-    /// What the agent that runs with `arguments` started with.
     #[cfg(feature = "host")]
     pub(crate) fn started_with(self, arguments: &[String]) -> AgentSettings {
         if arguments.is_empty() {
@@ -307,7 +293,6 @@ impl Agent {
     }
 }
 
-/// A model or an effort that an agent's command takes as one word.
 fn is_value(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128

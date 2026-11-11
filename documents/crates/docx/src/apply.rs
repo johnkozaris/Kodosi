@@ -20,7 +20,6 @@ pub(crate) fn block_id(node: &Node) -> Option<&str> {
     node.attrs().get("id").and_then(Value::as_str)
 }
 
-/// The top-level blocks that a range of a document touches.
 fn touched_blocks(doc: &Node, from: usize, to: usize) -> Vec<String> {
     let Ok(first) = doc.resolve(from) else {
         return Vec::new();
@@ -158,7 +157,6 @@ fn content_key(node: &Node) -> String {
     json.to_string()
 }
 
-/// The blocks that both lists keep, as pairs of indexes.
 fn common_blocks(from: &[String], to: &[String]) -> Vec<(usize, usize)> {
     let mut start = 0;
     while start < from.len() && start < to.len() && from[start] == to[start] {
@@ -202,8 +200,6 @@ fn common_blocks(from: &[String], to: &[String]) -> Vec<(usize, usize)> {
     pairs
 }
 
-/// What turns one file's blocks into another's, named by block, so it holds on any later
-/// state.
 pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
     let keys = |model: &Model| -> Vec<String> {
         model
@@ -280,7 +276,6 @@ pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
     vec![Change::Merge { ops, keep, sources }]
 }
 
-/// Finds the pieces of original XML that a block's attributes name.
 fn collect_raws(json: &Value, model: &Model, keep: &mut BTreeMap<String, String>) {
     match json {
         Value::Object(fields) => {

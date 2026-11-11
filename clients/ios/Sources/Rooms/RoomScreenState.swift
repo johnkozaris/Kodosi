@@ -7,7 +7,6 @@ enum RoomSection: Int, Hashable {
     case terminals
 }
 
-/// How the phone shows one room: the chosen sections and its sheets.
 @Observable
 final class RoomScreenState {
     var section: RoomSection = .conversation

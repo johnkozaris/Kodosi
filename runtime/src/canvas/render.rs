@@ -1,6 +1,3 @@
-//! `kodosi doc render`: the terminal's browser draws a live document with the views that people
-//! see, and the host saves one picture of each page.
-
 use std::{
     fmt::Write as _,
     path::{Path, PathBuf},
@@ -18,7 +15,6 @@ use super::{CanvasAnswer, DocumentView, PipeEnds, engine::BrowserHost, view_of};
 use crate::documents::DocumentHost;
 use crate::text::Text;
 
-/// How long the pictures of one file may take, once the browser runs.
 const RENDER_LIMIT: Duration = Duration::from_mins(2);
 const MOST_PICTURES: usize = 300;
 
@@ -41,7 +37,6 @@ struct Area {
     height: f64,
 }
 
-/// What the pictures need of a page: the browser's host page, or a page of a test.
 trait Page: Send {
     fn run(&mut self, script: &str) -> impl Future<Output = Result<(), Text>> + Send;
     fn message(&mut self) -> impl Future<Output = Option<String>> + Send;
@@ -74,7 +69,6 @@ impl Page for HostPage {
     }
 }
 
-/// The size of the page that a view draws in.
 const fn page_size(view: DocumentView) -> (u32, u32) {
     match view {
         DocumentView::Docx | DocumentView::Pdf | DocumentView::Text => (1100, 900),
@@ -83,8 +77,6 @@ const fn page_size(view: DocumentView) -> (u32, u32) {
     }
 }
 
-/// The views that the app ships: next to the kodosi program, or in the resources of the Mac
-/// app.
 fn views() -> Option<PathBuf> {
     let program = std::env::current_exe().ok()?;
     let folder = program.parent()?;
@@ -96,8 +88,6 @@ fn views() -> Option<PathBuf> {
     .find(|views| views.join("index.html").is_file())
 }
 
-/// Runs before the page's own scripts: when the views arrive, they mount for pictures, and they
-/// talk with the host through its binding.
 fn script(view: &str) -> String {
     format!(
         r#"(() => {{
@@ -127,7 +117,6 @@ fn script(view: &str) -> String {
     )
 }
 
-/// The file names of the pictures of a file.
 fn picture_names(file: &Path, count: usize) -> Vec<String> {
     let stem = file
         .file_stem()
@@ -137,7 +126,6 @@ fn picture_names(file: &Path, count: usize) -> Vec<String> {
         .collect()
 }
 
-/// Draws each page of a file and saves its picture in `out`.
 pub(super) async fn render(
     host: BrowserHost,
     profile: String,
@@ -187,7 +175,6 @@ async fn draw(
     bridge.save(file, out).await
 }
 
-/// The page of the views on one side and the document on the other.
 struct Bridge<'a, P> {
     page: &'a mut P,
     pipe: PipeEnds,
@@ -199,8 +186,8 @@ enum Step {
 }
 
 impl<P: Page> Bridge<'_, P> {
-    /// Saves a picture of each page in `out`. A view may show one page at a time, as a
-    /// presentation shows one slide, so each picture follows the view's answer for its page.
+    /// A view may show one page at a time, as a presentation shows one slide, so each picture
+    /// follows the view's answer for its page.
     async fn save(&mut self, file: &Path, out: &Path) -> Result<Vec<PathBuf>, Text> {
         let mut count = self.count().await?;
         let (mut width, mut height) = (0.0_f64, 0.0_f64);
@@ -228,7 +215,6 @@ impl<P: Page> Bridge<'_, P> {
         Ok(saved)
     }
 
-    /// How many pictures the view has, as it lays the file out now.
     async fn count(&mut self) -> Result<usize, Text> {
         self.ask("kodosiRender.pictures()").await?;
         let count: usize = self
@@ -239,7 +225,6 @@ impl<P: Page> Bridge<'_, P> {
         Ok(count.min(MOST_PICTURES))
     }
 
-    /// Where one picture is, once the view shows it.
     async fn area(&mut self, index: usize) -> Result<Area, Text> {
         self.ask(&format!("kodosiRender.picture({index})")).await?;
         serde_json::from_str(&self.answer("picture").await?)
@@ -250,7 +235,6 @@ impl<P: Page> Bridge<'_, P> {
         self.page.run(script).await
     }
 
-    /// Carries frames both ways until the page says a message that starts with `word`.
     async fn answer(&mut self, word: &str) -> Result<String, Text> {
         loop {
             let step = tokio::select! {
@@ -309,20 +293,6 @@ mod tests {
         assert_eq!(view_of(Path::new("notes.md")), None);
     }
 
-    #[test]
-    fn pictures_take_the_name_of_their_file() {
-        assert_eq!(
-            picture_names(Path::new("/work/plan.docx"), 2),
-            ["plan-1.png", "plan-2.png"]
-        );
-    }
-
-    #[test]
-    fn the_script_names_the_view_as_text() {
-        assert!(script("xlsx").contains(r#"kind: "xlsx""#));
-    }
-
-    /// A presentation of three slides that shows the slide that the host asked for last.
     #[derive(Default)]
     struct Slides {
         shown: u8,

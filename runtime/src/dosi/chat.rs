@@ -72,7 +72,6 @@ impl Output {
     }
 }
 
-/// The account of the person and this device in it, whose devices share one conversation.
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct Account {
     pub user: Uuid,
@@ -80,19 +79,14 @@ pub(crate) struct Account {
     pub computer: String,
 }
 
-/// What another device did that the Dosi of this device acts on.
 pub(super) enum Heard {
-    /// The server lost the records after the last one that this device knew.
-    Reset,
-    /// A newer conversation replaced the one that this device worked in.
-    Adopted,
-    /// Another device stopped the turn that runs here.
+    RecordsLost,
+    ConversationReplaced,
     #[cfg_attr(
         not(feature = "host"),
         expect(dead_code, reason = "only a computer runs turns")
     )]
     Stopped(String),
-    /// Another device answered a question that Dosi asked here.
     #[cfg_attr(
         not(feature = "host"),
         expect(dead_code, reason = "only a computer asks")
@@ -150,7 +144,6 @@ pub(super) struct Ask {
     state: Asked,
 }
 
-/// Where a record is in the room, and whether this device wrote it.
 #[derive(Clone, Copy)]
 struct Seen {
     sequence: u64,
@@ -158,8 +151,6 @@ struct Seen {
     restoring: bool,
 }
 
-/// Dosi's one conversation as this device knows it: the records that the person's devices
-/// wrote in the Dosi room, in the room's order, and the records that this device writes there.
 pub(super) struct Chat {
     store: Store,
     messages: mpsc::Sender<Message>,
@@ -214,7 +205,6 @@ impl Chat {
         });
     }
 
-    /// Whether `account` is another account than the one that this device shares now.
     pub(super) fn differs(&self, account: Option<&Account>) -> bool {
         match (&self.log, account) {
             (Log::Local { .. }, None) => false,
@@ -315,15 +305,13 @@ impl Chat {
         }
     }
 
-    /// Whether `device` is one of the person's devices now.
     fn current_device(&self, device: &str) -> bool {
         self.devices
             .as_ref()
             .is_some_and(|devices| devices.contains(device))
     }
 
-    /// An id for a new conversation, which sorts after every conversation that this device
-    /// knows, also when its clock is behind.
+    /// Sorts after every conversation that this device knows, also when its clock is behind.
     fn fresh_id(&self) -> String {
         let id = Uuid::now_v7().to_string();
         let Some(floor) = self.marks.floor().filter(|floor| *floor >= id.as_str()) else {
@@ -351,7 +339,6 @@ impl Chat {
     }
 
     #[cfg(feature = "host")]
-    /// The name of this computer in the records that it writes.
     pub(super) fn computer(&self) -> String {
         match &self.log {
             Log::Local { .. } => String::new(),
@@ -374,7 +361,6 @@ impl Chat {
         self.conversation.as_mut()
     }
 
-    /// The conversation, after a new one begins when there is none.
     pub(super) fn current(&mut self, out: &mut Output) -> &mut Conversation {
         if self.conversation.is_none() {
             self.renew(out);
@@ -431,7 +417,6 @@ impl Chat {
     }
 
     #[cfg(feature = "host")]
-    /// The oldest message that waits for this device to answer it.
     pub(super) fn asked_here(&self) -> Option<&Ask> {
         self.asks.iter().find(|ask| {
             ask.state == Asked::Waiting
@@ -441,7 +426,6 @@ impl Chat {
         })
     }
 
-    /// Marks the message for the turn `turn` as answered here, before its turn opens.
     #[cfg(feature = "host")]
     pub(super) fn take(&mut self, turn: &str) {
         self.settle_turn(turn);
@@ -450,8 +434,6 @@ impl Chat {
         }
     }
 
-    /// A turn opened for the message of `turn`, also when the person took it back while its
-    /// computer started it.
     fn opened(&mut self, turn: &str) {
         self.settle_turn(turn);
         let Some(ask) = self.asks.iter_mut().find(|ask| ask.turn == turn) else {
@@ -465,7 +447,6 @@ impl Chat {
         ask.state = Asked::Taken;
     }
 
-    /// Writes a message of the person for `computer`, which answers it in a turn of its own.
     pub(super) fn ask(
         &mut self,
         text: &str,
@@ -522,8 +503,6 @@ impl Chat {
         Ok(())
     }
 
-    /// Takes back the message `item` that waits for its computer. It answers whether there was
-    /// such a message.
     pub(super) fn take_back(&mut self, item: &str, out: &mut Output) -> bool {
         let Some(turn) = self
             .asks
@@ -539,8 +518,6 @@ impl Chat {
         true
     }
 
-    /// Answers a question in the conversation. It answers the answered question, and whether
-    /// Dosi asked it on this device, which then goes on with the answer.
     pub(super) fn answer(
         &mut self,
         item: &str,
@@ -558,7 +535,6 @@ impl Chat {
         Ok((answered, here))
     }
 
-    /// Closes the questions that Dosi asked here and that wait for an answer.
     #[cfg(feature = "host")]
     pub(super) fn close_own_questions(&mut self, out: &mut Output) {
         let Some(conversation) = self.conversation.as_mut() else {
@@ -570,7 +546,6 @@ impl Chat {
         }
     }
 
-    /// Stops the turn that runs on another computer, and answers whether one ran.
     pub(super) fn stop_remote(&mut self, out: &mut Output) -> bool {
         let Some(remote) = self
             .remote
@@ -762,8 +737,6 @@ impl Chat {
         }
     }
 
-    /// Takes the records that the server holds after the last one that this device knows. It
-    /// answers what other devices did, and the instructions that the server holds.
     pub(super) fn synced(
         &mut self,
         generation: u64,
@@ -797,7 +770,7 @@ impl Chat {
             self.asks.clear();
             out.snapshot = true;
             self.request_sync(out);
-            return Some((vec![Heard::Reset], None));
+            return Some((vec![Heard::RecordsLost], None));
         }
         let restoring = shared.synced().is_none();
         let known = shared.synced().unwrap_or_default();
@@ -881,7 +854,6 @@ impl Chat {
         }
     }
 
-    /// Forgets the turn on another computer once it stopped telling that it runs.
     pub(super) fn gone(&mut self, generation: u64, turn: &str, out: &mut Output) -> bool {
         if generation != self.generation
             || !self
@@ -896,7 +868,6 @@ impl Chat {
         true
     }
 
-    /// Takes back the messages for this device from devices that the person no longer has.
     fn drop_strangers(&mut self, out: &mut Output) {
         let Some(devices) = &self.devices else {
             return;
@@ -1017,7 +988,6 @@ impl Chat {
         }
     }
 
-    /// Takes back the message of `turn` when it still waits, and answers whether it did.
     fn withdrawn(&mut self, turn: &str, out: &mut Output) -> bool {
         let Some(ask) = self
             .asks
@@ -1037,9 +1007,6 @@ impl Chat {
         true
     }
 
-    /// Takes an item into the conversation. Of an answer from another of the person's devices
-    /// to a question that Dosi asked here, it takes only the answer, once, as this device's
-    /// question takes it, and answers the answered question; a question closed there closes.
     fn record_item(
         &mut self,
         item: DosiItem,
@@ -1151,7 +1118,7 @@ impl Chat {
 
     fn adopt(&mut self, id: String, out: &mut Output, heard: &mut Vec<Heard>) {
         self.raise_floor(&id);
-        heard.push(Heard::Adopted);
+        heard.push(Heard::ConversationReplaced);
         self.remote = None;
         self.asks.clear();
         let started = conversation::time_of(&id).unwrap_or_else(conversation::now);

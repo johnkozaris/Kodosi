@@ -3,7 +3,6 @@ import KodosiBridge
 import SwiftUI
 
 #if os(macOS)
-    /// The live picture of the shared browser: each frame shows when it arrives.
     struct BrowserVideoView: NSViewRepresentable {
         let feed: BrowserFeed
 
@@ -41,7 +40,6 @@ import SwiftUI
     }
 
 #else
-    /// The live picture of the shared browser: each frame shows when it arrives.
     struct BrowserVideoView: UIViewRepresentable {
         let feed: BrowserFeed
 

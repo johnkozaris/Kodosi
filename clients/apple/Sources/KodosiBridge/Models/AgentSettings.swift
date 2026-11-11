@@ -1,7 +1,5 @@
 import Foundation
 
-/// The model, effort, permissions and output of a running agent, as far as Kodosi knows them.
-/// In a change, the fields that are set are the ones to change.
 public struct AgentSettings: Decodable, Equatable, Sendable {
     public var model: String?
     public var effort: String?
@@ -25,7 +23,6 @@ public struct AgentSettings: Decodable, Equatable, Sendable {
     }
 }
 
-/// What a running agent can change with its own commands, without starting again.
 public struct AgentLive: Decodable, Equatable, Sendable {
     public let model: Bool
     public let effort: Bool

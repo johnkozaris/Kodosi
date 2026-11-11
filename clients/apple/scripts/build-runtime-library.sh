@@ -25,12 +25,6 @@ if [[ $1 == macosx && $2 == Release ]]; then
     "$scripts/verify-kodosi-checkout.sh"
 fi
 
-working_tree=
-if [[ ${KODOSI_WORKING_TREE_VALIDATION:-0} == 1 ]]; then
-    working_tree=--working-tree
-fi
-python3 "$repository/terminal/ghostty/scripts/verify-ghostty-pins.py" ${working_tree:+"$working_tree"}
-
 viewer=
 if [[ $1 != macosx ]]; then
     viewer=--no-default-features

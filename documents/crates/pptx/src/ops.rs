@@ -8,7 +8,6 @@ use crate::model::{Change, Model, Query, SLIDE_IDS, Shape, ShapeFields, number_i
 const EMU_PER_POINT: i64 = 12_700;
 const SMALL_TEXT: usize = 8;
 
-/// What an agent means. The server turns each op into normal changes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Op {
@@ -154,7 +153,6 @@ pub(crate) fn guide() -> Guide {
     }
 }
 
-/// The shapes that this op acts on.
 fn targets(op: &Op) -> Option<(&str, &str)> {
     match op {
         Op::SetText { slide, shape, .. }
@@ -375,8 +373,6 @@ fn new_shape_id(model: &Model, slide: &str, taken: u64) -> Result<String, String
     Ok((last + taken + 1).to_string())
 }
 
-/// The number after the highest slide id, or the lowest free one when the highest is the last
-/// that a file can hold.
 fn new_slide_id(model: &Model, taken: u64) -> String {
     let used: Vec<u64> = model
         .slides

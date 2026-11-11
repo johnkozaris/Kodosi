@@ -36,8 +36,6 @@ internal sealed class TestStore : IAsyncDisposable
     public TestStore Fork(params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptors) =>
         new(new KodosiDbContext(new DbContextOptionsBuilder<KodosiDbContext>()
             .UseNpgsql(Db.Database.GetConnectionString()).AddInterceptors(interceptors).Options)) { Plans = Plans };
-    /// Gives a room a key state, as its owner's device does before a terminal joins it, and
-    /// returns the history that a room choice signs while it is the newest.
     public async Task<string> KeyRoomAsync(Guid room, long version = 1)
     {
         var body = System.Text.Encoding.UTF8.GetBytes($"key state {version} of {room}");

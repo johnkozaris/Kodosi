@@ -38,8 +38,6 @@ impl Runtime {
         Vec::new()
     }
 
-    /// Asks each other computer of the person, one call at a time, for the folders of its
-    /// terminals that this device does not know yet.
     pub(super) fn ask_folders(&mut self) {
         let Some(identity) = self.network.identity().filter(|identity| identity.enrolled) else {
             return;

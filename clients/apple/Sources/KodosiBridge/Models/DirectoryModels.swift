@@ -36,7 +36,6 @@ public struct FriendRequestEntry: Decodable, Equatable, Identifiable, Sendable {
         displayName.isEmpty ? handle : displayName
     }
 
-    /// The name with the user name, which only this account has.
     public var nameWithHandle: String {
         displayName.isEmpty ? "@\(handle)" : "\(displayName) (@\(handle))"
     }
@@ -128,7 +127,6 @@ public struct FolderList: Decodable, Equatable, Sendable {
         path.hasSuffix(separator) ? path + name : path + separator + name
     }
 
-    /// The name of a folder in a list: `~` for the home folder.
     public func name(of folder: String) -> String {
         shown(folder) == "~" ? "~" : HostPath.folderName(folder)
     }
@@ -186,7 +184,6 @@ public struct MissionMemberEntry: Decodable, Equatable, Identifiable, Sendable {
         displayName.isEmpty ? handle : displayName
     }
 
-    /// The name of the member among the people of a room, which says which one is you.
     public func listedName(you userId: String?) -> String {
         self.userId == userId ? String(localized: "\(personName) (you)", bundle: .module) : personName
     }

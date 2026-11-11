@@ -5,11 +5,9 @@ import "./fonts.css";
 
 export type Kind = "docx" | "xlsx" | "pptx" | "pdf" | "text";
 
-/** What a person chose for one kind of file. A view uses only what applies to it. */
 export interface Preferences {
-  /** A document shows its pages. Without them, its text fits the width of the view. */
+  /** Without pages, the text of a document fits the width of the view. */
   pages?: boolean;
-  /** The pages or cells go dark when the look is dark. */
   dark?: boolean;
 }
 
@@ -21,7 +19,7 @@ const DEFAULTS: Record<Kind, Required<Preferences>> = {
   text: { pages: false, dark: true },
 };
 
-/** The host's look: CSS variables without their leading dashes, and `scheme`, light or dark. */
+/** CSS variables without their leading dashes, and `scheme`, light or dark. */
 export type Theme = Record<string, string>;
 
 export interface Options {
@@ -40,11 +38,8 @@ export interface View {
   attach(pipe: Pipe): void;
   /** The link is gone. The person can go on, and the edits wait for the next pipe. */
   detach(): void;
-  /** The words that the person selected, for a host that passes them on. */
   selection(): string;
-  /** The host's look changed. */
   restyle(theme: Theme): void;
-  /** The person chose again. */
   prefer(preferences: Preferences): void;
   destroy(): void;
 }

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use document::Unreadable;
-use package::{Package, RELATIONSHIPS, Relation, STRICT_RELATIONSHIPS, escape};
+use package::{Package, Relation, escape, relation_id};
 use roxmltree::{Document, Node as Xml};
 
 use crate::{
@@ -56,17 +56,7 @@ pub(crate) fn read(file: &[u8]) -> Result<Model, Unreadable> {
         .ok_or_else(|| Unreadable("the workbook has no sheets".to_owned()))?;
     let mut sheets = Vec::new();
     for entry in locals(list, "sheet") {
-        let relation = entry
-            .attributes()
-            .find(|attribute| {
-                attribute.name() == "id"
-                    && matches!(
-                        attribute.namespace(),
-                        Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
-                    )
-            })
-            .map(|attribute| attribute.value());
-        let part = relation
+        let part = relation_id(entry, "id")
             .and_then(|id| relations.get(id))
             .map(|relation| relation.target.clone());
         let Some(part) = part else {
@@ -156,8 +146,7 @@ pub(crate) fn cell_of(element: Xml<'_, '_>, strings: &[String]) -> Cell {
     }
 }
 
-/// The attributes that this crate does not read, as XML text. Prefixed ones stay out of it,
-/// as their prefix has no meaning away from the file's own tag.
+/// Prefixed attributes stay out, as their prefix has no meaning away from the file's own tag.
 fn kept_attributes(element: Xml<'_, '_>, read_here: &[&str]) -> String {
     element
         .attributes()
@@ -187,7 +176,6 @@ fn column_entries<'a, 'input: 'a>(
     })
 }
 
-/// The width of each column that the sheet names.
 pub(crate) fn widths_of(root: Xml<'_, '_>) -> BTreeMap<u32, f64> {
     column_entries(root)
         .flat_map(|(first, last, width, _)| (first..=last).map(move |index| (index, width)))
@@ -271,18 +259,8 @@ fn read_sheet(
     Ok(sheet)
 }
 
-/// A hyperlink goes to an address through its relationship, or to a place in the workbook.
 fn link_of(element: Xml<'_, '_>, relations: &HashMap<String, Relation>) -> Option<Link> {
-    let relation = element
-        .attributes()
-        .find(|attribute| {
-            attribute.name() == "id"
-                && matches!(
-                    attribute.namespace(),
-                    Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
-                )
-        })
-        .and_then(|attribute| relations.get(attribute.value()));
+    let relation = relation_id(element, "id").and_then(|id| relations.get(id));
     match (relation, element.attribute("location")) {
         (Some(relation), _) if relation.external => Some(Link::Href(relation.target.clone())),
         (_, Some(location)) if !location.is_empty() => Some(Link::Location(location.to_owned())),
@@ -290,8 +268,8 @@ fn link_of(element: Xml<'_, '_>, relations: &HashMap<String, Relation>) -> Optio
     }
 }
 
-/// The text of a formula. A cell of a shared group holds only the group's number, so its
-/// formula comes from the group's first cell.
+/// A cell of a shared group holds only the group's number, so its formula comes from the group's
+/// first cell.
 pub(crate) fn formula_of(
     formula: Xml<'_, '_>,
     row: u32,

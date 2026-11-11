@@ -5,8 +5,8 @@ const JSON: u8 = 0;
 const FRAME: u8 = 1;
 const FRAME_HEADER: usize = 1 + 4 + 1 + 8;
 
-/// Who looks at a window. The host decides this, and the window trusts it. `id` names one view,
-/// and each view of one person has the same `person`.
+/// The host decides who looks, and the window trusts it. `id` names one view, and each view of
+/// one person has the same `person`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Viewer {
     pub id: String,
@@ -14,7 +14,7 @@ pub struct Viewer {
     pub name: String,
 }
 
-/// The view of a viewer, in CSS pixels and the scale of its screen.
+/// In CSS pixels, with the scale of the viewer's screen.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Size {
     pub width: u32,
@@ -22,7 +22,6 @@ pub struct Size {
     pub scale: f32,
 }
 
-/// What a viewer sends to its window.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "type",
@@ -37,7 +36,7 @@ pub(crate) enum ToWindow {
     Input { input: Input },
 }
 
-/// A person's step in a window, in the CSS pixels of its page.
+/// Positions are in the CSS pixels of the page.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -74,8 +73,6 @@ pub(crate) enum Input {
     Text {
         text: String,
     },
-    /// What a person typed in the address bar. The host gives an address with no scheme its
-    /// scheme.
     Open {
         address: String,
     },
@@ -130,7 +127,6 @@ pub(crate) enum KeyAction {
     Up,
 }
 
-/// All that a viewer shows around the picture.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
@@ -160,7 +156,6 @@ pub struct Tab {
     pub loading: bool,
 }
 
-/// Where a viewer's pointer is in the page.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pointer {
@@ -171,7 +166,6 @@ pub struct Pointer {
     pub y: f64,
 }
 
-/// A list that a page opened, which the viewer that asked draws at its pointer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Menu {
@@ -205,7 +199,6 @@ pub struct Dialog {
     pub text: String,
 }
 
-/// A page waits for a file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Chooser {
@@ -220,8 +213,8 @@ pub struct Download {
     pub done: bool,
 }
 
-/// One encoded picture. The data is H.264 in Annex B form, and it depends on the frames since
-/// the last key frame of this viewer.
+/// The data is H.264 in Annex B form, and it depends on the frames since the last key frame of
+/// this viewer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Frame {
     pub(crate) id: u32,
@@ -230,7 +223,6 @@ pub(crate) struct Frame {
     pub(crate) data: Bytes,
 }
 
-/// What a window sends to a viewer.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ToViewer {
     Frame(Frame),

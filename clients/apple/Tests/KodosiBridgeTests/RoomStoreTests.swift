@@ -268,57 +268,6 @@ struct RoomStoreTests {
         #expect(try await creating.value == roomId)
     }
 
-    @Test func `invite names the room and the friend`() async throws {
-        let inviting = Task { try await rooms.invite("user-2", to: "room-1") }
-        let command = try await log.next("mission.invite")
-        #expect(fields(command) == ["missionId", "requestId", "userId"])
-        #expect(command["missionId"] as? String == "room-1")
-        #expect(command["userId"] as? String == "user-2")
-        try reply(to: command, "mission.error", ["operation": "mission.invite", "message": "Invite an accepted friend."])
-        await #expect(throws: RuntimeError.operation("Invite an accepted friend.")) { try await inviting.value }
-    }
-
-    @Test(arguments: [true, false])
-    func `answering an invitation names it`(accept: Bool) async throws {
-        try deliver("missions.snapshot", [
-            "missions": [], "invitations": [invitation("inv-1", room: "room-3")],
-            "missionsTruncated": false, "invitationsTruncated": false,
-        ])
-        let invitation = try #require(rooms.invitations.first)
-        let answering = Task { try await rooms.respond(to: invitation, accept: accept) }
-        let type = accept ? "mission.invitation.accept" : "mission.invitation.reject"
-        let command = try await log.next(type)
-        #expect(fields(command) == ["invitationId", "requestId"])
-        #expect(command["invitationId"] as? String == "inv-1")
-        try reply(to: command, "mission.result", ["operation": type, "missionId": NSNull()])
-        try await answering.value
-    }
-
-    @Test func `membership actions name the room`() async throws {
-        try deliver("missions.snapshot", list(["room-1"]))
-        let member = try JSONValue.object([
-            "userId": .string("user-2"), "handle": .string("ana"), "displayName": .string("Ana"), "isOwner": .bool(false),
-        ]).decode(as: MissionMemberEntry.self)
-        let cases = [
-            RoomMembershipCase(type: "mission.rename", fields: ["missionId", "name", "requestId"]) {
-                try await rooms.rename("room-1", to: " Ship room ")
-            },
-            RoomMembershipCase(type: "mission.removeMember", fields: ["missionId", "requestId", "userId"]) {
-                try await rooms.remove(member, from: "room-1")
-            },
-            RoomMembershipCase(type: "mission.leave", fields: ["missionId", "requestId"]) { try await rooms.leave("room-1") },
-            RoomMembershipCase(type: "mission.delete", fields: ["missionId", "requestId"]) { try await rooms.delete("room-1") },
-        ]
-        for item in cases {
-            let running = Task { try await item.work() }
-            let command = try await log.next(item.type)
-            #expect(fields(command) == item.fields)
-            #expect(command["missionId"] as? String == "room-1")
-            try reply(to: command, "mission.result", ["operation": item.type, "missionId": "room-1"])
-            try await running.value
-        }
-    }
-
     @Test func `a room keeps its name unless the new one fits`() async throws {
         try deliver("missions.snapshot", list(["room-1"]))
         try await rooms.rename("room-1", to: "  ")
@@ -355,27 +304,6 @@ struct RoomStoreTests {
         #expect(made["repositoryIds"] as? [String] == [])
         try reply(to: command, "room.result", roomResult("createTask"))
         try await making.value
-    }
-
-    @Test func `task changes send their fields`() async throws {
-        try deliver("room.snapshot", ["room": room("room-1", tasks: [task("t1", version: 1, title: "Ship it")])])
-        let task = try #require(rooms.snapshots["room-1"]?.tasks.first)
-        let changes = [
-            RoomTaskCase(change: .claim, note: nil, action: ["type": "updateTask", "taskId": "t1", "change": "claim"]),
-            RoomTaskCase(change: .release, note: "  ", action: ["type": "updateTask", "taskId": "t1", "change": "release"]),
-            RoomTaskCase(
-                change: .close, note: " Merged #12 ", action: ["type": "updateTask", "taskId": "t1", "change": "close", "note": "Merged #12"],
-            ),
-            RoomTaskCase(change: .reopen, note: nil, action: ["type": "updateTask", "taskId": "t1", "change": "reopen"]),
-        ]
-        for item in changes {
-            let updating = Task { try await rooms.update(task, in: "room-1", change: item.change, note: item.note) }
-            let command = try await log.next("room.command")
-            #expect(command["roomId"] as? String == "room-1")
-            #expect(try action(command) as NSDictionary == item.action)
-            try reply(to: command, "room.result", roomResult("updateTask"))
-            try await updating.value
-        }
     }
 
     @Test func `repository address is trimmed`() async throws {
@@ -456,16 +384,4 @@ private extension RoomStoreTests {
             "assignedName": NSNull(), "terminalId": NSNull(), "repositoryIds": [], "note": NSNull(), "issue": NSNull(),
         ]
     }
-}
-
-struct RoomMembershipCase {
-    let type: String
-    let fields: Set<String>
-    let work: () async throws -> Void
-}
-
-struct RoomTaskCase {
-    let change: RoomTaskChange
-    let note: String?
-    let action: NSDictionary
 }

@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// Asks for a new name of a terminal or a room, in a well.
 struct RenameSheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss

@@ -2,11 +2,10 @@
 
 use std::{collections::HashMap, hash::Hash, ops::Range};
 
-/// The most edits that a comparison looks for. Past it, two texts share only their first and
-/// last lines, and the rest counts as one change.
+/// Past this many edits, two texts share only their first and last lines, and the rest counts as
+/// one change.
 const MOST_EDITS: usize = 1000;
 
-/// The pairs of equal lines that a shortest way from `old` to `new` keeps, in order.
 pub(crate) fn kept<T: Eq + Hash>(old: &[T], new: &[T]) -> Vec<(usize, usize)> {
     let head = old
         .iter()
@@ -35,8 +34,6 @@ pub(crate) fn kept<T: Eq + Hash>(old: &[T], new: &[T]) -> Vec<(usize, usize)> {
     pairs
 }
 
-/// Each stretch where `new` differs from `old`: the lines of `old`, and the lines of `new` that
-/// stand in their place.
 pub(crate) fn changed<T: Eq + Hash>(old: &[T], new: &[T]) -> Vec<(Range<usize>, Range<usize>)> {
     let mut stretches = Vec::new();
     let (mut from, mut to) = (0, 0);
@@ -49,8 +46,7 @@ pub(crate) fn changed<T: Eq + Hash>(old: &[T], new: &[T]) -> Vec<(Range<usize>, 
     stretches
 }
 
-/// The equal pairs of a shortest edit, or nothing when it needs more than [`MOST_EDITS`]. A
-/// diagonal `k` is `x - y`, kept at `k + offset` so that each index stays positive.
+/// A diagonal `k` is `x - y`, kept at `k + offset` so that each index stays positive.
 fn shortest(old: &[u32], new: &[u32]) -> Option<Vec<(usize, usize)>> {
     let (n, m) = (old.len(), new.len());
     let limit = MOST_EDITS.min(n + m);

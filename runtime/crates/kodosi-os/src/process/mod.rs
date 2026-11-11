@@ -27,7 +27,6 @@ pub fn default_shell() -> PathBuf {
     imp::default_shell()
 }
 
-/// The user session's environment, where Windows or a systemd user manager reports it.
 pub fn session_environment() -> Option<Vec<(OsString, OsString)>> {
     imp::session_environment()
 }
@@ -36,8 +35,6 @@ pub fn detach(command: &mut std::process::Command) {
     imp::detach(command);
 }
 
-/// Starts the command in a session of its own with no controlling terminal; on Windows, without a
-/// console window.
 pub fn without_terminal(command: &mut std::process::Command) {
     imp::without_terminal(command);
 }

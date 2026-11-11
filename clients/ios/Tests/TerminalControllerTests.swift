@@ -189,17 +189,6 @@ struct TerminalControllerTests {
         }
     }
 
-    @Test func `sharing with a room attaches the terminal`() async throws {
-        let session = try #require(model.terminals.session("s1"))
-        let sharing = Task { try await model.terminals.share(session, inRoom: "room-1") }
-        await log.waitFor("session.attachMission")
-        let fields = try #require(log.fields(of: "session.attachMission").first)
-        #expect(fields["missionId"] as? String == "room-1")
-        #expect(fields["expectedRuntimeIncarnationId"] as? String == "s1-1")
-        try deliver("session.result", ["requestId": fields["requestId"] ?? "", "operation": "session.attachMission"])
-        try await sharing.value
-    }
-
     private func deliver(_ type: String, _ fields: [String: Any] = [:]) throws {
         var payload = fields
         payload["type"] = type

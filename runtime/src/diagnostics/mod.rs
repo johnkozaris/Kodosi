@@ -19,8 +19,6 @@ mod redact;
 const MAX_BYTES: u64 = 1024 * 1024;
 const MAX_RECORD_BYTES: usize = 32 * 1024;
 const CLIENT: &str = "kodosi_client";
-/// The crates whose records the logs keep: Kodosi's own, the shared browser and the live
-/// documents that the host runs.
 const LOGGED: [&str; 3] = ["kodosi", "shared_browser", "documents"];
 
 #[derive(Debug, Clone, Copy)]

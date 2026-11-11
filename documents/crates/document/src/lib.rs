@@ -1,5 +1,4 @@
-//! The rules of a live document: its order, its log, who is here and the merge of outside
-//! writes. Nothing here touches a network, a disk, a clock or a thread.
+//! Nothing here touches a network, a disk, a clock or a thread.
 
 pub mod contract;
 mod format;

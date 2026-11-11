@@ -22,7 +22,6 @@ class AccountModel final : public QObject {
     Q_PROPERTY(QString signInPage READ signInPage NOTIFY loginChanged)
     Q_PROPERTY(bool deleting READ deleting NOTIFY deletionChanged)
     Q_PROPERTY(QString deletionUri READ deletionUri NOTIFY deletionChanged)
-    // Whether Kodosi reaches the server. A short drop, such as when the computer wakes, keeps it online.
     Q_PROPERTY(bool online READ online NOTIFY onlineChanged)
 
 public:
@@ -46,7 +45,6 @@ public:
     Q_INVOKABLE void logout();
     Q_INVOKABLE void deleteAccount();
     Q_INVOKABLE void cancelDeletion();
-    // Reaches for the server and the terminals of other computers now.
     Q_INVOKABLE void retryConnection();
 
 signals:

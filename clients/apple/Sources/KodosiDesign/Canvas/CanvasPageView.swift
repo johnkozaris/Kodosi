@@ -9,7 +9,6 @@ import SwiftUI
 import Synchronization
 import WebKit
 
-/// "Ask about this": the words that a person selected go to the agent of the terminal.
 public struct CanvasAsk {
     public let title: String
     public let agent: AgentKind
@@ -22,10 +21,9 @@ public struct CanvasAsk {
     }
 }
 
-/// A page of a canvas in a closed frame. It runs its own scripts, but it reaches no network,
-/// no files and no storage that stays. A link opens on this device by the rules of terminal links.
-/// Words that a person selects get a key that asks the agent about them. Each page view has a
-/// frame of its own, so no web page ever shows in two places at once.
+/// A page runs its own scripts in a closed frame, but it reaches no network, no files and no
+/// storage that stays. Each page view has a frame of its own, so no web page ever shows in two
+/// places at once.
 public struct CanvasPageView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.theme) private var theme
@@ -119,13 +117,11 @@ private struct AskKey: View {
     }
 }
 
-/// The words that a person selected on a page and where they are, in the page's points.
 public struct CanvasSelection: Equatable, Sendable {
     public let words: String
     public let rect: CGRect
 }
 
-/// The frames of the pages that a canvas shows on this device, by item, while their views show.
 @MainActor
 public final class CanvasFrames {
     private var frames: [String: CanvasFrame] = [:]
@@ -142,7 +138,6 @@ public final class CanvasFrames {
         }
     }
 
-    /// The words that the person selected on the page of an item, while it shows.
     public func selectedWords(of key: String) async -> String? {
         await frames[key]?.selectedWords()
     }
@@ -216,7 +211,6 @@ final class CanvasFrame {
         }
     }
 
-    /// The words that the person selected on the page.
     func selectedWords() async -> String? {
         try? await page.callJavaScript("return getSelection().toString()", contentWorld: .defaultClient) as? String
     }
@@ -245,11 +239,9 @@ private final class SelectionWatcher: NSObject, WKScriptMessageHandler {
     }
 }
 
-/// The links that a person clicks on a page or in a file of a canvas.
 @MainActor
 final class CanvasLinks {
     var open: (URL) -> Void = { _ in }
-    /// The computer of the terminal, when it is not this device.
     var otherComputer: String?
     var review: (ClickedLink) -> Void = { link in
         #if os(macOS)

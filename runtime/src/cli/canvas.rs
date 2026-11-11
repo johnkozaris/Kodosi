@@ -30,7 +30,6 @@ fn terminal() -> Result<Uuid> {
         .ok_or_else(|| Error::Invalid(IN_A_TERMINAL.to_owned()))
 }
 
-/// Shows files and an address on the canvas, and gives the exit code.
 pub(super) async fn show(
     things: Vec<PathBuf>,
     client: &mut local_host::Client,
@@ -72,7 +71,6 @@ pub(super) async fn show(
         .unwrap_or(1))
 }
 
-/// Runs an agent-browser command and gives its exit code.
 pub(super) async fn browse(
     arguments: Vec<String>,
     client: &mut local_host::Client,
@@ -96,7 +94,6 @@ pub(super) async fn browse(
         .unwrap_or(1))
 }
 
-/// Runs a document command and gives its exit code.
 pub(super) async fn document(
     arguments: Vec<String>,
     client: &mut local_host::Client,

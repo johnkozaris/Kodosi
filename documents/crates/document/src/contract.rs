@@ -18,7 +18,7 @@ const MOST_UNPACKED: u64 = 256 * 1024 * 1024;
 pub type Rev = u64;
 pub type Seq = u64;
 
-/// A person or an agent, as the host names them. Each view of one person has the same `id`.
+/// Each view of one person has the same `id`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Viewer {
@@ -27,7 +27,6 @@ pub struct Viewer {
     pub can_edit: bool,
 }
 
-/// What a client sends to its document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(
     tag = "type",
@@ -70,7 +69,6 @@ pub enum ToDocument {
     },
 }
 
-/// One change in the order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -84,8 +82,8 @@ pub struct Changed {
     pub body: Value,
 }
 
-/// Someone who is here, in one view. `person` is the viewer's id, the same in each view of
-/// them, and `place` is where they are as the document is now.
+/// `person` is the viewer's id, the same in each view of them, and `place` is where they are as
+/// the document is now.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -96,7 +94,6 @@ pub struct Peer {
     pub place: Value,
 }
 
-/// What a client needs after it joins.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(
     tag = "kind",
@@ -128,7 +125,6 @@ pub enum ClosedReason {
     Failed,
 }
 
-/// What a document sends to a client.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(
     tag = "type",
@@ -180,7 +176,6 @@ pub enum ToClient {
     },
 }
 
-/// The hash that names an asset.
 pub type Hash = [u8; HASH_BYTES];
 
 /// One frame of a pipe: JSON, gzip JSON when it is large, or the raw bytes of an asset.

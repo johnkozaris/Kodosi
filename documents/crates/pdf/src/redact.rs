@@ -8,7 +8,6 @@ use crate::read::{inherited, number_of};
 /// A wide guess of how far a line of text runs, in sizes of its font for each letter, so a guess
 /// errs on the side of removing it.
 const WIDEST_LETTER: f64 = 1.1;
-/// How many forms deep a redaction follows a form that draws another one.
 const DEEPEST_FORM: usize = 16;
 
 type Matrix = [f64; 6];
@@ -55,7 +54,6 @@ fn box_of(points: &[(f64, f64)]) -> [f64; 4] {
     ]
 }
 
-/// Where a box of user space lands on the page under a matrix.
 fn landing([left, bottom, right, top]: [f64; 4], matrix: Matrix) -> [f64; 4] {
     box_of(&[
         apply(matrix, left, bottom),
@@ -65,7 +63,6 @@ fn landing([left, bottom, right, top]: [f64; 4], matrix: Matrix) -> [f64; 4] {
     ])
 }
 
-/// How many letters a text operation shows.
 fn letters(operation: &Operation) -> usize {
     operation
         .operands
@@ -84,7 +81,6 @@ fn letters(operation: &Operation) -> usize {
         .sum()
 }
 
-/// The small part of the graphics state that says where text and images land.
 struct State {
     graphics: Matrix,
     stack: Vec<Matrix>,
@@ -128,8 +124,7 @@ impl State {
         landing([0.0, 0.0, 1.0, 1.0], self.graphics)
     }
 
-    /// Follows one operation, and says whether it draws in a redacted place. What `Do` draws
-    /// takes the resources, so a redaction follows it.
+    /// What `Do` draws takes the resources, so a redaction follows it.
     fn step(&mut self, operation: &Operation, rects: &[[f64; 4]]) -> bool {
         let number = |index: usize| {
             operation
@@ -202,20 +197,17 @@ fn numbers_of(document: &Document, object: &Object) -> Option<Vec<f64>> {
     object.as_array().ok()?.iter().map(number_of).collect()
 }
 
-/// The object that a name of some resources draws.
 fn xobject(document: &Document, resources: &Dictionary, name: &[u8]) -> Option<ObjectId> {
     let (_, objects) = document.dereference(resources.get(b"XObject").ok()?).ok()?;
     objects.as_dict().ok()?.get(name).ok()?.as_reference().ok()
 }
 
-/// One redaction of the document, which follows forms into what they draw.
 struct Redaction<'r> {
     document: &'r mut Document,
     rects: &'r [[f64; 4]],
 }
 
 impl Redaction<'_> {
-    /// The operations without the ones that draw in the redacted places.
     fn operations(
         &mut self,
         operations: Vec<Operation>,
@@ -237,7 +229,6 @@ impl Redaction<'_> {
         Ok(kept)
     }
 
-    /// Whether `Do` draws a picture in a redacted place. A form loses what it draws there.
     fn object(
         &mut self,
         operation: &Operation,
@@ -268,8 +259,8 @@ impl Redaction<'_> {
         }
     }
 
-    /// Takes out of a form what it draws in the redacted places, where the state puts it. The
-    /// form loses it wherever it is drawn, so that no redacted word stays in the file.
+    /// The form loses what it draws in the redacted places wherever it is drawn, so that no
+    /// redacted word stays in the file.
     fn form(
         &mut self,
         id: ObjectId,

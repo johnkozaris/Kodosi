@@ -2,7 +2,4 @@
 import type { Changed } from "./Changed";
 import type { JsonValue } from "./serde_json/JsonValue";
 
-/**
- * What a client needs after it joins.
- */
 export type Catchup = { "kind": "snapshot", snapshot: JsonValue, } | { "kind": "missed", changes: Array<Changed>, };

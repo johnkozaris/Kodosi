@@ -591,7 +591,6 @@ struct VnodeFileInfo {
     vnode: libc::vnode_info_path,
 }
 
-/// The files that the processes of the process group `group` hold open.
 #[cfg(target_os = "macos")]
 pub fn open_files(group: u32) -> Option<Vec<PathBuf>> {
     let mut pids = vec![0_i32; MAX_GROUP_PROCESSES];
@@ -656,7 +655,6 @@ fn process_files(pid: i32) -> Vec<PathBuf> {
         .collect()
 }
 
-/// The files that the processes of the process group `group` hold open.
 #[cfg(target_os = "linux")]
 pub fn open_files(group: u32) -> Option<Vec<PathBuf>> {
     let processes = std::fs::read_dir("/proc").ok()?;

@@ -179,7 +179,6 @@ impl BackendClient {
         self.inner.generation.load(Ordering::Acquire)
     }
 
-    /// Tries to reach the server now rather than after the wait between tries.
     pub(crate) fn retry_now(&self) {
         self.inner.retry.notify_one();
         self.inner.link.retry_now();
@@ -1328,9 +1327,8 @@ fn path_segment(value: &str) -> Result<String> {
     Ok(url.path().trim_start_matches('/').to_owned())
 }
 
-/// Takes the server's word for a published terminal. A room change ends its people, as it does
-/// on the server, and the server can only take people away from the host's own choice. A room
-/// terminal shows the room's people.
+/// The server can only take people away from the host's own choice. A room change ends a
+/// terminal's people, as it does on the server.
 #[cfg(feature = "host")]
 fn follow_sharing(
     info: &mut LocalPublication,
@@ -1391,9 +1389,9 @@ pub(crate) fn device_label() -> Option<String> {
         .and_then(|value| normalize_host_label(&value))
 }
 
-/// The label as the backend keeps it: without the invisible format characters that it removes,
-/// except the joiners, and within 128 bytes. A link proof covers the label, so the backend must
-/// not change it.
+/// A link proof covers the label, so the backend must not change it: the label has none of the
+/// invisible format characters that the backend removes, except the joiners, and at most 128
+/// bytes.
 fn normalize_host_label(value: &str) -> Option<String> {
     use unicode_properties::{GeneralCategory, UnicodeGeneralCategory as _};
     let visible = value

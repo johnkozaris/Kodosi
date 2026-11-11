@@ -30,7 +30,7 @@ Run these from the repository root; `just --list` shows the rest.
 | `just browser-engine-build` | Build Kodosi Browser for development in `.tools/kodosi-browser/` |
 | `just rust-check` | All Rust checks |
 | `just backend-check` | Build and test the backend (database tests need Docker) |
-| `just check-all` | The Rust and backend checks |
+| `just check-all` | The Rust, documents, browser, backend and translation checks |
 | `just mac-build`, `just mac-check` | Build or check the Mac app |
 | `just linux-build`, `just linux-check` | Build or check the Linux app |
 | `just windows-check` | Build and check the Windows app, on Windows |
@@ -43,9 +43,32 @@ Run these from the repository root; `just --list` shows the rest.
 `gitleaks git`, run by hand, looks for secrets in the Git history and skips the reviewed
 findings in [.gitleaksignore](../.gitleaksignore).
 
-The justfile in each app's folder has its release recipes. Name a new recipe component
-first and verb last (`mac-build`), a script verb first (`build-ghostty.sh`), and other
-files like their neighbors.
+The justfile in each app's folder has its release recipes.
+
+## Before a pull request
+
+Run the check of each part that you changed:
+
+| You changed | Run |
+| --- | --- |
+| The runtime, a contract or a Rust dependency | `just rust-check` |
+| The documents or the shared browser | `just documents-check`, `just browser-check` |
+| The backend | `just backend-check` |
+| The sign-in pages | `just sign-in-check` |
+| A text that people read | `just translations-check` |
+| The Mac app, the iPhone and iPad app or their shared code | `just mac-check`, `just ios-check` |
+| The Linux and Windows app | `just linux-check` on Linux or `just windows-check` on Windows |
+| The Android app | `just android-check` |
+| The scripts of the update site | `just release-test` |
+
+A pull request runs the first five again, in a few minutes. No workflow builds an app for
+a pull request. The Linux app, the Windows app and the Windows package build each night on
+main. When you changed the Linux and Windows app and have no computer with Linux or
+Windows, start the workflow `Linux app` or `Windows app` for your branch and wait for it:
+
+```sh
+gh workflow run "Linux app" --ref <branch>
+```
 
 ## Run the backend
 
@@ -70,8 +93,8 @@ Windows app and the CLI, set `KODOSI__BACKEND__API=http://127.0.0.1:5180`, and
 
 ## Contracts and Ghostty
 
-`just protocol-gen` writes `protocol/desktop-runtime.json` from the Rust types and
-`just protocol-check` checks it. After a change of the C API, copy the header that the
+`just protocol-gen` writes `protocol/desktop-runtime.json` from the Rust types, and the
+Rust tests check it. After a change of the C API, copy the header that the
 `kodosi-ffi-c` build writes to `clients/apple/Sources/KodosiKit/kodosi_runtime.h`.
 `just ghostty-check` checks the Ghostty pins, and
 [Ghostty provenance](../terminal/ghostty/PROVENANCE.md) explains updates.

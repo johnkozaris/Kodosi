@@ -86,7 +86,6 @@ fn note_dictionary(note: &Note, page: ObjectId) -> Dictionary {
     annotation
 }
 
-/// The array of a page's notes, in the new part of the file.
 fn page_annotations(
     update: &mut IncrementalDocument,
     page: ObjectId,
@@ -253,7 +252,6 @@ fn save_fields(model: &Model, update: &mut IncrementalDocument) -> Result<(), St
     Ok(())
 }
 
-/// Appends notes and form values to the file, so each byte before them stays.
 pub(crate) fn write(model: &Model, file: &[u8]) -> Result<Vec<u8>, Unwritable> {
     let changed = model.notes != model.file_notes || model.fields != model.file_fields;
     if !changed {
@@ -292,7 +290,6 @@ fn set_page_list(
     Ok(())
 }
 
-/// Does page work as an incremental update.
 pub(crate) fn pages_update(
     file: &[u8],
     change: impl FnOnce(&mut Document, &mut Vec<Object>) -> Result<(), lopdf::Error>,
@@ -316,7 +313,6 @@ pub(crate) fn pages_update(
     Ok(bytes)
 }
 
-/// A page's name in the file, for tests and ops.
 pub(crate) fn id_of(page: &Page) -> Option<ObjectId> {
     object_id(&page.id).filter(|id| page_id(*id) == page.id)
 }

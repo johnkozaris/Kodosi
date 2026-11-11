@@ -3,9 +3,8 @@ import CoreMedia
 import Foundation
 import Observation
 
-/// The live picture of a terminal's shared browser and a person's input to it. A frame shows when
-/// it arrives, and each frame is acknowledged, so the host keeps the picture as sharp as the
-/// link allows and no queue forms.
+/// Each frame is acknowledged, so the host keeps the picture as sharp as the link allows and no
+/// queue forms.
 @MainActor
 @Observable
 public final class BrowserFeed {
@@ -14,15 +13,12 @@ public final class BrowserFeed {
     private static let frameTag: UInt8 = 1
     private static let longestWait = Duration.seconds(30)
 
-    /// What the window says around the picture.
     public private(set) var window = BrowserWindow()
     public private(set) var hasPicture = false
     public private(set) var failure: String?
     /// Counts each press, key and scroll of a person on this device.
     public private(set) var touches = 0
-    /// Takes each frame to show.
     @ObservationIgnored public var show: (CMSampleBuffer) -> Void = { _ in }
-    /// The view of this device, in points, and the pixels of a point.
     @ObservationIgnored public var viewSize = CGSize.zero
     @ObservationIgnored public var viewScale: CGFloat = 1
     @ObservationIgnored private let store: CanvasStore
@@ -38,7 +34,7 @@ public final class BrowserFeed {
         self.session = session
     }
 
-    /// Shows the live picture until the task ends. Only one view at a time watches.
+    /// Only one view at a time watches.
     public func watch() async {
         guard link == nil else { return }
         let link = store.browser(of: session)
@@ -78,8 +74,8 @@ public final class BrowserFeed {
         post(.input(event))
     }
 
-    /// Gives a page the files that a person picked. They go into the folder of the terminal
-    /// first, because the browser runs on the computer of the terminal.
+    /// The files go into the folder of the terminal first, because the browser runs on the
+    /// computer of the terminal.
     public func give(_ files: [URL]) async {
         var paths: [String] = []
         do {
@@ -94,19 +90,15 @@ public final class BrowserFeed {
         send(.files(paths))
     }
 
-    /// Asks for a new key frame, after the display lost the stream.
     public func restart() {
         behind = true
         post(.keyframe)
     }
 
-    /// The point in the browser's CSS pixels for a point in a view of `size` that shows the
-    /// picture scaled to fit; none outside the picture.
     public func browserPoint(_ point: CGPoint, in size: CGSize) -> BrowserInput.Point? {
         Self.point(point, in: size, browser: window.size)
     }
 
-    /// Where a point of the browser is in a view of `size` that shows the picture scaled to fit.
     public func viewPoint(x: Double, y: Double, in size: CGSize) -> CGPoint? {
         Self.viewPoint(CGPoint(x: x, y: y), in: size, browser: window.size)
     }
@@ -151,7 +143,6 @@ public final class BrowserFeed {
         BrowserSize(width: Int(viewSize.width), height: Int(viewSize.height), scale: Double(viewScale))
     }
 
-    /// The browser takes the size of the view where a person used it last.
     private func sendSize() {
         let size = currentSize
         if size != sentSize {
@@ -195,7 +186,6 @@ public final class BrowserFeed {
     }
 }
 
-/// What a viewer sends to its window, in the browser's own names.
 private enum ToBrowserWindow: Encodable {
     case watch(BrowserSize)
     case size(BrowserSize)
@@ -232,7 +222,6 @@ private struct BrowserSize: Encodable, Equatable {
     let scale: Double
 }
 
-/// Makes sample buffers from H.264 in Annex B form.
 struct H264Samples {
     private static let sequenceParameters: UInt8 = 7
     private static let pictureParameters: UInt8 = 8
@@ -262,7 +251,6 @@ struct H264Samples {
         return Self.sample(body, format)
     }
 
-    /// The units between the start codes.
     static func units(of data: Data) -> [Data] {
         let bytes = [UInt8](data)
         var starts: [Int] = []

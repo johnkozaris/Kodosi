@@ -55,9 +55,6 @@ let package = Package(
             ],
             resources: [.process("Resources")],
             swiftSettings: swiftSettings,
-            plugins: [
-                .plugin(name: "VerifyGhosttyPlugin"),
-            ],
         ),
         .target(
             name: "KodosiTerminalSessions",
@@ -89,10 +86,6 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ],
-        ),
-        .plugin(
-            name: "VerifyGhosttyPlugin",
-            capability: .buildTool(),
         ),
     ],
 )

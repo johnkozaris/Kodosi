@@ -170,8 +170,6 @@ struct PeopleHome: View {
 }
 
 extension PeopleStore {
-    /// How many friends the person has and how many requests wait, or nothing before the first
-    /// list and while there are neither.
     var facts: String {
         guard loaded, !friends.isEmpty || !incoming.isEmpty else { return "" }
         let count = Counted.friends(friends.count)

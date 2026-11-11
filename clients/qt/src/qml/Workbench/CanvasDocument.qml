@@ -4,8 +4,8 @@ import QtWebChannel
 import QtWebEngine
 import Kodosi.Models 1.0 as Models
 
-// A live document, sheet, presentation or PDF. The view bundle of the app draws it in a closed
-// frame, and its only way out is the pipe of the document.
+// The view bundle of the app draws in a closed frame, whose only way out is the pipe of the
+// document.
 WebEngineView {
     id: root
 
@@ -30,7 +30,6 @@ WebEngineView {
           page.started();
         });`
 
-    // Gives `done` the words that the person selected.
     function selection(done) {
         runJavaScript("window.documentHost ? window.documentHost.selection() : ''", WebEngineScript.MainWorld,
             words => done(typeof words === "string" ? words : ""));

@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// A field that sinks into a well, with a copper ring while it has focus. On iPhone and iPad, it is
-/// as high and as round as a regular key, for a finger.
 public struct WellTextFieldStyle: @preconcurrency TextFieldStyle {
     #if os(iOS)
         private static let height = KodosiButtonStyle.Size.regular.height
@@ -155,8 +153,6 @@ public struct MenuRow: View {
     }
 }
 
-/// A choice of one value: a key with the chosen value, which drops the list of values on a Mac and
-/// opens the system's menu on iPhone and iPad.
 public struct MenuPicker<Value: Hashable>: View {
     @Environment(\.theme) private var theme
     #if os(macOS)

@@ -1,5 +1,3 @@
-//! H.264 for an app that has no decoder of its own, such as the Linux and Windows app.
-
 use openh264::{decoder::Decoder, formats::YUVSource as _};
 
 pub struct KodosiVideoDecoder {

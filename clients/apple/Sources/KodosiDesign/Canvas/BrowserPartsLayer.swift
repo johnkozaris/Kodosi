@@ -1,9 +1,7 @@
 import KodosiBridge
 import SwiftUI
 
-/// What a page asks of a person outside its picture: the list of a select or a right-click, and
-/// its alert, confirm and prompt. The app draws them, because the browser never reaches the
-/// screen.
+/// The app draws a page's lists and dialogs, because the browser never reaches the screen.
 struct BrowserPartsLayer: View {
     @Environment(\.theme) private var theme
     let feed: BrowserFeed

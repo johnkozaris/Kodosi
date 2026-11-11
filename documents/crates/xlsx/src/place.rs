@@ -1,5 +1,3 @@
-//! Where a person is in a sheet: a range of cells, and whether their cell editor is open.
-
 use serde_json::{Value as Json, json};
 
 use crate::{
@@ -11,7 +9,6 @@ fn line(place: &Json, key: &str) -> Option<u32> {
     u32::try_from(place.get(key)?.as_u64()?).ok()
 }
 
-/// Moves a place across the rows and columns that a change adds or removes, as its cells move.
 pub(crate) fn map(place: &mut Json, change: &Change) {
     match change {
         Change::Group { changes } => {
@@ -56,7 +53,6 @@ fn shift(place: &mut Json, sheet: &str, shift: Shift, keys: [&str; 2]) {
     }
 }
 
-/// A place as `read` names cells, such as `Sheet1!B2` or `'Q3 sales'!B2:C4`.
 pub(crate) fn describe(model: &Model, place: &Json) -> Json {
     let id = place.get("sheet").and_then(Json::as_str);
     let Some(sheet) = model
@@ -86,7 +82,6 @@ pub(crate) fn describe(model: &Model, place: &Json) -> Json {
     described
 }
 
-/// A sheet's name as a formula writes it, in quotes when it holds more than letters and digits.
 fn sheet_name(name: &str) -> String {
     if name
         .chars()

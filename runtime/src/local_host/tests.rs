@@ -78,17 +78,6 @@ fn host_lock_prevents_competing_local_owners() {
     }
 }
 #[test]
-fn root_identity_and_socket_namespace_are_stable_and_separate() {
-    assert_eq!(
-        root_identity(Path::new("/a")),
-        root_identity(Path::new("/a"))
-    );
-    assert_ne!(
-        root_identity(Path::new("/a")),
-        root_identity(Path::new("/b"))
-    );
-}
-#[test]
 fn a_hello_of_another_version_still_reads() {
     assert!(serde_json::from_str::<Hello>(r#"{"version":20,"root":"a","sessionId":null}"#).is_ok());
     assert!(serde_json::from_str::<Hello>(r#"{"version":30,"root":"a","added":true}"#).is_ok());

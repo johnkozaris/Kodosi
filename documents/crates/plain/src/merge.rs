@@ -10,11 +10,8 @@ use crate::{
     lines::{Edit, Text},
 };
 
-/// Lines of one text that became lines of another.
 type Hunk = (Range<usize>, Range<usize>);
 
-/// What another program wrote: the saved state that it read, its new text, and where they
-/// differ.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Written {
     base: Text,
@@ -23,7 +20,6 @@ pub struct Written {
 }
 
 impl Written {
-    /// The lines that the writer removed and added.
     pub(crate) fn distance(&self) -> usize {
         self.hunks
             .iter()
@@ -42,7 +38,6 @@ pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
     vec![Change::Written(Written { base, write, hunks })]
 }
 
-/// The edits that merge a write into the text as it is now, in order.
 pub(crate) fn edits(now: &Text, written: &Written) -> Vec<Edit> {
     let base = written.base.lines();
     let write = written.write.lines();

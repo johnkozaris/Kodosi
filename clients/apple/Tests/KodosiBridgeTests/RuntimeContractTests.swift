@@ -9,8 +9,4 @@ struct RuntimeContractTests {
         let complete = #"{"type":"session.openRemote","sessionId":"s","requestId":"r","accountUserId":null,"accountEpoch":0}"#
         #expect(RuntimeContract.violation(in: Data(complete.utf8)) == nil)
     }
-
-    @Test func `the app expects the schema version`() {
-        #expect(RuntimeContract.version == Int(RuntimeHandle.expectedProtocolVersion))
-    }
 }

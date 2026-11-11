@@ -11,8 +11,7 @@
 namespace kodosi {
 class CanvasDocuments;
 
-// The live picture of a terminal's shared browser, and a person's input to it. Each frame shows
-// when it is decoded and is acknowledged then, so the host keeps the picture as sharp as this
+// Each frame is acknowledged when it is decoded, so the host keeps the picture as sharp as this
 // device and the link allow, and no queue forms.
 class BrowserVideo : public QQuickItem {
     Q_OBJECT

@@ -46,7 +46,6 @@ function(kodosi_install_evidence doc_dir)
 
     set(rust_license_dir "${PROJECT_BINARY_DIR}/generated/rust-dependency-licenses")
     add_custom_target(kodosi-rust-license-inventory ALL
-        COMMAND ${KODOSI_VERIFY_GHOSTTY_COMMAND}
         COMMAND
             "${Python3_EXECUTABLE}"
             "${PROJECT_SOURCE_DIR}/scripts/release/generate-rust-license-inventory.py"
@@ -60,7 +59,7 @@ function(kodosi_install_evidence doc_dir)
         COMMENT "Generating the locked ${KODOSI_RUST_TARGET} Rust dependency license inventory"
         VERBATIM
     )
-    add_dependencies(kodosi-rust-license-inventory kodosi-rust-cli-build)
+    add_dependencies(kodosi-rust-license-inventory kodosi-runtime-library-build)
 
     install(
         FILES "${KODOSI_SOURCE_IDENTITY}"

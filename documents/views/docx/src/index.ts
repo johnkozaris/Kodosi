@@ -34,7 +34,6 @@ interface Snapshot {
 }
 
 const PAGE_INSET = 16;
-/** How long the pages of a rendering may take to stop moving, in pauses. */
 const MOST_PAUSES = 30;
 const PAUSE_MS = 100;
 
@@ -119,7 +118,6 @@ class DocxEditor implements ViewEditor, Pictures {
     this.choosing.observe(root, { attributeFilter: ["data-fit"] });
   }
 
-  /** A key that changes the file, which does nothing while the file is read only. */
   private keyed(run: (editor: Editor) => void): () => boolean {
     return () => {
       const editor = this.editor;
@@ -239,12 +237,10 @@ class DocxEditor implements ViewEditor, Pictures {
     this.sheet.style.height = `${root.offsetHeight * this.scale}px`;
   }
 
-  /** The person chose text that fits the view over pages. */
   private fitted(): boolean {
     return this.root.hasAttribute("data-fit");
   }
 
-  /** A page keeps its lines, so a narrow view shows it smaller. Text that fits needs no scale. */
   private fits(): Record<Fitting, number> {
     if (this.fitted()) return { width: 1, page: 1 };
     const width = (this.page.clientWidth - 2 * PAGE_INSET) / this.shape.width;
@@ -252,7 +248,6 @@ class DocxEditor implements ViewEditor, Pictures {
     return { width, page: Math.min(width, height) };
   }
 
-  /** The pages, once their breaks stop moving. */
   async pictures(): Promise<number> {
     let last = "";
     for (let pause = 0; pause < MOST_PAUSES; pause++) {
@@ -271,7 +266,6 @@ class DocxEditor implements ViewEditor, Pictures {
     return area;
   }
 
-  /** Each page of the one flow of text, between the spaces where pages end. */
   private pagesNow(): Area[] {
     const root = this.editor?.view.dom;
     if (!root) return [];

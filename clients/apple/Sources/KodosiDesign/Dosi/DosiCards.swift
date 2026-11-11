@@ -21,7 +21,6 @@ struct DosiPersonBubble: View {
     }
 }
 
-/// Under a message that waits for its computer: which computer, and a key that takes it back.
 struct DosiWaiting: View {
     @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme

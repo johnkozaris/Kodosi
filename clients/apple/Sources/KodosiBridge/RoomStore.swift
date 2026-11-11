@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-/// The rooms of the account: the list, the conversation, tasks and people of each room, and what
-/// the person did not read yet.
 @MainActor
 @Observable
 public final class RoomStore {
@@ -17,10 +15,8 @@ public final class RoomStore {
     public private(set) var issues: [String: [RoomIssue]] = [:]
     /// The rooms that the person was in and is no longer in.
     public private(set) var departed: Set<String> = []
-    /// The room that the app shows, whose people stay fresh.
     public var visibleRoomId: String?
 
-    /// Whether the app is in front, so that what the person reads there is seen.
     @ObservationIgnored public var isFront: () -> Bool = { true }
     @ObservationIgnored public var notify: (String) -> Void = { _ in }
     @ObservationIgnored let commands: CommandSink
@@ -86,14 +82,11 @@ public final class RoomStore {
         details[roomId]?.members.first { $0.userId == userId }
     }
 
-    /// The friends whom the person can invite to the room.
     public func invitable(_ friends: [FriendEntry], to roomId: String) -> [FriendEntry] {
         let members = Set((details[roomId]?.members ?? []).map(\.userId))
         return friends.filter { !members.contains($0.userId) }
     }
 
-    /// Clears the count of new messages and, while the app is in front, keeps up to where the
-    /// person read, so that the room is no longer unread.
     public func markRead(_ roomId: String) {
         view(roomId).unread = 0
         guard isFront(), let sequence = snapshots[roomId]?.messages.map(\.sequence).max(),
@@ -102,8 +95,6 @@ public final class RoomStore {
         commands.perform("mission.seen", ["missionId": .string(roomId), "sequence": .uint(sequence)])
     }
 
-    /// Marks the rooms whose latest messages are on screen as read, as when the app comes to the
-    /// front.
     public func markShownRead() {
         for (roomId, state) in views where state.reading {
             markRead(roomId)
@@ -145,7 +136,6 @@ public final class RoomStore {
         timeout.cancel()
     }
 
-    /// Loads the people and the latest messages of a room.
     public func open(_ roomId: String) async {
         async let detail: Void = openDetail(roomId)
         async let messages: Void = read(roomId)
@@ -266,7 +256,6 @@ public final class RoomStore {
         }
     }
 
-    /// Keeps a page of earlier messages, which is no news.
     private func receivePage(_ page: RoomSnapshot) {
         var next = page
         if let previous = snapshots[page.roomId] {

@@ -63,9 +63,6 @@ impl BackendClient {
         Ok((bundle, root))
     }
 
-    /// Registers this device as the first device of a new identity of the account, and
-    /// keeps the root that it made. The new identity has no friend list yet, so the device
-    /// notes that it lists the friends again.
     pub(super) async fn enroll_fresh(&self, credentials: &Credentials) -> Result<()> {
         let (bundle, root) = self.bootstrap_identity(credentials).await?;
         if let Err(error) = self.mark_relist(credentials) {

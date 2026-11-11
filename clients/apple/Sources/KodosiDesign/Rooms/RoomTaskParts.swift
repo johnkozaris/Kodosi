@@ -1,14 +1,11 @@
 import KodosiBridge
 import SwiftUI
 
-/// What a task is about: its repositories, its issue, the terminal that works on it, and its
-/// result once it is done.
 public struct RoomTaskChips: View {
     let task: RoomTask
     let repositories: [RoomRepository]
     let terminal: RuntimeSession?
 
-    /// Shows the repositories of the room that the task names.
     public init(task: RoomTask, repositories: [RoomRepository], terminal: RuntimeSession?) {
         self.task = task
         self.repositories = repositories.filter { task.repositoryIds.contains($0.id) }
@@ -34,7 +31,6 @@ public struct RoomTaskChips: View {
     }
 }
 
-/// The title of a task, struck through once it is done.
 public struct RoomTaskTitle: View {
     @Environment(\.theme) private var theme
     let task: RoomTask
@@ -56,7 +52,6 @@ public struct RoomTaskTitle: View {
     }
 }
 
-/// The context of a task, with its links.
 public struct RoomTaskDescription: View {
     #if os(iOS)
         private static let lineSpacing: CGFloat = 2
@@ -82,7 +77,6 @@ public struct RoomTaskDescription: View {
     }
 }
 
-/// The title of a lane of open tasks, with how many it holds.
 public struct RoomTaskLaneTitle: View {
     public enum Lane: Sendable {
         case upForGrabs
@@ -119,7 +113,6 @@ public struct RoomTaskLaneTitle: View {
     }
 }
 
-/// The key that shows or hides the done tasks, with how many there are.
 public struct RoomDoneTasksKey: View {
     #if os(iOS)
         private static let height: CGFloat = 32
@@ -162,7 +155,6 @@ public struct RoomDoneTasksKey: View {
 }
 
 public extension View {
-    /// Marks a task that you work on with a copper edge.
     func roomTaskMarker(_ shown: Bool) -> some View {
         modifier(RoomTaskMarker(shown: shown))
     }

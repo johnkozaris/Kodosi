@@ -83,13 +83,11 @@ interface EditedCell {
   column: number;
 }
 
-/** A change of the document's order and its rev. */
 interface Ordered {
   rev: number;
   change: Change;
 }
 
-/** Another person's place in this copy, and the rev at which it came. */
 interface Marked {
   peer: Peer;
   place: Place | null;
@@ -244,7 +242,7 @@ function valueOf(cell: UniverCell | null | undefined): CellChange["value"] {
   return cell?.t === BOOLEAN_TYPE ? Boolean(value) : value;
 }
 
-/** A cell's change. Univer changes only part of a style, so the look is the cell's whole look. */
+/** Univer changes only part of a style, so the look is the cell's whole look. */
 function cellChange(
   row: number,
   column: number,
@@ -337,7 +335,6 @@ class XlsxEditor implements Editor, Pictures {
     this.scheme.observe(root, { attributeFilter: ["data-scheme", "data-dark-pages"] });
   }
 
-  /** The host's scheme, or the computer's when the host names none, when the person wants dark cells. */
   private dark(): boolean {
     if (!this.root.hasAttribute("data-dark-pages")) return false;
     const scheme = this.root.dataset.scheme;
@@ -414,8 +411,8 @@ class XlsxEditor implements Editor, Pictures {
   }
 
   /**
-   * A cell with its whole look as it is now. A look of the file keeps its index, so that what
-   * the file has and a look does not, such as borders, stays.
+   * A look of the file keeps its index, so that what the file has and a look does not, such as
+   * borders, stays.
    */
   private lookOf(sheet: string, row: number, column: number): CellChange {
     const range = this.univer?.univerAPI
@@ -430,7 +427,6 @@ class XlsxEditor implements Editor, Pictures {
     return Object.keys(look).length > 0 ? { row, column, look } : { row, column, style: null };
   }
 
-  /** The cells of these ranges with their whole looks, after a change of a part of them. */
   private restyled(sheet: string, ranges: readonly Range[]): Change | null {
     const cells: CellChange[] = [];
     for (const range of ranges) {
@@ -644,7 +640,6 @@ class XlsxEditor implements Editor, Pictures {
     this.follow(kind, sheet, at, count);
   }
 
-  /** The person's selection moves with its cells, as an edit does. */
   private follow(kind: "rows" | "columns", sheet: string, at: number, count: number): void {
     const worksheet = this.univer?.univerAPI.getActiveWorkbook()?.getActiveSheet();
     const range = worksheet?.getActiveRange();
@@ -806,7 +801,6 @@ class XlsxEditor implements Editor, Pictures {
     }
   }
 
-  /** An address goes to the host. A place such as `'Data'!A3` is in this workbook. */
   private followCell(to: LinkTarget): void {
     if ("href" in to) {
       followLink(to.href);
@@ -828,7 +822,6 @@ class XlsxEditor implements Editor, Pictures {
     sheet.getRange(range.row, range.column).activate();
   }
 
-  /** Moves the places that came before `rev` across the lines of a change. */
   private moveMarks(change: Change, rev: number): void {
     this.marked = this.marked.map((marked) =>
       marked.place && marked.rev < rev
@@ -859,7 +852,7 @@ class XlsxEditor implements Editor, Pictures {
     this.drawMarks();
   }
 
-  /** Draws where each person is. Univer has no such layer, so the marks lie over its canvas. */
+  /** Univer has no layer for people's places, so the marks lie over its canvas. */
   private drawMarks(): void {
     const sheet = this.univer?.univerAPI.getActiveWorkbook()?.getActiveSheet();
     const grid = [...this.canvas.querySelectorAll("canvas")]
@@ -905,7 +898,7 @@ class XlsxEditor implements Editor, Pictures {
     this.status.closed(reason);
   }
 
-  /** The sheets, once Univer has all its services: it takes the last ones when it is steady. */
+  /** Waits until Univer is steady: only then does it have all its services. */
   async pictures(): Promise<number> {
     for (let pause = 0; pause < MOST_PAUSES; pause++) {
       const stage = this.univer?.univerAPI.getCurrentLifecycleStage();
@@ -915,7 +908,6 @@ class XlsxEditor implements Editor, Pictures {
     return this.univer?.univerAPI.getActiveWorkbook()?.getNumSheets() ?? 0;
   }
 
-  /** Each sheet in turn, from its first cells. */
   async picture(index: number): Promise<Area> {
     const workbook = this.univer?.univerAPI.getActiveWorkbook();
     const sheet = workbook?.getSheets()[index];

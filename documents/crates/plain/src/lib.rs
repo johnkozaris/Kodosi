@@ -32,29 +32,24 @@ pub(crate) fn schema() -> &'static Schema {
 }
 
 const BOM: &[u8] = "\u{feff}".as_bytes();
-/// The most lines of a file that opens live. Each edit of a view takes longer with each line,
-/// so a longer file stays a page.
+/// Each edit of a view takes longer with each line, so a longer file stays a page.
 const MOST_LINES: usize = 10_000;
-/// The most bytes of a file that opens live, for the files whose lines are very long.
 const MOST_BYTES: usize = 512 * 1024;
 
-/// The text of a file, without its byte order mark.
 fn text_of(file: &[u8]) -> Result<&str, Unreadable> {
     std::str::from_utf8(file.strip_prefix(BOM).unwrap_or(file))
         .map_err(|error| Unreadable(format!("the file is not UTF-8 text: {error}")))
 }
 
-/// Plain text.
 pub struct Plain;
 
-/// The live copy of a text file: its lines.
 #[derive(Debug, Clone)]
 pub struct Model {
     doc: Node,
 }
 
-/// One batch of edits. A view sends steps. The CLI sends named ops, and the server turns them
-/// into steps, so a view never sees an op.
+/// A view sends steps. The CLI sends named ops, and the server turns them into steps, so a view
+/// never sees an op.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -68,12 +63,11 @@ pub enum Change {
     Ops {
         ops: Vec<Op>,
     },
-    /// What a compare found in a write of another program. It becomes steps, and never travels.
+    /// A write of another program becomes steps, and never travels.
     #[serde(skip)]
     Written(Written),
 }
 
-/// What read and check ask.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -241,7 +235,6 @@ impl Format for Plain {
     }
 }
 
-/// Whether a file has line feeds, and a carriage return comes before each.
 fn is_crlf(file: &[u8]) -> bool {
     let mut ended = file.split(|byte| *byte == b'\n');
     ended.next_back();
@@ -249,7 +242,7 @@ fn is_crlf(file: &[u8]) -> bool {
     ended.peek().is_some() && ended.all(|line| line.ends_with(b"\r"))
 }
 
-/// The lines of a file. A line ending at its end ends the last line, and does not start another.
+/// A line ending at the end of a file ends the last line, and does not start another.
 fn split(text: &str) -> impl Iterator<Item = &str> {
     let ending = if is_crlf(text.as_bytes()) {
         "\r\n"

@@ -259,9 +259,7 @@ bool SessionActionsModel::openQuick(const QVariantMap& agent)
     return true;
 }
 
-// The agent in front of the selected terminal of this computer, to start once more: with its
-// account, and with what it works with as far as Kodosi knows, its waiting change included.
-// What Kodosi does not know stays the launcher's last choice.
+// What Kodosi does not know of the running agent stays the launcher's last choice.
 QVariantMap SessionActionsModel::selectedAgent() const
 {
     const auto selected = m_sessions.session(m_desktop.selectedSessionId());

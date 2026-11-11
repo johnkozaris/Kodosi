@@ -27,7 +27,6 @@ const STOP_WAIT: Duration = Duration::from_secs(5);
 const MAX_FRAME: usize = 8 * 1024 * 1024 + 64 * 1024;
 const MAX_CONNECTIONS: usize = 64;
 const HELLO_TIMEOUT: Duration = Duration::from_secs(3);
-/// How long a host that stops can still take connections and close them.
 const STOPPING_HOST_WAIT: Duration = Duration::from_secs(1);
 const STOPPING_HOST_RETRY: Duration = Duration::from_millis(20);
 const ACCOUNT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -171,7 +170,6 @@ pub use framing::{
 pub use server::{LocalServer, serve};
 use server::{endpoint, local_error, lock_root, role_endpoint, root_identity};
 
-/// The name of the private folder of this data root's sockets.
 pub(crate) fn namespace(root: &Path) -> String {
     root_identity(root)[..24].to_owned()
 }

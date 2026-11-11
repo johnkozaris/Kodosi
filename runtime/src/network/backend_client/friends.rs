@@ -196,9 +196,6 @@ impl BackendClient {
         Ok(())
     }
 
-    /// Starting fresh keeps the account's friends. This device lists them, and the people that
-    /// the account asked, again as friends added by username. Until that works, each refresh of
-    /// the friends tries again.
     pub(super) async fn relist_friends(&self, credentials: &Credentials) -> Result<()> {
         let (friends, requests) = self.friend_directory(credentials).await?;
         let people = friends
@@ -226,7 +223,6 @@ impl BackendClient {
         self.forget_relist()
     }
 
-    /// Notes that this device started fresh for the account, so it lists the friends again.
     pub(super) fn mark_relist(&self, credentials: &Credentials) -> Result<()> {
         Ok(kodosi_os::fs::write_private(
             &self.relist_marker(),
@@ -241,8 +237,8 @@ impl BackendClient {
         }
     }
 
-    /// A relist that this device's start fresh left undone. It counts only while this device is
-    /// the only device of the account, as no other device can have verified a friend since.
+    /// A relist counts only while this device is the only device of the account, as no other
+    /// device can have verified a friend since.
     async fn relist_pending(&self, credentials: &Credentials) -> Result<bool> {
         if std::fs::read(self.relist_marker()).ok() != Some(relist_mark(credentials)) {
             return Ok(false);
@@ -548,9 +544,6 @@ impl BackendClient {
         Ok((friends, requests))
     }
 
-    /// The person whom a removal or a block parts from: the friend that the signed list names
-    /// with this user name, or else the person that the server names, unless the signed list
-    /// knows that person by another name.
     async fn parting_user(
         &self,
         credentials: &Credentials,

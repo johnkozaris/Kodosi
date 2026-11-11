@@ -1,5 +1,4 @@
-/// The DOM key, DOM code and Windows key code of a keyboard key, by its Mac key code or its
-/// USB HID usage. A key that types a character has no DOM key here: the character is the key.
+/// A key that types a character has no DOM key here: the character is the key.
 enum BrowserKeys {
     struct Key {
         let code: String

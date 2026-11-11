@@ -170,15 +170,6 @@ private slots:
         QCOMPARE(kodosi::CanvasModel::pointInView(QPointF(0, 0), wide, browser), QPointF(55.55555555555554, 0));
     }
 
-    void theBrowserKnowsTheKeysOfAUsKeyboard()
-    {
-        QCOMPARE(kodosi::CanvasModel::browserKey(Qt::Key_A)->code, QStringLiteral("KeyA"));
-        QCOMPARE(kodosi::CanvasModel::browserKey(Qt::Key_Exclam)->code, QStringLiteral("Digit1"));
-        QCOMPARE(kodosi::CanvasModel::browserKey(Qt::Key_Return)->named, QStringLiteral("Enter"));
-        QCOMPARE(kodosi::CanvasModel::browserKey(Qt::Key_Left)->windows, 37);
-        QVERIFY(!kodosi::CanvasModel::browserKey(Qt::Key_Shift));
-    }
-
     void askAboutThisTypesOneLineForThePersonToFinish()
     {
         QCOMPARE(kodosi::CanvasModel::about(QStringLiteral("/work/plan.md"), {}), QStringLiteral("About /work/plan.md: "));

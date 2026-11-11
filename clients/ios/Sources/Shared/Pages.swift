@@ -2,19 +2,16 @@ import KodosiDesign
 import SwiftUI
 
 extension View {
-    /// A sheet of the app: on the surface, with the sheet's corners.
     func kodosiSheet() -> some View {
         modifier(KodosiSheet())
     }
 
-    /// Keeps the rows of a list as wide as a line reads well, in the middle of a wide screen.
     func readableWidth(_ width: CGFloat = 760) -> some View {
         modifier(ReadableWidth(width: width))
     }
 
-    /// The facts of a page in a line under its large title, as on the Mac. The line stays in the
-    /// bar while it is empty: the bar must have its height from the start, or the page opens
-    /// scrolled under it.
+    /// The line stays in the bar while it is empty: the bar must have its height from the start,
+    /// or the page opens scrolled under it.
     func pageFacts(_ facts: String) -> some View {
         toolbar {
             ToolbarItem(placement: .largeSubtitle) { PageFacts(text: facts) }
@@ -62,7 +59,6 @@ private struct ReadableWidth: ViewModifier {
     }
 }
 
-/// The name of a part of a list, with how many things it holds.
 struct ListHeader: View {
     @Environment(\.theme) private var theme
     let title: LocalizedStringKey

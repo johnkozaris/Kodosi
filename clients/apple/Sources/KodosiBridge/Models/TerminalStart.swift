@@ -1,7 +1,5 @@
 import Foundation
 
-/// A new terminal as `session.create` asks for it: on this computer, or on another of the
-/// person's computers with `computer`.
 public struct TerminalStart: Equatable, Sendable {
     public var name: String
     public var directory: String?

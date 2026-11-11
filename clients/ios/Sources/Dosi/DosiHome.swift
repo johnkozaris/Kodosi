@@ -2,7 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The Dosi tab: the conversation with Dosi, which runs on the person's computers.
 struct DosiHome: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openRoute) private var openRoute
@@ -85,8 +84,8 @@ private struct DosiScreen: View {
             .onChange(of: model.dosi.items.last?.id) { see() }
     }
 
-    /// Marks Dosi's answers as seen while they show. The person's own message does not count, so
-    /// that the answer to it still counts on the tab when it comes after the person left.
+    /// The person's own message does not count as seen, so that the answer to it still counts on
+    /// the tab when it comes after the person left.
     private func see() {
         guard shown, let last = model.dosi.items.last else { return }
         if case .person = last.body {
@@ -96,7 +95,6 @@ private struct DosiScreen: View {
     }
 }
 
-/// The key that starts a new chat, after the person confirms it.
 private struct DosiNewChat: View {
     @Environment(AppModel.self) private var model
     @State private var asking = false

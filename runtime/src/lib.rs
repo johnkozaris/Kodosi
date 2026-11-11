@@ -23,7 +23,7 @@ compile_error!("Phones view terminals hosted elsewhere; build it with --no-defau
 pub mod text;
 pub mod agents;
 pub mod canvas;
-#[cfg(feature = "cli")]
+#[cfg(feature = "host")]
 pub mod cli;
 mod config;
 pub mod diagnostics;
@@ -60,7 +60,6 @@ pub enum Error {
     Invalid(String),
     Refused(text::Text),
     Text(text::Text),
-    /// Input that a terminal of another computer did not get. Its terminal says so.
     Unsent(text::Text),
     HostBusy(text::Text),
     HostOutdated {

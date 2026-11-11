@@ -1,8 +1,6 @@
 import Foundation
 import KodosiBridge
 
-/// The live viewers of this device, and what each one shows. A viewer that is off leaves its
-/// files to Quick Look.
 public struct DocumentViewers: Equatable, Sendable {
     public static let storageKey = "documentViewers"
 
@@ -28,7 +26,6 @@ public struct DocumentViewers: Equatable, Sendable {
         }
     }
 
-    /// The choices that the view of this kind takes.
     func preferences(for view: CanvasItem.View) -> [String: Bool] {
         switch view {
         case .docx: ["pages": documentPages, "dark": darkDocuments]

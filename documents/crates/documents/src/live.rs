@@ -2,7 +2,6 @@ use std::{collections::HashMap, marker::PhantomData, path::Path, sync::Arc};
 
 use document::{Assets, Document, Effect, Format, Hash, Input, Restored, Rev, Unreadable};
 
-/// One open document, whatever its format.
 pub trait Live: Send {
     fn step(&mut self, input: Input) -> Vec<Effect>;
     fn rev(&self) -> Rev;
@@ -38,9 +37,7 @@ impl<F: Format> Live for Document<F> {
     }
 }
 
-/// Makes the open document of one format.
 pub trait Opener: Send + Sync {
-    /// Whether a file opens live, as `Format::opens` says.
     fn opens(&self, file: &[u8]) -> bool;
 
     fn open(&self, file: Vec<u8>, epoch: u64) -> Result<Box<dyn Live>, Unreadable>;
@@ -82,7 +79,6 @@ pub fn format<F: Format>() -> Box<dyn Opener> {
     Box::new(FormatOpener::<F>(PhantomData))
 }
 
-/// The formats of a host, by file extension.
 #[derive(Clone, Default)]
 pub struct Formats {
     by_extension: HashMap<String, Arc<dyn Opener>>,
@@ -101,7 +97,6 @@ impl Formats {
         self.by_extension.get(&extension).cloned()
     }
 
-    /// Whether a file opens live: a format takes its extension, and takes the file.
     #[must_use]
     pub fn opens(&self, path: &Path, file: &[u8]) -> bool {
         self.of(path).is_some_and(|opener| opener.opens(file))

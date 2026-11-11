@@ -27,7 +27,6 @@ function typed(state: EditorState, text: string, at: number): EditorState {
   return state.apply(state.tr.insertText(text, at));
 }
 
-/** A copy that loaded `doc`, and its state after the person typed on it. */
 function copyOf(doc: ProseNode, type: (state: EditorState) => EditorState) {
   const waiting = new Waiting();
   waiting.loaded(doc, undefined, "none");
@@ -35,7 +34,6 @@ function copyOf(doc: ProseNode, type: (state: EditorState) => EditorState) {
   return { waiting, state };
 }
 
-/** The snapshot with the steps that came onto it, as the ids and text of its paragraphs. */
 function shown(snapshot: ProseNode, steps: readonly Step[]): [string, string][] {
   const transform = new Transform(snapshot);
   for (const step of steps) transform.step(step);
@@ -49,7 +47,6 @@ function shown(snapshot: ProseNode, steps: readonly Step[]): [string, string][] 
 const plan = docOf(["i", "Intro"], ["p", "Plan"], ["e", "End"]);
 const planEnd = 1 + "Intro".length + 2 + "Plan".length;
 
-/** Ana types " A" at the end of "Plan", which goes to the document, and " B", which waits. */
 function anaTyped() {
   const copy = copyOf(plan, (state) => typed(typed(state, " A", planEnd), " B", planEnd + 2));
   copy.waiting.sending(1);

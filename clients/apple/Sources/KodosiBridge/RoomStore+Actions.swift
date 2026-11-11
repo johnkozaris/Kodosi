@@ -1,7 +1,6 @@
 import Foundation
 
 public extension RoomStore {
-    /// Posts the draft of a room, and keeps what the person wrote while it went out.
     func post(in roomId: String) async {
         let state = view(roomId)
         let text = state.message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,7 +45,6 @@ public extension RoomStore {
         try await act(roomId, RoomAction.addRepository(address))
     }
 
-    /// Makes a room and invites the friends, and returns the room.
     func create(name: String, inviting friends: [String]) async throws -> String {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ProductInput.validName(name) else {
@@ -77,7 +75,6 @@ public extension RoomStore {
         _ = try await commands.request(operation, ["invitationId": .string(invitation.id)])
     }
 
-    /// Renames a room. An empty name keeps the one it has.
     func rename(_ roomId: String, to name: String) async throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name != mission(roomId)?.name else { return }
@@ -99,7 +96,6 @@ public extension RoomStore {
         _ = try await commands.request("mission.removeMember", ["missionId": .string(roomId), "userId": .string(member.userId)])
     }
 
-    /// Does the work, and tells the person when it fails.
     func run(_ work: @escaping () async throws -> Void) {
         Task {
             do {

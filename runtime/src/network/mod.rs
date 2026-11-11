@@ -197,12 +197,9 @@ pub(crate) fn stagger(delay: Duration) -> Duration {
     delay.mul_f64(0.5 + f64::from(u32::from_le_bytes(random)) / f64::from(u32::MAX) / 2.0)
 }
 
-/// The least time that the wall clock gains on the monotonic clock in a sleep that Kodosi
-/// notices.
 const SHORTEST_SLEEP: Duration = Duration::from_secs(5);
 
-/// A moment on the monotonic clock and on the wall clock. The monotonic clock stands still
-/// while the computer sleeps, and the wall clock goes on.
+/// The monotonic clock stands still while the computer sleeps, and the wall clock goes on.
 #[derive(Clone, Copy)]
 pub(crate) struct Moment {
     pub(crate) monotonic: tokio::time::Instant,
@@ -217,7 +214,6 @@ impl Moment {
         }
     }
 
-    /// Whether the computer slept between this moment and a later one.
     pub(crate) fn slept_until(self, later: Self) -> bool {
         let awake = later.monotonic.saturating_duration_since(self.monotonic);
         let passed = later.wall.duration_since(self.wall).unwrap_or_default();
@@ -406,8 +402,8 @@ pub enum HostRequest {
     },
 }
 
-/// A picture that a person on another computer pastes. The host pastes a known picture from
-/// its file, if it still has it, and answers `missing` if not.
+/// The host pastes a known picture from its file, if it still has it, and answers `missing` if
+/// not.
 pub enum HostPicture {
     Known {
         digest: [u8; 32],
@@ -512,7 +508,6 @@ impl RemoteControl {
         }
     }
 
-    /// Opens a pipe to a live document on the host. Each frame goes in parts.
     pub(crate) fn open_pipe(
         &self,
         pipe: Uuid,
@@ -529,8 +524,6 @@ impl RemoteControl {
         ))
     }
 
-    /// Sends a pasted picture to the host, which pastes the path of its file. The connection
-    /// sends one picture at a time and tells its progress as updates.
     pub fn send_picture(
         &self,
         picture: crate::terminal::Picture,

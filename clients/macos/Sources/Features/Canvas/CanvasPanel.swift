@@ -3,9 +3,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// Where the canvases of the shown terminals open: the space in which their keys move between
-/// a terminal's header and its canvas, the terminal whose canvas is open, and how to open one at
-/// a part.
 struct CanvasPlace {
     var flight: Namespace.ID?
     var open: String?
@@ -16,7 +13,6 @@ extension EnvironmentValues {
     @Entry var canvasPlace = CanvasPlace()
 }
 
-/// The widths of a terminal and its canvas side by side, in one body.
 struct CanvasPair {
     static let narrowest: CGFloat = 380
 
@@ -29,19 +25,14 @@ struct CanvasPair {
         panel = min(max(chosen ?? width / 2, Self.narrowest), most)
     }
 
-    /// How much a terminal of `tile` zooms out to wait in the corner of a stage of `stage`.
     static func zoom(tile: CGSize, stage: CGSize) -> CGFloat {
         guard tile.width > 0, tile.height > 0 else { return 1 }
         return min(0.45, 320 / tile.width, stage.width * 0.28 / tile.width, stage.height * 0.4 / tile.height)
     }
 }
 
-/// A terminal with its canvas open: two lobes of one body with a soft waist between them, or
-/// the canvas over all the stage with the terminal live and zoomed out in its corner. The
-/// terminal keeps its size in both. With `always`, the body is there without a canvas too, and
-/// `tab` is the tab that it flows out of. A canvas that opens beside `front`, the terminal in
-/// front, unfolds from it. One that hides, or comes and goes with another terminal in front,
-/// does so at once, as the terminal does.
+/// With `always`, the body is there without a canvas too, and `tab` is the tab that it flows out
+/// of.
 struct CanvasStage<Terminal: View>: View {
     static var corner: CGFloat {
         16
@@ -124,13 +115,11 @@ struct CanvasStage<Terminal: View>: View {
         }
     }
 
-    /// Whether a canvas opens now beside the terminal that was in front without one.
     private var opens: Bool {
         canvas != nil && shown == nil && (shownFront == nil || shownFront == front)
     }
 }
 
-/// The canvas of a terminal, beside it: the keys of its parts and the part that it shows.
 struct CanvasPanel: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -290,7 +279,6 @@ struct CanvasPanel: View {
         }
     }
 
-    /// The words that the person selected in what shows of an item: its page or its live document.
     private func selectedWords(of item: CanvasItem) async -> String? {
         if let words = await frames.selectedWords(of: item.key) {
             return words
@@ -320,7 +308,6 @@ struct CanvasPanel: View {
 }
 
 extension AppDependencies {
-    /// Shows the shared browser of a terminal on its canvas, and opens it when the terminal has none.
     func openBrowser(of session: RuntimeSession) {
         Task { @MainActor in
             do {
@@ -329,7 +316,6 @@ extension AppDependencies {
         }
     }
 
-    /// Lets a person pick files for the canvas of a terminal, and says whether they picked any.
     func addFile(to session: RuntimeSession) -> Bool {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
@@ -350,7 +336,6 @@ extension AppDependencies {
     }
 }
 
-/// Shows the leading part of a view, from its leading edge.
 private struct Grow: ViewModifier, Animatable {
     var part: Double
 
@@ -367,8 +352,6 @@ private struct Grow: ViewModifier, Animatable {
     }
 }
 
-/// The terminal of a canvas that fills the stage: live and zoomed out in the stage's corner. A
-/// press shows them side by side again.
 private struct ZoomedOut: ViewModifier, Animatable {
     @Environment(\.theme) private var theme
     var part: Double
@@ -413,8 +396,6 @@ private struct ZoomedOut: ViewModifier, Animatable {
 }
 
 extension AnyTransition {
-    /// The canvas pulls out of its terminal's edge: it shows from its leading edge to its
-    /// trailing edge, at its own size.
     static var unfold: AnyTransition {
         .modifier(active: Unfold(shown: 0), identity: Unfold(shown: 1))
     }
@@ -438,7 +419,6 @@ private struct Unfold: ViewModifier, Animatable {
     }
 }
 
-/// The ground of what a canvas shows, in the appearance of the app.
 private struct CanvasContentGround: View {
     @Environment(\.theme) private var theme
 
@@ -447,7 +427,6 @@ private struct CanvasContentGround: View {
     }
 }
 
-/// The gap between a terminal and its canvas, which a person drags to share the width.
 struct CanvasHandle: View {
     static let reach: CGFloat = 12
 

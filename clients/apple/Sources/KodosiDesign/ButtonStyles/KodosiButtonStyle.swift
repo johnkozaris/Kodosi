@@ -186,9 +186,6 @@ public struct IconButton: View {
     }
 }
 
-/// The face of a symbol-only button: quiet while the pointer is on it, or on iPhone and iPad while
-/// a finger presses it, and raised while its popover is open or it is on. A button with
-/// `PressScaleStyle` lights it while it is pressed.
 public struct IconButtonFace: View {
     @Environment(\.theme) private var theme
     @Environment(\.isEnabled) private var isEnabled

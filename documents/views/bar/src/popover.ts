@@ -4,12 +4,11 @@ const TIP_DELAY = 450;
 const TIP_WARM = 600;
 const GAP = 6;
 
-/** The view that a part belongs to. Floating boxes go there, so they keep its look. */
+/** Floating boxes go into the view of their part, so they keep its look. */
 export function viewOf(element: HTMLElement): HTMLElement {
   return element.closest<HTMLElement>(".document-view") ?? document.body;
 }
 
-/** Places a floating box under its anchor, or over it when the window has no room below. */
 function place(box: HTMLElement, anchor: HTMLElement, align: "start" | "end" | "middle"): void {
   const room = anchor.getBoundingClientRect();
   const size = box.getBoundingClientRect();
@@ -37,7 +36,6 @@ function hideTip(): void {
   tipClosed = performance.now();
 }
 
-/** A part names itself in a small label after a short pause, and the next one at once. */
 export function giveTip(element: HTMLElement, label: string, shortcut?: string): void {
   element.ariaLabel = label;
   element.addEventListener("pointerenter", () => {
@@ -67,7 +65,7 @@ interface Open {
   anchor: HTMLElement;
 }
 
-/** The open menus and panels. A menu that a panel opens lies over it. */
+/** A menu that a panel opens lies over it. */
 const opened: Open[] = [];
 
 function closeTop(): void {
@@ -79,7 +77,6 @@ function closeTop(): void {
   if (opened.length === 0) listen(false);
 }
 
-/** Closes what lies over the box or the key that holds this node. */
 function closeOver(node: Node | null): void {
   const holder = opened.findLastIndex(
     ({ box, anchor }) => node !== null && (box.contains(node) || anchor.contains(node)),
@@ -87,7 +84,6 @@ function closeOver(node: Node | null): void {
   while (opened.length > holder + 1) closeTop();
 }
 
-/** Closes every menu and panel. */
 export function closePopover(): void {
   while (opened.length > 0) closeTop();
 }
@@ -118,10 +114,6 @@ function listen(on: boolean): void {
   }
 }
 
-/**
- * Opens a menu or a panel from its key, which keeps its raised face while it is open. A press
- * outside, Escape or a change of the window closes it.
- */
 export function openPopover(
   anchor: HTMLElement,
   content: HTMLElement,
@@ -143,7 +135,6 @@ export function openPopover(
   opened.push({ box, anchor });
 }
 
-/** Closes the menu or panel that this key opened. */
 export function closeFrom(anchor: HTMLElement): void {
   const at = opened.findIndex((open) => open.anchor === anchor);
   if (at < 0) return;
@@ -154,18 +145,15 @@ export type MenuEntry =
   | {
       label: string;
       icon?: IconNode;
-      /** Words at the end of the row, such as an example of a format. */
       hint?: string;
       checked?: boolean;
       disabled?: boolean;
-      /** The look of the label, such as the font that a choice gives. */
       look?: Partial<CSSStyleDeclaration>;
       run(): void;
     }
   | { heading: string }
   | "separator";
 
-/** A list of choices. Up and Down move between them, and Enter takes one. */
 export function menuOf(entries: readonly MenuEntry[], done: () => void): HTMLElement {
   const list = document.createElement("div");
   list.role = "menu";
@@ -222,7 +210,6 @@ export function menuOf(entries: readonly MenuEntry[], done: () => void): HTMLEle
   return list;
 }
 
-/** Moves the focus into a menu or panel that a key opened from the keyboard. */
 export function focusFirst(content: HTMLElement): void {
   content
     .querySelector<HTMLElement>(

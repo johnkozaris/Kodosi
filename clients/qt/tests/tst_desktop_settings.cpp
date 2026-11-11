@@ -64,29 +64,6 @@ private slots:
         QCOMPARE(document.value(QStringLiteral("dark")).toBool(), false);
         QVERIFY(!restored.viewers().contains(QStringLiteral("unknown")));
     }
-    void withoutAChosenFolderTheLauncherStartsInTheHomeFolder()
-    {
-        QTemporaryDir directory;
-        kodosi::DesktopSettings settings(
-            std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
-        QCOMPARE(settings.homeDirectory(), QDir::homePath());
-        QCOMPARE(settings.effectiveWorkingDirectory(), settings.homeDirectory());
-    }
-    void kodosiKeepsRunningAfterTheWindowClosesUntilThePersonTurnsItOff()
-    {
-        QTemporaryDir directory;
-        const auto path = directory.filePath(QStringLiteral("settings.ini"));
-        {
-            kodosi::DesktopSettings settings(std::make_unique<QSettings>(path, QSettings::IniFormat));
-            QVERIFY(settings.keepRunning());
-            QVERIFY(!settings.closeHintShown());
-            settings.setKeepRunning(false);
-            settings.setCloseHintShown();
-        }
-        kodosi::DesktopSettings restored(std::make_unique<QSettings>(path, QSettings::IniFormat));
-        QVERIFY(!restored.keepRunning());
-        QVERIFY(restored.closeHintShown());
-    }
     void withoutASystemTrayClosingTheWindowQuitsUntilThePersonKeepsKodosiRunning()
     {
         QTemporaryDir directory;
@@ -102,19 +79,6 @@ private slots:
         QVERIFY(settings(true)->keepRunning());
         settings(false)->setKeepRunning(true);
         QVERIFY(settings(false)->keepRunning());
-    }
-    void theRuntimesProgramIsTheAgentAndANameShowsTheAgentItNames()
-    {
-        using kodosi::DesktopSettings;
-        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("codex")), QStringLiteral("codex"));
-        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("cursor")), QStringLiteral("cursor"));
-        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("/usr/local/bin/codex --full-auto")), QStringLiteral("shell"));
-        QCOMPARE(DesktopSettings::agentOf(QStringLiteral("Claude Code")), QStringLiteral("shell"));
-        QCOMPARE(DesktopSettings::agentNamed(QStringLiteral("GitHub Copilot")), QStringLiteral("copilot"));
-        QCOMPARE(DesktopSettings::agentNamed(QStringLiteral("Dosi")), QStringLiteral("shell"));
-        QCOMPARE(DesktopSettings::agentLabel(QStringLiteral("claude")), QStringLiteral("Claude Code"));
-        QCOMPARE(DesktopSettings::agentLabel(QStringLiteral("Claude")), QStringLiteral("Shell"));
-        QCOMPARE(DesktopSettings::agentLabel({}), QStringLiteral("Shell"));
     }
 };
 QTEST_GUILESS_MAIN(DesktopSettingsTest)

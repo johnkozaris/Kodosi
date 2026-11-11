@@ -19,7 +19,6 @@ pub(crate) struct PendingLink {
     pub(super) request_id: String,
     pub(super) key: Arc<LinkKey>,
     pub(super) started: Instant,
-    /// The approval came and holds; this device still settles its enrollment.
     pub(super) accepted: bool,
 }
 
@@ -514,7 +513,6 @@ impl BackendClient {
             })
     }
 
-    /// The name of the device that shows this code, so that the person sees it before approving.
     pub(super) async fn link_label(&self, typed: &str) -> Result<String> {
         let credentials = self.credentials()?;
         Ok(self.linked_device(&credentials, typed).await?.label)

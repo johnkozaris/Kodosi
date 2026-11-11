@@ -150,13 +150,12 @@ const EFFECTS: readonly MarkKey[] = [
   { name: "superscript", label: say("Superscript"), icon: Superscript },
   { name: "subscript", label: say("Subscript"), icon: Subscript },
 ];
-/** Single spacing and the spacings that people pick most, in 240ths of a line. */
+/** In 240ths of a line. */
 const LINES = [240, 276, 360, 480];
 const SPACINGS: readonly Choice<string>[] = LINES.map((line) => ({
   value: String(line),
   label: new Intl.NumberFormat(language()).format(line / 240),
 }));
-/** The largest table that the grid of Insert › Table makes. */
 const TABLE_COLUMNS = 8;
 const TABLE_ROWS = 6;
 
@@ -187,7 +186,6 @@ function sizeText(size: number): string {
   return String(Math.round(size * 2) / 2);
 }
 
-/** The bar of a document: what the person changes most, and the rest in the Text panel. */
 export class DocxBar {
   private readonly bar: Bar;
   private editor: Editor | undefined;
@@ -199,7 +197,6 @@ export class DocxBar {
 
   constructor(
     root: HTMLElement,
-    /** The parts at the end of the bar, such as the zoom and the status. */
     private readonly end: readonly HTMLElement[],
   ) {
     this.bar = new Bar(root, say("Format"));
@@ -323,7 +320,6 @@ export class DocxBar {
     this.refresh();
   }
 
-  /** Shows what is true at the selection, once a frame however many changes come. */
   update(): void {
     if (this.pending || !this.refresh) return;
     this.pending = requestAnimationFrame(() => {
@@ -586,7 +582,6 @@ export class DocxBar {
     ];
   }
 
-  /** An address for a link, which goes on the selected words, or in as words of its own. */
   private linkPanel(editor: Editor, href: string): HTMLElement {
     const note = document.createElement("span");
     note.className = "bar-panel-note";

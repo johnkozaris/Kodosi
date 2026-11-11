@@ -2,7 +2,7 @@ import type { Node as ProseNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 
-/** A page in CSS pixels. */
+/** In CSS pixels. */
 export interface PageShape {
   height: number;
   top: number;
@@ -53,7 +53,6 @@ function outsideHoles(rect: DOMRect, holes: readonly Hole[]): boolean {
   return !holes.some((hole) => rect.top >= hole.top && rect.bottom <= hole.top + hole.height + 1);
 }
 
-/** The visible lines of a paragraph, top to bottom. */
 function textLines(element: HTMLElement, holes: readonly Hole[]): DOMRect[] {
   const range = document.createRange();
   range.selectNodeContents(element);
@@ -80,7 +79,7 @@ class Measure {
     private readonly origin: number,
   ) {}
 
-  /** Where a point would lie with no spaces between pages. Points must come in order. */
+  /** Points must come in order. */
   natural(y: number): number {
     for (let hole = this.holes[this.next]; hole && hole.top < y; hole = this.holes[this.next]) {
       this.passed += hole.height;
@@ -260,7 +259,6 @@ function sameBreaks(left: readonly PageBreak[], right: readonly PageBreak[]): bo
   );
 }
 
-/** Draws pages over the one flow of text, with spaces at the lines where a page ends. */
 export function pages(
   page: PageShape,
   rules: BlockRules,

@@ -78,7 +78,6 @@ fn fill_xml(color: &str) -> String {
     )
 }
 
-/// Parses a piece of a slide, with the namespaces of that slide.
 fn with_piece<T>(
     xml: &str,
     namespaces: &str,
@@ -239,7 +238,7 @@ impl Out<'_> {
     }
 }
 
-/// Run properties from a look. `kept` holds other attributes and children, split by a zero.
+/// `kept` holds other attributes and children, split by a zero.
 fn new_run_props(look: &RunLook, tag: &str, kept: &str) -> String {
     let (attributes, children) = kept.split_once('\u{0}').unwrap_or((kept, ""));
     let mut xml = format!("<{tag}{attributes}");
@@ -330,7 +329,6 @@ fn new_shape_xml(out: &Out<'_>, shape: &Shape) -> Result<String, String> {
     ))
 }
 
-/// Changes one shape's element: only its frame, fill and text, each one when it differs.
 fn patch_shape(
     out: &Out<'_>,
     xml: &str,
@@ -461,7 +459,6 @@ fn new_slide_xml(out: &Out<'_>, slide: &Slide) -> Result<String, String> {
     ))
 }
 
-/// Writes the list of slides, and the parts of slides that are new or gone.
 #[expect(clippy::too_many_lines, reason = "one walk through the list of slides")]
 fn slide_list(
     model: &Model,
@@ -574,7 +571,6 @@ fn slide_list(
     Ok(())
 }
 
-/// Removes the one tag that holds some text.
 fn remove_element_with(xml: &str, needle: &str) -> String {
     let Some(found) = xml.find(needle) else {
         return xml.to_owned();
@@ -624,7 +620,6 @@ pub(crate) fn write(model: &Model, file: &[u8], assets: &Assets) -> Result<Vec<u
     Ok(written.unwrap_or_else(|| file.to_vec()))
 }
 
-/// Reads a frame back, so tests can name what a slide holds.
 #[cfg(test)]
 pub(crate) fn frame_in(xml: &str, shape: &str) -> Option<read::Frame> {
     let parsed = Document::parse(xml).ok()?;

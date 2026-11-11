@@ -7,11 +7,8 @@ use uuid::Uuid;
 use crate::agents::AgentSettings;
 use crate::terminal::{ProgramState, ProgramStatus};
 
-/// The pause after a command that Kodosi typed into an agent, before the next one.
 pub(super) const SPACING: Duration = Duration::from_millis(1500);
 
-/// The agents' own commands that wait to be typed into their terminals, each with the part of
-/// the change that it makes.
 #[derive(Debug, Default)]
 pub(super) struct AgentChanges {
     waiting: HashMap<Uuid, VecDeque<(String, AgentSettings)>>,
@@ -20,8 +17,7 @@ pub(super) struct AgentChanges {
 }
 
 impl AgentChanges {
-    /// Adds the commands of a change. A newer command replaces one that still waits to change
-    /// the same thing, and an effort that waits follows a new model, which would reset it.
+    /// An effort that waits follows a new model, which would reset it.
     pub(super) fn add(&mut self, id: Uuid, lines: Vec<(String, AgentSettings)>) {
         let waiting = self.waiting.entry(id).or_default();
         for (line, part) in lines {
@@ -46,8 +42,6 @@ impl AgentChanges {
         self.typed.remove(&id);
     }
 
-    /// The change that still waits for the agent of a terminal, with the part that Kodosi
-    /// types now.
     pub(super) fn pending(&self, id: Uuid) -> Option<AgentSettings> {
         let parts = self.typing.get(&id).into_iter().chain(
             self.waiting
@@ -65,8 +59,6 @@ impl AgentChanges {
         (!change.is_empty()).then_some(change)
     }
 
-    /// The terminals that have a command waiting, and no command typed or tried in the last
-    /// moment.
     pub(super) fn due(&self, now: Instant) -> Vec<Uuid> {
         self.waiting
             .iter()
@@ -90,8 +82,6 @@ impl AgentChanges {
         next
     }
 
-    /// Notes the end of typing `line`: done, or back in front of the others to try again after
-    /// the pause.
     pub(super) fn typed(
         &mut self,
         id: Uuid,
@@ -117,7 +107,6 @@ impl AgentChanges {
     }
 }
 
-/// Whether the agent waits for its next prompt, so that it takes one of its own commands.
 pub(super) fn takes_commands(program: Option<&str>, status: Option<&ProgramStatus>) -> bool {
     program.is_some_and(crate::agents::is_agent_name)
         && status.is_some_and(|status| {

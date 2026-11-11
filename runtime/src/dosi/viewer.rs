@@ -10,8 +10,6 @@ use super::{
 };
 use crate::{Error, Result, agents::AgentChoice};
 
-/// Dosi on a device that runs no agent, such as a phone. It shows Dosi's conversation, and
-/// sends the person's messages to Dosi on one of their computers, which answers them there.
 pub(crate) struct Viewer {
     chat: Chat,
 }

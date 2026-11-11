@@ -15,7 +15,6 @@ const CHANGE: u8 = 0;
 const SAVED: u8 = 1;
 const HEADER: usize = 1 + 4;
 
-/// What a restart needs beside the records.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Meta {
@@ -25,7 +24,6 @@ struct Meta {
     seqs: HashMap<String, Seq>,
 }
 
-/// A journal as a restart finds it.
 pub(crate) struct Found {
     pub original: Vec<u8>,
     pub restored: Restored,
@@ -68,7 +66,6 @@ fn write_replacing(path: &Path, bytes: &[u8]) -> io::Result<()> {
 }
 
 impl Journal {
-    /// Starts a journal from a file, in place of any earlier one.
     pub(crate) fn start(
         folder: &Path,
         path: &Path,
@@ -95,8 +92,7 @@ impl Journal {
         })
     }
 
-    /// Opens the journal of an earlier run, if a usable one is there. A torn last record is a
-    /// change that nobody heard of, so it goes.
+    /// A torn last record is a change that nobody heard of, so it goes.
     pub(crate) fn find(folder: &Path, path: &Path) -> Option<(Self, Found)> {
         let meta: Meta = serde_json::from_slice(&std::fs::read(folder.join(META)).ok()?).ok()?;
         if meta.path != path {
@@ -178,7 +174,6 @@ impl Journal {
         self.record(CHANGE, change)
     }
 
-    /// Makes what was appended safe, before anyone hears of it.
     pub(crate) fn sync(&self) -> io::Result<()> {
         self.records
             .as_ref()

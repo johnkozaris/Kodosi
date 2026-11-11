@@ -1,7 +1,5 @@
 **/.tools/
 **/target/
-*.profraw
-*.profdata
 
 backend/**/bin/
 backend/**/obj/

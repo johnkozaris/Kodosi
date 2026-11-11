@@ -68,9 +68,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [features]
-default = ["cli", "host"]
-cli = ["host", "dep:clap", "tokio/signal"]
-host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:if-addrs", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process"]
+default = ["host"]
+host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:if-addrs", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
 
 [dependencies]
 ghostty-vt = { path = "crates/ghostty-vt" }
@@ -137,7 +136,7 @@ opt-level = 1
 [[bin]]
 name = "kodosi"
 path = "src/main.rs"
-required-features = ["cli"]
+required-features = ["host"]
 
 [[bin]]
 name = "protocol-gen"

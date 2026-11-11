@@ -47,8 +47,6 @@ impl RoomCache {
             .unwrap_or_default()
     }
 
-    /// Reads the person's Dosi records in `items` into `log`, and answers the device that wrote
-    /// the instructions that it read.
     fn dosi_records(
         &self,
         credentials: &Credentials,

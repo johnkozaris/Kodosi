@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import os
 
-/// The agents, choices and folders of one computer for a new terminal there: this computer's,
-/// or with `computer` another of the person's computers.
 @MainActor
 @Observable
 public final class LauncherState {

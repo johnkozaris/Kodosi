@@ -171,8 +171,6 @@ final class TerminalController {
         store.live.takeSize(for: sessionId)
     }
 
-    /// What the terminal's agent showed and what changed on its canvas, once each, while Kodosi is
-    /// in front and unlocked.
     func canvasNews() -> [CanvasNews] {
         guard presence.active, !lock.locked, let session else { return [] }
         return store.canvas.news(session)

@@ -18,7 +18,6 @@ public struct SegmentOption<Value: Hashable>: Identifiable {
     }
 }
 
-/// The sizes of a segment: taller on iPhone and iPad, for a finger.
 private enum Segment {
     #if os(iOS)
         static let height: CGFloat = 34

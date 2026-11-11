@@ -86,8 +86,6 @@ struct MatchState {
     next: Vec<(NodeId, MatchId)>,
 }
 
-/// The node and mark types of a document. The content rules compile to one table of match
-/// states.
 #[derive(Debug, Clone)]
 pub struct Schema {
     nodes: Vec<NodeType>,
@@ -309,7 +307,6 @@ impl Schema {
             .any(|(kind, _)| right.iter().any(|(other, _)| other == kind))
     }
 
-    /// Whether `content` can replace the children from `from` to `to` of a node.
     pub(crate) fn can_replace(
         &self,
         parent: &crate::Node,

@@ -8,8 +8,8 @@ use crate::{
     model::{Model, Value},
 };
 
-/// The model with the current result of each formula, as a spreadsheet works it out. A formula that the
-/// engine cannot work out, such as one with a function that it does not know, keeps its value.
+/// A formula that the engine cannot work out, such as one with a function that it does not know,
+/// keeps its value.
 pub(crate) fn calculated(model: &Model) -> Model {
     let mut current = model.clone();
     let formulas = model
@@ -67,7 +67,6 @@ fn workbook(model: &Model) -> Option<Workbook> {
     Some(book)
 }
 
-/// `'Sales 2026'!$B$2:$B$9` as a range of the engine.
 fn address(text: &str) -> Option<RangeAddress> {
     let (sheet, cells) = text.trim_start_matches('=').rsplit_once('!')?;
     let sheet = sheet

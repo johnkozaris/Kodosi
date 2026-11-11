@@ -83,7 +83,6 @@ final class WorkbenchState {
         }
     }
 
-    /// Whether Dosi is on on this computer, as its host says.
     var dosiOn = true {
         didSet {
             if !dosiOn {
@@ -443,7 +442,6 @@ extension WorkbenchState {
         save()
     }
 
-    /// Shows a terminal alone on the stage with its canvas beside it, at a part or else at something, now or when the canvas has something to show.
     func openCanvas(_ id: String, at section: CanvasSection? = nil) {
         selectedSessionId = id
         focusedSessionId = id
@@ -459,14 +457,11 @@ extension WorkbenchState {
         }
     }
 
-    /// Hides the canvas. Its terminal stays alone on the stage.
     func hideCanvas() {
         canvasSessionId = nil
         canvasWide = false
     }
 
-    /// With a canvas open, another terminal comes with its own canvas when it has something to show
-    /// on this device, or alone. A terminal whose canvas the person left open comes back with it.
     private func followCanvas(to id: String) {
         guard canvasSessionId != id else { return }
         let back = canvasesLeftOpen.remove(id) != nil

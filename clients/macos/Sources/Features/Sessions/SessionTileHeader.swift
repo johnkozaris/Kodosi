@@ -119,7 +119,6 @@ struct SessionTileHeader: View {
     }
 }
 
-/// The name of a terminal. A click on the name of your own terminal renames it in place.
 private struct TerminalName: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -172,8 +171,6 @@ private struct TerminalName: View {
     }
 }
 
-/// One accent key for what a person does with a terminal: start an agent, share it, open its
-/// browser, see its details, or take it out of the room.
 private struct TerminalActions: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme

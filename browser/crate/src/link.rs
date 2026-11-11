@@ -16,7 +16,7 @@ pub const AS_ROOT: i32 = 73;
 /// The bytes before a picture's data: its window, whether it is a key frame, and its time.
 const FRAME_HEADER: usize = 8 + 1 + 8;
 
-/// Where an engine finds its host. The host writes it into the engine's profile.
+/// The host writes the address into the engine's profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Address {
     pub port: u16,
@@ -47,7 +47,6 @@ pub enum ToEngine {
         window: i64,
         size: Size,
     },
-    /// Encodes the pictures of a tab for its window, until the window stops or picks another.
     Capture {
         window: i64,
         tab: i64,
@@ -66,8 +65,7 @@ pub enum ToEngine {
     Activate {
         tab: i64,
     },
-    /// Opens a tab in a window and makes it active. With an ask, the engine names the tab's
-    /// target once it knows it.
+    /// With an ask, the engine names the tab's target once it knows it.
     NewTab {
         window: i64,
         address: String,
@@ -76,7 +74,7 @@ pub enum ToEngine {
     CloseTab {
         tab: i64,
     },
-    /// Answers the dialog of a tab. The engine shows no dialog itself.
+    /// The engine shows no dialog itself.
     Dialog {
         tab: i64,
         accept: bool,
@@ -91,7 +89,6 @@ pub enum ToEngine {
         menu: u32,
         choice: Option<u32>,
     },
-    /// A page apart from the people's tabs, with no stored data, for the host's own work.
     OpenPage {
         page: i64,
         width: u32,
@@ -110,13 +107,12 @@ pub enum ToEngine {
     Quit,
 }
 
-/// A tab of a host window. The pages that a tab opens are tabs of its window too.
+/// The pages that a tab opens are tabs of its window too.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineTab {
     pub id: i64,
     pub window: i64,
-    /// The tab's target on the debug port, once the engine knows it.
     pub target: Option<String>,
     pub title: String,
     pub address: String,
@@ -134,12 +130,11 @@ pub enum FromEngine {
     Tabs {
         tabs: Vec<EngineTab>,
     },
-    /// The pointer's look over the page, as a CSS cursor name.
+    /// A CSS cursor name.
     Shape {
         tab: i64,
         shape: String,
     },
-    /// A list that the page opened, such as a `<select>`, for the viewer to draw.
     Menu {
         tab: i64,
         frame: i64,
@@ -167,7 +162,6 @@ pub enum FromEngine {
         ask: i64,
         target: String,
     },
-    /// A page's dialog, which waits for the host's answer.
     Dialog {
         tab: i64,
         dialog: Dialog,
@@ -178,7 +172,7 @@ pub enum FromEngine {
     },
 }
 
-/// One encoded picture of a window: H.264 in Annex B form.
+/// H.264 in Annex B form.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncodedFrame {
     pub window: i64,

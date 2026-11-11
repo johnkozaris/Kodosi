@@ -2,8 +2,7 @@ import KodosiBridge
 import SwiftUI
 import WebKit
 
-/// A live document, sheet, presentation or PDF. The view bundle draws it in a closed frame, and
-/// its only way out is the pipe of the document.
+/// The view bundle draws in a closed frame, whose only way out is the pipe of the document.
 struct CanvasDocumentView: View {
     @Environment(\.theme) private var theme
     @Environment(\.self) private var environment
@@ -53,7 +52,6 @@ struct CanvasDocumentView: View {
         .onChange(of: viewers.preferences(for: view)) { _, preferences in page?.prefer(preferences) }
     }
 
-    /// The look of the app, by the view's own names.
     private var look: [String: String] {
         let colors = [
             "surface": theme.colors.surface, "surface-behind": theme.colors.well, "raised": theme.colors.raised,
@@ -71,10 +69,9 @@ struct CanvasDocumentView: View {
     }
 }
 
-/// The pages of live documents on this device. A page that a person leaves stays open a while,
-/// with its place and its undo. After that it closes, and the file has one view fewer. A web page
-/// shows in one view at a time, so a second view of a file at the same moment gets a page of its
-/// own, which closes with that view.
+/// A page that a person leaves stays open a while, with its place and its undo. A web page shows
+/// in one view at a time, so a second view of a file at the same moment gets a page of its own,
+/// which closes with that view.
 @MainActor
 public final class CanvasDocumentPages {
     private static let kept = Duration.seconds(300)
@@ -97,7 +94,6 @@ public final class CanvasDocumentPages {
         return page
     }
 
-    /// The words that a person selected in the page of a file, while the page is open.
     public func selectedWords(of key: String, in session: String) async -> String? {
         await pages["\(session)/\(key)"]?.selectedWords()
     }
@@ -224,8 +220,8 @@ final class CanvasDocumentPage {
         await join()
     }
 
-    /// Opens a pipe and joins the file on it. The computer of the terminal can be away for a
-    /// time, so this goes on for as long as the page is open.
+    /// The computer of the terminal can be away for a time, so this goes on for as long as the
+    /// page is open.
     private func join() async {
         var wait = Duration.seconds(1)
         while frames != nil {
@@ -259,7 +255,7 @@ private final class PageMessages: NSObject, WKScriptMessageHandler {
     }
 }
 
-/// Serves the view bundle of the app, with no way to the network.
+/// Serves only the view bundle of the app, with no way to the network.
 struct ViewBundleHandler: URLSchemeHandler {
     private static let types = [
         "html": "text/html; charset=utf-8", "js": "text/javascript", "mjs": "text/javascript", "css": "text/css",

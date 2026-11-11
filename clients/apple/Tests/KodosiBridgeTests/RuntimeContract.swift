@@ -10,8 +10,6 @@ enum RuntimeContract {
 
     private static let shapes: [String: Shape] = load()
 
-    static let version: Int? = schema()["protocolVersion"] as? Int
-
     static func verify(_ data: Data, sourceLocation: SourceLocation = #_sourceLocation) {
         if let violation = violation(in: data) {
             Issue.record(Comment(rawValue: violation), sourceLocation: sourceLocation)

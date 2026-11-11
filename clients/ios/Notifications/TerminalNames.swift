@@ -1,7 +1,6 @@
 import Foundation
 
-/// The names of the person's own terminals and their computers, which the app keeps in its app
-/// group for the notification extension.
+/// The app keeps these names in its app group for the notification extension.
 nonisolated struct TerminalNames: Codable, Equatable {
     struct Entry: Codable, Equatable {
         let name: String

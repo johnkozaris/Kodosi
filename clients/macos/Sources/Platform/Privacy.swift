@@ -5,11 +5,8 @@ import Darwin
 import KodosiDesign
 import SwiftUI
 
-/// The permissions of macOS that Kodosi uses. A person gives them in System Settings, and
-/// programs in Kodosi's terminals have them too.
 @MainActor
 enum Privacy {
-    /// A list of System Settings › Privacy & Security that Kodosi can be in.
     enum Pane {
         case fullDiskAccess
         /// What a program needs to change another app, as a browser that a terminal starts does.
@@ -29,9 +26,9 @@ enum Privacy {
         }
     }
 
-    /// Whether Kodosi has Full Disk Access. macOS answers without asking the person, and a
-    /// change counts once Kodosi opens again. It asks about the first of the folders that only
-    /// apps with Full Disk Access read and that this Mac has.
+    /// macOS answers without asking the person, and a change counts once Kodosi opens again. The
+    /// question is about the first of the folders that only apps with Full Disk Access read and
+    /// that this Mac has.
     static var fullDiskAccess: Bool {
         let home = URL(filePath: NSHomeDirectory())
         let protected = ["Library/Safari", "Library/Containers/com.apple.Safari", "Library/Mail", "Library/Messages"]
@@ -48,8 +45,7 @@ enum Privacy {
         CGPreflightScreenCaptureAccess()
     }
 
-    /// Asks macOS for a permission that an app can ask for. macOS then lists Kodosi there,
-    /// switched off, and shows its own question.
+    /// macOS then lists Kodosi in the pane, switched off, and shows its own question.
     static func ask(for pane: Pane) {
         switch pane {
         case .accessibility:
@@ -76,9 +72,8 @@ enum Privacy {
     }
 }
 
-/// Opens a list of Privacy & Security in System Settings with a small card beside it that holds
-/// Kodosi's icon. macOS puts no app in Full Disk Access by itself, and Kodosi in App Management
-/// only once it stopped a program of a terminal, so the person drags the icon into the list.
+/// macOS puts no app in Full Disk Access by itself, and Kodosi in App Management only once it
+/// stopped a program of a terminal, so the person drags Kodosi's icon into the list.
 @MainActor
 final class PrivacyGuide {
     static let shared = PrivacyGuide()
@@ -86,7 +81,6 @@ final class PrivacyGuide {
     private var panel: GuidePanel?
     private var activation: (any NSObjectProtocol)?
 
-    /// Whether the guide shows, so the person is turning on a permission in System Settings.
     var isShowing: Bool {
         panel != nil
     }

@@ -20,6 +20,52 @@ fn contract() -> serde_json::Value {
 }
 
 #[test]
+fn the_apple_apps_compile_against_this_header() {
+    let committed = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../clients/apple/Sources/KodosiKit/kodosi_runtime.h"
+    ));
+    assert!(
+        header() == committed,
+        "After a change of the C API, copy the header that this build writes to clients/apple/Sources/KodosiKit/kodosi_runtime.h."
+    );
+}
+
+#[test]
+fn each_app_expects_the_versions_of_this_runtime() {
+    let swift = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../clients/apple/Sources/KodosiBridge/RuntimeHandle.swift"
+    ));
+    let qt = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../clients/qt/src/runtime/RuntimeBridge.hpp"
+    ));
+    let kotlin = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../clients/android/app/src/main/java/com/kodosi/mobile/runtime/NativeRuntime.kt"
+    ));
+    let protocol = contract()["protocolVersion"].to_string();
+    let abi = define("KODOSI_FFI_ABI_VERSION").to_string();
+    for (source, constant, version) in [
+        (swift, "expectedProtocolVersion: UInt32 = ", &protocol),
+        (qt, "protocolVersion = ", &protocol),
+        (kotlin, "PROTOCOL_VERSION = ", &protocol),
+        (swift, "expectedFFIABIVersion: Int32 = ", &abi),
+        (kotlin, "ABI_VERSION = ", &abi),
+    ] {
+        let expected: String = source
+            .split_once(constant)
+            .expect(constant)
+            .1
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        assert_eq!(&expected, version, "{constant}");
+    }
+}
+
+#[test]
 fn desktop_contract_states_the_header_abi() {
     assert_eq!(
         contract()["ffiAbiVersion"],

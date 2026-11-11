@@ -30,7 +30,6 @@ public final class DosiStore {
         snapshot?.queued ?? []
     }
 
-    /// The computer that the message `item` waits for, while no turn answers it yet.
     public func waiting(_ item: DosiItem) -> DosiComputer? {
         snapshot?.asks.first { $0.item == item.id }?.computer
     }
@@ -119,7 +118,6 @@ public final class DosiStore {
         }
     }
 
-    /// Sends a message to Dosi here, or to Dosi on `computer`, which answers it there.
     public func send(_ text: String, context: DosiContext, to computer: DosiComputer? = nil) async throws {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -139,12 +137,10 @@ public final class DosiStore {
         commands.perform("dosi.unqueue", ["queuedId": .string(queued.id)])
     }
 
-    /// Takes back a message that waits for its computer.
     public func takeBack(_ item: DosiItem) {
         commands.perform("dosi.unqueue", ["queuedId": .string(item.id)])
     }
 
-    /// Turns Dosi on this computer on or off.
     public func use(_ on: Bool) {
         commands.perform("dosi.use", ["on": .bool(on)])
     }

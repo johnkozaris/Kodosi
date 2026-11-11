@@ -59,7 +59,6 @@ interface Snapshot {
   fields: Record<string, string>;
 }
 
-/** Where a person is: the page in the middle of their view, and the note that they chose. */
 interface Place {
   page?: string;
   note?: string;
@@ -79,7 +78,6 @@ type Change =
   | { kind: "base"; asset: string }
   | { kind: "group"; changes: Change[] };
 
-/** A form field or a link of a page, as pdf.js reads it. */
 interface Annotation {
   subtype: string;
   fieldName?: string;
@@ -92,13 +90,11 @@ interface Annotation {
   options?: { exportValue: string; displayValue: string }[];
   /** A web or mail address that pdf.js found safe to open. */
   url?: string;
-  /** A place in the file: a name, or the page and the position. */
   dest?: string | unknown[] | null;
 }
 
 type Tool = "read" | "note" | "redact";
 
-/** A picture of a page at a scale, and the drawing that makes it. */
 interface Picture {
   scale: number;
   shown: Promise<void>;
@@ -108,37 +104,29 @@ interface Picture {
 interface Holder {
   element: HTMLElement;
   layer: HTMLElement;
-  /** The page at its actual size. */
   viewport: pdfjs.PageViewport | undefined;
   drawn: Promise<void> | undefined;
-  /** The newest picture of the page. An older one stays until it shows. */
   picture: Picture | undefined;
-  /** Whether the page is in the view or near it. Only then does it keep a picture. */
   near: boolean;
 }
 
 /** CSS pixels for each point of a page at its actual size. */
 const ACTUAL = pdfjs.PixelsPerInch.PDF_TO_CSS_UNITS;
-/** The space around and between the pages at their actual size, in CSS pixels. */
+/** In CSS pixels, at the actual size of the pages. */
 const SPACE = 12;
-/** The most pixels of one picture. Beyond them, a zoom enlarges the picture. */
+/** Beyond this many pixels, a zoom enlarges the picture. */
 const MOST_PIXELS = 4096 * 4096;
-/** How long a zoom rests before the pages get pictures at its scale. */
 const REDRAW_MS = 150;
 const NOTE_POINTS = 24;
 const REDACT_LEAST_POINTS = 3;
 const RIGHT_ANGLE = 90;
 const NOTE_COLOR = "FFD400";
 
-/** The size of a page in points, as it lies after its rotation. */
 function sizeOf(page: Page): [number, number] {
   return page.rotation % 180 === 0 ? [page.width, page.height] : [page.height, page.width];
 }
 
-/**
- * Lays an element over a box of a page at its actual size, in shares of the page, so that it
- * keeps its place at each zoom.
- */
+/** The element lies in shares of the page, so that it keeps its place at each zoom. */
 function cover(element: HTMLElement, viewport: pdfjs.PageViewport, box: Rect): void {
   const [left, top, right, bottom] = box;
   element.style.left = `${(left / viewport.width) * 100}%`;
@@ -197,7 +185,6 @@ class PdfEditor implements Editor, Pictures {
     });
   }
 
-  /** The scales at which the widest page fills the view, and at which the largest page fits. */
   private fits(): Record<Fitting, number> {
     let width = 0;
     let height = 0;
@@ -211,10 +198,6 @@ class PdfEditor implements Editor, Pictures {
     return { width: across, page: Math.min(across, down) };
   }
 
-  /**
-   * The pages take their size at once. The pages near the view get a sharp picture once the
-   * zoom rests.
-   */
   private zoomTo(scale: number): void {
     this.scale = scale;
     this.pagesRoot.style.setProperty("--zoom", String(scale));
@@ -226,14 +209,12 @@ class PdfEditor implements Editor, Pictures {
     }, REDRAW_MS);
   }
 
-  /** Where the person is: a page, and the note that they chose on it. */
   private placeAt(page: string, note?: string): void {
     if (this.here.page === page && this.here.note === note) return;
     this.here = note ? { page, note } : { page };
     this.client.place(this.here);
   }
 
-  /** The page in the middle of the view is the person's page. */
   private placeInView(): void {
     const view = this.pagesRoot.getBoundingClientRect();
     const middle = view.top + view.height / 2;
@@ -295,7 +276,6 @@ class PdfEditor implements Editor, Pictures {
     this.pagesRoot.dataset.tool = tool;
   }
 
-  /** The keys of a page work on the page that the person picked last. */
   private showPicked(): void {
     for (const key of this.pageKeys) key.show({ enabled: this.page !== null });
   }
@@ -381,7 +361,6 @@ class PdfEditor implements Editor, Pictures {
     this.placeInView();
   }
 
-  /** Draws a page once, and gives it a picture at the zoom. */
   private showPage(id: string): Promise<void> {
     const holder = this.holders.get(id);
     if (!holder) return Promise.resolve();
@@ -411,7 +390,6 @@ class PdfEditor implements Editor, Pictures {
     await painted;
   }
 
-  /** Draws the picture of a page near the view at the zoom, unless one is there or on its way. */
   private paint(id: string, holder: Holder): Promise<void> {
     const scale = this.scale;
     if (!holder.near) return Promise.resolve();
@@ -448,7 +426,6 @@ class PdfEditor implements Editor, Pictures {
     holder.element.prepend(canvas);
   }
 
-  /** A page far from the view lets its picture go, and draws it again when it comes near. */
   private dropPicture(holder: Holder): void {
     holder.picture?.task?.cancel();
     holder.picture = undefined;
@@ -458,7 +435,6 @@ class PdfEditor implements Editor, Pictures {
   private bindPointer(id: string, holder: Holder): void {
     let start: [number, number] | null = null;
     let box: HTMLElement | null = null;
-    /** Where the pointer is on the page at its actual size. */
     const pointOf = (event: PointerEvent): [number, number] => {
       const frame = holder.element.getBoundingClientRect();
       const scale = frame.width / (holder.viewport?.width || frame.width);
@@ -552,10 +528,6 @@ class PdfEditor implements Editor, Pictures {
     });
   }
 
-  /**
-   * A web or mail link opens as the host opens links, which is in the browser of the device. A
-   * link to a place in the file scrolls there.
-   */
   private drawLink(holder: Holder, viewport: pdfjs.PageViewport, link: Annotation): void {
     if (!link.url && !link.dest) return;
     const mark = holder.layer.appendChild(document.createElement("a"));
@@ -575,7 +547,6 @@ class PdfEditor implements Editor, Pictures {
     });
   }
 
-  /** Scrolls to a place in the file: the top of its page, or the height that it names there. */
   private async goTo(dest: Annotation["dest"]): Promise<void> {
     const pdf = this.document;
     const explicit = typeof dest === "string" ? await pdf?.getDestination(dest) : dest;
@@ -751,7 +722,6 @@ class PdfEditor implements Editor, Pictures {
     return window.getSelection()?.toString() ?? "";
   }
 
-  /** Each page, drawn. */
   async pictures(): Promise<number> {
     await this.opened;
     const pages = this.snapshot?.pages ?? [];

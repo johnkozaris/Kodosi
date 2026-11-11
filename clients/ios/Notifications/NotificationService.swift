@@ -1,8 +1,8 @@
 import Foundation
 import UserNotifications
 
-/// Puts the name of the terminal, its computer and the words of this device's language into a
-/// push from the Kodosi server, which carries only identifiers.
+/// A push from the Kodosi server carries only identifiers, so the names and the words come from
+/// this device.
 final class NotificationService: UNNotificationServiceExtension {
     override func didReceive(
         _ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void,

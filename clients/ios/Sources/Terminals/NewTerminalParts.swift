@@ -2,8 +2,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The first prompt for the agent, on the line that the new terminal types: dark in both
-/// appearances, as the terminal is. Return ends it.
 struct FirstPrompt: View {
     @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -45,8 +43,6 @@ struct FirstPrompt: View {
     }
 }
 
-/// A shell or an agent to start: a raised capsule with a copper check while it is chosen, else a
-/// well.
 struct ProgramChoice: View {
     @Environment(\.theme) private var theme
     let id: String
@@ -82,7 +78,6 @@ struct ProgramChoice: View {
     }
 }
 
-/// A row of the sheet: its symbol, its name with a line under it, and what it holds at its end.
 struct SheetRow<Leading: View, Trailing: View>: View {
     @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -123,7 +118,6 @@ extension SheetRow where Trailing == EmptyView {
     }
 }
 
-/// A row that chooses one of its values from the system's menu, or shows its one value.
 struct ChoiceRow<Value: Hashable, Leading: View, Accessory: View>: View {
     @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var typeSize

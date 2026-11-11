@@ -1,7 +1,6 @@
 import Foundation
 
 public extension ClickedLink {
-    /// Where a person clicked the link.
     enum Origin: Sendable {
         case terminal
         case canvas
@@ -22,8 +21,6 @@ public extension ClickedLink {
 
     @MainActor
     public extension ClickedLink {
-        /// Asks before a link to another app opens, or says why a link does not open, on a sheet
-        /// of the window. A window shows one sheet at a time.
         func review(in window: NSWindow?, from origin: Origin) {
             switch decision {
             case .open:
@@ -96,8 +93,6 @@ public extension ClickedLink {
 
     @MainActor
     public extension ClickedLink {
-        /// Asks before a link to another app opens, or says why a link does not open, in an
-        /// alert, one at a time.
         func review(from root: UIViewController?, origin: Origin) {
             guard var presenter = root else { return }
             while let presented = presenter.presentedViewController {

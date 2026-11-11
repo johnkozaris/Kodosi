@@ -2,16 +2,13 @@ import { Fragment, type Node as ProseNode, Slice } from "@tiptap/pm/model";
 import type { Command, EditorState } from "@tiptap/pm/state";
 import { schema } from "./schema";
 
-/** The most lines that a guess of the indent reads. */
 const MOST_GUESSED = 2000;
-/** The widest step in, in spaces, that a guess of the indent takes. */
 const WIDEST_STEP = 8;
 
 function lineOf(text: string): ProseNode {
   return schema.node("line", null, text ? [schema.text(text)] : []);
 }
 
-/** Text as lines of a text file. Text of more than one line splits the line where it goes. */
 export function pastedSlice(text: string): Slice {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const [only] = lines;
@@ -57,7 +54,6 @@ export function indentOf(doc: ProseNode): string {
   return " ".repeat(width);
 }
 
-/** The positions before the lines that the selection touches. */
 function touchedLines(state: EditorState): number[] {
   const { doc, selection } = state;
   const { $from, $to } = selection;
@@ -73,7 +69,6 @@ function touchedLines(state: EditorState): number[] {
   return starts;
 }
 
-/** Tab: an indent at the caret, or before each line of a selection of lines. */
 export function indented(indent: string): Command {
   return (state, dispatch) => {
     const lines = touchedLines(state);
@@ -85,7 +80,6 @@ export function indented(indent: string): Command {
   };
 }
 
-/** Shift-Tab: one indent less on each line that the selection touches. */
 export function outdented(indent: string): Command {
   return (state, dispatch) => {
     const transaction = state.tr;
@@ -100,7 +94,6 @@ export function outdented(indent: string): Command {
   };
 }
 
-/** Enter: a new line that starts as far in as the line where it splits. */
 export const newLine: Command = (state, dispatch) => {
   const { $from } = state.selection;
   if ($from.depth === 0) return false;

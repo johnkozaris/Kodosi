@@ -119,7 +119,6 @@ impl Pins {
         Ok(Self { path, pins })
     }
 
-    /// The devices of an account that this device saw removed.
     pub(crate) fn revoked(&self, user_id: &str) -> BTreeSet<String> {
         self.pins
             .get(user_id)
@@ -141,7 +140,6 @@ impl Pins {
         self.pins.get(user_id).map(|pin| pin.root)
     }
 
-    /// The devices of an account in the device list that this device trusts.
     pub(crate) fn devices(&self, user_id: &str) -> impl Iterator<Item = &String> {
         self.pins
             .get(user_id)

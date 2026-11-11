@@ -299,7 +299,6 @@ int promptJump(const QKeyEvent* event)
     }
 }
 
-/// The keys of the app, which a program in a terminal does not get.
 QSet<int>& appKeys()
 {
     static QSet<int> keys;

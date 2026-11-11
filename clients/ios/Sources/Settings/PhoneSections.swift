@@ -2,8 +2,6 @@ import KodosiDesign
 import KodosiTerminalSessions
 import SwiftUI
 
-/// How this device looks and shows terminals: the appearance, the size of terminal text, and
-/// whether the screen stays on.
 struct TerminalSection: View {
     @Environment(AppModel.self) private var model
     @AppStorage(ThemePreference.storageKey) private var themePreference = ThemePreference.system.rawValue
@@ -53,8 +51,6 @@ private extension TerminalAppearance.TextSize {
     }
 }
 
-/// Whether this device gets a notification when one of the person's own terminals waits,
-/// finishes or fails.
 struct NotificationsSection: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openURL) private var openURL
@@ -81,7 +77,6 @@ struct NotificationsSection: View {
     }
 }
 
-/// Kodosi's lock on this device, with the proof that this device has.
 struct PrivacySection: View {
     @Environment(AppModel.self) private var model
     @State private var proof = AppLock.Proof.current

@@ -8,7 +8,6 @@ use crate::{
     model::{CellChange, Change, Look, Model, Query, Sheet, Value},
 };
 
-/// What an agent means. The server turns each op into normal changes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Op {

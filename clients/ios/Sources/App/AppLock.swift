@@ -3,22 +3,18 @@ import LocalAuthentication
 import SwiftUI
 import UIKit
 
-/// Kodosi's lock on this device. When the person turns it on, Kodosi asks for Face ID, Touch ID
-/// or the passcode when it opens and after a minute away, and covers what it shows while it is
-/// not in front, also in the app switcher.
 @Observable
 final class AppLock {
     static let storageKey = "privacy.lock"
     nonisolated static let away: TimeInterval = 60
 
-    /// How this device proves the person: the name of its biometry, or nil when it has no
-    /// passcode, so nothing can lock.
     enum Proof {
         case faceID
         case touchID
         case opticID
         case passcode
 
+        /// Nil when the device has no passcode, so nothing can lock.
         static var current: Proof? {
             let context = LAContext()
             guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { return nil }
@@ -31,7 +27,6 @@ final class AppLock {
         }
     }
 
-    /// How the person answered the device's question.
     enum Answer {
         case proved
         case refused
@@ -61,7 +56,6 @@ final class AppLock {
         locked = enabled
     }
 
-    /// Whether Kodosi locks again when it comes back at `now` after it left at `left`.
     nonisolated static func locks(enabled: Bool, left: Date?, now: Date) -> Bool {
         guard enabled, let left else { return false }
         return now.timeIntervalSince(left) >= away
@@ -135,7 +129,6 @@ final class AppLock {
     }
 }
 
-/// What shows over Kodosi while it is locked or not in front.
 struct LockCover: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme

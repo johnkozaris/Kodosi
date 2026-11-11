@@ -26,7 +26,6 @@ internal static class TerminalAccess
                             || (x.FirstUserId == person.UserId && x.SecondUserId == session.OwnerUserId)))
                     select new TerminalPerson { SessionId = session.Id, UserId = person.UserId });
 
-    /// The live terminals that one of the two people put into a room that the other is in.
     public static IQueryable<Session> InRoomsBetween(KodosiDbContext db, Guid one, Guid other)
     {
         var roomsOfOne = RoomMembership.RoomsOf(db, one);

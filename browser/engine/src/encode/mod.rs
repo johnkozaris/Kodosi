@@ -1,5 +1,3 @@
-//! Encodes the pictures of the watched tab as H.264 in Annex B form, for the host's viewers.
-
 #[cfg(target_os = "macos")]
 mod mac;
 #[cfg(not(target_os = "macos"))]

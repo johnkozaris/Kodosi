@@ -142,7 +142,6 @@ public extension ListRow where Leading == IconTile, Trailing == EmptyView {
     }
 }
 
-/// A switch in a list: its symbol, its name and what it does.
 public struct SwitchRow: View {
     @Environment(\.theme) private var theme
     public let title: String
@@ -180,7 +179,6 @@ public struct SwitchRow: View {
     }
 }
 
-/// A row of a list that is a key. It lights with the lifted face while a finger presses it.
 public struct ListRowButtonStyle: ButtonStyle {
     public init() {}
 
@@ -202,7 +200,6 @@ private struct RowFace<Label: View>: View {
     }
 }
 
-/// The chevron at the end of a row that opens a page.
 public struct Disclosure: View {
     @Environment(\.theme) private var theme
 

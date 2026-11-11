@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Write as _};
 
 use document::{Assets, Unreadable};
-use package::{Package, RELATIONSHIPS, Relation, STRICT_RELATIONSHIPS};
+use package::{Package, Relation, relation_id};
 use roxmltree::Node as Xml;
 use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
@@ -47,18 +47,6 @@ pub(crate) fn word_attribute<'a>(node: Xml<'a, '_>, name: &str) -> Option<&'a st
         .map(|attribute| attribute.value())
 }
 
-fn relation_id<'a>(node: Xml<'a, '_>, name: &str) -> Option<&'a str> {
-    node.attributes()
-        .find(|attribute| {
-            attribute.name() == name
-                && matches!(
-                    attribute.namespace(),
-                    Some(RELATIONSHIPS | STRICT_RELATIONSHIPS)
-                )
-        })
-        .map(|attribute| attribute.value())
-}
-
 fn hash_of(text: &str) -> String {
     let digest = Sha256::digest(text.as_bytes());
     let mut hash = String::with_capacity(SHORT_HASH);
@@ -72,7 +60,6 @@ fn truth(value: Option<&str>) -> bool {
     !matches!(value, Some("0" | "false" | "off"))
 }
 
-/// The look of a run, which marks hold apart from its original XML.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[expect(clippy::struct_excessive_bools, reason = "each is one mark of a run")]
 pub(crate) struct RunLook {
@@ -113,9 +100,7 @@ pub(crate) fn run_look(properties: Xml<'_, '_>) -> RunLook {
     }
 }
 
-/// The look of a paragraph that its attributes hold apart from its original XML. The line is
-/// in 240ths of a line, and the indent in twentieths of a point. The mark that ends the
-/// paragraph can be a tracked insertion or deletion, with its author and date.
+/// The line is in 240ths of a line, and the indent in twentieths of a point.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct ParagraphLook {
     pub style: Option<String>,
@@ -134,7 +119,6 @@ pub(crate) fn line_of<'a>(spacing: Xml<'a, '_>) -> Option<&'a str> {
         .filter(|_| matches!(word_attribute(spacing, "lineRule"), None | Some("auto")))
 }
 
-/// The indent on the side where lines start.
 pub(crate) fn indent_of<'a>(indent: Xml<'a, '_>) -> Option<&'a str> {
     word_attribute(indent, "start").or_else(|| word_attribute(indent, "left"))
 }
@@ -173,7 +157,6 @@ pub(crate) fn paragraph_look(properties: Xml<'_, '_>) -> ParagraphLook {
     }
 }
 
-/// Who made a tracked change, and when.
 pub(crate) fn change_attrs(element: Xml<'_, '_>) -> Value {
     json!({
         "author": word_attribute(element, "author").unwrap_or_default(),
@@ -181,8 +164,6 @@ pub(crate) fn change_attrs(element: Xml<'_, '_>) -> Value {
     })
 }
 
-/// The XML of a paragraph's properties without the tracked change of its mark, which its
-/// attributes hold, or nothing when no more is there.
 fn own_properties(properties: Xml<'_, '_>, xml: &str) -> Option<String> {
     let mut left = properties.children().filter(Xml::is_element).count();
     let mut gone = Vec::new();
@@ -307,7 +288,6 @@ impl<'input> Reader<'_, 'input> {
         &self.source[node.range()]
     }
 
-    /// Keeps a piece of the original XML, and gives the name that attributes hold.
     fn keep(&mut self, xml: &str) -> String {
         let hash = hash_of(xml);
         self.raws
@@ -545,8 +525,6 @@ impl<'input> Reader<'_, 'input> {
         )
     }
 
-    /// The run of a picture with that picture alone, as the run's words and its other pictures
-    /// are nodes of their own.
     fn picture_run(&self, run: Xml<'_, 'input>, drawing: Xml<'_, 'input>) -> String {
         let xml = self.xml_of(run);
         let alone = run
@@ -623,8 +601,8 @@ fn is_page_break(node: Xml<'_, '_>) -> bool {
     is_word(node, "br") && word_attribute(node, "type") == Some("page")
 }
 
-/// Whether the tree holds this child of a run, or can leave it out, as Word writes where it last
-/// broke the pages each time it draws them. A run with any other child stays as it came.
+/// `lastRenderedPageBreak` only says where a program last broke the pages, so the tree leaves it
+/// out. A run with any other child stays as it came.
 fn held_in_tree(child: Xml<'_, '_>) -> bool {
     [
         "rPr",

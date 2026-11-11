@@ -87,7 +87,6 @@ struct OutgoingRequestRow: View {
 }
 
 extension View {
-    /// Asks whether the person trusts someone completely before they become a friend.
     func friendTrust(_ trust: Binding<FriendTrust?>, confirm: @escaping (FriendTrust) -> Void) -> some View {
         modifier(FriendTrustAsk(trust: trust, confirm: confirm))
     }

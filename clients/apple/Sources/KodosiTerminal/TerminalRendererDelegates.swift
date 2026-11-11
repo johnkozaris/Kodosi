@@ -21,7 +21,6 @@ final class TerminalRendererDelegateProxy:
     var clipboardReadRequested: ((@escaping @MainActor (Bool) -> Void) -> Void)?
     var picturePasted: ((Data) -> Void)?
     var asksBeforeClipboardRead = true
-    /// The computer that runs the terminal, when it is not this device.
     var otherComputer: String?
     var linkReviewRequested: ((ClickedLink) -> Void)?
     var opensLink: (URL) -> Void = { url in

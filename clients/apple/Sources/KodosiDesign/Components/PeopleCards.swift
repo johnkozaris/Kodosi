@@ -1,8 +1,8 @@
 import KodosiBridge
 import SwiftUI
 
-/// A friend as a card: their face and name, and what they share with you. With `open`, the card is
-/// a key; without it, the card lifts under the pointer and its marks open the terminals.
+/// With `open`, the card is a key; without it, the card lifts under the pointer and its marks open
+/// the terminals.
 public struct FriendCard<Trailing: View, Footer: View>: View {
     @Environment(\.theme) private var theme
     @State private var hovered = false
@@ -110,7 +110,6 @@ public struct FriendCard<Trailing: View, Footer: View>: View {
     }
 }
 
-/// A person who asks to be your friend, with the keys to accept or not, and to block them with `block`.
 public struct FriendRequestCard: View {
     @Environment(\.theme) private var theme
     let request: FriendRequestEntry
@@ -187,7 +186,6 @@ public struct FriendRequestCard: View {
     }
 }
 
-/// A person you blocked, with the key to unblock them.
 public struct BlockedCard: View {
     @Environment(\.theme) private var theme
     let person: BlockedEntry
@@ -224,7 +222,6 @@ public struct BlockedCard: View {
     }
 }
 
-/// Your request to a person, while you wait for them.
 public struct OutgoingRequestCard: View {
     @Environment(\.theme) private var theme
     let request: FriendRequestEntry

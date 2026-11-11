@@ -2,9 +2,7 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// A terminal in a list: its card, with the people who have it open, and what it needs or that it
-/// is in trouble. Without `showsFolder`, for a list in folders, its line names its agent rather
-/// than its folder.
+/// Without `showsFolder`, for a list in folders, the line names the agent rather than the folder.
 struct TerminalListCard: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
@@ -16,7 +14,6 @@ struct TerminalListCard: View {
     var badged = true
     let open: () -> Void
 
-    /// Whether the line under the name says how the terminal connects rather than what it does.
     private var saysState: Bool {
         session.isTroubled || session.connectionState == .connecting || session.status != .running
     }

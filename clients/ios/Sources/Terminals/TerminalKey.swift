@@ -14,7 +14,6 @@ enum TerminalKey: String, Identifiable {
     case two
     case three
 
-    /// The keys that a phone's keyboard lacks, in the groups of the key row.
     static let groups: [[TerminalKey]] = [[.escape, .tab, .backtab, .interrupt], [.left, .up, .down, .right]]
     static let answers: [TerminalKey] = [.one, .two, .three]
 

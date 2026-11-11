@@ -92,7 +92,6 @@ enum TerminalCommand {
 }
 
 impl SessionTerminalHandle {
-    /// Starts a terminal that shows `screen` above the output of its program.
     pub(super) fn spawn(size: TerminalSize, screen: Vec<u8>) -> Result<Self> {
         let rows = size.rows();
         let cols = size.cols();
@@ -189,8 +188,7 @@ impl SessionTerminalHandle {
             .await
     }
 
-    /// The primary screen and its history as VT text. It leaves the alternate screen, so ask
-    /// only when the terminal stops.
+    /// Leaves the alternate screen, so ask only when the terminal stops.
     pub(super) async fn primary_history(&self) -> Result<Vec<u8>> {
         self.request(|reply_tx| TerminalCommand::PrimaryHistory { reply_tx })
             .await
@@ -273,7 +271,6 @@ impl SessionTerminal {
         })
     }
 
-    /// A screen that the terminal cannot show is left out.
     fn showing(rows: u16, cols: u16, screen: &[u8]) -> Result<Self> {
         let mut session = Self::new(rows, cols)?;
         if screen.is_empty() {

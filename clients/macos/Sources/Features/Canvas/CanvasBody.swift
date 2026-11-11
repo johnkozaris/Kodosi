@@ -1,9 +1,6 @@
 import KodosiDesign
 import SwiftUI
 
-/// The body of a terminal and its canvas: two lobes of one surface in the terminal's color with
-/// a soft waist between them, a header bar on each lobe, and the neck to the tab that it flows
-/// out of. With no depth, the waist and the gap between the bars close: one lobe and one bar.
 struct CanvasBody: View, Animatable {
     static let band: CGFloat = 38
     static let waist: CGFloat = 14
@@ -65,7 +62,6 @@ struct CanvasBody: View, Animatable {
     }
 }
 
-/// The hairline around a body and the neck to its tab, which stops where the tab begins.
 private struct Outline: Shape {
     let lobes: Lobes
     let tab: CGRect?
@@ -79,8 +75,6 @@ private struct Outline: Shape {
     }
 }
 
-/// A rounded body with two lobes that a waist joins: the top edge dips between them, and the
-/// bottom edge dips a little, within the padding of what the lobes hold.
 struct Lobes: Shape {
     var seam: CGFloat
     var depth: CGFloat
@@ -146,9 +140,8 @@ struct Lobes: Shape {
     }
 }
 
-/// The neck from a tab above a body down into the body's top edge, narrow in the middle and
-/// wide where it meets each of them. It meets the body only where the body's edge is
-/// straight, between the rounded corners of `radius`.
+/// The neck meets the body only where the body's edge is straight, between the rounded corners of
+/// `radius`.
 struct Neck: Shape {
     var tab: CGRect
     var radius: CGFloat

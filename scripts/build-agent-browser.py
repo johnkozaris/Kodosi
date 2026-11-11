@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "https://github.com/vercel-labs/agent-browser.git"
 WORK = ROOT / ".tools/agent-browser"
+CALLER_SETTINGS = ("CFLAGS", "CXXFLAGS", "MACOSX_DEPLOYMENT_TARGET")
 
 
 def pin() -> dict[str, str]:
@@ -56,19 +57,28 @@ def source(commit: str, version: str) -> Path:
 
 
 def build(folder: Path, target: str) -> Path:
-    environment = {
-        **os.environ,
-        "CARGO_ENCODED_RUSTFLAGS": f"--remap-path-prefix={Path.home()}=~",
-        "CARGO_INCREMENTAL": "0",
-    }
-    # Cargo takes the pinned Rust of rust-toolchain.toml from the folder that it runs in.
-    subprocess.run(
-        ["cargo", "build", "--release", "--locked", "--quiet",
-         "--manifest-path", str(folder / "cli/Cargo.toml"),
-         "--target", target, "--target-dir", str(folder / "target")],
-        cwd=ROOT, env=environment, check=True, stdout=sys.stderr)
+    flags = f"--remap-path-prefix={Path.home()}=~"
     name = "agent-browser.exe" if target.endswith("-windows-msvc") else "agent-browser"
     program = folder / "target" / target / "release" / name
+    mark = program.with_name("agent-browser.made-with")
+    # Rust takes the pinned version of rust-toolchain.toml from the folder that it runs in.
+    rust = subprocess.run(["rustc", "--version", "--verbose"], cwd=ROOT, check=True, capture_output=True, text=True).stdout
+    made_with = "\n".join([rust, flags, *(os.environ.get(name, "") for name in CALLER_SETTINGS)])
+    # Cargo downloads each crate before it can say that nothing changed, and a workflow has none of them.
+    if not program.is_file() or not mark.is_file() or mark.read_text(encoding="utf-8") != made_with:
+        environment = {
+            **os.environ,
+            "CARGO_ENCODED_RUSTFLAGS": flags,
+            "CARGO_INCREMENTAL": "0",
+            # Each commit of Kodosi uses this one program, so its C code takes the date of its own commit.
+            "SOURCE_DATE_EPOCH": git(folder, "log", "-1", "--format=%ct"),
+        }
+        subprocess.run(
+            ["cargo", "build", "--release", "--locked", "--quiet",
+             "--manifest-path", str(folder / "cli/Cargo.toml"),
+             "--target", target, "--target-dir", str(folder / "target")],
+            cwd=ROOT, env=environment, check=True, stdout=sys.stderr)
+        mark.write_text(made_with, encoding="utf-8")
     if str(Path.home()).encode() in program.read_bytes():
         raise SystemExit(f"{program} names the home folder of the build")
     return program

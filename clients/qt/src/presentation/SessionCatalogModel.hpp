@@ -16,7 +16,6 @@ class SessionCatalogModel final : public QAbstractListModel {
     Q_PROPERTY(QVariantList sessions READ sessions NOTIFY folderGroupsChanged)
     Q_PROPERTY(QVariantList listedSessions READ listedSessions NOTIFY folderGroupsChanged)
     Q_PROPERTY(QStringList attention READ attention NOTIFY attentionChanged)
-    // Each pasted picture on its way to another computer: how much of it arrived, by terminal.
     Q_PROPERTY(QVariantMap pictures READ pictures NOTIFY picturesChanged)
     Q_PROPERTY(AuthorityState authorityState READ authorityState NOTIFY authorityStateChanged)
     Q_PROPERTY(QString authorityError READ authorityError NOTIFY authorityStateChanged)
@@ -33,8 +32,6 @@ public:
         QVariantMap programSettings;
         QVariantMap programLive;
         QVariantMap programPending;
-        // What the runtime says of the program: whether it works, what the terminal waits with
-        // (blocked, done or error), and what it does in words.
         bool working = false;
         QString waiting;
         QString activity;
@@ -100,7 +97,6 @@ public:
     [[nodiscard]] bool containsSession(const QString& id) const;
     Q_INVOKABLE [[nodiscard]] QVariantMap presentationForSession(const QString& id) const;
     [[nodiscard]] std::optional<Session> session(const QString& id) const;
-    // The computer of a terminal that is not on this one, by the name that people see.
     [[nodiscard]] static QString computerOf(const Session& session);
     [[nodiscard]] QString afterLocalRestart(const QString& id) const;
     [[nodiscard]] std::optional<QString> restartedAs(const QString& id, const QString& owner, const QString& host) const;

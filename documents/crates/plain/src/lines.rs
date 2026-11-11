@@ -1,16 +1,13 @@
-//! The text of a file as one string, and edits of it, which become steps of the tree of lines.
-
 use std::ops::Range;
 
 use text::{Failed, Fragment, Node, Slice, Step};
 
 use crate::schema;
 
-/// The most steps that one change makes. More edits join into this many, so that a large
-/// change stays quick on the server and in each view.
+/// More edits join into this many steps, so that a large change stays quick on the server and in
+/// each view.
 const MOST_STEPS: usize = 100;
 
-/// One edit of the text: the bytes `from..to` become `text`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Edit {
     pub(crate) from: usize,
@@ -18,11 +15,9 @@ pub(crate) struct Edit {
     pub(crate) text: String,
 }
 
-/// The lines of a tree, joined by line feeds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Text {
     pub(crate) joined: String,
-    /// Where each line starts in `joined`.
     starts: Vec<usize>,
 }
 
@@ -62,12 +57,10 @@ impl Text {
             .map_or(self.joined.len(), |next| next - 1)
     }
 
-    /// The line that holds a byte of the text.
     pub(crate) fn line_at(&self, at: usize) -> usize {
         self.starts.partition_point(|start| *start <= at) - 1
     }
 
-    /// The position in the tree of a byte of the text.
     fn position(&self, at: usize, positions: &[usize]) -> usize {
         let line = self.line_at(at);
         let column: usize = self.joined[self.start(line)..at]
@@ -77,7 +70,6 @@ impl Text {
         positions[line] + 1 + column
     }
 
-    /// The edit that puts `new` in place of whole lines, and keeps one line in an empty text.
     pub(crate) fn lines_edit(&self, lines: Range<usize>, new: &[&str]) -> Option<Edit> {
         let end = self.joined.len();
         let (from, to, text) = match (lines.is_empty(), new.is_empty()) {
@@ -103,7 +95,7 @@ impl Text {
         Some(Edit { from, to, text })
     }
 
-    /// The steps of edits that are in order and do not overlap.
+    /// The edits must be in order and must not overlap.
     pub(crate) fn steps(&self, doc: &Node, edits: Vec<Edit>) -> Result<Vec<Step>, Failed> {
         let edits = if edits.len() > MOST_STEPS {
             self.joined_edits(&edits)
@@ -140,7 +132,6 @@ impl Text {
             .collect()
     }
 
-    /// Fewer edits that do the same: each takes the text between the edits that it joins.
     fn joined_edits(&self, edits: &[Edit]) -> Vec<Edit> {
         edits
             .chunks(edits.len().div_ceil(MOST_STEPS))
@@ -163,7 +154,6 @@ impl Text {
     }
 }
 
-/// The position before each line of a tree, and its end after the last.
 pub(crate) fn line_positions(doc: &Node) -> Vec<usize> {
     let mut positions = Vec::with_capacity(doc.child_count() + 1);
     let mut position = 0;
@@ -175,8 +165,6 @@ pub(crate) fn line_positions(doc: &Node) -> Vec<usize> {
     positions
 }
 
-/// The lines of a text that an agent or another program gives. A line ending at its end ends
-/// its last line, and does not start another.
 pub(crate) fn lines_of(text: &str) -> Vec<&str> {
     let text = text.strip_suffix('\n').unwrap_or(text);
     text.split('\n')

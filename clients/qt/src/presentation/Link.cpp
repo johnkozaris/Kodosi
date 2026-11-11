@@ -50,7 +50,6 @@ bool containsHidden(const QString& value)
     return std::ranges::any_of(value.toUcs4(), [](const char32_t codepoint) { return isHidden(codepoint); });
 }
 
-// The link on one line, with its hidden characters written out.
 QString shownText(const QString& value)
 {
     QString shown;

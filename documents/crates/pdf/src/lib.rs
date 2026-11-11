@@ -62,7 +62,6 @@ impl Format for Pdf {
         )
     }
 
-    /// The page by its number, as `read` names it, and the note by its id.
     fn describe_place(model: &Model, place: &Value) -> Value {
         let id = place.get("page").and_then(Value::as_str);
         let Some(index) = model

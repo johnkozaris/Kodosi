@@ -6,8 +6,7 @@ use sha2::{Digest as _, Sha256};
 
 use crate::contract::{Hash, Rev, Seq};
 
-/// Pictures and other large parts. They never travel inside a change, and a change names them
-/// by hash.
+/// Pictures and other large parts never travel inside a change. A change names them by hash.
 #[derive(Debug, Clone, Default)]
 pub struct Assets {
     held: HashMap<Hash, Arc<[u8]>>,
@@ -20,7 +19,6 @@ impl Assets {
         hash
     }
 
-    /// Takes an asset that a client sent, when its bytes fit its name.
     pub fn take(&mut self, hash: Hash, bytes: &[u8]) -> bool {
         let fits = <[u8; 32]>::from(Sha256::digest(bytes)) == hash;
         if fits {
@@ -38,7 +36,6 @@ impl Assets {
     }
 }
 
-/// One change in the order, with who made it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ordered<C> {
@@ -49,15 +46,12 @@ pub struct Ordered<C> {
     pub change: C,
 }
 
-/// All that a view needs to show a document.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot(pub Value);
 
-/// What a query answers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Answer(pub Value);
 
-/// Why a change does not go in the order.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Refused {
     #[error("Someone changed this first: {0}")]
@@ -74,7 +68,6 @@ pub struct Unreadable(pub String);
 #[error("The file cannot be written: {0}")]
 pub struct Unwritable(pub String);
 
-/// One op that an agent can send, with its fields.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GuideOp {
@@ -111,7 +104,6 @@ pub fn guide_field(name: &str, kind: &str, required: bool, does: &str) -> GuideF
     }
 }
 
-/// Each op of a format, for agents.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Guide {
@@ -119,8 +111,8 @@ pub struct Guide {
     pub ops: Vec<GuideOp>,
 }
 
-/// One kind of file. Each function takes values and gives values, so a format has no network,
-/// disk or clock, and a test can run it with no server.
+/// Each function takes values and gives values, so a format has no network, disk or clock, and a
+/// test can run it with no server.
 pub trait Format: 'static {
     type Model: Send;
     type Change: Serialize + DeserializeOwned + Clone + Send + 'static;

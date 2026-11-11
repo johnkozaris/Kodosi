@@ -57,7 +57,6 @@ public:
     bool paint(const Look& look);
 
     [[nodiscard]] const Shape& shape() const { return m_shape; }
-    [[nodiscard]] QPointF centre() const { return m_centre; }
     [[nodiscard]] const std::vector<QSGGeometry::ColoredPoint2D>& vertices() const { return m_vertices; }
     [[nodiscard]] const std::vector<quint16>& indices() const { return m_indices; }
 

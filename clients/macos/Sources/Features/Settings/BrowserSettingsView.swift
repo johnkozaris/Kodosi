@@ -3,8 +3,6 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
-/// The shared browser of this Mac: its Kodosi Browser, the sign-ins that a person copies from
-/// another browser, and the data of the private terminals. Each step is a person's own.
 struct BrowserSettingsView: View {
     private static let clearKey = "clear"
     private static let engineKey = "engine"
@@ -102,7 +100,6 @@ struct BrowserSettingsView: View {
         }
     }
 
-    /// Whether Kodosi Browser comes now, from this page or from a canvas that opened it first.
     private var getting: Bool {
         working == Self.engineKey || status?.getting != nil
     }
@@ -170,7 +167,6 @@ struct BrowserSettingsView: View {
     }
 }
 
-/// The icon of a browser's app on this Mac, or a globe when the app is not here.
 private struct BrowserIcon: View {
     private static let apps = [
         "chrome": "com.google.Chrome", "edge": "com.microsoft.edgemac", "brave": "com.brave.Browser",

@@ -12,7 +12,6 @@ const INDENT_PIXELS = 24;
 const BULLET_GAP = 16;
 const DEFAULT_FONT = "Calibri, Carlito, sans-serif";
 
-/** The look that text takes at one level, unless a run sets its own. */
 export interface Level {
   size?: string;
   bold?: boolean;
@@ -30,7 +29,6 @@ export interface TextLook {
   scale: number | null;
 }
 
-/** Where a click on text or a shape goes: an address, another slide, or a step of the show. */
 export interface Link {
   href?: string | null;
   slide?: string | null;
@@ -47,7 +45,7 @@ interface TextStyle {
   link: Link | null;
 }
 
-/** A link takes the link color of the theme and an underline, as PowerPoint draws it. */
+/** A link takes the link color of the theme and an underline, as presentation programs draw it. */
 function styleOf(marks: readonly Mark[], level: Level = {}, scale = 1): TextStyle {
   const style = marks.find((mark) => mark.type.name === "textStyle")?.attrs;
   const has = (name: string) => marks.some((mark) => mark.type.name === name);
@@ -130,12 +128,10 @@ export interface Piece {
 
 export interface Line {
   baseline: number;
-  /** The height of the line above its baseline. */
   height: number;
   pieces: Piece[];
 }
 
-/** What a person sees before a link opens. */
 export function linkTitle(link: Link): string {
   if (link.href) return link.href;
   if (link.slide) return say("Another slide");
@@ -155,7 +151,6 @@ interface TextWord extends Piece {
 
 export interface Measure {
   width(font: string, text: string): number;
-  /** The name of a font, from the name that a file holds. */
   face(font: string): string;
 }
 
@@ -203,7 +198,6 @@ function wrapped(words: TextWord[], width: number): TextWord[][] {
   return lines;
 }
 
-/** The look of each level for the text editor, where the browser draws the text. */
 export function levelRules(
   look: TextLook | null,
   measure: Measure,
@@ -231,7 +225,6 @@ export function levelRules(
     .join("\n");
 }
 
-/** Breaks a shape's text into lines, as the slide draws it. */
 export function layOut(
   tree: ProseNode,
   width: number,

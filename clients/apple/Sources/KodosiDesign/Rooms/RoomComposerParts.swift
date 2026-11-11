@@ -1,15 +1,12 @@
 import KodosiBridge
 import SwiftUI
 
-/// The mention that the person types in a room's composer, the people and terminals that complete
-/// it, and the keys that pick one of them or send the message.
 public struct RoomMentionCompletion: Equatable {
     private var dismissed: String?
     public private(set) var highlighted = 0
 
     public init() {}
 
-    /// The words after the `@` that the person types now, unless they closed the suggestions.
     public func query(in draft: String, focused: Bool) -> String? {
         guard focused, let query = RoomMentions.query(in: draft), query != dismissed else { return nil }
         return query
@@ -19,12 +16,10 @@ public struct RoomMentionCompletion: Equatable {
         query(in: draft, focused: focused).map { RoomMentions.suggestions(for: $0, in: targets) } ?? []
     }
 
-    /// The suggestion that Return or Tab picks.
     public func current(in suggestions: [RoomMention]) -> RoomMention? {
         suggestions.isEmpty ? nil : suggestions[min(highlighted, suggestions.count - 1)]
     }
 
-    /// Starts a mention at the end of the draft.
     public mutating func start(in draft: inout String) {
         dismissed = nil
         draft = RoomMentions.start(draft)
@@ -35,7 +30,6 @@ public struct RoomMentionCompletion: Equatable {
         highlighted = 0
     }
 
-    /// Return: picks the current suggestion, or says that the message goes.
     public mutating func submit(_ draft: inout String, suggestions: [RoomMention]) -> Bool {
         guard let target = current(in: suggestions) else { return true }
         pick(target, in: &draft)
@@ -66,9 +60,6 @@ public struct RoomMentionCompletion: Equatable {
 }
 
 public extension View {
-    /// The keys of a room's composer: Return picks the current suggestion or sends, Shift-Return
-    /// and Option-Return start a new line, the arrows move through the suggestions, Tab picks one,
-    /// and Escape closes them.
     func roomComposerKeys(
         _ completion: Binding<RoomMentionCompletion>, state: RoomViewState, focused: Bool, suggestions: [RoomMention],
         send: @escaping () -> Void,
@@ -96,8 +87,6 @@ public extension View {
     }
 }
 
-/// The people and terminals that complete the mention being typed, the one that Return picks
-/// highlighted.
 public struct RoomMentionSuggestions: View {
     #if os(iOS)
         private static let face: CGFloat = 26

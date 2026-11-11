@@ -27,7 +27,6 @@ struct Upload {
     started: Instant,
 }
 
-/// One part of a file that a person adds to a canvas.
 pub(super) struct Part<'a> {
     pub(super) upload: Uuid,
     pub(super) name: &'a str,
@@ -37,15 +36,14 @@ pub(super) struct Part<'a> {
     pub(super) page: bool,
 }
 
-/// The files that people are adding. A file grows beside its final place and takes a free name
-/// when it is whole, so an agent never sees a part of it.
+/// A file grows beside its final place and takes a free name when it is whole, so an agent never
+/// sees a part of it.
 #[derive(Default)]
 pub(super) struct Uploads {
     open: HashMap<Uuid, Upload>,
 }
 
 impl Uploads {
-    /// Takes the next part. The last part gives the path of the whole file.
     pub(super) async fn add(
         &mut self,
         folder: &Path,
@@ -133,7 +131,6 @@ impl Uploads {
         Ok(())
     }
 
-    /// A person who leaves in the middle of an upload does not hold its place.
     async fn forget_old(&mut self) {
         let old: Vec<Uuid> = self
             .open

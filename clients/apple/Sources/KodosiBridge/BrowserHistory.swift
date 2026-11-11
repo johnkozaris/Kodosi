@@ -1,7 +1,6 @@
 import Foundation
 
-/// The pages that the shared browsers showed on this device, which the address bar offers as a
-/// person types. They stay on this device.
+/// The history stays on this device.
 public struct BrowserHistory: Equatable, Sendable {
     public static let storageKey = "browserHistory"
     private static let most = 300
@@ -21,7 +20,6 @@ public struct BrowserHistory: Equatable, Sendable {
 
     public init() {}
 
-    /// Notes that a tab opened a page.
     public mutating func visit(_ address: String, title: String, at time: Date = .now) {
         guard Self.kept(address) else { return }
         var page = pages.first { $0.address == address } ?? Page(address: address, title: title, visits: 0, last: time)
@@ -37,14 +35,11 @@ public struct BrowserHistory: Equatable, Sendable {
         }
     }
 
-    /// Notes the title of a page, which often comes after its address.
     public mutating func name(_ address: String, title: String) {
         guard !title.isEmpty, let index = pages.firstIndex(where: { $0.address == address }) else { return }
         pages[index].title = title
     }
 
-    /// The pages whose address or title holds each word that a person typed, the closest first:
-    /// a page whose address starts with the words, then the most visited, then the newest.
     public func matches(_ typed: String, most: Int = 6) -> [Page] {
         let start = Self.bare(typed.trimmingCharacters(in: .whitespaces))
         let words = start.split(whereSeparator: \.isWhitespace)
@@ -68,7 +63,6 @@ public struct BrowserHistory: Equatable, Sendable {
             .map(\.page)
     }
 
-    /// An address without its scheme and `www.`, as a person types it.
     public static func bare(_ address: String) -> String {
         var bare = address.lowercased()
         for prefix in ["https://", "http://", "www."] where bare.hasPrefix(prefix) {

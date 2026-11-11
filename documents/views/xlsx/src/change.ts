@@ -20,10 +20,8 @@ export interface Sheet {
   links?: { ranges: string; to: LinkTarget }[];
 }
 
-/** Where a click on a cell goes: an address, or a place in the workbook such as `Data!A3`. */
 export type LinkTarget = { href: string } | { location: string };
 
-/** The link of some cells, which moves with them. */
 export interface SheetLink {
   sheet: string;
   row: number;
@@ -33,7 +31,6 @@ export interface SheetLink {
   to: LinkTarget;
 }
 
-/** The cells of a name such as `B2` or `B2:C4`, from zero, or null for another name. */
 export function rangeOf(
   name: string,
 ): { row: number; column: number; endRow: number; endColumn: number } | null {
@@ -83,7 +80,6 @@ export function linkAt(
   );
 }
 
-/** Moves a link with its cells across the lines that a change adds or removes. */
 export function moveLink(link: SheetLink, change: Change): SheetLink | null {
   if (change.kind === "group") {
     return change.changes.reduce<SheetLink | null>(
@@ -136,25 +132,21 @@ export type Change =
 
 export type Merge = [number, number, number, number];
 
-/** A range of cells where a person is. */
 export interface Place {
   sheet?: string;
   row?: number;
   column?: number;
   endRow?: number;
   endColumn?: number;
-  /** The person's cell editor is open. */
   editing?: boolean;
 }
 
-/** Where a line goes when lines come in or go at `at`, or null when it goes. */
 export function moveLine(line: number, at: number, count: number): number | null {
   if (line < at) return line;
   if (count > 0) return line + count;
   return line < at - count ? null : line + count;
 }
 
-/** Moves an unanswered edit across rows or columns that the document ordered first. */
 export function moveChange(
   change: Change,
   sheet: string,
@@ -184,13 +176,11 @@ export function moveChange(
   return change;
 }
 
-/** Whether a change adds or removes rows or columns. */
 export function movesLines(change: Change): boolean {
   if (change.kind === "group") return change.changes.some(movesLines);
   return change.kind === "rows" || change.kind === "columns";
 }
 
-/** Moves a place across the lines that a change adds or removes, as its cells move. */
 export function movePlace(place: Place, change: Change): Place {
   if (change.kind === "group") {
     return change.changes.reduce((moved, inner) => movePlace(moved, inner), place);
@@ -208,7 +198,6 @@ export function movePlace(place: Place, change: Change): Place {
   return moved;
 }
 
-/** Whether a change writes this cell, moves its line or removes its sheet. */
 export function touches(change: Change, sheet: string, row: number, column: number): boolean {
   switch (change.kind) {
     case "group":
@@ -226,7 +215,7 @@ export function touches(change: Change, sheet: string, row: number, column: numb
   }
 }
 
-/** Whether an unanswered edit holds this cell, so its value wins over the document's. */
+/** The value of an unanswered edit wins over the document's. */
 export function covers(change: Change, sheet: string, row: number, column: number): boolean {
   if (change.kind === "group") {
     return change.changes.some((inner) => covers(inner, sheet, row, column));

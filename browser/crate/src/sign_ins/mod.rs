@@ -30,12 +30,9 @@ enum Kind {
     Safari,
 }
 
-/// One browser profile that sign-ins can come from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignInSource {
-    /// What a person reads: the browser, and the profile's name when it has several.
     pub name: String,
-    /// The browser, such as `chrome` or `safari`, so an app can show its icon.
     pub browser: &'static str,
     /// macOS keeps the data of the browser from Kodosi until the person gives Kodosi Full Disk
     /// Access, so its profiles are not known yet.
@@ -44,13 +41,11 @@ pub struct SignInSource {
     folder: PathBuf,
 }
 
-/// The sign-ins of one source, read and not yet in a browser.
 #[derive(Debug)]
 pub struct SignIns {
     cookies: Vec<Cookie>,
 }
 
-/// Why a copy could not start.
 #[derive(Debug, thiserror::Error)]
 pub enum CopyError {
     #[error("{0} did not give Kodosi the key of its sign-ins.")]
@@ -83,7 +78,6 @@ impl From<io::Error> for CopyError {
     }
 }
 
-/// A cookie as the debug port takes it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Cookie {
@@ -107,7 +101,6 @@ struct Key {
 }
 
 impl SignInSource {
-    /// A browser whose data this computer's apps may not read yet, as one source.
     fn protected(name: &str, browser: &'static str, kind: Kind, folder: PathBuf) -> Self {
         Self {
             name: name.to_owned(),
@@ -118,8 +111,7 @@ impl SignInSource {
         }
     }
 
-    /// Reads the sign-ins with no browser running. Copies of open stores go in `working`, a
-    /// private folder that goes when the read ends.
+    /// Copies of open stores go in `working`, a private folder that goes when the read ends.
     pub async fn read(&self, working: &Path) -> Result<SignIns, CopyError> {
         let reader = {
             let source = self.clone();
@@ -134,7 +126,6 @@ impl SignInSource {
     }
 }
 
-/// How many sites the cookies of these domains count as.
 fn sites<'a>(domains: impl Iterator<Item = &'a str>) -> usize {
     domains
         .map(|domain| domain.trim_start_matches('.'))
@@ -142,7 +133,6 @@ fn sites<'a>(domains: impl Iterator<Item = &'a str>) -> usize {
         .len()
 }
 
-/// For how many sites earlier copies gave a profile sign-ins. It needs no running browser.
 pub fn copied_sites(profiles: &Path, profile: &str) -> usize {
     let keys = read_keys(&profiles.join(profile));
     sites(keys.iter().map(|key| key.domain.as_str()))
@@ -153,8 +143,8 @@ fn home() -> PathBuf {
     std::env::var_os(name).map_or_else(PathBuf::new, PathBuf::from)
 }
 
-/// The profiles on this computer that hold sign-ins. Nothing here reads the data of a browser
-/// that macOS keeps from Kodosi, so looking never makes macOS refuse or warn.
+/// Nothing here reads the data of a browser that macOS keeps from Kodosi, so looking never makes
+/// macOS refuse or warn.
 pub fn sign_in_sources() -> Vec<SignInSource> {
     let home = home();
     let mut sources = chromium::sources(&home);
@@ -227,7 +217,6 @@ fn read_keys(profile: &Path) -> Vec<Key> {
         .unwrap_or_default()
 }
 
-/// Gives a running browser the sign-ins, notes them, and returns for how many sites.
 pub(crate) async fn add(
     devtools: &Devtools,
     profile: &Path,
@@ -254,7 +243,6 @@ pub(crate) async fn add(
     Ok(sites(cookies.iter().map(|cookie| cookie.domain.as_str())))
 }
 
-/// Removes what earlier copies gave a profile, and returns for how many sites.
 pub(crate) async fn remove(devtools: &Devtools, profile: &Path) -> Result<usize, CopyError> {
     let keys = read_keys(profile);
     for part in keys.chunks(COOKIES_PER_CALL) {

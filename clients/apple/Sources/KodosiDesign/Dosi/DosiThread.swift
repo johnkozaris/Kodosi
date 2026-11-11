@@ -72,7 +72,6 @@ public struct DosiRow: Identifiable, Equatable {
     }
 }
 
-/// Dosi's conversation, with the welcome while it is empty.
 public struct DosiThread: View {
     @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme

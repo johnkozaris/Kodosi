@@ -3,9 +3,8 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// The live documents of the app, each in its own web view. A view belongs to the parking place of
-// the window, so no canvas takes it along when the canvas goes. A view off the screen waits there
-// with its place in the file and its undo, and it closes after five minutes.
+// A view belongs to the parking place of the window, so no canvas takes it along when the canvas
+// goes. A view off the screen waits there with its place in the file and its undo.
 QtObject {
     id: root
 
@@ -28,7 +27,6 @@ QtObject {
     function nameOf(sessionId, key) {
         return sessionId + "\n" + key;
     }
-    // Shows the view of a file in `place`, and opens the file when no view has it.
     function show(sessionId, key, view, place) {
         const name = nameOf(sessionId, key);
         if (!pages[name])
@@ -37,7 +35,6 @@ QtObject {
         shown.parent = place;
         shown.anchors.fill = place;
     }
-    // Takes the view of a file off the screen. It keeps its size there.
     function hide(sessionId, key) {
         const shown = pages[nameOf(sessionId, key)];
         if (!shown)
@@ -45,7 +42,6 @@ QtObject {
         shown.anchors.fill = undefined;
         shown.parent = parking;
     }
-    // Gives `done` the words that a person selected in the view of a file, or none.
     function selection(sessionId, key, done) {
         const shown = pages[nameOf(sessionId, key)];
         if (shown)

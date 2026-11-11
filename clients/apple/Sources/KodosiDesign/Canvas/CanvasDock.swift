@@ -1,12 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// The keys of a terminal's canvas, one for each of its parts: its files and its browser. The
-/// chosen part shows its name. When a file comes or changes, the files key shows that file's name
-/// for a moment and its face flashes, and a command of the agent in the browser shows the browser
-/// key's name. With `flight`, the keys move between the terminal's header and the canvas's
-/// header. On the canvas, a pointer on a key shows its name and the key that closes the part, and
-/// a plus key lists the parts to open.
 public struct CanvasDock: View {
     @Environment(\.theme) private var theme
     @Namespace private var thumb
@@ -245,7 +239,6 @@ private struct CloseMenu: ViewModifier {
     }
 }
 
-/// Moves the keys between the terminal's header and the canvas's header.
 private struct Flight: ViewModifier {
     let id: String
     let space: Namespace.ID?

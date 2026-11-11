@@ -1,6 +1,5 @@
 import { Schema } from "@tiptap/pm/model";
 
-/** The server's tree of a text file: its lines, each with its text and nothing else. */
 export const schema = new Schema({
   nodes: {
     doc: { content: "line+" },

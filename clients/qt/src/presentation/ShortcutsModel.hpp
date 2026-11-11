@@ -15,7 +15,6 @@ class QKeyEvent;
 
 namespace kodosi {
 
-/// What a key can do in the app. The defaults are Ghostty's keys and Kodosi's own.
 class ShortcutsModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantMap keys READ keys NOTIFY keysChanged)

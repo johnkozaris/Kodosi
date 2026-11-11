@@ -10,8 +10,7 @@ crate-type = ["staticlib"]
 path = "src/lib.rs"
 
 [features]
-default = ["cli", "host"]
-cli = ["host", "kodosi-runtime/cli"]
+default = ["host"]
 host = ["kodosi-runtime/host"]
 
 [dependencies]

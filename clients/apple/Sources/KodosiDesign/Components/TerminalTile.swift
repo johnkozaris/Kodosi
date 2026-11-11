@@ -5,7 +5,6 @@ import SwiftUI
     import UIKit
 #endif
 
-/// The colors of a terminal's own text and bars, the same in both appearances.
 public enum TerminalInk {
     public static let body = hex(0x0D0B09)
     public static let band = hex(0x1A1512)
@@ -13,8 +12,6 @@ public enum TerminalInk {
 }
 
 public extension View {
-    /// The dark tile that holds a terminal: its fill and shadow, and a hairline that turns copper
-    /// while the tile is selected.
     func terminalTile(radius: CGFloat = Radius.tile, selected: Bool = false, shown: Bool = true) -> some View {
         modifier(TerminalTile(radius: radius, selected: selected, shown: shown))
     }
@@ -45,7 +42,6 @@ private struct TerminalTile: ViewModifier {
     }
 }
 
-/// A few lines of a terminal in a font, a size and a cursor, to show what a choice looks like.
 public struct TerminalPreview: View {
     public enum Cursor: Hashable, Sendable {
         case block, bar, underline

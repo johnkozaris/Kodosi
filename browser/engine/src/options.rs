@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use shared_browser::link::Address;
 
-/// What the host gives the engine on its command line. The token is in a file of the profile,
-/// since other people on the computer can read a command line.
+/// The token is in a file of the profile, since other people on the computer can read a command
+/// line.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Options {
     pub profile: PathBuf,

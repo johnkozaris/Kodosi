@@ -313,7 +313,6 @@ impl Rig {
         self.apply(out);
     }
 
-    /// Dosi here asks `question` in a turn that the person then stops.
     async fn question(&mut self, question: &str) -> DosiItem {
         self.send("slow please");
         self.until(|rig| !rig.file("token").is_empty()).await;
@@ -340,7 +339,6 @@ impl Rig {
     }
 }
 
-/// A phone of the person: it runs no agent, and asks Dosi on one of the person's computers.
 struct Phone {
     viewer: Viewer,
     server: Arc<Mutex<Server>>,

@@ -54,7 +54,6 @@ struct RoomTerminals: View {
         .newTerminalSheet($newTerminal)
     }
 
-    /// The keys of the empty room: the primary one first when they stand under each other.
     @ViewBuilder
     private func emptyKeys(_ mine: [RuntimeSession], stacked: Bool) -> some View {
         if stacked {

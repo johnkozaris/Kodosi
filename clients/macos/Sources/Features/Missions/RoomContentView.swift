@@ -124,7 +124,6 @@ private struct RoomTerminals: View {
         .coordinateSpace(.named(Self.space))
     }
 
-    /// The terminal, with its canvas beside it when it is open, flowing out of its tab.
     @ViewBuilder
     private func pair(_ current: RuntimeSession) -> some View {
         let open = workspace.showsCanvas && deps.canvas.showsSomething(current)
@@ -271,7 +270,6 @@ private struct RoomTerminals: View {
     }
 }
 
-/// A room tab: the terminal's mark, its name and its status.
 private struct TabLabel: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
@@ -296,7 +294,6 @@ private struct TabLabel: View {
     }
 }
 
-/// The chosen tab: a pill of the terminal's header bar, which flows down into the terminal.
 private struct TabPill: View {
     @Environment(\.theme) private var theme
 
@@ -305,7 +302,6 @@ private struct TabPill: View {
     }
 }
 
-/// The chosen tab is in the terminal's colors.
 private struct TabScope: ViewModifier {
     let terminal: Bool
 

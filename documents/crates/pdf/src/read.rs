@@ -40,7 +40,6 @@ fn numbers(document: &Document, object: &Object) -> Option<Vec<f64>> {
     object.as_array().ok()?.iter().map(number_of).collect()
 }
 
-/// A page's own value, or the one that it inherits from its parents.
 pub(crate) fn inherited<'d>(
     document: &'d Document,
     page: &'d Dictionary,

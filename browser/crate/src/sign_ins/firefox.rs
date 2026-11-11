@@ -26,7 +26,6 @@ fn roots(home: &Path) -> Vec<PathBuf> {
     ]
 }
 
-/// The folders that `profiles.ini` names, the default one first.
 fn profile_folders(root: &Path) -> Vec<PathBuf> {
     let Ok(list) = std::fs::read_to_string(root.join("profiles.ini")) else {
         return Vec::new();
@@ -69,7 +68,6 @@ fn profile_folders(root: &Path) -> Vec<PathBuf> {
     first
 }
 
-/// The default profile of Firefox. Its data is one source while macOS keeps it from Kodosi.
 pub(super) fn sources(home: &Path) -> Vec<SignInSource> {
     let roots = roots(home);
     if let Some(root) = roots.iter().find(|root| {

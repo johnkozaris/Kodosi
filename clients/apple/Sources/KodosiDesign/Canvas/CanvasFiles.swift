@@ -12,10 +12,6 @@ import SwiftUI
     private let closeKey: CGFloat = 16
 #endif
 
-/// The files of a canvas over the file that it shows: the key of the cards with the count, and a
-/// tab for each file. Tabs are rounded rectangles, unlike the capsules of the canvas's keys, and
-/// the chosen one is raised. Each tab ends with the key that takes the file off the canvas;
-/// `actions` is its menu.
 public struct CanvasFilesBar<Actions: View>: View {
     @Environment(\.theme) private var theme
     @Namespace private var thumb
@@ -128,7 +124,6 @@ public struct CanvasFilesBar<Actions: View>: View {
     }
 }
 
-/// The small round key that takes a file off the canvas, or closes a part of it.
 struct RemoveKey: View {
     @Environment(\.theme) private var theme
     let size: CGFloat
@@ -153,7 +148,6 @@ struct RemoveKey: View {
     }
 }
 
-/// All the files of a canvas as cards.
 public struct CanvasShelf<Actions: View>: View {
     @Environment(\.theme) private var theme
     let session: RuntimeSession
@@ -190,8 +184,6 @@ public struct CanvasShelf<Actions: View>: View {
     }
 }
 
-/// A file as a card: a sheet with its picture, the first page of a PDF or the title of a page
-/// when this device has the content, and else the tile of its kind.
 struct CanvasCard: View {
     @Environment(\.theme) private var theme
     let file: CanvasItem
@@ -287,7 +279,6 @@ struct CanvasCard: View {
     }
 }
 
-/// What a card shows of a file whose content this device has.
 enum CanvasPreview: @unchecked Sendable {
     case picture(CGImage)
     case title(String)

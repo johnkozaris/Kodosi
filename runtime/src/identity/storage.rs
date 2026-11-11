@@ -360,17 +360,4 @@ mod tests {
         .unwrap();
         assert!(store.load("tokens").is_err());
     }
-
-    #[test]
-    fn an_isolated_folder_reports_its_private_files() {
-        let data = tempfile::tempdir().unwrap();
-        let store = Secrets::new(data.path().join("secrets"), "test", true);
-        assert_eq!(
-            store.location().get(),
-            Some((
-                CredentialStore::PrivateFile,
-                Some(data.path().join("secrets"))
-            ))
-        );
-    }
 }

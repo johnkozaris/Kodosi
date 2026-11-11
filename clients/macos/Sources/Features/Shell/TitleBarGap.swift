@@ -2,10 +2,9 @@ import AppKit
 import SwiftUI
 
 extension View {
-    /// Marks empty space as a part of the title bar while it starts in the band of the title bar
-    /// at the top of the window: a double-click there does what System Settings › Desktop & Dock
-    /// gives a double-click on a title bar, which is to fill the screen unless the person chose to
-    /// minimize or to do nothing. The space keeps its layout and its clicks.
+    /// A double-click on empty space in the band of the title bar does what System Settings ›
+    /// Desktop & Dock gives a double-click on a title bar: to fill the screen, unless the person
+    /// chose to minimize or to do nothing.
     func titleBarGap() -> some View {
         modifier(TitleBarGap())
     }

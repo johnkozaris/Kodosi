@@ -105,7 +105,6 @@ enum Request {
     Pending(Option<crate::agents::AgentSettings>),
 }
 
-/// What the agent in front works with, and a change of it that waits for its turn to end.
 #[derive(Debug, Default)]
 struct RunningAgent {
     settings: Option<crate::agents::AgentSettings>,
@@ -132,10 +131,6 @@ pub(crate) struct TerminalSession {
 }
 
 impl TerminalSession {
-    /// Starts a terminal. `notes` is the folder with Kodosi's note for agents, which Copilot CLI
-    /// reads; the note itself is in each terminal's environment. Its `plugin` folder holds the
-    /// skills of Kodosi for agents that load plugins. The terminal shows `screen` above the
-    /// output of its program, and keeps the pictures that people paste in `pictures`.
     #[expect(clippy::too_many_arguments, reason = "the parts of one new terminal")]
     pub(crate) async fn spawn(
         id: Uuid,
@@ -298,8 +293,6 @@ impl TerminalSession {
         await_reply(admission, response)
     }
 
-    /// Saves a picture that a person pastes and pastes the path of its file, as a terminal
-    /// pastes a dropped file.
     pub(crate) fn paste_picture(
         &self,
         picture: Picture,
@@ -343,8 +336,7 @@ impl TerminalSession {
         await_reply(self.send(Request::Read { history, reply }), response)
     }
 
-    /// The primary screen and its history as VT text, for the terminal that replaces this one.
-    /// It leaves the alternate screen, so ask only when the terminal stops.
+    /// Leaves the alternate screen, so ask only when the terminal stops.
     pub(crate) fn primary_history(&self) -> impl Future<Output = Result<Vec<u8>>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         await_reply(self.send(Request::PrimaryHistory(reply)), response)
@@ -400,14 +392,10 @@ impl TerminalSession {
         self.send(Request::Start(command))
     }
 
-    /// Sets the account of the program in front while the process group `group` is still in
-    /// front.
     pub(crate) fn set_account(&self, group: Option<u32>, account: Option<u8>) -> Result<()> {
         self.send(Request::Account { group, account })
     }
 
-    /// Sets what the agent in front works with, while the process group `group` is still in
-    /// front, or while the same agent is in front when `group` is `None`.
     pub(crate) fn set_settings(
         &self,
         group: Option<u32>,
@@ -416,7 +404,6 @@ impl TerminalSession {
         self.send(Request::Settings { group, settings })
     }
 
-    /// Sets the change of the agent in front that waits for the end of its turn.
     pub(crate) fn set_pending(&self, pending: Option<crate::agents::AgentSettings>) -> Result<()> {
         self.send(Request::Pending(pending))
     }
@@ -550,8 +537,6 @@ impl PendingWrite {
     }
 }
 
-/// The line that starts the terminal's program once the shell waits at its prompt, and what
-/// people typed meanwhile, which follows it.
 struct StartLine {
     line: String,
     since: tokio::time::Instant,
@@ -615,8 +600,6 @@ fn command_path() -> Option<String> {
     )
 }
 
-/// What a program in a Kodosi terminal reads from Kodosi: its terminal, the note and the plugin
-/// for agents, and the kodosi command first on the path.
 fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String)> {
     let mut variables = vec![
         ("KODOSI_SESSION_ID", id.to_string()),
@@ -643,7 +626,6 @@ fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String
     variables
 }
 
-/// Kodosi's notes folder after the folders that Copilot CLI already reads.
 fn copilot_notes(folder: &Path) -> Option<String> {
     let folder = folder.to_str()?;
     Some(
@@ -736,8 +718,7 @@ struct LocalActor {
     next_refresh: tokio::time::Instant,
 }
 
-/// A pasted picture whose file is saved, so its path can be pasted. A picture of a view on
-/// another computer is pasted only while that view may type.
+/// A picture of a view on another computer is pasted only while that view may type.
 struct SavedPicture {
     authorization: Option<CancellationToken>,
     path: Result<PathBuf>,
@@ -1398,8 +1379,6 @@ impl LocalActor {
         self.queue.push_back(write);
     }
 
-    /// Hands a change of the agent in front to the runtime, which types the agent's own
-    /// commands once the agent waits for its next prompt.
     fn change_agent(&self, change: crate::agents::AgentSettings) -> Result<()> {
         let agent = self
             .live_program()
@@ -1762,7 +1741,6 @@ impl LocalActor {
         });
     }
 
-    /// Pastes the path of a saved picture as a person's input.
     async fn paste_saved(&mut self, saved: SavedPicture) {
         let SavedPicture {
             authorization,
@@ -1795,7 +1773,6 @@ impl LocalActor {
         }
     }
 
-    /// A canvas request of a person on another computer. It does not wait for the terminal.
     fn ask_canvas(
         &self,
         request: crate::canvas::CanvasRequest,

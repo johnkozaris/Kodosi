@@ -31,7 +31,6 @@ const dataAttribute = (name: string, data: string) => ({
   renderHTML: (attrs: Record<string, unknown>) => (attrs[name] ? { [data]: attrs[name] } : {}),
 });
 
-/** Who made the mark that ends a paragraph a tracked insertion or deletion. */
 const changeAttribute = (name: "inserted" | "deleted") => ({
   default: null,
   renderHTML: (attrs: Record<string, unknown>) => (attrs[name] ? { [`data-${name}`]: "" } : {}),

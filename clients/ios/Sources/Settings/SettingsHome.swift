@@ -49,7 +49,6 @@ struct SettingsHome: View {
 }
 
 extension View {
-    /// A page of settings: one column of groups, at most as wide as a line reads well.
     func settingsPage() -> some View {
         padding(.horizontal, 16)
             .padding(.top, 8)

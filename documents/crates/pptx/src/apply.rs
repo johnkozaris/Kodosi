@@ -226,7 +226,6 @@ fn same_shape(old: &Shape, new: &Shape) -> bool {
         && old.text.is_some() == new.text.is_some()
 }
 
-/// The ids of the shapes of a slide that another state of it holds too, from back to front.
 fn stack<'s>(slide: &'s Slide, other: &Slide) -> Vec<&'s str> {
     let mut shapes: Vec<&Shape> = slide
         .shapes
@@ -306,7 +305,6 @@ fn shape_changes(slide: &str, old: &Shape, new: &Shape, stacked: bool, out: &mut
     }
 }
 
-/// What turns one state of the deck into another, by the ids of slides and shapes.
 pub(crate) fn compare(from: &Model, to: &Model) -> Vec<Change> {
     let mut changes = Vec::new();
     for slide in &to.slides {

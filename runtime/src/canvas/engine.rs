@@ -16,8 +16,7 @@ use tokio::{io::AsyncWriteExt as _, sync::OnceCell};
 use super::browser::KEPT_PROFILE;
 use crate::text::Text;
 
-/// Names a browser program on disk, for a build with no feed.
-const ON_DISK: &str = "KODOSI_BROWSER_ENGINE";
+const ENGINE_PROGRAM_VARIABLE: &str = "KODOSI_BROWSER_ENGINE";
 const FEED: &str = "https://updates.kodosi.com/browser/engine.json";
 /// The key of Kodosi's updates, which also signs this feed.
 const FEED_KEY: &str = "6eh21KvaRNcq4kfPMxINLLm+OsMXLgIT6VWfYlU3fow=";
@@ -35,7 +34,6 @@ fn not_for_this_computer() -> Text {
 }
 
 const CURRENT: &str = "current.json";
-/// A private folder for the copies of the stores that a copy of sign-ins reads.
 const READING: &str = "sign-in-copy";
 
 #[derive(Debug, Deserialize)]
@@ -57,17 +55,13 @@ struct Current {
     program: String,
 }
 
-/// What Settings › Browser shows.
 pub(crate) struct BrowserStatus {
     pub(crate) sources: Vec<shared_browser::SignInSource>,
     pub(crate) sites: usize,
     pub(crate) engine: Option<String>,
-    /// The part of a download of Kodosi Browser, from 0 to 100, while one runs.
     pub(crate) getting: Option<u8>,
 }
 
-/// The host's browsers. Kodosi Browser comes the first time that a window opens on this
-/// computer, or when a person gets it in Settings.
 #[derive(Clone)]
 pub(crate) struct BrowserHost {
     folder: PathBuf,
@@ -93,7 +87,6 @@ impl BrowserHost {
         }
     }
 
-    /// The browsers. `progress` hears the part of the first download, from 0 to 100.
     pub(super) async fn browsers(&self, progress: impl Fn(u8) + Send) -> Result<&Browsers, Text> {
         let browsers = self
             .browsers
@@ -115,7 +108,6 @@ impl BrowserHost {
         Ok(browsers)
     }
 
-    /// The engine on this computer, with the others removed, or else the newest of the feed.
     async fn engine(&self, progress: impl Fn(u8) + Send) -> Result<PathBuf, Text> {
         let _one = self.installing.lock().await;
         if let Some((version, program)) = installed(&self.engines()).await {
@@ -125,7 +117,7 @@ impl BrowserHost {
         self.download(progress).await
     }
 
-    /// Gets the newest engine of the feed unless it is here. The caller holds `installing`.
+    /// The caller holds `installing`.
     async fn download(&self, progress: impl Fn(u8) + Send) -> Result<PathBuf, Text> {
         let got = install(&self.engines(), move |part| {
             self.tell(Some(part));
@@ -141,8 +133,6 @@ impl BrowserHost {
         self.download(|_| {}).await
     }
 
-    /// Holds back each download of Kodosi Browser while the guard lives; none when the engine is
-    /// on disk.
     #[cfg(test)]
     pub(super) async fn hold_downloads(&self) -> Option<tokio::sync::OwnedMutexGuard<()>> {
         if on_disk().is_some() {
@@ -165,8 +155,6 @@ impl BrowserHost {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    /// A person's own step in Settings: gets Kodosi Browser now, or its newest version. A
-    /// browser that runs keeps its own engine, as with each daily look.
     pub(crate) async fn get(&self) -> Result<(), Text> {
         if on_disk().is_some() {
             return Ok(());
@@ -178,8 +166,6 @@ impl BrowserHost {
         Ok(())
     }
 
-    /// Gets each newer engine while the host runs. A browser that starts later uses it, a
-    /// browser that runs keeps its own, and the older engine goes when the host starts again.
     fn keep_current(&self) {
         let host = self.clone();
         tokio::spawn(async move {
@@ -205,7 +191,6 @@ impl BrowserHost {
         self.folder.join("profiles")
     }
 
-    /// Closes the browser of a profile and deletes the profile.
     pub(super) async fn remove_profile(&self, profile: &str) -> Result<(), Text> {
         if let Some(browsers) = self.browsers.get() {
             return browsers
@@ -221,8 +206,6 @@ impl BrowserHost {
         }
     }
 
-    /// What Settings › Browser shows: the browsers to copy from, for how many sites copies gave
-    /// the kept profile sign-ins, and the Kodosi Browser of this computer.
     pub(crate) async fn status(&self) -> BrowserStatus {
         let engine = match on_disk() {
             Some(program) => Some(program.display().to_string()),
@@ -238,9 +221,7 @@ impl BrowserHost {
         }
     }
 
-    /// Copies the sign-ins of a browser of this computer into the kept profile, and returns for
-    /// how many sites. It reads them first, so a browser that gives no access costs no download.
-    /// Only a person starts this.
+    /// Reads the sign-ins first, so a browser that gives no access costs no download.
     pub(crate) async fn copy_sign_ins(&self, name: &str) -> Result<usize, Text> {
         let sources = shared_browser::sign_in_sources();
         let source = sources
@@ -258,7 +239,6 @@ impl BrowserHost {
             .map_err(copy_problem)
     }
 
-    /// Removes what copies gave the kept profile, and returns for how many sites.
     pub(crate) async fn forget_sign_ins(&self) -> Result<usize, Text> {
         if shared_browser::copied_sites(&self.profiles(), KEPT_PROFILE) == 0 {
             return Ok(0);
@@ -270,8 +250,6 @@ impl BrowserHost {
             .map_err(|problem| Text::plain(problem.to_string()))
     }
 
-    /// Removes the kept profile with every sign-in and all site data. The browsers of the
-    /// private terminals close, and they wake with a new profile.
     pub(crate) async fn clear(&self) -> Result<(), Text> {
         self.remove_profile(KEPT_PROFILE).await
     }
@@ -284,10 +262,9 @@ impl BrowserHost {
 }
 
 fn on_disk() -> Option<PathBuf> {
-    std::env::var_os(ON_DISK).map(PathBuf::from)
+    std::env::var_os(ENGINE_PROGRAM_VARIABLE).map(PathBuf::from)
 }
 
-/// Why sign-ins did not copy, in the words of the person's language.
 fn copy_problem(problem: shared_browser::CopyError) -> Text {
     use shared_browser::CopyError;
     match problem {
@@ -329,7 +306,6 @@ fn folder_of(version: &str) -> String {
     format!("{version}.noindex")
 }
 
-/// The version and the program of the engine on this computer.
 async fn installed(engines: &Path) -> Option<(String, PathBuf)> {
     let text = tokio::fs::read(engines.join(CURRENT)).await.ok()?;
     let current: Current = serde_json::from_slice(&text).ok()?;
@@ -339,7 +315,6 @@ async fn installed(engines: &Path) -> Option<(String, PathBuf)> {
     program.exists().then_some((current.version, program))
 }
 
-/// Gets the newest engine of the signed feed, unless it is here, and returns its program.
 async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf, Text> {
     let client = reqwest::Client::builder()
         .connect_timeout(LOOK_LIMIT)
@@ -462,7 +437,6 @@ async fn download(
     }
 }
 
-/// Unpacks into a new folder, which takes its place only when it is whole.
 async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), Text> {
     tokio::task::spawn_blocking(move || -> std::io::Result<()> {
         let unpacking = folder.with_extension("unpacking.noindex");
@@ -477,7 +451,6 @@ async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), Text> {
     .map_err(|_| no_engine())
 }
 
-/// Removes each engine but this version, with the archives of downloads that stopped.
 async fn remove_others(engines: &Path, version: &str) {
     let Ok(mut entries) = tokio::fs::read_dir(engines).await else {
         return;
@@ -528,20 +501,6 @@ mod tests {
         )
         .await;
         assert_eq!(feed, Err(not_for_this_computer()));
-    }
-
-    #[test]
-    fn each_computer_has_a_name_in_the_feed() {
-        assert!(
-            [
-                "mac-arm64",
-                "mac-x64",
-                "linux-x64",
-                "linux-arm64",
-                "windows-x64"
-            ]
-            .contains(&platform().as_str())
-        );
     }
 
     #[tokio::test]

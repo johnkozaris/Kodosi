@@ -11,9 +11,6 @@ namespace kodosi {
 class CommandDispatcher;
 class SessionCatalogModel;
 
-// The pipes of the live documents on this device. A view's frames go to the runtime in parts,
-// and the runtime's parts come back whole, in base64 to a page and as bytes to a native view. A
-// view opens a new pipe when its pipe breaks, and at once when its terminal can be reached again.
 class CanvasDocuments final : public QObject {
     Q_OBJECT
 

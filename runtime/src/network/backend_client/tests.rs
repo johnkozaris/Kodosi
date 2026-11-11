@@ -617,8 +617,6 @@ fn device_session_replies() -> [(u16, Value); 2] {
     ]
 }
 
-/// A signed-in device whose own identity is pinned and that keeps two friend lists: the
-/// first one, and a second one with Bob on top of it.
 async fn friends_kept_at(
     address: &str,
 ) -> (

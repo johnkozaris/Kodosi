@@ -37,7 +37,6 @@ public struct TerminalStyle: Sendable {
         self.palette = palette
     }
 
-    /// The grid of a terminal view of this size in points.
     public func grid(
         fitting size: CGSize,
         scale: Double,

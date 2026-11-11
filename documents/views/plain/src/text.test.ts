@@ -20,7 +20,6 @@ function linesOf(state: EditorState): string[] {
   return lines;
 }
 
-/** A state with the selection from a column of one line to a column of another, lines from 0. */
 function stateOf(lines: string[], from: [number, number], to = from): EditorState {
   const doc = docOf(...lines);
   const position = ([line, column]: [number, number]) => {

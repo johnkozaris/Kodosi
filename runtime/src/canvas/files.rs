@@ -20,11 +20,8 @@ const MOST_PAGE_SOURCE: u64 = 8 * 1024 * 1024;
 const NAME_CHARACTERS: usize = 128;
 const SNAPSHOT_KEPT: std::time::Duration = std::time::Duration::from_mins(1);
 
-/// The formats of live documents, which say whether a text file opens live.
 static FORMATS: LazyLock<documents::Formats> = LazyLock::new(documents_cli::formats);
 
-/// Counts the changes of a canvas, so devices know the newest item and what changed since they
-/// looked.
 #[derive(Clone, Default)]
 pub(super) struct Stamp(Arc<AtomicU64>);
 
@@ -50,20 +47,16 @@ struct Item {
     seen: Option<Seen>,
 }
 
-/// What a check of the files found.
 pub(super) struct Checked {
     pub(super) any: bool,
-    /// The files whose content changed, newest first.
     pub(super) changed: Vec<String>,
 }
 
-/// A file that the canvas can show.
 pub(super) struct Examined {
     path: PathBuf,
     kind: CanvasKind,
     view: Option<DocumentView>,
     seen: Seen,
-    /// The first address that a page loads from the network.
     pub loads: Option<String>,
 }
 
@@ -72,7 +65,6 @@ impl Examined {
         name_of(&self.path)
     }
 
-    /// The address of the file, for the shared browser.
     pub(super) fn address(&self) -> Option<String> {
         reqwest::Url::from_file_path(&self.path)
             .ok()
@@ -104,7 +96,6 @@ pub(super) struct Files {
     snapshot: Option<Snapshot>,
 }
 
-/// Checks each file before the canvas shows any of them.
 pub(super) async fn examine_all(paths: Vec<PathBuf>) -> Result<Vec<Examined>, Text> {
     let mut checked = Vec::with_capacity(paths.len());
     for path in paths {
@@ -126,7 +117,6 @@ impl Files {
         self.items.iter().map(|item| item.listed.clone()).collect()
     }
 
-    /// Puts each file on the canvas, or brings it to the front. The newest comes first.
     pub(super) fn show(&mut self, files: Vec<Examined>, stamp: &Stamp) -> Showing {
         let mut shown = Vec::new();
         for Examined {
@@ -184,7 +174,6 @@ impl Files {
         Showing { shown, dropped }
     }
 
-    /// Brings back the files of a terminal that returns. A file that is gone shows as missing.
     pub(super) fn restore(&mut self, paths: Vec<PathBuf>, stamp: &Stamp) {
         for path in paths.into_iter().take(MOST_ITEMS) {
             let Some(kind) = kind_of(&path) else { continue };
@@ -210,7 +199,6 @@ impl Files {
         }
     }
 
-    /// Checks each file for a change. A changed file gets a new revision.
     pub(super) async fn check(&mut self, stamp: &Stamp) -> Checked {
         let mut any = false;
         let mut changed = Vec::new();
@@ -255,7 +243,6 @@ impl Files {
         Checked { any, changed }
     }
 
-    /// Removes the items with these keys, or all items when there are no keys.
     pub(super) fn remove(&mut self, keys: &[String]) -> usize {
         let before = self.items.len();
         self.items
@@ -271,7 +258,7 @@ impl Files {
             .filter(|snapshot| self.contains(&snapshot.key));
     }
 
-    /// One part of an item's content. Every part of one revision comes from one copy of the file.
+    /// Every part of one revision comes from one copy of the file.
     pub(super) async fn read(
         &mut self,
         key: &str,
@@ -388,8 +375,6 @@ async fn examine(path: PathBuf) -> Result<Examined, Text> {
     })
 }
 
-/// How a file of `bytes` opens on the canvas: live, or else as its kind. A text file opens live
-/// only when its format takes it, and one that is too long or not UTF-8 stays a page.
 async fn view_of(path: &Path, bytes: u64) -> Option<DocumentView> {
     let view = super::view_of(path)?;
     if view != DocumentView::Text {

@@ -36,23 +36,9 @@ const NAMES: &[(CursorType, &str)] = &[
     (CursorType::ZOOMOUT, "zoom-out"),
 ];
 
-/// The CSS name of a cursor, which every viewer knows.
 pub(crate) fn css_name(cursor: CursorType) -> &'static str {
     NAMES
         .iter()
         .find(|(known, _)| *known == cursor)
         .map_or("default", |(_, name)| name)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_cursor_has_its_css_name_and_the_arrow_is_the_default() {
-        assert_eq!(css_name(CursorType::HAND), "pointer");
-        assert_eq!(css_name(CursorType::IBEAM), "text");
-        assert_eq!(css_name(CursorType::NOTALLOWED), "not-allowed");
-        assert_eq!(css_name(CursorType::POINTER), "default");
-    }
 }

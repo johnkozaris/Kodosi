@@ -8,7 +8,6 @@ import "./peers.css";
 
 export { Waiting } from "./waiting";
 
-/** A selection: two positions in the document. */
 export interface Place {
   from: number;
   to: number;
@@ -33,7 +32,6 @@ export function shownPlace(state: EditorState, place: Place): Place {
   return { from, to: Math.min(Math.max(from, to), size) };
 }
 
-/** Another person's place in this copy. */
 interface Shown extends Place {
   peer: Peer;
 }
@@ -63,10 +61,6 @@ function peerMarks(doc: ProseNode, shown: readonly Shown[]): DecorationSet {
   return DecorationSet.create(doc, decorations);
 }
 
-/**
- * Where the other people are. Each place moves with every change of this copy, and a peer
- * whose place is new comes in from the document's order.
- */
 export function peersPlugin(): Plugin<Peers> {
   return new Plugin<Peers>({
     key: peerKey,
@@ -101,7 +95,6 @@ export function peersPlugin(): Plugin<Peers> {
   });
 }
 
-/** Shows the people who are here now, each at their place. */
 export function showPeers(view: EditorView, peers: readonly Peer[]): void {
   view.dispatch(view.state.tr.setMeta(peerKey, peers));
 }

@@ -15,9 +15,7 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
     public var reportsUsage: Bool
     public var permissions: [AgentPermissions]
     public var outputs: [AgentOutput]
-    /// How the agent asks until someone chooses.
     public var defaultPermissions: AgentPermissions
-    /// How much of its work the agent shows until someone chooses.
     public var defaultOutput: AgentOutput
 
     public init(
@@ -217,7 +215,6 @@ public enum UsageLevel: String, Decodable, Comparable, Sendable {
     }
 }
 
-/// The agent that `session.create` starts in the new terminal, with the choices of the launcher.
 public struct AgentStart: Equatable, Sendable {
     public var agent: String
     public var account: String?
@@ -250,9 +247,7 @@ public struct AgentStart: Equatable, Sendable {
 }
 
 public extension AgentStart {
-    /// The agent in front of a terminal of this computer, to start once more: with its account,
-    /// and with what it works with as far as Kodosi knows, its waiting change included. What
-    /// Kodosi does not know stays the launcher's last choice.
+    /// What Kodosi does not know of the running agent stays the launcher's last choice.
     init?(runningIn session: RuntimeSession, info: AgentInfo?) {
         guard session.kind == .local, let agent = session.program else { return nil }
         let account = session.programAccount.flatMap { place in
@@ -269,8 +264,6 @@ public extension AgentStart {
     }
 }
 
-/// What the launcher starts for an agent: its account, and the model and effort that the agent
-/// still offers.
 @MainActor
 public struct LaunchPlan {
     public let info: AgentInfo?
@@ -320,14 +313,12 @@ public struct LaunchPlan {
         models == nil || !(models?.models.isEmpty ?? true)
     }
 
-    /// How the agent asks before it acts: the last choice that it still has, else its default.
     public var permissions: AgentPermissions {
         guard let info else { return .ask }
         guard let saved = pick?.permissions, info.permissions.contains(saved) else { return info.defaultPermissions }
         return saved
     }
 
-    /// How much of its work the agent shows: the last choice that it still has, else its default.
     public var output: AgentOutput {
         guard let info else { return .standard }
         guard let saved = pick?.output, info.outputs.contains(saved) else { return info.defaultOutput }

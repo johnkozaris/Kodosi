@@ -274,8 +274,6 @@ struct SidebarComputerHeader: View {
     }
 }
 
-/// The filled triangle after the name of a folder or a computer. A folded one also counts its
-/// terminals and shows what a waiting one needs.
 struct FoldTriangle: View {
     @Environment(\.theme) private var theme
     let collapsed: Bool

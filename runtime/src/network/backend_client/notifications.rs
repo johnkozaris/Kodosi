@@ -12,9 +12,8 @@ use super::{
 
 const RETRY_LIMIT: Duration = Duration::from_mins(1);
 
-/// When the device link connects again after it ended. The wait doubles up to 15 seconds. A
-/// terminal that waits for the link ends a wait, but when that early try fails too, the next
-/// wait runs in full, so that a link that keeps ending cannot connect again and again.
+/// A terminal that waits for the link ends a wait. When that early try fails too, the next wait
+/// runs in full, so that a link that keeps ending cannot connect again and again.
 #[derive(Debug, PartialEq, Eq)]
 struct Retry {
     delay: u64,
@@ -366,9 +365,6 @@ impl BackendClient {
         again.map_or(Ok(()), Err)
     }
 
-    /// Takes the failure of one part of a refresh that the server answered. An error that ends
-    /// the account's connection ends the refresh; any other failure waits for the next change of
-    /// its part.
     fn surface_failed(waiting: &mut Waiting, surface: &'static str, error: Error) -> Result<()> {
         if ends_connection(&error) {
             return Err(error);

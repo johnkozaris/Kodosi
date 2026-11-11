@@ -47,7 +47,6 @@ fn placeholder(id: u32, name: &str, kind: &str, frame: [i64; 4], body: &str) -> 
     )
 }
 
-/// The look of text on the master: a heading, a body with bullets, and all other text.
 fn text_styles() -> String {
     let level = |number: u32, margin: u32, size: u32| {
         format!(
@@ -167,7 +166,6 @@ fn slide(title: &str, lines: &[String]) -> String {
     )
 }
 
-/// Slides from Markdown: each heading starts a slide, and the lines below it are its body.
 fn slides_of(markdown: &str) -> Vec<(String, Vec<String>)> {
     let mut slides: Vec<(String, Vec<String>)> = Vec::new();
     for line in markdown
@@ -193,7 +191,6 @@ fn slides_of(markdown: &str) -> Vec<(String, Vec<String>)> {
     slides
 }
 
-/// A new .pptx file, from Markdown when there is some.
 #[expect(clippy::too_many_lines, reason = "the list of parts of a deck")]
 pub fn new_file(markdown: Option<&str>) -> Result<Vec<u8>, String> {
     let slides = slides_of(markdown.unwrap_or_default());

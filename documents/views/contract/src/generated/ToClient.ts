@@ -6,7 +6,4 @@ import type { Peer } from "./Peer";
 import type { RefusedReason } from "./RefusedReason";
 import type { JsonValue } from "./serde_json/JsonValue";
 
-/**
- * What a document sends to a client.
- */
 export type ToClient = { "type": "joined", id: string, name: string, canEdit: boolean, epoch: number, rev: number, seq: number, peers: Array<Peer>, catchup: Catchup, } | { "type": "changed" } & Changed | { "type": "refused", seq: number, reason: RefusedReason, detail?: string, } | { "type": "answer", id: number, rev: number, body: JsonValue, } | { "type": "saved", rev: number, waits: boolean, } | { "type": "peer" } & Peer | { "type": "left", id: string, } | { "type": "closed", reason: ClosedReason, };

@@ -509,7 +509,7 @@ add_custom_target(kodosi-qt-host-program ALL
     COMMENT "Placing the kodosi program, agent-browser and the document views next to the app"
     VERBATIM
 )
-add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-rust-cli-build kodosi-agent-browser-build
+add_dependencies(kodosi-qt-host-program kodosi-qt kodosi-runtime-library-build kodosi-agent-browser-build
     kodosi-document-views-build)
 
 kodosi_install(kodosi-qt)

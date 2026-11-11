@@ -1,9 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-/// The agent's pointer over the shared browser: it glides to the element that the agent acts
-/// on, and a ring opens once when it clicks. It leaves a moment after the agent stops, when the
-/// page changes, or when a person on this device uses the browser.
 struct AgentPointerLayer: View {
     @Environment(\.theme) private var theme
     let browser: CanvasBrowser
@@ -51,7 +48,6 @@ struct AgentPointerLayer: View {
     }
 }
 
-/// The pointers of the other people in the shared browser, with their names.
 struct BrowserPointersLayer: View {
     @Environment(\.theme) private var theme
     let feed: BrowserFeed
@@ -80,7 +76,6 @@ struct BrowserPointersLayer: View {
     }
 }
 
-/// A pointer in the agent's color whose tip is at the top left of its frame.
 private struct AgentArrow: View {
     let color: Color
     let pressed: Bool
@@ -113,7 +108,6 @@ private struct ArrowShape: Shape {
     }
 }
 
-/// A ring that opens once at a click.
 private struct ClickRing: View {
     static let size: CGFloat = 34
 

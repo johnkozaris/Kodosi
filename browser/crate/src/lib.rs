@@ -1,6 +1,4 @@
-//! One real browser on the host's computer, shown as live video to each viewer. A host starts it
-//! through [`Browsers`], and it carries each viewer's [`Pipe`] in any way it likes. A viewer
-//! needs only the messages, so a build without the `host` feature starts nothing.
+//! A viewer needs only the messages, so a build without the `host` feature starts nothing.
 
 pub mod link;
 mod message;
@@ -67,7 +65,6 @@ mod host {
         Io(#[from] io::Error),
     }
 
-    /// What a host gives once.
     #[derive(Debug, Clone)]
     pub struct Settings {
         /// The browser program: an app bundle on a Mac, otherwise its executable.
@@ -79,8 +76,7 @@ mod host {
         pub system_keychain: bool,
     }
 
-    /// One window: its profile, its name among the host's windows, the page that it opens first
-    /// and the folder of its downloads. One browser process runs each profile.
+    /// One browser process runs each profile.
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Place {
         pub profile: String,
@@ -89,8 +85,6 @@ mod host {
         pub folder: PathBuf,
     }
 
-    /// The host's browsers. A window opens when a viewer or an agent needs it, and the browser
-    /// exits with its last window.
     pub struct Browsers {
         program: RwLock<PathBuf>,
         profiles: PathBuf,
@@ -110,7 +104,6 @@ mod host {
             }
         }
 
-        /// The window of this place, opened if it is not open.
         pub async fn open(&self, place: Place) -> Result<Window, Error> {
             let key = (place.profile.clone(), place.window.clone());
             let mut windows = self.windows.lock().await;
@@ -141,13 +134,12 @@ mod host {
             Ok(engine)
         }
 
-        /// Starts each later browser from this program. A browser that runs keeps its own.
+        /// A browser that runs keeps its own engine.
         pub fn use_engine(&self, program: PathBuf) {
             *self.program.write().unwrap_or_else(PoisonError::into_inner) = program;
         }
 
-        /// A page of the host's own in the browser of a profile, which shows the files of a
-        /// folder. `script` runs in the page before the page's own scripts.
+        /// `script` runs in the page before the page's own scripts.
         pub async fn host_page(
             &self,
             profile: &str,
@@ -163,8 +155,7 @@ mod host {
             page
         }
 
-        /// Gives a profile the sign-ins that a person read from another browser, and returns
-        /// for how many sites. A host does this only for a person's own action.
+        /// A host does this only for a person's own action.
         pub async fn add_sign_ins(
             &self,
             profile: &str,
@@ -177,7 +168,6 @@ mod host {
             added
         }
 
-        /// Removes what copies gave a profile, and returns for how many sites.
         pub async fn remove_copied_sign_ins(&self, profile: &str) -> Result<usize, CopyError> {
             if sign_ins::copied_sites(&self.profiles, profile) == 0 {
                 return Ok(0);
@@ -189,7 +179,6 @@ mod host {
             removed
         }
 
-        /// Closes the browser of a profile and deletes the profile with its sign-ins.
         pub async fn remove_profile(&self, profile: &str) -> Result<(), Error> {
             let windows: Vec<Window> = self
                 .windows
@@ -211,7 +200,6 @@ mod host {
             }
         }
 
-        /// Closes all windows, and the browsers with them.
         pub async fn close(&self) {
             let windows = std::mem::take(&mut *self.windows.lock().await);
             for window in windows.values() {

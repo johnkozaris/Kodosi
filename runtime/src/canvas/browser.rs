@@ -32,7 +32,6 @@ const FIRST_SIZE: (u32, u32) = (1280, 720);
 /// on its debug port.
 const DAEMON_IDLE_MS: &str = "60000";
 const FIRST_PAGE: &str = "about:blank";
-/// The profile that keeps a person's sign-ins. A shared terminal has a profile of its own.
 pub(super) const KEPT_PROFILE: &str = "person";
 /// Options and commands that would give the browser of this terminal another session, profile,
 /// program or lifetime.
@@ -93,7 +92,6 @@ impl Places {
     }
 }
 
-/// The agent-browser that ships next to the kodosi program.
 pub(super) fn agent_browser() -> PathBuf {
     let name = if cfg!(windows) {
         "agent-browser.exe"
@@ -106,8 +104,8 @@ pub(super) fn agent_browser() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(name))
 }
 
-/// The folder of the browsers' sockets. A Unix socket path has at most 103 bytes, so it is the
-/// short private folder of the host's own socket.
+/// A Unix socket path has at most 103 bytes, so the browsers' sockets are in the short private
+/// folder of the host's own socket.
 pub(super) fn sockets(data_root: &Path) -> PathBuf {
     #[cfg(unix)]
     if let Ok(folder) = kodosi_os::ipc::private_dir(&crate::local_host::namespace(data_root)) {
@@ -116,7 +114,6 @@ pub(super) fn sockets(data_root: &Path) -> PathBuf {
     data_root.join("browser").join("sockets")
 }
 
-/// The folder of the profile that belongs to one terminal.
 pub(super) fn own_profile(data_root: &Path, id: Uuid) -> PathBuf {
     data_root
         .join("browser")
@@ -124,7 +121,6 @@ pub(super) fn own_profile(data_root: &Path, id: Uuid) -> PathBuf {
         .join(id.to_string())
 }
 
-/// Why this computer cannot run the agent's side of the shared browser, if it cannot.
 pub(super) fn missing(agent_browser: &Path) -> Option<Text> {
     (!agent_browser.is_file()).then(no_agent_browser)
 }
@@ -146,12 +142,10 @@ struct Run {
     output: String,
 }
 
-/// What a browser needs from its terminal.
 pub(super) struct Terminal {
     pub(super) id: Uuid,
     pub(super) folder: watch::Receiver<PathBuf>,
     pub(super) shared: watch::Receiver<bool>,
-    /// Puts a finished download on the canvas.
     pub(super) show: Box<dyn Fn(PathBuf) + Send + Sync>,
 }
 
@@ -206,13 +200,10 @@ impl Browser {
         self.state.send_modify(change);
     }
 
-    /// The page that the browser opens when it wakes.
     pub(super) fn reopen_at(&self, address: Option<String>) {
         self.activity(|activity| activity.address = address);
     }
 
-    /// The web page that the browser opens when it wakes: the last one that it showed, or the
-    /// one of [`Self::reopen_at`].
     pub(super) fn page(&self) -> Option<String> {
         self.activity(|activity| activity.address.clone())
     }
@@ -234,8 +225,6 @@ impl Browser {
         }
     }
 
-    /// The window of this terminal, opened if it is not open. Kodosi Browser comes the first
-    /// time here, and the canvas shows how far that is. A browser that ended opens no window.
     async fn window(self: &Arc<Self>) -> Result<Window, Text> {
         let open = self
             .window
@@ -286,7 +275,6 @@ impl Browser {
         Ok(window)
     }
 
-    /// Shows what the window says on the canvas.
     fn show(&self, window: &State) {
         let tabs: Vec<BrowserTab> = window
             .tabs
@@ -323,7 +311,6 @@ impl Browser {
         });
     }
 
-    /// The middle of the element that a command names, when it is in view.
     async fn point(&self, folder: &Path, driver: &str, target: &str) -> Option<BrowserPoint> {
         let run = self
             .agent_browser(
@@ -347,7 +334,6 @@ impl Browser {
         middle(&run.output, width, height)
     }
 
-    /// Runs an agent's agent-browser command on this terminal's browser.
     pub(super) async fn run(
         self: &Arc<Self>,
         folder: PathBuf,
@@ -456,7 +442,6 @@ impl Browser {
         });
     }
 
-    /// A person's step that needs no view of the browser: it wakes the browser.
     pub(super) async fn act(
         self: &Arc<Self>,
         BrowserAct::Wake: BrowserAct,
@@ -465,8 +450,6 @@ impl Browser {
         Ok(CanvasAnswer::Done)
     }
 
-    /// Gives a person the live picture of this browser. The two ends carry the browser's own
-    /// messages, so one who only looks needs nothing more.
     pub(super) async fn watch(self: &Arc<Self>, viewer: Viewer) -> Result<PipeEnds, Text> {
         let window = self.window().await?;
         let mut pipe = window
@@ -512,7 +495,6 @@ impl Browser {
         problem
     }
 
-    /// Closes the window. The profile stays, so the browser wakes with the same sign-ins.
     pub(super) async fn sleep(&self) {
         let window = self.window.lock().await.take();
         if let Some(window) = window {
@@ -525,14 +507,11 @@ impl Browser {
         });
     }
 
-    /// Closes the window for good, and no window opens after it. The profile stays.
     pub(super) async fn end(&self) {
         self.closed.cancel();
         self.sleep().await;
     }
 
-    /// Closes the window for good, with the profile of a shared terminal and what agent-browser
-    /// keeps of the session.
     pub(super) async fn remove(&self) {
         self.end().await;
         if *self.terminal.shared.borrow()
@@ -557,8 +536,6 @@ impl Browser {
         );
     }
 
-    /// Runs agent-browser with this terminal's session and settings, and only them. With the
-    /// window's driver connection it works on this terminal's tabs.
     async fn agent_browser(
         &self,
         folder: &Path,
@@ -620,7 +597,6 @@ impl Browser {
     }
 }
 
-/// Keeps the canvas in step with the window until it closes.
 async fn follow(browser: Weak<Browser>, window: Window, closed: CancellationToken) {
     let mut state = window.state();
     loop {
@@ -656,8 +632,7 @@ fn cut(text: &str, most: usize) -> String {
     text[..end].to_owned()
 }
 
-/// The word of a command that Kodosi does not run: an option or command of [`NOT_HERE`], or
-/// `--all` with `close`, which would close the browsers of the other terminals.
+/// `--all` with `close` would close the browsers of the other terminals.
 pub(super) fn refused(arguments: &[String]) -> Option<&str> {
     let closing = arguments
         .iter()
@@ -674,7 +649,6 @@ pub(super) fn refused(arguments: &[String]) -> Option<&str> {
         .map(String::as_str)
 }
 
-/// agent-browser with only Kodosi's settings: none of the person's `AGENT_BROWSER_` variables.
 fn agent_browser_command(binary: &Path, sockets: &Path) -> tokio::process::Command {
     let mut command = tokio::process::Command::new(binary);
     for (variable, _) in std::env::vars_os() {
@@ -709,7 +683,7 @@ async fn prepare(places: &Places) -> Result<(), Text> {
     .map_err(|error| Text::plain(format!("The browser folder could not be made: {error}")))
 }
 
-/// The command and its target, without what the agent types, which can be secret.
+/// Leaves out what the agent types, which can be secret.
 pub(super) fn words(arguments: &[String]) -> String {
     let words = arguments
         .iter()
@@ -725,7 +699,6 @@ pub(super) fn words(arguments: &[String]) -> String {
     shown.join(" ").chars().take(80).collect()
 }
 
-/// What a command does, for the people who look, and the element that it acts on.
 pub(super) fn doing(arguments: &[String]) -> Option<(BrowserDoingKind, Option<String>)> {
     let words = arguments
         .iter()
@@ -768,7 +741,6 @@ pub(super) fn doing(arguments: &[String]) -> Option<(BrowserDoingKind, Option<St
     })
 }
 
-/// The middle of the box that `get box` prints, when it is inside the browser's view.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
@@ -798,14 +770,11 @@ fn push_line(text: &mut String, line: &str) {
     text.push_str(line);
 }
 
-/// Removes the sockets of agent-browsers that are left, for example after a crash. Each one
-/// leaves by itself when it is idle.
 pub(super) async fn close_left(data_root: &Path) {
     let sockets = sockets(data_root);
     drop(tokio::task::spawn_blocking(move || std::fs::remove_dir_all(sockets)).await);
 }
 
-/// The profile folders of terminals that do not come back. A person's kept profile stays.
 pub(super) fn left_profiles(data_root: &Path, returning: &HashSet<Uuid>) -> Vec<PathBuf> {
     let profiles = data_root.join("browser").join("profiles");
     std::fs::read_dir(profiles)

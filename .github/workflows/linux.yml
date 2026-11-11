@@ -1,27 +1,8 @@
 name: Linux app
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - clients/qt/**
-      - documents/**
-      - browser/**
-      - protocol/**
-      - runtime/**
-      - terminal/ghostty/**
-      - Ghostty.lock
-      - VERSION
-      - justfile
-      - rust-toolchain.toml
-      - AgentBrowser.lock
-      - scripts/build-agent-browser.py
-      - scripts/build-document-views.py
-      - scripts/build-runtime-library.py
-      - scripts/generate-engine-feed.py
-      - scripts/generate-update-site.py
-      - scripts/tests/**
-      - .github/workflows/linux.yml
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -33,18 +14,16 @@ concurrency:
 
 jobs:
   check:
-    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Make room on the disk
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
-          df -h /
+      - name: Make room on the disk while the next steps run
+        run: sudo nohup rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL > /dev/null 2>&1 &
       - name: Install the system libraries
+        timeout-minutes: 5
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
@@ -66,10 +45,10 @@ jobs:
           key: qt-tools-${{ hashFiles('clients/qt/dependencies.lock.json') }}
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          workspaces: runtime
+          workspaces: runtime -> ../clients/qt/build/dev/runtime-library/x86_64-unknown-linux-gnu/dev/cargo
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tools/agent-browser
-          key: agent-browser-linux-${{ hashFiles('AgentBrowser.lock', 'rust-toolchain.toml') }}
+          key: agent-browser-linux-${{ hashFiles('AgentBrowser.lock', 'rust-toolchain.toml', 'scripts/build-agent-browser.py') }}
       - run: just linux-check
       - run: just release-test
