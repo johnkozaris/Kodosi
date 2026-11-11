@@ -3,23 +3,57 @@ package com.kodosi.mobile
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
+import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.browser.customtabs.CustomTabsIntent
+import androidx.browser.auth.AuthTabIntent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
 import androidx.core.net.toUri
+import androidx.core.view.doOnAttach
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import com.kodosi.mobile.account.SignInStage
+import com.kodosi.mobile.terminals.TerminalNotifications
 import com.kodosi.mobile.ui.KodosiTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val model: AppModel get() = (application as KodosiApplication).model
-    private var signingIn = false
+    private val signIn = AuthTabIntent.registerActivityResultLauncher(this) { result ->
+        if (result.resultCode == AuthTabIntent.RESULT_OK && result.resultUri?.scheme == SIGN_IN_SCHEME) {
+            model.account.finishSignIn(result.resultUri.toString())
+        } else if (model.account.state.value.stage is SignInStage.AwaitingBrowser) {
+            if (result.resultCode == AuthTabIntent.RESULT_CANCELED) {
+                model.account.cancelSignIn()
+            } else {
+                model.account.failSignIn(getString(R.string.sign_in_page_failed))
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         model.start()
         receive(intent)
-        setContent { KodosiTheme { App(model, openSignIn = ::openSignIn) } }
+        setContent {
+            val preferences by model.preferences.state.collectAsStateWithLifecycle()
+            val dark = when (preferences.appearance) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
+            SideEffect {
+                val light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                    WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                window.decorView.doOnAttach { view ->
+                    view.windowInsetsController?.setSystemBarsAppearance(if (dark) 0 else light, light)
+                }
+            }
+            KodosiTheme(dark) { App(model, openSignIn = ::openSignIn) }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -29,31 +63,56 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (signingIn) {
-            signingIn = false
-            model.account.cancelSignIn()
-            return
-        }
+        model.lock.foreground()
+        privacy(background = false)
+        lifecycleScope.launch { model.lock.unlock(this@MainActivity, automatic = true) }
+        model.languageChanged()
         model.refresh()
+        model.updatePush()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        model.notifications.foreground = true
+    }
+
+    override fun onPause() {
+        privacy(background = true)
+        super.onPause()
+    }
+
+    override fun onStop() {
+        model.notifications.foreground = false
+        model.lock.background()
+        super.onStop()
+    }
+
+    private fun privacy(background: Boolean) {
+        val locked = model.preferences.state.value.lock
+        setRecentsScreenshotEnabled(!locked)
+        window.decorView.contentSensitivity = if (background && locked) {
+            View.CONTENT_SENSITIVITY_SENSITIVE
+        } else {
+            View.CONTENT_SENSITIVITY_AUTO
+        }
     }
 
     private fun receive(intent: Intent) {
-        val answer = intent.data?.takeIf { it.scheme == SIGN_IN_SCHEME } ?: return
-        signingIn = false
-        model.account.finishSignIn(answer.toString())
+        val terminal = intent.getStringExtra(TerminalNotifications.TERMINAL)
+        val account = intent.getStringExtra(TerminalNotifications.ACCOUNT)
+        if (terminal != null && account != null) {
+            model.terminalTarget.value = AppModel.TerminalTarget(terminal, account)
+            intent.removeExtra(TerminalNotifications.TERMINAL)
+            intent.removeExtra(TerminalNotifications.ACCOUNT)
+        }
     }
 
     private fun openSignIn(page: String) {
         model.account.openedSignInPage()
         try {
-            CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(this, page.toUri())
-            signingIn = true
+            AuthTabIntent.Builder().build().launch(signIn, page.toUri(), SIGN_IN_SCHEME)
         } catch (failure: ActivityNotFoundException) {
             model.account.failSignIn(getString(R.string.sign_in_page_failed))
         }
-    }
-
-    private companion object {
-        const val SIGN_IN_SCHEME = "com.kodosi"
     }
 }

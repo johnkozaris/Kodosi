@@ -1,5 +1,6 @@
 package com.kodosi.mobile.terminals
 
+import com.kodosi.mobile.ui.LinkPolicy
 import java.nio.ByteBuffer
 
 /** The visible screen of a terminal, cell by cell, as the kernel wrote it. */
@@ -15,7 +16,8 @@ class TerminalFrame(
     private val foregrounds: IntArray,
     private val backgrounds: IntArray,
     private val styles: IntArray,
-    private val texts: Array<String?>
+    private val texts: Array<String?>,
+    private val rowFlags: ByteArray = ByteArray(rows)
 ) {
     enum class CursorStyle { BAR, BLOCK, UNDERLINE, HOLLOW }
 
@@ -53,6 +55,37 @@ class TerminalFrame(
 
     fun text(column: Int, row: Int): String? = texts[index(column, row)]
 
+    fun link(column: Int, row: Int): String? {
+        if (column !in 0 until cols || row !in 0 until rows) return null
+        var first = row
+        while (first > 0 && rowFlags[first - 1].toInt() and 1 != 0) first--
+        var last = row
+        while (last + 1 < rows && rowFlags[last].toInt() and 1 != 0) last++
+        val line = StringBuilder()
+        var offset = 0
+        var previous = 0
+        for (y in first..last) {
+            for (x in 0 until cols) {
+                val cellWidth = width(x, y)
+                if (x == column && y == row) {
+                    offset = if (cellWidth == 0 && x > 0 && width(x - 1, y) == 2) previous else line.length
+                }
+                if (cellWidth != 0) {
+                    previous = line.length
+                    line.append(text(x, y) ?: " ")
+                }
+            }
+        }
+        return LinkPolicy.inText(line).firstOrNull {
+            offset in it.range &&
+                !(it.range.first == 0 && rowFlags[first].toInt() and 2 != 0) &&
+                !(
+                    rowFlags[last].toInt() and 1 != 0 &&
+                        (it.range.last + 1..line.lastIndex).none { at -> line[at].isWhitespace() }
+                    )
+        }?.address
+    }
+
     companion object {
         private val ascii = Array(128) { it.toChar().toString() }
 
@@ -71,9 +104,11 @@ class TerminalFrame(
             val backgrounds = IntArray(count)
             val styles = IntArray(count)
             val texts = arrayOfNulls<String>(count)
+            val rowFlags = ByteArray(rows)
             var at = HEADER_BYTES
             val bytes = ByteArray(255)
             for (cell in 0 until count) {
+                if (cell % cols == 0) rowFlags[cell / cols] = buffer.get(at++)
                 foregrounds[cell] = buffer.getInt(at)
                 backgrounds[cell] = buffer.getInt(at + 4)
                 val width = buffer.get(at + 10).toInt() and 0xFF
@@ -101,7 +136,8 @@ class TerminalFrame(
                 foregrounds = foregrounds,
                 backgrounds = backgrounds,
                 styles = styles,
-                texts = texts
+                texts = texts,
+                rowFlags = rowFlags
             )
         }
 

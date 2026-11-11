@@ -3,11 +3,13 @@ package com.kodosi.mobile.terminals
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.Ffi
 import com.kodosi.mobile.runtime.RuntimeFailure
-import com.kodosi.mobile.runtime.RuntimeHandle
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.TerminalLink
+import com.kodosi.mobile.runtime.TerminalRuntime
 import com.kodosi.mobile.runtime.UuidV7
 import java.nio.ByteBuffer
+import java.util.Base64
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,7 +40,7 @@ interface TerminalWords {
  */
 class TerminalConnection(
     val sessionId: String,
-    private val runtime: RuntimeHandle,
+    private val runtime: TerminalRuntime,
     private val commands: CommandSink,
     private val store: TerminalStore,
     private val scope: CoroutineScope,
@@ -76,12 +78,14 @@ class TerminalConnection(
     private var sizedTo: Viewport? = null
     private var resizing: Job? = null
     private var surfaceGeneration = 0L
-    private val input = Channel<ByteArray>(INPUT_CAPACITY)
+    private data class Input(val bytes: ByteArray, val link: Link, val incarnation: String)
+    private val input = Channel<Input>(INPUT_CAPACITY)
     private var shown = false
+    private var acceptsFocus = true
 
     init {
         scope.launch(Dispatchers.Default) {
-            for (bytes in input) deliver(bytes)
+            for (input in input) deliver(input)
         }
     }
 
@@ -89,9 +93,7 @@ class TerminalConnection(
     fun show(visible: Boolean) {
         if (shown == visible) return
         shown = visible
-        store.watch(sessionId, visible)
         if (visible) {
-            open()
             refresh()
         } else {
             blur()
@@ -106,7 +108,12 @@ class TerminalConnection(
             leave(current)
         }
         if (link == null && shown && session.isConnected) connect(session)
-        if (shown && session.canControl && restored && focus == null && !focused) requestFocus()
+        if (shown && acceptsFocus && session.canControl && restored && focus == null && !focused) requestFocus()
+    }
+
+    fun inputFocus(on: Boolean) {
+        acceptsFocus = on
+        if (on) refresh() else blur()
     }
 
     fun setViewport(next: Viewport) {
@@ -122,10 +129,32 @@ class TerminalConnection(
         scheduleResize()
     }
 
-    fun send(bytes: ByteArray) {
-        if (bytes.isEmpty() || state.value != State.Rendered) return
+    fun send(bytes: ByteArray): Boolean {
+        val current = link ?: return false
+        val status = state.value
+        if (bytes.isEmpty() || (status != State.Connecting && status != State.Rendered) || !shown || !current.active) {
+            return false
+        }
+        if (input.trySend(Input(bytes, current, incarnation)).isFailure) {
+            fail(current, words.fellBehind)
+            return false
+        }
         kernel.scroll(0)
-        input.trySend(bytes)
+        return true
+    }
+
+    fun clipboardReader(): ((String) -> Boolean)? {
+        val current = link ?: return null
+        val stamp = incarnation
+        if (!shown || !focused || !acceptsFocus) return null
+        return { text ->
+            if (link === current && incarnation == stamp) {
+                val encoded = Base64.getEncoder().encodeToString(text.encodeToByteArray())
+                send("\u001b]52;c;$encoded\u0007".encodeToByteArray())
+            } else {
+                false
+            }
+        }
     }
 
     /** Opens the terminal again and connects to it once it is reachable. */
@@ -140,7 +169,6 @@ class TerminalConnection(
     fun close() {
         show(false)
         link?.let(::leave)
-        store.disconnect(sessionId)
         input.close()
         kernel.close()
     }
@@ -189,6 +217,7 @@ class TerminalConnection(
     private fun leave(current: Link) {
         blur()
         current.active = false
+        current.ready.complete(false)
         runtime.disconnect(sessionId, current)
         if (link === current) link = null
         restored = false
@@ -258,11 +287,16 @@ class TerminalConnection(
         )
     }
 
-    private suspend fun deliver(bytes: ByteArray) {
+    private suspend fun deliver(input: Input) {
+        if (!input.link.ready.await()) return
         for (wait in INPUT_BACKOFF_MS + listOf(0L)) {
-            val current = link ?: return
-            val result = runtime.input(sessionId, incarnation, current, bytes)
-            if (result != Ffi.BUSY || wait == 0L) return
+            if (link !== input.link || !input.link.active || incarnation != input.incarnation || !shown) return
+            val result = runtime.input(sessionId, input.incarnation, input.link, input.bytes)
+            if (result == Ffi.OK) return
+            if (result != Ffi.BUSY || wait == 0L) {
+                mutableState.value = State.Failed(words.fellBehind)
+                return
+            }
             delay(wait)
         }
     }
@@ -294,8 +328,20 @@ class TerminalConnection(
     }
 
     private inner class Link(override val subscriptionId: String, override val generation: Long) : TerminalLink {
+        val ready = CompletableDeferred<Boolean>()
+        private var checkpointInstalled = false
+        private var connected = false
+
         @Volatile
         var active = true
+
+        private fun render() {
+            if (link !== this || !active || !checkpointInstalled || !connected) return
+            restored = true
+            ready.complete(true)
+            mutableState.value = State.Rendered
+            refresh()
+        }
 
         override fun onData(sequence: Long, bytes: ByteBuffer) {
             if (!active) return
@@ -347,10 +393,8 @@ class TerminalConnection(
             }
             changed()
             scope.launch {
-                if (link !== this@Link) return@launch
-                restored = true
-                mutableState.value = State.Rendered
-                refresh()
+                checkpointInstalled = true
+                render()
             }
             return Ffi.OK
         }
@@ -358,7 +402,8 @@ class TerminalConnection(
         override fun onConnectResult(result: Int) {
             scope.launch {
                 if (result == Ffi.OK) {
-                    if (link === this@Link && restored) mutableState.value = State.Rendered
+                    connected = true
+                    render()
                 } else {
                     fail(this@Link, words.couldNotConnect)
                 }

@@ -51,6 +51,9 @@ class AccountStoreTest {
         store.receiveAuth(event("auth.browser", """"requestId":"r","url":"https://id.kodosi.com/login""""))
         store.finishSignIn("com.kodosi:/auth?code=1")
         assertEquals("com.kodosi:/auth?code=1", sent.last("auth.login.finish").string("url"))
+        assertEquals(SignInStage.Finalizing, stage)
+        store.finishSignIn("com.kodosi:/auth?code=1")
+        assertEquals(1, sent.types.count { it == "auth.login.finish" })
     }
 
     @Test
@@ -83,7 +86,7 @@ class AccountStoreTest {
         )
         assertEquals(SignInStage.SignedIn, stage)
         assertTrue(store.state.value.isReady)
-        assertEquals(listOf(Device("phone", "Pixel")), store.state.value.devices)
+        assertEquals(listOf(Device("phone", "Pixel", certIssuedAtMs = 1)), store.state.value.devices)
     }
 
     @Test

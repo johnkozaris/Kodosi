@@ -13,6 +13,8 @@ sealed interface DeviceTrust {
 
     data object Resetting : DeviceTrust
 
+    data class Waiting(val readyAtMs: Long) : DeviceTrust
+
     data class Failed(val message: String) : DeviceTrust
 }
 

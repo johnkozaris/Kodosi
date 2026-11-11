@@ -18,8 +18,10 @@ pub unsafe extern "C" fn kodosi_android_init(env: *mut c_void, context: *mut c_v
         let mut env = unsafe { EnvUnowned::from_raw(env.cast()) };
         let outcome = env
             .with_env(|env| {
-                let context = unsafe { JObject::from_raw(env, context.cast()) };
-                let initialized = rustls_platform_verifier::android::init_with_env(env, context);
+                let initialized = kodosi_os::secrets::initialize_android(env).and_then(|()| {
+                    let context = unsafe { JObject::from_raw(env, context.cast()) };
+                    rustls_platform_verifier::android::init_with_env(env, context)
+                });
                 if initialized.is_err() {
                     env.exception_clear();
                 }

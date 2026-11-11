@@ -24,9 +24,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +55,9 @@ import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ErrorNote
 import com.kodosi.mobile.ui.Glyph
 import com.kodosi.mobile.ui.KodosiButton
+import com.kodosi.mobile.ui.KodosiDialog
+import com.kodosi.mobile.ui.KodosiField
+import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
@@ -162,7 +163,7 @@ private fun Welcome(account: AccountStore, failure: String?, starting: Boolean) 
             KodosiButton(
                 stringResource(if (starting) R.string.opening_sign_in else R.string.sign_in),
                 onClick = account::signIn,
-                large = true,
+                size = com.kodosi.mobile.ui.ButtonSize.LARGE,
                 enabled = !starting,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -235,6 +236,25 @@ private fun TrustThisPhone(account: AccountStore, trust: DeviceTrust) {
 
             DeviceTrust.Resetting -> ProgressCaption(stringResource(R.string.starting_fresh))
 
+            is DeviceTrust.Waiting -> Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    stringResource(
+                        R.string.start_fresh_wait,
+                        java.text.DateFormat.getDateTimeInstance().format(java.util.Date(trust.readyAtMs))
+                    ),
+                    style = KodosiType.callout,
+                    color = colors.inkMuted
+                )
+                KodosiButton(
+                    stringResource(R.string.cancel_request),
+                    onClick = account::stopReset,
+                    kind = ButtonKind.GHOST
+                )
+            }
+
             is DeviceTrust.Failed -> Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -252,22 +272,19 @@ private fun TrustThisPhone(account: AccountStore, trust: DeviceTrust) {
         }
     }
     if (confirmingReset) {
-        AlertDialog(
+        KodosiDialog(
             onDismissRequest = { confirmingReset = false },
             title = { Text(stringResource(R.string.start_fresh_title)) },
             text = { Text(stringResource(R.string.start_fresh_message)) },
             confirmButton = {
-                TextButton(onClick = {
+                KodosiTextButton(onClick = {
                     confirmingReset = false
                     account.startFresh()
                 }) { Text(stringResource(R.string.start_fresh), color = colors.danger) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmingReset = false }) { Text(stringResource(R.string.cancel)) }
-            },
-            containerColor = colors.lifted,
-            titleContentColor = colors.ink,
-            textContentColor = colors.inkMuted
+                KodosiTextButton(onClick = { confirmingReset = false }) { Text(stringResource(R.string.cancel)) }
+            }
         )
     }
 }
@@ -279,7 +296,7 @@ private fun TrustChoices(account: AccountStore, reset: () -> Unit) {
         KodosiButton(
             stringResource(R.string.approve_from_another_device),
             onClick = account::requestDeviceApproval,
-            large = true,
+            size = com.kodosi.mobile.ui.ButtonSize.LARGE,
             modifier = Modifier.fillMaxWidth()
         )
         if (entering) {
@@ -289,7 +306,7 @@ private fun TrustChoices(account: AccountStore, reset: () -> Unit) {
                 stringResource(R.string.use_recovery_key),
                 onClick = { entering = true },
                 kind = ButtonKind.SECONDARY,
-                large = true,
+                size = com.kodosi.mobile.ui.ButtonSize.LARGE,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -299,40 +316,22 @@ private fun TrustChoices(account: AccountStore, reset: () -> Unit) {
 
 @Composable
 private fun RecoveryKeyField(recover: (String) -> Unit) {
-    val colors = KodosiTheme.colors
     var key by rememberSaveable { mutableStateOf("") }
-    val shape = RoundedCornerShape(26.dp)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .raised(colors, shape)
-            .padding(start = 18.dp, end = 4.dp)
-    ) {
-        Box(Modifier.weight(1f)) {
-            if (key.isEmpty()) {
-                Text(
-                    stringResource(R.string.recovery_key),
-                    style = KodosiType.callout,
-                    color = colors.inkFaint
-                )
-            }
-            BasicTextField(
-                value = key,
-                onValueChange = { key = it },
-                singleLine = true,
-                textStyle = KodosiType.callout.copy(color = colors.ink, fontFamily = FontFamily.Monospace),
-                cursorBrush = SolidColor(colors.accent),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
-                    autoCorrectEnabled = false,
-                    imeAction = ImeAction.Go
-                ),
-                keyboardActions = KeyboardActions(onGo = { recover(key) }),
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        KodosiField(
+            value = key,
+            onValueChange = { key = it },
+            singleLine = true,
+            placeholder = stringResource(R.string.recovery_key),
+            textStyle = KodosiType.callout.copy(fontFamily = FontFamily.Monospace),
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Characters,
+                autoCorrectEnabled = false,
+                imeAction = ImeAction.Go
+            ),
+            keyboardActions = KeyboardActions(onGo = { if (key.isNotBlank()) recover(key) }),
+            modifier = Modifier.fillMaxWidth()
+        )
         KodosiButton(stringResource(R.string.approve), onClick = { recover(key) }, enabled = key.isNotBlank())
     }
 }

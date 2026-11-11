@@ -1,14 +1,14 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 root := justfile_directory() + "/../.."
-android_home := env('ANDROID_HOME', home_directory() + "/Library/Android/sdk")
+android_home := env('ANDROID_HOME', if os() == "macos" { home_directory() + "/Library/Android/sdk" } else { root + "/.tools/android/sdk" })
 ndk_version := `sed -n 's/^ndk = "\(.*\)"$/\1/p' gradle/libs.versions.toml`
 min_sdk := `sed -n 's/^minSdk = "\(.*\)"$/\1/p' gradle/libs.versions.toml`
 runtime_rustc := "rustc --locked -p kodosi-ffi-c --lib --no-default-features --crate-type cdylib"
 
 export ANDROID_HOME := android_home
 export ANDROID_NDK_HOME := env('ANDROID_NDK_HOME', android_home + "/ndk/" + ndk_version)
-export JAVA_HOME := env('JAVA_HOME', `brew --prefix openjdk@21 2>/dev/null | sed 's#$#/libexec/openjdk.jdk/Contents/Home#'`)
+export JAVA_HOME := env('JAVA_HOME', if os() == "macos" { `brew --prefix openjdk@21 2>/dev/null | sed 's#$#/libexec/openjdk.jdk/Contents/Home#'` } else { root + "/.tools/java" })
 export GRADLE_USER_HOME := env('GRADLE_USER_HOME', justfile_directory() + "/.tools/gradle")
 export PATH := root + "/.tools/rust/bin:" + env('PATH')
 
@@ -29,16 +29,35 @@ rust-lint:
         clippy --locked -p kodosi-runtime -p kodosi-ffi-c --no-default-features --lib -- -D warnings
 
 # Build the Debug app.
-build: runtime-build
+build: runtime-build documents-build notices-build
     ./gradlew --quiet assembleDebug
+
+# Build the optimized release APK, signed when the signing environment is set.
+release-build: (runtime-build "release") documents-build notices-build
+    ./gradlew --quiet assembleRelease
+
+# Build the optimized Android App Bundle with the same signing environment.
+bundle-build: (runtime-build "release") documents-build notices-build
+    ./gradlew --quiet bundleRelease
+
+[private]
+documents-build:
+    python3 "{{ root }}/scripts/build-document-views.py" \
+        --output-dir "{{ justfile_directory() }}/app/build/document-views"
+
+# Collect the licenses of the viewer runtime's dependencies.
+notices-build:
+    python3 "{{ root }}/clients/qt/scripts/release/generate-rust-license-inventory.py" \
+        --manifest "{{ root }}/runtime/Cargo.toml" --target aarch64-linux-android \
+        --no-default-features --output-dir "{{ justfile_directory() }}/app/build/rust-notices"
 
 # Install the Debug app on the device or emulator that adb sees, and open it.
 run: build
     ./gradlew --quiet installDebug
-    "$ANDROID_HOME/platform-tools/adb" shell am start -n com.kodosi.mobile/.MainActivity
+    "$ANDROID_HOME/platform-tools/adb" shell am start -n com.kodosi.mobile.debug/com.kodosi.mobile.MainActivity
 
 # Check the Kotlin style and run Android lint.
-lint:
+lint: documents-build notices-build
     ./gradlew --quiet ktlintCheck lintDebug
 
 # Format the Kotlin sources.
@@ -46,8 +65,16 @@ format:
     ./gradlew --quiet ktlintFormat
 
 # Run the unit tests.
-test:
+test: documents-build notices-build
     ./gradlew --quiet testDebugUnitTest
+
+# Build the native boundary tests.
+device-test-build: build
+    ./gradlew --quiet assembleDebugAndroidTest
+
+# Exercise the terminal, browser decoder and encrypted storage on an attached ARM64 device.
+device-test: device-test-build
+    ./gradlew --quiet connectedDebugAndroidTest
 
 # Lint and test the app, build it, then check its translations.
 check: build lint test

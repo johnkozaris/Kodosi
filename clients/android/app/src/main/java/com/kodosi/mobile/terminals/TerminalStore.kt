@@ -5,6 +5,7 @@ import com.kodosi.mobile.runtime.InvalidEvent
 import com.kodosi.mobile.runtime.RuntimeEvent
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.UuidV7
+import com.kodosi.mobile.runtime.fields
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -71,6 +72,15 @@ class TerminalStore(private val commands: CommandSink) {
     fun disconnect(sessionId: String) {
         commands.perform("session.disconnect", mapOf("sessionId" to JsonPrimitive(sessionId)))
     }
+
+    suspend fun act(
+        operation: String,
+        session: RuntimeSession,
+        extra: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap()
+    ) = commands.request(
+        operation,
+        fields("sessionId" to session.id, "expectedRuntimeIncarnationId" to session.incarnationId) + extra
+    )
 
     private fun receiveSnapshot(event: RuntimeEvent) {
         val sessions = event["sessions"] ?: throw InvalidEvent("a terminal list has no terminals")

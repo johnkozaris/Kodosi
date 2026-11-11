@@ -1,7 +1,9 @@
 package com.kodosi.mobile.terminals
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,7 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -40,8 +45,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.R
+import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AgentMark
+import com.kodosi.mobile.ui.AppIcon
+import com.kodosi.mobile.ui.AppSymbol
+import com.kodosi.mobile.ui.DarkColors
 import com.kodosi.mobile.ui.Glyph
+import com.kodosi.mobile.ui.KodosiCard
+import com.kodosi.mobile.ui.KodosiField
+import com.kodosi.mobile.ui.KodosiSpinner
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
@@ -51,10 +63,17 @@ import com.kodosi.mobile.ui.raised
 
 /** The Terminals tab: your terminals by computer, then the terminals that friends share. */
 @Composable
-fun TerminalsScreen(store: TerminalStore, online: Boolean, open: (String) -> Unit) {
+fun TerminalsScreen(
+    store: TerminalStore,
+    onlineHosts: Set<String>,
+    online: Boolean,
+    open: (String) -> Unit,
+    start: (NewTerminalRequest) -> Unit
+) {
     val colors = KodosiTheme.colors
     val state by store.state.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
+    var folded by rememberSaveable { mutableStateOf(emptySet<String>()) }
     val sessions = TerminalCatalog.matching(state.sessions.filter { !it.hidden }, query)
     val groups = TerminalCatalog.groups(
         sessions,
@@ -66,23 +85,80 @@ fun TerminalsScreen(store: TerminalStore, online: Boolean, open: (String) -> Uni
         modifier = Modifier.fillMaxSize().safeDrawingPadding()
     ) {
         item {
-            Text(
-                stringResource(R.string.terminals),
-                style = KodosiType.large,
-                color = colors.ink,
-                modifier = Modifier.padding(top = 24.dp, bottom = 14.dp).semantics { heading() }
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    stringResource(R.string.terminals),
+                    style = KodosiType.large,
+                    color = colors.ink,
+                    modifier = Modifier.weight(1f).padding(top = 24.dp, bottom = 14.dp).semantics { heading() }
+                )
+                ActionIcon(AppSymbol.ADD, R.string.new_terminal, { start(NewTerminalRequest()) })
+            }
         }
         item { SearchField(query) { query = it } }
         for (group in groups) {
-            item(key = "group-${group.place.id}") { GroupHeader(group) }
-            items(group.sessions, key = { it.id }) { session ->
-                TerminalCard(
-                    session,
-                    online,
-                    onClick = { open(session.id) },
-                    modifier = Modifier.padding(vertical = 5.dp)
+            val own = group.place is TerminalGroup.Place.Computer
+            item(key = "group-$own-${group.place.id}") {
+                GroupHeader(
+                    group,
+                    if (own && group.place.id in onlineHosts) {
+                        { start(NewTerminalRequest(computer = group.place.id)) }
+                    } else {
+                        null
+                    }
                 )
+            }
+            val hosts = group.sessions.groupBy { it.hostDeviceId }
+            for ((host, terminals) in hosts) {
+                if (!own && hosts.size > 1) {
+                    item(key = "computer-${group.place.id}-$host") {
+                        Text(
+                            terminals.first().hostName.orEmpty(),
+                            style = KodosiType.footnote,
+                            color = colors.inkMuted,
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                    }
+                }
+                for ((folder, entries) in terminals.groupBy { it.workingDir }) {
+                    val key = "${group.place.id}/$host/$folder"
+                    if (folder != null) {
+                        item(key = "folder-$key") {
+                            Row(
+                                Modifier.fillMaxWidth().heightIn(min = 48.dp).combinedClickable(
+                                    onClick = { folded = if (key in folded) folded - key else folded + key },
+                                    onLongClick = if (own && host in onlineHosts) {
+                                        { start(NewTerminalRequest(host, folder)) }
+                                    } else {
+                                        null
+                                    }
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                AppIcon(AppSymbol.FOLDER, tint = colors.inkFaint)
+                                Text(
+                                    folder.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\').ifEmpty {
+                                        folder
+                                    },
+                                    style = KodosiType.footnote,
+                                    color = colors.inkMuted,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(entries.size.toString(), style = KodosiType.caption, color = colors.inkFaint)
+                            }
+                        }
+                    }
+                    if (key !in folded || query.isNotBlank()) {
+                        items(entries, key = { it.id }) { session ->
+                            TerminalCard(session, online, onClick = {
+                                open(session.id)
+                            }, modifier = Modifier.padding(vertical = 5.dp))
+                        }
+                    }
+                }
             }
         }
         if (sessions.isEmpty()) {
@@ -92,11 +168,7 @@ fun TerminalsScreen(store: TerminalStore, online: Boolean, open: (String) -> Uni
                         Modifier.fillMaxWidth().padding(top = 64.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            color = colors.accent,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        KodosiSpinner(Modifier.size(22.dp))
                     }
 
                     query.isNotBlank() -> Text(
@@ -116,40 +188,20 @@ fun TerminalsScreen(store: TerminalStore, online: Boolean, open: (String) -> Uni
 
 @Composable
 private fun SearchField(query: String, change: (String) -> Unit) {
-    val colors = KodosiTheme.colors
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(colors.well)
-            .padding(horizontal = 14.dp)
-    ) {
-        Glyph(R.drawable.ic_search, colors.inkFaint, 18.dp)
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.weight(1f)) {
-            if (query.isEmpty()) {
-                Text(
-                    stringResource(R.string.search_terminals),
-                    style = KodosiType.body,
-                    color = colors.inkFaint
-                )
-            }
-            BasicTextField(
-                value = query,
-                onValueChange = change,
-                singleLine = true,
-                textStyle = KodosiType.body.copy(color = colors.ink),
-                cursorBrush = SolidColor(colors.accent),
-                modifier = Modifier.fillMaxWidth()
-            )
+    KodosiField(
+        query,
+        change,
+        placeholder = stringResource(R.string.search_terminals),
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        leading = {
+            Glyph(R.drawable.ic_search, KodosiTheme.colors.inkMuted, 18.dp)
         }
-    }
+    )
 }
 
 @Composable
-private fun GroupHeader(group: TerminalGroup) {
+private fun GroupHeader(group: TerminalGroup, start: (() -> Unit)?) {
     val colors = KodosiTheme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -164,11 +216,13 @@ private fun GroupHeader(group: TerminalGroup) {
             group.place.name,
             style = KodosiType.subhead,
             color = colors.inkMuted,
+            modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Spacer(Modifier.width(7.dp))
         Text(group.sessions.size.toString(), style = KodosiType.caption, color = colors.inkFaint)
+        if (start != null) ActionIcon(AppSymbol.ADD, R.string.new_terminal, start)
     }
 }
 
@@ -176,43 +230,38 @@ private fun GroupHeader(group: TerminalGroup) {
 @Composable
 fun TerminalCard(session: RuntimeSession, online: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
-    val shape = RoundedCornerShape(Radius.lg)
     val sign = session.sign()
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 68.dp)
-            .raised(colors, shape)
-            .clip(shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp)
-    ) {
-        AgentMark(
-            session.agent,
-            34.dp,
-            account = session.programAccount,
-            activity = when {
-                session.isWorking -> MarkActivity.WORKING
-                session.canOpen -> MarkActivity.AWAKE
-                else -> MarkActivity.ASLEEP
-            }
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                session.name,
-                style = KodosiType.subhead,
-                color = if (session.canOpen) colors.ink else colors.inkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+    KodosiCard(modifier.fillMaxWidth(), onClick = onClick) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.heightIn(min = 68.dp).padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            AgentMark(
+                session.agent,
+                34.dp,
+                account = session.programAccount,
+                activity = when {
+                    session.isWorking -> MarkActivity.WORKING
+                    session.canOpen -> MarkActivity.AWAKE
+                    else -> MarkActivity.ASLEEP
+                }
             )
-            TerminalCaption(session, online)
-        }
-        Spacer(Modifier.width(8.dp))
-        when {
-            sign != null -> StatusSign(sign, 13.dp)
-            session.isTroubled -> Box(Modifier.size(6.dp).background(colors.caution, CircleShape))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    session.name,
+                    style = KodosiType.subhead,
+                    color = if (session.canOpen) colors.ink else colors.inkMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                TerminalCaption(session, online)
+            }
+            Spacer(Modifier.width(8.dp))
+            when {
+                sign != null -> StatusSign(sign, 13.dp)
+                session.isTroubled -> Box(Modifier.size(6.dp).background(colors.caution, CircleShape))
+            }
         }
     }
 }
@@ -282,7 +331,7 @@ private fun EmptyTerminals() {
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 64.dp)
     ) {
-        AgentMark(AgentKind.CLAUDE, 44.dp, activity = MarkActivity.WORKING)
+        TerminalsArt()
         Spacer(Modifier.size(6.dp))
         Text(
             stringResource(R.string.terminals_empty_title),
@@ -292,10 +341,39 @@ private fun EmptyTerminals() {
         )
         Text(
             stringResource(R.string.terminals_empty_message),
-            style = KodosiType.footnote,
+            style = KodosiType.callout,
             color = colors.inkMuted,
             textAlign = TextAlign.Center,
             modifier = Modifier.widthIn(max = 340.dp)
+        )
+    }
+}
+
+@Composable
+private fun TerminalsArt() {
+    val colors = DarkColors
+    val shape = RoundedCornerShape(Radius.tile)
+    Box(Modifier.size(142.dp, 98.dp)) {
+        Canvas(Modifier.size(128.dp, 84.dp).raised(colors, shape, fill = colors.terminal)) {
+            repeat(3) { drawCircle(colors.hairline, 3.dp.toPx(), Offset((17 + it * 10).dp.toPx(), 17.dp.toPx())) }
+            val prompt = Path().apply {
+                moveTo(14.dp.toPx(), 34.dp.toPx())
+                lineTo(19.dp.toPx(), 39.dp.toPx())
+                lineTo(14.dp.toPx(), 44.dp.toPx())
+            }
+            drawPath(prompt, colors.inkMuted, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+            drawRoundRect(
+                colors.accent,
+                Offset(26.dp.toPx(), 32.dp.toPx()),
+                Size(8.dp.toPx(), 15.dp.toPx()),
+                CornerRadius(1.dp.toPx())
+            )
+        }
+        AgentMark(
+            AgentKind.CLAUDE,
+            34.dp,
+            activity = MarkActivity.WORKING,
+            modifier = Modifier.align(Alignment.BottomEnd)
         )
     }
 }

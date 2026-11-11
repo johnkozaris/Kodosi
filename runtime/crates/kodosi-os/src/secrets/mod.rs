@@ -19,6 +19,11 @@ mod android;
 #[cfg(target_os = "android")]
 use android as imp;
 
+#[cfg(target_os = "android")]
+pub fn initialize_android(env: &mut jni::Env<'_>) -> Result<(), jni::errors::Error> {
+    android::initialize(env)
+}
+
 pub fn system_store_available() -> bool {
     imp::available()
 }
