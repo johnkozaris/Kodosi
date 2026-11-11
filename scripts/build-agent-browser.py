@@ -64,12 +64,18 @@ def build(folder: Path, target: str) -> Path:
     rust = subprocess.run(["rustc", "--version", "--verbose"], cwd=ROOT, check=True, capture_output=True, text=True).stdout
     # Cargo downloads each crate before it can say that nothing changed, and a workflow has none of them.
     if not program.is_file() or not made_with.is_file() or made_with.read_text(encoding="utf-8") != rust + flags:
+        environment = {
+            **os.environ,
+            "CARGO_ENCODED_RUSTFLAGS": flags,
+            "CARGO_INCREMENTAL": "0",
+            # Each commit of Kodosi uses this one program, so its C code takes the date of its own commit.
+            "SOURCE_DATE_EPOCH": git(folder, "log", "-1", "--format=%ct"),
+        }
         subprocess.run(
             ["cargo", "build", "--release", "--locked", "--quiet",
              "--manifest-path", str(folder / "cli/Cargo.toml"),
              "--target", target, "--target-dir", str(folder / "target")],
-            cwd=ROOT, env={**os.environ, "CARGO_ENCODED_RUSTFLAGS": flags, "CARGO_INCREMENTAL": "0"},
-            check=True, stdout=sys.stderr)
+            cwd=ROOT, env=environment, check=True, stdout=sys.stderr)
         made_with.write_text(rust + flags, encoding="utf-8")
     if str(Path.home()).encode() in program.read_bytes():
         raise SystemExit(f"{program} names the home folder of the build")

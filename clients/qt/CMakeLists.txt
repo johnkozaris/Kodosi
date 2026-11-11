@@ -35,18 +35,6 @@ find_package(
 )
 find_package(Threads REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-execute_process(
-    COMMAND
-        "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/source-date-epoch.py"
-        --source-root "${CMAKE_CURRENT_SOURCE_DIR}"
-    OUTPUT_VARIABLE KODOSI_SOURCE_DATE_EPOCH
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    COMMAND_ERROR_IS_FATAL ANY
-)
-if(NOT KODOSI_SOURCE_DATE_EPOCH MATCHES "^[0-9]+$")
-    message(FATAL_ERROR "SOURCE_DATE_EPOCH could not be derived from source HEAD")
-endif()
 
 set(KODOSI_RUNTIME_MANIFEST "${KODOSI_RUNTIME_ROOT}/runtime/Cargo.toml")
 set(KODOSI_RUNTIME_BUNDLE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/runtime-library")
@@ -62,11 +50,24 @@ set(KODOSI_RUNTIME_ARCHIVE "${KODOSI_RUNTIME_BUNDLE}/${KODOSI_RUNTIME_ARCHIVE_NA
 set(KODOSI_RUNTIME_CLI "${KODOSI_RUNTIME_BUNDLE}/${KODOSI_RUNTIME_CLI_NAME}")
 file(MAKE_DIRECTORY "${KODOSI_RUNTIME_BUNDLE_ROOT}")
 set(KODOSI_GHOSTTY_VT_ROOT "${KODOSI_GHOSTTY_ROOT}/Vendor/GhosttyVt/${KODOSI_GHOSTTY_LAYOUT}")
-set(KODOSI_CARGO_ENVIRONMENT
-    "KODOSI_GHOSTTY_DIR=${KODOSI_GHOSTTY_ROOT}"
-    "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}"
-)
+set(KODOSI_CARGO_ENVIRONMENT "KODOSI_GHOSTTY_DIR=${KODOSI_GHOSTTY_ROOT}")
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    # GCC and Clang read SOURCE_DATE_EPOCH, so Cargo compiles the C code of the Rust crates
+    # again when it changes. Only a release gets it; a development build keeps that code
+    # from one commit to the next.
+    execute_process(
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/release/source-date-epoch.py"
+            --source-root "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_VARIABLE KODOSI_SOURCE_DATE_EPOCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+    if(NOT KODOSI_SOURCE_DATE_EPOCH MATCHES "^[0-9]+$")
+        message(FATAL_ERROR "SOURCE_DATE_EPOCH could not be derived from source HEAD")
+    endif()
+    list(APPEND KODOSI_CARGO_ENVIRONMENT "SOURCE_DATE_EPOCH=${KODOSI_SOURCE_DATE_EPOCH}")
     # A release names ~ in place of the home folder of the person who builds it. On Windows,
     # cl.exe compiles the C code of the Rust crates and trims the home folder from __FILE__.
     if(WIN32)
