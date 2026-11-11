@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - clients/qt/**
-      - protocol/**
+      - protocol/desktop-runtime.json
       - runtime/crates/**
       - runtime/Cargo.toml
       - runtime/Cargo.lock

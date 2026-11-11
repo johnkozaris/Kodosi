@@ -5,7 +5,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - backend/**
-      - protocol/**
+      - protocol/backend-api.json
+      - protocol/terminal-connections.json
+      - protocol/crypto-domains.json
       - justfile
       - .github/workflows/backend.yml
   workflow_dispatch:
