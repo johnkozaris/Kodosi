@@ -97,7 +97,7 @@ Row {
 
                     required property string modelData
                     readonly property bool selected: modelData === root.chosen
-                    readonly property bool closing: root.inPanel && hovered
+                    readonly property bool closing: root.inPanel && (selected || hovered)
                     readonly property bool news: !selected && Models.Canvas.revision >= 0 && root.canvas
                         && ((modelData === "browser" && Models.Canvas.isNew(root.sessionId, "browser"))
                             || (modelData === "files" && (root.canvas.items || []).some(item => Models.Canvas.isNew(root.sessionId, item.key))))
