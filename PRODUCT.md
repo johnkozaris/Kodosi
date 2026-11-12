@@ -45,7 +45,9 @@ ends what the two share.
 prompts, permissions, settings, memory and conversations stay with the provider. Kodosi
 starts an agent by typing its command into a shell, tells it in a short note that it runs
 in Kodosi, and gives it the `kodosi` command and skills. The agent decides when to use
-them. Kodosi reads no provider credentials.
+them. Kodosi reads no provider credentials. The one exception to settings is a quiet
+Copilot CLI, which takes its display only from its saved settings: Kodosi changes those
+while it runs and puts them back after.
 
 **People and agents are equals in a project.** They read and write the same conversation
 and tasks, and they decide what to do next; nobody assigns work. Only a message that

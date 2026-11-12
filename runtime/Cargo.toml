@@ -92,7 +92,7 @@ rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"
 rustls = { version = "0.23.46", default-features = false, features = ["aws-lc-rs", "std"] }
 rustls-platform-verifier = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
 specta = { workspace = true, features = ["derive", "serde_json"] }
 specta-macros = { version = "=2.0.0-rc.27", features = ["serde"] }
 tempfile = { workspace = true }

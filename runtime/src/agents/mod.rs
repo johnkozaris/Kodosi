@@ -6,10 +6,14 @@ mod live;
 #[cfg(feature = "host")]
 mod models;
 #[cfg(feature = "host")]
+mod quiet;
+#[cfg(feature = "host")]
 mod shell;
 #[cfg(feature = "host")]
 mod usage;
 
+#[cfg(feature = "host")]
+pub(crate) use launch::Launch;
 #[cfg(feature = "host")]
 pub use launch::Launcher;
 #[cfg(feature = "host")]
@@ -139,7 +143,8 @@ impl Agent {
     #[cfg(feature = "host")]
     pub(crate) const fn output_words(self, output: Output) -> Option<&'static [&'static str]> {
         match (self, output) {
-            (_, Output::Standard) => Some(&[]),
+            // Copilot CLI takes its quiet output only from its saved settings.
+            (_, Output::Standard) | (Self::Copilot, Output::Quiet) => Some(&[]),
             (Self::Claude, Output::Quiet) => Some(&["--settings", CLAUDE_QUIET]),
             (Self::Claude, Output::Detailed) => Some(&["--settings", CLAUDE_DETAILED]),
             (Self::Codex, Output::Quiet) => Some(&[
@@ -155,6 +160,8 @@ impl Agent {
                 "tui.show_tooltips=false",
                 "-c",
                 "tui.animations=false",
+                "-c",
+                "tui.status_line=[]",
             ]),
             (Self::Codex, Output::Detailed) => Some(&[
                 "-c",
@@ -162,7 +169,8 @@ impl Agent {
                 "-c",
                 "model_reasoning_summary=detailed",
             ]),
-            (Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
+            (Self::Copilot, Output::Detailed)
+            | (Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
         }
     }
 
@@ -229,6 +237,7 @@ impl Agent {
                 ("-c", Some("tui.auto_recap=")),
                 ("-c", Some("tui.show_tooltips=")),
                 ("-c", Some("tui.animations=")),
+                ("-c", Some("tui.status_line=")),
             ],
             Self::Copilot => &[
                 ("--yolo", None),
@@ -381,7 +390,7 @@ pub(crate) const CLAUDE_PLUGINS: &str = "CLAUDE_CODE_PLUGIN_DIRS";
 /// Claude Code shows its focus view only in its fullscreen renderer. `viewMode` comes first,
 /// because a running Claude's output is read from the start of these settings.
 #[cfg(feature = "host")]
-const CLAUDE_QUIET: &str = r#"{"viewMode":"focus","tui":"fullscreen","showThinkingSummaries":false,"spinnerTipsEnabled":false,"showTurnDuration":false,"prefersReducedMotion":true,"feedbackSurveyRate":0}"#;
+const CLAUDE_QUIET: &str = r#"{"viewMode":"focus","tui":"fullscreen","showThinkingSummaries":false,"spinnerTipsEnabled":false,"showTurnDuration":false,"prefersReducedMotion":true,"feedbackSurveyRate":0,"promptSuggestionEnabled":false}"#;
 #[cfg(feature = "host")]
 const CLAUDE_DETAILED: &str = r#"{"viewMode":"verbose","showThinkingSummaries":true}"#;
 #[cfg(feature = "host")]
@@ -617,6 +626,17 @@ pub struct AgentAccount {
     pub folder: Option<String>,
 }
 
+#[cfg(feature = "host")]
+impl AgentAccount {
+    pub(crate) fn folder_in(&self, home: &Path) -> Option<std::path::PathBuf> {
+        let folder = self.folder.as_deref()?;
+        Some(folder.strip_prefix('~').map_or_else(
+            || folder.into(),
+            |rest| home.join(rest.trim_start_matches(['/', '\\'])),
+        ))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentModels {
@@ -763,12 +783,8 @@ pub(crate) async fn runner(
 ) -> Option<Runner> {
     let facts = shell::facts(shell, false).await;
     let program = facts.executable(agent.program())?;
-    let variables = match (agent.home(), account.folder.as_deref()) {
+    let variables = match (agent.home(), account.folder_in(home)) {
         (Some((_, variable)), Some(folder)) if account.command.starts_with("env ") => {
-            let folder = folder.strip_prefix('~').map_or_else(
-                || folder.into(),
-                |rest| home.join(rest.trim_start_matches(['/', '\\'])),
-            );
             vec![(variable.to_owned(), folder.to_string_lossy().into_owned())]
         }
         (Some((_, variable)), _) => facts
@@ -932,6 +948,7 @@ fn is_output_flag(flag: &str, start: Option<&str>) -> bool {
                     "tui.auto_recap=",
                     "tui.show_tooltips=",
                     "tui.animations=",
+                    "tui.status_line=",
                 ]
                 .contains(&start)
             }))

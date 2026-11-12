@@ -8,10 +8,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+use uuid::Uuid;
+
 use super::{
     Agent, AgentAccount, AgentCatalog, AgentChoice, AgentChoiceChange, AgentInfo, AgentModel,
     AgentModels, AgentModelsReply, AgentOption, AgentPick, AgentStart, AgentUsageReply, Output,
-    Permissions, as_shell_word, usage,
+    Permissions, as_shell_word,
+    quiet::{self, QuietSettings},
+    usage,
 };
 
 const FILE: &str = "launcher.json";
@@ -25,6 +29,12 @@ pub struct Launcher {
     writing: Mutex<()>,
     unsaved: AtomicBool,
     usage: usage::Readings,
+    quiet: QuietSettings,
+}
+
+pub(crate) struct Launch {
+    pub(crate) line: String,
+    pub(crate) quiet_settings: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -52,6 +62,7 @@ impl Launcher {
             writing: Mutex::new(()),
             unsaved: AtomicBool::new(false),
             usage: usage::Readings::default(),
+            quiet: QuietSettings::load(data_root),
         }
     }
 
@@ -130,7 +141,7 @@ impl Launcher {
         }
     }
 
-    pub async fn line(self: &Arc<Self>, start: &AgentStart) -> Result<String, String> {
+    pub(crate) async fn line(self: &Arc<Self>, start: &AgentStart) -> Result<Launch, String> {
         let mut catalog = self.known_catalog(false).await?;
         let fresh = |catalog: &AgentCatalog| {
             agent_info(catalog, start.agent).is_some_and(|info| {
@@ -164,13 +175,56 @@ impl Launcher {
             None
         };
         let (line, pick) = plan(info, models.as_ref(), &saved, start, &self.shell)?;
+        let quiet_settings = info
+            .accounts
+            .iter()
+            .find(|account| pick.account.as_ref() == Some(&account.name))
+            .and_then(|account| account.folder_in(&self.home))
+            .zip(pick.output)
+            .and_then(|(folder, output)| quiet::settings_file(start.agent, output, &folder));
         {
             let mut state = self.state();
             state.saved.agent = Some(start.agent);
             state.saved.set(pick);
         }
         Arc::clone(self).save().await;
-        Ok(start.agent.with_context(&line, &self.shell))
+        Ok(Launch {
+            line: start.agent.with_context(&line, &self.shell),
+            quiet_settings,
+        })
+    }
+
+    pub(crate) fn quiet_settings_of(&self, terminal: Uuid) -> Option<PathBuf> {
+        self.quiet.held_by(terminal)
+    }
+
+    pub(crate) async fn hold_quiet(self: &Arc<Self>, terminal: Uuid, settings: PathBuf) -> bool {
+        let launcher = Arc::clone(self);
+        tokio::task::spawn_blocking(move || launcher.quiet.hold(terminal, &settings))
+            .await
+            .unwrap_or(false)
+    }
+
+    pub(crate) async fn release_quiet_hold(self: &Arc<Self>, terminal: Uuid, settings: PathBuf) {
+        let launcher = Arc::clone(self);
+        drop(
+            tokio::task::spawn_blocking(move || launcher.quiet.release_hold(terminal, &settings))
+                .await,
+        );
+    }
+
+    pub(crate) fn release_quiet(self: &Arc<Self>, terminal: Uuid) {
+        if self.quiet.held_by(terminal).is_some() {
+            let launcher = Arc::clone(self);
+            drop(tokio::task::spawn_blocking(move || {
+                launcher.quiet.release(terminal);
+            }));
+        }
+    }
+
+    pub(crate) async fn release_all_quiet(self: &Arc<Self>) {
+        let launcher = Arc::clone(self);
+        drop(tokio::task::spawn_blocking(move || launcher.quiet.release_all()).await);
     }
 
     pub(crate) async fn account_of(&self, agent: Agent, folder: &Path) -> Option<u8> {

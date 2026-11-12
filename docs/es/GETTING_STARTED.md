@@ -30,9 +30,11 @@ la shell del terminal nuevo.
   el terminal seleccionado. Ajustes › Atajos muestra todas las teclas y las cambia.
 - Si falta un agente, el lanzador muestra su comando de instalación.
 - Los agentes empiezan con Acceso total: cambian archivos y ejecutan comandos sin
-  preguntarte. Para que un agente pregunte antes, elige Preguntar en el botón que sigue al
-  modelo. Ahí también eliges cuánto de su trabajo muestran Claude Code y Codex; empiezan en
-  Breve.
+  preguntarte. Para que un agente pregunte antes, elige Preguntar en Más, el botón que sigue
+  al modelo. Ahí también eliges la verbosidad, cuánto de su trabajo muestran Claude Code,
+  Codex y Copilot CLI; empiezan en Breve. Copilot CLI solo toma su verbosidad de sus propios
+  ajustes, así que Kodosi los cambia mientras Copilot CLI se ejecuta en Breve y después los
+  restablece.
 - Una cuenta nueva tiene su propia carpeta de inicio de sesión, como `~/.claude-work`. Kodosi
   también encuentra las cuentas que configura tu shell, como
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.

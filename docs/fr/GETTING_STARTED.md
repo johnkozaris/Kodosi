@@ -31,9 +31,11 @@ commande dans le shell du nouveau terminal.
   changer.
 - S'il manque un agent, le lanceur affiche sa commande d'installation.
 - Les agents démarrent en Accès total. Ils modifient des fichiers et lancent des commandes
-  sans vous demander. Pour qu'un agent demande d'abord, choisissez Demander sur le bouton
-  après le modèle. Vous y choisissez aussi ce que Claude Code et Codex montrent de leur
-  travail ; ils commencent en Discrète.
+  sans vous demander. Pour qu'un agent demande d'abord, choisissez Demander dans Plus, après
+  le modèle. Vous y choisissez aussi la verbosité, ce que Claude Code, Codex et Copilot CLI
+  montrent de leur travail ; ils commencent en Discrète. Copilot CLI ne lit sa verbosité que
+  dans ses propres réglages ; Kodosi les modifie donc tant que Copilot CLI tourne en
+  Discrète, puis les rétablit.
 - Un nouveau compte a son propre dossier de connexion, par exemple `~/.claude-work`. Kodosi
   trouve aussi les comptes que votre shell configure, comme
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.

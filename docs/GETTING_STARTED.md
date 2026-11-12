@@ -30,8 +30,10 @@ the shell of the new terminal.
   closes the selected terminal. Settings › Shortcuts lists every key and changes it.
 - If an agent is missing, the launcher shows its install command.
 - Agents start unrestricted: they change files and run commands without asking you. For an
-  agent that asks first, choose Ask on the button after the model. There you also choose
-  how much of their work Claude Code and Codex show; they start at Quiet.
+  agent that asks first, choose Ask under More, after the model. There you also choose the
+  verbosity, how much of their work Claude Code, Codex and Copilot CLI show; they start
+  at Quiet. Copilot CLI takes its verbosity only from its own settings, so Kodosi changes
+  them while Copilot CLI runs at Quiet and puts them back after.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.

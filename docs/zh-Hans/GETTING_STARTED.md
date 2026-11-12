@@ -19,7 +19,7 @@
 - 想要普通终端，按 ⌘D（Linux 和 Windows 上为 Ctrl+Shift+O）。它会立即在所选终端的文件夹中打开。⌘T（Ctrl+Shift+T）会用所选终端的 Agent 打开它，账户和选择都相同。
 - 按键与 Ghostty 一致。⌘1 到 ⌘9 选择终端（Linux 和 Windows 上为 Alt+1 到 Alt+9），⌥⌘ 加方向键选择相邻的终端（Ctrl+Alt 加方向键），⌘W 关闭所选终端。“设置 › 快捷键”列出了所有按键，并可以修改。
 - 如果缺少某个 Agent，启动器会显示它的安装命令。
-- Agent 启动时为“不受限制”：会直接修改文件、运行命令，不会先询问你。若想让某个 Agent 先询问，在模型后面的按钮上选择“询问”。在那里还可以选择 Claude Code 和 Codex 显示多少工作内容，开始时为“简洁”。
+- Agent 启动时为“不受限制”：会直接修改文件、运行命令，不会先询问你。若想让某个 Agent 先询问，在模型后面的“更多”中选择“询问”。在那里还可以选择“详细程度”，即 Claude Code、Codex 和 Copilot CLI 显示多少工作内容，开始时为“简洁”。Copilot CLI 只从自己的设置中读取详细程度，因此在 Copilot CLI 以“简洁”运行期间，Kodosi 会修改它的设置，结束后再改回来。
 - 新账号有自己的登录文件夹，例如 `~/.claude-work`。Kodosi 也会找到你在 shell 中设置的账号，例如 `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`。
 - 在停在提示符处的终端里，标题栏中的操作按钮（两个滑块）会列出已安装的 Agent。选择一个，即可按你上次的选择启动它。
 - Agent 运行时，同一个操作按钮可以用 Agent 自己的命令更改它的模型和推理强度，部分 Agent 还能更改权限，无需重新启动。更改会等到 Agent 这一轮结束后生效；Claude Code 还会在之后的会话中沿用这个模型和推理强度。

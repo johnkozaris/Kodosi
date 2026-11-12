@@ -29,8 +29,10 @@ comando nella shell del nuovo terminale.
   il terminale selezionato. Impostazioni › Scorciatoie elenca ogni tasto e lo cambia.
 - Se manca un agente, il launcher mostra il suo comando di installazione.
 - Gli agenti partono con Accesso totale: modificano file ed eseguono comandi senza chiederti
-  nulla. Perché un agente chieda prima, scegli Chiedi sul pulsante dopo il modello. Lì scegli
-  anche quanto del loro lavoro mostrano Claude Code e Codex; partono da Essenziale.
+  nulla. Perché un agente chieda prima, scegli Chiedi in Altro, dopo il modello. Lì scegli
+  anche la verbosità, cioè quanto del loro lavoro mostrano Claude Code, Codex e Copilot CLI;
+  partono da Essenziale. Copilot CLI legge la verbosità solo dalle proprie impostazioni,
+  quindi Kodosi le cambia finché Copilot CLI gira in Essenziale e poi le ripristina.
 - Un nuovo account ha una sua cartella di accesso, come `~/.claude-work`. Kodosi trova anche
   gli account che configura la tua shell, come
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
