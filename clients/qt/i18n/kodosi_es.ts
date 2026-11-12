@@ -3838,6 +3838,22 @@
         <source>Paste</source>
         <translation>Pegar</translation>
     </message>
+    <message>
+        <source>Output</source>
+        <translation>Salida</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Breve</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Estándar</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Detallada</translation>
+    </message>
 </context>
 <context>
     <name>UsageDial</name>

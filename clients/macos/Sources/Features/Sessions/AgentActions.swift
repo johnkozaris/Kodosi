@@ -4,7 +4,7 @@ import SwiftUI
 
 struct AgentActions: View {
     enum Flyout {
-        case model, permissions
+        case model, permissions, output
     }
 
     @Environment(AppDependencies.self) private var deps
@@ -52,8 +52,12 @@ struct AgentActions: View {
         pending.permissions ?? settings.permissions
     }
 
+    private var output: AgentOutput? {
+        settings.output
+    }
+
     var body: some View {
-        if changesModel || !live.permissions.isEmpty {
+        if changesModel || !live.permissions.isEmpty || output != nil {
             PanelMenuHeader(verbatim: agent.label)
                 .task { await launcher?.loadModels(agent.rawValue) }
             if changesModel {
@@ -74,6 +78,13 @@ struct AgentActions: View {
                     open: flyoutBinding(.permissions), identifier: "\(stageId).agent.permissions",
                 ) { EmptyView() }
                     .kodosiFlyout(isPresented: flyout == .permissions) { permissionsFlyout.chromeScope() }
+            }
+            if let output {
+                FlyoutRow(
+                    title: Text("Output"), icon: output.symbol, value: output.label, waits: false, agent: agent,
+                    open: flyoutBinding(.output), identifier: "\(stageId).agent.output",
+                ) { EmptyView() }
+                    .kodosiFlyout(isPresented: flyout == .output) { outputFlyout(output).chromeScope() }
             }
             PanelMenuDivider()
         }
@@ -167,6 +178,23 @@ struct AgentActions: View {
             )
             note(keeps: false)
         }
+        .frame(width: 300)
+    }
+
+    /// No agent changes its output while it runs.
+    private func outputFlyout(_ output: AgentOutput) -> some View {
+        let known = launcher?.agent(agent.rawValue)?.outputs ?? []
+        return ModeRow(
+            title: String(localized: "Output"), identifier: "\(stageId).agent.output.modes",
+            options: AgentOutput.allCases.filter { known.contains($0) || $0 == output }.map { option in
+                ModeRow.Option(
+                    id: option.rawValue, label: option.label,
+                    detail: option == output ? option.detail : String(localized: "\(agent.label) takes this only when it starts."),
+                    caution: false, enabled: false,
+                )
+            },
+            current: output.rawValue, pick: { _ in },
+        )
         .frame(width: 300)
     }
 

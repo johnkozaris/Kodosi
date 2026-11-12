@@ -40,6 +40,14 @@ public extension AgentOutput {
         }
     }
 
+    var symbol: String {
+        switch self {
+        case .quiet: "line.3.horizontal.decrease"
+        case .standard: "line.3.horizontal"
+        case .detailed: "text.alignleft"
+        }
+    }
+
     var detail: String {
         switch self {
         case .quiet: String(localized: "Shows less of its work.", bundle: .module)

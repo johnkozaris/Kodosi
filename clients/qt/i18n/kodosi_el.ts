@@ -3838,6 +3838,22 @@
         <source>Paste</source>
         <translation>Επικόλληση</translation>
     </message>
+    <message>
+        <source>Output</source>
+        <translation>Έξοδος</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Λιτή</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Κανονική</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Αναλυτική</translation>
+    </message>
 </context>
 <context>
     <name>UsageDial</name>

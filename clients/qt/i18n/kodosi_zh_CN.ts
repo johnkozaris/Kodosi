@@ -3825,6 +3825,22 @@
         <source>Paste</source>
         <translation>粘贴</translation>
     </message>
+    <message>
+        <source>Output</source>
+        <translation>输出</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>简洁</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>标准</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>详细</translation>
+    </message>
 </context>
 <context>
     <name>UsageDial</name>

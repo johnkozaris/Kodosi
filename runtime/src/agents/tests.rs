@@ -874,7 +874,7 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
     assert_eq!(
         line(Agent::Claude, None, None, None).unwrap(),
         (
-            r#"claude --dangerously-skip-permissions --settings '{"viewMode":"focus"}'"#.to_owned(),
+            format!("claude --dangerously-skip-permissions --settings '{CLAUDE_QUIET}'"),
             Some(unrestricted)
         )
     );
@@ -886,12 +886,13 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
         line(Agent::Claude, Some(unrestricted), Some(auto), None)
             .unwrap()
             .0,
-        r#"claude --permission-mode auto --settings '{"viewMode":"focus"}'"#
+        format!("claude --permission-mode auto --settings '{CLAUDE_QUIET}'")
     );
     assert_eq!(
         line(Agent::Codex, None, None, None).unwrap().0,
         "codex --dangerously-bypass-approvals-and-sandbox -c hide_agent_reasoning=true \
-         -c model_reasoning_summary=none -c tui.auto_recap=false"
+         -c show_raw_agent_reasoning=false -c model_reasoning_summary=none -c tui.auto_recap=false \
+         -c tui.show_tooltips=false -c tui.animations=false"
     );
     assert_eq!(
         line(Agent::Copilot, None, None, None).unwrap(),
@@ -1261,6 +1262,19 @@ fn a_running_agent_shows_what_it_started_with() {
         AgentSettings::default(),
         "Windows shows no arguments, so nothing is known"
     );
+    for agent in [Agent::Claude, Agent::Codex] {
+        for output in Output::ALL {
+            let mut arguments = vec![agent.program().to_owned()];
+            arguments.extend(
+                agent
+                    .output_words(output)
+                    .unwrap()
+                    .iter()
+                    .map(|word| (*word).to_owned()),
+            );
+            assert_eq!(agent.started_with(&arguments).output, Some(output));
+        }
+    }
 }
 
 #[test]
@@ -1284,7 +1298,7 @@ fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
     };
     assert_eq!(
         Agent::Claude.chosen(&arguments, &changed).join(" "),
-        r#"--model sonnet --permission-mode manual --settings '{"viewMode":"focus"}'"#,
+        format!("--model sonnet --permission-mode manual --settings '{CLAUDE_QUIET}'"),
         "a new model starts at its own effort"
     );
     let effort = AgentSettings {

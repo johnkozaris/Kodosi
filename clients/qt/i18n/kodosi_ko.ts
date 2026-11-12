@@ -3825,6 +3825,22 @@
         <source>Paste</source>
         <translation>붙여넣기</translation>
     </message>
+    <message>
+        <source>Output</source>
+        <translation>출력</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>간결</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>표준</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>자세히</translation>
+    </message>
 </context>
 <context>
     <name>UsageDial</name>

@@ -3825,6 +3825,22 @@
         <source>Paste</source>
         <translation>貼り付け</translation>
     </message>
+    <message>
+        <source>Output</source>
+        <translation>出力</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>簡潔</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>標準</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>詳細</translation>
+    </message>
 </context>
 <context>
     <name>UsageDial</name>
