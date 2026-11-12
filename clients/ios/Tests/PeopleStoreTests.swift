@@ -102,6 +102,25 @@ struct PeopleStoreTests {
         #expect(store.loaded)
     }
 
+    @Test func `a report sends the user name and the note and fails with the runtime's words`() async throws {
+        let report = Task { try await store.report(handle: "ana", note: " Sent spam\nto all of us\n") }
+        for _ in 0 ..< 100 where outbox.sent.isEmpty {
+            await Task.yield()
+        }
+        let sent = try #require(outbox.sent.last)
+        #expect(sent["type"] == .string("friends.report"))
+        #expect(sent["username"] == .string("ana"))
+        #expect(sent["note"] == .string("Sent spam\nto all of us"))
+        let requestId = try #require(sent["requestId"]?.stringValue)
+        try outbox.commands.receive(event("friends.error", [
+            "requestId": requestId, "operation": "friends.report", "message": "Wait a few minutes.",
+        ]))
+        do {
+            try await report.value
+            Issue.record("A failed report must fail for the one who sent it")
+        } catch { #expect(error.localizedDescription == "Wait a few minutes.") }
+    }
+
     private func deliverSnapshot() throws {
         try store.receive(event("friends.snapshot", [
             "friends": [

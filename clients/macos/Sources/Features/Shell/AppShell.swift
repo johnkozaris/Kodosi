@@ -104,7 +104,7 @@ struct AppShell: View {
     }
 
     private enum Sheet: Equatable {
-        case signIn, recoveryKey, trust(FriendTrust), details(String), newProject, history, launcher
+        case signIn, recoveryKey, trust(FriendTrust), report(ReportTarget), details(String), newProject, history, launcher
     }
 
     private var sheet: Sheet? {
@@ -117,6 +117,9 @@ struct AppShell: View {
         }
         if let trust = workbench.trusting {
             return .trust(trust)
+        }
+        if let person = workbench.reporting {
+            return .report(person)
         }
         if let id = workbench.detailsSessionId, deps.session(id) != nil {
             return .details(id)
@@ -140,6 +143,8 @@ struct AppShell: View {
             SheetLayer(close: {}, content: { RecoveryKeySheet(key: deps.account.newRecoveryKey ?? "", done: deps.account.dismissRecoveryKey) })
         case let .trust(trust):
             SheetLayer(close: { workbench.trusting = nil }, content: { FriendTrustSheet(trust: trust) })
+        case let .report(person):
+            SheetLayer(close: { workbench.reporting = nil }, content: { ReportSheet(person: person) })
         case let .details(id):
             SheetLayer(close: { workbench.detailsSessionId = nil }, content: {
                 if let session = deps.session(id) {
@@ -169,6 +174,17 @@ struct AppShell: View {
                            actionTitle: Text(verbatim: deps.updater.actionTitle), dismiss: { deps.updateNoticeDismissed = true })
                     .padding(.top, Metrics.frameInset + 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
+            } else if let done = deps.doneMessage {
+                NoticePill(message: done, identifier: "shell.done", sign: .status(.done)) { deps.doneMessage = nil }
+                    .padding(.top, Metrics.frameInset + 10)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .task(id: done) {
+                        AccessibilityNotification.Announcement(done).post()
+                        try? await Task.sleep(for: .seconds(6))
+                        if deps.doneMessage == done {
+                            deps.doneMessage = nil
+                        }
+                    }
             } else if let error = deps.errorMessage {
                 NoticePill(message: error, identifier: "shell.error") { deps.errorMessage = nil }
                     .padding(.top, Metrics.frameInset + 10)
@@ -182,6 +198,7 @@ struct AppShell: View {
         }
         .padding(.leading, deps.workbench.shownSidebarWidth)
         .animation(theme.motion.spring, value: deps.errorMessage)
+        .animation(theme.motion.spring, value: deps.doneMessage)
         .animation(theme.motion.spring, value: deps.updateRequired && !deps.updateNoticeDismissed)
         .animation(theme.motion.spring, value: deps.deviceNotice)
     }

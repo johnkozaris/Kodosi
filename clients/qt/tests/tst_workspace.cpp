@@ -2110,6 +2110,40 @@ private slots:
         QVERIFY(f.workspace.error().isEmpty());
     }
 
+    void aReportAnswersInItsDialogOnlyForItsOwnRequest()
+    {
+        Fixture f;
+        auto& people = f.workspace.people();
+        QSignalSpy reported(&people, &kodosi::PeopleModel::reported);
+        QSignalSpy failed(&people, &kodosi::PeopleModel::reportFailed);
+        const auto answer = [](const QString& type, const QString& requestId) {
+            return QJsonObject { { QStringLiteral("type"), type }, { QStringLiteral("operation"), QStringLiteral("friends.report") },
+                { QStringLiteral("message"), QStringLiteral("Wait a few minutes.") }, { QStringLiteral("requestId"), requestId } };
+        };
+        people.report(QStringLiteral("ada"), QStringLiteral("Sent spam"));
+        const auto sent = f.commands.values.last();
+        QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("friends.report"));
+        QCOMPARE(sent.value(QStringLiteral("note")).toString(), QStringLiteral("Sent spam"));
+        f.workspace.apply(answer(QStringLiteral("friends.error"), sent.value(QStringLiteral("requestId")).toString()), 0);
+        QCOMPARE(failed.count(), 1);
+        QCOMPARE(failed.first().first().toString(), QStringLiteral("Wait a few minutes."));
+        QVERIFY(f.workspace.error().isEmpty());
+        QVERIFY(!people.reporting());
+        people.report(QStringLiteral("ada"), {});
+        const auto again = f.commands.values.last().value(QStringLiteral("requestId")).toString();
+        f.workspace.apply(answer(QStringLiteral("friends.result"), test::id(1)), 0);
+        QVERIFY(people.reporting());
+        f.workspace.apply(answer(QStringLiteral("friends.result"), again), 0);
+        QCOMPARE(reported.count(), 1);
+        QVERIFY(!people.reporting());
+    }
+
+    void aReportNoteEndsBeforeTheCharacterThatDoesNotFit()
+    {
+        Fixture f;
+        QCOMPARE(f.workspace.people().clippedNote(QString(334, QChar(0x4E3E))), QString(333, QChar(0x4E3E)));
+    }
+
     void aProjectAnswerBringsItsIssuesAndOlderMessages()
     {
         Fixture f;

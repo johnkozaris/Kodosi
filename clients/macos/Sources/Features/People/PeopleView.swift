@@ -41,6 +41,8 @@ struct PeopleView: View {
                                     deps.workbench.trusting = .accept(request)
                                 } block: {
                                     blocking = BlockTarget(handle: request.handle, name: request.personName)
+                                } report: {
+                                    deps.workbench.reporting = ReportTarget(userId: request.userId, handle: request.handle, name: request.personName)
                                 }
                                 .transition(AnyTransition.rise)
                             }
@@ -172,6 +174,7 @@ private struct FriendItem: View {
                 }
                 Button("Remove…", role: .destructive, action: remove)
                 Button("Block…", role: .destructive, action: block)
+                Button("Report…", role: .destructive, action: report)
             } label: {
                 Image(systemName: "ellipsis").font(.system(size: 12, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
                     .frame(width: 26, height: 26).contentShape(Circle())
@@ -202,6 +205,10 @@ private struct FriendItem: View {
 
     private func trust() {
         deps.people.trust(friend)
+    }
+
+    private func report() {
+        deps.workbench.reporting = ReportTarget(userId: friend.userId, handle: friend.handle, name: friend.personName)
     }
 
     private func toggleVerify() {

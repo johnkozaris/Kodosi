@@ -446,6 +446,19 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
                             AppIcon(AppSymbol.FORWARD, Modifier.size(10.dp), tint = colors.inkFaint)
                         }
                     }
+                    listOf(
+                        Triple(R.string.privacy_policy, AppSymbol.LOCK, "https://kodosi.com/privacy"),
+                        Triple(R.string.terms_of_use, AppSymbol.TEXT, "https://kodosi.com/terms"),
+                        Triple(R.string.support, AppSymbol.CHAT, "https://kodosi.com/support")
+                    ).forEachIndexed { index, (label, symbol, address) ->
+                        ListButton({ links.open(address) }) {
+                            ListLine(stringResource(label), leading = {
+                                IconTile(symbol, listOf(TileTint.teal, TileTint.purple, TileTint.orange)[index])
+                            }) {
+                                AppIcon(AppSymbol.FORWARD, Modifier.size(10.dp), tint = colors.inkFaint)
+                            }
+                        }
+                    }
                 }
             }
             item {

@@ -63,6 +63,10 @@ class PeopleStore(private val commands: CommandSink) {
         commands.request(operation, if (invite == null) fields else fields + fields("invite" to invite.trim()))
     }
 
+    suspend fun report(username: String, note: String) {
+        commands.request("friends.report", fields("username" to username.trim(), "note" to note.trim()))
+    }
+
     companion object {
         private val HANDLE = Regex("[\\p{L}\\p{N}._-]{1,64}")
         private val IDENTITY = Regex("[0-9a-fA-F]{64}")

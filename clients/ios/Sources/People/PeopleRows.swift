@@ -13,6 +13,7 @@ struct IncomingRequestRow: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @State private var blocking = false
+    @State private var reporting = false
     let request: FriendRequestEntry
     let accept: () -> Void
 
@@ -41,6 +42,10 @@ struct IncomingRequestRow: View {
                 Label("Block", systemImage: "hand.raised")
             }
             .tint(theme.colors.danger)
+            Button { reporting = true } label: {
+                Label("Report", systemImage: "flag")
+            }
+            .tint(theme.colors.danger)
         }
         .contextMenu {
             Button(action: accept) {
@@ -52,8 +57,12 @@ struct IncomingRequestRow: View {
             Button(role: .destructive) { blocking = true } label: {
                 Label("Block…", systemImage: "hand.raised")
             }
+            Button(role: .destructive) { reporting = true } label: {
+                Label("Report…", systemImage: "flag")
+            }
         }
         .blockConfirmation(isPresented: $blocking, name: request.personName) { people.block(handle: request.handle) }
+        .reportSheet($reporting, handle: request.handle, name: request.personName, key: request.userId)
     }
 }
 
@@ -89,6 +98,43 @@ struct OutgoingRequestRow: View {
 extension View {
     func friendTrust(_ trust: Binding<FriendTrust?>, confirm: @escaping (FriendTrust) -> Void) -> some View {
         modifier(FriendTrustAsk(trust: trust, confirm: confirm))
+    }
+
+    func reportSheet(_ shown: Binding<Bool>, handle: String, name: String, key: String) -> some View {
+        modifier(ReportAsk(shown: shown, handle: handle, name: name, key: key))
+    }
+}
+
+private struct ReportAsk: ViewModifier {
+    @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var theme
+    @Binding var shown: Bool
+    let handle: String
+    let name: String
+    let key: String
+
+    func body(content: Content) -> some View {
+        content.sheet(isPresented: $shown) {
+            ScrollView {
+                ReportForm(name: name, key: key) { note in
+                    try await model.people.report(handle: handle, note: note)
+                } cancel: {
+                    shown = false
+                } reported: {
+                    shown = false
+                    model.notices.confirm(String(localized: "Kodosi got your report."))
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 28)
+                .frame(maxWidth: 460)
+                .frame(maxWidth: .infinity)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
+            .background(theme.colors.surface)
+            .presentationDetents([.medium, .large])
+            .kodosiSheet()
+        }
     }
 }
 

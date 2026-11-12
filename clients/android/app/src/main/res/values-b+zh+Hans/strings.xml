@@ -173,6 +173,11 @@
     <string name="block">屏蔽</string>
     <string name="unblock">解除屏蔽</string>
     <string name="block_message">你将失去双方共享的内容。在你解除屏蔽之前，此人无法向你发送好友请求。</string>
+    <string name="report">举报</string>
+    <string name="report_person">举报 %1$s</string>
+    <string name="report_message">Kodosi 会收到对方的用户名和你在这里写的内容。</string>
+    <string name="report_note">发生了什么（可选）</string>
+    <string name="report_received">Kodosi 已收到你的举报。</string>
     <string name="account">账号</string>
     <string name="you">你</string>
     <string name="sign_out">退出登录</string>
@@ -219,6 +224,9 @@
     <string name="about">关于</string>
     <string name="version">版本</string>
     <string name="licenses">开源许可</string>
+    <string name="privacy_policy">隐私政策</string>
+    <string name="terms_of_use">使用条款</string>
+    <string name="support">支持</string>
     <string name="delete_account">删除我的账号…</string>
     <string name="delete_account_title">删除你的 Kodosi 账号？</string>
     <string name="delete_account_message">Kodosi 将删除你的设备、好友和共享。你拥有的项目将对所有人关闭。你在其他项目中写下的内容会保留。你电脑上的终端会继续运行。此操作无法撤销。</string>

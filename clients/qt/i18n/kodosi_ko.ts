@@ -1992,6 +1992,18 @@
         <translation>종료</translation>
     </message>
     <message>
+        <source>Privacy policy</source>
+        <translation>개인정보 처리방침</translation>
+    </message>
+    <message>
+        <source>Terms of use</source>
+        <translation>이용 약관</translation>
+    </message>
+    <message>
+        <source>Support</source>
+        <translation>지원</translation>
+    </message>
+    <message>
         <source>Delete your Kodosi account?</source>
         <translation>Kodosi 계정을 삭제할까요?</translation>
     </message>
@@ -2320,6 +2332,10 @@
         <translation>내 초대 복사</translation>
     </message>
     <message>
+        <source>Kodosi got your report.</source>
+        <translation>Kodosi가 신고를 받았습니다.</translation>
+    </message>
+    <message>
         <source>Wants to be your friend</source>
         <translation>친구 요청을 보냈어요</translation>
     </message>
@@ -2334,6 +2350,10 @@
     <message>
         <source>Block…</source>
         <translation>차단…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>신고…</translation>
     </message>
     <message>
         <source>Request sent to %1</source>
@@ -2418,6 +2438,26 @@
     <message>
         <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
         <translation>이 사람은 나에게 친구 요청을 보낼 수 없어요. 친구라면 서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 프로젝트에서 나가요.</translation>
+    </message>
+    <message>
+        <source>Report %1</source>
+        <translation>%1 신고</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>신고</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Kodosi는 상대의 사용자 이름과 여기에 쓴 내용을 받습니다.</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>무슨 일이 있었나요 (선택)</translation>
     </message>
     <message>
         <source>Remove %1?</source>

@@ -142,6 +142,11 @@ public final class PeopleStore {
         act("friends.unblock", on: person.handle)
     }
 
+    public func report(handle: String, note: String) async throws {
+        let note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        _ = try await commands.request("friends.report", ["username": .string(handle), "note": .string(note)])
+    }
+
     public func trust(_ friend: FriendEntry) {
         act("friends.identity.trust", on: friend.handle)
     }

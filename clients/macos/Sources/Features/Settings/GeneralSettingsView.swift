@@ -68,6 +68,9 @@ struct GeneralSettingsView: View {
                 .disabled(!updater.configured)
                 .accessibilityIdentifier("settings.updates.automatic")
             }
+            ListGroup {
+                AboutLinks()
+            }
             ListGroup(footer: languageFooter) {
                 ListRow(String(localized: "Language"), symbol: "globe", tint: TileTint.teal) {
                     MenuPicker(

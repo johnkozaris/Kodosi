@@ -51,6 +51,7 @@ final class WorkbenchState {
     var showsPalette = false
     var showsNewProject = false
     var trusting: FriendTrust?
+    var reporting: ReportTarget?
     var projectShare: ProjectShare?
     var friendDraft = ""
     private(set) var pinnedSessionIds: [String] = []
@@ -293,6 +294,7 @@ final class WorkbenchState {
         showsPalette = false
         showsNewProject = false
         trusting = nil
+        reporting = nil
         projectShare = nil
         friendDraft = ""
         launcher = nil

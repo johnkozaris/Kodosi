@@ -173,6 +173,11 @@
     <string name="block">차단</string>
     <string name="unblock">차단 해제</string>
     <string name="block_message">공유한 항목에 접근할 수 없게 됩니다. 차단을 해제하기 전까지 이 사람은 친구 요청을 보낼 수 없습니다.</string>
+    <string name="report">신고</string>
+    <string name="report_person">%1$s 신고</string>
+    <string name="report_message">Kodosi는 상대의 사용자 이름과 여기에 쓴 내용을 받습니다.</string>
+    <string name="report_note">무슨 일이 있었나요 (선택)</string>
+    <string name="report_received">Kodosi가 신고를 받았습니다.</string>
     <string name="account">계정</string>
     <string name="you">나</string>
     <string name="sign_out">로그아웃</string>
@@ -219,6 +224,9 @@
     <string name="about">정보</string>
     <string name="version">버전</string>
     <string name="licenses">오픈 소스 라이선스</string>
+    <string name="privacy_policy">개인정보 처리방침</string>
+    <string name="terms_of_use">이용 약관</string>
+    <string name="support">지원</string>
     <string name="delete_account">내 계정 삭제…</string>
     <string name="delete_account_title">Kodosi 계정을 삭제할까요?</string>
     <string name="delete_account_message">Kodosi에서 내 기기, 친구, 공유 항목을 삭제합니다. 내가 소유한 프로젝트는 모든 멤버에게 닫힙니다. 다른 프로젝트에 작성한 내용은 남습니다. 컴퓨터의 터미널은 계속 실행됩니다. 이 작업은 취소할 수 없습니다.</string>

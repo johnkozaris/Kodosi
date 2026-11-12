@@ -173,6 +173,11 @@
     <string name="block">Bloquear</string>
     <string name="unblock">Desbloquear</string>
     <string name="block_message">Pierdes lo que compartís. Esta persona no podrá enviarte una solicitud de amistad hasta que la desbloquees.</string>
+    <string name="report">Denunciar</string>
+    <string name="report_person">Denunciar a %1$s</string>
+    <string name="report_message">Kodosi recibe su nombre de usuario y lo que escribas aquí.</string>
+    <string name="report_note">Qué ha pasado (opcional)</string>
+    <string name="report_received">Kodosi ha recibido tu denuncia.</string>
     <string name="account">Cuenta</string>
     <string name="you">Tú</string>
     <string name="sign_out">Cerrar sesión</string>
@@ -219,6 +224,9 @@
     <string name="about">Acerca de</string>
     <string name="version">Versión</string>
     <string name="licenses">Licencias de código abierto</string>
+    <string name="privacy_policy">Política de privacidad</string>
+    <string name="terms_of_use">Términos de uso</string>
+    <string name="support">Soporte</string>
     <string name="delete_account">Eliminar mi cuenta…</string>
     <string name="delete_account_title">¿Eliminar tu cuenta de Kodosi?</string>
     <string name="delete_account_message">Kodosi elimina tus dispositivos, amigos y elementos compartidos. Los proyectos que posees se cierran para todos. Lo que escribiste en otros proyectos permanece allí. Los terminales de tus ordenadores siguen funcionando. No puedes deshacerlo.</string>

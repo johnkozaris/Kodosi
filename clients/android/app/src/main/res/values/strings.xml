@@ -181,6 +181,11 @@
     <string name="block">Block</string>
     <string name="unblock">Unblock</string>
     <string name="block_message">You lose what you share. This person cannot send you a friend request until you unblock them.</string>
+    <string name="report">Report</string>
+    <string name="report_person">Report %1$s</string>
+    <string name="report_message">Kodosi gets their user name and what you write here.</string>
+    <string name="report_note">What happened (optional)</string>
+    <string name="report_received">Kodosi got your report.</string>
     <string name="account">Account</string>
     <string name="you">You</string>
     <string name="sign_out">Sign out</string>
@@ -227,6 +232,9 @@
     <string name="about">About</string>
     <string name="version">Version</string>
     <string name="licenses">Open-source licenses</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="terms_of_use">Terms of use</string>
+    <string name="support">Support</string>
     <string name="delete_account">Delete my account</string>
     <string name="delete_account_title">Delete your Kodosi account?</string>
     <string name="delete_account_message">Kodosi deletes your devices, friends and sharing. Projects you own close for everyone. What you wrote in other projects stays there. Terminals on your computers keep running. You cannot undo this.</string>

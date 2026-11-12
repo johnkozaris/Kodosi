@@ -173,6 +173,11 @@
     <string name="block">Blockieren</string>
     <string name="unblock">Blockierung aufheben</string>
     <string name="block_message">Du verlierst die geteilten Inhalte. Diese Person kann dir erst nach dem Entsperren wieder eine Freundschaftsanfrage senden.</string>
+    <string name="report">Melden</string>
+    <string name="report_person">%1$s melden</string>
+    <string name="report_message">Kodosi erhält den Benutzernamen und das, was du hier schreibst.</string>
+    <string name="report_note">Was ist passiert? (optional)</string>
+    <string name="report_received">Kodosi hat deine Meldung erhalten.</string>
     <string name="account">Konto</string>
     <string name="you">Du</string>
     <string name="sign_out">Abmelden</string>
@@ -219,6 +224,9 @@
     <string name="about">Info</string>
     <string name="version">Version</string>
     <string name="licenses">Open-Source-Lizenzen</string>
+    <string name="privacy_policy">Datenschutzerklärung</string>
+    <string name="terms_of_use">Nutzungsbedingungen</string>
+    <string name="support">Support</string>
     <string name="delete_account">Mein Konto löschen…</string>
     <string name="delete_account_title">Dein Kodosi-Konto löschen?</string>
     <string name="delete_account_message">Kodosi löscht deine Geräte, Freunde und Freigaben. Deine Projekte werden für alle geschlossen. Was du in anderen Projekten geschrieben hast, bleibt dort. Terminals auf deinen Computern laufen weiter. Das lässt sich nicht rückgängig machen.</string>

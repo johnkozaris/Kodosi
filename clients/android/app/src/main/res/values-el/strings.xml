@@ -173,6 +173,11 @@
     <string name="block">Αποκλεισμός</string>
     <string name="unblock">Άρση αποκλεισμού</string>
     <string name="block_message">Χάνετε όσα μοιράζεστε. Αυτό το άτομο δεν μπορεί να σας στείλει αίτημα φιλίας μέχρι να το ξεμπλοκάρετε.</string>
+    <string name="report">Αναφορά</string>
+    <string name="report_person">Αναφορά: %1$s</string>
+    <string name="report_message">Το Kodosi λαμβάνει το όνομα χρήστη και ό,τι γράψετε εδώ.</string>
+    <string name="report_note">Τι συνέβη (προαιρετικά)</string>
+    <string name="report_received">Το Kodosi έλαβε την αναφορά σας.</string>
     <string name="account">Λογαριασμός</string>
     <string name="you">Εσείς</string>
     <string name="sign_out">Αποσύνδεση</string>
@@ -219,6 +224,9 @@
     <string name="about">Σχετικά</string>
     <string name="version">Έκδοση</string>
     <string name="licenses">Άδειες ανοιχτού κώδικα</string>
+    <string name="privacy_policy">Πολιτική απορρήτου</string>
+    <string name="terms_of_use">Όροι χρήσης</string>
+    <string name="support">Υποστήριξη</string>
     <string name="delete_account">Διαγραφή του λογαριασμού μου…</string>
     <string name="delete_account_title">Διαγραφή του λογαριασμού σας στο Kodosi;</string>
     <string name="delete_account_message">Το Kodosi διαγράφει τις συσκευές, τους φίλους και τις κοινές χρήσεις σας. Τα έργα που σας ανήκουν κλείνουν για όλους. Όσα γράψατε σε άλλα έργα παραμένουν εκεί. Τα τερματικά στους υπολογιστές σας συνεχίζουν να λειτουργούν. Δεν μπορείτε να το αναιρέσετε.</string>
