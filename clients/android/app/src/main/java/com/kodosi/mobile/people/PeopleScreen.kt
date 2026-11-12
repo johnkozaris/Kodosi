@@ -90,6 +90,7 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var showingInvite by remember { mutableStateOf(false) }
     var accepting by remember { mutableStateOf<Person?>(null) }
+    var blocking by remember { mutableStateOf<Person?>(null) }
     var reporting by remember { mutableStateOf<Person?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(opened) {
@@ -115,6 +116,9 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
                     }) {
                         KodosiTextButton(onClick = { reporting = person }) {
                             Text(stringResource(R.string.report), color = KodosiTheme.colors.danger)
+                        }
+                        KodosiTextButton(onClick = { blocking = person }) {
+                            Text(stringResource(R.string.block), color = KodosiTheme.colors.danger)
                         }
                         KodosiTextButton(onClick = {
                             scope.launch {
@@ -177,6 +181,7 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
         }
     }
     if (showingInvite) InviteDialog(model) { showingInvite = false }
+    blocking?.let { BlockDialog(model, it, dismiss = { blocking = null }) }
     reporting?.let { ReportDialog(model, it) { reporting = null } }
     accepting?.let { person ->
         ConfirmDialog(
@@ -237,6 +242,27 @@ private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
             add(invite)
         }, dismiss = { scanning = false })
     }
+}
+
+@Composable
+private fun BlockDialog(model: AppModel, person: Person, dismiss: () -> Unit, blocked: () -> Unit = {}) {
+    val scope = rememberCoroutineScope()
+    ConfirmDialog(
+        stringResource(R.string.block),
+        stringResource(R.string.block_message),
+        stringResource(R.string.block),
+        dismiss,
+        {
+            scope.launch {
+                model.runAction {
+                    model.people.act("friends.block", person.handle)
+                    dismiss()
+                    blocked()
+                }
+            }
+        },
+        destructive = true
+    )
 }
 
 @Composable
@@ -457,6 +483,7 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
     val person = people.friends.firstOrNull { it.userId == id }
     var verifying by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<String?>(null) }
+    var blocking by remember { mutableStateOf<Person?>(null) }
     var reporting by remember { mutableStateOf<Person?>(null) }
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
@@ -483,7 +510,7 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
                     confirming = "friends.remove"
                 }) { Text(stringResource(R.string.remove_friend), color = KodosiTheme.colors.danger) }
                 KodosiTextButton(onClick = {
-                    confirming = "friends.block"
+                    blocking = person
                 }) { Text(stringResource(R.string.block), color = KodosiTheme.colors.danger) }
                 KodosiTextButton(onClick = {
                     reporting = person
@@ -491,6 +518,7 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
             }
         }
     }
+    blocking?.let { BlockDialog(model, it, dismiss = { blocking = null }, blocked = back) }
     reporting?.let { ReportDialog(model, it) { reporting = null } }
     if (verifying && person != null) {
         TextEntryDialog(
@@ -502,25 +530,11 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
     }
     if (person != null) {
         confirming?.let { operation ->
-            val title = when (operation) {
-                "friends.block" -> R.string.block
-                "friends.remove" -> R.string.remove_friend
-                else -> R.string.trust_identity
-            }
+            val title = if (operation == "friends.remove") R.string.remove_friend else R.string.trust_identity
             ConfirmDialog(
                 stringResource(title),
                 stringResource(
-                    if (operation ==
-                        "friends.block"
-                    ) {
-                        R.string.block_message
-                    } else if (operation ==
-                        "friends.remove"
-                    ) {
-                        R.string.remove_friend_message
-                    } else {
-                        R.string.friend_trust_message
-                    }
+                    if (operation == "friends.remove") R.string.remove_friend_message else R.string.friend_trust_message
                 ),
                 stringResource(title),
                 { confirming = null },
