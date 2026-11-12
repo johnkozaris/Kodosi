@@ -270,6 +270,7 @@ public struct LaunchPlan {
     public let pick: AgentPick?
     public let models: AgentModels?
     private let usage: [String: AccountUsage]
+    private let loadingUsage: Bool
 
     public init(launcher: LauncherState, agent: String? = nil) {
         let agent = agent ?? launcher.choice.agent
@@ -277,11 +278,17 @@ public struct LaunchPlan {
         pick = agent.map(launcher.choice.pick)
         models = agent.flatMap { launcher.models[$0] }
         usage = launcher.usage
+        loadingUsage = launcher.loadingUsage
     }
 
     public func usage(of account: AgentAccount?) -> UsageLimit? {
         guard let info, let account, account.identity != nil else { return nil }
         return usage[AccountUsage.key(info.agent, account.name)]?.headline
+    }
+
+    public func loadsUsage(of account: AgentAccount?) -> Bool {
+        guard loadingUsage, let info, info.reportsUsage, let account, account.identity != nil else { return false }
+        return usage[AccountUsage.key(info.agent, account.name)] == nil
     }
 
     public var account: AgentAccount? {

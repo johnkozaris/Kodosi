@@ -250,6 +250,7 @@
     <string name="file_unavailable">Questo file non è disponibile.</string>
     <string name="uploading">Invio del file</string>
     <string name="loading">Caricamento</string>
+    <string name="reading_usage">Lettura dell\'utilizzo del piano</string>
     <string name="browser_address">Cerca o inserisci un indirizzo</string>
     <string name="new_browser_tab">Nuova scheda</string>
     <string name="browser_back">Indietro</string>

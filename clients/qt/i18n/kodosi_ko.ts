@@ -3848,6 +3848,10 @@
         <source>Not read yet</source>
         <translation>아직 확인 안 됨</translation>
     </message>
+    <message>
+        <source>Loading</source>
+        <translation>불러오는 중</translation>
+    </message>
 </context>
 <context>
     <name>UsageMenu</name>

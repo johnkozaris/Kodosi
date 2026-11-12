@@ -3861,6 +3861,10 @@
         <source>Not read yet</source>
         <translation>Aún sin leer</translation>
     </message>
+    <message>
+        <source>Loading</source>
+        <translation>Cargando</translation>
+    </message>
 </context>
 <context>
     <name>UsageMenu</name>

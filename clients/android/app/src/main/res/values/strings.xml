@@ -258,6 +258,7 @@
     <string name="file_unavailable">This file is not available.</string>
     <string name="uploading">Sending file</string>
     <string name="loading">Loading</string>
+    <string name="reading_usage">Reading plan usage</string>
     <string name="browser_address">Search or enter an address</string>
     <string name="new_browser_tab">New tab</string>
     <string name="browser_back">Go back</string>

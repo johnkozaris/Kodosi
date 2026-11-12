@@ -250,6 +250,7 @@
     <string name="file_unavailable">此文件不可用。</string>
     <string name="uploading">正在发送文件</string>
     <string name="loading">正在加载</string>
+    <string name="reading_usage">正在读取套餐用量</string>
     <string name="browser_address">搜索或输入网址</string>
     <string name="new_browser_tab">新标签页</string>
     <string name="browser_back">后退</string>

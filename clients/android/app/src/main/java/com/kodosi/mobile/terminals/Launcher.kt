@@ -73,8 +73,12 @@ data class LauncherState(
     val modelsLoaded: Boolean = false,
     val efforts: List<String> = emptyList(),
     val folders: FolderList? = null,
-    val usage: List<JsonObject> = emptyList()
-)
+    val usage: List<JsonObject> = emptyList(),
+    val usageRead: Boolean = false,
+    val readingUsage: Boolean = false
+) {
+    val loadingUsage: Boolean get() = readingUsage && !usageRead
+}
 
 class Launcher(private val commands: CommandSink, val computer: String) {
     private val mutableState = MutableStateFlow(LauncherState())
@@ -168,8 +172,13 @@ class Launcher(private val commands: CommandSink, val computer: String) {
     }
 
     suspend fun usage() {
-        val result = commands.request("provider.usage", fields("computer" to computer)).value<JsonObject>("result")
-        mutableState.update { it.copy(usage = result.objects("accounts")) }
+        mutableState.update { it.copy(readingUsage = true) }
+        try {
+            val result = commands.request("provider.usage", fields("computer" to computer)).value<JsonObject>("result")
+            mutableState.update { it.copy(usage = result.objects("accounts"), usageRead = true) }
+        } finally {
+            mutableState.update { it.copy(readingUsage = false) }
+        }
     }
 
     suspend fun start(name: String, directory: String?, prompt: String, project: String?): String? {

@@ -250,6 +250,7 @@
     <string name="file_unavailable">이 파일을 사용할 수 없습니다.</string>
     <string name="uploading">파일을 보내는 중</string>
     <string name="loading">불러오는 중</string>
+    <string name="reading_usage">플랜 사용량을 읽는 중</string>
     <string name="browser_address">검색 또는 주소 입력</string>
     <string name="new_browser_tab">새 탭</string>
     <string name="browser_back">뒤로</string>

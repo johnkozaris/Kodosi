@@ -3861,6 +3861,10 @@
         <source>Not read yet</source>
         <translation>Δεν διαβάστηκε ακόμη</translation>
     </message>
+    <message>
+        <source>Loading</source>
+        <translation>Φόρτωση</translation>
+    </message>
 </context>
 <context>
     <name>UsageMenu</name>

@@ -3848,6 +3848,10 @@
         <source>Not read yet</source>
         <translation>未读</translation>
     </message>
+    <message>
+        <source>Loading</source>
+        <translation>正在加载</translation>
+    </message>
 </context>
 <context>
     <name>UsageMenu</name>

@@ -108,6 +108,10 @@ ColumnLayout {
         const usage = entry.identity ? root.launcher.usage[info.agent + "/" + entry.name] : null
         return usage ? usage.headline : null
     }
+    function loadsUsage(entry) {
+        return !!entry && !!entry.identity && !!info && info.reportsUsage === true && root.launcher.loadingUsage
+            && !root.launcher.usage[info.agent + "/" + entry.name]
+    }
     function accountRows() {
         if (!info)
             return []
@@ -117,7 +121,7 @@ ColumnLayout {
                 subtitle: entry.identity || qsTr("Signs in when it starts"),
                 icon: "account", initial: title.charAt(0), key: entry.folder || entry.command, signedIn: !!entry.identity,
                 tint: Identity.accountTint(info.agent, place),
-                usage: usageOf(entry), current: account !== null && entry.name === account.name }
+                usage: usageOf(entry), loadsUsage: loadsUsage(entry), current: account !== null && entry.name === account.name }
         })
         if (info.addsAccounts)
             rows.push({ id: "menu.add", kind: "action", title: qsTr("Add an account"),
@@ -789,12 +793,13 @@ ColumnLayout {
                             .filter(part => part.length > 0).join("\n")
                         ToolTip.delay: Tip.delay
                         glyph: AccountMark {
-                            size: root.accountUsage ? 20 : 16
+                            size: root.accountUsage || loading ? 20 : 16
                             Behavior on size { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
                             initial: accountKey.title.charAt(0)
                             key: root.account ? root.account.folder || root.account.command : ""
                             signedIn: !!root.account && !!root.account.identity
                             usage: root.accountUsage
+                            loading: root.loadsUsage(root.account)
                             tint: root.info && root.account
                                 ? Identity.accountTint(root.info.agent, root.info.accounts.findIndex(entry => entry.name === root.account.name))
                                 : Identity.personTint(root.account ? root.account.folder || root.account.command : "")

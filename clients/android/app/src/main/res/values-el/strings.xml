@@ -250,6 +250,7 @@
     <string name="file_unavailable">Αυτό το αρχείο δεν είναι διαθέσιμο.</string>
     <string name="uploading">Αποστολή αρχείου</string>
     <string name="loading">Φόρτωση</string>
+    <string name="reading_usage">Διαβάζει τη χρήση του πλάνου</string>
     <string name="browser_address">Αναζήτηση ή εισαγωγή διεύθυνσης</string>
     <string name="new_browser_tab">Νέα καρτέλα</string>
     <string name="browser_back">Πίσω</string>

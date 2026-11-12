@@ -201,6 +201,7 @@ FocusScope {
                     key: row.modelData.key || ""
                     signedIn: row.modelData.signedIn === true
                     usage: row.modelData.usage ?? null
+                    loading: row.modelData.loadsUsage === true
                     tint: row.modelData.tint ?? Identity.personTint(row.modelData.key || "")
                     size: 26
                 }

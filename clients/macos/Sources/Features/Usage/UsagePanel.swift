@@ -16,7 +16,7 @@ struct UsageMenuRow: View {
         let lit = hovered || open
         Button { open.toggle() } label: {
             HStack(spacing: 9) {
-                UsageRing(limit: nearest, lineWidth: 1.75)
+                UsageRing(limit: nearest, lineWidth: 1.75, loading: launcher.loadingUsage)
                     .frame(width: 14, height: 14)
                     .frame(width: 18)
                 Text("Provider Usage").font(.system(size: 12.5, weight: .medium)).foregroundStyle(theme.colors.ink)
@@ -41,7 +41,8 @@ struct UsageMenuRow: View {
         }
         .animation(theme.motion.hover, value: lit)
         .accessibilityLabel(Text("Provider Usage"))
-        .accessibilityValue(Text(verbatim: nearest.map { String(localized: "Up to \($0.used)% used") } ?? ""))
+        .accessibilityValue(Text(verbatim: nearest.map { String(localized: "Up to \($0.used)% used") }
+                ?? (launcher.loadingUsage ? String(localized: "Loading") : "")))
         .accessibilityAddTraits(open ? .isSelected : [])
         .accessibilityIdentifier("sidebar.usage")
     }
@@ -97,6 +98,7 @@ struct UsagePanel: View {
                 ForEach(section.rows, id: \.account.name) { row in
                     UsageAccountRow(
                         info: section.info, account: row.account, usage: row.usage, windows: section.windows, dial: Self.dial,
+                        loading: row.usage == nil && launcher.loadingUsage,
                     ) {
                         start(section.info, row.account)
                     }
@@ -137,6 +139,7 @@ private struct UsageAccountRow: View {
     let usage: AccountUsage?
     let windows: [UsageLimit]
     let dial: CGFloat
+    let loading: Bool
     let start: () -> Void
     @State private var hovered = false
 
@@ -162,13 +165,13 @@ private struct UsageAccountRow: View {
                                     Color.clear.frame(width: dial, height: dial)
                                 }
                             } else {
-                                UsageDial(limit: nil, size: dial)
+                                UsageDial(limit: nil, size: dial, loading: loading)
                             }
                         }
                         .frame(width: dial + 6)
                     }
                     if windows.isEmpty {
-                        UsageDial(limit: nil, size: dial).frame(width: dial + 6)
+                        UsageDial(limit: nil, size: dial, loading: loading).frame(width: dial + 6)
                     }
                 }
             }

@@ -21,6 +21,7 @@ KMenu {
             width: 14
             height: 14
             limit: Models.Launcher.usageNearest ?? null
+            loading: Models.Launcher.loadingUsage
             lineWidth: 1.75
         }
     }
@@ -191,6 +192,7 @@ KMenu {
                                             anchors.centerIn: parent
                                             visible: slot.limit !== null || !account.usage
                                             limit: slot.limit
+                                            loading: !account.usage && Models.Launcher.loadingUsage
                                             size: root.dial
                                         }
                                     }

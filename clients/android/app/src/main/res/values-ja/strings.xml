@@ -250,6 +250,7 @@
     <string name="file_unavailable">このファイルは利用できません。</string>
     <string name="uploading">ファイルを送信中</string>
     <string name="loading">読み込み中</string>
+    <string name="reading_usage">プランの使用量を読み込み中</string>
     <string name="browser_address">検索またはアドレスを入力</string>
     <string name="new_browser_tab">新規タブ</string>
     <string name="browser_back">戻る</string>
