@@ -9,7 +9,8 @@ follows it.
   as a grid or one at a time. Go to finds every terminal, project, person and action
   from the keyboard.
 - **The launcher is the terminal about to open.** It chooses the computer, the folder,
-  the agent with its account and choices, and a first prompt. Quick Terminal and Same
+  the agent with its account and choices, and a first prompt. Each agent keeps its
+  choices for the next terminal, and Settings changes them too. Quick Terminal and Same
   Agent open a terminal without it.
 - **A terminal's header holds its actions.** They start an agent or change the running
   one, share the terminal, open its canvas and rename it.

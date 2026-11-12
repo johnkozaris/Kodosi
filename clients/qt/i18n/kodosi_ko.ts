@@ -16,6 +16,109 @@
     </message>
 </context>
 <context>
+    <name>AgentDefaults</name>
+    <message>
+        <source>Default</source>
+        <translation>기본값</translation>
+    </message>
+    <message>
+        <source>Asking %1 for its models</source>
+        <translation>%1에서 모델을 가져오는 중</translation>
+    </message>
+    <message>
+        <source>%1 lists no models</source>
+        <translation>%1에 사용할 수 있는 모델이 없어요</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>제한 없음</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>자동</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>묻기</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>묻지 않고 모든 명령을 내 권한으로 실행해요.</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>파일을 바꾸거나 명령을 실행하기 전에 물어봐요.</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>안전 검사가 안전한 작업은 승인하고 나머지는 물어봐요. 검사에 토큰이 들어요.</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>이 폴더 안에서는 스스로 작업하고 나머지는 물어봐요.</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>파일은 스스로 편집하고 명령을 실행하기 전에 물어봐요.</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>거부한 작업을 빼고 자신의 작업을 승인해요.</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>간결</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>자세히</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>표준</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>작업을 덜 보여줘요.</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>작업의 모든 단계를 자세히 보여줘요.</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>에이전트 설정대로 작업을 보여줘요.</translation>
+    </message>
+    <message>
+        <source>New terminals start with these. What you choose in the launcher changes them too.</source>
+        <translation>새 터미널은 이 설정으로 시작해요. 런처에서 고른 것도 여기에 반영돼요.</translation>
+    </message>
+    <message>
+        <source>Account</source>
+        <translation>계정</translation>
+    </message>
+    <message>
+        <source>Signs in when it starts</source>
+        <translation>시작할 때 로그인해요</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>모델</translation>
+    </message>
+    <message>
+        <source>Model and effort</source>
+        <translation>모델 및 추론 수준</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>권한</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>상세도</translation>
+    </message>
+</context>
+<context>
     <name>AgentLauncher</name>
     <message>
         <source>This computer</source>
@@ -190,12 +293,12 @@
         <translation>권한</translation>
     </message>
     <message>
-        <source>Output</source>
-        <translation>출력</translation>
+        <source>Verbosity</source>
+        <translation>상세도</translation>
     </message>
     <message>
-        <source>Permissions and output</source>
-        <translation>권한 및 출력</translation>
+        <source>More</source>
+        <translation>더 보기</translation>
     </message>
     <message>
         <source>Asks before it changes files or runs commands.</source>
@@ -232,6 +335,25 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>작업의 모든 단계를 자세히 보여줘요.</translation>
+    </message>
+</context>
+<context>
+    <name>AgentSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>찾는 중</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Kodosi는 이 파일을 열기만 하고 바꾸지 않아요.</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>아직 만들지 않음</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>열기</translation>
     </message>
 </context>
 <context>
@@ -2889,25 +3011,6 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>찾는 중</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Kodosi는 이 파일을 열기만 하고 바꾸지 않아요.</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>아직 만들지 않음</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>열기</translation>
-    </message>
-</context>
-<context>
     <name>QuitDialog</name>
     <message>
         <source>Restart Kodosi?</source>
@@ -3826,8 +3929,8 @@
         <translation>붙여넣기</translation>
     </message>
     <message>
-        <source>Output</source>
-        <translation>출력</translation>
+        <source>Verbosity</source>
+        <translation>상세도</translation>
     </message>
     <message>
         <source>Quiet</source>

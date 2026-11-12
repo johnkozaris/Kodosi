@@ -318,7 +318,7 @@
     </plurals>
     <string name="hide_keyboard">キーボードを隠す</string>
     <string name="agent_permissions">権限</string>
-    <string name="agent_output">出力</string>
+    <string name="agent_output">詳細度</string>
     <string name="agent_ask">確認</string>
     <string name="agent_auto">自動</string>
     <string name="agent_unrestricted">制限なし</string>

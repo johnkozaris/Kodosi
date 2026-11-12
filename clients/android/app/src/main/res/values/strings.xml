@@ -327,7 +327,7 @@
         <item quantity="other">%d members</item>
     </plurals>
     <string name="agent_permissions">Permissions</string>
-    <string name="agent_output">Output</string>
+    <string name="agent_output">Verbosity</string>
     <string name="agent_ask">Ask</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Unrestricted</string>

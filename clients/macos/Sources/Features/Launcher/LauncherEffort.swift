@@ -8,6 +8,7 @@ struct EffortMeter: View {
     let levels: [AgentOption]
     let current: String?
     var auto = true
+    var identifier = "launcher.effort"
     let pick: (String?) -> Void
     @State private var hovered: String?
 
@@ -51,7 +52,7 @@ struct EffortMeter: View {
         .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 12)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Effort"))
-        .accessibilityIdentifier("launcher.effort")
+        .accessibilityIdentifier(identifier)
     }
 
     private func segment(_ effort: String?, label: String, @ViewBuilder content: () -> some View) -> some View {
@@ -80,6 +81,6 @@ struct EffortMeter: View {
         .help(label)
         .accessibilityLabel(Text(verbatim: label))
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityIdentifier("launcher.effort.\(AccessibilityIdentifier.token(effort ?? LauncherMenu.standard))")
+        .accessibilityIdentifier("\(identifier).\(AccessibilityIdentifier.token(effort ?? LauncherMenu.standard))")
     }
 }

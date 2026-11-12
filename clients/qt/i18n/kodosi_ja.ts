@@ -16,6 +16,109 @@
     </message>
 </context>
 <context>
+    <name>AgentDefaults</name>
+    <message>
+        <source>Default</source>
+        <translation>デフォルト</translation>
+    </message>
+    <message>
+        <source>Asking %1 for its models</source>
+        <translation>%1 のモデルを取得中</translation>
+    </message>
+    <message>
+        <source>%1 lists no models</source>
+        <translation>%1 に使用できるモデルがありません</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>制限なし</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>確認</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>確認せずに、すべてのコマンドをあなたの権限で実行します。</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>ファイルを変更したりコマンドを実行したりする前に確認します。</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>安全チェックが安全な操作を承認し、それ以外は確認します。チェックにはトークンを使います。</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>このフォルダー内では自分で作業し、それ以外は確認します。</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>ファイルは自分で編集し、コマンドを実行する前に確認します。</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>拒否したもの以外の自分の操作を承認します。</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>簡潔</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>詳細</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>標準</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>作業の表示を減らします。</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>作業の各ステップをすべて表示します。</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>エージェントの設定どおりに作業を表示します。</translation>
+    </message>
+    <message>
+        <source>New terminals start with these. What you choose in the launcher changes them too.</source>
+        <translation>新しいターミナルはこの設定で始まります。ランチャーで選んだ内容もここに反映されます。</translation>
+    </message>
+    <message>
+        <source>Account</source>
+        <translation>アカウント</translation>
+    </message>
+    <message>
+        <source>Signs in when it starts</source>
+        <translation>起動時にサインイン</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>モデル</translation>
+    </message>
+    <message>
+        <source>Model and effort</source>
+        <translation>モデルと推論レベル</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>権限</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>詳細度</translation>
+    </message>
+</context>
+<context>
     <name>AgentLauncher</name>
     <message>
         <source>This computer</source>
@@ -190,12 +293,12 @@
         <translation>権限</translation>
     </message>
     <message>
-        <source>Output</source>
-        <translation>出力</translation>
+        <source>Verbosity</source>
+        <translation>詳細度</translation>
     </message>
     <message>
-        <source>Permissions and output</source>
-        <translation>権限と出力</translation>
+        <source>More</source>
+        <translation>その他</translation>
     </message>
     <message>
         <source>Asks before it changes files or runs commands.</source>
@@ -232,6 +335,25 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>作業の各ステップをすべて表示します。</translation>
+    </message>
+</context>
+<context>
+    <name>AgentSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>確認中</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Kodosi はこれらのファイルを開くだけで、変更はしません。</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>未作成</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>開く</translation>
     </message>
 </context>
 <context>
@@ -2889,25 +3011,6 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>確認中</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Kodosi はこれらのファイルを開くだけで、変更はしません。</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>未作成</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>開く</translation>
-    </message>
-</context>
-<context>
     <name>QuitDialog</name>
     <message>
         <source>Restart Kodosi?</source>
@@ -3826,8 +3929,8 @@
         <translation>貼り付け</translation>
     </message>
     <message>
-        <source>Output</source>
-        <translation>出力</translation>
+        <source>Verbosity</source>
+        <translation>詳細度</translation>
     </message>
     <message>
         <source>Quiet</source>

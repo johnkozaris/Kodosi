@@ -16,6 +16,109 @@
     </message>
 </context>
 <context>
+    <name>AgentDefaults</name>
+    <message>
+        <source>Default</source>
+        <translation>Προεπιλογή</translation>
+    </message>
+    <message>
+        <source>Asking %1 for its models</source>
+        <translation>Λήψη μοντέλων από %1</translation>
+    </message>
+    <message>
+        <source>%1 lists no models</source>
+        <translation>%1: δεν υπάρχουν μοντέλα</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Απεριόριστα</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Αυτόματα</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Ερώτηση</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>Δεν ρωτά ποτέ και εκτελεί κάθε εντολή με τα δικαιώματά σας.</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>Ρωτά πριν αλλάξει αρχεία ή εκτελέσει εντολές.</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>Ένας έλεγχος ασφαλείας εγκρίνει ό,τι είναι ασφαλές και σας ρωτά για τα υπόλοιπα. Ο έλεγχος καταναλώνει tokens.</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>Δουλεύει μόνος του σε αυτόν τον φάκελο και σας ρωτά για τα υπόλοιπα.</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές.</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>Εγκρίνει τις ενέργειές του, εκτός από όσα έχετε απαγορεύσει.</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Λιτή</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Αναλυτική</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Κανονική</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>Δείχνει λιγότερα από τη δουλειά του.</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>Δείχνει αναλυτικά κάθε βήμα της δουλειάς του.</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>Δείχνει τη δουλειά του όπως είναι ρυθμισμένος ο agent.</translation>
+    </message>
+    <message>
+        <source>New terminals start with these. What you choose in the launcher changes them too.</source>
+        <translation>Τα νέα τερματικά ξεκινούν με αυτές τις επιλογές. Ό,τι επιλέγετε στον launcher τις αλλάζει επίσης.</translation>
+    </message>
+    <message>
+        <source>Account</source>
+        <translation>Λογαριασμός</translation>
+    </message>
+    <message>
+        <source>Signs in when it starts</source>
+        <translation>Συνδέεται όταν ξεκινά</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Μοντέλο</translation>
+    </message>
+    <message>
+        <source>Model and effort</source>
+        <translation>Μοντέλο και ένταση σκέψης</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Άδειες</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>Λεπτομέρεια</translation>
+    </message>
+</context>
+<context>
     <name>AgentLauncher</name>
     <message>
         <source>This computer</source>
@@ -190,12 +293,12 @@
         <translation>Άδειες</translation>
     </message>
     <message>
-        <source>Output</source>
-        <translation>Έξοδος</translation>
+        <source>Verbosity</source>
+        <translation>Λεπτομέρεια</translation>
     </message>
     <message>
-        <source>Permissions and output</source>
-        <translation>Άδειες και έξοδος</translation>
+        <source>More</source>
+        <translation>Περισσότερα</translation>
     </message>
     <message>
         <source>Asks before it changes files or runs commands.</source>
@@ -232,6 +335,25 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>Δείχνει αναλυτικά κάθε βήμα της δουλειάς του.</translation>
+    </message>
+</context>
+<context>
+    <name>AgentSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>Αναζήτηση</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Το Kodosi ανοίγει αυτά τα αρχεία. Δεν τα αλλάζει.</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>Δεν έχει δημιουργηθεί ακόμη</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>Άνοιγμα</translation>
     </message>
 </context>
 <context>
@@ -2900,25 +3022,6 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>Αναζήτηση</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Το Kodosi ανοίγει αυτά τα αρχεία. Δεν τα αλλάζει.</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>Δεν έχει δημιουργηθεί ακόμη</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>Άνοιγμα</translation>
-    </message>
-</context>
-<context>
     <name>QuitDialog</name>
     <message>
         <source>Restart Kodosi?</source>
@@ -3839,8 +3942,8 @@
         <translation>Επικόλληση</translation>
     </message>
     <message>
-        <source>Output</source>
-        <translation>Έξοδος</translation>
+        <source>Verbosity</source>
+        <translation>Λεπτομέρεια</translation>
     </message>
     <message>
         <source>Quiet</source>

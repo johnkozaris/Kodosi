@@ -21,7 +21,7 @@ struct SettingsView: View {
                 }
                 Group {
                     switch workbench.settingsSection {
-                    case .providers: ProviderSettingsView()
+                    case .agents: AgentSettingsView()
                     case .dosi: DosiSettingsView()
                     case .browser: BrowserSettingsView()
                     case .documents: DocumentSettingsView()
@@ -44,7 +44,7 @@ private extension WorkbenchState.SettingsSection {
     var title: String {
         switch self {
         case .terminal: String(localized: "Terminal")
-        case .providers: String(localized: "Agents")
+        case .agents: String(localized: "Agents")
         case .dosi: String(localized: "Dosi")
         case .browser: String(localized: "Browser")
         case .documents: String(localized: "Documents")
@@ -57,7 +57,7 @@ private extension WorkbenchState.SettingsSection {
     var symbol: String {
         switch self {
         case .terminal: "apple.terminal"
-        case .providers: "sparkles"
+        case .agents: "sparkles"
         case .dosi: "eyes"
         case .browser: "globe"
         case .documents: "doc.text"

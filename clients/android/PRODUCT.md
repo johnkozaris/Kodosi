@@ -16,7 +16,7 @@ reading provider conversations stay on the computer. The app needs Android 15 or
   those of each friend. Each terminal has its agent's mark and the sign of its state.
   The tab counts the waiting terminals that you can answer.
 - The + starts a shell or an agent on one of your computers where Kodosi runs. Pick
-  its account, model, effort, permissions, output, folder and first prompt. A project's terminals can start
+  its account, model, effort, permissions, verbosity, folder and first prompt. A project's terminals can start
   one in that project. The terminal opens when it starts.
 - In a terminal, the phone sets the size only while it has focus, and never to fewer
   than 10 rows. With less room, the terminal shows its bottom rows, or the rows down to

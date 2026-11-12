@@ -81,7 +81,7 @@ struct AgentActions: View {
             }
             if let output {
                 FlyoutRow(
-                    title: Text("Output"), icon: output.symbol, value: output.label, waits: false, agent: agent,
+                    title: Text("Verbosity"), icon: output.symbol, value: output.label, waits: false, agent: agent,
                     open: flyoutBinding(.output), identifier: "\(stageId).agent.output",
                 ) { EmptyView() }
                     .kodosiFlyout(isPresented: flyout == .output) { outputFlyout(output).chromeScope() }
@@ -185,7 +185,7 @@ struct AgentActions: View {
     private func outputFlyout(_ output: AgentOutput) -> some View {
         let known = launcher?.agent(agent.rawValue)?.outputs ?? []
         return ModeRow(
-            title: String(localized: "Output"), identifier: "\(stageId).agent.output.modes",
+            title: String(localized: "Verbosity"), identifier: "\(stageId).agent.output.modes",
             options: AgentOutput.allCases.filter { known.contains($0) || $0 == output }.map { option in
                 ModeRow.Option(
                     id: option.rawValue, label: option.label,

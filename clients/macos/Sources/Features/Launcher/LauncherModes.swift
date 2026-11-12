@@ -21,7 +21,7 @@ struct LauncherModes: View {
             if !info.outputs.isEmpty {
                 Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
                 ModeRow(
-                    title: String(localized: "Output"), identifier: "launcher.output",
+                    title: String(localized: "Verbosity"), identifier: "launcher.output",
                     options: info.outputs.map { ModeRow.Option(id: $0.rawValue, label: $0.label, detail: $0.detail, caution: false) },
                     current: output.rawValue, pick: pick,
                 )

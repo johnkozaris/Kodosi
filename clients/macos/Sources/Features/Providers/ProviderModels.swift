@@ -1,11 +1,16 @@
 import Foundation
 import KodosiBridge
+import KodosiDesign
 
 enum Provider: String, Decodable, CaseIterable, Sendable {
     case claude, copilot
 
     var name: String {
         self == .claude ? "Claude" : "Copilot"
+    }
+
+    var agent: AgentKind {
+        self == .claude ? .claude : .copilot
     }
 }
 

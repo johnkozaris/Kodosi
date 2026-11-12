@@ -318,7 +318,7 @@
     </plurals>
     <string name="hide_keyboard">隐藏键盘</string>
     <string name="agent_permissions">权限</string>
-    <string name="agent_output">输出</string>
+    <string name="agent_output">详细程度</string>
     <string name="agent_ask">询问</string>
     <string name="agent_auto">自动</string>
     <string name="agent_unrestricted">不受限制</string>

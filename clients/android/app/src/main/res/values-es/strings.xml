@@ -322,7 +322,7 @@
     </plurals>
     <string name="hide_keyboard">Ocultar teclado</string>
     <string name="agent_permissions">Permisos</string>
-    <string name="agent_output">Salida</string>
+    <string name="agent_output">Verbosidad</string>
     <string name="agent_ask">Preguntar</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Acceso total</string>

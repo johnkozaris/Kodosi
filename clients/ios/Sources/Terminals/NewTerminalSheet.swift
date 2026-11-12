@@ -301,7 +301,7 @@ struct NewTerminalSheet: View {
 
     private func outputRow(_ agent: AgentInfo, plan: LaunchPlan, launcher: LauncherState) -> some View {
         ChoiceRow(
-            title: String(localized: "Output"), subtitle: plan.output.detail, value: plan.output.label,
+            title: String(localized: "Verbosity"), subtitle: plan.output.detail, value: plan.output.label,
             values: agent.outputs, selection: plan.output, label: \.label,
             choose: { output in choosePick(plan, launcher) { $0.output = output } },
             leading: { IconTile(symbol: "text.alignleft", tint: TileTint.graphite, size: 28) },

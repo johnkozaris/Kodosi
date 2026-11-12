@@ -318,7 +318,7 @@
     </plurals>
     <string name="hide_keyboard">키보드 숨기기</string>
     <string name="agent_permissions">권한</string>
-    <string name="agent_output">출력</string>
+    <string name="agent_output">상세도</string>
     <string name="agent_ask">묻기</string>
     <string name="agent_auto">자동</string>
     <string name="agent_unrestricted">제한 없음</string>

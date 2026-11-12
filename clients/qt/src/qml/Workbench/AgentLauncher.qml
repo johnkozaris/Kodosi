@@ -834,19 +834,19 @@ ColumnLayout {
 
                         visible: root.info !== null && root.info.installed
                             && ((root.info.permissions || []).length > 1 || root.outputs.length > 0)
-                        title: [root.permissionLabel(root.permissions)]
-                            .concat(root.output === root.defaultOutput || root.outputs.length === 0 ? [] : [root.outputLabel(root.output)]).join(" · ")
+                        title: qsTr("More")
                         quiet: root.permissions === root.defaultPermissions && root.output === root.defaultOutput
                         open: root.menuKind === "modes"
                         objectName: "launcher.modes"
                         Accessible.id: objectName
-                        Accessible.name: qsTr("Permissions and output")
+                        Accessible.name: qsTr("More")
+                        Accessible.description: [root.permissionLabel(root.permissions)]
+                            .concat(root.outputs.length === 0 ? [] : [root.outputLabel(root.output)]).join(", ")
                         glyph: KIcon {
                             width: 11
                             height: 11
-                            name: root.permissions === "unrestricted" ? "warning" : root.permissions === "auto" ? "check" : "hand"
-                            filled: true
-                            strokeWidth: 1
+                            name: "more"
+                            strokeWidth: 3.4
                             color: root.permissions === "unrestricted" ? KodosiTheme.caution : Identity.kindTint(root.agentId)
                         }
                         onClicked: root.toggleMenu("modes")
@@ -1086,7 +1086,7 @@ ColumnLayout {
             ModeRow {
                 visible: root.outputs.length > 0
                 width: parent.width
-                title: qsTr("Output")
+                title: qsTr("Verbosity")
                 options: root.outputOptions()
                 current: root.output
                 objectName: "launcher.output"

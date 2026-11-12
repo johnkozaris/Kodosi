@@ -322,7 +322,7 @@
     </plurals>
     <string name="hide_keyboard">Nascondi tastiera</string>
     <string name="agent_permissions">Autorizzazioni</string>
-    <string name="agent_output">Output</string>
+    <string name="agent_output">Verbosità</string>
     <string name="agent_ask">Chiedi</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Accesso totale</string>

@@ -320,7 +320,7 @@
     </plurals>
     <string name="hide_keyboard">Απόκρυψη πληκτρολογίου</string>
     <string name="agent_permissions">Άδειες</string>
-    <string name="agent_output">Έξοδος</string>
+    <string name="agent_output">Λεπτομέρεια</string>
     <string name="agent_ask">Ερώτηση</string>
     <string name="agent_auto">Αυτόματα</string>
     <string name="agent_unrestricted">Απεριόριστα</string>

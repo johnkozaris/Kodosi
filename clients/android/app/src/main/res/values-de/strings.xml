@@ -320,7 +320,7 @@
     </plurals>
     <string name="hide_keyboard">Tastatur ausblenden</string>
     <string name="agent_permissions">Berechtigungen</string>
-    <string name="agent_output">Ausgabe</string>
+    <string name="agent_output">Ausführlichkeit</string>
     <string name="agent_ask">Fragen</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Vollzugriff</string>

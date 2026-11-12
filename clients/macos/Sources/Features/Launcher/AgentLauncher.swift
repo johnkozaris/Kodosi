@@ -447,12 +447,12 @@ private extension AgentLauncher {
     func modesKey(_ info: AgentInfo) -> some View {
         let permissions = plan.permissions
         let output = info.outputs.isEmpty ? info.defaultOutput : plan.output
-        let title = ([permissions.label] + (output == info.defaultOutput ? [] : [output.label])).joined(separator: " · ")
+        let chosen = ([permissions.label] + (info.outputs.isEmpty ? [] : [output.label])).joined(separator: " · ")
         return PickerKey(
-            title: title, quiet: permissions == info.defaultPermissions && output == info.defaultOutput, open: menu == .modes,
-            identifier: "launcher.modes", label: String(localized: "Permissions and output"),
+            title: String(localized: "More"), quiet: permissions == info.defaultPermissions && output == info.defaultOutput,
+            open: menu == .modes, identifier: "launcher.modes", label: String(localized: "More"), help: chosen,
         ) {
-            Image(systemName: permissions.symbol).font(.system(size: 9.5, weight: .bold))
+            Image(systemName: "ellipsis").font(.system(size: 9.5, weight: .bold))
                 .foregroundStyle(permissions == .unrestricted ? theme.colors.caution : info.kind.tint)
         } action: {
             toggle(.modes)

@@ -90,7 +90,7 @@ Item {
                 Layout.fillWidth: true
                 visible: root.section === 5
             }
-            ProviderSettings {
+            AgentSettings {
                 Layout.fillWidth: true
                 visible: root.section === 1
             }

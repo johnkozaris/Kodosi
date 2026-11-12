@@ -477,7 +477,7 @@ Item {
                                 onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { permissions: id })
                             }
                             AgentChoiceMenu {
-                                title: qsTr("Output")
+                                title: qsTr("Verbosity")
                                 objectName: root.objectName + ".agent.output"
                                 available: agentChanges.shown && agentChanges.output.length > 0
                                 hint: agentChanges.outputLabel(agentChanges.output)

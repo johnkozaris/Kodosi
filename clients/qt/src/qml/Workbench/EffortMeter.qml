@@ -96,7 +96,7 @@ Item {
                     hoverEnabled: true
                     activeFocusOnTab: true
                     scale: pressed ? 0.95 : 1
-                    objectName: "launcher.effort." + (auto ? "default" : modelData.id)
+                    objectName: root.objectName + "." + (auto ? "default" : modelData.id)
                     Accessible.id: objectName
                     Accessible.name: modelData.label
                     Accessible.role: Accessible.RadioButton
