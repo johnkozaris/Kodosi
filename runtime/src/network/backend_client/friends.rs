@@ -653,6 +653,20 @@ impl BackendClient {
             ]);
         }
         let typed = wire::text(args, "username")?;
+        if operation == "friends.report" {
+            let body = json!({"username":typed,"note":args.get("note").and_then(Value::as_str).unwrap_or_default()});
+            let _response: Value = self
+                .inner
+                .http
+                .device(
+                    Method::POST,
+                    "api/friends/reports",
+                    &credentials,
+                    Some(body),
+                )
+                .await?;
+            return Ok(Vec::new());
+        }
         match operation {
             "friends.request.send" => {
                 let (handle, root) = match parse_invite(typed) {

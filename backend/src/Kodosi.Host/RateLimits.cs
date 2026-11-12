@@ -8,6 +8,7 @@ internal static class RateLimits
 {
     public const string Challenge = "challenge";
     public const string Enrollment = "enrollment";
+    public const string Report = "report";
     public const string Socket = "socket";
 
     public static void AddApiRateLimits(this IServiceCollection services) => services.AddRateLimiter(options =>
@@ -18,6 +19,7 @@ internal static class RateLimits
             Bucket(context, burst: 1200, tokens: 20, TimeSpan.FromSeconds(1)));
         options.AddPolicy(Challenge, context => Bucket(context, burst: 600, tokens: 10, TimeSpan.FromSeconds(1)));
         options.AddPolicy(Enrollment, context => Bucket(context, burst: 20, tokens: 1, TimeSpan.FromSeconds(3)));
+        options.AddPolicy(Report, context => Bucket(context, burst: 10, tokens: 1, TimeSpan.FromMinutes(6)));
         options.AddPolicy(Socket, context => Bucket(context, burst: 60, tokens: 1, TimeSpan.FromSeconds(1)));
     });
 

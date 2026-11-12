@@ -248,6 +248,7 @@ internal static class FriendEndpoints
             await friends.MutateAsync(caller.User.Id, username, "unblock", ct);
             return Results.NoContent();
         });
+        group.MapReports();
         var list = app.MapGroup("/api/me/friend-list").RequireAuthorization();
         list.MapGet("/", async (long? after, DeviceCaller caller, FriendService friends, CancellationToken ct) =>
             Results.Ok(await friends.SignedListAsync(caller.User.Id, after, ct)));
