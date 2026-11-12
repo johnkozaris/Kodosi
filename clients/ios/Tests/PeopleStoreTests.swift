@@ -71,12 +71,24 @@ struct PeopleStoreTests {
 
     @Test func `reset forgets the earlier account`() throws {
         try deliverSnapshot()
-        try store.receive(event("friends.result", ["operation": "friends.invite", "requestId": "request-1", "text": "kodosi:me:0a1b"]))
+        try store.receive(event("friends.result", ["operation": "friends.invite", "requestId": "request-1", "text": "kodosi:me:0a1b",
+                                                   "qr": ["111", "101", "111"]]))
         store.reset(userId: "user-2")
         #expect(store.userId == "user-2")
         #expect(store.isEmpty)
         #expect(!store.loaded)
         #expect(store.ownInvite == nil)
+        #expect(store.ownInviteCode == nil)
+    }
+
+    @Test func `only an invite in the runtime's form starts the add flow`() {
+        let identity = String(repeating: "0a", count: 32)
+        #expect(PeopleStore.invite(in: " kodosi:ana:\(identity)\n") == "kodosi:ana:\(identity)")
+        for text in ["ana", "kodosi:ana", "kodosi::\(identity)", "kodosi:ana:0a1b", "other:ana:\(identity)",
+                     "kodosi:ana:\(identity):more", "kodosi:a/b:\(identity)", "kodosi:ana:\(identity.dropLast())g"]
+        {
+            #expect(PeopleStore.invite(in: text) == nil)
+        }
     }
 
     @Test func `refresh waits for the next snapshot`() async throws {

@@ -117,6 +117,7 @@ enum class AppSymbol {
     CODE,
     DIFF,
     PICTURE,
+    QR_CODE,
     HIDE_KEYBOARD,
     ARROW_LEFT,
     ARROW_UP,
@@ -453,6 +454,17 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 rect(2f, 3f, 20f, 18f)
                 circle(16f, 8f, 2f)
                 path(3f, 18f, 9f, 11f, 14f, 16f, 17f, 13f, 21f, 18f)
+            }
+
+            AppSymbol.QR_CODE -> {
+                rect(3f, 3f, 7f, 7f, 1.5f)
+                rect(14f, 3f, 7f, 7f, 1.5f)
+                rect(3f, 14f, 7f, 7f, 1.5f)
+                path(14f, 14f, 17f, 14f)
+                path(20f, 14f, 21f, 14f)
+                path(14f, 17f, 14f, 21f)
+                path(17f, 17f, 21f, 17f)
+                path(18f, 21f, 21f, 21f)
             }
 
             AppSymbol.HIDE_KEYBOARD -> {

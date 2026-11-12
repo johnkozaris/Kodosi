@@ -154,6 +154,13 @@
     <string name="friends_empty_message">共享终端，在项目中协作。</string>
     <string name="your_invite">你的邀请</string>
     <string name="copy_invite">复制邀请</string>
+    <string name="show_invite">显示我的邀请</string>
+    <string name="scan_invite">扫描对方的邀请</string>
+    <string name="invite_code_hint">好友用相机扫描此二维码即可添加你。</string>
+    <string name="invite_code_description">你的邀请二维码</string>
+    <string name="not_an_invite">此二维码不是 Kodosi 邀请。</string>
+    <string name="scanner_unavailable">二维码扫描器不可用。请改为粘贴对方的邀请。</string>
+    <string name="share">分享</string>
     <string name="verify_identity">验证身份</string>
     <string name="verified">已验证</string>
     <string name="identity_changed">对方的身份已更改</string>

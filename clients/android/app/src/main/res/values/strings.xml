@@ -162,6 +162,13 @@
     <string name="friends_empty_message">Share terminals and work together in projects.</string>
     <string name="your_invite">Your invite</string>
     <string name="copy_invite">Copy invite</string>
+    <string name="show_invite">Show my invite</string>
+    <string name="scan_invite">Scan their invite</string>
+    <string name="invite_code_hint">Your friend scans this code with their camera to add you.</string>
+    <string name="invite_code_description">QR code of your invite</string>
+    <string name="not_an_invite">This code is not a Kodosi invite.</string>
+    <string name="scanner_unavailable">The code scanner is not available. Paste their invite instead.</string>
+    <string name="share">Share</string>
     <string name="verify_identity">Verify identity</string>
     <string name="verified">Verified</string>
     <string name="identity_changed">Their identity changed</string>

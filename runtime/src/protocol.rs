@@ -1063,6 +1063,9 @@ pub enum EventBody {
         operation: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         text: Option<String>,
+        /// The rows of the QR code of `text`, with `1` for a dark module, without the quiet zone.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        qr: Option<Vec<String>>,
     },
     #[serde(rename = "friends.error")]
     FriendsError {

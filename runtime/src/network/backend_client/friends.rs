@@ -8,8 +8,8 @@ use super::{
 };
 use crate::identity::{
     friends::{
-        Chain, Friend, FriendList, Head, Newest, SignedFriendList, broken, invite, parse_invite,
-        root_hex,
+        Chain, Friend, FriendList, Head, Newest, SignedFriendList, broken, invite, invite_code,
+        parse_invite, root_hex,
     },
     pins::Root,
     recovery::is_recovery_device,
@@ -647,8 +647,9 @@ impl BackendClient {
             let own = self
                 .fetch_identity_with(&credentials, &credentials.user_id)
                 .await?;
+            let text = invite(wire::text(&profile, "handle")?, &own.root);
             return Ok(vec![
-                json!({"type":"friends.result","requestId":args["requestId"],"operation":operation,"text":invite(wire::text(&profile, "handle")?, &own.root)}),
+                json!({"type":"friends.result","requestId":args["requestId"],"operation":operation,"qr":invite_code(&text),"text":text}),
             ]);
         }
         let typed = wire::text(args, "username")?;

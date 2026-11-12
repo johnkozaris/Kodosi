@@ -1,0 +1,12 @@
+ML Kit Terms of Service
+https://developers.google.com/ml-kit/terms
+
+The following terms apply to your use of ML Kit APIs. These terms incorporate and are subject to the Google APIs Terms of Service (https://developers.google.com/terms).
+
+General Terms
+
+1. For purposes of these terms, machine learning models will be considered related software.
+
+2. ML Kit APIs run on-device. When using the ML Kit APIs, you may not reverse engineer or attempt to extract the source code or any related software, except to the extent that this restriction is expressly prohibited by applicable law.
+
+3. Your use of the ML Kit GenAI API is subject to the ML Kit GenAI API Additional Terms of Service (https://developers.google.com/ml-kit/genai-terms).

@@ -65,6 +65,11 @@ struct MainTabView: View {
             tab = .terminals
             terminals = NavigationPath([TerminalRoute(sessionId: terminal)])
         }
+        .onChange(of: model.openedInvite != nil, initial: true) { _, opened in
+            guard opened else { return }
+            tab = .settings
+            settings = NavigationPath([PeopleRoute()])
+        }
     }
 
     private var dosiCalls: Int {

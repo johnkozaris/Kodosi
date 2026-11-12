@@ -198,7 +198,9 @@ appareil a été volé, créez aussi une nouvelle clé de récupération.
 
 Ouvrez Amis depuis le menu à côté de votre compte. Envoyez votre invitation, ou collez
 l'invitation ou le nom d'utilisateur d'un ami. Une invitation permet à Kodosi de vérifier
-votre ami.
+votre ami. Sur un téléphone, montrez votre invitation sous forme de code : votre ami le
+scanne avec son appareil photo ou dans Kodosi, et confirme qu'il vous fait confiance avant
+l'envoi de la demande.
 
 <p align="center"><img src="../media/friends.webp" width="900" alt="La page Amis avec deux amis vérifiés."></p>
 

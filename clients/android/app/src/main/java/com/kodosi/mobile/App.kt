@@ -241,6 +241,16 @@ private fun Home(model: AppModel) {
         }
         if (model.terminalTarget.value == requested) model.terminalTarget.value = null
     }
+    val invite by model.friendInvite.collectAsStateWithLifecycle()
+    LaunchedEffect(invite != null) {
+        if (invite == null) return@LaunchedEffect
+        tab = 3
+        val settings = stacks[3]
+        if ((settings.lastOrNull() as? Destination)?.kind != "friends") {
+            while (settings.size > 1) settings.removeAt(settings.lastIndex)
+            settings.add(Destination("friends"))
+        }
+    }
     val back = {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
         Unit

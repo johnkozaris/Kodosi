@@ -16,9 +16,12 @@ import androidx.core.view.doOnAttach
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.kodosi.mobile.account.SignInStage
+import com.kodosi.mobile.people.PeopleStore
 import com.kodosi.mobile.terminals.TerminalNotifications
 import com.kodosi.mobile.ui.KodosiTheme
 import kotlinx.coroutines.launch
+
+private const val INVITE_SCHEME = "kodosi"
 
 class MainActivity : ComponentActivity() {
     private val model: AppModel get() = (application as KodosiApplication).model
@@ -98,6 +101,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun receive(intent: Intent) {
+        intent.data?.takeIf { it.scheme == INVITE_SCHEME }?.let { PeopleStore.invite(it.toString()) }?.let { invite ->
+            model.friendInvite.value = invite
+            intent.data = null
+        }
         val terminal = intent.getStringExtra(TerminalNotifications.TERMINAL)
         val account = intent.getStringExtra(TerminalNotifications.ACCOUNT)
         if (terminal != null && account != null) {

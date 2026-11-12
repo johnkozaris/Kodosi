@@ -199,7 +199,9 @@ neuen Wiederherstellungsschlüssel.
 
 Öffne Freunde über das Menü neben deinem Konto. Schick deine Einladung oder füge die
 Einladung oder den Benutzernamen eines Freundes ein. Mit einer Einladung kann Kodosi deinen
-Freund verifizieren.
+Freund verifizieren. Auf einem Telefon zeigst du deine Einladung als Code: Dein Freund
+scannt ihn mit der Kamera oder in Kodosi und bestätigt, dass er dir vertraut, bevor die
+Anfrage rausgeht.
 
 <p align="center"><img src="../media/friends.webp" width="900" alt="Die Seite Freunde mit zwei verifizierten Freunden."></p>
 

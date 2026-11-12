@@ -154,6 +154,13 @@
     <string name="friends_empty_message">Teilt Terminals und arbeitet in Projekten zusammen.</string>
     <string name="your_invite">Deine Einladung</string>
     <string name="copy_invite">Einladung kopieren</string>
+    <string name="show_invite">Meine Einladung zeigen</string>
+    <string name="scan_invite">Einladung scannen</string>
+    <string name="invite_code_hint">Dein Freund scannt diesen Code mit der Kamera, um dich hinzuzufügen.</string>
+    <string name="invite_code_description">QR-Code deiner Einladung</string>
+    <string name="not_an_invite">Dieser Code ist keine Kodosi-Einladung.</string>
+    <string name="scanner_unavailable">Der Code-Scanner ist nicht verfügbar. Füge stattdessen die Einladung ein.</string>
+    <string name="share">Teilen</string>
     <string name="verify_identity">Identität prüfen</string>
     <string name="verified">Verifiziert</string>
     <string name="identity_changed">Die Identität hat sich geändert</string>

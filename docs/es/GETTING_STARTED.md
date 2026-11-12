@@ -189,7 +189,9 @@ robaron un dispositivo, crea también una clave de recuperación nueva.
 ## 7. Trabaja con amigos
 
 Abre Amigos desde el menú junto a tu cuenta. Envía tu invitación, o pega la invitación o el
-nombre de usuario de un amigo. Con una invitación, Kodosi puede verificar a tu amigo.
+nombre de usuario de un amigo. Con una invitación, Kodosi puede verificar a tu amigo. En
+un teléfono, muestra tu invitación como un código: tu amigo lo escanea con su cámara o en
+Kodosi, y confirma que confía en ti antes de que se envíe la solicitud.
 
 <p align="center"><img src="../media/friends.webp" width="900" alt="La página Amigos con dos amigos verificados."></p>
 

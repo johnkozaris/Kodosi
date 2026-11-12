@@ -1,15 +1,24 @@
 import KodosiBridge
 import KodosiDesign
 import SwiftUI
+import VisionKit
 
 struct AddFriendSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
+    @State private var text: String
     @State private var trusting: FriendTrust?
+    @State private var showingInvite = false
+    @State private var scanning = false
     @FocusState private var focused: Bool
     @ScaledMetric(relativeTo: .body) private var glyph: CGFloat = 15
+    @State private var opened: String?
+
+    init(invite: String? = nil) {
+        _opened = State(initialValue: invite)
+        _text = State(initialValue: invite ?? "")
+    }
 
     private var trimmed: String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -38,21 +47,30 @@ struct AddFriendSheet: View {
                         .buttonStyle(.kodosi(.primary, size: .large))
                         .disabled(trimmed.isEmpty)
                         .accessibilityIdentifier("people.addFriend")
+                        if DataScannerViewController.isSupported {
+                            Button { scanning = true } label: {
+                                Label("Scan their invite", systemImage: "qrcode.viewfinder")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.kodosi(.secondary, size: .large))
+                            .accessibilityIdentifier("people.addFriend.scan")
+                        }
                     }
                     .arrive(delay: 0.08)
                     divider
                         .arrive(delay: 0.12)
                     VStack(spacing: 10) {
-                        Text("Send them your invite. They add it to send you a request.")
+                        Text("Show them your invite, or share it. They add it to send you a request.")
                             .appTextStyle(.footnote)
                             .foregroundStyle(theme.colors.inkMuted)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
-                        InviteShareButton(identifier: "people.addFriend.shareInvite") {
-                            Label("Share my invite", systemImage: "square.and.arrow.up")
+                        Button { showingInvite = true } label: {
+                            Label("Show my invite", systemImage: "qrcode")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.kodosi(.secondary, size: .large))
+                        .accessibilityIdentifier("people.addFriend.showInvite")
                     }
                     .arrive(delay: 0.16)
                 }
@@ -76,7 +94,19 @@ struct AddFriendSheet: View {
         .presentationDetents([.large])
         .kodosiSheet()
         .friendTrust($trusting) { _ in confirm() }
+        .sheet(isPresented: $showingInvite) { InviteCodeSheet() }
+        .sheet(isPresented: $scanning) {
+            InviteScanSheet { invite in
+                scanning = false
+                text = invite
+                trusting = .add(invite)
+            }
+        }
         .task {
+            if let opened {
+                self.opened = nil
+                trusting = .add(opened)
+            }
             if model.people.ownInvite == nil {
                 model.people.requestInvite()
             }

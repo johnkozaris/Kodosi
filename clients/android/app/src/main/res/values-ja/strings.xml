@@ -154,6 +154,13 @@
     <string name="friends_empty_message">ターミナルを共有して、プロジェクトで一緒に作業しましょう。</string>
     <string name="your_invite">自分の招待</string>
     <string name="copy_invite">招待をコピー</string>
+    <string name="show_invite">招待を表示</string>
+    <string name="scan_invite">相手の招待をスキャン</string>
+    <string name="invite_code_hint">フレンドがこのコードをカメラでスキャンすると、あなたを追加できます。</string>
+    <string name="invite_code_description">自分の招待の QR コード</string>
+    <string name="not_an_invite">このコードは Kodosi の招待ではありません。</string>
+    <string name="scanner_unavailable">コードスキャナーを使えません。代わりに相手の招待を貼り付けてください。</string>
+    <string name="share">共有</string>
     <string name="verify_identity">本人確認</string>
     <string name="verified">確認済み</string>
     <string name="identity_changed">相手の本人情報が変わりました</string>

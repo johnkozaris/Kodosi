@@ -6,7 +6,7 @@ import UIKit
 struct PeopleHome: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
-    @State private var adding = false
+    @State private var sheet: PeopleSheet?
     @State private var trusting: FriendTrust?
 
     private var people: PeopleStore {
@@ -34,16 +34,27 @@ struct PeopleHome: View {
         .pageFacts(people.facts)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                InviteShareButton(identifier: "people.shareInvite") {
-                    IconButtonFace(symbol: "square.and.arrow.up", size: 32)
-                        .accessibilityLabel(Text("Share my invite"))
+                IconButton(title: "Show my invite", symbol: "qrcode", identifier: "people.showInvite", size: 32) {
+                    sheet = PeopleSheet(kind: .invite)
                 }
-                .buttonStyle(PressScaleStyle())
-                IconButton(title: "Add a friend", symbol: "person.badge.plus", identifier: "people.add", size: 32) { adding = true }
+                IconButton(title: "Add a friend", symbol: "person.badge.plus", identifier: "people.add", size: 32) {
+                    sheet = PeopleSheet(kind: .add(nil))
+                }
             }
             .sharedBackgroundVisibility(.hidden)
         }
-        .sheet(isPresented: $adding) { AddFriendSheet() }
+        .sheet(item: $sheet) { sheet in
+            switch sheet.kind {
+            case let .add(invite): AddFriendSheet(invite: invite)
+            case .invite: InviteCodeSheet()
+            }
+        }
+        .onChange(of: model.openedInvite, initial: true) { _, invite in
+            guard let invite else { return }
+            model.openedInvite = nil
+            trusting = nil
+            sheet = PeopleSheet(kind: .add(invite))
+        }
         .friendTrust($trusting) { trust in
             if case let .accept(request) = trust {
                 people.accept(request)
@@ -107,17 +118,18 @@ struct PeopleHome: View {
 
     @ViewBuilder
     private var emptyActions: some View {
-        Button { adding = true } label: {
+        Button { sheet = PeopleSheet(kind: .add(nil)) } label: {
             Label("Add a friend", systemImage: "person.badge.plus")
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.kodosi(.primary, size: .large))
         .accessibilityIdentifier("people.empty.add")
-        InviteShareButton(identifier: "people.empty.shareInvite") {
-            Label("Share my invite", systemImage: "square.and.arrow.up")
+        Button { sheet = PeopleSheet(kind: .invite) } label: {
+            Label("Show my invite", systemImage: "qrcode")
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.kodosi(.secondary, size: .large))
+        .accessibilityIdentifier("people.empty.showInvite")
     }
 
     @ViewBuilder
@@ -182,6 +194,16 @@ private struct FriendTally: Equatable {
     let count: Int
 }
 
+private struct PeopleSheet: Identifiable {
+    enum Kind {
+        case add(String?)
+        case invite
+    }
+
+    let id = UUID()
+    let kind: Kind
+}
+
 private struct FriendListItem: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
@@ -242,37 +264,6 @@ private struct FriendListItem: View {
                 .accessibilityIdentifier("people.confirmRemove")
         } message: {
             Text("You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.")
-        }
-    }
-}
-
-struct InviteShareButton<Content: View>: View {
-    @Environment(AppModel.self) private var model
-    let identifier: String
-    @ViewBuilder let label: () -> Content
-
-    private var people: PeopleStore {
-        model.people
-    }
-
-    var body: some View {
-        if let invite = people.ownInvite {
-            ShareLink(item: invite, preview: SharePreview(Text("My Kodosi invite"))) {
-                label()
-            }
-            .accessibilityIdentifier(identifier)
-        } else {
-            Button { people.requestInvite() } label: {
-                label()
-                    .opacity(people.fetchingInvite ? 0 : 1)
-                    .overlay {
-                        if people.fetchingInvite {
-                            Spinner(size: 14)
-                        }
-                    }
-            }
-            .disabled(people.fetchingInvite)
-            .accessibilityIdentifier(identifier)
         }
     }
 }

@@ -187,7 +187,9 @@ anche una nuova chiave di recupero.
 ## 7. Lavora con gli amici
 
 Apri Amici dal menu accanto al tuo account. Invia il tuo invito, oppure incolla l'invito o il
-nome utente di un amico. Un invito permette a Kodosi di verificare il tuo amico.
+nome utente di un amico. Un invito permette a Kodosi di verificare il tuo amico. Su un
+telefono, mostra il tuo invito come codice: il tuo amico lo scansiona con la fotocamera o
+in Kodosi e conferma di fidarsi di te prima che la richiesta parta.
 
 <p align="center"><img src="../media/friends.webp" width="900" alt="La pagina Amici con due amici verificati."></p>
 

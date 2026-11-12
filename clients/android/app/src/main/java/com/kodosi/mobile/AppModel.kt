@@ -64,6 +64,7 @@ class AppModel(
     )
     data class TerminalTarget(val id: String, val account: String)
     val terminalTarget = MutableStateFlow<TerminalTarget?>(null)
+    val friendInvite = MutableStateFlow<String?>(null)
     val projects = ProjectStore(commands)
     val people = PeopleStore(commands)
     val dosi = DosiStore(commands)

@@ -18,5 +18,8 @@ terminal with friends and reading provider conversations stay on the computer.
   showed or changed.
 - **Dosi runs on a computer.** The person writes to Dosi on one of their computers, and
   that computer answers.
+- **Invite in person.** The invite also shows as a code that a friend scans with the
+  Camera app or in Kodosi. A scanned invite still asks whether they trust the person
+  before the request goes out.
 - **Lock.** With the lock on, the app asks for Face ID, Touch ID or the passcode, and
   covers what it shows while it is not in front.

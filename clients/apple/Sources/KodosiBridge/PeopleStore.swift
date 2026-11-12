@@ -9,6 +9,7 @@ public final class PeopleStore {
     public private(set) var outgoing: [FriendRequestEntry] = []
     public private(set) var blocked: [BlockedEntry] = []
     public private(set) var ownInvite: String?
+    public private(set) var ownInviteCode: [String]?
     public private(set) var userId: String?
     public private(set) var loaded = false
     public private(set) var revision = 0
@@ -34,6 +35,7 @@ public final class PeopleStore {
         outgoing = []
         blocked = []
         ownInvite = nil
+        ownInviteCode = nil
         loaded = false
         settle()
     }
@@ -50,6 +52,7 @@ public final class PeopleStore {
             settle()
         case "friends.result" where event.string("operation") == "friends.invite":
             ownInvite = event.string("text")
+            ownInviteCode = try? event.value("qr", as: [String].self)
             fetchingInvite = false
         default:
             break
@@ -93,6 +96,16 @@ public final class PeopleStore {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
         guard !handle.isEmpty, handle.count <= 64, handle.unicodeScalars.allSatisfy(allowed.contains) else { return nil }
         return handle
+    }
+
+    /// A link or a scanned code starts the add flow only with an invite in the form that the
+    /// runtime makes.
+    public nonisolated static func invite(in text: String) -> String? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 3, parts[0] == "kodosi", handle(in: text) != nil, parts[2].count == 64,
+              parts[2].allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
+        return text
     }
 
     @discardableResult

@@ -12230,6 +12230,58 @@
         }
       }
     },
+    "Point the camera at the code of their invite." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Richte die Kamera auf den Code der Einladung."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Στρέψτε την κάμερα στον κωδικό της πρόσκλησης."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apunta la cámara al código de su invitación."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pointez l'appareil photo vers le code de son invitation."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inquadra il codice del suo invito con la fotocamera."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手の招待のコードにカメラを向けてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대의 초대 코드에 카메라를 맞추세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将相机对准对方的邀请二维码。"
+          }
+        }
+      }
+    },
     "Presentation viewer" : {
       "localizations" : {
         "de" : {
@@ -12642,6 +12694,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "发布任务"
+          }
+        }
+      }
+    },
+    "QR code of your invite" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR-Code deiner Einladung"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κωδικός QR της πρόσκλησής σας"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código QR de tu invitación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code QR de votre invitation"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codice QR del tuo invito"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自分の招待の QR コード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 초대 QR 코드"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的邀请二维码"
           }
         }
       }
@@ -13946,6 +14050,58 @@
         }
       }
     },
+    "Scan their invite" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einladung scannen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σάρωση της πρόσκλησής τους"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escanear su invitación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanner son invitation"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scansiona il suo invito"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相手の招待をスキャン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대의 초대 스캔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描对方的邀请"
+          }
+        }
+      }
+    },
     "Search terminals" : {
       "localizations" : {
         "de" : {
@@ -14202,58 +14358,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "发送消息"
-          }
-        }
-      }
-    },
-    "Send them your invite. They add it to send you a request." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Schick ihnen deine Einladung. Wenn sie sie hinzufügen, bekommst du eine Anfrage."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Στείλτε τους την πρόσκλησή σας. Την προσθέτουν για να σας στείλουν αίτημα."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Envíales tu invitación. La añaden para enviarte una solicitud."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Envoyez-leur votre invitation. Ils l'ajoutent pour vous envoyer une demande."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invia loro il tuo invito. Lo aggiungono per inviarti una richiesta."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "招待を送ってください。相手がそれを追加すると、あなたにリクエストが届きます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "초대를 보내세요. 상대가 초대를 추가하면 나에게 요청이 와요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "把你的邀请发给对方。对方添加后会向你发送请求。"
           }
         }
       }
@@ -15248,6 +15352,110 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Shift Tab"
+          }
+        }
+      }
+    },
+    "Show my invite" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meine Einladung zeigen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Εμφάνιση της πρόσκλησής μου"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar mi invitación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher mon invitation"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra il mio invito"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "招待を表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 초대 보기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示我的邀请"
+          }
+        }
+      }
+    },
+    "Show them your invite, or share it. They add it to send you a request." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeig ihnen deine Einladung oder teile sie. Wenn sie sie hinzufügen, bekommst du eine Anfrage."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δείξτε τους την πρόσκλησή σας ή μοιραστείτε την. Την προσθέτουν για να σας στείλουν αίτημα."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muéstrales tu invitación o compártela. La añaden para enviarte una solicitud."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Montrez-leur votre invitation ou partagez-la. Ils l'ajoutent pour vous envoyer une demande."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra loro il tuo invito o condividilo. Lo aggiungono per inviarti una richiesta."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "招待を見せるか共有してください。相手がそれを追加すると、あなたにリクエストが届きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "초대를 보여 주거나 공유하세요. 상대가 초대를 추가하면 나에게 요청이 와요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向对方展示或分享你的邀请。对方添加后会向你发送请求。"
           }
         }
       }
@@ -17540,6 +17748,58 @@
         }
       }
     },
+    "This code is not a Kodosi invite." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Code ist keine Kodosi-Einladung."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτός ο κωδικός δεν είναι πρόσκληση του Kodosi."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este código no es una invitación de Kodosi."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce code n'est pas une invitation Kodosi."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo codice non è un invito Kodosi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このコードは Kodosi の招待ではありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 코드는 Kodosi 초대가 아니에요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此二维码不是 Kodosi 邀请。"
+          }
+        }
+      }
+    },
     "This copy of Kodosi has no license files." : {
       "localizations" : {
         "de" : {
@@ -18368,6 +18628,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请在“设置”中打开 Kodosi 的通知"
+          }
+        }
+      }
+    },
+    "Turn on the camera for Kodosi in Settings" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schalte die Kamera für Kodosi in den Einstellungen ein"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ενεργοποιήστε την κάμερα για το Kodosi στις Ρυθμίσεις"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa la cámara para Kodosi en Ajustes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activez l'appareil photo pour Kodosi dans Réglages"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva la fotocamera per Kodosi in Impostazioni"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定で Kodosi のカメラをオンにしてください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정에서 Kodosi의 카메라를 켜세요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在“设置”中为 Kodosi 打开相机"
           }
         }
       }
@@ -20036,6 +20348,58 @@
         }
       }
     },
+    "Your friend scans this code with their camera to add you." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Freund scannt diesen Code mit der Kamera, um dich hinzuzufügen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ο φίλος σας σαρώνει αυτόν τον κωδικό με την κάμερά του για να σας προσθέσει."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu amigo escanea este código con su cámara para añadirte."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre ami scanne ce code avec son appareil photo pour vous ajouter."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo amico scansiona questo codice con la fotocamera per aggiungerti."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フレンドがこのコードをカメラでスキャンすると、あなたを追加できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "친구가 카메라로 이 코드를 스캔하면 나를 추가할 수 있어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好友用相机扫描此二维码即可添加你。"
+          }
+        }
+      }
+    },
     "Your friends in the project get full control, including friends who join later." : {
       "localizations" : {
         "de" : {
@@ -20084,6 +20448,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "项目里你的好友（包括之后加入的好友）都能完全控制。"
+          }
+        }
+      }
+    },
+    "Your invite" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Einladung"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η πρόσκλησή σας"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu invitación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre invitation"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo invito"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自分の招待"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내 초대"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的邀请"
           }
         }
       }
