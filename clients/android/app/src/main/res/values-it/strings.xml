@@ -160,6 +160,8 @@
     <string name="invite_code_description">Codice QR del tuo invito</string>
     <string name="not_an_invite">Questo codice non è un invito Kodosi.</string>
     <string name="scanner_unavailable">Lo scanner di codici non è disponibile. Incolla invece il suo invito.</string>
+    <string name="point_at_invite">Inquadra il codice del suo invito con la fotocamera.</string>
+    <string name="camera_off">Attiva la fotocamera per Kodosi in Impostazioni</string>
     <string name="share">Condividi</string>
     <string name="verify_identity">Verifica identità</string>
     <string name="verified">Verificato</string>

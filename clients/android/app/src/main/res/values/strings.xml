@@ -168,6 +168,8 @@
     <string name="invite_code_description">QR code of your invite</string>
     <string name="not_an_invite">This code is not a Kodosi invite.</string>
     <string name="scanner_unavailable">The code scanner is not available. Paste their invite instead.</string>
+    <string name="point_at_invite">Point the camera at the code of their invite.</string>
+    <string name="camera_off">Turn on the camera for Kodosi in Settings</string>
     <string name="share">Share</string>
     <string name="verify_identity">Verify identity</string>
     <string name="verified">Verified</string>

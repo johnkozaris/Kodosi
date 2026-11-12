@@ -160,6 +160,8 @@
     <string name="invite_code_description">你的邀请二维码</string>
     <string name="not_an_invite">此二维码不是 Kodosi 邀请。</string>
     <string name="scanner_unavailable">二维码扫描器不可用。请改为粘贴对方的邀请。</string>
+    <string name="point_at_invite">将相机对准对方的邀请二维码。</string>
+    <string name="camera_off">请在“设置”中为 Kodosi 打开相机</string>
     <string name="share">分享</string>
     <string name="verify_identity">验证身份</string>
     <string name="verified">已验证</string>

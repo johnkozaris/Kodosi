@@ -260,12 +260,6 @@ abstract class CollectJvmNotices @Inject constructor(private val files: FileSyst
                 } ->
                     "Android Software Development Kit License; see Google-Android-SDK.txt."
 
-                licenses.any {
-                    it.text("name") == "ML Kit Terms of Service" &&
-                        it.text("url") == "https://developers.google.com/ml-kit/terms"
-                } ->
-                    "ML Kit Terms of Service; see ML-Kit-Terms.txt."
-
                 else -> error("Package the declared license of ${pom.name} before adding this dependency.")
             }
             buildString {
@@ -424,7 +418,10 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
-    implementation(libs.play.services.code.scanner)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.compose)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.zxing.core)
     implementation(libs.androidx.work.runtime)
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)

@@ -160,6 +160,8 @@
     <string name="invite_code_description">自分の招待の QR コード</string>
     <string name="not_an_invite">このコードは Kodosi の招待ではありません。</string>
     <string name="scanner_unavailable">コードスキャナーを使えません。代わりに相手の招待を貼り付けてください。</string>
+    <string name="point_at_invite">相手の招待のコードにカメラを向けてください。</string>
+    <string name="camera_off">設定で Kodosi のカメラをオンにしてください</string>
     <string name="share">共有</string>
     <string name="verify_identity">本人確認</string>
     <string name="verified">確認済み</string>

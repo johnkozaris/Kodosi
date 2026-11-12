@@ -160,6 +160,8 @@
     <string name="invite_code_description">Κωδικός QR της πρόσκλησής σας</string>
     <string name="not_an_invite">Αυτός ο κωδικός δεν είναι πρόσκληση του Kodosi.</string>
     <string name="scanner_unavailable">Ο σαρωτής κωδικών δεν είναι διαθέσιμος. Επικολλήστε την πρόσκλησή τους.</string>
+    <string name="point_at_invite">Στρέψτε την κάμερα στον κωδικό της πρόσκλησης.</string>
+    <string name="camera_off">Ενεργοποιήστε την κάμερα για το Kodosi στις Ρυθμίσεις</string>
     <string name="share">Κοινή χρήση</string>
     <string name="verify_identity">Επαλήθευση ταυτότητας</string>
     <string name="verified">Επαληθεύτηκε</string>

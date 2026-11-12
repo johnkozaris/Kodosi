@@ -1,11 +1,9 @@
 package com.kodosi.mobile.people
 
-import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,9 +48,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.RuntimeSession
@@ -64,7 +59,6 @@ import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.EmptyState
-import com.kodosi.mobile.ui.ErrorNote
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiCard
 import com.kodosi.mobile.ui.KodosiDialog
@@ -85,7 +79,6 @@ import com.kodosi.mobile.ui.raised
 import kotlin.math.floor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 @Composable
 fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
@@ -201,50 +194,28 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
 
 @Composable
 private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
-    val activity = LocalActivity.current
+    val context = LocalContext.current
+    val camera = remember(context) { canScanInvites(context) }
     var text by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf<String?>(null) }
     var scanning by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val other = stringResource(R.string.not_an_invite)
-    val unavailable = stringResource(R.string.scanner_unavailable)
     KodosiDialog(
         onDismissRequest = dismiss,
         title = { Text(stringResource(R.string.add_friend)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                KodosiField(text, {
-                    text = it
-                    note = null
-                }, label = stringResource(R.string.username_invite), modifier = Modifier.fillMaxWidth())
-                KodosiTextButton(enabled = activity != null && !scanning, onClick = {
-                    val host = activity ?: return@KodosiTextButton
-                    note = null
-                    scanning = true
-                    scope.launch {
-                        try {
-                            val scanned = scanCode(host)
-                            val invite = PeopleStore.invite(scanned.orEmpty())
-                            if (invite == null) {
-                                note = other
-                            } else {
-                                text = invite
-                                add(invite)
-                            }
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (failure: Exception) {
-                            note = unavailable
-                        } finally {
-                            scanning = false
-                        }
+                KodosiField(
+                    text,
+                    { text = it },
+                    label = stringResource(R.string.username_invite),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (camera) {
+                    KodosiTextButton(onClick = { scanning = true }) {
+                        AppIcon(AppSymbol.QR_CODE, tint = KodosiTheme.colors.accent)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.scan_invite))
                     }
-                }) {
-                    AppIcon(AppSymbol.QR_CODE, tint = KodosiTheme.colors.accent)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.scan_invite))
                 }
-                note?.let { ErrorNote(it) }
             }
         },
         confirmButton = {
@@ -252,14 +223,14 @@ private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
         },
         dismissButton = { KodosiTextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } }
     )
+    if (scanning) {
+        InviteScanDialog(found = { invite ->
+            scanning = false
+            text = invite
+            add(invite)
+        }, dismiss = { scanning = false })
+    }
 }
-
-/** Google Play services shows the camera and returns only the code, so Kodosi needs no camera
- *  permission. */
-private suspend fun scanCode(activity: Activity): String? = GmsBarcodeScanning.getClient(
-    activity,
-    GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-).startScan().await().rawValue
 
 @Composable
 private fun InviteDialog(model: AppModel, dismiss: () -> Unit) {

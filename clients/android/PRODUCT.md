@@ -42,9 +42,9 @@ reading provider conversations stay on the computer. The app needs Android 15 or
   screen the conversation stays beside the tasks, repositories or terminals. Friends,
   reached from Settings, holds requests, friends, trust checks and blocks. Its requests
   count on Settings.
-- Friends shows your invite as a code and scans a friend's code with the scanner of
-  Google Play services, without camera permission. A scanned or opened invite asks the
-  trust question before it sends the request.
+- Friends shows your invite as a code and scans a friend's code with the camera. The
+  code is read on the phone, without Google Play services. A scanned or opened invite
+  asks the trust question before it sends the request.
 - Dosi has its shared conversation, questions and the computer that answers. Choose
   a computer that is online or the one that answered last. A message for a computer
   that is away waits for it; stop a turn, take back a queued message or start a new chat.

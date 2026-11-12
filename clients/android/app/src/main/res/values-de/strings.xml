@@ -160,6 +160,8 @@
     <string name="invite_code_description">QR-Code deiner Einladung</string>
     <string name="not_an_invite">Dieser Code ist keine Kodosi-Einladung.</string>
     <string name="scanner_unavailable">Der Code-Scanner ist nicht verfügbar. Füge stattdessen die Einladung ein.</string>
+    <string name="point_at_invite">Richte die Kamera auf den Code der Einladung.</string>
+    <string name="camera_off">Schalte die Kamera für Kodosi in den Einstellungen ein</string>
     <string name="share">Teilen</string>
     <string name="verify_identity">Identität prüfen</string>
     <string name="verified">Verifiziert</string>
