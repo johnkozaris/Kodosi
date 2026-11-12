@@ -3446,6 +3446,17 @@ impl Runtime {
                 }
             }
             #[cfg(feature = "host")]
+            SessionChange::LineEnded { id } => {
+                let copilot = Some(crate::agents::Agent::Copilot.name());
+                if self
+                    .local
+                    .get(&id)
+                    .is_some_and(|local| local.entry.program.as_deref() != copilot)
+                {
+                    self.launcher.release_quiet(id);
+                }
+            }
+            #[cfg(feature = "host")]
             SessionChange::Title { id, title } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.title = Some(title);
