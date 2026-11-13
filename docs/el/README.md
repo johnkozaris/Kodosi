@@ -2,25 +2,28 @@
   <a href="https://kodosi.com"><img src="../media/banner.webp" width="800" alt="Το λογότυπο του Kodosi πάνω από τις λέξεις «terminals, agents and friends. together.» και έναν κέρσορα τερματικού."></a>
 </p>
 
+<h3 align="center">Μια εφαρμογή τερματικού για εσάς, τους coding agents σας και τους φίλους σας.</h3>
+
 <p align="center">
-  <a href="../../README.md">English</a> · <a href="../de/README.md">Deutsch</a> · <b>Ελληνικά</b> · <a href="../es/README.md">Español</a> · <a href="../fr/README.md">Français</a> · <a href="../it/README.md">Italiano</a> · <a href="../ja/README.md">日本語</a> · <a href="../ko/README.md">한국어</a> · <a href="../zh-Hans/README.md">简体中文</a>
+  Δείτε ποιος agent σας χρειάζεται σε όλους τους υπολογιστές σας, δείτε τι φτιάχνει δίπλα στο τερματικό του<br>
+  και δουλέψτε στα ίδια τερματικά με τους φίλους σας. Με κρυπτογράφηση από άκρο σε άκρο και ανοιχτό κώδικα.
 </p>
 
 <p align="center">
-  <a href="../../LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Άδεια Apache 2.0"></a>
-  <a href="#λήψη-του-kodosi"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26 ή νεότερο σε Apple silicon"></a>
-  <a href="#λήψη-του-kodosi"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
-  <a href="#λήψη-του-kodosi"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="Windows 11 24H2 ή νεότερο σε x64"></a>
-  <a href="#λήψη-του-kodosi"><img src="https://img.shields.io/badge/Android-15%2B%20%C2%B7%20ARM64-c98566?style=flat-square&labelColor=2a211d" alt="Android 15 ή νεότερο σε ARM64"></a>
-  <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 ή νεότερο σε iPhone και iPad"></a>
+  <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Mac"></a>
+  <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Linux"></a>
+  <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Windows"></a>
+  <a href="https://updates.kodosi.com/download/android"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Android-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Android"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="Τελευταία έκδοση"></a>
+  <a href="../../LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Άδεια Apache 2.0"></a>
 </p>
 
-Το [Kodosi](https://kodosi.com) είναι μια εφαρμογή τερματικού για coding agents σε Mac, Linux
-και Windows. Κρατά τα τερματικά όλων των υπολογιστών σας σε ένα παράθυρο, δείχνει ποιος agent
-σας χρειάζεται και αφήνει τους φίλους σας να δουλεύουν στα ίδια τερματικά. Κάθε τερματικό
-έχει ένα canvas δίπλα του, όπου ο agent δείχνει τα σχέδια, τις σελίδες και τα έγγραφά του και
-τα επεξεργάζεστε μαζί. Τα τερματικά και τα έργα είναι κρυπτογραφημένα από άκρο σε άκρο.
+<p align="center">
+  <sub><a href="../../README.md">English</a> · <a href="../de/README.md">Deutsch</a> · <b>Ελληνικά</b> · <a href="../es/README.md">Español</a> · <a href="../fr/README.md">Français</a> · <a href="../it/README.md">Italiano</a> · <a href="../ja/README.md">日本語</a> · <a href="../ko/README.md">한국어</a> · <a href="../zh-Hans/README.md">简体中文</a></sub>
+</p>
 
 <p align="center">
   <picture>
@@ -31,20 +34,18 @@
 
 ## Τι κάνει το Kodosi
 
-**Κάθε τερματικό σε ένα παράθυρο.** Τα τερματικά του Mac σας, του υπολογιστή σας με Linux
-ή Windows και των υπολογιστών των φίλων σας βρίσκονται σε μία πλαϊνή στήλη. Το καθένα είναι
-ένα πραγματικό shell στον δικό του υπολογιστή, και ξεκινάτε νέο σε οποιονδήποτε από τους
-υπολογιστές σας από το ίδιο παράθυρο.
+### Δείτε ποιος agent σας χρειάζεται
 
-**Δείτε ποιος agent σας χρειάζεται.** Τρέξτε Claude Code, Codex, Copilot CLI ή οποιονδήποτε
-άλλον agent τερματικού. Κάθε τερματικό δείχνει πότε ο agent του δουλεύει, περιμένει την
-έγκρισή σας, έχει τελειώσει ή απέτυχε, και μια ειδοποίηση σας ενημερώνει όσο το Kodosi είναι
-στο παρασκήνιο.
+Το Claude Code, το Codex και άλλοι coding agents σταματούν και σας περιμένουν. Το Kodosi
+κρατά τα τερματικά όλων των υπολογιστών σας σε ένα παράθυρο, και το καθένα δείχνει αν ο agent
+του δουλεύει, περιμένει την απάντησή σας, έχει τελειώσει ή απέτυχε. Μια ειδοποίηση σας βρίσκει
+όταν λείπετε, και στο τηλέφωνό σας. Οι agents σας τρέχουν όπως είναι, με τις δικές τους
+ρυθμίσεις και τη δική τους σύνδεση.
 
-**Dosi, ο agent σας για τους agents σας.** Ρωτήστε το Dosi τι σας χρειάζεται. Διαβάζει όλα
-τα τερματικά και τα έργα σας, σας λέει και ενεργεί για εσάς: πληκτρολογεί την απάντηση σε
-ένα τερματικό, ξεκινά agents και κλείνει ό,τι έχει τελειώσει. Η συζήτησή σας με το Dosi σας
-ακολουθεί σε κάθε υπολογιστή.
+### Ρωτήστε τι σας χρειάζεται
+
+Το Dosi, ένας agent για τους agents σας, διαβάζει τα τερματικά σας, σας λέει τι σας περιμένει
+και, όταν το επιλέξετε, απαντά για εσάς στο τερματικό.
 
 <p align="center">
   <picture>
@@ -53,14 +54,10 @@
   </picture>
 </p>
 
-**Μοιραστείτε ένα ζωντανό τερματικό.** Δώστε σε έναν φίλο πλήρη έλεγχο ενός τερματικού που
-τρέχει και του agent του.
+### Δείτε τι φτιάχνει ο agent σας
 
-**Ένα canvas δίπλα σε κάθε τερματικό.** Ένας agent σας δείχνει μια σελίδα, ένα σχέδιο ή μια
-εικόνα δίπλα στο τερματικό του. Τα έγγραφα, τα φύλλα, οι παρουσιάσεις, τα PDF και τα αρχεία
-κειμένου είναι ζωντανά: εσείς, οι φίλοι σας και ο agent επεξεργάζεστε το ίδιο πραγματικό
-αρχείο ταυτόχρονα. Ο agent χρησιμοποιεί επίσης έναν browser που μοιράζεστε μαζί του: βλέπετε
-ό,τι κάνει σε ζωντανό βίντεο και κάνετε κλικ και πληκτρολογείτε στις ίδιες σελίδες.
+Τα σχέδια, οι σελίδες και τα έγγραφά του ανοίγουν σε ένα canvas δίπλα στο τερματικό, και
+επεξεργάζεστε τα έγγραφα μαζί με τους φίλους σας και τον agent.
 
 <p align="center">
   <picture>
@@ -69,47 +66,29 @@
   </picture>
 </p>
 
-**Έργα για ανθρώπους και agents.** Ένα έργο συγκεντρώνει τερματικά από οποιονδήποτε φάκελο
-και υπολογιστή, μαζί με μια συζήτηση και εργασίες. Οι agents διαβάζουν και γράφουν στη
-συζήτηση και αναλαμβάνουν εργασίες, και τα issues του GitHub ή του Gitea γίνονται εργασίες.
-Προσκαλέστε φίλους όποτε θέλετε.
+### Δουλέψτε το μαζί
+
+Δώστε σε έναν φίλο ένα τερματικό που τρέχει, ή συγκεντρώστε τερματικά, μια συζήτηση και
+εργασίες σε ένα έργο για ανθρώπους και τους agents τους.
 
 <p align="center"><img src="../media/project.webp" width="900" alt="Ένα έργο με ένα κοινόχρηστο τερματικό και μια συζήτηση ανθρώπων και agents."></p>
 
-**Ένα branch για κάθε agent.** Ξεκινήστε έναν agent σε νέο branch, στο δικό του Git
-worktree, ώστε δύο agents να μην αλλάζουν ποτέ τα ίδια αρχεία.
+### Ιδιωτικό και ανοιχτό
 
-**Στο iPhone και στο iPad σας.** Παρακολουθήστε, απαντήστε και ελέγξτε τα τερματικά και τα
-έργα σας όταν είστε μακριά από τον υπολογιστή σας.
-
-**Κρυπτογράφηση από άκρο σε άκρο, ανθεκτική στους κβαντικούς υπολογιστές.** Τα κλειδιά σας
-μένουν στις συσκευές σας. Οι συσκευές σας κρυπτογραφούν τερματικά και έργα από άκρο σε
-άκρο με ML-KEM-768 μαζί με X25519, ώστε η υπηρεσία να μην μπορεί να τα διαβάσει.
-[Ασφάλεια](SECURITY.md)
+Τα τερματικά και τα έργα έχουν κρυπτογράφηση από άκρο σε άκρο, ανθεκτική στους κβαντικούς
+υπολογιστές, ώστε η υπηρεσία να μην μπορεί να τα διαβάσει. Το Kodosi είναι ανοιχτού κώδικα,
+και μπορείτε να τρέξετε την υπηρεσία μόνοι σας.
+[Ασφάλεια](SECURITY.md) · [Δικός σας διακομιστής](../SELF-HOSTING.md) (στα αγγλικά)
 
 ## Λήψη του Kodosi
 
-<p>
-  <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Mac"></a>
-  <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Linux"></a>
-  <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Windows"></a>
-  <a href="https://updates.kodosi.com/download/android"><img src="https://img.shields.io/badge/%CE%9B%CE%AE%CF%88%CE%B7-Android-c98566?style=for-the-badge&labelColor=2a211d" alt="Λήψη του Kodosi για Android"></a>
-</p>
-
-- **Mac** (Apple silicon, macOS 26 ή νεότερο): ανοίξτε την εικόνα δίσκου και μετακινήστε
-  το Kodosi στις Εφαρμογές, ή τρέξτε `brew install --cask johnkozaris/tap/kodosi`. Η
-  εφαρμογή ενημερώνεται μόνη της.
-- **Linux** (x86-64, Ubuntu 24.04 ή Debian 13 ή νεότερο): εγκαταστήστε το πακέτο Debian.
-  Προσθέτει το αποθετήριο apt του Kodosi, ώστε οι ενημερώσεις του συστήματος να ενημερώνουν
-  και το Kodosi. Η [έκδοση](https://github.com/johnkozaris/Kodosi/releases/latest) έχει
-  επίσης πακέτο για Arch και ένα φορητό αρχείο.
-- **Windows** (x64, Windows 11 24H2 ή νεότερο): πριν ανοίξετε τη λήψη για πρώτη φορά,
-  προσθέστε ως διαχειριστής το [πιστοποιητικό του Kodosi](https://updates.kodosi.com/windows/Kodosi.cer)
-  στο Τοπικός υπολογιστής › Αξιόπιστα άτομα. Η εφαρμογή ενημερώνεται μόνη της.
-- **Android** (ARM64, Android 15 ή νεότερο): κατεβάστε το APK στη συσκευή, ανοίξτε το και
-  επιτρέψτε την εγκατάσταση όταν το ζητήσει το Android. Μια νέα έκδοση εγκαθίσταται με τον
-  ίδιο τρόπο.
-- **iPhone και iPad:** κάντε build του Kodosi για το [iPhone ή το iPad](../../clients/ios/README.md) σας.
+| | Χρειάζεται | Εγκατάσταση |
+| --- | --- | --- |
+| **Mac** | Apple silicon, macOS 26 ή νεότερο | Ανοίξτε την εικόνα δίσκου και μετακινήστε το Kodosi στις Εφαρμογές, ή τρέξτε `brew install --cask johnkozaris/tap/kodosi`. Η εφαρμογή ενημερώνεται μόνη της. |
+| **Linux** | x86-64, Ubuntu 24.04 ή Debian 13 ή νεότερο | Εγκαταστήστε το πακέτο Debian. Προσθέτει το αποθετήριο apt του Kodosi, ώστε οι ενημερώσεις του συστήματος να ενημερώνουν και το Kodosi. Η [έκδοση](https://github.com/johnkozaris/Kodosi/releases/latest) έχει επίσης πακέτο για Arch και ένα φορητό αρχείο. |
+| **Windows** | x64, Windows 11 24H2 ή νεότερο | Πριν ανοίξετε τη λήψη για πρώτη φορά, προσθέστε ως διαχειριστής το [πιστοποιητικό του Kodosi](https://updates.kodosi.com/windows/Kodosi.cer) στο Τοπικός υπολογιστής › Αξιόπιστα άτομα. Η εφαρμογή ενημερώνεται μόνη της. |
+| **Android** | ARM64, Android 15 ή νεότερο | Κατεβάστε το APK στη συσκευή, ανοίξτε το και επιτρέψτε την εγκατάσταση όταν το ζητήσει το Android. Μια νέα έκδοση εγκαθίσταται με τον ίδιο τρόπο. |
+| **iPhone και iPad** | iOS 26 ή νεότερο | Κάντε build του Kodosi για το [iPhone ή το iPad](../../clients/ios/README.md) σας. |
 
 Μετά ακολουθήστε τα [Πρώτα βήματα](GETTING_STARTED.md).
 

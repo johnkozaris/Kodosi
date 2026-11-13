@@ -2,25 +2,28 @@
   <a href="https://kodosi.com"><img src="../media/banner.webp" width="800" alt="El logotipo de Kodosi sobre las palabras «terminals, agents and friends. together.» y un cursor de terminal."></a>
 </p>
 
+<h3 align="center">Una app de terminal para ti, tus agentes de programación y tus amigos.</h3>
+
 <p align="center">
-  <a href="../../README.md">English</a> · <a href="../de/README.md">Deutsch</a> · <a href="../el/README.md">Ελληνικά</a> · <b>Español</b> · <a href="../fr/README.md">Français</a> · <a href="../it/README.md">Italiano</a> · <a href="../ja/README.md">日本語</a> · <a href="../ko/README.md">한국어</a> · <a href="../zh-Hans/README.md">简体中文</a>
+  Mira qué agente te necesita en todos tus ordenadores, mira lo que crea junto a su terminal<br>
+  y trabaja en los mismos terminales con tus amigos. Cifrado de extremo a extremo y de código abierto.
 </p>
 
 <p align="center">
-  <a href="../../LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Licencia Apache 2.0"></a>
-  <a href="#descargar-kodosi"><img src="https://img.shields.io/badge/macOS-26%2B%20%C2%B7%20Apple%20silicon-c98566?style=flat-square&labelColor=2a211d" alt="macOS 26 o posterior en Apple silicon"></a>
-  <a href="#descargar-kodosi"><img src="https://img.shields.io/badge/Linux-x86--64-c98566?style=flat-square&labelColor=2a211d" alt="Linux x86-64"></a>
-  <a href="#descargar-kodosi"><img src="https://img.shields.io/badge/Windows-11%2024H2%2B%20%C2%B7%20x64-c98566?style=flat-square&labelColor=2a211d" alt="Windows 11 24H2 o posterior en x64"></a>
-  <a href="#descargar-kodosi"><img src="https://img.shields.io/badge/Android-15%2B%20%C2%B7%20ARM64-c98566?style=flat-square&labelColor=2a211d" alt="Android 15 o posterior en ARM64"></a>
-  <a href="../../clients/ios/README.md"><img src="https://img.shields.io/badge/iOS-26%2B%20%C2%B7%20iPhone%20and%20iPad-c98566?style=flat-square&labelColor=2a211d" alt="iOS 26 o posterior en iPhone y iPad"></a>
+  <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/Descargar-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Descargar Kodosi para Mac"></a>
+  <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/Descargar-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Descargar Kodosi para Linux"></a>
+  <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/Descargar-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Descargar Kodosi para Windows"></a>
+  <a href="https://updates.kodosi.com/download/android"><img src="https://img.shields.io/badge/Descargar-Android-c98566?style=for-the-badge&labelColor=2a211d" alt="Descargar Kodosi para Android"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/johnkozaris/Kodosi/releases/latest"><img src="https://img.shields.io/github/v/release/johnkozaris/Kodosi?style=flat-square&labelColor=2a211d&color=c98566&label=release" alt="Última versión"></a>
+  <a href="../../LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-c98566?style=flat-square&labelColor=2a211d" alt="Licencia Apache 2.0"></a>
 </p>
 
-[Kodosi](https://kodosi.com) es una app de terminal para agentes de programación en Mac,
-Linux y Windows. Reúne los terminales de todos tus ordenadores en una ventana, te muestra qué
-agente te necesita y deja que tus amigos trabajen en los mismos terminales. Cada terminal
-tiene un lienzo al lado, donde el agente muestra sus planes, páginas y documentos, y tú los
-editas con él. Los terminales y los proyectos están cifrados de extremo a extremo.
+<p align="center">
+  <sub><a href="../../README.md">English</a> · <a href="../de/README.md">Deutsch</a> · <a href="../el/README.md">Ελληνικά</a> · <b>Español</b> · <a href="../fr/README.md">Français</a> · <a href="../it/README.md">Italiano</a> · <a href="../ja/README.md">日本語</a> · <a href="../ko/README.md">한국어</a> · <a href="../zh-Hans/README.md">简体中文</a></sub>
+</p>
 
 <p align="center">
   <picture>
@@ -31,19 +34,18 @@ editas con él. Los terminales y los proyectos están cifrados de extremo a extr
 
 ## Qué hace Kodosi
 
-**Todos los terminales en una ventana.** Los terminales de tu Mac, de tu ordenador con Linux o
-Windows y de los ordenadores de tus amigos están en una sola barra lateral. Cada uno es una
-shell real en su propio ordenador, y desde la misma ventana inicias uno nuevo en cualquiera de
-tus ordenadores.
+### Mira qué agente te necesita
 
-**Sabe qué agente te necesita.** Usa Claude Code, Codex, Copilot CLI o cualquier otro agente
-de terminal. Cada terminal muestra cuándo su agente trabaja, espera tu aprobación, ha
-terminado o ha fallado, y una notificación te avisa mientras Kodosi está en segundo plano.
+Claude Code, Codex y otros agentes de programación se detienen y te esperan. Kodosi reúne los
+terminales de todos tus ordenadores en una ventana, y cada uno muestra si su agente trabaja,
+espera tu respuesta, ha terminado o ha fallado. Una notificación te avisa cuando no estás
+delante, también en tu teléfono. Tus agentes se ejecutan tal cual, con sus propios ajustes e
+inicio de sesión.
 
-**Dosi, tu agente para tus agentes.** Pregúntale a Dosi qué te necesita. Lee todos tus
-terminales y proyectos, te lo cuenta y actúa por ti: escribe la respuesta en un terminal, inicia
-agentes y cierra lo que ya está hecho. Tu conversación con Dosi te sigue a cualquier
-ordenador.
+### Pregunta qué te necesita
+
+Dosi, un agente para tus agentes, lee tus terminales, te dice qué te está esperando y, cuando
+tú lo decides, responde por ti en el terminal.
 
 <p align="center">
   <picture>
@@ -52,14 +54,10 @@ ordenador.
   </picture>
 </p>
 
-**Comparte un terminal en directo.** Dale a un amigo el control total de un terminal en marcha
-y de su agente.
+### Mira lo que crea tu agente
 
-**Un lienzo junto a cada terminal.** Un agente te muestra una página, un plan o una imagen
-junto a su terminal. Los documentos, las hojas, las presentaciones, los PDF y los archivos
-de texto están en directo: tú, tus amigos y el agente editáis el mismo archivo real a la
-vez. El agente también usa un navegador que compartes con él: ves lo que hace como vídeo en
-directo, y haces clic y escribes en las mismas páginas.
+Sus planes, páginas y documentos se abren en un lienzo al lado del terminal, y tú editas los
+documentos junto con tus amigos y el agente.
 
 <p align="center">
   <picture>
@@ -68,45 +66,29 @@ directo, y haces clic y escribes en las mismas páginas.
   </picture>
 </p>
 
-**Proyectos para personas y agentes.** Un proyecto reúne terminales de cualquier carpeta y
-ordenador, con una conversación y tareas. Los agentes leen y escriben en la conversación y se
-encargan de tareas, y las issues de GitHub o Gitea se convierten en tareas. Invita a amigos
-cuando quieras.
+### Trabaja en equipo
+
+Dale a un amigo un terminal en marcha, o reúne terminales, una conversación y tareas en un
+proyecto para personas y sus agentes.
 
 <p align="center"><img src="../media/project.webp" width="900" alt="Un proyecto con un terminal compartido y una conversación de personas y agentes."></p>
 
-**Una rama para cada agente.** Inicia un agente en una rama nueva, en su propio worktree de
-Git, para que dos agentes nunca cambien los mismos archivos.
+### Privado y abierto
 
-**En tu iPhone y tu iPad.** Sigue, responde y controla tus terminales y proyectos cuando no estás
-en tu ordenador.
-
-**Cifrado de extremo a extremo y poscuántico.** Tus claves se quedan en tus dispositivos. Tus
-dispositivos cifran los terminales y los proyectos de extremo a extremo con ML-KEM-768 junto con
-X25519, así que el servicio no puede leerlos. [Seguridad](SECURITY.md)
+Los terminales y los proyectos están cifrados de extremo a extremo con criptografía
+poscuántica, así que el servicio no puede leerlos. Kodosi es de código abierto y puedes
+ejecutar el servicio por tu cuenta.
+[Seguridad](SECURITY.md) · [Alojamiento propio](../SELF-HOSTING.md) (en inglés)
 
 ## Descargar Kodosi
 
-<p>
-  <a href="https://updates.kodosi.com/download/macos"><img src="https://img.shields.io/badge/Descargar-Mac-c98566?style=for-the-badge&labelColor=2a211d" alt="Descargar Kodosi para Mac"></a>
-  <a href="https://updates.kodosi.com/download/linux"><img src="https://img.shields.io/badge/Descargar-Linux-c98566?style=for-the-badge&labelColor=2a211d" alt="Descargar Kodosi para Linux"></a>
-  <a href="https://updates.kodosi.com/download/windows"><img src="https://img.shields.io/badge/Descargar-Windows-c98566?style=for-the-badge&labelColor=2a211d" alt="Descargar Kodosi para Windows"></a>
-  <a href="https://updates.kodosi.com/download/android"><img src="https://img.shields.io/badge/Descargar-Android-c98566?style=for-the-badge&labelColor=2a211d" alt="Descargar Kodosi para Android"></a>
-</p>
-
-- **Mac** (Apple silicon, macOS 26 o posterior): abre la imagen de disco y mueve Kodosi a
-  Aplicaciones, o ejecuta `brew install --cask johnkozaris/tap/kodosi`. La app se actualiza
-  sola.
-- **Linux** (x86-64, Ubuntu 24.04 o Debian 13 o posterior): instala el paquete Debian. Añade
-  el repositorio apt de Kodosi, así que las actualizaciones del sistema también actualizan
-  Kodosi. La [versión](https://github.com/johnkozaris/Kodosi/releases/latest) también tiene
-  un paquete para Arch y un archivo portable.
-- **Windows** (x64, Windows 11 24H2 o posterior): antes de abrir la descarga por primera vez,
-  añade como administrador el [certificado de Kodosi](https://updates.kodosi.com/windows/Kodosi.cer)
-  a Equipo local › Personas de confianza. La app se actualiza sola.
-- **Android** (ARM64, Android 15 o posterior): descarga el APK en el dispositivo, ábrelo y
-  permite la instalación cuando Android lo pida. Una versión nueva se instala igual.
-- **iPhone y iPad:** compila Kodosi para tu [iPhone o iPad](../../clients/ios/README.md).
+| | Requisitos | Instalación |
+| --- | --- | --- |
+| **Mac** | Apple silicon, macOS 26 o posterior | Abre la imagen de disco y mueve Kodosi a Aplicaciones, o ejecuta `brew install --cask johnkozaris/tap/kodosi`. La app se actualiza sola. |
+| **Linux** | x86-64, Ubuntu 24.04 o Debian 13 o posterior | Instala el paquete Debian. Añade el repositorio apt de Kodosi, así que las actualizaciones del sistema también actualizan Kodosi. La [versión](https://github.com/johnkozaris/Kodosi/releases/latest) también tiene un paquete para Arch y un archivo portable. |
+| **Windows** | x64, Windows 11 24H2 o posterior | Antes de abrir la descarga por primera vez, añade como administrador el [certificado de Kodosi](https://updates.kodosi.com/windows/Kodosi.cer) a Equipo local › Personas de confianza. La app se actualiza sola. |
+| **Android** | ARM64, Android 15 o posterior | Descarga el APK en el dispositivo, ábrelo y permite la instalación cuando Android lo pida. Una versión nueva se instala igual. |
+| **iPhone y iPad** | iOS 26 o posterior | Compila Kodosi para tu [iPhone o iPad](../../clients/ios/README.md). |
 
 Después sigue los [primeros pasos](GETTING_STARTED.md).
 
