@@ -28,6 +28,7 @@ pub const VERSION: u32 = 87;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
+pub(crate) const REPORT_NOTE_BYTES: usize = 1000;
 pub(crate) fn other_version() -> Text {
     text!("Update Kodosi on both computers.")
 }
@@ -212,6 +213,14 @@ pub enum Command {
     #[serde(rename = "friends.unblock")]
     UnblockFriend {
         username: String,
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "friends.report")]
+    ReportFriend {
+        username: String,
+        #[serde(default)]
+        note: String,
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -1786,6 +1795,7 @@ impl Command {
             Self::RemoveFriend { .. } => "friends.remove",
             Self::BlockFriend { .. } => "friends.block",
             Self::UnblockFriend { .. } => "friends.unblock",
+            Self::ReportFriend { .. } => "friends.report",
             Self::TrustFriend { .. } => "friends.identity.trust",
             Self::VerifyFriend { .. } => "friends.verify",
             Self::FriendInvite { .. } => "friends.invite",
@@ -1924,6 +1934,7 @@ impl Command {
             | Self::RemoveFriend { request_id, .. }
             | Self::BlockFriend { request_id, .. }
             | Self::UnblockFriend { request_id, .. }
+            | Self::ReportFriend { request_id, .. }
             | Self::TrustFriend { request_id, .. }
             | Self::VerifyFriend { request_id, .. }
             | Self::FriendInvite { request_id }
@@ -2469,6 +2480,7 @@ impl Command {
             | Self::RemoveFriend { username, .. }
             | Self::BlockFriend { username, .. }
             | Self::UnblockFriend { username, .. }
+            | Self::ReportFriend { username, .. }
             | Self::TrustFriend { username, .. }
             | Self::VerifyFriend { username, .. } => {
                 let username = username.trim();
@@ -2487,6 +2499,11 @@ impl Command {
                     return Err(Error::Invalid(
                         "invite must be the invite text of a friend".to_owned(),
                     ));
+                }
+                if let Self::ReportFriend { note, .. } = self
+                    && !note.is_empty()
+                {
+                    writing(note, "note", REPORT_NOTE_BYTES)?;
                 }
             }
             Self::CreateSession {
@@ -2885,6 +2902,7 @@ mod tests {
             json!({"type":"friends.request.send","username":"example","requestId":ID}),
             json!({"type":"friends.block","username":"example","requestId":ID}),
             json!({"type":"friends.unblock","username":"example","requestId":ID}),
+            json!({"type":"friends.report","username":"example","note":"Sent spam\nto all of us","requestId":ID}),
             json!({"type":"session.create","requestId":ID,"name":"Terminal"}),
             json!({"type":"session.create","requestId":ID,"name":"Resume","workingDir":DIRECTORY,"resume":{"provider":"claude","nativeConversationId":ID}}),
             json!({"type":"session.rename","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"name":"Renamed"}),
@@ -2973,7 +2991,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 73);
+        assert_eq!(kinds.len(), 74);
     }
 
     #[test]

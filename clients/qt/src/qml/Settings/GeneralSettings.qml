@@ -238,6 +238,37 @@ ColumnLayout {
             }
         }
     }
+    ListGroup {
+        Layout.fillWidth: true
+        visible: !root.inBrowser
+
+        Repeater {
+            model: [
+                { page: "privacy", title: qsTr("Privacy policy"), iconName: "lock", tint: "#5b82c9" },
+                { page: "terms", title: qsTr("Terms of use"), iconName: "document", tint: "#6b6560" },
+                { page: "support", title: qsTr("Support"), iconName: "question", tint: "#5fa57e" }
+            ]
+
+            delegate: ListRow {
+                id: link
+
+                required property var modelData
+
+                iconName: link.modelData.iconName
+                tint: link.modelData.tint
+                title: link.modelData.title
+
+                KIconButton {
+                    Accessible.id: objectName
+                    Accessible.name: link.modelData.title
+                    glyph: "arrow-right"
+                    objectName: "panel.settingsView." + link.modelData.page
+
+                    onClicked: Qt.openUrlExternally("https://kodosi.com/" + link.modelData.page)
+                }
+            }
+        }
+    }
     SignOutDialog {
         id: signOutConfirmation
     }

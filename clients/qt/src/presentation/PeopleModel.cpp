@@ -6,6 +6,10 @@
 #include <QJsonObject>
 
 namespace kodosi {
+namespace {
+constexpr qsizetype mostNoteBytes = 1000;
+}
+
 PeopleModel::PeopleModel(Workspace& workspace)
     : m_workspace(workspace)
 {
@@ -53,6 +57,27 @@ void PeopleModel::unblock(const QString& username)
         QStringLiteral("friends.unblock"), { { QStringLiteral("username"), username } });
 }
 
+void PeopleModel::report(const QString& username, const QString& note)
+{
+    if (reporting())
+        return;
+    m_reportRequest = m_workspace.sendRequest(QStringLiteral("friends.report"),
+        { { QStringLiteral("username"), username }, { QStringLiteral("note"), note.trimmed() } });
+    if (reporting())
+        emit reportingChanged();
+}
+
+QString PeopleModel::clippedNote(const QString& note) const
+{
+    const auto bytes = note.toUtf8();
+    if (bytes.size() <= mostNoteBytes)
+        return note;
+    auto end = mostNoteBytes;
+    while (end > 0 && (static_cast<uchar>(bytes.at(end)) & 0xC0) == 0x80)
+        --end;
+    return QString::fromUtf8(bytes.first(end));
+}
+
 void PeopleModel::trust(const QString& username)
 {
     m_workspace.sendUntracked(
@@ -81,6 +106,19 @@ void PeopleModel::receiveInvite(const QString& text)
     emit inviteCopied();
 }
 
+bool PeopleModel::answerReport(const QJsonObject& answer)
+{
+    if (!reporting() || answer.value(QStringLiteral("requestId")).toString() != m_reportRequest)
+        return false;
+    m_reportRequest.clear();
+    emit reportingChanged();
+    if (answer.value(QStringLiteral("type")).toString() == QStringLiteral("friends.error"))
+        emit reportFailed(answer.value(QStringLiteral("message")).toString());
+    else
+        emit reported();
+    return true;
+}
+
 QString PeopleModel::displayName(const QString& userId) const
 {
     for (const auto& value : m_friends) {
@@ -100,6 +138,8 @@ void PeopleModel::reset()
     m_outgoing.clear();
     m_blocked.clear();
     m_inviteRequested.invalidate();
+    m_reportRequest.clear();
     emit changed();
+    emit reportingChanged();
 }
 }

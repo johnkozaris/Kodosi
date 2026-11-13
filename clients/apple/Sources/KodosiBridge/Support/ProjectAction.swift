@@ -25,8 +25,8 @@ public enum ProjectAction {
     ) -> [String: JSONValue] {
         var action: [String: JSONValue] = [
             "type": .string("createTask"),
-            "title": .string(clip(title.trimmingCharacters(in: .whitespacesAndNewlines), bytes: 256)),
-            "description": .string(clip(description.trimmingCharacters(in: .whitespacesAndNewlines), bytes: 16384)),
+            "title": .string(ProductInput.clip(title.trimmingCharacters(in: .whitespacesAndNewlines), bytes: 256)),
+            "description": .string(ProductInput.clip(description.trimmingCharacters(in: .whitespacesAndNewlines), bytes: 16384)),
             "repositoryIds": .array(repositoryIds.sorted().map(JSONValue.string)),
         ]
         if let issueRepositoryId {
@@ -65,18 +65,5 @@ public enum ProjectAction {
 
     public static func importIssue(repositoryId: String, number: UInt64) -> [String: JSONValue] {
         ["type": .string("importIssue"), "repositoryId": .string(repositoryId), "number": .uint(number)]
-    }
-
-    private static func clip(_ text: String, bytes: Int) -> String {
-        guard text.utf8.count > bytes else { return text }
-        var result = ""
-        var used = 0
-        for character in text {
-            let size = String(character).utf8.count
-            guard used + size <= bytes else { break }
-            result.append(character)
-            used += size
-        }
-        return result
     }
 }

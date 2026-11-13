@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
+import com.kodosi.mobile.runtime.clippedUtf8
 import com.kodosi.mobile.terminals.RuntimeSession
 import com.kodosi.mobile.terminals.TerminalCard
 import com.kodosi.mobile.ui.ActionIcon
@@ -59,6 +60,7 @@ import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.EmptyState
+import com.kodosi.mobile.ui.ErrorNote
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiCard
 import com.kodosi.mobile.ui.KodosiDialog
@@ -88,6 +90,8 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var showingInvite by remember { mutableStateOf(false) }
     var accepting by remember { mutableStateOf<Person?>(null) }
+    var blocking by remember { mutableStateOf<Person?>(null) }
+    var reporting by remember { mutableStateOf<Person?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(opened) {
         val invite = opened ?: return@LaunchedEffect
@@ -110,6 +114,12 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
                     ListLine(person.name, subtitle = "@${person.handle}", leading = {
                         PersonAvatar(person.name, person.userId, 40.dp)
                     }) {
+                        KodosiTextButton(onClick = { reporting = person }) {
+                            Text(stringResource(R.string.report), color = KodosiTheme.colors.danger)
+                        }
+                        KodosiTextButton(onClick = { blocking = person }) {
+                            Text(stringResource(R.string.block), color = KodosiTheme.colors.danger)
+                        }
                         KodosiTextButton(onClick = {
                             scope.launch {
                                 model.runAction { model.people.act("friends.request.reject", person.handle) }
@@ -171,6 +181,8 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
         }
     }
     if (showingInvite) InviteDialog(model) { showingInvite = false }
+    blocking?.let { BlockDialog(model, it, dismiss = { blocking = null }) }
+    reporting?.let { ReportDialog(model, it) { reporting = null } }
     accepting?.let { person ->
         ConfirmDialog(
             if (person.userId.isEmpty()) "@" + PeopleStore.handle(person.handle).removePrefix("@") else person.name,
@@ -231,6 +243,79 @@ private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
         }, dismiss = { scanning = false })
     }
 }
+
+@Composable
+private fun BlockDialog(model: AppModel, person: Person, dismiss: () -> Unit, blocked: () -> Unit = {}) {
+    val scope = rememberCoroutineScope()
+    ConfirmDialog(
+        stringResource(R.string.block),
+        stringResource(R.string.block_message),
+        stringResource(R.string.block),
+        dismiss,
+        {
+            scope.launch {
+                model.runAction {
+                    model.people.act("friends.block", person.handle)
+                    dismiss()
+                    blocked()
+                }
+            }
+        },
+        destructive = true
+    )
+}
+
+@Composable
+private fun ReportDialog(model: AppModel, person: Person, dismiss: () -> Unit) {
+    val received = stringResource(R.string.report_received)
+    var note by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    KodosiDialog(
+        onDismissRequest = { if (!sending) dismiss() },
+        title = { Text(stringResource(R.string.report_person, person.name)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.report_message))
+                KodosiField(
+                    note,
+                    { note = it.clippedUtf8(REPORT_NOTE_BYTES) },
+                    Modifier.fillMaxWidth(),
+                    label = stringResource(R.string.report_note),
+                    enabled = !sending,
+                    minLines = 3
+                )
+                failure?.let { ErrorNote(it) }
+                if (sending) ProgressCaption(stringResource(R.string.working))
+            }
+        },
+        confirmButton = {
+            KodosiButton(stringResource(R.string.report), {
+                failure = null
+                sending = true
+                scope.launch {
+                    try {
+                        model.people.report(person.handle, note)
+                        dismiss()
+                        model.notify(received)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        failure = error.localizedMessage ?: model.words.didNotWork
+                    } finally {
+                        sending = false
+                    }
+                }
+            }, kind = ButtonKind.DANGER, enabled = !sending)
+        },
+        dismissButton = {
+            KodosiTextButton(onClick = dismiss, enabled = !sending) { Text(stringResource(R.string.cancel)) }
+        }
+    )
+}
+
+private const val REPORT_NOTE_BYTES = 1000
 
 @Composable
 private fun InviteDialog(model: AppModel, dismiss: () -> Unit) {
@@ -398,6 +483,8 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
     val person = people.friends.firstOrNull { it.userId == id }
     var verifying by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<String?>(null) }
+    var blocking by remember { mutableStateOf<Person?>(null) }
+    var reporting by remember { mutableStateOf<Person?>(null) }
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
         PageHeader(person?.name ?: stringResource(R.string.friends), back)
@@ -423,11 +510,16 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
                     confirming = "friends.remove"
                 }) { Text(stringResource(R.string.remove_friend), color = KodosiTheme.colors.danger) }
                 KodosiTextButton(onClick = {
-                    confirming = "friends.block"
+                    blocking = person
                 }) { Text(stringResource(R.string.block), color = KodosiTheme.colors.danger) }
+                KodosiTextButton(onClick = {
+                    reporting = person
+                }) { Text(stringResource(R.string.report), color = KodosiTheme.colors.danger) }
             }
         }
     }
+    blocking?.let { BlockDialog(model, it, dismiss = { blocking = null }, blocked = back) }
+    reporting?.let { ReportDialog(model, it) { reporting = null } }
     if (verifying && person != null) {
         TextEntryDialog(
             stringResource(R.string.verify_identity),
@@ -438,25 +530,11 @@ fun FriendScreen(model: AppModel, id: String, back: () -> Unit, terminal: (Strin
     }
     if (person != null) {
         confirming?.let { operation ->
-            val title = when (operation) {
-                "friends.block" -> R.string.block
-                "friends.remove" -> R.string.remove_friend
-                else -> R.string.trust_identity
-            }
+            val title = if (operation == "friends.remove") R.string.remove_friend else R.string.trust_identity
             ConfirmDialog(
                 stringResource(title),
                 stringResource(
-                    if (operation ==
-                        "friends.block"
-                    ) {
-                        R.string.block_message
-                    } else if (operation ==
-                        "friends.remove"
-                    ) {
-                        R.string.remove_friend_message
-                    } else {
-                        R.string.friend_trust_message
-                    }
+                    if (operation == "friends.remove") R.string.remove_friend_message else R.string.friend_trust_message
                 ),
                 stringResource(title),
                 { confirming = null },

@@ -40,6 +40,7 @@ private struct FriendDetailList: View {
     @Environment(\.openRoute) private var openRoute
     @State private var confirmingRemoval = false
     @State private var blocking = false
+    @State private var reporting = false
     let friend: FriendEntry
 
     private var people: PeopleStore {
@@ -120,6 +121,12 @@ private struct FriendDetailList: View {
                     .buttonStyle(ListRowButtonStyle())
                     .disabled(people.isBusy(friend.handle))
                     .accessibilityIdentifier("people.detail.block")
+                    Button { reporting = true } label: {
+                        ListRow(String(localized: "Report"), symbol: "flag", tint: TileTint.red, titleColor: theme.colors.danger)
+                    }
+                    .buttonStyle(ListRowButtonStyle())
+                    .disabled(people.isBusy(friend.handle))
+                    .accessibilityIdentifier("people.detail.report")
                 }
                 .confirmationDialog(Text("Remove \(friend.personName)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
                     Button("Remove", role: .destructive) { people.remove(friend) }
@@ -128,6 +135,7 @@ private struct FriendDetailList: View {
                     Text("You stop sharing terminals with each other, and each of you leaves the projects that the other owns. Kodosi does not undo the commands that they already ran.")
                 }
                 .blockConfirmation(isPresented: $blocking, name: friend.personName) { people.block(handle: friend.handle) }
+                .reportSheet($reporting, handle: friend.handle, name: friend.personName, key: friend.userId)
             }
             .settingsPage()
         }

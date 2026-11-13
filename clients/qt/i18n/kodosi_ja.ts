@@ -1992,6 +1992,18 @@
         <translation>終了</translation>
     </message>
     <message>
+        <source>Privacy policy</source>
+        <translation>プライバシーポリシー</translation>
+    </message>
+    <message>
+        <source>Terms of use</source>
+        <translation>利用規約</translation>
+    </message>
+    <message>
+        <source>Support</source>
+        <translation>サポート</translation>
+    </message>
+    <message>
         <source>Delete your Kodosi account?</source>
         <translation>Kodosi アカウントを削除しますか？</translation>
     </message>
@@ -2320,6 +2332,10 @@
         <translation>招待をコピー</translation>
     </message>
     <message>
+        <source>Kodosi got your report.</source>
+        <translation>Kodosi に報告が届きました。</translation>
+    </message>
+    <message>
         <source>Wants to be your friend</source>
         <translation>フレンドリクエストが届いています</translation>
     </message>
@@ -2334,6 +2350,10 @@
     <message>
         <source>Block…</source>
         <translation>ブロック…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>報告…</translation>
     </message>
     <message>
         <source>Request sent to %1</source>
@@ -2418,6 +2438,26 @@
     <message>
         <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
         <translation>この人はあなたにフレンドリクエストを送れなくなります。フレンドの場合は、お互いにターミナルを共有しなくなり、それぞれ相手が所有するプロジェクトから退出します。</translation>
+    </message>
+    <message>
+        <source>Report %1</source>
+        <translation>%1 を報告</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>報告</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Kodosi には相手のユーザー名と、ここに書いた内容が届きます。</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>何があったか（任意）</translation>
     </message>
     <message>
         <source>Remove %1?</source>

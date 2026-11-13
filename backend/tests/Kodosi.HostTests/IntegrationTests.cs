@@ -7,6 +7,7 @@ using Kodosi.Admission;
 using Kodosi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using Xunit;
 using static Kodosi.HostTests.BackendApplication;
@@ -16,6 +17,35 @@ namespace Kodosi.HostTests;
 [Collection("PostgreSQL")]
 public sealed class IntegrationTests(PostgresFixture postgres)
 {
+    [Fact]
+    public async Task AReportReachesTheLogAsOneLineAndAnswersTheSameForEveryUserName()
+    {
+        var reports = new ReportLog();
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken),
+            services => services.AddSingleton<ILoggerProvider>(reports));
+        using var reporter = await app.EnrollAsync("reporter");
+        await CallAsync(reporter, HttpMethod.Post, "/api/friends/reports", new { username = "No-Such-Person", note = "spam\nReport from account forged" });
+        var line = Assert.Single(reports.Lines);
+        Assert.Contains("no-such-person", line, StringComparison.Ordinal);
+        Assert.Contains("spam Report from account forged", line, StringComparison.Ordinal);
+        Assert.DoesNotContain('\n', line);
+    }
+
+    private sealed class ReportLog : ILoggerProvider
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<string> Lines { get; } = new();
+        public ILogger CreateLogger(string categoryName) => new Writer(categoryName == "Kodosi.Reports" ? Lines : null);
+        public void Dispose() { }
+
+        private sealed class Writer(System.Collections.Concurrent.ConcurrentQueue<string>? lines) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => lines is not null;
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+                lines?.Enqueue(formatter(state, exception));
+        }
+    }
+
     [Fact]
     public async Task StartingFreshNeedsARecentSignInAndWaitsADay()
     {

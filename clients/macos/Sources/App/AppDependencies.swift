@@ -43,6 +43,7 @@ final class AppDependencies {
 
     var openedSignInPage: URL?
     var errorMessage: String?
+    var doneMessage: String?
     let updater = AppUpdater()
     var updateRequired = false
     var updateNoticeDismissed = false

@@ -44,13 +44,14 @@ reading provider conversations stay on the computer. The app needs Android 15 or
   count on Settings.
 - Friends shows your invite as a code and scans a friend's code with the camera. The
   code is read on the phone, without Google Play services. A scanned or opened invite
-  asks the trust question before it sends the request.
+  asks the trust question before it sends the request. Block a friend or a person who
+  asks to be one, or report them to Kodosi.
 - Dosi has its shared conversation, questions and the computer that answers. Choose
   a computer that is online or the one that answered last. A message for a computer
   that is away waits for it; stop a turn, take back a queued message or start a new chat.
 - Settings holds devices, the recovery key, appearance, terminal text size, whether the
-  screen stays on, document viewers, notifications, app lock, language, licenses,
-  sign-out and account deletion.
+  screen stays on, document viewers, notifications, app lock, language, licenses, links
+  to the privacy policy, terms of use and support, sign-out and account deletion.
 - Notifications name your terminal and computer from this device's cache, with generic
   words when they are unknown. Waiting has its own urgent channel. A tap opens the
   terminal after sign-in and app lock; opening it clears its notifications. Nothing

@@ -118,10 +118,11 @@ public struct FriendRequestCard: View {
     let decline: () -> Void
     let accept: () -> Void
     let block: (() -> Void)?
+    let report: (() -> Void)?
 
     public init(
         request: FriendRequestEntry, busy: Bool = false, identifier: String, decline: @escaping () -> Void, accept: @escaping () -> Void,
-        block: (() -> Void)? = nil,
+        block: (() -> Void)? = nil, report: (() -> Void)? = nil,
     ) {
         self.request = request
         self.busy = busy
@@ -129,6 +130,7 @@ public struct FriendRequestCard: View {
         self.decline = decline
         self.accept = accept
         self.block = block
+        self.report = report
     }
 
     public var body: some View {
@@ -141,7 +143,9 @@ public struct FriendRequestCard: View {
                 acceptKey(wide: true)
                 declineKey(wide: true)
                 blockKey(wide: true)
+                reportKey(wide: true)
             } else {
+                reportKey(wide: false)
                 blockKey(wide: false)
                 declineKey(wide: false)
                 acceptKey(wide: false)
@@ -182,6 +186,15 @@ public struct FriendRequestCard: View {
             Button(action: block) { Text("Block…", bundle: .module).frame(maxWidth: wide ? .infinity : nil) }
                 .buttonStyle(.kodosi(.ghost))
                 .accessibilityIdentifier("\(identifier).block")
+        }
+    }
+
+    @ViewBuilder
+    private func reportKey(wide: Bool) -> some View {
+        if let report {
+            Button(action: report) { Text("Report…", bundle: .module).frame(maxWidth: wide ? .infinity : nil) }
+                .buttonStyle(.kodosi(.ghost))
+                .accessibilityIdentifier("\(identifier).report")
         }
     }
 }

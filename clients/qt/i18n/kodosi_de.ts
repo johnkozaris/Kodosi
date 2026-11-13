@@ -1995,6 +1995,18 @@
         <translation>Beenden</translation>
     </message>
     <message>
+        <source>Privacy policy</source>
+        <translation>Datenschutzerklärung</translation>
+    </message>
+    <message>
+        <source>Terms of use</source>
+        <translation>Nutzungsbedingungen</translation>
+    </message>
+    <message>
+        <source>Support</source>
+        <translation>Support</translation>
+    </message>
+    <message>
         <source>Delete your Kodosi account?</source>
         <translation>Dein Kodosi-Konto löschen?</translation>
     </message>
@@ -2324,6 +2336,10 @@
         <translation>Meine Einladung kopieren</translation>
     </message>
     <message>
+        <source>Kodosi got your report.</source>
+        <translation>Kodosi hat deine Meldung erhalten.</translation>
+    </message>
+    <message>
         <source>Wants to be your friend</source>
         <translation>Möchte mit dir befreundet sein</translation>
     </message>
@@ -2338,6 +2354,10 @@
     <message>
         <source>Block…</source>
         <translation>Blockieren…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>Melden…</translation>
     </message>
     <message>
         <source>Request sent to %1</source>
@@ -2422,6 +2442,26 @@
     <message>
         <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
         <translation>Die Person kann dir keine Freundschaftsanfragen mehr senden. Wenn ihr befreundet seid, teilt ihr keine Terminals mehr miteinander, und jeder von euch verlässt die Projekte, die dem anderen gehören.</translation>
+    </message>
+    <message>
+        <source>Report %1</source>
+        <translation>%1 melden</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>Melden</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Kodosi erhält den Benutzernamen und das, was du hier schreibst.</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>Was ist passiert? (optional)</translation>
     </message>
     <message>
         <source>Remove %1?</source>

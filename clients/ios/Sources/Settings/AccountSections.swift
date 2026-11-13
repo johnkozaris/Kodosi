@@ -89,6 +89,7 @@ struct AboutSection: View {
             }
             .buttonStyle(ListRowButtonStyle())
             .accessibilityIdentifier("settings.about.licenses")
+            AboutLinks()
         }
     }
 }

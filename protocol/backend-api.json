@@ -111,6 +111,11 @@
     "effect": "the blocked account cannot send a friend request to the account that blocked it, and that account must unblock before it sends one",
     "list": "GET /api/friends/blocked gives userId, handle and displayName of each blocked account"
   },
+  "reporting": {
+    "report": "POST /api/friends/reports with username and an optional note gives 204; the server writes the reporter's account id, the user name and the note, with control characters as spaces, as one warning line of its log, and keeps nothing else",
+    "lookup": "the server does not look up the user name, so a report answers the same for every user name",
+    "limit": "a note has at most 1000 UTF-8 bytes; 10 reports for each account at once, then 1 each 6 minutes; a refusal is status 429"
+  },
   "nameChecks": {
     "count": "POST /api/friends/requests and PUT /api/friends/blocked/{username} with the user name of no account, or of an account that has no friendship or open friend request with the caller",
     "limit": "20 for each account at once, then 1 each 30 minutes; a refusal is status 429",
@@ -177,6 +182,7 @@
       "GET /api/friends/blocked",
       "PUT /api/friends/blocked/{username}",
       "DELETE /api/friends/blocked/{username}",
+      "POST /api/friends/reports",
       "GET /api/me/friend-list",
       "PUT /api/me/friend-list"
     ],

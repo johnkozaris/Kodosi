@@ -173,6 +173,11 @@
     <string name="block">ブロック</string>
     <string name="unblock">ブロックを解除</string>
     <string name="block_message">共有しているものにアクセスできなくなります。ブロックを解除するまで、相手は友達リクエストを送れません。</string>
+    <string name="report">報告</string>
+    <string name="report_person">%1$s を報告</string>
+    <string name="report_message">Kodosi には相手のユーザー名と、ここに書いた内容が届きます。</string>
+    <string name="report_note">何があったか（任意）</string>
+    <string name="report_received">Kodosi に報告が届きました。</string>
     <string name="account">アカウント</string>
     <string name="you">あなた</string>
     <string name="sign_out">サインアウト</string>
@@ -219,6 +224,9 @@
     <string name="about">情報</string>
     <string name="version">バージョン</string>
     <string name="licenses">オープンソースライセンス</string>
+    <string name="privacy_policy">プライバシーポリシー</string>
+    <string name="terms_of_use">利用規約</string>
+    <string name="support">サポート</string>
     <string name="delete_account">アカウントを削除…</string>
     <string name="delete_account_title">Kodosi アカウントを削除しますか？</string>
     <string name="delete_account_message">Kodosiはデバイス、友達、共有を削除します。所有するプロジェクトは全員に対して閉じられます。ほかのプロジェクトに書いた内容は残ります。コンピューターのターミナルは動作し続けます。この操作は取り消せません。</string>

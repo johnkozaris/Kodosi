@@ -1995,6 +1995,18 @@
         <translation>Έξοδος</translation>
     </message>
     <message>
+        <source>Privacy policy</source>
+        <translation>Πολιτική απορρήτου</translation>
+    </message>
+    <message>
+        <source>Terms of use</source>
+        <translation>Όροι χρήσης</translation>
+    </message>
+    <message>
+        <source>Support</source>
+        <translation>Υποστήριξη</translation>
+    </message>
+    <message>
         <source>Delete your Kodosi account?</source>
         <translation>Διαγραφή του λογαριασμού σας στο Kodosi;</translation>
     </message>
@@ -2324,6 +2336,10 @@
         <translation>Αντιγραφή της πρόσκλησής μου</translation>
     </message>
     <message>
+        <source>Kodosi got your report.</source>
+        <translation>Το Kodosi έλαβε την αναφορά σας.</translation>
+    </message>
+    <message>
         <source>Wants to be your friend</source>
         <translation>Θέλει να γίνετε φίλοι</translation>
     </message>
@@ -2338,6 +2354,10 @@
     <message>
         <source>Block…</source>
         <translation>Αποκλεισμός…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>Αναφορά…</translation>
     </message>
     <message>
         <source>Request sent to %1</source>
@@ -2422,6 +2442,26 @@
     <message>
         <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
         <translation>Το άτομο δεν μπορεί να σας στέλνει αιτήματα φιλίας. Αν είστε φίλοι, σταματάτε να μοιράζεστε τερματικά μεταξύ σας, και ο καθένας φεύγει από τα έργα του άλλου.</translation>
+    </message>
+    <message>
+        <source>Report %1</source>
+        <translation>Αναφορά: %1</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>Αναφορά</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Ακύρωση</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Το Kodosi λαμβάνει το όνομα χρήστη και ό,τι γράψετε εδώ.</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>Τι συνέβη (προαιρετικά)</translation>
     </message>
     <message>
         <source>Remove %1?</source>

@@ -1992,6 +1992,18 @@
         <translation>退出</translation>
     </message>
     <message>
+        <source>Privacy policy</source>
+        <translation>隐私政策</translation>
+    </message>
+    <message>
+        <source>Terms of use</source>
+        <translation>使用条款</translation>
+    </message>
+    <message>
+        <source>Support</source>
+        <translation>支持</translation>
+    </message>
+    <message>
         <source>Delete your Kodosi account?</source>
         <translation>删除你的 Kodosi 账号？</translation>
     </message>
@@ -2320,6 +2332,10 @@
         <translation>复制我的邀请</translation>
     </message>
     <message>
+        <source>Kodosi got your report.</source>
+        <translation>Kodosi 已收到你的举报。</translation>
+    </message>
+    <message>
         <source>Wants to be your friend</source>
         <translation>想加你为好友</translation>
     </message>
@@ -2334,6 +2350,10 @@
     <message>
         <source>Block…</source>
         <translation>屏蔽…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>举报…</translation>
     </message>
     <message>
         <source>Request sent to %1</source>
@@ -2418,6 +2438,26 @@
     <message>
         <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
         <translation>此人无法再向你发送好友请求。如果你们是好友，你们将不再互相共享终端，并且各自退出对方拥有的项目。</translation>
+    </message>
+    <message>
+        <source>Report %1</source>
+        <translation>举报 %1</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>举报</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Kodosi 会收到对方的用户名和你在这里写的内容。</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>发生了什么（可选）</translation>
     </message>
     <message>
         <source>Remove %1?</source>

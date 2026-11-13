@@ -426,6 +426,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     if (type == QStringLiteral("friends.result")) {
         if (event.value(QStringLiteral("operation")).toString() == QStringLiteral("friends.invite"))
             m_people.receiveInvite(event.value(QStringLiteral("text")).toString());
+        m_people.answerReport(event);
         return;
     }
     if (type == QStringLiteral("friends.snapshot")) {
@@ -530,6 +531,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         notifyBusy();
         return;
     }
+    if (type == QStringLiteral("friends.error") && m_people.answerReport(event))
+        return;
 
     auto quiet = false;
     const auto pendingIt = m_pending.constFind(id);

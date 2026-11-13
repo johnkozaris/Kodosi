@@ -135,17 +135,20 @@ struct NoticeBanner: View {
     var body: some View {
         ZStack {
             if let notice = notices.current {
-                NoticePill(message: notice.message, identifier: "notice") {
+                NoticePill(message: notice.message, identifier: "notice", sign: notice.done ? .status(.done) : .caution) {
                     notices.dismiss(notice)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .task(id: notice.id) {
+                    if notice.done {
+                        AccessibilityNotification.Announcement(notice.message).post()
+                    }
                     try? await Task.sleep(for: .seconds(6))
                     notices.dismiss(notice)
                 }
-                .sensoryFeedback(.warning, trigger: notice.id)
+                .sensoryFeedback(notice.done ? .success : .warning, trigger: notice.id)
             }
         }
         .animation(theme.motion.spring, value: notices.current)
