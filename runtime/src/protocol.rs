@@ -11,6 +11,14 @@ use crate::{
     text::Text,
 };
 
+fn is_bare_key(choice: &str) -> bool {
+    let mut characters = choice.trim().chars();
+    characters
+        .next()
+        .is_some_and(|character| character.is_ascii())
+        && characters.next().is_none()
+}
+
 fn validate_participants(users: &[String]) -> Result<()> {
     if users.len() > 64 {
         return Err(Error::Invalid("too many shared participants".into()));
@@ -2327,6 +2335,12 @@ impl Command {
                         "Give the keys of every choice, and the terminal they go to.".to_owned(),
                     ));
                 }
+                if terminal.is_some() && options.iter().any(|option| is_bare_key(option)) {
+                    return Err(Error::Invalid(
+                        "Give each choice the words that the person reads, = and what to type, as Allow=y."
+                            .to_owned(),
+                    ));
+                }
                 for typed in keys {
                     if typed.len() > MAX_OPTION_BYTES || typed.chars().any(char::is_control) {
                         return Err(Error::Invalid(format!(
@@ -3092,6 +3106,15 @@ mod tests {
         assert!(keyed(json!(["y"]), json!("Release notes")).is_err());
         assert!(keyed(json!(["y", "n"]), json!(null)).is_err());
         assert!(keyed(json!(["y", "\u{1b}"]), json!("Release notes")).is_err());
+        let shown = |options: Value| {
+            serde_json::from_value::<CommandEnvelope>(envelope(
+                json!({"type":"dosi.ask","requestId":ID,"token":ID,"question":"Allow the push?","options":options,"terminal":"checkout"}),
+            ))
+        };
+        assert!(shown(json!(["y", "n"])).is_err());
+        assert!(shown(json!(["Allow", "2"])).is_err());
+        assert!(shown(json!(["yes", "no"])).is_ok());
+        assert!(shown(json!(["是", "否"])).is_ok());
         let answer = |choices: Value| {
             serde_json::from_value::<CommandEnvelope>(envelope(
                 json!({"type":"dosi.answer","requestId":ID,"itemId":ID,"choices":choices}),

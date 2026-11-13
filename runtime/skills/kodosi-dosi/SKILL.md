@@ -66,11 +66,11 @@ context between terminals and projects.
   answer in their own words. End your turn after it; the answer comes as the next
   message. `--multiple` allows more than one choice.
 - For a program that waits for an answer, `--terminal <terminal>` types the chosen option
-  and Enter into that terminal. Give each option as words for the person, `=` and what
-  to type, as in `kodosi dosi ask "Overwrite the notes?" --terminal <terminal> --option
-  Yes=y --option No=n`. You hear of a typed answer in your next turn. An answer in the
-  person's own words types nothing and comes to you at once. Only Dosi in the Kodosi app
-  can ask this way; elsewhere, ask in your answer.
+  and Enter into that terminal. Give each option the words that the person reads, `=` and
+  what to type, as in `kodosi dosi ask "Overwrite the notes?" --terminal <terminal> --option
+  Yes=y --option No=n`; a key alone, such as y, is not a choice. You hear of a typed answer
+  in your next turn. An answer in the person's own words types nothing and comes to you at
+  once. Only Dosi in the Kodosi app can ask this way; elsewhere, ask in your answer.
 
 ## Wait
 
