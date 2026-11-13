@@ -31,8 +31,10 @@ struct SessionTileHeader: View {
             if projectEmbedded {
                 TerminalLocation(host: session.hostLabel, glyph: "folder", name: session.folderName)
                     .help(session.workingDir ?? session.hostLabel)
+                    .layoutPriority(1)
                 if session.activity != nil || session.progress != nil {
                     SessionActivityText(session: session).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        .help(session.activity ?? "")
                 }
             } else {
                 AgentMark(session: session, size: 20, activity: session.mark(rested: .awake))
@@ -53,7 +55,7 @@ struct SessionTileHeader: View {
                     TerminalLocation(host: session.hostLabel, glyph: "folder", name: nil).layoutPriority(1)
                 }
             }
-            Color.clear.frame(minWidth: 4, maxWidth: .infinity).titleBarGap()
+            Color.clear.frame(minWidth: 4, maxWidth: .infinity).titleBarGap().layoutPriority(-1)
             if deps.workbench.dosiOn, let (item, question) = deps.dosi.question(forTerminal: session) {
                 DosiKeys(sessionId: session.id, item: item, question: question).transition(AnyTransition.pop)
             }
