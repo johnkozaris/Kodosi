@@ -1,6 +1,66 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "NSCameraUsageDescription" : {
+      "comment" : "The reason that iOS shows when Kodosi asks to use the camera to scan an invite.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi nutzt die Kamera, um die Einladung eines Freundes zu scannen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Kodosi χρησιμοποιεί την κάμερα για να σαρώσει την πρόσκληση ενός φίλου."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi uses the camera to scan a friend's invite."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi usa la cámara para escanear la invitación de un amigo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi utilise l'appareil photo pour scanner l'invitation d'un ami."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi usa la fotocamera per scansionare l'invito di un amico."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi はフレンドの招待をスキャンするためにカメラを使います。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi는 친구의 초대를 스캔할 때 카메라를 사용해요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kodosi 使用相机扫描好友的邀请。"
+          }
+        }
+      }
+    },
     "NSFaceIDUsageDescription" : {
       "comment" : "The reason that iOS shows when Kodosi asks to use Face ID for its lock.",
       "extractionState" : "manual",

@@ -6965,6 +6965,19 @@
           "operation": {
             "type": "string"
           },
+          "qr": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },

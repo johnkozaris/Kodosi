@@ -21,6 +21,7 @@ struct PickerRow: Identifiable, Equatable {
     var detail: String?
     var icon = Icon.none
     var usage: UsageLimit?
+    var loadsUsage = false
     var current = false
 }
 
@@ -198,7 +199,7 @@ struct PickerList: View {
     private func item(_ row: PickerRow) -> some View {
         let lit = row.id == highlighted && row.kind != .note
         return HStack(spacing: 10) {
-            PickerIcon(icon: row.icon, usage: row.usage)
+            PickerIcon(icon: row.icon, usage: row.usage, loadsUsage: row.loadsUsage)
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: row.title)
                     .appTextStyle(.body).fontWeight(.medium)
@@ -271,6 +272,7 @@ struct PickerList: View {
 struct PickerIcon: View {
     let icon: PickerRow.Icon
     var usage: UsageLimit?
+    var loadsUsage = false
 
     var body: some View {
         switch icon {
@@ -279,7 +281,7 @@ struct PickerIcon: View {
         case .folder:
             IconTile(symbol: "folder.fill", tint: TileTint.teal, size: 26)
         case let .account(initial, key, signedIn, tint):
-            AccountMark(initial: initial, key: key, signedIn: signedIn, size: 26, usage: usage, tint: tint)
+            AccountMark(initial: initial, key: key, signedIn: signedIn, size: 26, usage: usage, loading: loadsUsage, tint: tint)
         case let .device(label):
             IconTile(symbol: DeviceGlyph.symbol(for: label), tint: TileTint.graphite, size: 26)
         case let .slot(symbol):
@@ -294,11 +296,13 @@ struct AccountMark: View {
     let signedIn: Bool
     var size: CGFloat = 26
     var usage: UsageLimit?
+    var loading = false
     var tint: Color?
 
     var body: some View {
         let ring = max(1.5, size * 0.075)
-        let face = usage == nil ? size : size - 2 * (ring + max(1.25, size * 0.06))
+        let ringed = usage != nil || loading
+        let face = ringed ? size - 2 * (ring + max(1.25, size * 0.06)) : size
         ZStack {
             if signedIn {
                 PersonAvatar(name: initial, key: key, size: face, color: tint)
@@ -310,8 +314,8 @@ struct AccountMark: View {
                     .frame(width: face, height: face)
                     .overlay { Circle().strokeBorder(tint, style: StrokeStyle(lineWidth: 1.2, dash: [2.6, 2.2])) }
             }
-            if let usage {
-                UsageRing(limit: usage, lineWidth: ring)
+            if ringed {
+                UsageRing(limit: usage, lineWidth: ring, loading: loading)
             }
         }
         .frame(width: size, height: size)

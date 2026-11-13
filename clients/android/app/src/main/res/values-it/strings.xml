@@ -154,6 +154,15 @@
     <string name="friends_empty_message">Condividi terminali e lavora insieme nei progetti.</string>
     <string name="your_invite">Il tuo invito</string>
     <string name="copy_invite">Copia invito</string>
+    <string name="show_invite">Mostra il mio invito</string>
+    <string name="scan_invite">Scansiona il suo invito</string>
+    <string name="invite_code_hint">Il tuo amico scansiona questo codice con la fotocamera per aggiungerti.</string>
+    <string name="invite_code_description">Codice QR del tuo invito</string>
+    <string name="not_an_invite">Questo codice non è un invito Kodosi.</string>
+    <string name="scanner_unavailable">Lo scanner di codici non è disponibile. Incolla invece il suo invito.</string>
+    <string name="point_at_invite">Inquadra il codice del suo invito con la fotocamera.</string>
+    <string name="camera_off">Attiva la fotocamera per Kodosi in Impostazioni</string>
+    <string name="share">Condividi</string>
     <string name="verify_identity">Verifica identità</string>
     <string name="verified">Verificato</string>
     <string name="identity_changed">La sua identità è cambiata</string>
@@ -250,6 +259,7 @@
     <string name="file_unavailable">Questo file non è disponibile.</string>
     <string name="uploading">Invio del file</string>
     <string name="loading">Caricamento</string>
+    <string name="reading_usage">Lettura dell\'utilizzo del piano</string>
     <string name="browser_address">Cerca o inserisci un indirizzo</string>
     <string name="new_browser_tab">Nuova scheda</string>
     <string name="browser_back">Indietro</string>
@@ -314,7 +324,7 @@
     </plurals>
     <string name="hide_keyboard">Nascondi tastiera</string>
     <string name="agent_permissions">Autorizzazioni</string>
-    <string name="agent_output">Output</string>
+    <string name="agent_output">Verbosità</string>
     <string name="agent_ask">Chiedi</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Accesso totale</string>

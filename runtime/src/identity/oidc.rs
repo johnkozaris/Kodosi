@@ -295,6 +295,7 @@ impl Oidc {
             .append_pair("state", &state)
             .append_pair("code_challenge", &challenge)
             .append_pair("code_challenge_method", "S256")
+            .append_pair("prompt", "login")
             .append_pair("ui_locales", sign_in_locale(language));
         Ok(BrowserLogin {
             page: page.into(),
@@ -545,6 +546,11 @@ mod tests {
         assert_eq!(query(&page, "response_type"), "code");
         assert_eq!(query(&page, "redirect_uri"), "http://127.0.0.1:9/callback");
         assert_eq!(query(&page, "code_challenge_method"), "S256");
+        assert_eq!(
+            query(&page, "prompt"),
+            "login",
+            "a sign-in after a sign-out asks for the account, though the browser is still signed in"
+        );
         let reply = answer(&format!(
             "http://127.0.0.1:9/callback?state={}&code=the-code&iss={address}",
             query(&page, "state")

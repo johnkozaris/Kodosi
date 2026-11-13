@@ -19,7 +19,7 @@ final class WorkbenchState {
         case sessions, projects, people, settings
     }
 
-    enum SettingsSection: String, CaseIterable { case terminal, providers, dosi, browser, documents, devices, general, shortcuts }
+    enum SettingsSection: String, CaseIterable { case terminal, agents, dosi, browser, documents, devices, general, shortcuts }
 
     static let maximumStagedSessions = 6
     static let sidebarWidths: ClosedRange<CGFloat> = 220 ... 380

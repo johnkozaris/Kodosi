@@ -59,7 +59,7 @@ Item {
             KIcon {
                 width: glyph.width
                 height: glyph.height
-                name: root.form === "done" ? "check" : root.form === "failed" ? "warning" : root.form
+                name: root.form === "done" ? "check" : root.form === "failed" ? "warning" : root.form === "hand" ? "wave" : root.form
                 color: root.tint
                 strokeWidth: 2.6
             }

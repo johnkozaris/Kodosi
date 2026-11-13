@@ -754,6 +754,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         agent: RunningAgent::default(),
         clear_line: "\x05\x15",
         start: None,
+        typed_line: None,
         output_at: None,
         prompt: false,
         viewers: HashMap::new(),
@@ -1132,15 +1133,18 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
     assert_eq!(text, "before\nnow");
 }
 
-#[tokio::test]
-async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
+async fn interactive_shell() -> (
+    TerminalSession,
+    mpsc::Receiver<SessionChange>,
+    tempfile::TempDir,
+) {
     let (program, arguments) = if Path::new("/bin/zsh").exists() {
         ("/bin/zsh", vec!["-f".to_owned(), "-i".to_owned()])
     } else {
         ("/bin/bash", vec!["--norc".to_owned(), "-i".to_owned()])
     };
     let root = tempfile::tempdir().expect("temp cwd");
-    let (changes, _changes) = mpsc::channel(128);
+    let (changes, receiver) = mpsc::channel(128);
     let session = TerminalSession::spawn(
         Uuid::now_v7(),
         Uuid::now_v7(),
@@ -1161,6 +1165,12 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
     )
     .await
     .expect("interactive shell");
+    (session, receiver, root)
+}
+
+#[tokio::test]
+async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
+    let (session, _changes, _root) = interactive_shell().await;
     let mut subscription = session.subscribe().await.expect("subscribe");
     session
         .start("echo $((6 * 7))-started".to_owned())
@@ -1168,6 +1178,35 @@ async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
     wait_text(&mut subscription, b"42-started").await;
     session.close().await.expect("close");
     drop(session);
+}
+
+async fn line_ends_within(changes: &mut mpsc::Receiver<SessionChange>, within: Duration) -> bool {
+    tokio::time::timeout(within, async {
+        loop {
+            match changes.recv().await {
+                Some(SessionChange::LineEnded { .. }) => break true,
+                Some(_) => {}
+                None => break false,
+            }
+        }
+    })
+    .await
+    .unwrap_or(false)
+}
+
+#[tokio::test]
+async fn a_typed_line_ends_when_its_shell_waits_again_even_after_a_program_too_short_to_see() {
+    let (session, mut changes, _root) = interactive_shell().await;
+    session.start("true".to_owned()).expect("start line");
+    assert!(line_ends_within(&mut changes, Duration::from_secs(10)).await);
+
+    session
+        .run("sleep 3".to_owned())
+        .await
+        .expect("run at the prompt");
+    assert!(!line_ends_within(&mut changes, Duration::from_secs(2)).await);
+    assert!(line_ends_within(&mut changes, Duration::from_secs(10)).await);
+    session.close().await.expect("close");
 }
 
 #[tokio::test]

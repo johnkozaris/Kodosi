@@ -7,16 +7,35 @@ import Kodosi.Models 1.0 as Models
 ColumnLayout {
     id: root
 
-    property string agent: "claude"
+    property string chosen: ""
+    readonly property var catalog: Models.Launcher.agents
+    readonly property var agents: catalog.length === 0 ? ["claude", "copilot"]
+        : catalog.filter(entry => entry.installed || entry.agent === "claude" || entry.agent === "copilot").map(entry => entry.agent)
+    readonly property string agent: {
+        if (agents.indexOf(chosen) >= 0)
+            return chosen
+        const installed = catalog.filter(entry => entry.installed).map(entry => entry.agent)
+        const current = Models.Launcher.choice.agent || ""
+        return installed.indexOf(current) >= 0 ? current : installed[0] || agents[0] || "claude"
+    }
+    readonly property var info: catalog.find(entry => entry.agent === agent) || null
+    readonly property bool provider: agent === "claude" || agent === "copilot"
     readonly property var installation: Models.ProviderFiles.installation
     readonly property var files: installation.files || []
 
     function inspect() {
-        Models.ProviderFiles.inspect(agent, Models.DesktopSettings.effectiveWorkingDirectory);
+        if (provider)
+            Models.ProviderFiles.inspect(agent, Models.DesktopSettings.effectiveWorkingDirectory);
     }
 
     spacing: 18
     onVisibleChanged: {
+        if (visible) {
+            Models.Launcher.refresh(false);
+            inspect();
+        }
+    }
+    onAgentChanged: {
         if (visible)
             inspect();
     }
@@ -25,13 +44,18 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 12
 
-        AgentMark { program: root.agent; size: 40 }
+        AgentMark {
+            program: root.agent
+            size: 40
+            asleep: root.info !== null && !root.info.installed
+        }
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 2
             PlainLabel { text: Models.DesktopSettings.agentLabel(root.agent); font.pixelSize: KodosiTheme.fontHeadline; font.weight: Font.DemiBold }
             ShimmerText {
                 Layout.fillWidth: true
+                visible: root.provider
                 text: Models.ProviderFiles.busy ? qsTr("Looking") : root.installation.executable || root.installation.message || qsTr("Kodosi opens these files. It does not change them.")
                 active: Models.ProviderFiles.busy
                 color: KodosiTheme.inkMuted
@@ -41,21 +65,20 @@ ColumnLayout {
         }
         SegmentedPill {
             compact: true
-            identifier: "panel.settingsView.provider"
-            options: [
-                { value: "claude", label: "Claude" },
-                { value: "copilot", label: "Copilot" }
-            ]
+            identifier: "settings.agents"
+            options: root.agents.map(entry => ({ value: entry, label: Models.DesktopSettings.agentLabel(entry) }))
             currentValue: root.agent
-            onActivated: value => {
-                root.agent = value;
-                root.inspect();
-            }
+            onActivated: value => root.chosen = value
         }
+    }
+    AgentDefaults {
+        Layout.fillWidth: true
+        visible: root.info !== null && root.info.installed === true
+        info: root.info
     }
     ListGroup {
         Layout.fillWidth: true
-        visible: root.files.length > 0
+        visible: root.provider && root.files.length > 0
 
         Repeater {
             model: root.files
@@ -88,7 +111,7 @@ ColumnLayout {
         color: KodosiTheme.danger
         font.pixelSize: KodosiTheme.fontFootnote
         text: Models.ProviderFiles.error
-        visible: Models.ProviderFiles.error.length > 0
+        visible: root.provider && Models.ProviderFiles.error.length > 0
         wrapMode: Text.WordWrap
     }
 }

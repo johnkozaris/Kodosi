@@ -120,7 +120,7 @@ const TERMINAL: &str =
     "The terminal: its name, its ID or the end of its ID that `kodosi terminal list` shows";
 const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where the agent's own safety check decides and asks for the rest; or unrestricted, which never asks. It starts with your last choice, else unrestricted, or ask for an agent without it";
 const LIVE_PERMISSIONS: &str = "How the agent asks before it acts: ask, auto or unrestricted, as far as the agent can change it while it runs";
-const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed, for Claude Code and Codex. It starts with your last choice, else quiet";
+const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed for Claude Code and Codex, and quiet or standard for Copilot CLI. It starts with your last choice, else quiet";
 
 #[derive(Clone, Copy, ValueEnum)]
 enum SkillTopic {

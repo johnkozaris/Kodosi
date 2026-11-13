@@ -84,6 +84,7 @@ void AgentLauncherModel::setComputer(const QString& computer)
     emit choiceChanged();
     emit foldersChanged();
     emit usageChanged();
+    emit loadingUsageChanged();
     if (!m_computer.isEmpty())
         refresh(true);
 }
@@ -300,8 +301,16 @@ QVariant AgentLauncherModel::usageNearest() const
 
 void AgentLauncherModel::refreshUsage()
 {
-    if (std::ranges::none_of(m_pending, [](const Pending& pending) { return pending.request == Request::Usage; }))
-        send(Request::Usage, {}, { { QStringLiteral("type"), QStringLiteral("provider.usage") } });
+    if (std::ranges::any_of(m_pending, [](const Pending& pending) { return pending.request == Request::Usage; }))
+        return;
+    send(Request::Usage, {}, { { QStringLiteral("type"), QStringLiteral("provider.usage") } });
+    if (!m_usageRead)
+        emit loadingUsageChanged();
+}
+
+bool AgentLauncherModel::loadingUsage() const
+{
+    return !m_usageRead && std::ranges::any_of(m_pending, [](const Pending& pending) { return pending.request == Request::Usage; });
 }
 
 void AgentLauncherModel::addAccount(const QString& agent, const QString& name)
@@ -449,11 +458,16 @@ void AgentLauncherModel::apply(const QJsonObject& event)
                 account.insert(QStringLiteral("headline"), headline == limits.end() ? limits.value(0) : *headline);
                 usage.insert(account.value(QStringLiteral("agent")).toString() + u'/' + account.value(QStringLiteral("account")).toString(), account);
             }
+            const bool loading = !m_usageRead;
             if (usage != m_usage || !m_usageRead) {
                 m_usage = std::move(usage);
                 m_usageRead = true;
                 emit usageChanged();
             }
+            if (loading)
+                emit loadingUsageChanged();
+        } else if (!m_usageRead) {
+            emit loadingUsageChanged();
         }
         break;
     }
@@ -464,12 +478,15 @@ void AgentLauncherModel::reset()
     if (m_remote)
         m_remote->reset();
     const bool adding = addingAccount();
+    const bool loading = loadingUsage();
     m_pending.clear();
     m_loading.clear();
     m_refreshesAgain = false;
     emit modelsChanged();
     if (adding)
         emit accountErrorChanged();
+    if (loading)
+        emit loadingUsageChanged();
 }
 
 QString AgentLauncherModel::send(Request request, const QString& agent, QJsonObject values, bool browse)

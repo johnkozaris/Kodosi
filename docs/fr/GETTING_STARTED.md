@@ -31,9 +31,11 @@ commande dans le shell du nouveau terminal.
   changer.
 - S'il manque un agent, le lanceur affiche sa commande d'installation.
 - Les agents démarrent en Accès total. Ils modifient des fichiers et lancent des commandes
-  sans vous demander. Pour qu'un agent demande d'abord, choisissez Demander sur le bouton
-  après le modèle. Vous y choisissez aussi ce que Claude Code et Codex montrent de leur
-  travail ; ils commencent en Discrète.
+  sans vous demander. Pour qu'un agent demande d'abord, choisissez Demander dans Plus, après
+  le modèle. Vous y choisissez aussi la verbosité, ce que Claude Code, Codex et Copilot CLI
+  montrent de leur travail ; ils commencent en Discrète. Copilot CLI ne lit sa verbosité que
+  dans ses propres réglages ; Kodosi les modifie donc tant que Copilot CLI tourne en
+  Discrète, puis les rétablit.
 - Un nouveau compte a son propre dossier de connexion, par exemple `~/.claude-work`. Kodosi
   trouve aussi les comptes que votre shell configure, comme
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -198,7 +200,9 @@ appareil a été volé, créez aussi une nouvelle clé de récupération.
 
 Ouvrez Amis depuis le menu à côté de votre compte. Envoyez votre invitation, ou collez
 l'invitation ou le nom d'utilisateur d'un ami. Une invitation permet à Kodosi de vérifier
-votre ami.
+votre ami. Sur un téléphone, montrez votre invitation sous forme de code : votre ami le
+scanne avec son appareil photo ou dans Kodosi, et confirme qu'il vous fait confiance avant
+l'envoi de la demande.
 
 <p align="center"><img src="../media/friends.webp" width="900" alt="La page Amis avec deux amis vérifiés."></p>
 

@@ -476,6 +476,14 @@ Item {
                                 note: agentChanges.note(false)
                                 onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { permissions: id })
                             }
+                            AgentChoiceMenu {
+                                title: qsTr("Verbosity")
+                                objectName: root.objectName + ".agent.output"
+                                available: agentChanges.shown && agentChanges.output.length > 0
+                                hint: agentChanges.outputLabel(agentChanges.output)
+                                options: agentChanges.outputOptions
+                                current: agentChanges.output
+                            }
                             MenuSeparator {
                                 visible: agentChanges.shown
                                 height: visible ? implicitHeight : 0
@@ -979,7 +987,8 @@ Item {
         readonly property bool local: agent.length > 0 && (live.model === true || live.effort === true)
             && root.session.kind === "local" && Models.Launcher.computer.length === 0
         readonly property var models: local ? Models.Launcher.models[agent] || null : null
-        readonly property bool shown: root.session.canControl === true && (models !== null || changesModes)
+        readonly property string output: settings.output ?? ""
+        readonly property bool shown: root.session.canControl === true && (models !== null || changesModes || output.length > 0)
         readonly property string model: pending.model ?? settings.model ?? ""
         readonly property string effort: pending.model !== undefined ? pending.effort ?? "" : pending.effort ?? settings.effort ?? ""
         readonly property string permissions: pending.permissions ?? settings.permissions ?? ""
@@ -996,6 +1005,15 @@ Item {
             .filter(id => knownPermissions.includes(id) || (live.permissions || []).includes(id) || id === permissions)
             .map(id => ({ id: id, label: permissionLabel(id), enabled: (live.permissions || []).includes(id),
                 detail: (live.permissions || []).includes(id) ? "" : qsTr("Only at start") }))
+        readonly property var knownOutputs: output.length > 0
+            ? (Models.Launcher.agents.find(info => info.agent === agent) || {}).outputs || [] : []
+        readonly property var outputOptions: ["quiet", "standard", "detailed"]
+            .filter(id => knownOutputs.includes(id) || id === output)
+            .map(id => ({ id: id, label: outputLabel(id), enabled: false, detail: id === output ? "" : qsTr("Only at start") }))
+
+        function outputLabel(id) {
+            return id === "quiet" ? qsTr("Quiet") : id === "detailed" ? qsTr("Detailed") : id === "standard" ? qsTr("Standard") : ""
+        }
 
         function loadModels() {
             if (local)

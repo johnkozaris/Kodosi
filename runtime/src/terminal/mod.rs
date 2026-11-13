@@ -116,6 +116,10 @@ pub(crate) enum SessionChange {
         prompt: bool,
     },
     #[cfg(feature = "host")]
+    LineEnded {
+        id: Uuid,
+    },
+    #[cfg(feature = "host")]
     Canvas {
         id: Uuid,
     },

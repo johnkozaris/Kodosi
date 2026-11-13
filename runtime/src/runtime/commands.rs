@@ -22,7 +22,7 @@ use crate::{
 #[cfg(feature = "host")]
 use crate::{
     Config,
-    agents::{AgentStart, Launcher},
+    agents::{AgentStart, Launch, Launcher},
     protocol::{SessionEntry, SessionKind},
     provider::{self, ConversationIdentity},
     terminal::{SessionChange, TerminalSession},
@@ -941,16 +941,30 @@ impl Runtime {
         let command = command.clone();
         self.spawn(async move {
             let result = async {
-                let line = match (line, agent) {
-                    (Some(line), None) => line,
-                    (None, Some(agent)) => launcher.line(&agent).await.map_err(Error::Invalid)?,
+                let (line, quiet_settings) = match (line, agent) {
+                    (Some(line), None) => (line, None),
+                    (None, Some(agent)) => {
+                        let launch = launcher.line(&agent).await.map_err(Error::Invalid)?;
+                        (launch.line, launch.quiet_settings)
+                    }
                     _ => {
                         return Err(Error::Invalid(
                             "Run either a command or an agent.".to_owned(),
                         ));
                     }
                 };
-                terminal.run(line).await
+                let held = match quiet_settings.clone() {
+                    Some(settings) => launcher.hold_quiet(id, settings).await,
+                    None => false,
+                };
+                let ran = terminal.run(line).await;
+                if ran.is_err()
+                    && held
+                    && let Some(settings) = quiet_settings
+                {
+                    launcher.release_quiet_hold(id, settings).await;
+                }
+                ran
             }
             .await;
             Completion::Terminal { command, result }
@@ -1094,7 +1108,7 @@ impl Runtime {
                 .any(|command| matches!(command, Command::CreateSession { resume: Some(active), .. } if active == resume)) {
                 return Err(Error::Refused(text!("This provider conversation is already running in Kodosi.")));
             }
-        self.begin_creation(command, None).map(drop)
+        self.begin_creation(command, None, None).map(drop)
     }
 
     #[cfg(feature = "host")]
@@ -1102,6 +1116,7 @@ impl Runtime {
         &mut self,
         command: Command,
         screen: Option<PathBuf>,
+        quiet_settings: Option<PathBuf>,
     ) -> Result<Uuid> {
         if self.local.len() + self.creating.len() >= MAX_SESSIONS {
             return Err(Error::Busy);
@@ -1114,8 +1129,17 @@ impl Runtime {
         let services = self.services.clone();
         self.creating.insert(id, command.clone());
         self.spawn(async move {
-            let result =
-                create_session(id, config, services, &launcher, &command, screen, changes).await;
+            let result = create_session(
+                id,
+                config,
+                services,
+                &launcher,
+                &command,
+                screen,
+                quiet_settings,
+                changes,
+            )
+            .await;
             Completion::Created { id, result }
         });
         Ok(id)
@@ -1441,7 +1465,12 @@ impl Runtime {
                 self.publish_locals();
             }
             #[cfg(feature = "host")]
-            Completion::Created { id, result } => self.created(id, result, current),
+            Completion::Created { id, result } => {
+                self.created(id, result, current);
+                if !self.local.contains_key(&id) {
+                    self.launcher.release_quiet(id);
+                }
+            }
             #[cfg(feature = "host")]
             Completion::Account {
                 id,
@@ -2109,26 +2138,28 @@ async fn start_line(
     command: Option<&String>,
     agent: Option<&AgentStart>,
     prompt: Option<&String>,
-) -> Result<Option<String>> {
+) -> Result<Option<Launch>> {
     let quoted = prompt.map(|prompt| crate::agents::quote(&shell(config), prompt.trim()));
     let Some(agent) = agent else {
-        return Ok(command.map(|line| {
-            [Some(line.clone()), quoted]
+        return Ok(command.map(|line| Launch {
+            line: [Some(line.clone()), quoted]
                 .into_iter()
                 .flatten()
                 .collect::<Vec<_>>()
-                .join(" ")
+                .join(" "),
+            quiet_settings: None,
         }));
     };
-    let line = launcher.line(agent).await.map_err(Error::Invalid)?;
+    let launch = launcher.line(agent).await.map_err(Error::Invalid)?;
     let flag = agent.agent.prompt_flag().map(str::to_owned);
-    Ok(Some(
-        [Some(line), quoted.as_ref().and(flag), quoted]
+    Ok(Some(Launch {
+        line: [Some(launch.line), quoted.as_ref().and(flag), quoted]
             .into_iter()
             .flatten()
             .collect::<Vec<_>>()
             .join(" "),
-    ))
+        quiet_settings: launch.quiet_settings,
+    }))
 }
 
 #[cfg(feature = "host")]
@@ -2169,6 +2200,7 @@ async fn create_session(
     launcher: &Arc<Launcher>,
     command: &Command,
     screen: Option<PathBuf>,
+    quiet_settings: Option<PathBuf>,
     changes: mpsc::Sender<SessionChange>,
 ) -> Result<StartedSession> {
     let Command::CreateSession {
@@ -2254,8 +2286,11 @@ async fn create_session(
             return Err(error);
         }
     };
-    if let Some(line) = start {
-        terminal.start(line)?;
+    if let Some(start) = start {
+        if let Some(settings) = start.quiet_settings.or(quiet_settings) {
+            launcher.hold_quiet(id, settings).await;
+        }
+        terminal.start(start.line)?;
     }
     Ok(StartedSession {
         terminal: Some(terminal),

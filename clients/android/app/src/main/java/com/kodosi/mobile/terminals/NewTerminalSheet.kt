@@ -437,6 +437,9 @@ private fun LauncherOptions(launcher: Launcher, state: LauncherState, model: App
             scope.launch { model.runAction { launcher.choose(pick.copy(output = AgentOutput.valueOf(it))) } }
         }
     }
+    if (state.loadingUsage && agent.reportsUsage && agent.accounts.any { it.identity != null }) {
+        ProgressCaption(stringResource(R.string.reading_usage), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+    }
     state.usage.filter { it.string("agent") == agent.agent }.forEach { usage ->
         usage.objects("limits").forEach { limit -> UsageReading(usage, limit) }
     }

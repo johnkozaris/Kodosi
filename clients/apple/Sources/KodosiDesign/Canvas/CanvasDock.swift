@@ -67,6 +67,11 @@ public struct CanvasDock: View {
         .animation(theme.motion.snappy, value: told)
         .animation(theme.motion.snappy, value: chosen)
         .animation(theme.motion.snappy, value: pointed)
+        .onChange(of: sections) { _, sections in
+            if let pointed, !sections.contains(pointed) {
+                self.pointed = nil
+            }
+        }
         .onChange(of: canvas?.items.max { $0.changed < $1.changed }.map { Change(key: $0.key, changed: $0.changed) }) { _, change in
             if let change, let item = canvas?.items.first(where: { $0.key == change.key }) {
                 tell(Told(section: .files, words: item.name))
@@ -95,9 +100,11 @@ public struct CanvasDock: View {
         tellings += 1
     }
 
+    /// The chosen key always shows its close key, so that its size never follows the pointer: the
+    /// key that was left after a close flickered under a pointer that stood still.
     private func key(_ section: CanvasSection, canvas: KodosiBridge.Canvas?) -> some View {
         let selected = section == chosen
-        let closing = close != nil && pointed == section
+        let closing = close != nil && (selected || pointed == section)
         let words: String? = selected || closing ? section.title : told?.section == section ? told?.words : nil
         let count = section == .files ? canvas?.items.count ?? 0 : 0
         let news = !selected && (canvas?.shown.contains { $0.section == section && store.isNew($0, in: session.id) } ?? false)

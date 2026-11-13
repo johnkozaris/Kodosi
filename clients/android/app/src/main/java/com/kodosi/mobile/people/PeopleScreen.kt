@@ -2,30 +2,49 @@ package com.kodosi.mobile.people
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,10 +56,14 @@ import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
+import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.EmptyState
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiCard
+import com.kodosi.mobile.ui.KodosiDialog
+import com.kodosi.mobile.ui.KodosiField
+import com.kodosi.mobile.ui.KodosiSpinner
 import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
@@ -52,20 +75,31 @@ import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.SectionTitle
 import com.kodosi.mobile.ui.TextEntryDialog
+import com.kodosi.mobile.ui.raised
+import kotlin.math.floor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
 fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
     val state by model.people.state.collectAsStateWithLifecycle()
     val terminals by model.terminals.state.collectAsStateWithLifecycle()
+    val opened by model.friendInvite.collectAsStateWithLifecycle()
     var adding by remember { mutableStateOf(false) }
+    var showingInvite by remember { mutableStateOf(false) }
     var accepting by remember { mutableStateOf<Person?>(null) }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val inviteLabel = stringResource(R.string.your_invite)
+    LaunchedEffect(opened) {
+        val invite = opened ?: return@LaunchedEffect
+        model.friendInvite.value = null
+        adding = false
+        showingInvite = false
+        accepting = Person("", invite, "")
+    }
     Column(Modifier.fillMaxSize()) {
         PageHeader(stringResource(R.string.friends), back, actions = {
             ActionIcon(AppSymbol.REFRESH, R.string.refresh, model.people::refresh)
+            ActionIcon(AppSymbol.QR_CODE, R.string.show_invite, { showingInvite = true })
             ActionIcon(AppSymbol.ADD, R.string.add_friend, { adding = true })
         })
         LazyColumn(Modifier.weight(1f).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -119,38 +153,27 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
                         AppSymbol.FRIENDS
                     ) {
                         KodosiButton(stringResource(R.string.add_friend), { adding = true })
+                        KodosiButton(
+                            stringResource(R.string.show_invite),
+                            { showingInvite = true },
+                            kind = ButtonKind.SECONDARY
+                        )
                     }
                 }
-            }
-            item {
-                KodosiTextButton(onClick = {
-                    scope.launch {
-                        model.runAction {
-                            model.people.invite()?.let {
-                                context.getSystemService(
-                                    ClipboardManager::class.java
-                                ).setPrimaryClip(ClipData.newPlainText(inviteLabel, it))
-                            }
-                        }
-                    }
-                }) { Text(stringResource(R.string.copy_invite)) }
             }
         }
     }
     if (adding) {
-        TextEntryDialog(
-            stringResource(R.string.add_friend),
-            stringResource(R.string.username_invite),
-            action = stringResource(R.string.add_friend),
-            dismiss = { adding = false }
-        ) { text ->
+        AddFriendDialog(dismiss = { adding = false }) { text ->
+            adding = false
             // The confirmation names the trust being granted, before the runtime resolves the handle.
-            accepting = Person("", text.trim(), "")
+            accepting = Person("", text, "")
         }
     }
+    if (showingInvite) InviteDialog(model) { showingInvite = false }
     accepting?.let { person ->
         ConfirmDialog(
-            person.name,
+            if (person.userId.isEmpty()) "@" + PeopleStore.handle(person.handle).removePrefix("@") else person.name,
             stringResource(R.string.friend_trust_message),
             stringResource(if (person.userId.isEmpty()) R.string.add_friend else R.string.accept),
             { accepting = null },
@@ -168,6 +191,143 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
         )
     }
 }
+
+@Composable
+private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
+    val context = LocalContext.current
+    val camera = remember(context) { canScanInvites(context) }
+    var text by remember { mutableStateOf("") }
+    var scanning by remember { mutableStateOf(false) }
+    KodosiDialog(
+        onDismissRequest = dismiss,
+        title = { Text(stringResource(R.string.add_friend)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                KodosiField(
+                    text,
+                    { text = it },
+                    label = stringResource(R.string.username_invite),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (camera) {
+                    KodosiTextButton(onClick = { scanning = true }) {
+                        AppIcon(AppSymbol.QR_CODE, tint = KodosiTheme.colors.accent)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.scan_invite))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            KodosiButton(stringResource(R.string.add_friend), { add(text.trim()) }, enabled = text.isNotBlank())
+        },
+        dismissButton = { KodosiTextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } }
+    )
+    if (scanning) {
+        InviteScanDialog(found = { invite ->
+            scanning = false
+            text = invite
+            add(invite)
+        }, dismiss = { scanning = false })
+    }
+}
+
+@Composable
+private fun InviteDialog(model: AppModel, dismiss: () -> Unit) {
+    val context = LocalContext.current
+    val label = stringResource(R.string.your_invite)
+    var invite by remember { mutableStateOf<Invite?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    var attempt by remember { mutableIntStateOf(0) }
+    LaunchedEffect(attempt) {
+        failed = false
+        try {
+            invite = model.people.invite()
+            failed = invite == null
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            failed = true
+        }
+    }
+    KodosiDialog(
+        onDismissRequest = dismiss,
+        title = { Text(label) },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                InviteCode(invite?.code, failed) { attempt++ }
+                Text(stringResource(R.string.invite_code_hint), textAlign = TextAlign.Center)
+            }
+        },
+        confirmButton = {
+            KodosiButton(stringResource(R.string.share), {
+                invite?.let {
+                    context.startActivity(
+                        Intent.createChooser(
+                            Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, it.text),
+                            null
+                        )
+                    )
+                }
+            }, enabled = invite != null)
+        },
+        dismissButton = {
+            KodosiTextButton(onClick = {
+                invite?.let {
+                    context.getSystemService(ClipboardManager::class.java)
+                        .setPrimaryClip(ClipData.newPlainText(label, it.text))
+                }
+            }, enabled = invite != null) { Text(stringResource(R.string.copy_invite)) }
+        }
+    )
+}
+
+/** The card stays light in both appearances, as a printed code does, so that each camera reads its
+ *  dark modules. */
+@Composable
+private fun InviteCode(rows: List<String>?, failed: Boolean, retry: () -> Unit) {
+    val description = stringResource(R.string.invite_code_description)
+    KodosiTheme(dark = false) {
+        val colors = KodosiTheme.colors
+        Box(
+            Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(1f)
+                .raised(colors, RoundedCornerShape(Radius.xl)),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                !rows.isNullOrEmpty() -> Canvas(
+                    Modifier.fillMaxSize().semantics {
+                        contentDescription = description
+                        role = Role.Image
+                    }
+                ) {
+                    val module = floor(size.minDimension / (rows.size + 2 * QUIET_ZONE))
+                    val left = floor((size.width - module * rows.size) / 2)
+                    val top = floor((size.height - module * rows.size) / 2)
+                    val dark = Path()
+                    rows.forEachIndexed { y, row ->
+                        row.forEachIndexed { x, cell ->
+                            if (cell == '1') {
+                                dark.addRect(Rect(Offset(left + x * module, top + y * module), Size(module, module)))
+                            }
+                        }
+                    }
+                    drawPath(dark, colors.ink)
+                }
+
+                failed -> KodosiTextButton(onClick = retry) { Text(stringResource(R.string.try_again)) }
+
+                else -> KodosiSpinner(Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+private const val QUIET_ZONE = 4
 
 @Composable
 private fun FriendCard(person: Person, shared: List<RuntimeSession>, open: (() -> Unit)? = null) {

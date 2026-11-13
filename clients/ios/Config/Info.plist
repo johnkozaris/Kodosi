@@ -26,6 +26,14 @@
 				<string>com.kodosi</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.kodosi.invite</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kodosi</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
@@ -35,6 +43,8 @@
 	<string>$(KODOSI_DEBUG_BACKEND_HOST)</string>
 	<key>KodosiDebugBackendPort</key>
 	<string>$(KODOSI_DEBUG_BACKEND_PORT)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Kodosi uses the camera to scan a friend's invite.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Kodosi asks for Face ID before it shows your terminals, when you lock it in Settings.</string>
 	<key>NSLocalNetworkUsageDescription</key>

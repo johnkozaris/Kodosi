@@ -1860,6 +1860,8 @@ impl Runtime {
         #[cfg(feature = "host")]
         self.stop_locals().await;
         #[cfg(feature = "host")]
+        self.launcher.release_all_quiet().await;
+        #[cfg(feature = "host")]
         self.services.close().await;
         #[cfg(feature = "host")]
         crate::canvas::close_left(&self.config.data_root).await;
@@ -1988,6 +1990,22 @@ impl Runtime {
             .into_iter()
             .map(|id| {
                 let local = &self.local[&id];
+                let line = restore::chosen_line(lines.remove(&id), &local.conversation, now)
+                    .or_else(|| {
+                        local
+                            .entry
+                            .program
+                            .as_deref()
+                            .and_then(|program| restore::usual_line(program, &shell))
+                    });
+                let quiet_settings = line.as_ref().and_then(|_| {
+                    if local.entry.program.as_deref() == Some(crate::agents::Agent::Copilot.name())
+                    {
+                        self.launcher.quiet_settings_of(id)
+                    } else {
+                        local.conversation.quiet_settings(now)
+                    }
+                });
                 restore::Saved {
                     id,
                     name: local.entry.name.clone(),
@@ -1999,14 +2017,7 @@ impl Runtime {
                             &local.entry.shared_with,
                         )
                     }),
-                    line: restore::chosen_line(lines.remove(&id), &local.conversation, now)
-                        .or_else(|| {
-                            local
-                                .entry
-                                .program
-                                .as_deref()
-                                .and_then(|program| restore::usual_line(program, &shell))
-                        }),
+                    line,
                     worktree: local.worktree.clone(),
                     canvas: local
                         .terminal
@@ -2016,6 +2027,7 @@ impl Runtime {
                         .filter_map(|path| path.into_os_string().into_string().ok())
                         .collect(),
                     browser: local.terminal.canvas.address(),
+                    quiet_settings,
                 }
             })
             .collect();
@@ -2045,7 +2057,11 @@ impl Runtime {
                 prompt: None,
                 size: None,
             };
-            match self.begin_creation(command, Some(self.restore.screen_file(saved.id))) {
+            match self.begin_creation(
+                command,
+                Some(self.restore.screen_file(saved.id)),
+                saved.quiet_settings.clone(),
+            ) {
                 Ok(id) => {
                     self.restore.starting.insert(id, saved);
                 }
@@ -3305,6 +3321,7 @@ impl Runtime {
     fn ended(&mut self, id: Uuid) {
         self.mentions.forget(id);
         self.agent_changes.forget(id);
+        self.launcher.release_quiet(id);
         let (published, worktree) = self.local.remove(&id).map_or((false, None), |local| {
             let canvas = local.terminal.canvas.clone();
             tokio::spawn(async move { canvas.end(true).await });
@@ -3376,9 +3393,19 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Program { id, program } => {
                 if let Some(local) = self.local.get_mut(&id) {
-                    local
-                        .conversation
-                        .program_changed(program.is_none(), tokio::time::Instant::now());
+                    let copilot = Some(crate::agents::Agent::Copilot.name());
+                    let ended_quiet = (local.entry.program.as_deref() == copilot
+                        && program.as_deref() != copilot)
+                        .then(|| self.launcher.quiet_settings_of(id))
+                        .flatten();
+                    local.conversation.program_changed(
+                        program.is_none(),
+                        tokio::time::Instant::now(),
+                        ended_quiet.clone(),
+                    );
+                    if ended_quiet.is_some() {
+                        self.launcher.release_quiet(id);
+                    }
                     local.entry.program.clone_from(&program);
                     local.entry.program_account = None;
                     local.entry.program_outside = false;
@@ -3416,6 +3443,17 @@ impl Runtime {
                 if let Some(local) = self.local.get_mut(&id) {
                     local.entry.prompt = prompt;
                     self.publish_catalog();
+                }
+            }
+            #[cfg(feature = "host")]
+            SessionChange::LineEnded { id } => {
+                let copilot = Some(crate::agents::Agent::Copilot.name());
+                if self
+                    .local
+                    .get(&id)
+                    .is_some_and(|local| local.entry.program.as_deref() != copilot)
+                {
+                    self.launcher.release_quiet(id);
                 }
             }
             #[cfg(feature = "host")]

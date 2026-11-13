@@ -41,6 +41,8 @@ pub(super) struct Saved {
     pub canvas: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quiet_settings: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -229,6 +231,7 @@ pub(super) async fn agent_line(
 #[derive(Debug, Default)]
 pub(super) struct Conversation {
     line: Option<String>,
+    quiet_settings: Option<PathBuf>,
     ended: Option<Instant>,
     asking: bool,
     asked: Option<Instant>,
@@ -261,12 +264,19 @@ impl Conversation {
         }
     }
 
-    pub(super) fn program_changed(&mut self, ended: bool, now: Instant) {
+    pub(super) fn program_changed(
+        &mut self,
+        ended: bool,
+        now: Instant,
+        quiet_settings: Option<PathBuf>,
+    ) {
         self.asked = None;
         if ended && self.line.is_some() {
             self.ended.get_or_insert(now);
+            self.quiet_settings = quiet_settings;
         } else {
             self.line = None;
+            self.quiet_settings = None;
             self.ended = None;
         }
     }
@@ -276,6 +286,10 @@ impl Conversation {
             self.ended
                 .is_none_or(|ended| now.duration_since(ended) < ENDED_GRACE)
         })
+    }
+
+    pub(super) fn quiet_settings(&self, now: Instant) -> Option<PathBuf> {
+        self.line(now).and_then(|_| self.quiet_settings.clone())
     }
 }
 

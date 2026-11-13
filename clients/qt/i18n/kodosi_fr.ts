@@ -16,6 +16,109 @@
     </message>
 </context>
 <context>
+    <name>AgentDefaults</name>
+    <message>
+        <source>Default</source>
+        <translation>Par défaut</translation>
+    </message>
+    <message>
+        <source>Asking %1 for its models</source>
+        <translation>Récupération des modèles de %1</translation>
+    </message>
+    <message>
+        <source>%1 lists no models</source>
+        <translation>%1 ne propose aucun modèle</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Accès total</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Demander</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>Ne demande jamais et exécute chaque commande avec vos droits.</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>Demande avant de modifier des fichiers ou d&apos;exécuter des commandes.</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>Un contrôle de sécurité approuve ce qui est sûr et vous demande pour le reste. Le contrôle consomme des jetons.</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>Travaille seul dans ce dossier et vous demande pour le reste.</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>Modifie les fichiers seul et demande avant d&apos;exécuter des commandes.</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>Accepte ses propres actions, sauf ce que vous avez refusé.</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Discrète</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Détaillée</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Standard</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>Montre moins de son travail.</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>Montre chaque étape de son travail en entier.</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>Montre son travail selon la configuration de l&apos;agent.</translation>
+    </message>
+    <message>
+        <source>New terminals start with these. What you choose in the launcher changes them too.</source>
+        <translation>Les nouveaux terminaux démarrent avec ces choix. Ce que vous choisissez dans le lanceur les modifie aussi.</translation>
+    </message>
+    <message>
+        <source>Account</source>
+        <translation>Compte</translation>
+    </message>
+    <message>
+        <source>Signs in when it starts</source>
+        <translation>Se connecte au démarrage</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Modèle</translation>
+    </message>
+    <message>
+        <source>Model and effort</source>
+        <translation>Modèle et raisonnement</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Autorisations</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>Verbosité</translation>
+    </message>
+</context>
+<context>
     <name>AgentLauncher</name>
     <message>
         <source>This computer</source>
@@ -190,12 +293,12 @@
         <translation>Autorisations</translation>
     </message>
     <message>
-        <source>Output</source>
-        <translation>Sortie</translation>
+        <source>Verbosity</source>
+        <translation>Verbosité</translation>
     </message>
     <message>
-        <source>Permissions and output</source>
-        <translation>Autorisations et sortie</translation>
+        <source>More</source>
+        <translation>Plus</translation>
     </message>
     <message>
         <source>Asks before it changes files or runs commands.</source>
@@ -232,6 +335,25 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>Montre chaque étape de son travail en entier.</translation>
+    </message>
+</context>
+<context>
+    <name>AgentSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>Recherche</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Kodosi ouvre ces fichiers sans les modifier.</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>Pas encore créé</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>Ouvrir</translation>
     </message>
 </context>
 <context>
@@ -2900,25 +3022,6 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>Recherche</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Kodosi ouvre ces fichiers sans les modifier.</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>Pas encore créé</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>Ouvrir</translation>
-    </message>
-</context>
-<context>
     <name>QuitDialog</name>
     <message>
         <source>Restart Kodosi?</source>
@@ -3838,12 +3941,32 @@
         <source>Paste</source>
         <translation>Coller</translation>
     </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>Verbosité</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Discrète</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Standard</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Détaillée</translation>
+    </message>
 </context>
 <context>
     <name>UsageDial</name>
     <message>
         <source>Not read yet</source>
         <translation>Pas encore lu</translation>
+    </message>
+    <message>
+        <source>Loading</source>
+        <translation>Chargement</translation>
     </message>
 </context>
 <context>

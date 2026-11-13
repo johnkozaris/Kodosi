@@ -33,7 +33,8 @@ enum LauncherMenu: String, Equatable {
         case .folder:
             Self.folders(recents, current: directory)
         case .account:
-            plan.info.map { Self.accounts($0, current: plan.account?.name ?? "") { plan.usage(of: $0) } } ?? []
+            plan.info.map { Self.accounts($0, current: plan.account?.name ?? "", usage: { plan.usage(of: $0) }, loadsUsage: { plan.loadsUsage(of: $0) }) }
+                ?? []
         case .model:
             Self.models(plan.models?.models, agent: plan.info?.kind.label ?? "", loading: loading, current: plan.modelId)
         case .modes:
@@ -49,6 +50,7 @@ enum LauncherMenu: String, Equatable {
 
     static func accounts(
         _ info: AgentInfo, current: String, usage: (AgentAccount) -> UsageLimit? = { _ in nil },
+        loadsUsage: (AgentAccount) -> Bool = { _ in false },
     ) -> [PickerRow] {
         var rows = info.accounts.enumerated().map { place, account in
             let title = account.title(program: info.program)
@@ -60,6 +62,7 @@ enum LauncherMenu: String, Equatable {
                     tint: info.kind.tint(account: place),
                 ),
                 usage: usage(account),
+                loadsUsage: loadsUsage(account),
                 current: account.name == current,
             )
         }

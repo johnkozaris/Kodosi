@@ -24,6 +24,7 @@ final class AppModel {
     let dosi: DosiStore
     let push: PushNotifications
     var dosiDevice: String?
+    var openedInvite: String?
 
     @ObservationIgnored private let inbox: RuntimeEventInbox
     @ObservationIgnored private let runtime: RuntimeHandle

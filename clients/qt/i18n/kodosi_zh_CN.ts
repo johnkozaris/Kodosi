@@ -16,6 +16,109 @@
     </message>
 </context>
 <context>
+    <name>AgentDefaults</name>
+    <message>
+        <source>Default</source>
+        <translation>默认</translation>
+    </message>
+    <message>
+        <source>Asking %1 for its models</source>
+        <translation>正在获取 %1 的模型</translation>
+    </message>
+    <message>
+        <source>%1 lists no models</source>
+        <translation>%1 没有可用的模型</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>不受限制</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>询问</translation>
+    </message>
+    <message>
+        <source>Never asks, and runs every command as you.</source>
+        <translation>从不询问，以你的权限运行每条命令。</translation>
+    </message>
+    <message>
+        <source>Asks before it changes files or runs commands.</source>
+        <translation>在修改文件或运行命令之前询问。</translation>
+    </message>
+    <message>
+        <source>A safety check approves what is safe and asks you for the rest. The check uses tokens.</source>
+        <translation>安全检查会批准安全的操作，其余的会询问你。检查会消耗 token。</translation>
+    </message>
+    <message>
+        <source>Works in this folder on its own and asks you for the rest.</source>
+        <translation>在此文件夹中自行工作，其余的会询问你。</translation>
+    </message>
+    <message>
+        <source>Edits files on its own and asks before it runs commands.</source>
+        <translation>自行编辑文件，运行命令前会询问。</translation>
+    </message>
+    <message>
+        <source>Accepts its own actions, except what you denied.</source>
+        <translation>接受自己的操作，你拒绝的除外。</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>简洁</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>详细</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>标准</translation>
+    </message>
+    <message>
+        <source>Shows less of its work.</source>
+        <translation>少显示一些工作过程。</translation>
+    </message>
+    <message>
+        <source>Shows each step of its work in full.</source>
+        <translation>完整显示每一步工作过程。</translation>
+    </message>
+    <message>
+        <source>Shows its work as the agent is set up.</source>
+        <translation>按 Agent 的设置显示工作过程。</translation>
+    </message>
+    <message>
+        <source>New terminals start with these. What you choose in the launcher changes them too.</source>
+        <translation>新终端会以这些设置启动。你在启动器中的选择也会更改它们。</translation>
+    </message>
+    <message>
+        <source>Account</source>
+        <translation>账号</translation>
+    </message>
+    <message>
+        <source>Signs in when it starts</source>
+        <translation>启动时登录</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>模型</translation>
+    </message>
+    <message>
+        <source>Model and effort</source>
+        <translation>模型与推理强度</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>权限</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>详细程度</translation>
+    </message>
+</context>
+<context>
     <name>AgentLauncher</name>
     <message>
         <source>This computer</source>
@@ -190,12 +293,12 @@
         <translation>权限</translation>
     </message>
     <message>
-        <source>Output</source>
-        <translation>输出</translation>
+        <source>Verbosity</source>
+        <translation>详细程度</translation>
     </message>
     <message>
-        <source>Permissions and output</source>
-        <translation>权限和输出</translation>
+        <source>More</source>
+        <translation>更多</translation>
     </message>
     <message>
         <source>Asks before it changes files or runs commands.</source>
@@ -232,6 +335,25 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>完整显示每一步工作过程。</translation>
+    </message>
+</context>
+<context>
+    <name>AgentSettings</name>
+    <message>
+        <source>Looking</source>
+        <translation>正在查找</translation>
+    </message>
+    <message>
+        <source>Kodosi opens these files. It does not change them.</source>
+        <translation>Kodosi 只会打开这些文件，不会修改它们。</translation>
+    </message>
+    <message>
+        <source>Not made yet</source>
+        <translation>尚未创建</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>打开</translation>
     </message>
 </context>
 <context>
@@ -2889,25 +3011,6 @@
     </message>
 </context>
 <context>
-    <name>ProviderSettings</name>
-    <message>
-        <source>Looking</source>
-        <translation>正在查找</translation>
-    </message>
-    <message>
-        <source>Kodosi opens these files. It does not change them.</source>
-        <translation>Kodosi 只会打开这些文件，不会修改它们。</translation>
-    </message>
-    <message>
-        <source>Not made yet</source>
-        <translation>尚未创建</translation>
-    </message>
-    <message>
-        <source>Open</source>
-        <translation>打开</translation>
-    </message>
-</context>
-<context>
     <name>QuitDialog</name>
     <message>
         <source>Restart Kodosi?</source>
@@ -3825,12 +3928,32 @@
         <source>Paste</source>
         <translation>粘贴</translation>
     </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>详细程度</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>简洁</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>标准</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>详细</translation>
+    </message>
 </context>
 <context>
     <name>UsageDial</name>
     <message>
         <source>Not read yet</source>
         <translation>未读</translation>
+    </message>
+    <message>
+        <source>Loading</source>
+        <translation>正在加载</translation>
     </message>
 </context>
 <context>

@@ -329,6 +329,15 @@ const SCENES: Record<string, Scene> = {
       message: { type: "error", summary: "Wait 28 seconds, then send it again." },
     },
   },
+  verified: {
+    page: "info.ftl",
+    with: {
+      messageHeader: "Your email is confirmed",
+      message: { type: "success", summary: "Your email is confirmed" },
+      requiredActions: undefined,
+      client: kodosiApp,
+    },
+  },
 
   code: { page: "login-otp.ftl", with: { auth: person, ...oneApp }, next: "check" },
   "code-apps": {

@@ -32,8 +32,11 @@ Befehl in die Shell des neuen Terminals.
   ändert sie.
 - Fehlt ein Agent, zeigt der Launcher seinen Installationsbefehl.
 - Agents starten mit Vollzugriff: Sie ändern Dateien und führen Befehle aus, ohne dich zu
-  fragen. Soll ein Agent zuerst fragen, wähle Fragen am Button nach dem Modell. Dort wählst
-  du auch, wie viel ihrer Arbeit Claude Code und Codex zeigen; sie beginnen bei Knapp.
+  fragen. Soll ein Agent zuerst fragen, wähle Fragen unter Mehr, nach dem Modell. Dort wählst
+  du auch die Ausführlichkeit, also wie viel ihrer Arbeit Claude Code, Codex und Copilot CLI
+  zeigen; sie beginnen bei Knapp. Copilot CLI liest seine Ausführlichkeit nur aus seinen
+  eigenen Einstellungen, deshalb ändert Kodosi diese, solange Copilot CLI mit Knapp läuft,
+  und stellt sie danach zurück.
 - Ein neues Konto bekommt seinen eigenen Anmeldeordner, zum Beispiel `~/.claude-work`.
   Kodosi findet auch die Konten, die deine Shell einrichtet, etwa
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -199,7 +202,9 @@ neuen Wiederherstellungsschlüssel.
 
 Öffne Freunde über das Menü neben deinem Konto. Schick deine Einladung oder füge die
 Einladung oder den Benutzernamen eines Freundes ein. Mit einer Einladung kann Kodosi deinen
-Freund verifizieren.
+Freund verifizieren. Auf einem Telefon zeigst du deine Einladung als Code: Dein Freund
+scannt ihn mit der Kamera oder in Kodosi und bestätigt, dass er dir vertraut, bevor die
+Anfrage rausgeht.
 
 <p align="center"><img src="../media/friends.webp" width="900" alt="Die Seite Freunde mit zwei verifizierten Freunden."></p>
 

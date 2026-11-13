@@ -154,6 +154,15 @@
     <string name="friends_empty_message">Partagez des terminaux et travaillez ensemble dans des projets.</string>
     <string name="your_invite">Votre invitation</string>
     <string name="copy_invite">Copier l\'invitation</string>
+    <string name="show_invite">Afficher mon invitation</string>
+    <string name="scan_invite">Scanner son invitation</string>
+    <string name="invite_code_hint">Votre ami scanne ce code avec son appareil photo pour vous ajouter.</string>
+    <string name="invite_code_description">Code QR de votre invitation</string>
+    <string name="not_an_invite">Ce code n\'est pas une invitation Kodosi.</string>
+    <string name="scanner_unavailable">Le scanner de codes n\'est pas disponible. Collez plutôt son invitation.</string>
+    <string name="point_at_invite">Pointez l\'appareil photo vers le code de son invitation.</string>
+    <string name="camera_off">Activez l\'appareil photo pour Kodosi dans Réglages</string>
+    <string name="share">Partager</string>
     <string name="verify_identity">Vérifier l\'identité</string>
     <string name="verified">Vérifié</string>
     <string name="identity_changed">Son identité a changé</string>
@@ -250,6 +259,7 @@
     <string name="file_unavailable">Ce fichier n\'est pas disponible.</string>
     <string name="uploading">Envoi du fichier</string>
     <string name="loading">Chargement</string>
+    <string name="reading_usage">Lecture de l\'utilisation du forfait</string>
     <string name="browser_address">Rechercher ou saisir une adresse</string>
     <string name="new_browser_tab">Nouvel onglet</string>
     <string name="browser_back">Retour</string>
@@ -314,7 +324,7 @@
     </plurals>
     <string name="hide_keyboard">Masquer le clavier</string>
     <string name="agent_permissions">Autorisations</string>
-    <string name="agent_output">Sortie</string>
+    <string name="agent_output">Verbosité</string>
     <string name="agent_ask">Demander</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Accès total</string>

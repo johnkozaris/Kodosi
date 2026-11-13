@@ -29,6 +29,8 @@ struct KodosiMobileApp: App {
                 .onOpenURL { url in
                     if url.scheme == "com.kodosi" {
                         model.account.finishSignIn(with: url)
+                    } else if let invite = PeopleStore.invite(in: url.absoluteString) {
+                        model.openedInvite = invite
                     }
                 }
         }

@@ -12,7 +12,8 @@ set_source_files_properties(
     qml/Settings/DeviceSettings.qml
     qml/Settings/TerminalSettings.qml
     qml/Settings/KeyboardSettings.qml
-    qml/Settings/ProviderSettings.qml
+    qml/Settings/AgentSettings.qml
+    qml/Settings/AgentDefaults.qml
     qml/Settings/DosiSettings.qml
     qml/Settings/BrowserSettings.qml
     qml/Settings/DocumentSettings.qml
@@ -291,7 +292,8 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/DeviceSettings.qml
         qml/Settings/TerminalSettings.qml
         qml/Settings/KeyboardSettings.qml
-        qml/Settings/ProviderSettings.qml
+        qml/Settings/AgentSettings.qml
+        qml/Settings/AgentDefaults.qml
         qml/Settings/BrowserSettings.qml
         qml/Settings/DocumentSettings.qml
         qml/Settings/DosiSettings.qml

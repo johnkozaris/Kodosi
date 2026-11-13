@@ -6,12 +6,13 @@ Item {
 
     property var limit: null
     property real size: 26
+    property bool loading: false
     readonly property string level: limit ? limit.level : ""
 
     implicitWidth: size
     implicitHeight: size
     Accessible.role: Accessible.StaticText
-    Accessible.name: limit ? limit.spoken : qsTr("Not read yet")
+    Accessible.name: limit ? limit.spoken : loading ? qsTr("Loading") : qsTr("Not read yet")
     transform: Scale { id: dialScale; origin.x: root.width / 2; origin.y: root.height / 2 }
 
     onLevelChanged: {
@@ -26,6 +27,7 @@ Item {
     UsageRing {
         anchors.fill: parent
         limit: root.limit
+        loading: root.loading
         lineWidth: Math.max(1.75, root.size * 0.085)
     }
     RollingText {

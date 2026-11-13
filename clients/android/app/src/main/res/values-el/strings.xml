@@ -154,6 +154,15 @@
     <string name="friends_empty_message">Μοιραστείτε τερματικά και συνεργαστείτε σε έργα.</string>
     <string name="your_invite">Η πρόσκλησή σας</string>
     <string name="copy_invite">Αντιγραφή πρόσκλησης</string>
+    <string name="show_invite">Εμφάνιση της πρόσκλησής μου</string>
+    <string name="scan_invite">Σάρωση της πρόσκλησής τους</string>
+    <string name="invite_code_hint">Ο φίλος σας σαρώνει αυτόν τον κωδικό με την κάμερά του για να σας προσθέσει.</string>
+    <string name="invite_code_description">Κωδικός QR της πρόσκλησής σας</string>
+    <string name="not_an_invite">Αυτός ο κωδικός δεν είναι πρόσκληση του Kodosi.</string>
+    <string name="scanner_unavailable">Ο σαρωτής κωδικών δεν είναι διαθέσιμος. Επικολλήστε την πρόσκλησή τους.</string>
+    <string name="point_at_invite">Στρέψτε την κάμερα στον κωδικό της πρόσκλησης.</string>
+    <string name="camera_off">Ενεργοποιήστε την κάμερα για το Kodosi στις Ρυθμίσεις</string>
+    <string name="share">Κοινή χρήση</string>
     <string name="verify_identity">Επαλήθευση ταυτότητας</string>
     <string name="verified">Επαληθεύτηκε</string>
     <string name="identity_changed">Η ταυτότητά τους άλλαξε</string>
@@ -250,6 +259,7 @@
     <string name="file_unavailable">Αυτό το αρχείο δεν είναι διαθέσιμο.</string>
     <string name="uploading">Αποστολή αρχείου</string>
     <string name="loading">Φόρτωση</string>
+    <string name="reading_usage">Διαβάζει τη χρήση του πλάνου</string>
     <string name="browser_address">Αναζήτηση ή εισαγωγή διεύθυνσης</string>
     <string name="new_browser_tab">Νέα καρτέλα</string>
     <string name="browser_back">Πίσω</string>
@@ -312,7 +322,7 @@
     </plurals>
     <string name="hide_keyboard">Απόκρυψη πληκτρολογίου</string>
     <string name="agent_permissions">Άδειες</string>
-    <string name="agent_output">Έξοδος</string>
+    <string name="agent_output">Λεπτομέρεια</string>
     <string name="agent_ask">Ερώτηση</string>
     <string name="agent_auto">Αυτόματα</string>
     <string name="agent_unrestricted">Απεριόριστα</string>

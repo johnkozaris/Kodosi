@@ -241,7 +241,7 @@ public struct StatusSign: View {
         case .changed:
             BreathingDot(color: theme.colors.accent, size: size * 0.62)
         case .hand:
-            symbol("hand.raised.fill", theme.colors.accent)
+            symbol("hand.wave.fill", theme.colors.accent)
                 .symbolEffect(.wiggle.byLayer, options: .nonRepeating, isActive: !theme.motion.reduced)
         case .question:
             symbol("questionmark.bubble.fill", theme.colors.accent)

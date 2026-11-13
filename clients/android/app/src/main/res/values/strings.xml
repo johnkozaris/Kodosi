@@ -162,6 +162,15 @@
     <string name="friends_empty_message">Share terminals and work together in projects.</string>
     <string name="your_invite">Your invite</string>
     <string name="copy_invite">Copy invite</string>
+    <string name="show_invite">Show my invite</string>
+    <string name="scan_invite">Scan their invite</string>
+    <string name="invite_code_hint">Your friend scans this code with their camera to add you.</string>
+    <string name="invite_code_description">QR code of your invite</string>
+    <string name="not_an_invite">This code is not a Kodosi invite.</string>
+    <string name="scanner_unavailable">The code scanner is not available. Paste their invite instead.</string>
+    <string name="point_at_invite">Point the camera at the code of their invite.</string>
+    <string name="camera_off">Turn on the camera for Kodosi in Settings</string>
+    <string name="share">Share</string>
     <string name="verify_identity">Verify identity</string>
     <string name="verified">Verified</string>
     <string name="identity_changed">Their identity changed</string>
@@ -258,6 +267,7 @@
     <string name="file_unavailable">This file is not available.</string>
     <string name="uploading">Sending file</string>
     <string name="loading">Loading</string>
+    <string name="reading_usage">Reading plan usage</string>
     <string name="browser_address">Search or enter an address</string>
     <string name="new_browser_tab">New tab</string>
     <string name="browser_back">Go back</string>
@@ -319,7 +329,7 @@
         <item quantity="other">%d members</item>
     </plurals>
     <string name="agent_permissions">Permissions</string>
-    <string name="agent_output">Output</string>
+    <string name="agent_output">Verbosity</string>
     <string name="agent_ask">Ask</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Unrestricted</string>

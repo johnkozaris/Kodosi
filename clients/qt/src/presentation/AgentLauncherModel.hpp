@@ -25,6 +25,7 @@ class AgentLauncherModel final : public QObject {
     Q_PROPERTY(bool usageAvailable READ usageAvailable NOTIFY usageChanged)
     Q_PROPERTY(QVariantList usageSections READ usageSections NOTIFY usageChanged)
     Q_PROPERTY(QVariant usageNearest READ usageNearest NOTIFY usageChanged)
+    Q_PROPERTY(bool loadingUsage READ loadingUsage NOTIFY loadingUsageChanged)
     Q_PROPERTY(QVariantMap places READ places NOTIFY foldersChanged)
     Q_PROPERTY(QVariantMap listing READ listing NOTIFY foldersChanged)
     Q_PROPERTY(QString folderError READ folderError NOTIFY foldersChanged)
@@ -47,6 +48,7 @@ public:
     bool usageAvailable() const;
     QVariantList usageSections() const;
     QVariant usageNearest() const;
+    bool loadingUsage() const;
     QVariantMap places() const { return m_places; }
     QVariantMap listing() const { return m_listing; }
     QString folderError() const { return m_folderError; }
@@ -74,6 +76,7 @@ signals:
     void accountErrorChanged();
     void foldersChanged();
     void usageChanged();
+    void loadingUsageChanged();
     void accountAdded(QString agent, QString name);
 
 private:

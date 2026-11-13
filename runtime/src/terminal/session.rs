@@ -37,6 +37,13 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 const START_PATIENCE: Duration = Duration::from_secs(3);
 const START_LIMIT: Duration = Duration::from_secs(15);
+/// Windows shows no sign that its shell reads keys, so a typed line may still wait there behind
+/// a slow profile.
+const LINE_STARTS_WITHIN: Duration = if kodosi_pty::CONSOLE_HOST {
+    Duration::from_secs(15)
+} else {
+    Duration::from_secs(2)
+};
 const PROMPT_QUIET: Duration = Duration::from_millis(300);
 const BUSY_UPKEEP: Duration = Duration::from_millis(20);
 const IDLE_UPKEEP: Duration = Duration::from_millis(250);
@@ -131,7 +138,11 @@ pub(crate) struct TerminalSession {
 }
 
 impl TerminalSession {
-    #[expect(clippy::too_many_arguments, reason = "the parts of one new terminal")]
+    #[expect(
+        clippy::too_many_arguments,
+        clippy::too_many_lines,
+        reason = "the parts of one new terminal"
+    )]
     pub(crate) async fn spawn(
         id: Uuid,
         incarnation_id: Uuid,
@@ -220,6 +231,7 @@ impl TerminalSession {
             agent: RunningAgent::default(),
             clear_line,
             start: None,
+            typed_line: None,
             output_at: None,
             prompt: false,
             viewers: HashMap::new(),
@@ -543,6 +555,20 @@ struct StartLine {
     early: VecDeque<PendingWrite>,
 }
 
+struct TypedLine {
+    at: tokio::time::Instant,
+    shell_waited: bool,
+}
+
+impl TypedLine {
+    fn now() -> Self {
+        Self {
+            at: tokio::time::Instant::now(),
+            shell_waited: false,
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Controller {
     Local(Uuid),
@@ -695,6 +721,7 @@ struct LocalActor {
     agent: RunningAgent,
     clear_line: &'static str,
     start: Option<StartLine>,
+    typed_line: Option<TypedLine>,
     output_at: Option<tokio::time::Instant>,
     prompt: bool,
     viewers: HashMap<Uuid, String>,
@@ -1131,10 +1158,24 @@ impl LocalActor {
         };
         if !prompt {
             tracing::info!(id = %self.id, "the start line was dropped because the shell runs another program");
+            self.line_ended();
         } else if let Err(error) = self.enqueue(Bytes::from(format!("{line}\r")), None) {
             tracing::warn!(id = %self.id, %error, "the start line was not typed");
+            self.line_ended();
+        } else {
+            self.typed_line = Some(TypedLine::now());
         }
         self.queue.extend(early);
+    }
+
+    fn line_ended(&mut self) {
+        if self
+            .changes
+            .try_send(SessionChange::LineEnded { id: self.id })
+            .is_err()
+        {
+            self.typed_line = Some(TypedLine::now());
+        }
     }
 
     fn busy(&self) -> bool {
@@ -1240,6 +1281,19 @@ impl LocalActor {
                 .is_ok()
         {
             self.prompt = prompt;
+        }
+        let waits = prompt && (self.pty.reads_keys() || kodosi_pty::CONSOLE_HOST);
+        if let Some(typed) = &mut self.typed_line {
+            let ended = waits && typed.shell_waited && typed.at.elapsed() >= LINE_STARTS_WITHIN;
+            typed.shell_waited = waits;
+            if ended
+                && self
+                    .changes
+                    .try_send(SessionChange::LineEnded { id: self.id })
+                    .is_ok()
+            {
+                self.typed_line = None;
+            }
         }
         if self.status_program.is_some()
             && self.pty.foreground_process_group() != self.status_program
@@ -1504,6 +1558,9 @@ impl LocalActor {
                 } else {
                     Err(Error::Refused(text!("This terminal runs a program.")))
                 };
+                if result.is_ok() {
+                    self.typed_line = Some(TypedLine::now());
+                }
                 drop(reply.send(result));
             }
             Request::Start(line) => {

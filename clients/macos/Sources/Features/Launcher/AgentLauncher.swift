@@ -100,6 +100,7 @@ struct AgentLauncher: View {
         .animation(theme.motion.spring, value: choice)
         .animation(theme.motion.spring, value: launcher.catalog)
         .animation(theme.motion.spring, value: launcher.usageRead)
+        .animation(theme.motion.spring, value: launcher.loadingUsage)
         .task(id: computer ?? "") {
             await launcher.refresh()
             _ = try? await launcher.folders()
@@ -415,6 +416,7 @@ private extension AgentLauncher {
         let account = plan.account
         let title = account?.title(program: info.program) ?? ""
         let usage = plan.usage(of: account)
+        let loading = plan.loadsUsage(of: account)
         let help = [account?.identity, usage?.spoken].compactMap(\.self).joined(separator: "\n")
         return PickerKey(
             title: title, open: menu == .account, identifier: "launcher.account",
@@ -422,7 +424,7 @@ private extension AgentLauncher {
         ) {
             AccountMark(
                 initial: String(title.prefix(1)), key: account?.signIn ?? "", signedIn: account?.identity != nil,
-                size: usage == nil ? 16 : 20, usage: usage,
+                size: usage == nil && !loading ? 16 : 20, usage: usage, loading: loading,
                 tint: info.kind.tint(account: info.accounts.firstIndex { $0.name == account?.name }),
             )
         } action: {
@@ -445,12 +447,12 @@ private extension AgentLauncher {
     func modesKey(_ info: AgentInfo) -> some View {
         let permissions = plan.permissions
         let output = info.outputs.isEmpty ? info.defaultOutput : plan.output
-        let title = ([permissions.label] + (output == info.defaultOutput ? [] : [output.label])).joined(separator: " · ")
+        let chosen = ([permissions.label] + (info.outputs.isEmpty ? [] : [output.label])).joined(separator: " · ")
         return PickerKey(
-            title: title, quiet: permissions == info.defaultPermissions && output == info.defaultOutput, open: menu == .modes,
-            identifier: "launcher.modes", label: String(localized: "Permissions and output"),
+            title: String(localized: "More"), quiet: permissions == info.defaultPermissions && output == info.defaultOutput,
+            open: menu == .modes, identifier: "launcher.modes", label: String(localized: "More"), help: chosen,
         ) {
-            Image(systemName: permissions.symbol).font(.system(size: 9.5, weight: .bold))
+            Image(systemName: "ellipsis").font(.system(size: 9.5, weight: .bold))
                 .foregroundStyle(permissions == .unrestricted ? theme.colors.caution : info.kind.tint)
         } action: {
             toggle(.modes)

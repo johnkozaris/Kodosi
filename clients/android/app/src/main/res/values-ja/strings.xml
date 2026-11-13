@@ -154,6 +154,15 @@
     <string name="friends_empty_message">ターミナルを共有して、プロジェクトで一緒に作業しましょう。</string>
     <string name="your_invite">自分の招待</string>
     <string name="copy_invite">招待をコピー</string>
+    <string name="show_invite">招待を表示</string>
+    <string name="scan_invite">相手の招待をスキャン</string>
+    <string name="invite_code_hint">フレンドがこのコードをカメラでスキャンすると、あなたを追加できます。</string>
+    <string name="invite_code_description">自分の招待の QR コード</string>
+    <string name="not_an_invite">このコードは Kodosi の招待ではありません。</string>
+    <string name="scanner_unavailable">コードスキャナーを使えません。代わりに相手の招待を貼り付けてください。</string>
+    <string name="point_at_invite">相手の招待のコードにカメラを向けてください。</string>
+    <string name="camera_off">設定で Kodosi のカメラをオンにしてください</string>
+    <string name="share">共有</string>
     <string name="verify_identity">本人確認</string>
     <string name="verified">確認済み</string>
     <string name="identity_changed">相手の本人情報が変わりました</string>
@@ -250,6 +259,7 @@
     <string name="file_unavailable">このファイルは利用できません。</string>
     <string name="uploading">ファイルを送信中</string>
     <string name="loading">読み込み中</string>
+    <string name="reading_usage">プランの使用量を読み込み中</string>
     <string name="browser_address">検索またはアドレスを入力</string>
     <string name="new_browser_tab">新規タブ</string>
     <string name="browser_back">戻る</string>
@@ -310,7 +320,7 @@
     </plurals>
     <string name="hide_keyboard">キーボードを隠す</string>
     <string name="agent_permissions">権限</string>
-    <string name="agent_output">出力</string>
+    <string name="agent_output">詳細度</string>
     <string name="agent_ask">確認</string>
     <string name="agent_auto">自動</string>
     <string name="agent_unrestricted">制限なし</string>

@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -278,28 +279,38 @@ fun StatusSign(form: StatusForm, size: Dp, modifier: Modifier = Modifier) {
             )
 
             StatusForm.HAND -> {
-                for ((index, top) in listOf(0.14f, 0.04f, 0.06f, 0.16f).withIndex()) {
+                val middle = at(0.5f, 0.56f)
+                withTransform({
+                    rotate(18f, middle)
+                    scale(0.8f, 0.8f, middle)
+                }) {
+                    for ((index, top) in listOf(0.14f, 0.04f, 0.06f, 0.16f).withIndex()) {
+                        drawRoundRect(
+                            colors.accent,
+                            topLeft = at(0.24f + index * 0.16f, top),
+                            size = Size(unit * 0.13f, unit * 0.6f),
+                            cornerRadius = CornerRadius(unit * 0.07f)
+                        )
+                    }
                     drawRoundRect(
                         colors.accent,
-                        topLeft = at(0.24f + index * 0.16f, top),
-                        size = Size(unit * 0.13f, unit * 0.6f),
-                        cornerRadius = CornerRadius(unit * 0.07f)
+                        at(0.24f, 0.42f),
+                        Size(unit * 0.61f, unit * 0.54f),
+                        CornerRadius(unit * 0.2f)
                     )
+                    rotate(-38f, at(0.16f, 0.62f)) {
+                        drawRoundRect(
+                            colors.accent,
+                            at(0.04f, 0.5f),
+                            Size(unit * 0.32f, unit * 0.13f),
+                            CornerRadius(unit * 0.07f)
+                        )
+                    }
                 }
-                drawRoundRect(
-                    colors.accent,
-                    at(0.24f, 0.42f),
-                    Size(unit * 0.61f, unit * 0.54f),
-                    CornerRadius(unit * 0.2f)
-                )
-                rotate(-38f, at(0.16f, 0.62f)) {
-                    drawRoundRect(
-                        colors.accent,
-                        at(0.04f, 0.5f),
-                        Size(unit * 0.32f, unit * 0.13f),
-                        CornerRadius(unit * 0.07f)
-                    )
-                }
+                val wave = Stroke(unit * 0.08f, cap = StrokeCap.Round)
+                val swing = Size(unit * 0.34f, unit * 0.34f)
+                drawArc(colors.accent, -75f, 75f, false, at(0.61f, 0.07f), swing, style = wave)
+                drawArc(colors.accent, 105f, 75f, false, at(0.03f, 0.61f), swing, style = wave)
             }
 
             StatusForm.QUESTION -> {

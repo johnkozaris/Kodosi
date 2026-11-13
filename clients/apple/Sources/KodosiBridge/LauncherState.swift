@@ -15,7 +15,7 @@ public final class LauncherState {
     public private(set) var usage: [String: AccountUsage] = [:]
     public private(set) var usageRead = false
     public private(set) var failure: String?
-    private var readingUsage = false
+    public private(set) var readingUsage = false
     private var refreshing = false
     private var refreshesAgain = false
     private var refreshedAt: Date?
@@ -77,6 +77,12 @@ public final class LauncherState {
 
     public func usage(of agent: String, account: String) -> AccountUsage? {
         usage[AccountUsage.key(agent, account)]
+    }
+
+    /// The host reads plan usage through each provider's command, which takes seconds the first
+    /// time.
+    public var loadingUsage: Bool {
+        readingUsage && !usageRead
     }
 
     public func refreshUsage() async {

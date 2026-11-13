@@ -30,9 +30,11 @@ la shell del terminal nuevo.
   el terminal seleccionado. Ajustes › Atajos muestra todas las teclas y las cambia.
 - Si falta un agente, el lanzador muestra su comando de instalación.
 - Los agentes empiezan con Acceso total: cambian archivos y ejecutan comandos sin
-  preguntarte. Para que un agente pregunte antes, elige Preguntar en el botón que sigue al
-  modelo. Ahí también eliges cuánto de su trabajo muestran Claude Code y Codex; empiezan en
-  Breve.
+  preguntarte. Para que un agente pregunte antes, elige Preguntar en Más, el botón que sigue
+  al modelo. Ahí también eliges la verbosidad, cuánto de su trabajo muestran Claude Code,
+  Codex y Copilot CLI; empiezan en Breve. Copilot CLI solo toma su verbosidad de sus propios
+  ajustes, así que Kodosi los cambia mientras Copilot CLI se ejecuta en Breve y después los
+  restablece.
 - Una cuenta nueva tiene su propia carpeta de inicio de sesión, como `~/.claude-work`. Kodosi
   también encuentra las cuentas que configura tu shell, como
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -189,7 +191,9 @@ robaron un dispositivo, crea también una clave de recuperación nueva.
 ## 7. Trabaja con amigos
 
 Abre Amigos desde el menú junto a tu cuenta. Envía tu invitación, o pega la invitación o el
-nombre de usuario de un amigo. Con una invitación, Kodosi puede verificar a tu amigo.
+nombre de usuario de un amigo. Con una invitación, Kodosi puede verificar a tu amigo. En
+un teléfono, muestra tu invitación como un código: tu amigo lo escanea con su cámara o en
+Kodosi, y confirma que confía en ti antes de que se envíe la solicitud.
 
 <p align="center"><img src="../media/friends.webp" width="900" alt="La página Amigos con dos amigos verificados."></p>
 

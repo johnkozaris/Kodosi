@@ -73,6 +73,23 @@ function Denied({ kcContext, i18n }: Page<"info.ftl" | "error.ftl">) {
   );
 }
 
+// Keycloak ends the first browser's sign-in when the link opens in another one, so only the
+// app can start it again.
+function Verified({ kcContext, i18n }: Page<"info.ftl">) {
+  const { msgStr } = i18n;
+  return (
+    <Stage
+      kcContext={kcContext}
+      i18n={i18n}
+      title={msgStr("emailVerifiedMessageHeader")}
+      lead={msgStr("kdsVerifiedLead")}
+      sign="done"
+      rest
+      quiet
+    />
+  );
+}
+
 export function Info({ kcContext, i18n }: Page<"info.ftl">) {
   const { messageHeader, message, requiredActions, skipLink, pageRedirectUri, actionUri } =
     kcContext;
@@ -97,6 +114,10 @@ export function Info({ kcContext, i18n }: Page<"info.ftl">) {
         : client?.baseUrl
           ? { href: client.baseUrl, label: msgStr("kdsBackTo", program) }
           : undefined;
+  const verified =
+    isMessage(i18n, message.summary, "emailVerifiedMessage") ||
+    isMessage(i18n, message.summary, "emailVerifiedAlreadyMessage");
+  if (verified && !on) return <Verified kcContext={kcContext} i18n={i18n} />;
   const said = plain(messageHeader ? advancedMsgStr(messageHeader) : message.summary).trim();
   const short = said.length <= 34;
   const title = short ? said.replace(/\.$/, "") : msgStr(on ? "kdsOneMoreStep" : "kdsNoteTitle");

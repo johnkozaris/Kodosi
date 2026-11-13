@@ -874,7 +874,7 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
     assert_eq!(
         line(Agent::Claude, None, None, None).unwrap(),
         (
-            r#"claude --dangerously-skip-permissions --settings '{"viewMode":"focus"}'"#.to_owned(),
+            format!("claude --dangerously-skip-permissions --settings '{CLAUDE_QUIET}'"),
             Some(unrestricted)
         )
     );
@@ -886,12 +886,13 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
         line(Agent::Claude, Some(unrestricted), Some(auto), None)
             .unwrap()
             .0,
-        r#"claude --permission-mode auto --settings '{"viewMode":"focus"}'"#
+        format!("claude --permission-mode auto --settings '{CLAUDE_QUIET}'")
     );
     assert_eq!(
         line(Agent::Codex, None, None, None).unwrap().0,
         "codex --dangerously-bypass-approvals-and-sandbox -c hide_agent_reasoning=true \
-         -c model_reasoning_summary=none -c tui.auto_recap=false"
+         -c show_raw_agent_reasoning=false -c model_reasoning_summary=none -c tui.auto_recap=false \
+         -c tui.show_tooltips=false -c tui.animations=false -c 'tui.status_line=[]'"
     );
     assert_eq!(
         line(Agent::Copilot, None, None, None).unwrap(),
@@ -910,9 +911,61 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
         "Cursor has no permissions auto. Permissions: ask, unrestricted."
     );
     assert_eq!(
-        line(Agent::Copilot, None, None, Some(Output::Quiet)).unwrap_err(),
-        "Copilot CLI has no output quiet. Outputs: none."
+        line(Agent::Copilot, None, None, Some(Output::Detailed)).unwrap_err(),
+        "Copilot CLI has no output detailed. Outputs: quiet, standard."
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_running_agent_shows_each_permissions_and_output_that_kodosi_starts_it_with() {
+    let shell = Path::new("/bin/sh");
+    let arguments = |line: &str| {
+        let printed = std::process::Command::new(shell)
+            .arg("-c")
+            .arg(format!(r"printf '%s\0' {line}"))
+            .env_clear()
+            .output()
+            .unwrap();
+        String::from_utf8(printed.stdout)
+            .unwrap()
+            .split_terminator('\0')
+            .map(str::to_owned)
+            .collect::<Vec<_>>()
+    };
+    for agent in [Agent::Claude, Agent::Codex, Agent::Copilot] {
+        let mut outputs = agent.outputs();
+        if outputs.is_empty() {
+            outputs.push(agent.default_output());
+        }
+        for permissions in agent.permissions() {
+            for &output in &outputs {
+                let start = AgentStart {
+                    agent,
+                    account: None,
+                    model: None,
+                    effort: None,
+                    permissions: Some(permissions),
+                    output: Some(output),
+                };
+                let saved = AgentPick {
+                    agent,
+                    account: None,
+                    model: None,
+                    effort: None,
+                    permissions: None,
+                    output: None,
+                };
+                let (line, _) = plan(&installed(agent), None, &saved, &start, shell).unwrap();
+                let line = agent.with_context(&line, shell);
+                let started = agent.started_with(&arguments(&line));
+                assert_eq!(started.permissions, Some(permissions), "{line}");
+                if agent != Agent::Copilot {
+                    assert_eq!(started.output, Some(output), "{line}");
+                }
+            }
+        }
+    }
 }
 
 #[tokio::test]
@@ -1284,7 +1337,7 @@ fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
     };
     assert_eq!(
         Agent::Claude.chosen(&arguments, &changed).join(" "),
-        r#"--model sonnet --permission-mode manual --settings '{"viewMode":"focus"}'"#,
+        format!("--model sonnet --permission-mode manual --settings '{CLAUDE_QUIET}'"),
         "a new model starts at its own effort"
     );
     let effort = AgentSettings {

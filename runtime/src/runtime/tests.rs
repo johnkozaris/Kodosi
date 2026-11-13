@@ -2833,14 +2833,21 @@ fn a_terminal_comes_back_to_the_conversation_its_agent_had_when_the_agent_stops_
         Some("copilot --resume=A")
     );
 
-    known.program_changed(true, now);
+    let quiet = PathBuf::from("/home/ana/.copilot/settings.json");
+    known.program_changed(true, now, Some(quiet.clone()));
     assert_eq!(
         chosen(None, &known, later(9)).as_deref(),
         Some("copilot --resume=A")
     );
+    assert_eq!(
+        known.quiet_settings(later(9)),
+        Some(quiet),
+        "a quiet Copilot CLI comes back quiet"
+    );
     assert_eq!(chosen(None, &known, later(11)), None);
+    assert_eq!(known.quiet_settings(later(11)), None);
 
-    known.program_changed(false, later(12));
+    known.program_changed(false, later(12), None);
     assert_eq!(
         chosen(listing(), &known, later(12)).as_deref(),
         Some("copilot --resume")
@@ -2950,6 +2957,7 @@ async fn saved_terminals_wait_for_an_app_and_stay_saved_until_they_start() {
         worktree: None,
         canvas: Vec::new(),
         browser: None,
+        quiet_settings: None,
     };
     let (first, second) = (saved("first"), saved("second"));
     for live in [first.clone(), second.clone()] {
@@ -2979,6 +2987,7 @@ async fn a_saved_screen_keeps_its_newest_lines_until_its_terminal_comes_back() {
         worktree: None,
         canvas: Vec::new(),
         browser: None,
+        quiet_settings: None,
     };
     let mut restore = restore::Restore::load(root.path());
     restore.save(vec![saved.clone()]);
