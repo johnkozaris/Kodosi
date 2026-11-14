@@ -55,11 +55,61 @@ pub(super) fn sharing(session: &Value, users: &BTreeSet<String>, friends: &[Valu
     }
 }
 
-pub(super) fn link_code(event: &Value) -> String {
-    format!(
-        "Type this code on a device that you already approved\n(choose Approve in the app there, or run `kodosi devices approve <code>`):\n\n    {}\n\nWaiting for approval. Press Ctrl-C to stop waiting.",
+pub(super) fn link_code(event: &Value, picture: bool) -> String {
+    let waiting = "Waiting for approval. Press Ctrl-C to stop waiting.";
+    if !event["code"].is_string() {
+        return waiting.to_owned();
+    }
+    let typed = format!(
+        "this code on a device that you already approved\n(choose Approve in the app there, or run `kodosi devices approve <code>`):\n\n    {}\n\n{waiting}",
         text(event, "code")
+    );
+    qr(&event["qr"]).filter(|_| picture).map_or_else(
+        || format!("Type {typed}"),
+        |code| {
+            format!(
+                "Scan this code with Kodosi on a phone that you already approved\n(Settings, Add a device, Scan the code):\n\n{code}\nOr type {typed}"
+            )
+        },
     )
+}
+
+pub(super) fn add_code(event: &Value) -> String {
+    format!(
+        "On the new phone, open Kodosi and sign in. Then choose Scan the code on your computer,\nand scan this code:\n\n{}\nWaiting for the phone. Press Ctrl-C to stop; the code then stops working.",
+        qr(&event["qr"]).unwrap_or_default()
+    )
+}
+
+/// A camera reads dark modules on a light ground, so the colors do not follow the theme of
+/// the terminal.
+fn qr(rows: &Value) -> Option<String> {
+    const QUIET: usize = 4;
+    let rows: Vec<&[u8]> = rows
+        .as_array()?
+        .iter()
+        .filter_map(|row| row.as_str().map(str::as_bytes))
+        .collect();
+    let dark = |x: usize, y: usize| {
+        y.checked_sub(QUIET)
+            .and_then(|y| rows.get(y))
+            .zip(x.checked_sub(QUIET))
+            .and_then(|(row, x)| row.get(x))
+            == Some(&b'1')
+    };
+    let side = rows.len() + 2 * QUIET;
+    let mut code = String::new();
+    for y in (0..side).step_by(2) {
+        code.push_str("    \x1b[38;5;16;48;5;231m");
+        code.extend((0..side).map(|x| match (dark(x, y), dark(x, y + 1)) {
+            (true, true) => '█',
+            (true, false) => '▀',
+            (false, true) => '▄',
+            (false, false) => ' ',
+        }));
+        code.push_str("\x1b[0m\n");
+    }
+    (!rows.is_empty()).then_some(code)
 }
 
 pub(super) fn result(event: &Value, context: &Context) -> String {
@@ -639,6 +689,32 @@ fn table<const N: usize>(rows: &[[String; N]]) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_code_in_a_terminal_has_two_modules_for_each_line_inside_a_light_border() {
+        let code = qr(&json!(["101", "110", "011"])).unwrap();
+        let lines: Vec<&str> = code
+            .lines()
+            .map(|line| {
+                line.trim_start()
+                    .trim_start_matches("\x1b[38;5;16;48;5;231m")
+                    .trim_end_matches("\x1b[0m")
+            })
+            .collect();
+        let empty = " ".repeat(11);
+        assert_eq!(
+            lines,
+            [
+                empty.as_str(),
+                empty.as_str(),
+                "    █▄▀    ",
+                "     ▀▀    ",
+                empty.as_str(),
+                empty.as_str(),
+            ]
+        );
+        assert!(code.lines().all(|line| line.ends_with("\x1b[0m")));
+    }
 
     #[test]
     fn a_saved_sign_in_that_comes_back_is_not_called_signed_out() {

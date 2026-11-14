@@ -5,12 +5,15 @@ use serde::Deserialize;
 use super::*;
 use crate::identity::{
     ML_DSA_65_PUBLIC_KEY_LEN,
-    link_code::{LinkIdentity, LinkKey, NONCE_LEN, PROOF_LEN, new_code, typed_code},
+    link_code::{
+        LinkIdentity, LinkKey, LinkSecret, NONCE_LEN, PROOF_LEN, ScannedLink, new_code,
+        scanned_link, typed_code,
+    },
     pins::decode,
 };
 
 const LINK_REQUESTS: usize = 5;
-const LINK_LIFE: Duration = Duration::from_mins(10);
+pub(super) const LINK_LIFE: Duration = Duration::from_mins(10);
 const LINK_POLL: Duration = Duration::from_secs(2);
 
 #[derive(Clone)]
@@ -20,6 +23,18 @@ pub(crate) struct PendingLink {
     pub(super) key: Arc<LinkKey>,
     pub(super) started: Instant,
     pub(super) accepted: bool,
+}
+
+#[derive(Clone)]
+pub(crate) struct PendingOffer {
+    secret: Arc<LinkSecret>,
+    started: tokio::time::Instant,
+    refused: BTreeSet<String>,
+}
+
+pub(super) struct ShownCode {
+    pub(super) code: String,
+    pub(super) link: String,
 }
 
 #[derive(Deserialize)]
@@ -52,14 +67,14 @@ pub(super) struct LinkedDevice {
     key: LinkKey,
 }
 
-pub(super) fn request_with_code(
+pub(super) fn request_with_secret<'a>(
     user_id: &str,
-    requests: Vec<LinkRequest>,
-    code: &str,
+    requests: impl IntoIterator<Item = &'a LinkRequest>,
+    secret: &LinkSecret,
 ) -> Result<Option<LinkedDevice>> {
     for request in requests.into_iter().take(LINK_REQUESTS) {
         let signing_public_key = decode(&request.signing_public_key, ML_DSA_65_PUBLIC_KEY_LEN)?;
-        let key = LinkKey::derive(code, &decode(&request.nonce, NONCE_LEN)?);
+        let key = LinkKey::derive(secret, &decode(&request.nonce, NONCE_LEN)?)?;
         let identity = LinkIdentity {
             user_id,
             device_id: &request.device_id,
@@ -69,14 +84,20 @@ pub(super) fn request_with_code(
         if key.proves_request(&identity, &decode(&request.proof, PROOF_LEN)?)? {
             return Ok(Some(LinkedDevice {
                 request_id: request.request_id,
-                device_id: request.device_id,
-                label: request.device_label,
+                device_id: request.device_id.clone(),
+                label: request.device_label.clone(),
                 signing_public_key,
                 key,
             }));
         }
     }
     Ok(None)
+}
+
+fn another_account() -> Error {
+    Error::Text(text!(
+        "This code is from another account. Sign in to the same account on both devices."
+    ))
 }
 
 impl BackendClient {
@@ -89,6 +110,7 @@ impl BackendClient {
 
     pub(super) async fn device_events(&self) -> Result<Vec<Value>> {
         let credentials = self.credentials()?;
+        let offered = self.settle_offer(&credentials).await;
         let devices = if self.pinned(&credentials.user_id).await? {
             match self
                 .fetch_identity_with(&credentials, &credentials.user_id)
@@ -124,6 +146,7 @@ impl BackendClient {
                 .collect::<Vec<_>>();
             result.push(json!({"type":"devices.link.snapshot","requests":requests}));
         }
+        result.extend(offered);
         Ok(result)
     }
 
@@ -270,23 +293,45 @@ impl BackendClient {
         Ok(())
     }
 
-    pub(super) async fn start_link(&self) -> Result<String> {
+    pub(super) async fn start_link(&self, scanned: Option<&str>) -> Result<Option<ShownCode>> {
         let credentials = self.reapproval_credentials().await?;
         if credentials.enrolled {
             return Err(Error::Text(text!("This device is already approved.")));
         }
+        let secret = match scanned.map(scanned_link) {
+            None => LinkSecret::Typed(new_code()?),
+            Some(Some(ScannedLink {
+                user_id,
+                secret: secret @ LinkSecret::Scanned(_),
+            })) => {
+                if user_id != credentials.user_id {
+                    return Err(another_account());
+                }
+                secret
+            }
+            Some(_) => {
+                return Err(Error::Text(text!(
+                    "Scan the code that Add a device shows on a device that you already use."
+                )));
+            }
+        };
+        let shown = match &secret {
+            LinkSecret::Typed(code) => Some(ShownCode {
+                code: code.clone(),
+                link: secret.link(&credentials.user_id),
+            }),
+            LinkSecret::Scanned(_) => None,
+        };
         let label = host_label();
         let mut nonce = [0; NONCE_LEN];
         aws_lc_rs::rand::fill(&mut nonce).map_err(|_| Error::Closed)?;
-        let code = new_code()?;
-        let (user, keys, secret, name) = (
+        let (user, keys, name) = (
             credentials.user_id.clone(),
             Arc::clone(&credentials.keys),
-            code.clone(),
             label.clone(),
         );
         let (key, proof) = tokio::task::spawn_blocking(move || {
-            let key = LinkKey::derive(&secret, &nonce);
+            let key = LinkKey::derive(&secret, &nonce)?;
             let proof = key.request_proof(&LinkIdentity {
                 user_id: &user,
                 device_id: &keys.device_id,
@@ -305,7 +350,7 @@ impl BackendClient {
             started: Instant::now(),
             accepted: false,
         });
-        Ok(code)
+        Ok(shown)
     }
 
     async fn link_requests(&self, credentials: &Credentials) -> Result<Vec<LinkRequest>> {
@@ -337,20 +382,22 @@ impl BackendClient {
         Ok(())
     }
 
-    pub(super) async fn watch_link(&self) {
+    pub(super) async fn watch_link(&self, scanned: bool) {
         let Some(watched) = self.inner.state.lock().await.link.clone() else {
             return;
         };
+        // The computer that showed a scanned code approves by itself, in less than a second.
+        let pace = if scanned { LINK_POLL / 2 } else { LINK_POLL };
         let this = self.clone();
         tokio::spawn(async move {
             loop {
                 tokio::select! {
                     () = this.inner.shutdown.cancelled() => break,
-                    () = tokio::time::sleep(LINK_POLL) => {}
+                    () = tokio::time::sleep(pace) => {}
                 }
                 let _operation = this.inner.operations.lock().await;
                 let current = this.inner.state.lock().await.link.clone();
-                if current.is_none_or(|link| link.request_id != watched.request_id) {
+                if current.is_none_or(|link| link.device_code != watched.device_code) {
                     break;
                 }
                 if let Err(error) = this.poll_link().await
@@ -497,15 +544,27 @@ impl BackendClient {
         Ok(())
     }
 
-    async fn linked_device(&self, credentials: &Credentials, typed: &str) -> Result<LinkedDevice> {
-        let code = typed_code(typed).ok_or_else(|| {
-            Error::Text(text!(
-                "Type the 12 characters of the code that the new device shows."
-            ))
-        })?;
+    async fn linked_device(&self, credentials: &Credentials, shown: &str) -> Result<LinkedDevice> {
+        let secret = match (typed_code(shown), scanned_link(shown)) {
+            (Some(code), _) => LinkSecret::Typed(code),
+            (None, Some(link)) if matches!(link.secret, LinkSecret::Scanned(_)) => {
+                return Err(Error::Text(text!(
+                    "This code adds a new device. Scan it with the device that you want to add."
+                )));
+            }
+            (None, Some(link)) if link.user_id != credentials.user_id => {
+                return Err(another_account());
+            }
+            (None, Some(link)) => link.secret,
+            (None, None) => {
+                return Err(Error::Text(text!(
+                    "Type the 12 characters of the code that the new device shows."
+                )));
+            }
+        };
         let requests = self.link_requests(credentials).await?;
         let user = credentials.user_id.clone();
-        tokio::task::spawn_blocking(move || request_with_code(&user, requests, &code))
+        tokio::task::spawn_blocking(move || request_with_secret(&user, &requests, &secret))
             .await
             .map_err(|_| Error::Closed)??
             .ok_or_else(|| {
@@ -513,14 +572,153 @@ impl BackendClient {
             })
     }
 
-    pub(super) async fn link_label(&self, typed: &str) -> Result<String> {
+    pub(super) async fn link_label(&self, shown: &str) -> Result<String> {
         let credentials = self.credentials()?;
-        Ok(self.linked_device(&credentials, typed).await?.label)
+        Ok(self.linked_device(&credentials, shown).await?.label)
     }
 
-    pub(super) async fn approve_link(&self, typed: &str) -> Result<String> {
+    pub(super) async fn approve_link(&self, shown: &str) -> Result<String> {
         let credentials = self.credentials()?;
-        let pending = self.linked_device(&credentials, typed).await?;
+        let pending = self.linked_device(&credentials, shown).await?;
+        self.approve(&credentials, pending).await
+    }
+
+    pub(super) async fn offer_link(&self) -> Result<String> {
+        let credentials = self.credentials()?;
+        if !credentials.enrolled {
+            return Err(Error::EnrollmentRequired);
+        }
+        let secret = {
+            let mut state = self.inner.state.lock().await;
+            if let Some(shown) = &state.offer {
+                return Ok(shown.secret.link(&credentials.user_id));
+            }
+            let secret = Arc::new(LinkSecret::scanned()?);
+            state.offer = Some(PendingOffer {
+                secret: Arc::clone(&secret),
+                started: tokio::time::Instant::now(),
+                refused: BTreeSet::new(),
+            });
+            secret
+        };
+        let link = secret.link(&credentials.user_id);
+        self.watch_offer(secret);
+        Ok(link)
+    }
+
+    pub(super) async fn cancel_offer(&self) {
+        self.inner.state.lock().await.offer = None;
+    }
+
+    async fn end_offer(&self, offer: &PendingOffer) {
+        let mut state = self.inner.state.lock().await;
+        if state
+            .offer
+            .as_ref()
+            .is_some_and(|current| Arc::ptr_eq(&current.secret, &offer.secret))
+        {
+            state.offer = None;
+        }
+    }
+
+    fn watch_offer(&self, watched: Arc<LinkSecret>) {
+        let this = self.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    () = this.inner.shutdown.cancelled() => break,
+                    () = tokio::time::sleep(LINK_POLL) => {}
+                }
+                let _operation = this.inner.operations.lock().await;
+                let current = this.inner.state.lock().await.offer.clone();
+                let Some(current) = current.filter(|offer| Arc::ptr_eq(&offer.secret, &watched))
+                else {
+                    break;
+                };
+                if let Err(error) = this.poll_offer(&current).await
+                    && error.user_facing()
+                {
+                    tracing::warn!(%error, "the devices that ask for approval were not read; they will be read again");
+                }
+            }
+        });
+    }
+
+    pub(super) async fn poll_offer(&self, offer: &PendingOffer) -> Result<()> {
+        let credentials = self.credentials()?;
+        let events = if offer.started.elapsed() >= LINK_LIFE {
+            self.end_offer(offer).await;
+            vec![json!({"type":"devices.link.offerResolved","outcome":"expired"})]
+        } else if self
+            .link_requests(&credentials)
+            .await?
+            .iter()
+            .all(|request| offer.refused.contains(&request.proof))
+        {
+            Vec::new()
+        } else {
+            self.device_events().await?
+        };
+        for event in events {
+            self.emit_for(
+                credentials.generation,
+                Some(credentials.user_id.clone()),
+                event,
+            );
+        }
+        Ok(())
+    }
+
+    async fn settle_offer(&self, credentials: &Credentials) -> Vec<Value> {
+        let Some(offer) = self.inner.state.lock().await.offer.clone() else {
+            return Vec::new();
+        };
+        let asked = self.link_requests(credentials).await.and_then(|requests| {
+            let unseen = requests
+                .iter()
+                .filter(|request| !offer.refused.contains(&request.proof));
+            let pending = request_with_secret(&credentials.user_id, unseen, &offer.secret)?;
+            Ok((requests, pending))
+        });
+        let pending = match asked {
+            Ok((_, Some(pending))) => pending,
+            Ok((requests, None)) => {
+                if let Some(current) = self
+                    .inner
+                    .state
+                    .lock()
+                    .await
+                    .offer
+                    .as_mut()
+                    .filter(|current| Arc::ptr_eq(&current.secret, &offer.secret))
+                {
+                    current.refused = requests.into_iter().map(|request| request.proof).collect();
+                }
+                return Vec::new();
+            }
+            Err(error) => {
+                tracing::warn!(%error, "the devices that ask for approval were not read for the shown code");
+                return Vec::new();
+            }
+        };
+        match self.approve(credentials, pending).await {
+            Ok(label) => {
+                self.end_offer(&offer).await;
+                vec![
+                    json!({"type":"devices.link.offerResolved","outcome":"approved","deviceLabel":label}),
+                ]
+            }
+            Err(error) if error.unanswered() || !error.user_facing() => Vec::new(),
+            Err(error) => {
+                self.end_offer(&offer).await;
+                vec![
+                    json!({"type":"devices.link.offerResolved","outcome":"cancelled","message":error.text()}),
+                ]
+            }
+        }
+    }
+
+    async fn approve(&self, credentials: &Credentials, pending: LinkedDevice) -> Result<String> {
         let verified = self.fetch_identity(&credentials.user_id).await?;
         let new_device = pending.device_id.as_str();
         let approval =
@@ -548,7 +746,7 @@ impl BackendClient {
             .device(
                 Method::POST,
                 "api/devices/link/approve",
-                &credentials,
+                credentials,
                 Some(body),
             )
             .await?;

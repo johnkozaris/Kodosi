@@ -355,6 +355,7 @@ impl BackendClient {
         state.unsaved_tokens = false;
         state.token_save_failing = false;
         state.link = None;
+        state.offer = None;
         state.deletion = None;
         state.changed_friends.clear();
         let secrets = state.secrets.clone();

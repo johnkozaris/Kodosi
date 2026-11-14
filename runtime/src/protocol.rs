@@ -32,11 +32,12 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 87;
+pub const VERSION: u32 = 88;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
 pub(crate) const REPORT_NOTE_BYTES: usize = 1000;
+const DEVICE_CODE_BYTES: usize = 256;
 pub(crate) fn other_version() -> Text {
     text!("Update Kodosi on both computers.")
 }
@@ -132,11 +133,24 @@ pub enum Command {
     },
     #[serde(rename = "devices.link.startSelf")]
     LinkDevice {
+        /// The text of the code that this device scanned on an approved device.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        code: Option<String>,
         #[serde(rename = "requestId")]
         request_id: String,
     },
     #[serde(rename = "devices.link.cancelSelf")]
     CancelDeviceLink {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "devices.link.offer")]
+    OfferDevice {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "devices.link.offer.cancel")]
+    CancelDeviceOffer {
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -1111,6 +1125,15 @@ pub enum EventBody {
     },
     #[serde(rename = "devices.link.selfResolved")]
     DeviceLinkSelfResolved { outcome: DeviceLinkOutcome },
+    #[serde(rename = "devices.link.offerResolved")]
+    DeviceLinkOfferResolved {
+        outcome: DeviceLinkOutcome,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        device_label: Option<String>,
+        /// Why the device that scanned the code did not get its approval.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<Text>,
+    },
     #[serde(rename = "devices.result")]
     DevicesResult {
         request_id: String,
@@ -1121,6 +1144,13 @@ pub enum EventBody {
         key: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         device_label: Option<String>,
+        /// The text that `qr` carries, for a code that only a camera reads.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        /// The rows of the QR code that another device scans, with `1` for a dark module,
+        /// without the quiet zone.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        qr: Option<Vec<String>>,
     },
     #[serde(rename = "devices.error")]
     DevicesError {
@@ -1689,6 +1719,7 @@ impl EventBody {
             Self::DeviceLinksSnapshot { .. } => "devices.link.snapshot",
             Self::DeviceLinkResolved { .. } => "devices.link.resolved",
             Self::DeviceLinkSelfResolved { .. } => "devices.link.selfResolved",
+            Self::DeviceLinkOfferResolved { .. } => "devices.link.offerResolved",
             Self::DevicesResult { .. } => "devices.result",
             Self::DevicesError { .. } => "devices.error",
             Self::PushResult { .. } => "push.result",
@@ -1789,6 +1820,8 @@ impl Command {
             Self::ApproveDevice { .. } => "devices.link.approve",
             Self::LinkDevice { .. } => "devices.link.startSelf",
             Self::CancelDeviceLink { .. } => "devices.link.cancelSelf",
+            Self::OfferDevice { .. } => "devices.link.offer",
+            Self::CancelDeviceOffer { .. } => "devices.link.offer.cancel",
             Self::ResetDevices { .. } => "devices.reset",
             Self::CancelReset { .. } => "devices.reset.cancel",
             Self::CreateRecoveryKey { .. } => "devices.recovery.create",
@@ -1926,8 +1959,10 @@ impl Command {
             | Self::RevokeDevice { request_id, .. }
             | Self::CheckDevice { request_id, .. }
             | Self::ApproveDevice { request_id, .. }
-            | Self::LinkDevice { request_id }
+            | Self::LinkDevice { request_id, .. }
             | Self::CancelDeviceLink { request_id }
+            | Self::OfferDevice { request_id }
+            | Self::CancelDeviceOffer { request_id }
             | Self::ResetDevices { request_id }
             | Self::CancelReset { request_id, .. }
             | Self::CreateRecoveryKey { request_id }
@@ -2483,9 +2518,11 @@ impl Command {
             } => push_token(*platform, token, *environment)?,
             Self::CancelReset { reset_id, .. } => parse_id(reset_id).map(drop)?,
             Self::FinishLogin { url, .. } => text(url, "url", 8192)?,
-            Self::CheckDevice { code, .. } | Self::ApproveDevice { code, .. } => {
-                text(code, "code", 64)?;
-            }
+            Self::CheckDevice { code, .. }
+            | Self::ApproveDevice { code, .. }
+            | Self::LinkDevice {
+                code: Some(code), ..
+            } => text(code, "code", DEVICE_CODE_BYTES)?,
             Self::RequestFriend { username, .. } if parse_invite(username).is_some() => {}
             Self::RequestFriend { username, .. }
             | Self::AcceptFriend { username, .. }
@@ -2891,6 +2928,8 @@ mod tests {
             "devices.recovery.create",
             "devices.link.startSelf",
             "devices.link.cancelSelf",
+            "devices.link.offer",
+            "devices.link.offer.cancel",
             "friends.refresh",
             "friends.invite",
             "session.list",
@@ -2910,6 +2949,7 @@ mod tests {
             json!({"type":"devices.reset.cancel","requestId":ID,"resetId":ID}),
             json!({"type":"devices.link.check","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
             json!({"type":"devices.link.approve","requestId":ID,"code":"ABCD-EFGH-JKMN"}),
+            json!({"type":"devices.link.startSelf","requestId":ID,"code":format!("kodosi://device/join/{ID}#{}", "A".repeat(43))}),
             json!({"type":"devices.recovery.use","requestId":ID,"key":"ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345-6789"}),
             json!({"type":"push.register","requestId":ID,"platform":"apns","token":"0f".repeat(32),"environment":"production"}),
             json!({"type":"push.register","requestId":ID,"platform":"fcm","token":"fcm:token-1"}),
@@ -3005,7 +3045,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 74);
+        assert_eq!(kinds.len(), 76);
     }
 
     #[test]
