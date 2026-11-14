@@ -6,7 +6,6 @@ struct PeopleView: View {
     @Environment(AppDependencies.self) private var deps
     @Environment(\.theme) private var theme
     @State private var pendingRemoval: FriendEntry?
-    @State private var blocking: BlockTarget?
     @State private var copied = false
     @FocusState private var adding: Bool
 
@@ -40,7 +39,7 @@ struct PeopleView: View {
                                 } accept: {
                                     deps.workbench.trusting = .accept(request)
                                 } block: {
-                                    blocking = BlockTarget(handle: request.handle, name: request.personName)
+                                    deps.workbench.blocking = BlockTarget(handle: request.handle, name: request.personName)
                                 } report: {
                                     deps.workbench.reporting = ReportTarget(userId: request.userId, handle: request.handle, name: request.personName)
                                 }
@@ -63,7 +62,7 @@ struct PeopleView: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
                             ForEach(Array(deps.people.friends.enumerated()), id: \.element.id) { index, friend in
                                 FriendItem(friend: friend) { pendingRemoval = friend } block: {
-                                    blocking = BlockTarget(handle: friend.handle, name: friend.personName)
+                                    deps.workbench.blocking = BlockTarget(handle: friend.handle, name: friend.personName)
                                 }
                                 .arrive(delay: 0.04 * Double(min(index, 8) + 2))
                             }
@@ -78,16 +77,6 @@ struct PeopleView: View {
                             }
                         }
                     }
-                }
-                .blockConfirmation(isPresented: Binding(get: { blocking != nil }, set: {
-                    if !$0 {
-                        blocking = nil
-                    }
-                }), name: blocking?.name ?? "") {
-                    if let target = blocking {
-                        deps.people.block(handle: target.handle)
-                    }
-                    blocking = nil
                 }
                 .padding(.horizontal, 36).padding(.top, 54).padding(.bottom, 36)
                 .frame(maxWidth: 1100, alignment: .leading).frame(maxWidth: .infinity)
@@ -147,11 +136,6 @@ struct PeopleView: View {
         guard !name.isEmpty else { return }
         deps.workbench.trusting = .add(name)
     }
-}
-
-private struct BlockTarget: Equatable {
-    let handle: String
-    let name: String
 }
 
 private struct FriendItem: View {

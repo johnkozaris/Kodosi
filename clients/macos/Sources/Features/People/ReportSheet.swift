@@ -2,6 +2,11 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
+struct BlockTarget: Equatable {
+    let handle: String
+    let name: String
+}
+
 struct ReportTarget: Equatable {
     let userId: String
     let handle: String

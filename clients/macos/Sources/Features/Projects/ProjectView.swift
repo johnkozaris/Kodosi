@@ -304,9 +304,16 @@ struct ProjectPeoplePopover: View {
             Spacer(minLength: 8)
             if member.isOwner {
                 Tag(text: String(localized: "Owner"))
-            } else if isOwner {
+            }
+            if member.userId != deps.account.userId {
                 Menu {
-                    Button("Remove from project", role: .destructive) { remove(member) }
+                    if isOwner {
+                        Button("Remove from project", role: .destructive) { remove(member) }
+                    }
+                    Button("Block…", role: .destructive) { act { $0.blocking = BlockTarget(handle: member.handle, name: name) } }
+                    Button("Report…", role: .destructive) {
+                        act { $0.reporting = ReportTarget(userId: member.userId, handle: member.handle, name: name) }
+                    }
                 } label: {
                     Image(systemName: "ellipsis").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
                         .frame(width: 24, height: 24).contentShape(Circle())
@@ -316,6 +323,11 @@ struct ProjectPeoplePopover: View {
             }
         }
         .padding(.horizontal, 8).frame(height: 40)
+    }
+
+    private func act(_ ask: (WorkbenchState) -> Void) {
+        workspace.peopleVisible = false
+        ask(deps.workbench)
     }
 
     private func invite(_ friend: FriendEntry) {

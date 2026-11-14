@@ -22,6 +22,10 @@ struct ProjectMessageRow: View {
         deps.projects.isOwn(message)
     }
 
+    private var author: ProjectMemberEntry? {
+        deps.projects.otherAuthor(of: message, in: projectId)
+    }
+
     private var terminal: RuntimeSession? {
         message.terminalId.flatMap(deps.session)
     }
@@ -115,6 +119,21 @@ struct ProjectMessageRow: View {
             IconButton(title: madeTask ? "Added to tasks" : "Make this a task", symbol: madeTask ? "checkmark" : "checklist",
                        identifier: "project.message.task", size: 24, active: madeTask, action: makeTask)
                 .disabled(madeTask || workspace.busy)
+            if let author {
+                let name = author.personName
+                Menu {
+                    Button("Block…", role: .destructive) { deps.workbench.blocking = BlockTarget(handle: author.handle, name: name) }
+                    Button("Report…", role: .destructive) {
+                        deps.workbench.reporting = ReportTarget(userId: author.userId, handle: author.handle, name: name)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 11, weight: .semibold)).foregroundStyle(theme.colors.inkMuted)
+                        .frame(width: 24, height: 24).contentShape(Circle())
+                }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                .accessibilityLabel(Text("Options for \(name)"))
+                .accessibilityIdentifier("project.message.more")
+            }
         }
         .padding(2)
         .raisedCapsule(fill: theme.colors.lifted, elevation: .lifted)
