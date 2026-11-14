@@ -39,7 +39,7 @@ struct DevicesSection: View {
                     .accessibilityIdentifier("settings.devices.request.\(request.requestId)")
                 }
                 Button { approving = true } label: {
-                    ListRow(String(localized: "Add a device"), subtitle: String(localized: "Enter the code that the new device shows"),
+                    ListRow(String(localized: "Add a device"), subtitle: String(localized: "Scan or enter the code that the new device shows"),
                             symbol: "laptopcomputer.and.arrow.down", tint: theme.colors.accent)
                     {
                         Disclosure()

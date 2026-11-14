@@ -104,7 +104,7 @@ struct AppShell: View {
     }
 
     private enum Sheet: Equatable {
-        case signIn, recoveryKey, trust(FriendTrust), report(ReportTarget), details(String), newProject, history, launcher
+        case signIn, recoveryKey, deviceOffer, trust(FriendTrust), report(ReportTarget), details(String), newProject, history, launcher
     }
 
     private var sheet: Sheet? {
@@ -114,6 +114,9 @@ struct AppShell: View {
         }
         if deps.account.newRecoveryKey != nil {
             return .recoveryKey
+        }
+        if deps.account.offer != nil {
+            return .deviceOffer
         }
         if let trust = workbench.trusting {
             return .trust(trust)
@@ -141,6 +144,8 @@ struct AppShell: View {
             SheetLayer(close: deps.dismissSignIn, cancel: deps.cancelSignIn) { SignInSheet() }
         case .recoveryKey:
             SheetLayer(close: {}, content: { RecoveryKeySheet(key: deps.account.newRecoveryKey ?? "", done: deps.account.dismissRecoveryKey) })
+        case .deviceOffer:
+            SheetLayer(close: deps.account.endOffer, content: { DeviceOfferSheet() })
         case let .trust(trust):
             SheetLayer(close: { workbench.trusting = nil }, content: { FriendTrustSheet(trust: trust) })
         case let .report(person):

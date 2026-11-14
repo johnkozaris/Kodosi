@@ -96,11 +96,14 @@ struct AddFriendSheet: View {
         .friendTrust($trusting) { _ in confirm() }
         .sheet(isPresented: $showingInvite) { InviteCodeSheet() }
         .sheet(isPresented: $scanning) {
-            InviteScanSheet { invite in
+            CodeScanSheet(title: "Scan their invite", scan: CodeScan(
+                hint: "Point the camera at the code of their invite.", other: "This code is not a Kodosi invite.",
+                identifier: "people.scan", accepts: PeopleStore.invite(in:),
+            ) { invite in
                 scanning = false
                 text = invite
                 trusting = .add(invite)
-            }
+            })
         }
         .task {
             if let opened {

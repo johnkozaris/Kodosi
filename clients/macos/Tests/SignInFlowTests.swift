@@ -119,7 +119,7 @@ private let browserPage: [String: JSONValue] = ["url": .string(page)]
     try app.receive(runtimeEvent("devices.result", fields: [
         "operation": .string("devices.link.startSelf"), "requestId": .string(UUIDv7.generate()), "code": .string("JKMN-PQRS-TVWX"),
     ]))
-    #expect(app.account.stage == .trustingDevice(.pendingApproval(code: "JKMN-PQRS-TVWX")))
+    #expect(app.account.stage == .trustingDevice(.pendingApproval(code: "JKMN-PQRS-TVWX", qr: [])))
     try app.receive(runtimeEvent("devices.link.selfResolved", fields: ["outcome": .string("expired")]))
     #expect(app.account.stage == .trustingDevice(.choose))
     app.cancelSignIn()

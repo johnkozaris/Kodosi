@@ -6,44 +6,62 @@ import UIKit
 import Vision
 import VisionKit
 
-struct InviteScanSheet: View {
+struct CodeScan {
+    let hint: LocalizedStringResource
+    let other: LocalizedStringResource
+    let identifier: String
+    let accepts: (String) -> String?
+    let found: (String) -> Void
+}
+
+struct CodeScanSheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
-    @State private var camera: Bool?
-    @State private var otherCode = false
-    let found: (String) -> Void
+    let title: LocalizedStringResource
+    let scan: CodeScan
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                if camera == false {
-                    blocked
-                } else {
-                    viewfinder
-                    hint
+            CodeScanView(scan: scan)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.colors.surface)
+                .navigationTitle(Text(title))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        IconButton(title: "Close", symbol: "xmark", identifier: "\(scan.identifier).close", size: 32) { dismiss() }
+                    }
+                    .sharedBackgroundVisibility(.hidden)
                 }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.colors.surface)
-            .navigationTitle("Scan their invite")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    IconButton(title: "Close", symbol: "xmark", identifier: "people.scan.close", size: 32) { dismiss() }
-                }
-                .sharedBackgroundVisibility(.hidden)
-            }
         }
         .presentationDetents([.large])
         .kodosiSheet()
+    }
+}
+
+struct CodeScanView: View {
+    @Environment(\.theme) private var theme
+    @Environment(\.openURL) private var openURL
+    @State private var camera: Bool?
+    @State private var otherCode = false
+    let scan: CodeScan
+
+    var body: some View {
+        VStack(spacing: 16) {
+            if camera == false {
+                blocked
+            } else {
+                viewfinder
+                hint
+            }
+        }
         .animation(theme.motion.fade, value: otherCode)
         .animation(theme.motion.fade, value: camera)
         .onChange(of: otherCode) { _, other in
             if other {
-                AccessibilityNotification.Announcement(String(localized: "This code is not a Kodosi invite.")).post()
+                AccessibilityNotification.Announcement(String(localized: scan.other)).post()
             }
         }
         .task {
@@ -59,7 +77,7 @@ struct InviteScanSheet: View {
         ZStack {
             theme.colors.terminal
             if camera == true {
-                InviteScanner(found: found) {
+                CodeScanner(accepts: scan.accepts, found: scan.found) {
                     otherCode = true
                 } failed: {
                     camera = false
@@ -73,10 +91,10 @@ struct InviteScanSheet: View {
     @ViewBuilder
     private var hint: some View {
         if otherCode {
-            ErrorNote(message: String(localized: "This code is not a Kodosi invite."))
-                .accessibilityIdentifier("people.scan.other")
+            ErrorNote(message: String(localized: scan.other))
+                .accessibilityIdentifier("\(scan.identifier).other")
         } else {
-            Text("Point the camera at the code of their invite.")
+            Text(scan.hint)
                 .appTextStyle(.callout)
                 .foregroundStyle(theme.colors.inkMuted)
                 .multilineTextAlignment(.center)
@@ -97,14 +115,15 @@ struct InviteScanSheet: View {
                 }
             }
             .buttonStyle(.kodosi(.primary, size: .large))
-            .accessibilityIdentifier("people.scan.settings")
+            .accessibilityIdentifier("\(scan.identifier).settings")
         }
         .padding(16)
         .frame(maxWidth: 400, maxHeight: .infinity)
     }
 }
 
-private struct InviteScanner: UIViewControllerRepresentable {
+private struct CodeScanner: UIViewControllerRepresentable {
+    let accepts: (String) -> String?
     let found: (String) -> Void
     let other: () -> Void
     let failed: () -> Void
@@ -134,23 +153,23 @@ private struct InviteScanner: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        var scanner: InviteScanner
+        var scanner: CodeScanner
         var stopped = false
 
-        init(scanner: InviteScanner) {
+        init(scanner: CodeScanner) {
             self.scanner = scanner
         }
 
         func dataScanner(_ dataScanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems _: [RecognizedItem]) {
             for case let .barcode(code) in addedItems {
                 guard let payload = code.payloadStringValue else { continue }
-                guard let invite = PeopleStore.invite(in: payload) else {
+                guard let accepted = scanner.accepts(payload) else {
                     scanner.other()
                     continue
                 }
                 stopped = true
                 dataScanner.stopScanning()
-                scanner.found(invite)
+                scanner.found(accepted)
                 return
             }
         }

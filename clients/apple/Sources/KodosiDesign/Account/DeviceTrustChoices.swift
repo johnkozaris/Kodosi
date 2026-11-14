@@ -3,6 +3,7 @@ import SwiftUI
 
 public struct DeviceTrustChoices: View {
     public struct Actions {
+        let scan: (() -> Void)?
         let request: () -> Void
         let cancelRequest: () -> Void
         let recover: (String) -> Void
@@ -12,10 +13,12 @@ public struct DeviceTrustChoices: View {
         let retry: () -> Void
 
         public init(
+            scan: (() -> Void)? = nil,
             request: @escaping () -> Void, cancelRequest: @escaping () -> Void, recover: @escaping (String) -> Void,
             startFresh: @escaping () -> Void, stopStartingFresh: @escaping () -> Void,
             signInAgain: @escaping () -> Void, retry: @escaping () -> Void,
         ) {
+            self.scan = scan
             self.request = request
             self.cancelRequest = cancelRequest
             self.recover = recover
@@ -64,10 +67,22 @@ public struct DeviceTrustChoices: View {
         switch trust {
         case .choose:
             VStack(spacing: 12) {
+                if let scan = actions.scan {
+                    Button(action: scan) {
+                        Label {
+                            Text("Scan the code on your computer", bundle: .module)
+                        } icon: {
+                            Image(systemName: "qrcode.viewfinder")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.kodosi(.primary, size: .large))
+                    .accessibilityIdentifier("deviceTrust.scan")
+                }
                 Button(action: actions.request) {
                     Text("Approve from another device", bundle: .module).frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.kodosi(.primary, size: .large))
+                .buttonStyle(.kodosi(actions.scan == nil ? .primary : .secondary, size: .large))
                 .accessibilityIdentifier("deviceTrust.request")
                 if enteringRecoveryKey {
                     recoveryField
@@ -89,15 +104,26 @@ public struct DeviceTrustChoices: View {
             .animation(theme.motion.spring, value: enteringRecoveryKey)
         case .requesting:
             ProgressCaption(text: String(localized: "Asking your other devices", bundle: .module))
-        case let .pendingApproval(code):
+        case let .pendingApproval(code, qr):
             VStack(spacing: 18) {
-                Text("On a device you already use, choose Approve, then enter this code.", bundle: .module)
-                    .appTextStyle(.callout)
-                    .foregroundStyle(theme.colors.inkMuted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                if qr.isEmpty {
+                    typedCodeSteps
+                } else {
+                    ViewThatFits(in: .vertical) {
+                        scannedCode(qr, side: 200)
+                        scannedCode(qr, side: 132)
+                        typedCodeSteps
+                    }
+                }
                 VerificationCode(code: code, identifier: "deviceTrust.code")
                 ProgressCaption(text: String(localized: "Waiting for approval", bundle: .module))
+                Button(action: actions.cancelRequest) { Text("Cancel request", bundle: .module) }
+                    .buttonStyle(.kodosi(.ghost))
+                    .accessibilityIdentifier("deviceTrust.cancelRequest")
+            }
+        case .joining:
+            VStack(spacing: 14) {
+                ProgressCaption(text: String(localized: "Waiting for your computer", bundle: .module))
                 Button(action: actions.cancelRequest) { Text("Cancel request", bundle: .module) }
                     .buttonStyle(.kodosi(.ghost))
                     .accessibilityIdentifier("deviceTrust.cancelRequest")
@@ -141,6 +167,33 @@ public struct DeviceTrustChoices: View {
                 }
             }
         }
+    }
+
+    private var typedCodeSteps: some View {
+        steps(Text("On a device you already use, open Settings and choose Add a device. Then enter this code.", bundle: .module))
+    }
+
+    private func scannedCode(_ qr: [String], side: CGFloat) -> some View {
+        VStack(spacing: 18) {
+            steps(Text("On a device you already use, open Settings and choose Add a device. Then scan this code, or enter it.", bundle: .module))
+            ScanCodeCard {
+                ScanCode(rows: qr)
+                    .accessibilityElement()
+                    .accessibilityLabel(Text("QR code of this code", bundle: .module))
+                    .accessibilityAddTraits(.isImage)
+                    .accessibilityIdentifier("deviceTrust.qr")
+            }
+            .frame(width: side, height: side)
+            .arrive()
+        }
+    }
+
+    private func steps(_ text: Text) -> some View {
+        text
+            .appTextStyle(.callout)
+            .foregroundStyle(theme.colors.inkMuted)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var recoveryField: some View {
