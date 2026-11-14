@@ -7,7 +7,7 @@
     <string name="account_restore_unreadable">Kodosi n\'a pas pu lire votre connexion enregistrée.</string>
     <string name="account_restore_update_required">Mettez Kodosi à jour pour vous connecter.</string>
     <string name="agent_shell">Shell</string>
-    <string name="approval_instructions">Sur un appareil que vous utilisez déjà, choisissez « Approuver », puis saisissez ce code.</string>
+    <string name="approval_instructions">Sur un appareil que vous utilisez déjà, ouvrez les Réglages et choisissez « Ajouter un appareil ». Scannez ensuite ce code ou saisissez-le.</string>
     <string name="approve">Approuver</string>
     <string name="approve_from_another_device">Approuver depuis un autre appareil</string>
     <string name="asking_other_devices">Demande à vos autres appareils</string>
@@ -191,6 +191,15 @@
     <string name="device_code">Code de l\'appareil</string>
     <string name="check_device">Vérifier l\'appareil</string>
     <string name="approve_device_title">Approuver cet appareil ?</string>
+    <string name="scan_computer_code">Scanner le code sur votre ordinateur</string>
+    <string name="device_code_description">Code QR de ce code</string>
+    <string name="waiting_for_computer">En attente de votre ordinateur</string>
+    <string name="scan_code">Scanner le code</string>
+    <string name="point_at_computer_code">Sur votre ordinateur, ouvrez les Réglages de Kodosi. Sous « Ajouter un appareil », choisissez « Afficher un code ». Pointez ensuite l\'appareil photo vers le code.</string>
+    <string name="not_an_add_device_code">Ce n\'est pas un code de « Ajouter un appareil ».</string>
+    <string name="point_at_device_code">Pointez l\'appareil photo vers le code affiché sur le nouvel appareil.</string>
+    <string name="not_a_new_device_code">Ce n\'est pas le code d\'un nouvel appareil.</string>
+    <string name="code_scanner_unavailable">Le scanner de codes n\'est pas disponible.</string>
     <string name="remove_device_message">Il se déconnecte. Approuvez-le à nouveau pour l\'utiliser. Kodosi n\'annule pas les commandes déjà exécutées.</string>
     <string name="create_recovery_key">Créer une clé de récupération</string>
     <string name="recovery_message">Approuve un nouvel appareil quand vous n\'en avez pas d\'autre</string>

@@ -7,7 +7,7 @@
     <string name="account_restore_unreadable">Kodosi non ha potuto leggere il tuo accesso salvato.</string>
     <string name="account_restore_update_required">Aggiorna Kodosi per connetterti.</string>
     <string name="agent_shell">Shell</string>
-    <string name="approval_instructions">Su un dispositivo che usi già, scegli «Approva» e poi inserisci questo codice.</string>
+    <string name="approval_instructions">Su un dispositivo che usi già, apri Impostazioni e scegli «Aggiungi un dispositivo». Poi scansiona questo codice o inseriscilo.</string>
     <string name="approve">Approva</string>
     <string name="approve_from_another_device">Approva da un altro dispositivo</string>
     <string name="asking_other_devices">Richiesta agli altri tuoi dispositivi</string>
@@ -191,6 +191,15 @@
     <string name="device_code">Codice del dispositivo</string>
     <string name="check_device">Verifica dispositivo</string>
     <string name="approve_device_title">Approvare questo dispositivo?</string>
+    <string name="scan_computer_code">Scansiona il codice sul tuo computer</string>
+    <string name="device_code_description">Codice QR di questo codice</string>
+    <string name="waiting_for_computer">In attesa del tuo computer</string>
+    <string name="scan_code">Scansiona il codice</string>
+    <string name="point_at_computer_code">Sul tuo computer, apri le Impostazioni di Kodosi. In «Aggiungi un dispositivo», scegli «Mostra un codice». Poi inquadra il codice con la fotocamera.</string>
+    <string name="not_an_add_device_code">Questo non è un codice di «Aggiungi un dispositivo».</string>
+    <string name="point_at_device_code">Inquadra con la fotocamera il codice mostrato dal nuovo dispositivo.</string>
+    <string name="not_a_new_device_code">Questo non è il codice di un nuovo dispositivo.</string>
+    <string name="code_scanner_unavailable">Lo scanner di codici non è disponibile.</string>
     <string name="remove_device_message">Si disconnette. Approvalo di nuovo per usarlo. Kodosi non annulla i comandi già eseguiti.</string>
     <string name="create_recovery_key">Crea una chiave di recupero</string>
     <string name="recovery_message">Approva un nuovo dispositivo quando non ne hai altri</string>

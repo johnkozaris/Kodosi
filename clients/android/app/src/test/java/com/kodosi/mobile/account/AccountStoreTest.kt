@@ -72,8 +72,10 @@ class AccountStoreTest {
         store.requestDeviceApproval()
         val requestId = sent.last("devices.link.startSelf").string("requestId")
 
-        store.receiveDevices(answer("devices.result", requestId, "devices.link.startSelf", """"code":"K7Q-42M""""))
-        assertEquals(SignInStage.TrustingDevice(DeviceTrust.PendingApproval("K7Q-42M")), stage)
+        store.receiveDevices(
+            answer("devices.result", requestId, "devices.link.startSelf", """"code":"K7Q-42M","qr":["10","01"]""")
+        )
+        assertEquals(SignInStage.TrustingDevice(DeviceTrust.PendingApproval("K7Q-42M", listOf("10", "01"))), stage)
 
         store.receiveDevices(event("devices.link.selfResolved", """"outcome":"approved""""))
         assertEquals("devices.refresh", sent.types.last())
@@ -87,6 +89,26 @@ class AccountStoreTest {
         assertEquals(SignInStage.SignedIn, stage)
         assertTrue(store.state.value.isReady)
         assertEquals(listOf(Device("phone", "Pixel", certIssuedAtMs = 1)), store.state.value.devices)
+    }
+
+    @Test
+    fun asksWithAScannedCodeAndWaitsForTheComputer() {
+        store.reset("ana")
+        store.receiveAuth(event("auth.ready", """"userId":"ana","enrolled":false"""))
+        store.joinDevice("kodosi://device/join/ana#secret")
+        val asked = sent.last("devices.link.startSelf")
+        assertEquals("kodosi://device/join/ana#secret", asked.string("code"))
+
+        store.receiveDevices(answer("devices.result", asked.string("requestId"), "devices.link.startSelf", ""))
+        assertEquals(SignInStage.TrustingDevice(DeviceTrust.Joining), stage)
+    }
+
+    @Test
+    fun anOpenedCodeDoesNothingOnADeviceThatIsApproved() {
+        store.reset("ana")
+        store.receiveAuth(event("auth.ready", """"userId":"ana","enrolled":true"""))
+        store.joinDevice("kodosi://device/join/ana#secret")
+        assertEquals(emptyList<String>(), sent.types.filter { it == "devices.link.startSelf" })
     }
 
     @Test

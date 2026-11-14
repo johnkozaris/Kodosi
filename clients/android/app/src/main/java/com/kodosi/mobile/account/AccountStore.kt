@@ -103,12 +103,15 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
                 mutableState.update { it.copy(onlineHosts = ids.orEmpty().toSet()) }
             }
 
-            event.type == "devices.result" && event.string("operation") == "devices.link.startSelf" ->
-                mutableState.update {
-                    it.copy(
-                        stage = SignInStage.TrustingDevice(DeviceTrust.PendingApproval(event.string("code").orEmpty()))
-                    )
-                }
+            event.type == "devices.result" && event.string("operation") == "devices.link.startSelf" -> {
+                val trust = event.string("code")?.let { code ->
+                    val qr = event["qr"]?.let {
+                        RuntimeJson.decodeFromJsonElement(ListSerializer(String.serializer()), it)
+                    }
+                    DeviceTrust.PendingApproval(code, qr.orEmpty())
+                } ?: DeviceTrust.Joining
+                mutableState.update { it.copy(stage = SignInStage.TrustingDevice(trust)) }
+            }
 
             event.type == "devices.link.selfResolved" -> {
                 mutableState.update {
@@ -223,6 +226,18 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
     fun cancelDeviceApproval() {
         commands.perform("devices.link.cancelSelf")
         mutableState.update { it.copy(stage = SignInStage.TrustingDevice(DeviceTrust.Choose)) }
+    }
+
+    /** Asks with the code that this device scanned on an approved computer. */
+    fun joinDevice(scanned: String) {
+        when ((mutableState.value.stage as? SignInStage.TrustingDevice)?.trust) {
+            DeviceTrust.Choose, is DeviceTrust.PendingApproval, is DeviceTrust.Failed -> {
+                mutableState.update { it.copy(stage = SignInStage.TrustingDevice(DeviceTrust.Requesting)) }
+                commands.perform("devices.link.startSelf", fields("code" to scanned))
+            }
+
+            else -> Unit
+        }
     }
 
     fun useRecoveryKey(key: String) {

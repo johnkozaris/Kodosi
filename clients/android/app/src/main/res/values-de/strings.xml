@@ -7,7 +7,7 @@
     <string name="account_restore_unreadable">Kodosi konnte deine gespeicherte Anmeldung nicht lesen.</string>
     <string name="account_restore_update_required">Aktualisiere Kodosi, um dich zu verbinden.</string>
     <string name="agent_shell">Shell</string>
-    <string name="approval_instructions">Wähle auf einem Gerät, das du schon nutzt, „Freigeben“ und gib dann diesen Code ein.</string>
+    <string name="approval_instructions">Öffne auf einem Gerät, das du schon nutzt, die Einstellungen und wähle „Gerät hinzufügen“. Scanne dann diesen Code oder gib ihn ein.</string>
     <string name="approve">Freigeben</string>
     <string name="approve_from_another_device">Von einem anderen Gerät freigeben</string>
     <string name="asking_other_devices">Deine anderen Geräte werden gefragt</string>
@@ -191,6 +191,15 @@
     <string name="device_code">Gerätecode</string>
     <string name="check_device">Gerät prüfen</string>
     <string name="approve_device_title">Dieses Gerät genehmigen?</string>
+    <string name="scan_computer_code">Code auf deinem Computer scannen</string>
+    <string name="device_code_description">QR-Code dieses Codes</string>
+    <string name="waiting_for_computer">Wartet auf deinen Computer</string>
+    <string name="scan_code">Code scannen</string>
+    <string name="point_at_computer_code">Öffne auf deinem Computer die Kodosi-Einstellungen. Wähle unter „Gerät hinzufügen“ die Option „Code anzeigen“. Richte dann die Kamera auf den Code.</string>
+    <string name="not_an_add_device_code">Das ist kein Code aus „Gerät hinzufügen“.</string>
+    <string name="point_at_device_code">Richte die Kamera auf den Code, den das neue Gerät anzeigt.</string>
+    <string name="not_a_new_device_code">Das ist nicht der Code eines neuen Geräts.</string>
+    <string name="code_scanner_unavailable">Der Code-Scanner ist nicht verfügbar.</string>
     <string name="remove_device_message">Es wird getrennt. Gib es erneut frei, um es zu nutzen. Kodosi macht bereits ausgeführte Befehle nicht rückgängig.</string>
     <string name="create_recovery_key">Wiederherstellungsschlüssel erstellen</string>
     <string name="recovery_message">Gibt ein neues Gerät frei, wenn du kein anderes hast</string>

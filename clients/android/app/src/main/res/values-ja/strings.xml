@@ -7,7 +7,7 @@
     <string name="account_restore_unreadable">保存されたログイン情報を読み取れませんでした。</string>
     <string name="account_restore_update_required">接続するには Kodosi を更新してください。</string>
     <string name="agent_shell">シェル</string>
-    <string name="approval_instructions">すでに使っているデバイスで「承認」を選び、このコードを入力してください。</string>
+    <string name="approval_instructions">すでに使っているデバイスで設定を開き、「デバイスを追加」を選びます。次に、このコードをスキャンするか入力してください。</string>
     <string name="approve">承認</string>
     <string name="approve_from_another_device">別のデバイスから承認</string>
     <string name="asking_other_devices">ほかのデバイスに確認中</string>
@@ -191,6 +191,15 @@
     <string name="device_code">デバイスコード</string>
     <string name="check_device">デバイスを確認</string>
     <string name="approve_device_title">このデバイスを承認しますか？</string>
+    <string name="scan_computer_code">コンピュータのコードをスキャン</string>
+    <string name="device_code_description">このコードの QR コード</string>
+    <string name="waiting_for_computer">コンピュータを待っています</string>
+    <string name="scan_code">コードをスキャン</string>
+    <string name="point_at_computer_code">コンピュータで Kodosi の設定を開き、「デバイスを追加」の「コードを表示」を選びます。次に、そのコードにカメラを向けてください。</string>
+    <string name="not_an_add_device_code">これは「デバイスを追加」のコードではありません。</string>
+    <string name="point_at_device_code">新しいデバイスに表示されたコードにカメラを向けてください。</string>
+    <string name="not_a_new_device_code">これは新しいデバイスのコードではありません。</string>
+    <string name="code_scanner_unavailable">コードスキャナーを使えません。</string>
     <string name="remove_device_message">接続が切れます。使うには再度承認してください。すでに実行されたコマンドを Kodosi が元に戻すことはありません。</string>
     <string name="create_recovery_key">リカバリーキーを作成</string>
     <string name="recovery_message">ほかのデバイスがないときに新しいデバイスを承認します</string>
