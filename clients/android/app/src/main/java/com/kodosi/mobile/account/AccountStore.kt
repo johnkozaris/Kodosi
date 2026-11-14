@@ -232,7 +232,7 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
     fun joinDevice(scanned: String) {
         when ((mutableState.value.stage as? SignInStage.TrustingDevice)?.trust) {
             DeviceTrust.Choose, is DeviceTrust.PendingApproval, is DeviceTrust.Failed -> {
-                mutableState.update { it.copy(stage = SignInStage.TrustingDevice(DeviceTrust.Requesting)) }
+                mutableState.update { it.copy(stage = SignInStage.TrustingDevice(DeviceTrust.Joining)) }
                 commands.perform("devices.link.startSelf", fields("code" to scanned))
             }
 

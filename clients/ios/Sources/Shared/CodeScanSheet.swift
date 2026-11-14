@@ -44,15 +44,16 @@ struct CodeScanSheet: View {
 struct CodeScanView: View {
     @Environment(\.theme) private var theme
     @Environment(\.openURL) private var openURL
-    @State private var camera: Bool?
+    @State private var camera = Camera.asking
     @State private var otherCode = false
     let scan: CodeScan
 
     var body: some View {
         VStack(spacing: 16) {
-            if camera == false {
-                blocked
-            } else {
+            switch camera {
+            case .denied: blocked
+            case .unavailable: unavailable
+            case .asking, .ready:
                 viewfinder
                 hint
             }
@@ -66,9 +67,9 @@ struct CodeScanView: View {
         }
         .task {
             switch AVCaptureDevice.authorizationStatus(for: .video) {
-            case .authorized: camera = true
-            case .notDetermined: camera = await AVCaptureDevice.requestAccess(for: .video)
-            default: camera = false
+            case .authorized: camera = .ready
+            case .notDetermined: camera = await AVCaptureDevice.requestAccess(for: .video) ? .ready : .denied
+            default: camera = .denied
             }
         }
     }
@@ -76,11 +77,11 @@ struct CodeScanView: View {
     private var viewfinder: some View {
         ZStack {
             theme.colors.terminal
-            if camera == true {
+            if camera == .ready {
                 CodeScanner(accepts: scan.accepts, found: scan.found) {
                     otherCode = true
                 } failed: {
-                    camera = false
+                    camera = AVCaptureDevice.authorizationStatus(for: .video) == .authorized ? .unavailable : .denied
                 }
             }
         }
@@ -119,6 +120,20 @@ struct CodeScanView: View {
         }
         .padding(16)
         .frame(maxWidth: 400, maxHeight: .infinity)
+    }
+
+    private var unavailable: some View {
+        Text("The code scanner is not available.")
+            .appTextStyle(.body)
+            .foregroundStyle(theme.colors.ink)
+            .multilineTextAlignment(.center)
+            .padding(16)
+            .frame(maxWidth: 400, maxHeight: .infinity)
+            .accessibilityIdentifier("\(scan.identifier).unavailable")
+    }
+
+    private enum Camera {
+        case asking, ready, denied, unavailable
     }
 }
 

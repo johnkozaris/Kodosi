@@ -390,7 +390,7 @@ public final class AccountStore {
     public func joinDevice(scanned code: String) {
         switch stage {
         case .trustingDevice(.choose), .trustingDevice(.pendingApproval), .trustingDevice(.failed):
-            stage = .trustingDevice(.requesting)
+            stage = .trustingDevice(.joining)
             commands.perform("devices.link.startSelf", ["code": .string(code)])
         default:
             break

@@ -181,7 +181,7 @@ struct AccountStoreTests {
         store.joinDevice(scanned: scanned)
         #expect(outbox.types == ["devices.link.startSelf"])
         #expect(outbox.sent.last?["code"] == .string(scanned))
-        #expect(store.stage == .trustingDevice(.requesting))
+        #expect(store.stage == .trustingDevice(.joining))
         try store.receiveDevices(event("devices.result", ["operation": "devices.link.startSelf", "requestId": "request-1"]))
         #expect(store.stage == .trustingDevice(.joining))
         try store.receiveDevices(event("devices.link.selfResolved", ["outcome": "expired"]))

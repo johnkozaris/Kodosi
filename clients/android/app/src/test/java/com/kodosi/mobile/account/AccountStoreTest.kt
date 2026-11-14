@@ -96,6 +96,7 @@ class AccountStoreTest {
         store.reset("ana")
         store.receiveAuth(event("auth.ready", """"userId":"ana","enrolled":false"""))
         store.joinDevice("kodosi://device/join/ana#secret")
+        assertEquals(SignInStage.TrustingDevice(DeviceTrust.Joining), stage)
         val asked = sent.last("devices.link.startSelf")
         assertEquals("kodosi://device/join/ana#secret", asked.string("code"))
 
