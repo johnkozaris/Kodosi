@@ -30,7 +30,8 @@ public enum SignInStage: Equatable, Sendable {
 public enum DeviceTrust: Equatable, Sendable {
     case choose
     case requesting
-    case pendingApproval(code: String)
+    case pendingApproval(code: String, qr: [String])
+    case joining
     case recovering
     case resetting
     case waiting(Date)

@@ -8,7 +8,6 @@ use aws_lc_rs::{
     signature::{ML_DSA_65, PqdsaKeyPair, VerificationAlgorithm},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use qrcodegen::{QrCode, QrCodeEcc};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -356,19 +355,6 @@ pub(crate) fn invite(handle: &str, root: &Root) -> String {
     format!("{INVITE}:{handle}:{}", root_hex(root))
 }
 
-pub(crate) fn invite_code(invite: &str) -> Option<Vec<String>> {
-    let code = QrCode::encode_text(invite, QrCodeEcc::Medium).ok()?;
-    Some(
-        (0..code.size())
-            .map(|y| {
-                (0..code.size())
-                    .map(|x| if code.get_module(x, y) { '1' } else { '0' })
-                    .collect()
-            })
-            .collect(),
-    )
-}
-
 pub(crate) fn parse_invite(text: &str) -> Option<(String, Root)> {
     let mut parts = text.trim().split(':');
     let (INVITE, handle, root, None) = (parts.next()?, parts.next()?, parts.next()?, parts.next())
@@ -622,14 +608,5 @@ mod tests {
         }
         assert_eq!(parse_invite(&format!("{text}:more")), None);
         assert_eq!(parse_invite(&text[..text.len() - 2]), None);
-    }
-
-    #[test]
-    fn the_code_of_the_longest_invite_is_square_rows_with_dark_ones_and_no_quiet_zone() {
-        let code = invite_code(&invite(&"a".repeat(64), &[0xab; 32])).unwrap();
-        assert!(code.iter().all(|row| row.len() == code.len()
-            && row.bytes().all(|module| matches!(module, b'0' | b'1'))));
-        assert!(code[0].starts_with("11111110") && code[0].ends_with("01111111"));
-        assert!(code[1].starts_with("10000010") && code[1].ends_with("01000001"));
     }
 }

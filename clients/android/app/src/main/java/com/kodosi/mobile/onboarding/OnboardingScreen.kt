@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -46,12 +47,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.R
 import com.kodosi.mobile.account.AccountStore
+import com.kodosi.mobile.account.DeviceCode
 import com.kodosi.mobile.account.DeviceTrust
 import com.kodosi.mobile.account.SignInStage
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
 import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.ButtonKind
+import com.kodosi.mobile.ui.CodeScanDialog
+import com.kodosi.mobile.ui.CodeScanWords
 import com.kodosi.mobile.ui.ErrorNote
 import com.kodosi.mobile.ui.Glyph
 import com.kodosi.mobile.ui.KodosiButton
@@ -63,8 +67,11 @@ import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
 import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.Radius
+import com.kodosi.mobile.ui.ScanCode
+import com.kodosi.mobile.ui.ScanCodeCard
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.Wordmark
+import com.kodosi.mobile.ui.canScanCodes
 import com.kodosi.mobile.ui.raised
 
 @Composable
@@ -223,8 +230,24 @@ private fun TrustThisPhone(account: AccountStore, trust: DeviceTrust) {
                     color = colors.inkMuted,
                     textAlign = TextAlign.Center
                 )
+                if (trust.qr.isNotEmpty()) {
+                    val description = stringResource(R.string.device_code_description)
+                    ScanCodeCard(Modifier.widthIn(max = 200.dp).fillMaxWidth()) { ScanCode(trust.qr, description) }
+                }
                 VerificationCode(trust.code)
                 ProgressCaption(stringResource(R.string.waiting_for_approval))
+                KodosiButton(
+                    stringResource(R.string.cancel_request),
+                    onClick = account::cancelDeviceApproval,
+                    kind = ButtonKind.GHOST
+                )
+            }
+
+            DeviceTrust.Joining -> Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                ProgressCaption(stringResource(R.string.waiting_for_computer))
                 KodosiButton(
                     stringResource(R.string.cancel_request),
                     onClick = account::cancelDeviceApproval,
@@ -291,11 +314,23 @@ private fun TrustThisPhone(account: AccountStore, trust: DeviceTrust) {
 
 @Composable
 private fun TrustChoices(account: AccountStore, reset: () -> Unit) {
+    val context = LocalContext.current
+    val camera = remember(context) { canScanCodes(context) }
     var entering by rememberSaveable { mutableStateOf(false) }
+    var scanning by remember { mutableStateOf(false) }
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (camera) {
+            KodosiButton(
+                stringResource(R.string.scan_computer_code),
+                onClick = { scanning = true },
+                size = com.kodosi.mobile.ui.ButtonSize.LARGE,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         KodosiButton(
             stringResource(R.string.approve_from_another_device),
             onClick = account::requestDeviceApproval,
+            kind = if (camera) ButtonKind.SECONDARY else ButtonKind.PRIMARY,
             size = com.kodosi.mobile.ui.ButtonSize.LARGE,
             modifier = Modifier.fillMaxWidth()
         )
@@ -311,6 +346,22 @@ private fun TrustChoices(account: AccountStore, reset: () -> Unit) {
             )
         }
         KodosiButton(stringResource(R.string.no_other_device), onClick = reset, kind = ButtonKind.GHOST)
+    }
+    if (scanning) {
+        CodeScanDialog(
+            CodeScanWords(
+                title = stringResource(R.string.scan_code),
+                hint = stringResource(R.string.point_at_computer_code),
+                other = stringResource(R.string.not_an_add_device_code),
+                unavailable = stringResource(R.string.code_scanner_unavailable)
+            ),
+            accepts = DeviceCode::join,
+            found = { code ->
+                scanning = false
+                account.joinDevice(code)
+            },
+            dismiss = { scanning = false }
+        )
     }
 }
 

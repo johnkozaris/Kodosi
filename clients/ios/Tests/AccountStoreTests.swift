@@ -173,6 +173,44 @@ struct AccountStoreTests {
         #expect(store.deletion == nil)
     }
 
+    @Test func `a scanned code asks with its text and waits for the computer`() throws {
+        let scanned = "kodosi://device/join/user-1#c2VjcmV0"
+        store.joinDevice(scanned: scanned)
+        #expect(outbox.sent.isEmpty)
+        store.chooseTrust()
+        store.joinDevice(scanned: scanned)
+        #expect(outbox.types == ["devices.link.startSelf"])
+        #expect(outbox.sent.last?["code"] == .string(scanned))
+        #expect(store.stage == .trustingDevice(.joining))
+        try store.receiveDevices(event("devices.result", ["operation": "devices.link.startSelf", "requestId": "request-1"]))
+        #expect(store.stage == .trustingDevice(.joining))
+        try store.receiveDevices(event("devices.link.selfResolved", ["outcome": "expired"]))
+        #expect(store.stage == .trustingDevice(.choose))
+    }
+
+    @Test func `a shown code follows the device that scans it and ends when the code does`() throws {
+        let shown: [String: Any] = ["operation": "devices.link.offer", "requestId": "request-1", "qr": ["101", "010", "101"], "text": "code"]
+        store.offerDevice()
+        try store.receiveDevices(event("devices.link.offerResolved", ["outcome": "expired"]))
+        #expect(store.offer == .requesting)
+        try store.receiveDevices(event("devices.result", shown))
+        #expect(store.offer == .shown(qr: ["101", "010", "101"]))
+        try store.receiveDevices(event("devices.link.offerResolved", ["outcome": "approved", "deviceLabel": "iPhone"]))
+        #expect(store.offer == .approved("iPhone"))
+        store.endOffer()
+        #expect(store.offer == nil)
+        #expect(outbox.types == ["devices.link.offer"])
+
+        store.offerDevice()
+        try store.receiveDevices(event("devices.result", shown))
+        try store.receiveDevices(event("devices.link.offerResolved", ["outcome": "expired"]))
+        #expect(store.offer == .ended)
+        store.offerDevice()
+        try store.receiveDevices(event("devices.result", shown))
+        store.endOffer()
+        #expect(outbox.types.last == "devices.link.offer.cancel")
+    }
+
     private func deliverDevices() throws {
         try store.receiveDevices(event("devices.list", [
             "selfDeviceId": "phone",

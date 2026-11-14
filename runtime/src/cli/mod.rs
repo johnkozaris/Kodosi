@@ -378,7 +378,13 @@ enum DeviceAction {
     /// List the approved devices of your account.
     List,
     /// Show a code for this device and wait until an approved device accepts it.
-    Link,
+    Link {
+        /// Ask with the code of `kodosi --json devices add` on an approved device.
+        #[arg(long)]
+        code: Option<String>,
+    },
+    /// Show a code that a new phone scans, and wait until that phone is approved.
+    Add,
     /// Cancel the request of this device.
     CancelLink,
     /// Approve the device that shows this code.
@@ -614,8 +620,11 @@ async fn dispatch(args: Arguments) -> Result<u8> {
             )
             .await
         }
-        Action::Devices(DeviceAction::Link) => {
-            link_device(&mut client, &mut context, json_output).await
+        Action::Devices(DeviceAction::Link { code }) => {
+            link_device(&mut client, &mut context, code, json_output).await
+        }
+        Action::Devices(DeviceAction::Add) => {
+            add_device(&mut client, &mut context, json_output).await
         }
         Action::Dosi(action) => dosi::run(action, &mut client, &mut context, json_output).await,
         Action::Canvas { action } => {
@@ -676,7 +685,8 @@ const fn guarded(action: &Action) -> bool {
         action,
         Action::Auth(AuthAction::Login | AuthAction::Logout | AuthAction::DeleteAccount)
             | Action::Devices(
-                DeviceAction::Link
+                DeviceAction::Link { .. }
+                    | DeviceAction::Add
                     | DeviceAction::CancelLink
                     | DeviceAction::Approve { .. }
                     | DeviceAction::Revoke { .. }
@@ -1060,31 +1070,19 @@ async fn share(
 async fn link_device(
     client: &mut local_host::Client,
     context: &mut Context,
+    code: Option<String>,
     json_output: bool,
 ) -> Result<()> {
-    let mut event = request(
-        client,
-        context,
-        json!({"type":"devices.link.startSelf"}),
-        json_output,
+    let command = device_command(DeviceAction::Link { code }, client, context).await?;
+    let shown = request(client, context, command, json_output).await?;
+    let picture = io::stdout().is_terminal();
+    output(&shown, json_output, &render::link_code(&shown, picture))?;
+    let event = tokio::time::timeout(
+        Duration::from_mins(11),
+        resolved(client, context, "devices.link.selfResolved"),
     )
-    .await?;
-    if event["code"].is_string() {
-        output(&event, json_output, &render::link_code(&event))?;
-        event = tokio::time::timeout(Duration::from_mins(11), async {
-            loop {
-                let frame = client.next().await?;
-                if let Some(event) = frame.get("event")
-                    && context.observe(event)
-                    && event["type"] == "devices.link.selfResolved"
-                {
-                    return Ok::<_, Error>(event.clone());
-                }
-            }
-        })
-        .await
-        .map_err(|_| Error::Other("The code expired. Run `kodosi devices link` again.".into()))??;
-    }
+    .await
+    .map_err(|_| Error::Other("The code expired. Run `kodosi devices link` again.".into()))??;
     if json_output {
         return print_json(&event);
     }
@@ -1094,6 +1092,54 @@ async fn link_device(
             "The code expired. Run `kodosi devices link` again.".into(),
         )),
         _ => Err(Error::Other("The request was cancelled.".into())),
+    }
+}
+
+async fn add_device(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    json_output: bool,
+) -> Result<()> {
+    let command = device_command(DeviceAction::Add, client, context).await?;
+    let shown = request(client, context, command, json_output).await?;
+    output(&shown, json_output, &render::add_code(&shown))?;
+    let event = tokio::select! {
+        event = resolved(client, context, "devices.link.offerResolved") => event?,
+        stopped = tokio::signal::ctrl_c() => {
+            stopped?;
+            request(client, context, json!({"type":"devices.link.offer.cancel"}), json_output).await?;
+            return Err(Error::Other("The code no longer works.".into()));
+        }
+    };
+    if json_output {
+        return print_json(&event);
+    }
+    match (event["outcome"].as_str(), event["message"].as_str()) {
+        (Some("approved"), _) => print_text(&format!(
+            "{} is approved.",
+            event["deviceLabel"].as_str().unwrap_or("The device")
+        )),
+        (Some("expired"), _) => Err(Error::Other(
+            "The code expired. Run `kodosi devices add` again.".into(),
+        )),
+        (_, Some(reason)) => Err(Error::Other(reason.to_owned())),
+        _ => Err(Error::Other("The code no longer works.".into())),
+    }
+}
+
+async fn resolved(
+    client: &mut local_host::Client,
+    context: &mut Context,
+    kind: &str,
+) -> Result<Value> {
+    loop {
+        let frame = client.next().await?;
+        if let Some(event) = frame.get("event")
+            && context.observe(event)
+            && event["type"] == kind
+        {
+            return Ok(event.clone());
+        }
     }
 }
 
@@ -1199,7 +1245,8 @@ async fn device_command(
 ) -> Result<Value> {
     Ok(match action {
         DeviceAction::List => json!({"type":"devices.refresh"}),
-        DeviceAction::Link => json!({"type":"devices.link.startSelf"}),
+        DeviceAction::Link { code } => json!({"type":"devices.link.startSelf","code":code}),
+        DeviceAction::Add => json!({"type":"devices.link.offer"}),
         DeviceAction::CancelLink => json!({"type":"devices.link.cancelSelf"}),
         DeviceAction::Approve { code } => json!({"type":"devices.link.approve","code":code}),
         DeviceAction::Revoke { device } => {

@@ -803,20 +803,16 @@
         <translation>로그인</translation>
     </message>
     <message>
-        <source>Type this code on a device that you use</source>
-        <translation>사용 중인 기기에 이 코드를 입력하세요</translation>
-    </message>
-    <message>
         <source>Approve this computer</source>
         <translation>이 컴퓨터 승인</translation>
     </message>
     <message>
-        <source>Choose Approve on that device.</source>
-        <translation>그 기기에서 &apos;승인&apos;을 누르세요.</translation>
-    </message>
-    <message>
         <source>A device that you use must approve this computer one time.</source>
         <translation>사용 중인 기기에서 이 컴퓨터를 한 번 승인해야 해요.</translation>
+    </message>
+    <message>
+        <source>QR code of this code</source>
+        <translation>이 코드의 QR 코드</translation>
     </message>
     <message>
         <source>Device approval code</source>
@@ -883,20 +879,20 @@
         <translation>제거…</translation>
     </message>
     <message>
-        <source>Approve another device</source>
-        <translation>다른 기기 승인</translation>
-    </message>
-    <message>
-        <source>Type the code that the other device shows.</source>
-        <translation>다른 기기에 표시된 코드를 입력하세요.</translation>
-    </message>
-    <message>
         <source>Waiting for approval</source>
         <translation>승인 대기 중</translation>
     </message>
     <message>
         <source>Needs your approval</source>
         <translation>승인 필요</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code</source>
+        <translation>새 휴대폰은 코드를 스캔해요</translation>
+    </message>
+    <message>
+        <source>Show a code</source>
+        <translation>코드 표시</translation>
     </message>
     <message>
         <source>Code</source>
@@ -917,6 +913,50 @@
     <message>
         <source>Make a recovery key</source>
         <translation>복구 키 만들기</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>완료</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>닫기</translation>
+    </message>
+    <message>
+        <source>Add a phone</source>
+        <translation>휴대폰 추가</translation>
+    </message>
+    <message>
+        <source>On the new phone, open Kodosi and sign in. Then choose Scan the code on your computer.</source>
+        <translation>새 휴대폰에서 Kodosi를 열고 로그인한 뒤 &apos;컴퓨터의 코드 스캔&apos;을 고르세요.</translation>
+    </message>
+    <message>
+        <source>QR code for the new phone</source>
+        <translation>새 휴대폰용 QR 코드</translation>
+    </message>
+    <message>
+        <source>Waiting for the phone</source>
+        <translation>휴대폰을 기다리는 중</translation>
+    </message>
+    <message>
+        <source>This code no longer works.</source>
+        <translation>이 코드는 더 이상 쓸 수 없어요.</translation>
+    </message>
+    <message>
+        <source>%1 is approved.</source>
+        <translation>%1이(가) 승인됐어요.</translation>
+    </message>
+    <message>
+        <source>The device is approved.</source>
+        <translation>기기가 승인됐어요.</translation>
+    </message>
+    <message>
+        <source>It can use your terminals and projects now.</source>
+        <translation>이제 내 터미널과 프로젝트를 쓸 수 있어요.</translation>
+    </message>
+    <message>
+        <source>Show a new code</source>
+        <translation>새 코드 표시</translation>
     </message>
     <message>
         <source>Approve %1?</source>
@@ -965,6 +1005,22 @@
     <message>
         <source>Start fresh</source>
         <translation>새로 시작</translation>
+    </message>
+    <message>
+        <source>Scan or type this code on a device that you use</source>
+        <translation>쓰고 있는 기기에서 이 코드를 스캔하거나 입력하세요</translation>
+    </message>
+    <message>
+        <source>On that device, open Settings and choose Add a device.</source>
+        <translation>그 기기에서 설정을 열고 &apos;기기 추가&apos;를 고르세요.</translation>
+    </message>
+    <message>
+        <source>Add a device</source>
+        <translation>기기 추가</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code from this computer. For another device, type the code that it shows.</source>
+        <translation>새 휴대폰은 이 컴퓨터의 코드를 스캔해요. 다른 기기는 그 기기에 표시된 코드를 입력하세요.</translation>
     </message>
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>

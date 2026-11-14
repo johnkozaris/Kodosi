@@ -167,8 +167,11 @@ remove Dosi from a computer, turn off Use Dosi in Settings › Dosi.
 
 Sign in on the new computer with the same account. It shows a code, and the computers
 that you already use ask you to approve it. Choose Approve on one of them and enter the
-code. An iPhone or iPad joins the same way. Then each computer shows the terminals of all
-your computers.
+code, or scan the code with Kodosi on a phone that you already use.
+
+A new phone or tablet joins with one scan. On a computer that you already use, open
+Settings, choose Show a code under Add a device, and scan the code with the new phone.
+Then each computer shows the terminals of all your computers.
 
 To start a terminal on another of your computers, choose that computer at the right end
 of the launcher's band. The folder key then lists its recent folders, and Choose a

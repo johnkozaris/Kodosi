@@ -31,6 +31,8 @@ struct KodosiMobileApp: App {
                         model.account.finishSignIn(with: url)
                     } else if let invite = PeopleStore.invite(in: url.absoluteString) {
                         model.openedInvite = invite
+                    } else if let code = DeviceCode.scanned(in: url.absoluteString, for: .join) {
+                        model.account.joinDevice(scanned: code)
                     }
                 }
         }

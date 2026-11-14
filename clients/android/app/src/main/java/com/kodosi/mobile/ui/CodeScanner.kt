@@ -1,4 +1,4 @@
-package com.kodosi.mobile.people
+package com.kodosi.mobile.ui
 
 import android.Manifest
 import android.content.Context
@@ -56,21 +56,16 @@ import com.google.zxing.ReaderException
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
 import com.kodosi.mobile.R
-import com.kodosi.mobile.ui.ActionIcon
-import com.kodosi.mobile.ui.AppSymbol
-import com.kodosi.mobile.ui.ErrorNote
-import com.kodosi.mobile.ui.KodosiButton
-import com.kodosi.mobile.ui.KodosiTheme
-import com.kodosi.mobile.ui.KodosiType
-import com.kodosi.mobile.ui.Radius
 import java.util.concurrent.Executors
 import kotlinx.coroutines.awaitCancellation
 
-fun canScanInvites(context: Context): Boolean =
-    context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+fun canScanCodes(context: Context): Boolean = context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+
+/** What a scanner says for the kind of code that it reads. */
+data class CodeScanWords(val title: String, val hint: String, val other: String, val unavailable: String)
 
 @Composable
-fun InviteScanDialog(found: (String) -> Unit, dismiss: () -> Unit) {
+fun CodeScanDialog(words: CodeScanWords, accepts: (String) -> String?, found: (String) -> Unit, dismiss: () -> Unit) {
     val context = LocalContext.current
     val colors = KodosiTheme.colors
     var camera by remember {
@@ -97,7 +92,7 @@ fun InviteScanDialog(found: (String) -> Unit, dismiss: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.scan_invite),
+                    words.title,
                     style = KodosiType.headline,
                     color = colors.ink,
                     modifier = Modifier.weight(1f).semantics { heading() }
@@ -126,7 +121,7 @@ fun InviteScanDialog(found: (String) -> Unit, dismiss: () -> Unit) {
                     })
                 }
 
-                failed -> ErrorNote(stringResource(R.string.scanner_unavailable), Modifier.fillMaxWidth())
+                failed -> ErrorNote(words.unavailable, Modifier.fillMaxWidth())
 
                 else -> {
                     Box(
@@ -137,15 +132,15 @@ fun InviteScanDialog(found: (String) -> Unit, dismiss: () -> Unit) {
                         if (camera == true) {
                             CameraReader(
                                 read = { code ->
-                                    val invite = PeopleStore.invite(code)
+                                    val accepted = accepts(code)
                                     when {
                                         done -> Unit
 
-                                        invite == null -> otherCode = true
+                                        accepted == null -> otherCode = true
 
                                         else -> {
                                             done = true
-                                            found(invite)
+                                            found(accepted)
                                         }
                                     }
                                 },
@@ -155,10 +150,10 @@ fun InviteScanDialog(found: (String) -> Unit, dismiss: () -> Unit) {
                         }
                     }
                     if (otherCode) {
-                        ErrorNote(stringResource(R.string.not_an_invite), Modifier.fillMaxWidth())
+                        ErrorNote(words.other, Modifier.fillMaxWidth())
                     } else {
                         Text(
-                            stringResource(R.string.point_at_invite),
+                            words.hint,
                             style = KodosiType.callout,
                             color = colors.inkMuted,
                             textAlign = TextAlign.Center,

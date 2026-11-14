@@ -2,61 +2,61 @@
   "sourceLanguage" : "en",
   "strings" : {
     "NSCameraUsageDescription" : {
-      "comment" : "The reason that iOS shows when Kodosi asks to use the camera to scan an invite.",
+      "comment" : "The reason that iOS shows when Kodosi asks to use the camera to scan an invite or the code of a device.",
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi nutzt die Kamera, um die Einladung eines Freundes zu scannen."
+            "value" : "Kodosi nutzt die Kamera, um die Einladung eines Freundes oder den Code eines Geräts zu scannen."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το Kodosi χρησιμοποιεί την κάμερα για να σαρώσει την πρόσκληση ενός φίλου."
+            "value" : "Το Kodosi χρησιμοποιεί την κάμερα για να σαρώσει την πρόσκληση ενός φίλου ή τον κωδικό μιας συσκευής."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi uses the camera to scan a friend's invite."
+            "value" : "Kodosi uses the camera to scan a friend's invite or the code of a device."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi usa la cámara para escanear la invitación de un amigo."
+            "value" : "Kodosi usa la cámara para escanear la invitación de un amigo o el código de un dispositivo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi utilise l'appareil photo pour scanner l'invitation d'un ami."
+            "value" : "Kodosi utilise l'appareil photo pour scanner l'invitation d'un ami ou le code d'un appareil."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi usa la fotocamera per scansionare l'invito di un amico."
+            "value" : "Kodosi usa la fotocamera per scansionare l'invito di un amico o il codice di un dispositivo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi はフレンドの招待をスキャンするためにカメラを使います。"
+            "value" : "Kodosi はフレンドの招待やデバイスのコードをスキャンするためにカメラを使います。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi는 친구의 초대를 스캔할 때 카메라를 사용해요."
+            "value" : "Kodosi는 친구의 초대나 기기의 코드를 스캔할 때 카메라를 사용해요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kodosi 使用相机扫描好友的邀请。"
+            "value" : "Kodosi 使用相机扫描好友的邀请或设备的二维码。"
           }
         }
       }

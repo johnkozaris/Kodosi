@@ -171,9 +171,12 @@ rimuovere Dosi da un computer, disattiva Usa Dosi in Impostazioni › Dosi.
 ## 6. Aggiungi gli altri tuoi computer
 
 Accedi sul nuovo computer con lo stesso account. Mostra un codice, e i computer che usi già ti
-chiedono di approvarlo. Scegli Approva su uno di loro e inserisci il codice. Un iPhone o un
-iPad si aggiunge allo stesso modo. Poi ogni computer mostra i terminali di tutti i tuoi
-computer.
+chiedono di approvarlo. Scegli Approva su uno di loro e inserisci il codice, oppure scansiona
+il codice con Kodosi su un telefono che usi già.
+
+Un nuovo telefono o tablet si aggiunge con una sola scansione. Su un computer che usi già,
+apri le Impostazioni, scegli «Mostra un codice» in «Aggiungi un dispositivo» e scansiona il
+codice con il nuovo telefono. Poi ogni computer mostra i terminali di tutti i tuoi computer.
 
 Per avviare un terminale su un altro dei tuoi computer, scegli quel computer all'estremità
 destra della banda del launcher. Il pulsante della cartella elenca allora le sue cartelle

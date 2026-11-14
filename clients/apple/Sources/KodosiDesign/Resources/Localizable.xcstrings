@@ -5268,54 +5268,106 @@
         }
       }
     },
-    "On a device you already use, choose Approve, then enter this code." : {
+    "On a device you already use, open Settings and choose Add a device. Then enter this code." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wähle auf einem Gerät, das du schon nutzt, „Freigeben“ und gib dann diesen Code ein."
+            "value" : "Öffne auf einem Gerät, das du schon nutzt, die Einstellungen und wähle „Gerät hinzufügen“. Gib dann diesen Code ein."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Σε μια συσκευή που ήδη χρησιμοποιείτε, επιλέξτε «Έγκριση» και μετά εισαγάγετε αυτόν τον κωδικό."
+            "value" : "Σε μια συσκευή που ήδη χρησιμοποιείτε, ανοίξτε τις Ρυθμίσεις και επιλέξτε «Προσθήκη συσκευής». Μετά εισαγάγετε αυτόν τον κωδικό."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En un dispositivo que ya uses, elige «Aprobar» y escribe este código."
+            "value" : "En un dispositivo que ya uses, abre Ajustes y elige «Añadir un dispositivo». Después escribe este código."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sur un appareil que vous utilisez déjà, choisissez « Approuver », puis saisissez ce code."
+            "value" : "Sur un appareil que vous utilisez déjà, ouvrez les Réglages et choisissez « Ajouter un appareil ». Saisissez ensuite ce code."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Su un dispositivo che usi già, scegli «Approva» e poi inserisci questo codice."
+            "value" : "Su un dispositivo che usi già, apri Impostazioni e scegli «Aggiungi un dispositivo». Poi inserisci questo codice."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "すでに使っているデバイスで「承認」を選び、このコードを入力してください。"
+            "value" : "すでに使っているデバイスで設定を開き、「デバイスを追加」を選びます。次に、このコードを入力してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이미 쓰고 있는 기기에서 '승인'을 누른 뒤 이 코드를 입력하세요."
+            "value" : "이미 쓰고 있는 기기에서 설정을 열고 '기기 추가'를 고르세요. 그런 다음 이 코드를 입력하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在你已在使用的设备上选择“批准”，然后输入此验证码。"
+            "value" : "在你已在使用的设备上打开“设置”并选择“添加设备”，然后输入此验证码。"
+          }
+        }
+      }
+    },
+    "On a device you already use, open Settings and choose Add a device. Then scan this code, or enter it." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffne auf einem Gerät, das du schon nutzt, die Einstellungen und wähle „Gerät hinzufügen“. Scanne dann diesen Code oder gib ihn ein."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σε μια συσκευή που ήδη χρησιμοποιείτε, ανοίξτε τις Ρυθμίσεις και επιλέξτε «Προσθήκη συσκευής». Μετά σαρώστε αυτόν τον κωδικό ή εισαγάγετέ τον."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En un dispositivo que ya uses, abre Ajustes y elige «Añadir un dispositivo». Después escanea este código o escríbelo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur un appareil que vous utilisez déjà, ouvrez les Réglages et choisissez « Ajouter un appareil ». Scannez ensuite ce code ou saisissez-le."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su un dispositivo che usi già, apri Impostazioni e scegli «Aggiungi un dispositivo». Poi scansiona questo codice o inseriscilo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すでに使っているデバイスで設定を開き、「デバイスを追加」を選びます。次に、このコードをスキャンするか入力してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미 쓰고 있는 기기에서 설정을 열고 '기기 추가'를 고르세요. 그런 다음 이 코드를 스캔하거나 입력하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在你已在使用的设备上打开“设置”并选择“添加设备”，然后扫描此二维码，或输入验证码。"
           }
         }
       }
@@ -5784,6 +5836,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "隐私政策"
+          }
+        }
+      }
+    },
+    "QR code of this code" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR-Code dieses Codes"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κωδικός QR αυτού του κωδικού"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código QR de este código"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code QR de ce code"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codice QR di questo codice"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このコードの QR コード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 코드의 QR 코드"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此验证码的二维码"
           }
         }
       }
@@ -6460,6 +6564,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打个招呼，或从以下内容开始。"
+          }
+        }
+      }
+    },
+    "Scan the code on your computer" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code auf deinem Computer scannen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σάρωση του κωδικού στον υπολογιστή σας"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escanear el código de tu ordenador"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanner le code sur votre ordinateur"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scansiona il codice sul tuo computer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータのコードをスキャン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터의 코드 스캔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描电脑上的二维码"
           }
         }
       }
@@ -9268,6 +9424,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "等待对方回复"
+          }
+        }
+      }
+    },
+    "Waiting for your computer" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wartet auf deinen Computer"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αναμονή για τον υπολογιστή σας"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando a tu ordenador"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente de votre ordinateur"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In attesa del tuo computer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータを待っています"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터를 기다리는 중"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待你的电脑"
           }
         }
       }

@@ -7,7 +7,7 @@
     <string name="account_restore_unreadable">Το Kodosi δεν μπόρεσε να διαβάσει την αποθηκευμένη σύνδεσή σας.</string>
     <string name="account_restore_update_required">Ενημερώστε το Kodosi για να συνδεθείτε.</string>
     <string name="agent_shell">Shell</string>
-    <string name="approval_instructions">Σε μια συσκευή που ήδη χρησιμοποιείτε, επιλέξτε «Έγκριση» και μετά εισαγάγετε αυτόν τον κωδικό.</string>
+    <string name="approval_instructions">Σε μια συσκευή που ήδη χρησιμοποιείτε, ανοίξτε τις Ρυθμίσεις και επιλέξτε «Προσθήκη συσκευής». Μετά σαρώστε αυτόν τον κωδικό ή εισαγάγετέ τον.</string>
     <string name="approve">Έγκριση</string>
     <string name="approve_from_another_device">Έγκριση από άλλη συσκευή</string>
     <string name="asking_other_devices">Ρωτάμε τις άλλες συσκευές σας</string>
@@ -191,6 +191,15 @@
     <string name="device_code">Κωδικός συσκευής</string>
     <string name="check_device">Έλεγχος συσκευής</string>
     <string name="approve_device_title">Έγκριση αυτής της συσκευής;</string>
+    <string name="scan_computer_code">Σάρωση του κωδικού στον υπολογιστή σας</string>
+    <string name="device_code_description">Κωδικός QR αυτού του κωδικού</string>
+    <string name="waiting_for_computer">Αναμονή για τον υπολογιστή σας</string>
+    <string name="scan_code">Σάρωση του κωδικού</string>
+    <string name="point_at_computer_code">Στον υπολογιστή σας, ανοίξτε τις Ρυθμίσεις του Kodosi. Στην «Προσθήκη συσκευής», επιλέξτε «Εμφάνιση κωδικού». Μετά στρέψτε την κάμερα στον κωδικό.</string>
+    <string name="not_an_add_device_code">Αυτός δεν είναι κωδικός από την «Προσθήκη συσκευής».</string>
+    <string name="point_at_device_code">Στρέψτε την κάμερα στον κωδικό που δείχνει η νέα συσκευή.</string>
+    <string name="not_a_new_device_code">Αυτός δεν είναι ο κωδικός μιας νέας συσκευής.</string>
+    <string name="code_scanner_unavailable">Ο σαρωτής κωδικών δεν είναι διαθέσιμος.</string>
     <string name="remove_device_message">Αποσυνδέεται. Εγκρίνετέ τη ξανά για να τη χρησιμοποιήσετε. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει.</string>
     <string name="create_recovery_key">Δημιουργία κλειδιού ανάκτησης</string>
     <string name="recovery_message">Εγκρίνει μια νέα συσκευή όταν δεν έχετε άλλη</string>

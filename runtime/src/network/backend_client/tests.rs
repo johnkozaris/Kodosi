@@ -449,47 +449,392 @@ async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
     assert!(network.inner.operations.try_lock().is_ok());
 }
 
-#[test]
-fn a_typed_code_selects_only_the_request_with_the_keys_of_the_device_that_showed_it() {
-    use crate::identity::link_code::{LinkIdentity, LinkKey};
+const LINK_USER: &str = "11111111-1111-1111-1111-111111111111";
 
-    const USER: &str = "11111111-1111-1111-1111-111111111111";
-    const CODE: &str = "TAFX-E5HG-TN8E";
-    let proof = LinkKey::derive(CODE, &[4; 16])
+fn link_request(
+    secret: &identity::link_code::LinkSecret,
+    device: &str,
+    signing: u8,
+) -> enrollment::LinkRequest {
+    use crate::identity::link_code::{LinkIdentity, LinkKey};
+    let proof = LinkKey::derive(secret, &[4; 16])
+        .unwrap()
         .request_proof(&LinkIdentity {
-            user_id: USER,
+            user_id: LINK_USER,
             device_id: "laptop",
             label: "Laptop",
             signing_public_key: &[1; 1952],
         })
         .unwrap();
-    let request = |device: &str, signing: u8| {
-        serde_json::from_value::<enrollment::LinkRequest>(json!({
-            "requestId": Uuid::now_v7(),
-            "deviceId": device,
-            "deviceLabel": "Laptop",
-            "signingPublicKey": BASE64.encode([signing; 1952]),
-            "nonce": BASE64.encode([4; 16]),
-            "proof": BASE64.encode(proof),
-            "expiresAt": "2026-10-04T12:00:00Z",
-        }))
-        .unwrap()
-    };
-    let requests = vec![request("other", 1), request("laptop", 1)];
-    let found = enrollment::request_with_code(USER, requests, CODE)
+    serde_json::from_value(json!({
+        "requestId": Uuid::now_v7(),
+        "deviceId": device,
+        "deviceLabel": "Laptop",
+        "signingPublicKey": BASE64.encode([signing; 1952]),
+        "nonce": BASE64.encode([4; 16]),
+        "proof": BASE64.encode(proof),
+        "expiresAt": "2026-10-04T12:00:00Z",
+    }))
+    .unwrap()
+}
+
+#[test]
+fn a_typed_code_selects_only_the_request_with_the_keys_of_the_device_that_showed_it() {
+    use crate::identity::link_code::LinkSecret;
+
+    let code = LinkSecret::Typed("TAFX-E5HG-TN8E".into());
+    let requests = [
+        link_request(&code, "other", 1),
+        link_request(&code, "laptop", 1),
+    ];
+    let found = enrollment::request_with_secret(LINK_USER, &requests, &code)
         .unwrap()
         .unwrap();
     assert_eq!(found.device_id, "laptop");
-    for (requests, code) in [
-        (vec![request("laptop", 2)], CODE),
-        (vec![request("laptop", 1)], "TAFX-E5HG-TN8F"),
+    for (request, typed) in [
+        (link_request(&code, "laptop", 2), "TAFX-E5HG-TN8E"),
+        (link_request(&code, "laptop", 1), "TAFX-E5HG-TN8F"),
     ] {
+        let typed = LinkSecret::Typed(typed.into());
         assert!(
-            enrollment::request_with_code(USER, requests, code)
+            enrollment::request_with_secret(LINK_USER, [&request], &typed)
                 .unwrap()
                 .is_none()
         );
     }
+}
+
+#[test]
+fn a_scanned_secret_selects_only_the_request_of_the_device_that_scanned_it() {
+    use crate::identity::link_code::LinkSecret;
+
+    let offered = LinkSecret::scanned().unwrap();
+    let requests = [
+        link_request(&LinkSecret::Typed("TAFX-E5HG-TN8E".into()), "laptop", 1),
+        link_request(&LinkSecret::scanned().unwrap(), "laptop", 1),
+        link_request(&offered, "other", 1),
+    ];
+    assert!(
+        enrollment::request_with_secret(LINK_USER, &requests, &offered)
+            .unwrap()
+            .is_none()
+    );
+    let scanned = link_request(&offered, "laptop", 1);
+    let found = enrollment::request_with_secret(LINK_USER, [&requests[0], &scanned], &offered)
+        .unwrap()
+        .unwrap();
+    assert_eq!(found.device_id, "laptop");
+}
+
+async fn approved_at(address: &str) -> (tempfile::TempDir, BackendClient, IdentityBundle) {
+    let (keys, bundle) = crate::projects::crypto_tests::person();
+    let root = tempfile::tempdir().unwrap();
+    let network = BackendClient::new(BackendConfig {
+        api_url: format!("{address}/").parse().unwrap(),
+        issuer: address.to_owned(),
+        client_id: "test".into(),
+        scopes: vec![],
+        data_root: root.path().to_owned(),
+        secret_service: "test".into(),
+        isolated: true,
+    })
+    .unwrap();
+    network
+        .verify_bundle(&bundle, Some(bundle.root().unwrap()))
+        .await
+        .unwrap();
+    let credentials = Credentials {
+        user_id: bundle.user_id.clone(),
+        display_name: "You".to_owned(),
+        token: Zeroizing::new("token".into()),
+        keys: Arc::new(keys),
+        enrolled: true,
+        notice: None,
+        generation: network.generation(),
+        cancel: network.inner.state.lock().await.account_cancel.clone(),
+    };
+    *network.inner.credentials.write().unwrap() = Some(credentials);
+    (root, network, bundle)
+}
+
+fn received(events: &mut broadcast::Receiver<BackendEvent>) -> Vec<Value> {
+    std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| event.event)
+        .collect()
+}
+
+fn asked(
+    user: &str,
+    device: &DeviceKeys,
+    label: &str,
+    secret: &identity::link_code::LinkSecret,
+    nonce: u8,
+) -> Value {
+    use crate::identity::link_code::{LinkIdentity, LinkKey};
+    let proof = LinkKey::derive(secret, &[nonce; 16])
+        .unwrap()
+        .request_proof(&LinkIdentity {
+            user_id: user,
+            device_id: &device.device_id,
+            label,
+            signing_public_key: device.signing_public(),
+        })
+        .unwrap();
+    json!({
+        "requestId": Uuid::now_v7(),
+        "deviceId": device.device_id,
+        "deviceLabel": label,
+        "signingPublicKey": BASE64.encode(device.signing_public()),
+        "nonce": BASE64.encode([nonce; 16]),
+        "proof": BASE64.encode(proof),
+    })
+}
+
+#[tokio::test]
+async fn an_offer_approves_the_device_that_scanned_its_code_after_it_showed_its_own_and_no_other() {
+    use crate::identity::link_code::{LinkKey, LinkSecret, scanned_link};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let (_root, network, bundle) = approved_at(&address).await;
+    let user = bundle.user_id.clone();
+    let offered = network
+        .execute("devices.link.offer", request())
+        .await
+        .unwrap();
+    let link = offered.events[0]["text"].as_str().unwrap().to_owned();
+    assert_eq!(offered.events[0]["qr"], json!(qr_code::rows(&link)));
+    let secret = scanned_link(&link).unwrap().secret;
+
+    let (phone, laptop) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let other = asked(&user, &laptop, "Laptop", &LinkSecret::scanned().unwrap(), 3);
+    let own_code = LinkSecret::Typed("TAFX-E5HG-TN8E".into());
+    let typed = asked(&user, &phone, "Phone", &own_code, 4);
+    let mut scanned = asked(&user, &phone, "Phone", &secret, 5);
+    scanned["requestId"] = typed["requestId"].clone();
+    let identity = || (200, serde_json::to_value(&bundle).unwrap());
+    let no_reset = || (404, json!({"error": "No reset."}));
+    let mut replies = vec![compatible_server()];
+    replies.extend(device_session_replies());
+    replies.extend([
+        (200, json!([other, typed])),
+        (200, json!([other, typed])),
+        identity(),
+        no_reset(),
+        (200, json!([other, typed])),
+        (200, json!([other, typed])),
+        (200, json!([other, scanned])),
+        (200, json!([other, scanned])),
+        identity(),
+        (200, json!({})),
+        identity(),
+        identity(),
+        no_reset(),
+        (200, json!([other])),
+    ]);
+    let server = scripted_backend(listener, replies);
+    let mut events = network.events();
+    let offer = || async { network.inner.state.lock().await.offer.clone() };
+
+    network.poll_offer(&offer().await.unwrap()).await.unwrap();
+    network.poll_offer(&offer().await.unwrap()).await.unwrap();
+    assert!(
+        received(&mut events)
+            .iter()
+            .all(|event| event["type"] != "devices.link.offerResolved")
+    );
+
+    network.poll_offer(&offer().await.unwrap()).await.unwrap();
+    assert!(offer().await.is_none());
+    let after = received(&mut events);
+    let resolved = after
+        .iter()
+        .find(|event| event["type"] == "devices.link.offerResolved")
+        .unwrap();
+    assert_eq!(resolved["outcome"], "approved");
+    assert_eq!(resolved["deviceLabel"], "Phone");
+    let waiting = after
+        .iter()
+        .find(|event| event["type"] == "devices.link.snapshot")
+        .unwrap();
+    assert_eq!(
+        waiting["requests"],
+        json!([{"requestId": other["requestId"], "deviceLabel": "Laptop"}])
+    );
+
+    let requests = server.await.unwrap();
+    let approvals: Vec<_> = requests
+        .iter()
+        .filter_map(|request| request.strip_prefix("POST /api/devices/link/approve HTTP/1.1 "))
+        .collect();
+    assert_eq!(approvals.len(), 1);
+    let approval: Value = serde_json::from_str(approvals[0]).unwrap();
+    assert_eq!(approval["requestId"], scanned["requestId"]);
+    let proof = BASE64
+        .decode(approval["approvalProof"].as_str().unwrap())
+        .unwrap();
+    assert!(
+        LinkKey::derive(&secret, &[5; 16])
+            .unwrap()
+            .proves_approval(&user, &phone.device_id, &bundle.root().unwrap(), &proof)
+            .unwrap()
+    );
+}
+
+#[tokio::test]
+async fn a_code_that_is_shown_stays_the_same_until_it_ends() {
+    let (_root, network, _user) = signed_in_at("http://127.0.0.1:1").await;
+    let mut shown = Vec::new();
+    for operation in [
+        "devices.link.offer",
+        "devices.link.offer",
+        "devices.link.offer.cancel",
+        "devices.link.offer",
+    ] {
+        let reply = network.execute(operation, request()).await.unwrap();
+        shown.extend(reply.events[0]["text"].as_str().map(str::to_owned));
+    }
+    assert_eq!(shown[0], shown[1]);
+    assert_ne!(shown[1], shown[2]);
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_offer_ends_with_the_life_of_its_code() {
+    let (_root, network, _user) = signed_in_at("http://127.0.0.1:1").await;
+    network
+        .execute("devices.link.offer", request())
+        .await
+        .unwrap();
+    let offer = network.inner.state.lock().await.offer.clone().unwrap();
+    let mut events = network.events();
+    tokio::time::advance(enrollment::LINK_LIFE).await;
+    network.poll_offer(&offer).await.unwrap();
+    assert!(network.inner.state.lock().await.offer.is_none());
+    let ended = events.try_recv().unwrap().event;
+    assert_eq!(
+        ended,
+        json!({"type": "devices.link.offerResolved", "outcome": "expired"})
+    );
+}
+
+#[tokio::test]
+async fn a_device_says_at_once_when_a_scanned_code_is_for_the_other_side_or_another_account() {
+    use crate::identity::link_code::LinkSecret;
+
+    let (_root, network, user) = signed_in_at("http://127.0.0.1:1").await;
+    let join = LinkSecret::scanned().unwrap();
+    let shown = LinkSecret::Typed("TAFX-E5HG-TN8E".into());
+    let refused = |operation: &'static str, code: String| {
+        let network = network.clone();
+        async move {
+            network
+                .execute(operation, json!({"requestId": REQUEST, "code": code}))
+                .await
+                .map(drop)
+                .unwrap_err()
+                .text()
+                .to_string()
+        }
+    };
+    let another_account =
+        "This code is from another account. Sign in to the same account on both devices.";
+    assert_eq!(
+        refused("devices.link.check", join.link(&user)).await,
+        "This code adds a new device. Scan it with the device that you want to add."
+    );
+    assert_eq!(
+        refused("devices.link.approve", shown.link(LINK_USER)).await,
+        another_account
+    );
+
+    network
+        .inner
+        .credentials
+        .write()
+        .unwrap()
+        .as_mut()
+        .unwrap()
+        .enrolled = false;
+    assert_eq!(
+        refused("devices.link.startSelf", shown.link(&user)).await,
+        "Scan the code that Add a device shows on a device that you already use."
+    );
+    assert_eq!(
+        refused("devices.link.startSelf", join.link(LINK_USER)).await,
+        another_account
+    );
+    assert_eq!(
+        refused("devices.link.offer", String::new()).await,
+        "This device is not approved for your account. Approve it first."
+    );
+}
+
+#[tokio::test]
+async fn a_new_device_asks_with_the_secret_that_it_scanned() {
+    use crate::identity::link_code::{LinkIdentity, LinkKey, LinkSecret};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = format!("http://{}", listener.local_addr().unwrap());
+    let (_root, network, user) = signed_in_at(&address).await;
+    network
+        .inner
+        .credentials
+        .write()
+        .unwrap()
+        .as_mut()
+        .unwrap()
+        .enrolled = false;
+    let server = scripted_backend(
+        listener,
+        vec![
+            compatible_server(),
+            (
+                200,
+                json!({"deviceCode": "0f".repeat(32), "requestId": Uuid::now_v7()}),
+            ),
+        ],
+    );
+    let offered = LinkSecret::scanned().unwrap();
+    let started = network
+        .execute(
+            "devices.link.startSelf",
+            json!({"requestId": REQUEST, "code": offered.link(&user)}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        started.events,
+        [
+            json!({"type": "devices.result", "requestId": REQUEST, "operation": "devices.link.startSelf"})
+        ]
+    );
+    let requests = server.await.unwrap();
+    let asked: Value = serde_json::from_str(
+        requests[1]
+            .strip_prefix("POST /api/devices/link/init HTTP/1.1 ")
+            .unwrap(),
+    )
+    .unwrap();
+    let keys = network.credentials().unwrap().keys;
+    let nonce = BASE64.decode(asked["nonce"].as_str().unwrap()).unwrap();
+    let proof = BASE64.decode(asked["proof"].as_str().unwrap()).unwrap();
+    assert!(
+        LinkKey::derive(&offered, &nonce)
+            .unwrap()
+            .proves_request(
+                &LinkIdentity {
+                    user_id: &user,
+                    device_id: &keys.device_id,
+                    label: asked["deviceLabel"].as_str().unwrap(),
+                    signing_public_key: keys.signing_public(),
+                },
+                &proof,
+            )
+            .unwrap()
+    );
 }
 
 #[cfg(feature = "host")]
@@ -1184,12 +1529,13 @@ async fn the_ready_event_says_where_the_sign_in_is_kept() {
 
 #[tokio::test]
 async fn an_approval_that_holds_keeps_settling_while_the_server_does_not_answer() {
-    use crate::identity::link_code::{LinkKey, NONCE_LEN};
+    use crate::identity::link_code::{LinkKey, LinkSecret, NONCE_LEN};
     let (_root, network, _user) = signed_in_at("http://127.0.0.1:1").await;
+    let code = LinkSecret::Typed("ABCD-EFGH-JKMN".into());
     network.inner.state.lock().await.link = Some(enrollment::PendingLink {
         device_code: "device".into(),
         request_id: Uuid::now_v7().to_string(),
-        key: Arc::new(LinkKey::derive("ABCDEFGHJKLM", &[0; NONCE_LEN])),
+        key: Arc::new(LinkKey::derive(&code, &[0; NONCE_LEN]).unwrap()),
         started: std::time::Instant::now(),
         accepted: true,
     });

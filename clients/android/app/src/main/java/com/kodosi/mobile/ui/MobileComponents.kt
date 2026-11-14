@@ -756,6 +756,7 @@ fun TextEntryDialog(
     initial: String = "",
     action: String = stringResource(R.string.save),
     allowBlank: Boolean = false,
+    extra: (@Composable () -> Unit)? = null,
     dismiss: () -> Unit,
     submit: suspend (String) -> Unit
 ) {
@@ -771,6 +772,7 @@ fun TextEntryDialog(
                 KodosiField(text, {
                     text = it
                 }, label = label, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+                extra?.invoke()
                 error?.let { ErrorNote(it) }
                 if (busy) ProgressCaption(stringResource(R.string.working))
             }

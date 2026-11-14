@@ -47,6 +47,9 @@ each field carries its length.
   lists the account's friends again, not verified.
 - **Link code.** The link code has 60 bits, stretched with PBKDF2-HMAC-SHA512 (2^20
   rounds), with HMAC-SHA256 proofs of the request, the approval and the identity root.
+  The code that an approved computer shows for a new device to scan has 256 bits and no
+  typed form. HKDF-SHA256 derives its key, and the computer approves the first request
+  that proves it, one time, in the 10 minutes of the code.
 - **Recovery key.** The recovery key has 160 bits, and Kodosi shows it once. HKDF, bound
   to the account and its root, derives the signing key and ID of a device-list entry that
   cannot open a device session or view a terminal, and an AES key that seals the entry's
@@ -95,8 +98,8 @@ each field carries its length.
 3. A member relies on the owner for the identity of a member it has no friend record of.
 4. A friend added by username, and each friend of a person who starts fresh, relies on the
    backend for the first identity.
-5. The link code is not a PAKE. The backend can guess it with about 2^80 work in its 10
-   minutes.
+5. The typed link code is not a PAKE. The backend can guess it with about 2^80 work in its
+   10 minutes.
 6. The backend can withhold or reorder project items, whose order is unsigned, withhold or
    change terminal status, withhold a change of a terminal's project or the key states that
    are newer than the ones a device read, and name another terminal of the same computer

@@ -1862,6 +1862,70 @@ private slots:
         QVERIFY(f.workspace.devices().localDeviceEnrolled());
         QVERIFY(f.workspace.devices().notice().isEmpty());
     }
+    void aShownCodeFollowsThePhoneThatScansItAndEndsWhenTheCodeDoes()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), test::id(50) } }, 1);
+        auto& devices = f.workspace.devices();
+        const auto resolved = [](const QString& outcome, const QJsonObject& more = {}) {
+            QJsonObject event { { QStringLiteral("type"), QStringLiteral("devices.link.offerResolved") },
+                { QStringLiteral("outcome"), outcome } };
+            for (auto field = more.begin(); field != more.end(); ++field)
+                event.insert(field.key(), field.value());
+            return event;
+        };
+        const auto shown = [&] {
+            devices.offer();
+            const auto asked = f.commands.values.last();
+            f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("devices.result") },
+                { QStringLiteral("requestId"), asked.value(QStringLiteral("requestId")) },
+                { QStringLiteral("operation"), QStringLiteral("devices.link.offer") },
+                { QStringLiteral("qr"), QJsonArray { QStringLiteral("10"), QStringLiteral("01") } } }, 1);
+        };
+
+        f.workspace.apply(resolved(QStringLiteral("approved"), { { QStringLiteral("deviceLabel"), QStringLiteral("Other") } }), 1);
+        QVERIFY(devices.offerState().isEmpty());
+
+        shown();
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("devices.link.offer"));
+        QCOMPARE(devices.offerState(), QStringLiteral("shown"));
+        QCOMPARE(devices.offerQr(), (QStringList { QStringLiteral("10"), QStringLiteral("01") }));
+        f.workspace.apply(resolved(QStringLiteral("approved"), { { QStringLiteral("deviceLabel"), QStringLiteral("Pixel") } }), 1);
+        QCOMPARE(devices.offerState(), QStringLiteral("approved"));
+        QCOMPARE(devices.offerDetail(), QStringLiteral("Pixel"));
+        devices.endOffer();
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("devices.link.offer"));
+
+        shown();
+        f.workspace.apply(resolved(QStringLiteral("expired")), 1);
+        QCOMPARE(devices.offerState(), QStringLiteral("ended"));
+
+        shown();
+        f.workspace.apply(resolved(QStringLiteral("cancelled"), { { QStringLiteral("message"), QStringLiteral("This account has 4 devices.") } }), 1);
+        QCOMPARE(devices.offerState(), QStringLiteral("failed"));
+        QCOMPARE(devices.offerDetail(), QStringLiteral("This account has 4 devices."));
+
+        shown();
+        devices.endOffer();
+        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("devices.link.offer.cancel"));
+        QVERIFY(devices.offerState().isEmpty());
+        QVERIFY(f.workspace.error().isEmpty());
+    }
+    void aCodeThatCannotBeShownSaysWhyInItsDialog()
+    {
+        Fixture f;
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
+            { QStringLiteral("userId"), test::id(50) } }, 1);
+        f.workspace.devices().offer();
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("devices.error") },
+            { QStringLiteral("requestId"), f.commands.values.last().value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("devices.link.offer") },
+            { QStringLiteral("message"), QStringLiteral("Kodosi could not reach the server.") } }, 1);
+        QCOMPARE(f.workspace.devices().offerState(), QStringLiteral("failed"));
+        QCOMPARE(f.workspace.devices().offerDetail(), QStringLiteral("Kodosi could not reach the server."));
+        QVERIFY(f.workspace.error().isEmpty());
+    }
     void dismissedDeviceRequestsStayHiddenUntilANewOneComes()
     {
         Fixture f;

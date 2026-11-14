@@ -7,7 +7,9 @@ sealed interface DeviceTrust {
 
     data object Requesting : DeviceTrust
 
-    data class PendingApproval(val code: String) : DeviceTrust
+    data class PendingApproval(val code: String, val qr: List<String> = emptyList()) : DeviceTrust
+
+    data object Joining : DeviceTrust
 
     data object Recovering : DeviceTrust
 

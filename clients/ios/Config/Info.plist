@@ -44,7 +44,7 @@
 	<key>KodosiDebugBackendPort</key>
 	<string>$(KODOSI_DEBUG_BACKEND_PORT)</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Kodosi uses the camera to scan a friend's invite.</string>
+	<string>Kodosi uses the camera to scan a friend's invite or the code of a device.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Kodosi asks for Face ID before it shows your terminals, when you lock it in Settings.</string>
 	<key>NSLocalNetworkUsageDescription</key>

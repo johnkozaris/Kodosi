@@ -21,6 +21,14 @@ public final class AccountStore {
         }
     }
 
+    public enum Offer: Equatable, Sendable {
+        case requesting
+        case shown(qr: [String])
+        case approved(String)
+        case ended
+        case failed(String)
+    }
+
     public private(set) var userId: String?
     public private(set) var displayName: String?
     public private(set) var authResolved = false
@@ -33,6 +41,7 @@ public final class AccountStore {
     public private(set) var deviceRequests: [DeviceLinkRequest] = []
     public private(set) var pendingReset: DeviceReset?
     public private(set) var approval: Approval?
+    public private(set) var offer: Offer?
     public private(set) var creatingRecoveryKey = false
     public private(set) var newRecoveryKey: String?
     public private(set) var deletion: Deletion?
@@ -125,6 +134,7 @@ public final class AccountStore {
         deviceRequests = []
         pendingReset = nil
         approval = nil
+        offer = nil
         checkedCode = nil
         checkRequest = nil
         creatingRecoveryKey = false
@@ -175,7 +185,22 @@ public final class AccountStore {
         case "devices.hosts":
             onlineHosts = try Set(event.value("deviceIds", as: [String].self))
         case "devices.result" where event.string("operation") == "devices.link.startSelf":
-            stage = .trustingDevice(.pendingApproval(code: event.string("code") ?? ""))
+            if let code = event.string("code") {
+                stage = .trustingDevice(.pendingApproval(code: code, qr: Self.rows(of: event)))
+            } else {
+                stage = .trustingDevice(.joining)
+            }
+        case "devices.result" where event.string("operation") == "devices.link.offer":
+            if offer == .requesting {
+                offer = .shown(qr: Self.rows(of: event))
+            }
+        case "devices.link.offerResolved":
+            guard case .shown = offer else { break }
+            if event.string("outcome") == "approved" {
+                offer = .approved(event.string("deviceLabel") ?? "")
+            } else {
+                offer = event.string("message").map(Offer.failed) ?? .ended
+            }
         case "devices.link.selfResolved":
             if case .trustingDevice = stage, event.string("outcome") != "approved" {
                 stage = .trustingDevice(.choose)
@@ -209,6 +234,9 @@ public final class AccountStore {
              "devices.link.approve" where approval == .approving:
             approval = .failed(message)
             return true
+        case "devices.link.offer" where offer == .requesting:
+            offer = .failed(message)
+            return true
         case "devices.recovery.create":
             creatingRecoveryKey = false
             return false
@@ -240,11 +268,15 @@ public final class AccountStore {
         } else if let reset = pendingReset, reset.thisDevice {
             switch trust {
             case .choose, .resetting, .waiting: stage = .trustingDevice(.waiting(reset.readyAt))
-            case .requesting, .pendingApproval, .recovering, .failed: break
+            case .requesting, .pendingApproval, .joining, .recovering, .failed: break
             }
         } else if case .waiting = trust {
             stage = .trustingDevice(.choose)
         }
+    }
+
+    private static func rows(of event: RuntimeEvent) -> [String] {
+        (try? event.value("qr", as: [String].self)) ?? []
     }
 
     private func receiveReady(_ event: RuntimeEvent) throws {
@@ -353,6 +385,29 @@ public final class AccountStore {
     public func cancelDeviceApproval() {
         commands.perform("devices.link.cancelSelf")
         stage = .trustingDevice(.choose)
+    }
+
+    public func joinDevice(scanned code: String) {
+        switch stage {
+        case .trustingDevice(.choose), .trustingDevice(.pendingApproval), .trustingDevice(.failed):
+            stage = .trustingDevice(.joining)
+            commands.perform("devices.link.startSelf", ["code": .string(code)])
+        default:
+            break
+        }
+    }
+
+    public func offerDevice() {
+        offer = .requesting
+        commands.perform("devices.link.offer")
+    }
+
+    public func endOffer() {
+        switch offer {
+        case .requesting, .shown: commands.perform("devices.link.offer.cancel")
+        case .approved, .ended, .failed, nil: break
+        }
+        offer = nil
     }
 
     public func useRecoveryKey(_ key: String) {

@@ -7,6 +7,7 @@ struct ApproveDeviceSheet: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
+    @State private var scanning = false
     @FocusState private var codeFocused: Bool
 
     private var account: AccountStore {
@@ -31,6 +32,8 @@ struct ApproveDeviceSheet: View {
                 Group {
                     if case let .approved(label) = account.approval {
                         approved(label)
+                    } else if scanning {
+                        scanner
                     } else {
                         form
                     }
@@ -55,6 +58,7 @@ struct ApproveDeviceSheet: View {
         .kodosiSheet()
         .animation(theme.motion.spring, value: account.approval)
         .animation(theme.motion.spring, value: account.deviceRequests)
+        .animation(theme.motion.spring, value: scanning)
         .sensoryFeedback(trigger: account.approval) { _, approval in
             switch approval {
             case .approved: .success
@@ -79,7 +83,7 @@ struct ApproveDeviceSheet: View {
             VStack(spacing: 12) {
                 IconTile(symbol: "laptopcomputer.and.arrow.down", size: 58)
                     .arrive()
-                Text("On the new device, choose Approve from another device. Then enter the code that it shows.")
+                Text("On the new device, choose Approve from another device. Then scan the code that it shows, or enter it.")
                     .appTextStyle(.callout)
                     .foregroundStyle(theme.colors.inkMuted)
                     .multilineTextAlignment(.center)
@@ -98,8 +102,16 @@ struct ApproveDeviceSheet: View {
                 }
                 .transition(AnyTransition.rise)
             }
+            Button { scanning = true } label: {
+                Label("Scan the code", systemImage: "qrcode.viewfinder")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.kodosi(.primary, size: .large))
+            .disabled(approving)
+            .accessibilityIdentifier("settings.approve.scan")
+            .arrive(delay: 0.08)
             codeField
-                .arrive(delay: 0.08)
+                .arrive(delay: 0.12)
             if case let .failed(message) = account.approval {
                 ErrorNote(message: message)
                     .accessibilityIdentifier("settings.approve.error")
@@ -110,10 +122,28 @@ struct ApproveDeviceSheet: View {
                     .shimmer(approving)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.kodosi(.primary, size: .large))
+            .buttonStyle(.kodosi(.secondary, size: .large))
             .disabled(!DeviceCode.isComplete(code) || approving)
             .accessibilityIdentifier("settings.devices.approve")
-            .arrive(delay: 0.12)
+            .arrive(delay: 0.16)
+        }
+    }
+
+    /// The scanner stays in this sheet: a sheet that closes at the moment of the scan can
+    /// stop the confirmation from coming up.
+    private var scanner: some View {
+        VStack(spacing: 16) {
+            CodeScanView(scan: CodeScan(
+                hint: "Point the camera at the code that the new device shows.", other: "This is not the code of a new device.",
+                identifier: "settings.approve.scan", accepts: { DeviceCode.scanned(in: $0, for: .approve) },
+            ) { scanned in
+                scanning = false
+                account.checkDevice(code: scanned)
+            })
+            .frame(height: 440)
+            Button { scanning = false } label: { Text("Enter the code") }
+                .buttonStyle(.kodosi(.ghost))
+                .accessibilityIdentifier("settings.approve.enter")
         }
     }
 

@@ -33,6 +33,7 @@ use crate::identity::{
     loopback::{self, Loopback},
     oidc::{APP_REDIRECT, BrowserLogin, Oidc, Tokens},
     pins::{IdentityBundle, Pins, VerifiedIdentity},
+    qr_code,
     signed_device_list::{DeviceListEntry, build_bootstrap_list, build_replacement_list},
     storage::{CredentialLocation, Secrets},
 };
@@ -94,6 +95,7 @@ pub(crate) struct State {
     blocked_devices: BTreeSet<(String, String)>,
     account_cancel: CancellationToken,
     link: Option<enrollment::PendingLink>,
+    offer: Option<enrollment::PendingOffer>,
     deletion: Option<tokio::time::Instant>,
     friend_lists: FriendLists,
     changed_friends: BTreeSet<String>,
@@ -142,6 +144,7 @@ impl BackendClient {
                     blocked_devices,
                     account_cancel: CancellationToken::new(),
                     link: None,
+                    offer: None,
                     friend_lists,
                     changed_friends: BTreeSet::new(),
                     deletion: None,
@@ -561,9 +564,24 @@ impl BackendClient {
                 events.extend(self.device_events().await?);
             }
             "devices.link.startSelf" => {
-                let code = self.start_link().await?;
-                events.push(json!({"type":"devices.result","requestId":request,"operation":operation,"code":code}));
-                self.watch_link().await;
+                let scanned = args.get("code").and_then(Value::as_str);
+                let mut result =
+                    json!({"type":"devices.result","requestId":request,"operation":operation});
+                let shown = self.start_link(scanned).await?;
+                if let Some(shown) = &shown {
+                    result["qr"] = json!(qr_code::rows(&shown.link));
+                    result["code"] = json!(shown.code);
+                }
+                events.push(result);
+                self.watch_link(shown.is_none()).await;
+            }
+            "devices.link.offer" => {
+                let link = self.offer_link().await?;
+                events.push(json!({"type":"devices.result","requestId":request,"operation":operation,"qr":qr_code::rows(&link),"text":link}));
+            }
+            "devices.link.offer.cancel" => {
+                self.cancel_offer().await;
+                events.push(json!({"type":"devices.link.offerResolved","outcome":"cancelled"}));
             }
             "devices.link.cancelSelf" => {
                 self.cancel_link().await?;

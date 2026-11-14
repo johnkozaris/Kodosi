@@ -803,20 +803,16 @@
         <translation>登录</translation>
     </message>
     <message>
-        <source>Type this code on a device that you use</source>
-        <translation>在你使用的设备上输入此验证码</translation>
-    </message>
-    <message>
         <source>Approve this computer</source>
         <translation>批准这台电脑</translation>
     </message>
     <message>
-        <source>Choose Approve on that device.</source>
-        <translation>在那台设备上选择“批准”。</translation>
-    </message>
-    <message>
         <source>A device that you use must approve this computer one time.</source>
         <translation>你正在使用的某台设备需要批准这台电脑一次。</translation>
+    </message>
+    <message>
+        <source>QR code of this code</source>
+        <translation>此验证码的二维码</translation>
     </message>
     <message>
         <source>Device approval code</source>
@@ -883,20 +879,20 @@
         <translation>移除…</translation>
     </message>
     <message>
-        <source>Approve another device</source>
-        <translation>批准其他设备</translation>
-    </message>
-    <message>
-        <source>Type the code that the other device shows.</source>
-        <translation>输入另一台设备上显示的验证码。</translation>
-    </message>
-    <message>
         <source>Waiting for approval</source>
         <translation>等待批准</translation>
     </message>
     <message>
         <source>Needs your approval</source>
         <translation>需要你的批准</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code</source>
+        <translation>新手机扫描二维码即可加入</translation>
+    </message>
+    <message>
+        <source>Show a code</source>
+        <translation>显示二维码</translation>
     </message>
     <message>
         <source>Code</source>
@@ -917,6 +913,50 @@
     <message>
         <source>Make a recovery key</source>
         <translation>生成恢复密钥</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>关闭</translation>
+    </message>
+    <message>
+        <source>Add a phone</source>
+        <translation>添加手机</translation>
+    </message>
+    <message>
+        <source>On the new phone, open Kodosi and sign in. Then choose Scan the code on your computer.</source>
+        <translation>在新手机上打开 Kodosi 并登录，然后选择“扫描电脑上的二维码”。</translation>
+    </message>
+    <message>
+        <source>QR code for the new phone</source>
+        <translation>供新手机扫描的二维码</translation>
+    </message>
+    <message>
+        <source>Waiting for the phone</source>
+        <translation>正在等待手机</translation>
+    </message>
+    <message>
+        <source>This code no longer works.</source>
+        <translation>此二维码已失效。</translation>
+    </message>
+    <message>
+        <source>%1 is approved.</source>
+        <translation>%1 已获批准。</translation>
+    </message>
+    <message>
+        <source>The device is approved.</source>
+        <translation>设备已获批准。</translation>
+    </message>
+    <message>
+        <source>It can use your terminals and projects now.</source>
+        <translation>它现在可以使用你的终端和项目了。</translation>
+    </message>
+    <message>
+        <source>Show a new code</source>
+        <translation>显示新的二维码</translation>
     </message>
     <message>
         <source>Approve %1?</source>
@@ -965,6 +1005,22 @@
     <message>
         <source>Start fresh</source>
         <translation>重新开始</translation>
+    </message>
+    <message>
+        <source>Scan or type this code on a device that you use</source>
+        <translation>在你使用的设备上扫描此二维码，或输入验证码</translation>
+    </message>
+    <message>
+        <source>On that device, open Settings and choose Add a device.</source>
+        <translation>在那台设备上打开“设置”并选择“添加设备”。</translation>
+    </message>
+    <message>
+        <source>Add a device</source>
+        <translation>添加设备</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code from this computer. For another device, type the code that it shows.</source>
+        <translation>新手机扫描这台电脑上的二维码即可加入。其他设备请输入它显示的验证码。</translation>
     </message>
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>

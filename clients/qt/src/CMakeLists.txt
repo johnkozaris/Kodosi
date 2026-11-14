@@ -356,6 +356,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/PlainLabel.qml
         qml/Controls/ProgressRing.qml
         qml/Controls/Raised.qml
+        qml/Controls/ScanCode.qml
         qml/Controls/RollingText.qml
         qml/Controls/ProjectSigil.qml
         qml/Controls/SegmentedPill.qml

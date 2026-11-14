@@ -5,6 +5,7 @@ pub(crate) mod link_code;
 pub(crate) mod loopback;
 pub mod oidc;
 pub mod pins;
+pub(crate) mod qr_code;
 pub(crate) mod recovery;
 pub mod signed_device_list;
 pub mod storage;

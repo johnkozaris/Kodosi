@@ -57,6 +57,26 @@ void DevicesModel::cancelApproval()
     m_workspace.sendUntracked(QStringLiteral("devices.link.cancelSelf"));
 }
 
+void DevicesModel::offer()
+{
+    m_offerQr.clear();
+    m_offerDetail.clear();
+    m_offerState = m_workspace.sendUntracked(QStringLiteral("devices.link.offer"))
+        ? QStringLiteral("requesting")
+        : QString {};
+    emit changed();
+}
+
+void DevicesModel::endOffer()
+{
+    if (m_offerState == QStringLiteral("requesting") || m_offerState == QStringLiteral("shown"))
+        m_workspace.sendUntracked(QStringLiteral("devices.link.offer.cancel"));
+    m_offerState.clear();
+    m_offerQr.clear();
+    m_offerDetail.clear();
+    emit changed();
+}
+
 void DevicesModel::startFresh()
 {
     m_workspace.sendUntracked(QStringLiteral("devices.reset"));
@@ -173,6 +193,10 @@ void DevicesModel::reset()
     m_dismissedReset.clear();
     m_hosts.clear();
     m_approvalCode.clear();
+    m_approvalQr.clear();
+    m_offerState.clear();
+    m_offerQr.clear();
+    m_offerDetail.clear();
     m_checkedCode.clear();
     m_checkedLabel.clear();
     m_checkRequest.clear();

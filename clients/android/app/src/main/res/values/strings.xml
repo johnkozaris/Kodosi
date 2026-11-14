@@ -14,7 +14,7 @@
     <string name="account_restore_unreadable">Kodosi could not read your saved sign-in.</string>
     <string name="account_restore_update_required">Update Kodosi to connect.</string>
     <string name="agent_shell">Shell</string>
-    <string name="approval_instructions">On a device you already use, choose Approve, then enter this code.</string>
+    <string name="approval_instructions">On a device you already use, open Settings and choose Add a device. Then scan this code, or enter it.</string>
     <string name="approve">Approve</string>
     <string name="approve_from_another_device">Approve from another device</string>
     <string name="asking_other_devices">Asking your other devices</string>
@@ -199,6 +199,15 @@
     <string name="device_code">Device code</string>
     <string name="check_device">Check device</string>
     <string name="approve_device_title">Approve this device?</string>
+    <string name="scan_computer_code">Scan the code on your computer</string>
+    <string name="device_code_description">QR code of this code</string>
+    <string name="waiting_for_computer">Waiting for your computer</string>
+    <string name="scan_code">Scan the code</string>
+    <string name="point_at_computer_code">On your computer, open Kodosi Settings. Under Add a device, choose Show a code. Then point the camera at the code.</string>
+    <string name="not_an_add_device_code">This is not a code from Add a device.</string>
+    <string name="point_at_device_code">Point the camera at the code that the new device shows.</string>
+    <string name="not_a_new_device_code">This is not the code of a new device.</string>
+    <string name="code_scanner_unavailable">The code scanner is not available.</string>
     <string name="remove_device_message">It disconnects. Approve it again to use it. Kodosi does not undo the commands that it already ran.</string>
     <string name="create_recovery_key">Make a recovery key</string>
     <string name="recovery_message">Approves a new device when you have no other</string>

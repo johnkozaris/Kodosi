@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,11 +49,14 @@ import com.kodosi.mobile.BuildConfig
 import com.kodosi.mobile.R
 import com.kodosi.mobile.account.AppLock
 import com.kodosi.mobile.account.Device
+import com.kodosi.mobile.account.DeviceCode
 import com.kodosi.mobile.terminals.TerminalPreview
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ButtonSize
+import com.kodosi.mobile.ui.CodeScanDialog
+import com.kodosi.mobile.ui.CodeScanWords
 import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.CountBadge
 import com.kodosi.mobile.ui.IconTile
@@ -76,6 +81,7 @@ import com.kodosi.mobile.ui.SelectableWords
 import com.kodosi.mobile.ui.SwitchRow
 import com.kodosi.mobile.ui.TextEntryDialog
 import com.kodosi.mobile.ui.TileTint
+import com.kodosi.mobile.ui.canScanCodes
 import com.kodosi.mobile.ui.raised
 import kotlinx.coroutines.launch
 
@@ -89,6 +95,7 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
     val context = LocalContext.current
     val activity = context as Activity
     val scope = rememberCoroutineScope()
+    val camera = remember(context) { canScanCodes(context) }
     var signOut by remember { mutableStateOf(false) }
     var delete by remember { mutableStateOf(false) }
     var approving by remember { mutableStateOf(false) }
@@ -96,6 +103,7 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
     var removing by remember { mutableStateOf<Device?>(null) }
     var recovery by remember { mutableStateOf<String?>(null) }
     var creatingRecovery by remember { mutableStateOf(false) }
+    var scanning by remember { mutableStateOf(false) }
     val links = LocalLinkOpener.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         model.updatePush(force = true)
@@ -518,19 +526,44 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
     }
     if (approving) {
         TextEntryDialog(
-            stringResource(
-                R.string.add_device
-            ),
+            stringResource(R.string.add_device),
             stringResource(R.string.device_code),
             action = stringResource(R.string.check_device),
-            dismiss = {
-                approving =
-                    false
-            }
+            extra = if (camera) {
+                {
+                    KodosiTextButton(onClick = { scanning = true }) {
+                        AppIcon(AppSymbol.QR_CODE, tint = colors.accent)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.scan_code))
+                    }
+                }
+            } else {
+                null
+            },
+            dismiss = { approving = false }
         ) { code ->
             val label = model.account.checkDevice(code) ?: return@TextEntryDialog
             checked = code to label
         }
+    }
+    if (scanning) {
+        CodeScanDialog(
+            CodeScanWords(
+                title = stringResource(R.string.scan_code),
+                hint = stringResource(R.string.point_at_device_code),
+                other = stringResource(R.string.not_a_new_device_code),
+                unavailable = stringResource(R.string.code_scanner_unavailable)
+            ),
+            accepts = DeviceCode::approve,
+            found = { code ->
+                scanning = false
+                approving = false
+                scope.launch {
+                    model.runAction { model.account.checkDevice(code)?.let { label -> checked = code to label } }
+                }
+            },
+            dismiss = { scanning = false }
+        )
     }
     checked?.let { (code, label) ->
         ConfirmDialog(stringResource(R.string.approve_device_title), label, stringResource(R.string.approve), {

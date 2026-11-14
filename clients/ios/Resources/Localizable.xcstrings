@@ -5678,54 +5678,54 @@
         }
       }
     },
-    "Enter the code that the new device shows" : {
+    "Enter the code" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gib den Code ein, den das neue Gerät anzeigt"
+            "value" : "Code eingeben"
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Εισαγάγετε τον κωδικό που δείχνει η νέα συσκευή"
+            "value" : "Εισαγωγή του κωδικού"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Escribe el código que muestra el dispositivo nuevo"
+            "value" : "Escribir el código"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Saisissez le code affiché sur le nouvel appareil"
+            "value" : "Saisir le code"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Inserisci il codice mostrato dal nuovo dispositivo"
+            "value" : "Inserisci il codice"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しいデバイスに表示されたコードを入力"
+            "value" : "コードを入力"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "새 기기에 표시된 코드 입력"
+            "value" : "코드 입력"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "输入新设备上显示的验证码"
+            "value" : "输入验证码"
           }
         }
       }
@@ -10982,54 +10982,106 @@
         }
       }
     },
-    "On the new device, choose Approve from another device. Then enter the code that it shows." : {
+    "On the new device, choose Approve from another device. Then scan the code that it shows, or enter it." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wähle auf dem neuen Gerät „Von einem anderen Gerät freigeben“. Gib dann den Code ein, den es anzeigt."
+            "value" : "Wähle auf dem neuen Gerät „Von einem anderen Gerät freigeben“. Scanne dann den Code, den es anzeigt, oder gib ihn ein."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Στη νέα συσκευή, επιλέξτε «Έγκριση από άλλη συσκευή». Μετά εισαγάγετε τον κωδικό που δείχνει."
+            "value" : "Στη νέα συσκευή, επιλέξτε «Έγκριση από άλλη συσκευή». Μετά σαρώστε τον κωδικό που δείχνει ή εισαγάγετέ τον."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En el dispositivo nuevo, elige «Aprobar desde otro dispositivo». Después escribe el código que muestra."
+            "value" : "En el dispositivo nuevo, elige «Aprobar desde otro dispositivo». Después escanea el código que muestra o escríbelo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sur le nouvel appareil, choisissez « Approuver depuis un autre appareil ». Saisissez ensuite le code affiché."
+            "value" : "Sur le nouvel appareil, choisissez « Approuver depuis un autre appareil ». Scannez ensuite le code affiché ou saisissez-le."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sul nuovo dispositivo, scegli «Approva da un altro dispositivo». Poi inserisci il codice che mostra."
+            "value" : "Sul nuovo dispositivo, scegli «Approva da un altro dispositivo». Poi scansiona il codice che mostra o inseriscilo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しいデバイスで「別のデバイスから承認」を選び、表示されたコードを入力してください。"
+            "value" : "新しいデバイスで「別のデバイスから承認」を選び、表示されたコードをスキャンするか入力してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "새 기기에서 '다른 기기에서 승인'을 고른 뒤 표시된 코드를 입력하세요."
+            "value" : "새 기기에서 '다른 기기에서 승인'을 고른 뒤 표시된 코드를 스캔하거나 입력하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在新设备上选择“从其他设备批准”，然后输入它显示的验证码。"
+            "value" : "在新设备上选择“从其他设备批准”，然后扫描它显示的二维码，或输入验证码。"
+          }
+        }
+      }
+    },
+    "On your computer, open Kodosi Settings. Under Add a device, choose Show a code. Then point the camera at the code." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffne auf deinem Computer die Kodosi-Einstellungen. Wähle unter „Gerät hinzufügen“ die Option „Code anzeigen“. Richte dann die Kamera auf den Code."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Στον υπολογιστή σας, ανοίξτε τις Ρυθμίσεις του Kodosi. Στην «Προσθήκη συσκευής», επιλέξτε «Εμφάνιση κωδικού». Μετά στρέψτε την κάμερα στον κωδικό."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En tu ordenador, abre los Ajustes de Kodosi. En «Añadir un dispositivo», elige «Mostrar un código». Después apunta la cámara al código."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur votre ordinateur, ouvrez les Réglages de Kodosi. Sous « Ajouter un appareil », choisissez « Afficher un code ». Pointez ensuite l'appareil photo vers le code."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sul tuo computer, apri le Impostazioni di Kodosi. In «Aggiungi un dispositivo», scegli «Mostra un codice». Poi inquadra il codice con la fotocamera."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータで Kodosi の設定を開き、「デバイスを追加」の「コードを表示」を選びます。次に、そのコードにカメラを向けてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터에서 Kodosi 설정을 열고 '기기 추가'에서 '코드 표시'를 고르세요. 그런 다음 코드에 카메라를 맞추세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在电脑上打开 Kodosi 的“设置”，在“添加设备”下选择“显示二维码”，然后将相机对准二维码。"
           }
         }
       }
@@ -12330,6 +12382,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "将相机对准对方的邀请二维码。"
+          }
+        }
+      }
+    },
+    "Point the camera at the code that the new device shows." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Richte die Kamera auf den Code, den das neue Gerät anzeigt."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Στρέψτε την κάμερα στον κωδικό που δείχνει η νέα συσκευή."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apunta la cámara al código que muestra el dispositivo nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pointez l'appareil photo vers le code affiché sur le nouvel appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inquadra con la fotocamera il codice mostrato dal nuovo dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しいデバイスに表示されたコードにカメラを向けてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 기기에 표시된 코드에 카메라를 맞추세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将相机对准新设备上显示的二维码。"
           }
         }
       }
@@ -14202,6 +14306,110 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保存备注"
+          }
+        }
+      }
+    },
+    "Scan or enter the code that the new device shows" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanne den Code, den das neue Gerät anzeigt, oder gib ihn ein"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σαρώστε ή εισαγάγετε τον κωδικό που δείχνει η νέα συσκευή"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escanea o escribe el código que muestra el dispositivo nuevo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scannez ou saisissez le code affiché sur le nouvel appareil"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scansiona o inserisci il codice mostrato dal nuovo dispositivo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しいデバイスに表示されたコードをスキャンまたは入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 기기에 표시된 코드 스캔 또는 입력"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描新设备上的二维码，或输入验证码"
+          }
+        }
+      }
+    },
+    "Scan the code" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code scannen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Σάρωση του κωδικού"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escanear el código"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanner le code"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scansiona il codice"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コードをスキャン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "코드 스캔"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "扫描二维码"
           }
         }
       }
@@ -17228,6 +17436,58 @@
         }
       }
     },
+    "The code scanner is not available." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Code-Scanner ist nicht verfügbar."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ο σαρωτής κωδικών δεν είναι διαθέσιμος."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El escáner de códigos no está disponible."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le scanner de codes n'est pas disponible."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo scanner di codici non è disponibile."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コードスキャナーを使えません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "코드 스캐너를 사용할 수 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "二维码扫描器不可用。"
+          }
+        }
+      }
+    },
     "The device is approved." : {
       "localizations" : {
         "de" : {
@@ -18108,6 +18368,110 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这台 iPhone"
+          }
+        }
+      }
+    },
+    "This is not a code from Add a device." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist kein Code aus „Gerät hinzufügen“."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτός δεν είναι κωδικός από την «Προσθήκη συσκευής»."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este no es un código de «Añadir un dispositivo»."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est pas un code de « Ajouter un appareil »."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo non è un codice di «Aggiungi un dispositivo»."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これは「デバイスを追加」のコードではありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "'기기 추가'의 코드가 아니에요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这不是“添加设备”的二维码。"
+          }
+        }
+      }
+    },
+    "This is not the code of a new device." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist nicht der Code eines neuen Geräts."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτός δεν είναι ο κωδικός μιας νέας συσκευής."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este no es el código de un dispositivo nuevo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est pas le code d'un nouvel appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo non è il codice di un nuovo dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これは新しいデバイスのコードではありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새 기기의 코드가 아니에요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这不是新设备的二维码。"
           }
         }
       }

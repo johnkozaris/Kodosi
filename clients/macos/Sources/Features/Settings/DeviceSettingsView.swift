@@ -80,6 +80,17 @@ struct DeviceSettingsView: View {
                             .transition(AnyTransition.rise)
                         }
                         HStack(spacing: 8) {
+                            Image(systemName: "qrcode").font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(theme.colors.inkFaint)
+                            Text("A new phone scans a code").appTextStyle(.callout).foregroundStyle(theme.colors.ink)
+                            Spacer()
+                            Button("Show a code") { deps.account.offerDevice() }
+                                .buttonStyle(.kodosi(.secondary))
+                                .accessibilityIdentifier("settings.devices.offer")
+                        }
+                        .padding(.leading, 16).padding(.trailing, 6).frame(height: 46)
+                        .raisedCapsule()
+                        HStack(spacing: 8) {
                             Image(systemName: "laptopcomputer.and.arrow.down").font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(theme.colors.inkFaint)
                             TextField(

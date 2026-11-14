@@ -58,6 +58,8 @@ import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
+import com.kodosi.mobile.ui.CodeScanDialog
+import com.kodosi.mobile.ui.CodeScanWords
 import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.EmptyState
 import com.kodosi.mobile.ui.ErrorNote
@@ -75,8 +77,11 @@ import com.kodosi.mobile.ui.PageHeader
 import com.kodosi.mobile.ui.PersonAvatar
 import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.Radius
+import com.kodosi.mobile.ui.ScanCode
+import com.kodosi.mobile.ui.ScanCodeCard
 import com.kodosi.mobile.ui.SectionTitle
 import com.kodosi.mobile.ui.TextEntryDialog
+import com.kodosi.mobile.ui.canScanCodes
 import com.kodosi.mobile.ui.raised
 import kotlin.math.floor
 import kotlinx.coroutines.CancellationException
@@ -207,7 +212,7 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
 @Composable
 private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
     val context = LocalContext.current
-    val camera = remember(context) { canScanInvites(context) }
+    val camera = remember(context) { canScanCodes(context) }
     var text by remember { mutableStateOf("") }
     var scanning by remember { mutableStateOf(false) }
     KodosiDialog(
@@ -236,11 +241,21 @@ private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
         dismissButton = { KodosiTextButton(onClick = dismiss) { Text(stringResource(R.string.cancel)) } }
     )
     if (scanning) {
-        InviteScanDialog(found = { invite ->
-            scanning = false
-            text = invite
-            add(invite)
-        }, dismiss = { scanning = false })
+        CodeScanDialog(
+            CodeScanWords(
+                title = stringResource(R.string.scan_invite),
+                hint = stringResource(R.string.point_at_invite),
+                other = stringResource(R.string.not_an_invite),
+                unavailable = stringResource(R.string.scanner_unavailable)
+            ),
+            accepts = PeopleStore::invite,
+            found = { invite ->
+                scanning = false
+                text = invite
+                add(invite)
+            },
+            dismiss = { scanning = false }
+        )
     }
 }
 
@@ -371,48 +386,17 @@ private fun InviteDialog(model: AppModel, dismiss: () -> Unit) {
     )
 }
 
-/** The card stays light in both appearances, as a printed code does, so that each camera reads its
- *  dark modules. */
 @Composable
 private fun InviteCode(rows: List<String>?, failed: Boolean, retry: () -> Unit) {
     val description = stringResource(R.string.invite_code_description)
-    KodosiTheme(dark = false) {
-        val colors = KodosiTheme.colors
-        Box(
-            Modifier.widthIn(max = 360.dp).fillMaxWidth().aspectRatio(1f)
-                .raised(colors, RoundedCornerShape(Radius.xl)),
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                !rows.isNullOrEmpty() -> Canvas(
-                    Modifier.fillMaxSize().semantics {
-                        contentDescription = description
-                        role = Role.Image
-                    }
-                ) {
-                    val module = floor(size.minDimension / (rows.size + 2 * QUIET_ZONE))
-                    val left = floor((size.width - module * rows.size) / 2)
-                    val top = floor((size.height - module * rows.size) / 2)
-                    val dark = Path()
-                    rows.forEachIndexed { y, row ->
-                        row.forEachIndexed { x, cell ->
-                            if (cell == '1') {
-                                dark.addRect(Rect(Offset(left + x * module, top + y * module), Size(module, module)))
-                            }
-                        }
-                    }
-                    drawPath(dark, colors.ink)
-                }
-
-                failed -> KodosiTextButton(onClick = retry) { Text(stringResource(R.string.try_again)) }
-
-                else -> KodosiSpinner(Modifier.size(20.dp))
-            }
+    ScanCodeCard(Modifier.widthIn(max = 360.dp).fillMaxWidth()) {
+        when {
+            !rows.isNullOrEmpty() -> ScanCode(rows, description)
+            failed -> KodosiTextButton(onClick = retry) { Text(stringResource(R.string.try_again)) }
+            else -> KodosiSpinner(Modifier.size(20.dp))
         }
     }
 }
-
-private const val QUIET_ZONE = 4
 
 @Composable
 private fun FriendCard(person: Person, shared: List<RuntimeSession>, open: (() -> Unit)? = null) {

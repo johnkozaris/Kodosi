@@ -225,7 +225,11 @@ impl BackendClient {
             }
             guard.forget(&credentials.user_id)?;
         }
-        self.inner.state.lock().await.link = None;
+        {
+            let mut state = self.inner.state.lock().await;
+            state.link = None;
+            state.offer = None;
+        }
         Ok((self.replace_local_keys(credentials).await?, true))
     }
 

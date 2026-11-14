@@ -17,4 +17,16 @@ public enum DeviceCode {
     public static func isComplete(_ text: String) -> Bool {
         symbols(in: text).count == length
     }
+
+    /// A scanner or an opened link passes on only a text in the form that the runtime makes
+    /// for this way; the runtime decides the rest.
+    public static func scanned(in text: String, for way: ScannedWay) -> String? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.hasPrefix("kodosi://device/\(way.rawValue)/") ? text : nil
+    }
+
+    public enum ScannedWay: String, Sendable {
+        case join
+        case approve
+    }
 }

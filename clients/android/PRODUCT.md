@@ -9,9 +9,11 @@ projects. Starting an agent in an open terminal, sharing a terminal with friends
 reading provider conversations stay on the computer. The app needs Android 15 or newer.
 
 - Sign-in opens in an Auth Tab of the browser, with a Custom Tab where the browser has
-  no Auth Tab. It comes back to the app when it ends. You approve a new phone or tablet
-  as you approve a computer: with a code that you enter on an approved device, with the
-  recovery key, or by starting fresh. A failed connection says why and offers Retry.
+  no Auth Tab. It comes back to the app when it ends. A new phone or tablet gets its
+  approval with one scan of the code that a computer shows, with a code that you enter
+  or scan on an approved device, with the recovery key, or by starting fresh. A code
+  that the camera of the phone opens can only start the first: an approval always begins
+  in the app. A failed connection says why and offers Retry.
 - The Terminals tab groups terminals by computer and folder: your computers first, then
   those of each friend. Each terminal has its agent's mark and the sign of its state.
   The tab counts the waiting terminals that you can answer.
