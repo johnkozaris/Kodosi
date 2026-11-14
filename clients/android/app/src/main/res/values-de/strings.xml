@@ -77,11 +77,12 @@
     <string name="terminal_opens_when_back">Das Terminal öffnet sich, sobald sein Computer wieder da ist.</string>
     <string name="terminal_opens_when_connection_back">Das Terminal öffnet sich, sobald die Verbindung wieder da ist.</string>
     <string name="terminals">Terminals</string>
-    <string name="terminals_empty_message">Starte ein Terminal in Kodosi auf deinem Computer oder bitte einen Freund, eins zu teilen. Es erscheint hier, damit du seine Arbeit verfolgen und seinen Agents antworten kannst.</string>
+    <string name="terminals_empty_message">Hol dir Kodosi für deinen Mac oder deinen Linux- oder Windows-Computer auf kodosi.com. Starte dort ein Terminal oder bitte einen Freund, eins zu teilen. Es erscheint hier, damit du seine Arbeit verfolgen und seinen Agents antworten kannst.</string>
     <string name="terminals_empty_title">Deine Terminals laufen auf deinen Computern</string>
     <string name="trust_message">Kodosi verschlüsselt deine Terminals und Projekte Ende-zu-Ende. Ein Gerät, dem du schon vertraust, gibt diesem Telefon seine Schlüssel.</string>
     <string name="trust_title">Diesem Telefon vertrauen</string>
     <string name="try_again">Erneut versuchen</string>
+    <string name="update">Aktualisieren</string>
     <string name="use_recovery_key">Meinen Wiederherstellungsschlüssel verwenden</string>
     <string name="waiting_for_approval">Wartet auf Freigabe</string>
     <string name="waiting_for_sign_in_page">Wartet auf die Anmeldeseite</string>
@@ -171,6 +172,7 @@
     <string name="remove_friend">Freund entfernen</string>
     <string name="remove_friend_message">Ihr verliert die geteilten Terminals des anderen und verlasst die Projekte, die dem anderen gehören.</string>
     <string name="block">Blockieren</string>
+    <string name="block_person">%1$s blockieren?</string>
     <string name="unblock">Blockierung aufheben</string>
     <string name="block_message">Du verlierst die geteilten Inhalte. Diese Person kann dir erst nach dem Entsperren wieder eine Freundschaftsanfrage senden.</string>
     <string name="report">Melden</string>

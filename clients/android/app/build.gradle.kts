@@ -20,6 +20,8 @@ plugins {
 }
 
 val productVersion = rootDir.resolve("../../VERSION").readText().trim()
+val buildNumber = providers.environmentVariable("KODOSI_BUILD").orElse("1").get().toIntOrNull()?.takeIf { it in 1..99 }
+    ?: error("KODOSI_BUILD must be a number from 1 to 99.")
 val ghostty = rootDir.resolve("../../terminal/ghostty")
 val certificateVerifier = Regex("name = \"rustls-platform-verifier-android\"\nversion = \"([^\"]+)\"")
     .find(rootDir.resolve("../../runtime/Cargo.lock").readText())?.groupValues?.get(1)
@@ -81,7 +83,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionName = productVersion
         versionCode = productVersion.split(".").map(String::toInt).let { (major, minor, patch) ->
-            major * 1_000_000 + minor * 1_000 + patch
+            (major * 1_000_000 + minor * 1_000 + patch) * 100 + buildNumber
         }
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild {

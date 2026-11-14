@@ -245,10 +245,10 @@ private fun AddFriendDialog(dismiss: () -> Unit, add: (String) -> Unit) {
 }
 
 @Composable
-private fun BlockDialog(model: AppModel, person: Person, dismiss: () -> Unit, blocked: () -> Unit = {}) {
+fun BlockDialog(model: AppModel, person: Person, dismiss: () -> Unit, blocked: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     ConfirmDialog(
-        stringResource(R.string.block),
+        stringResource(R.string.block_person, person.name),
         stringResource(R.string.block_message),
         stringResource(R.string.block),
         dismiss,
@@ -266,7 +266,7 @@ private fun BlockDialog(model: AppModel, person: Person, dismiss: () -> Unit, bl
 }
 
 @Composable
-private fun ReportDialog(model: AppModel, person: Person, dismiss: () -> Unit) {
+fun ReportDialog(model: AppModel, person: Person, dismiss: () -> Unit) {
     val received = stringResource(R.string.report_received)
     var note by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }

@@ -77,11 +77,12 @@
     <string name="terminal_opens_when_back">コンピュータがオンラインに戻ると、ターミナルが開きます。</string>
     <string name="terminal_opens_when_connection_back">接続が戻ると、ターミナルが開きます。</string>
     <string name="terminals">ターミナル</string>
-    <string name="terminals_empty_message">コンピュータの Kodosi でターミナルを起動するか、フレンドに共有してもらってください。ここに表示され、作業を見守ったりエージェントに答えたりできます。</string>
+    <string name="terminals_empty_message">kodosi.com から macOS、Linux、Windows のコンピュータ用の Kodosi を入手してください。そのコンピュータでターミナルを起動するか、フレンドに共有してもらってください。ここに表示され、作業を見守ったりエージェントに答えたりできます。</string>
     <string name="terminals_empty_title">ターミナルは自分のコンピュータで動きます</string>
     <string name="trust_message">Kodosi はターミナルとプロジェクトをエンドツーエンドで暗号化します。すでに信頼しているデバイスが、このスマートフォンにキーを渡します。</string>
     <string name="trust_title">このスマートフォンを信頼</string>
     <string name="try_again">再試行</string>
+    <string name="update">アップデート</string>
     <string name="use_recovery_key">リカバリーキーを使う</string>
     <string name="waiting_for_approval">承認待ち</string>
     <string name="waiting_for_sign_in_page">サインインページを待っています</string>
@@ -171,6 +172,7 @@
     <string name="remove_friend">フレンドを削除</string>
     <string name="remove_friend_message">お互いの共有ターミナルにアクセスできなくなり、相手が所有するプロジェクトから退出します。</string>
     <string name="block">ブロック</string>
+    <string name="block_person">%1$s をブロックしますか？</string>
     <string name="unblock">ブロックを解除</string>
     <string name="block_message">共有しているものにアクセスできなくなります。ブロックを解除するまで、相手は友達リクエストを送れません。</string>
     <string name="report">報告</string>

@@ -77,11 +77,12 @@
     <string name="terminal_opens_when_back">Le terminal s\'ouvrira quand son ordinateur sera de nouveau en ligne.</string>
     <string name="terminal_opens_when_connection_back">Le terminal s\'ouvrira quand la connexion sera rétablie.</string>
     <string name="terminals">Terminaux</string>
-    <string name="terminals_empty_message">Lancez un terminal dans Kodosi sur votre ordinateur, ou demandez à un ami d\'en partager un. Il s\'affiche ici pour que vous suiviez son travail et répondiez à ses agents.</string>
+    <string name="terminals_empty_message">Téléchargez Kodosi pour votre ordinateur macOS, Linux ou Windows sur kodosi.com. Lancez-y un terminal, ou demandez à un ami d\'en partager un. Il s\'affiche ici pour que vous suiviez son travail et répondiez à ses agents.</string>
     <string name="terminals_empty_title">Vos terminaux tournent sur vos ordinateurs</string>
     <string name="trust_message">Kodosi chiffre vos terminaux et projets de bout en bout. Un appareil de confiance donne ses clés à ce téléphone.</string>
     <string name="trust_title">Faire confiance à ce téléphone</string>
     <string name="try_again">Réessayer</string>
+    <string name="update">Mettre à jour</string>
     <string name="use_recovery_key">Utiliser ma clé de récupération</string>
     <string name="waiting_for_approval">En attente d\'approbation</string>
     <string name="waiting_for_sign_in_page">En attente de la page de connexion</string>
@@ -171,6 +172,7 @@
     <string name="remove_friend">Retirer l\'ami</string>
     <string name="remove_friend_message">Vous perdez les terminaux partagés de l\'autre et quittez les projets qui lui appartiennent.</string>
     <string name="block">Bloquer</string>
+    <string name="block_person">Bloquer %1$s ?</string>
     <string name="unblock">Débloquer</string>
     <string name="block_message">Vous perdez ce que vous partagez. Cette personne ne pourra pas vous envoyer de demande d\'ami tant que vous ne la débloquerez pas.</string>
     <string name="report">Signaler</string>

@@ -77,11 +77,12 @@
     <string name="terminal_opens_when_back">Το τερματικό θα ανοίξει όταν επιστρέψει ο υπολογιστής του.</string>
     <string name="terminal_opens_when_connection_back">Το τερματικό θα ανοίξει όταν επανέλθει η σύνδεση.</string>
     <string name="terminals">Τερματικά</string>
-    <string name="terminals_empty_message">Ξεκινήστε ένα τερματικό στο Kodosi στον υπολογιστή σας ή ζητήστε από έναν φίλο να μοιραστεί ένα. Εμφανίζεται εδώ, ώστε να παρακολουθείτε τη δουλειά του και να απαντάτε στους agents του.</string>
+    <string name="terminals_empty_message">Κατεβάστε το Kodosi για τον υπολογιστή σας με macOS, Linux ή Windows από το kodosi.com. Ξεκινήστε εκεί ένα τερματικό ή ζητήστε από έναν φίλο να μοιραστεί ένα. Εμφανίζεται εδώ, ώστε να παρακολουθείτε τη δουλειά του και να απαντάτε στους agents του.</string>
     <string name="terminals_empty_title">Τα τερματικά σας τρέχουν στους υπολογιστές σας</string>
     <string name="trust_message">Το Kodosi κρυπτογραφεί τα τερματικά και τα έργα σας από άκρο σε άκρο. Μια συσκευή που ήδη εμπιστεύεστε δίνει σε αυτό το τηλέφωνο τα κλειδιά του.</string>
     <string name="trust_title">Εμπιστοσύνη σε αυτό το τηλέφωνο</string>
     <string name="try_again">Δοκιμάστε ξανά</string>
+    <string name="update">Ενημέρωση</string>
     <string name="use_recovery_key">Χρήση του κλειδιού ανάκτησής μου</string>
     <string name="waiting_for_approval">Σε αναμονή έγκρισης</string>
     <string name="waiting_for_sign_in_page">Αναμονή για τη σελίδα σύνδεσης</string>
@@ -171,6 +172,7 @@
     <string name="remove_friend">Αφαίρεση φίλου</string>
     <string name="remove_friend_message">Χάνετε τα κοινόχρηστα τερματικά ο ένας του άλλου και αποχωρείτε από τα έργα που ανήκουν στον άλλον.</string>
     <string name="block">Αποκλεισμός</string>
+    <string name="block_person">Αποκλεισμός %1$s;</string>
     <string name="unblock">Άρση αποκλεισμού</string>
     <string name="block_message">Χάνετε όσα μοιράζεστε. Αυτό το άτομο δεν μπορεί να σας στείλει αίτημα φιλίας μέχρι να το ξεμπλοκάρετε.</string>
     <string name="report">Αναφορά</string>

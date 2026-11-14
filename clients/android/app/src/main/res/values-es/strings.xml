@@ -77,11 +77,12 @@
     <string name="terminal_opens_when_back">El terminal se abrirá cuando su ordenador vuelva.</string>
     <string name="terminal_opens_when_connection_back">El terminal se abrirá cuando vuelva la conexión.</string>
     <string name="terminals">Terminales</string>
-    <string name="terminals_empty_message">Inicia un terminal en Kodosi en tu ordenador o pide a un amigo que comparta uno. Aparecerá aquí para que sigas su trabajo y respondas a sus agentes.</string>
+    <string name="terminals_empty_message">Descarga Kodosi para tu ordenador con macOS, Linux o Windows en kodosi.com. Inicia allí un terminal o pide a un amigo que comparta uno. Aparecerá aquí para que sigas su trabajo y respondas a sus agentes.</string>
     <string name="terminals_empty_title">Tus terminales se ejecutan en tus ordenadores</string>
     <string name="trust_message">Kodosi cifra tus terminales y proyectos de extremo a extremo. Un dispositivo en el que ya confías le da a este teléfono sus claves.</string>
     <string name="trust_title">Confiar en este teléfono</string>
     <string name="try_again">Reintentar</string>
+    <string name="update">Actualizar</string>
     <string name="use_recovery_key">Usar mi clave de recuperación</string>
     <string name="waiting_for_approval">Esperando aprobación</string>
     <string name="waiting_for_sign_in_page">Esperando la página de inicio de sesión</string>
@@ -171,6 +172,7 @@
     <string name="remove_friend">Quitar amigo</string>
     <string name="remove_friend_message">Ambos perdéis los terminales compartidos del otro y abandonáis los proyectos que el otro posee.</string>
     <string name="block">Bloquear</string>
+    <string name="block_person">¿Bloquear a %1$s?</string>
     <string name="unblock">Desbloquear</string>
     <string name="block_message">Pierdes lo que compartís. Esta persona no podrá enviarte una solicitud de amistad hasta que la desbloquees.</string>
     <string name="report">Denunciar</string>

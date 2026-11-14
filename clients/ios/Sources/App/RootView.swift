@@ -2,10 +2,15 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
+enum AppStore {
+    static let page = URL(string: "https://apps.apple.com/app/id6834757262")!
+}
+
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
 
     private var screen: Screen {
         switch model.phase {
@@ -43,8 +48,9 @@ struct RootView: View {
         .animation(theme.motion.soft, value: screen)
         .overlay(alignment: .top) {
             if screen == .main || screen == .onboarding, model.updateRequired, !model.updateNoticeDismissed {
-                NoticePill(message: String(localized: "Update Kodosi to connect."),
-                           identifier: "notice.update") { model.updateNoticeDismissed = true }
+                NoticePill(message: String(localized: "Update Kodosi to connect."), identifier: "notice.update",
+                           action: { openURL(AppStore.page) }, actionTitle: Text("Update"),
+                           dismiss: { model.updateNoticeDismissed = true })
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -95,6 +101,9 @@ struct UpdateRequiredView: View {
                     .foregroundStyle(theme.colors.inkMuted)
                     .multilineTextAlignment(.center)
             }
+            Link(destination: AppStore.page) { Text("Update") }
+                .buttonStyle(.kodosi(.primary, size: .large))
+                .accessibilityIdentifier("launch.updateRequired.update")
         }
         .padding(32)
         .frame(maxWidth: 420)

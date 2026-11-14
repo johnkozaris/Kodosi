@@ -52,6 +52,9 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
+import com.kodosi.mobile.people.BlockDialog
+import com.kodosi.mobile.people.Person
+import com.kodosi.mobile.people.ReportDialog
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.TerminalCard
 import com.kodosi.mobile.ui.ActionIcon
@@ -182,7 +185,7 @@ fun ProjectScreen(
                             .raised(KodosiTheme.colors, shape, fill = KodosiTheme.colors.sheet)
                             .clip(shape)
                     ) {
-                        Conversation(model, projectId, snapshot, failure, loading, terminal)
+                        Conversation(model, projectId, snapshot, members.orEmpty(), failure, loading, terminal)
                     }
                 }
             } else {
@@ -195,7 +198,7 @@ fun ProjectScreen(
                     }
                     Box(Modifier.weight(1f)) {
                         when (section) {
-                            0 -> Conversation(model, projectId, snapshot, failure, loading, terminal)
+                            0 -> Conversation(model, projectId, snapshot, members.orEmpty(), failure, loading, terminal)
                             4 -> ProjectInfo(model, projectId, back)
                             else -> ProjectWork(model, projectId, snapshot, section, terminal, start)
                         }
@@ -231,6 +234,7 @@ private fun Conversation(
     model: AppModel,
     projectId: String,
     snapshot: ProjectSnapshot?,
+    members: List<ProjectMember>,
     failure: String?,
     loading: Boolean,
     terminal: (String) -> Unit
@@ -238,6 +242,8 @@ private fun Conversation(
     val colors = KodosiTheme.colors
     val scope = rememberCoroutineScope()
     val account by model.account.state.collectAsStateWithLifecycle()
+    var blocking by remember { mutableStateOf<Person?>(null) }
+    var reporting by remember { mutableStateOf<Person?>(null) }
     var draft by rememberSaveable(projectId) { mutableStateOf(model.projects.drafts[projectId].orEmpty()) }
     var sending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -264,7 +270,16 @@ private fun Conversation(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             items(messages.asReversed(), key = { it.id }) { message ->
-                MessageRow(model, projectId, message, message.isOwn(account.userId), terminal)
+                MessageRow(
+                    model,
+                    projectId,
+                    message,
+                    message.isOwn(account.userId),
+                    members.firstOrNull { it.userId == message.authorId && it.userId != account.userId }?.person,
+                    { reporting = it },
+                    { blocking = it },
+                    terminal
+                )
             }
             item {
                 if (snapshot?.hasOlder == true) {
@@ -324,6 +339,8 @@ private fun Conversation(
             }
         )
     }
+    blocking?.let { BlockDialog(model, it, dismiss = { blocking = null }) }
+    reporting?.let { ReportDialog(model, it) { reporting = null } }
 }
 
 @Composable
@@ -332,6 +349,9 @@ private fun MessageRow(
     projectId: String,
     message: ProjectMessage,
     own: Boolean,
+    author: Person?,
+    report: (Person) -> Unit,
+    block: (Person) -> Unit,
     terminal: (String) -> Unit
 ) {
     val colors = KodosiTheme.colors
@@ -394,6 +414,24 @@ private fun MessageRow(
                                 actions = false
                                 terminal(id)
                             })
+                        }
+                        author?.let { person ->
+                            KodosiMenuItem(
+                                text = {
+                                    Text(stringResource(R.string.report_person, person.name), color = colors.danger)
+                                },
+                                onClick = {
+                                    actions = false
+                                    report(person)
+                                }
+                            )
+                            KodosiMenuItem(
+                                text = { Text(stringResource(R.string.block), color = colors.danger) },
+                                onClick = {
+                                    actions = false
+                                    block(person)
+                                }
+                            )
                         }
                     }
                 }

@@ -6198,6 +6198,58 @@
         }
       }
     },
+    "Get Kodosi for your Mac, Linux or Windows computer at kodosi.com. Start a terminal there, or ask a friend to share one. It shows up here, so you can follow its work and answer its agents." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hol dir Kodosi für deinen Mac oder deinen Linux- oder Windows-Computer auf kodosi.com. Starte dort ein Terminal oder bitte einen Freund, eins zu teilen. Es erscheint hier, damit du seine Arbeit verfolgen und seinen Agents antworten kannst."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Κατεβάστε το Kodosi για τον υπολογιστή σας με macOS, Linux ή Windows από το kodosi.com. Ξεκινήστε εκεί ένα τερματικό ή ζητήστε από έναν φίλο να μοιραστεί ένα. Εμφανίζεται εδώ, ώστε να παρακολουθείτε τη δουλειά του και να απαντάτε στους agents του."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descarga Kodosi para tu ordenador con macOS, Linux o Windows en kodosi.com. Inicia allí un terminal o pide a un amigo que comparta uno. Aparecerá aquí para que sigas su trabajo y respondas a sus agentes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Téléchargez Kodosi pour votre ordinateur macOS, Linux ou Windows sur kodosi.com. Lancez-y un terminal, ou demandez à un ami d'en partager un. Il s'affiche ici pour que vous suiviez son travail et répondiez à ses agents."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scarica Kodosi per il tuo computer macOS, Linux o Windows da kodosi.com. Avvia lì un terminale o chiedi a un amico di condividerne uno. Comparirà qui, così puoi seguirne il lavoro e rispondere ai suoi agenti."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kodosi.com から macOS、Linux、Windows のコンピュータ用の Kodosi を入手してください。そのコンピュータでターミナルを起動するか、フレンドに共有してもらってください。ここに表示され、作業を見守ったりエージェントに答えたりできます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kodosi.com에서 macOS, Linux, Windows 컴퓨터용 Kodosi를 받으세요. 거기서 터미널을 시작하거나 친구에게 공유를 부탁하세요. 여기에 나타나서 작업을 지켜보고 에이전트에 답할 수 있어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 kodosi.com 下载适用于 macOS、Linux 或 Windows 电脑的 Kodosi。在电脑上启动一个终端，或请好友共享一个。它会显示在这里，方便你关注它的工作并回复它的 Agent。"
+          }
+        }
+      }
+    },
     "Guest" : {
       "localizations" : {
         "de" : {
@@ -16292,58 +16344,6 @@
         }
       }
     },
-    "Start a terminal in Kodosi on your computer, or ask a friend to share one. It shows up here, so you can follow its work and answer its agents." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Starte ein Terminal in Kodosi auf deinem Computer oder bitte einen Freund, eins zu teilen. Es erscheint hier, damit du seine Arbeit verfolgen und seinen Agents antworten kannst."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ξεκινήστε ένα τερματικό στο Kodosi στον υπολογιστή σας ή ζητήστε από έναν φίλο να μοιραστεί ένα. Εμφανίζεται εδώ, ώστε να παρακολουθείτε τη δουλειά του και να απαντάτε στους agents του."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inicia un terminal en Kodosi en tu ordenador o pide a un amigo que comparta uno. Aparecerá aquí para que sigas su trabajo y respondas a sus agentes."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lancez un terminal dans Kodosi sur votre ordinateur, ou demandez à un ami d'en partager un. Il s'affiche ici pour que vous suiviez son travail et répondiez à ses agents."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avvia un terminale in Kodosi sul tuo computer o chiedi a un amico di condividerne uno. Comparirà qui, così puoi seguirne il lavoro e rispondere ai suoi agenti."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コンピュータの Kodosi でターミナルを起動するか、フレンドに共有してもらってください。ここに表示され、作業を見守ったりエージェントに答えたりできます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "컴퓨터의 Kodosi에서 터미널을 시작하거나 친구에게 공유를 부탁하세요. 여기에 나타나서 작업을 지켜보고 에이전트에 답할 수 있어요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在电脑上的 Kodosi 中启动一个终端，或请好友共享一个。它会显示在这里，方便你关注它的工作并回复它的 Agent。"
-          }
-        }
-      }
-    },
     "Start again" : {
       "localizations" : {
         "de" : {
@@ -19148,6 +19148,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "待认领"
+          }
+        }
+      }
+    },
+    "Update" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktualisieren"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ενημέρωση"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actualizar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre à jour"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiorna"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アップデート"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "업데이트"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新"
           }
         }
       }

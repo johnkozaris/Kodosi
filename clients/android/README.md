@@ -53,6 +53,10 @@ key for an app that is already in Google Play, and keep keys and passwords outsi
 repository and command history. Google Play App Signing uses the upload key for the
 bundle and the app-signing key for the APKs that it delivers.
 
+Android installs only a higher version code, and Google Play takes each version code
+once. The version code comes from the product version and `KODOSI_BUILD`, which is 1
+when you do not set it. Raise `KODOSI_BUILD` to upload the same version again.
+
 Native libraries and APK packaging use 16 KB alignment. Run the boundary tests on
 Android 15 and on a current 16 KB system image. `adb shell getconf PAGE_SIZE` reports
 16384 on a 16 KB image. Android's x86_64 `google_apis_ps16k` image simulates 16 KB

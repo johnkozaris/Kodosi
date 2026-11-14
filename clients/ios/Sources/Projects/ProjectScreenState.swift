@@ -14,6 +14,7 @@ final class ProjectScreenState {
     var finishedTasks = 0
     var showsInfo = false
     var selectedText: ProjectTextSelection?
+    var memberAction = MemberAction()
 }
 
 struct ProjectTextSelection: Identifiable {

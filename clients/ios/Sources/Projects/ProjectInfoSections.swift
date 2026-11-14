@@ -8,6 +8,8 @@ struct ProjectMembersSection: View {
     let projectId: String
     let owner: Bool
     let remove: (ProjectMemberEntry) -> Void
+    let block: (ProjectMemberEntry) -> Void
+    let report: (ProjectMemberEntry) -> Void
 
     var body: some View {
         let members = model.projects.details[projectId]?.members
@@ -38,10 +40,19 @@ struct ProjectMembersSection: View {
                 Tag(text: String(localized: "Owner"))
             }
         }
+        .contentShape(Rectangle())
         .contextMenu {
             if removable {
                 Button(role: .destructive) { remove(member) } label: {
                     Label("Remove from project", systemImage: "person.badge.minus")
+                }
+            }
+            if !me {
+                Button(role: .destructive) { block(member) } label: {
+                    Label("Block…", systemImage: "hand.raised")
+                }
+                Button(role: .destructive) { report(member) } label: {
+                    Label("Report…", systemImage: "flag")
                 }
             }
         }

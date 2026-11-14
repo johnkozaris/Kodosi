@@ -2,6 +2,7 @@ package com.kodosi.mobile.projects
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,7 +26,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
+import com.kodosi.mobile.people.BlockDialog
+import com.kodosi.mobile.people.Person
+import com.kodosi.mobile.people.ReportDialog
 import com.kodosi.mobile.runtime.fields
+import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.CheckRow
@@ -36,6 +41,8 @@ import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiCard
 import com.kodosi.mobile.ui.KodosiDialog
 import com.kodosi.mobile.ui.KodosiField
+import com.kodosi.mobile.ui.KodosiMenu
+import com.kodosi.mobile.ui.KodosiMenuItem
 import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
@@ -314,6 +321,8 @@ fun ProjectInfo(model: AppModel, projectId: String, left: () -> Unit) {
     var renaming by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<ProjectMember?>(null) }
+    var blocking by remember { mutableStateOf<Person?>(null) }
+    var reporting by remember { mutableStateOf<Person?>(null) }
     val scope = rememberCoroutineScope()
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         if (owner) item { KodosiTextButton(onClick = { renaming = true }) { Text(stringResource(R.string.rename)) } }
@@ -336,6 +345,28 @@ fun ProjectInfo(model: AppModel, projectId: String, left: () -> Unit) {
                     !member.isOwner
                 ) {
                     KodosiTextButton(onClick = { removing = member }) { Text(stringResource(R.string.remove)) }
+                }
+                if (member.userId != account.userId) {
+                    var actions by remember { mutableStateOf(false) }
+                    Box {
+                        ActionIcon(AppSymbol.MORE, R.string.more, { actions = true }, open = actions)
+                        KodosiMenu(actions, { actions = false }) {
+                            KodosiMenuItem(
+                                text = { Text(stringResource(R.string.report), color = KodosiTheme.colors.danger) },
+                                onClick = {
+                                    actions = false
+                                    reporting = member.person
+                                }
+                            )
+                            KodosiMenuItem(
+                                text = { Text(stringResource(R.string.block), color = KodosiTheme.colors.danger) },
+                                onClick = {
+                                    actions = false
+                                    blocking = member.person
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -423,4 +454,6 @@ fun ProjectInfo(model: AppModel, projectId: String, left: () -> Unit) {
             }
         }, destructive = true)
     }
+    blocking?.let { BlockDialog(model, it, dismiss = { blocking = null }) }
+    reporting?.let { ReportDialog(model, it) { reporting = null } }
 }
