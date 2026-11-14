@@ -804,20 +804,16 @@
         <translation>Anmelden</translation>
     </message>
     <message>
-        <source>Type this code on a device that you use</source>
-        <translation>Gib diesen Code auf einem Gerät ein, das du nutzt</translation>
-    </message>
-    <message>
         <source>Approve this computer</source>
         <translation>Diesen Computer freigeben</translation>
     </message>
     <message>
-        <source>Choose Approve on that device.</source>
-        <translation>Wähle auf diesem Gerät „Freigeben“.</translation>
-    </message>
-    <message>
         <source>A device that you use must approve this computer one time.</source>
         <translation>Ein Gerät, das du nutzt, muss diesen Computer einmal freigeben.</translation>
+    </message>
+    <message>
+        <source>QR code of this code</source>
+        <translation>QR-Code dieses Codes</translation>
     </message>
     <message>
         <source>Device approval code</source>
@@ -884,20 +880,20 @@
         <translation>Entfernen…</translation>
     </message>
     <message>
-        <source>Approve another device</source>
-        <translation>Anderes Gerät freigeben</translation>
-    </message>
-    <message>
-        <source>Type the code that the other device shows.</source>
-        <translation>Gib den Code ein, den das andere Gerät anzeigt.</translation>
-    </message>
-    <message>
         <source>Waiting for approval</source>
         <translation>Wartet auf Freigabe</translation>
     </message>
     <message>
         <source>Needs your approval</source>
         <translation>Braucht deine Freigabe</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code</source>
+        <translation>Ein neues Telefon scannt einen Code</translation>
+    </message>
+    <message>
+        <source>Show a code</source>
+        <translation>Code anzeigen</translation>
     </message>
     <message>
         <source>Code</source>
@@ -918,6 +914,50 @@
     <message>
         <source>Make a recovery key</source>
         <translation>Wiederherstellungsschlüssel erstellen</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Fertig</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>Add a phone</source>
+        <translation>Telefon hinzufügen</translation>
+    </message>
+    <message>
+        <source>On the new phone, open Kodosi and sign in. Then choose Scan the code on your computer.</source>
+        <translation>Öffne Kodosi auf dem neuen Telefon und melde dich an. Wähle dann „Code auf deinem Computer scannen“.</translation>
+    </message>
+    <message>
+        <source>QR code for the new phone</source>
+        <translation>QR-Code für das neue Telefon</translation>
+    </message>
+    <message>
+        <source>Waiting for the phone</source>
+        <translation>Wartet auf das Telefon</translation>
+    </message>
+    <message>
+        <source>This code no longer works.</source>
+        <translation>Dieser Code funktioniert nicht mehr.</translation>
+    </message>
+    <message>
+        <source>%1 is approved.</source>
+        <translation>%1 ist freigegeben.</translation>
+    </message>
+    <message>
+        <source>The device is approved.</source>
+        <translation>Das Gerät ist freigegeben.</translation>
+    </message>
+    <message>
+        <source>It can use your terminals and projects now.</source>
+        <translation>Es kann jetzt deine Terminals und Projekte nutzen.</translation>
+    </message>
+    <message>
+        <source>Show a new code</source>
+        <translation>Neuen Code anzeigen</translation>
     </message>
     <message>
         <source>Approve %1?</source>
@@ -966,6 +1006,22 @@
     <message>
         <source>Start fresh</source>
         <translation>Neu beginnen</translation>
+    </message>
+    <message>
+        <source>Scan or type this code on a device that you use</source>
+        <translation>Scanne diesen Code auf einem Gerät, das du nutzt, oder gib ihn dort ein</translation>
+    </message>
+    <message>
+        <source>On that device, open Settings and choose Add a device.</source>
+        <translation>Öffne auf diesem Gerät die Einstellungen und wähle „Gerät hinzufügen“.</translation>
+    </message>
+    <message>
+        <source>Add a device</source>
+        <translation>Gerät hinzufügen</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code from this computer. For another device, type the code that it shows.</source>
+        <translation>Ein neues Telefon scannt einen Code von diesem Computer. Gib für ein anderes Gerät den Code ein, den es anzeigt.</translation>
     </message>
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>

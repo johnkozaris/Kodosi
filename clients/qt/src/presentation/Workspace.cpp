@@ -458,6 +458,7 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("devices.link.selfResolved")) {
         m_devices.m_approvalCode.clear();
+        m_devices.m_approvalQr.clear();
         emit m_devices.changed();
         sendUntracked(QStringLiteral("devices.refresh"));
         return;
@@ -466,11 +467,31 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         sendUntracked(QStringLiteral("devices.refresh"));
         return;
     }
+    if (type == QStringLiteral("devices.link.offerResolved")) {
+        if (m_devices.m_offerState != QStringLiteral("shown"))
+            return;
+        const auto message = event.value(QStringLiteral("message")).toString();
+        if (event.value(QStringLiteral("outcome")).toString() == QStringLiteral("approved")) {
+            m_devices.m_offerState = QStringLiteral("approved");
+            m_devices.m_offerDetail = event.value(QStringLiteral("deviceLabel")).toString();
+        } else {
+            m_devices.m_offerState = message.isEmpty() ? QStringLiteral("ended") : QStringLiteral("failed");
+            m_devices.m_offerDetail = message;
+        }
+        m_devices.m_offerQr.clear();
+        emit m_devices.changed();
+        return;
+    }
     if (type == QStringLiteral("devices.result")) {
         const auto operation = event.value(QStringLiteral("operation")).toString();
-        if (operation == QStringLiteral("devices.link.startSelf"))
+        if (operation == QStringLiteral("devices.link.startSelf")) {
             m_devices.m_approvalCode = event.value(QStringLiteral("code")).toString();
-        else if (operation == QStringLiteral("devices.recovery.create"))
+            m_devices.m_approvalQr = event.value(QStringLiteral("qr")).toVariant().toStringList();
+        } else if (operation == QStringLiteral("devices.link.offer")
+            && m_devices.m_offerState == QStringLiteral("requesting")) {
+            m_devices.m_offerState = QStringLiteral("shown");
+            m_devices.m_offerQr = event.value(QStringLiteral("qr")).toVariant().toStringList();
+        } else if (operation == QStringLiteral("devices.recovery.create"))
             m_devices.m_newRecoveryKey = event.value(QStringLiteral("key")).toString();
         else if (operation == QStringLiteral("devices.link.check") && !m_devices.m_checkRequest.isEmpty()
             && event.value(QStringLiteral("requestId")).toString() == m_devices.m_checkRequest)
@@ -563,6 +584,14 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         m_devices.m_checkRequest.clear();
         m_devices.m_checkedCode.clear();
         emit m_devices.changed();
+    }
+    if (type == QStringLiteral("devices.error")
+        && event.value(QStringLiteral("operation")).toString() == QStringLiteral("devices.link.offer")
+        && m_devices.m_offerState == QStringLiteral("requesting")) {
+        m_devices.m_offerState = QStringLiteral("failed");
+        m_devices.m_offerDetail = event.value(QStringLiteral("message")).toString();
+        emit m_devices.changed();
+        return;
     }
     if (quiet)
         return;

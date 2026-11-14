@@ -80,10 +80,20 @@ ColumnLayout {
         }
         EmptyState {
             Layout.fillWidth: true
-            title: root.waiting ? qsTr("Type this code on a device that you use") : qsTr("Approve this computer")
-            message: root.waiting ? qsTr("Choose Approve on that device.")
+            title: root.waiting ? qsTr("Scan or type this code on a device that you use") : qsTr("Approve this computer")
+            message: root.waiting ? qsTr("On that device, open Settings and choose Add a device.")
                 : root.resetWaits ? qsTr("This computer can start fresh after %1. Until then, your other devices can stop it. If you still have one of them, approve this computer with it instead, and keep your friends and projects.").arg(root.readyAt())
                 : qsTr("A device that you use must approve this computer one time.")
+        }
+        ScanCode {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 200
+            Layout.preferredHeight: 200
+            visible: root.waiting && Models.Devices.approvalQr.length > 0
+            rows: Models.Devices.approvalQr
+            Accessible.name: qsTr("QR code of this code")
+            objectName: "panel.settings.enrollment.qr"
+            Accessible.id: objectName
         }
         CodeKeys {
             Layout.alignment: Qt.AlignHCenter
@@ -237,8 +247,8 @@ ColumnLayout {
     ListGroup {
         Layout.fillWidth: true
         visible: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
-        title: qsTr("Approve another device")
-        footer: qsTr("Type the code that the other device shows.")
+        title: qsTr("Add a device")
+        footer: qsTr("A new phone scans a code from this computer. For another device, type the code that it shows.")
 
         Repeater {
             model: Models.Devices.requests
@@ -252,6 +262,23 @@ ColumnLayout {
                 subtitle: qsTr("Waiting for approval")
 
                 StatusSign { session: ({ sign: "hand", asks: true, signLabel: qsTr("Needs your approval") }) }
+            }
+        }
+        ListRow {
+            iconName: "phone"
+            tint: KodosiTheme.accent
+            title: qsTr("A new phone scans a code")
+
+            KButton {
+                Accessible.id: objectName
+                compact: true
+                objectName: "panel.settingsView.offer-device"
+                text: qsTr("Show a code")
+
+                onClicked: {
+                    Models.Devices.offer();
+                    offer.open();
+                }
             }
         }
         ListRow {
@@ -322,6 +349,114 @@ ColumnLayout {
             }
             if (Models.Devices.checkedLabel.length > 0 && !approveChecked.opened)
                 approveChecked.open();
+            if (Models.Devices.offerState.length === 0 && offer.opened)
+                offer.close();
+        }
+    }
+    KDialog {
+        id: offer
+
+        readonly property string phase: Models.Devices.offerState
+        readonly property bool showing: phase === "requesting" || phase === "shown"
+
+        function nameClose() {
+            const close = standardButton(Dialog.Close);
+            if (close)
+                close.text = phase === "approved" ? qsTr("Done")
+                    : phase === "ended" || phase === "failed" ? qsTr("Close") : qsTr("Cancel");
+        }
+
+        objectName: "panel.settings.offer"
+        standardButtons: Dialog.Close
+        title: phase === "approved" ? "" : qsTr("Add a phone")
+
+        onClosed: Models.Devices.endOffer()
+        onPhaseChanged: nameClose()
+        onOpened: nameClose()
+
+        ColumnLayout {
+            spacing: 16
+
+            PlainLabel {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 340
+                visible: offer.showing
+                color: KodosiTheme.inkMuted
+                horizontalAlignment: Text.AlignHCenter
+                text: qsTr("On the new phone, open Kodosi and sign in. Then choose Scan the code on your computer.")
+                wrapMode: Text.WordWrap
+            }
+            ScanCode {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: 240
+                Layout.preferredHeight: 240
+                visible: offer.showing
+                rows: Models.Devices.offerQr
+                Accessible.name: qsTr("QR code for the new phone")
+                objectName: "panel.settings.offer.qr"
+                Accessible.id: objectName
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 340
+                visible: offer.showing
+                color: KodosiTheme.inkFaint
+                font.pixelSize: KodosiTheme.fontFootnote
+                horizontalAlignment: Text.AlignHCenter
+                text: qsTr("Waiting for the phone")
+            }
+            IconTile {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 12
+                visible: offer.phase === "approved"
+                iconName: "check"
+                tint: KodosiTheme.ready
+                size: 48
+            }
+            PlainLabel {
+                Accessible.id: objectName
+                Layout.fillWidth: true
+                Layout.preferredWidth: 340
+                visible: offer.phase === "approved" || offer.phase === "ended"
+                font.pixelSize: KodosiTheme.fontHeadline + 2
+                font.weight: Font.DemiBold
+                horizontalAlignment: Text.AlignHCenter
+                objectName: "panel.settings.offer.result"
+                text: offer.phase === "ended" ? qsTr("This code no longer works.")
+                    : Models.Devices.offerDetail.length > 0 ? qsTr("%1 is approved.").arg(Models.Devices.offerDetail)
+                    : qsTr("The device is approved.")
+                wrapMode: Text.WordWrap
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 340
+                visible: offer.phase === "approved"
+                color: KodosiTheme.inkMuted
+                horizontalAlignment: Text.AlignHCenter
+                text: qsTr("It can use your terminals and projects now.")
+                wrapMode: Text.WordWrap
+            }
+            PlainLabel {
+                Accessible.id: objectName
+                Layout.fillWidth: true
+                Layout.preferredWidth: 340
+                visible: offer.phase === "failed"
+                color: KodosiTheme.danger
+                horizontalAlignment: Text.AlignHCenter
+                objectName: "panel.settings.offer.error"
+                text: Models.Devices.offerDetail
+                wrapMode: Text.WordWrap
+            }
+            KButton {
+                Accessible.id: objectName
+                Layout.alignment: Qt.AlignHCenter
+                visible: offer.phase === "ended" || offer.phase === "failed"
+                variant: KButton.Primary
+                objectName: "panel.settings.offer.again"
+                text: qsTr("Show a new code")
+
+                onClicked: Models.Devices.offer()
+            }
         }
     }
     KDialog {

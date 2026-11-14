@@ -804,20 +804,16 @@
         <translation>Σύνδεση</translation>
     </message>
     <message>
-        <source>Type this code on a device that you use</source>
-        <translation>Πληκτρολογήστε αυτόν τον κωδικό σε μια συσκευή που χρησιμοποιείτε</translation>
-    </message>
-    <message>
         <source>Approve this computer</source>
         <translation>Έγκριση αυτού του υπολογιστή</translation>
     </message>
     <message>
-        <source>Choose Approve on that device.</source>
-        <translation>Επιλέξτε «Έγκριση» σε εκείνη τη συσκευή.</translation>
-    </message>
-    <message>
         <source>A device that you use must approve this computer one time.</source>
         <translation>Μια συσκευή που χρησιμοποιείτε πρέπει να εγκρίνει αυτόν τον υπολογιστή μία φορά.</translation>
+    </message>
+    <message>
+        <source>QR code of this code</source>
+        <translation>Κωδικός QR αυτού του κωδικού</translation>
     </message>
     <message>
         <source>Device approval code</source>
@@ -884,20 +880,20 @@
         <translation>Αφαίρεση…</translation>
     </message>
     <message>
-        <source>Approve another device</source>
-        <translation>Έγκριση άλλης συσκευής</translation>
-    </message>
-    <message>
-        <source>Type the code that the other device shows.</source>
-        <translation>Πληκτρολογήστε τον κωδικό που δείχνει η άλλη συσκευή.</translation>
-    </message>
-    <message>
         <source>Waiting for approval</source>
         <translation>Σε αναμονή έγκρισης</translation>
     </message>
     <message>
         <source>Needs your approval</source>
         <translation>Χρειάζεται την έγκρισή σας</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code</source>
+        <translation>Ένα νέο τηλέφωνο σαρώνει έναν κωδικό</translation>
+    </message>
+    <message>
+        <source>Show a code</source>
+        <translation>Εμφάνιση κωδικού</translation>
     </message>
     <message>
         <source>Code</source>
@@ -918,6 +914,50 @@
     <message>
         <source>Make a recovery key</source>
         <translation>Δημιουργία κλειδιού ανάκτησης</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Τέλος</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Κλείσιμο</translation>
+    </message>
+    <message>
+        <source>Add a phone</source>
+        <translation>Προσθήκη τηλεφώνου</translation>
+    </message>
+    <message>
+        <source>On the new phone, open Kodosi and sign in. Then choose Scan the code on your computer.</source>
+        <translation>Στο νέο τηλέφωνο, ανοίξτε το Kodosi και συνδεθείτε. Μετά επιλέξτε «Σάρωση του κωδικού στον υπολογιστή σας».</translation>
+    </message>
+    <message>
+        <source>QR code for the new phone</source>
+        <translation>Κωδικός QR για το νέο τηλέφωνο</translation>
+    </message>
+    <message>
+        <source>Waiting for the phone</source>
+        <translation>Αναμονή για το τηλέφωνο</translation>
+    </message>
+    <message>
+        <source>This code no longer works.</source>
+        <translation>Αυτός ο κωδικός δεν λειτουργεί πλέον.</translation>
+    </message>
+    <message>
+        <source>%1 is approved.</source>
+        <translation>Το %1 εγκρίθηκε.</translation>
+    </message>
+    <message>
+        <source>The device is approved.</source>
+        <translation>Η συσκευή εγκρίθηκε.</translation>
+    </message>
+    <message>
+        <source>It can use your terminals and projects now.</source>
+        <translation>Μπορεί πλέον να χρησιμοποιεί τα τερματικά και τα έργα σας.</translation>
+    </message>
+    <message>
+        <source>Show a new code</source>
+        <translation>Εμφάνιση νέου κωδικού</translation>
     </message>
     <message>
         <source>Approve %1?</source>
@@ -966,6 +1006,22 @@
     <message>
         <source>Start fresh</source>
         <translation>Νέα αρχή</translation>
+    </message>
+    <message>
+        <source>Scan or type this code on a device that you use</source>
+        <translation>Σαρώστε ή πληκτρολογήστε αυτόν τον κωδικό σε μια συσκευή που χρησιμοποιείτε</translation>
+    </message>
+    <message>
+        <source>On that device, open Settings and choose Add a device.</source>
+        <translation>Σε εκείνη τη συσκευή, ανοίξτε τις Ρυθμίσεις και επιλέξτε «Προσθήκη συσκευής».</translation>
+    </message>
+    <message>
+        <source>Add a device</source>
+        <translation>Προσθήκη συσκευής</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code from this computer. For another device, type the code that it shows.</source>
+        <translation>Ένα νέο τηλέφωνο σαρώνει έναν κωδικό από αυτόν τον υπολογιστή. Για άλλη συσκευή, πληκτρολογήστε τον κωδικό που δείχνει.</translation>
     </message>
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>

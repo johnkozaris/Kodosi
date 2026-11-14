@@ -15,6 +15,10 @@ class DevicesModel final : public QObject {
     Q_PROPERTY(QVariantList waitingRequests READ waitingRequests NOTIFY changed)
     Q_PROPERTY(bool approvalNoticeDismissed READ approvalNoticeDismissed NOTIFY changed)
     Q_PROPERTY(QString approvalCode READ approvalCode NOTIFY changed)
+    Q_PROPERTY(QStringList approvalQr READ approvalQr NOTIFY changed)
+    Q_PROPERTY(QString offerState READ offerState NOTIFY changed)
+    Q_PROPERTY(QStringList offerQr READ offerQr NOTIFY changed)
+    Q_PROPERTY(QString offerDetail READ offerDetail NOTIFY changed)
     Q_PROPERTY(QString notice READ notice NOTIFY changed)
     Q_PROPERTY(bool localDeviceEnrolled READ localDeviceEnrolled NOTIFY changed)
     Q_PROPERTY(QString selfDeviceId READ selfDeviceId NOTIFY changed)
@@ -34,6 +38,10 @@ public:
     QVariantList waitingRequests() const;
     bool approvalNoticeDismissed() const { return m_approvalNoticeDismissed; }
     QString approvalCode() const { return m_approvalCode; }
+    QStringList approvalQr() const { return m_approvalQr; }
+    QString offerState() const { return m_offerState; }
+    QStringList offerQr() const { return m_offerQr; }
+    QString offerDetail() const { return m_offerDetail; }
     QString notice() const { return m_notice; }
     bool localDeviceEnrolled() const { return m_enrolled; }
     QString selfDeviceId() const { return m_selfDeviceId; }
@@ -51,6 +59,8 @@ public:
     Q_INVOKABLE void dropApproval();
     Q_INVOKABLE void requestApproval();
     Q_INVOKABLE void cancelApproval();
+    Q_INVOKABLE void offer();
+    Q_INVOKABLE void endOffer();
     Q_INVOKABLE void startFresh();
     Q_INVOKABLE void stopReset();
     Q_INVOKABLE void makeRecoveryKey();
@@ -74,6 +84,10 @@ private:
     QString m_dismissedReset;
     QStringList m_hosts;
     QString m_approvalCode;
+    QStringList m_approvalQr;
+    QString m_offerState;
+    QStringList m_offerQr;
+    QString m_offerDetail;
     QString m_checkedCode;
     QString m_checkedLabel;
     QString m_checkRequest;

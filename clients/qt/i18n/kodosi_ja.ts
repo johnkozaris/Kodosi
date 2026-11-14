@@ -803,20 +803,16 @@
         <translation>サインイン</translation>
     </message>
     <message>
-        <source>Type this code on a device that you use</source>
-        <translation>お使いのデバイスでこのコードを入力してください</translation>
-    </message>
-    <message>
         <source>Approve this computer</source>
         <translation>このコンピュータを承認</translation>
     </message>
     <message>
-        <source>Choose Approve on that device.</source>
-        <translation>そのデバイスで「承認」を選んでください。</translation>
-    </message>
-    <message>
         <source>A device that you use must approve this computer one time.</source>
         <translation>お使いのデバイスで、このコンピュータを一度承認する必要があります。</translation>
+    </message>
+    <message>
+        <source>QR code of this code</source>
+        <translation>このコードの QR コード</translation>
     </message>
     <message>
         <source>Device approval code</source>
@@ -883,20 +879,20 @@
         <translation>削除…</translation>
     </message>
     <message>
-        <source>Approve another device</source>
-        <translation>別のデバイスを承認</translation>
-    </message>
-    <message>
-        <source>Type the code that the other device shows.</source>
-        <translation>もう一方のデバイスに表示されたコードを入力してください。</translation>
-    </message>
-    <message>
         <source>Waiting for approval</source>
         <translation>承認待ち</translation>
     </message>
     <message>
         <source>Needs your approval</source>
         <translation>承認が必要</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code</source>
+        <translation>新しいスマートフォンはコードをスキャンします</translation>
+    </message>
+    <message>
+        <source>Show a code</source>
+        <translation>コードを表示</translation>
     </message>
     <message>
         <source>Code</source>
@@ -917,6 +913,50 @@
     <message>
         <source>Make a recovery key</source>
         <translation>リカバリーキーを作成</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完了</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Add a phone</source>
+        <translation>スマートフォンを追加</translation>
+    </message>
+    <message>
+        <source>On the new phone, open Kodosi and sign in. Then choose Scan the code on your computer.</source>
+        <translation>新しいスマートフォンで Kodosi を開いてサインインし、「コンピュータのコードをスキャン」を選んでください。</translation>
+    </message>
+    <message>
+        <source>QR code for the new phone</source>
+        <translation>新しいスマートフォン用の QR コード</translation>
+    </message>
+    <message>
+        <source>Waiting for the phone</source>
+        <translation>スマートフォンを待っています</translation>
+    </message>
+    <message>
+        <source>This code no longer works.</source>
+        <translation>このコードはもう使えません。</translation>
+    </message>
+    <message>
+        <source>%1 is approved.</source>
+        <translation>%1 が承認されました。</translation>
+    </message>
+    <message>
+        <source>The device is approved.</source>
+        <translation>デバイスが承認されました。</translation>
+    </message>
+    <message>
+        <source>It can use your terminals and projects now.</source>
+        <translation>これで、あなたのターミナルとプロジェクトを使えます。</translation>
+    </message>
+    <message>
+        <source>Show a new code</source>
+        <translation>新しいコードを表示</translation>
     </message>
     <message>
         <source>Approve %1?</source>
@@ -965,6 +1005,22 @@
     <message>
         <source>Start fresh</source>
         <translation>新しく始める</translation>
+    </message>
+    <message>
+        <source>Scan or type this code on a device that you use</source>
+        <translation>使っているデバイスでこのコードをスキャンまたは入力</translation>
+    </message>
+    <message>
+        <source>On that device, open Settings and choose Add a device.</source>
+        <translation>そのデバイスで設定を開き、「デバイスを追加」を選びます。</translation>
+    </message>
+    <message>
+        <source>Add a device</source>
+        <translation>デバイスを追加</translation>
+    </message>
+    <message>
+        <source>A new phone scans a code from this computer. For another device, type the code that it shows.</source>
+        <translation>新しいスマートフォンは、このコンピュータのコードをスキャンします。ほかのデバイスの場合は、そのデバイスに表示されたコードを入力します。</translation>
     </message>
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
