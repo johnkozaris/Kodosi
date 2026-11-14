@@ -77,11 +77,12 @@
     <string name="terminal_opens_when_back">Il terminale si aprirà quando il suo computer tornerà online.</string>
     <string name="terminal_opens_when_connection_back">Il terminale si aprirà quando tornerà la connessione.</string>
     <string name="terminals">Terminali</string>
-    <string name="terminals_empty_message">Avvia un terminale in Kodosi sul tuo computer o chiedi a un amico di condividerne uno. Comparirà qui, così puoi seguirne il lavoro e rispondere ai suoi agenti.</string>
+    <string name="terminals_empty_message">Scarica Kodosi per il tuo computer macOS, Linux o Windows da kodosi.com. Avvia lì un terminale o chiedi a un amico di condividerne uno. Comparirà qui, così puoi seguirne il lavoro e rispondere ai suoi agenti.</string>
     <string name="terminals_empty_title">I tuoi terminali girano sui tuoi computer</string>
     <string name="trust_message">Kodosi crittografa end-to-end i tuoi terminali e i tuoi progetti. Un dispositivo di cui ti fidi già dà a questo telefono le sue chiavi.</string>
     <string name="trust_title">Considera attendibile questo telefono</string>
     <string name="try_again">Riprova</string>
+    <string name="update">Aggiorna</string>
     <string name="use_recovery_key">Usa la mia chiave di recupero</string>
     <string name="waiting_for_approval">In attesa di approvazione</string>
     <string name="waiting_for_sign_in_page">In attesa della pagina di accesso</string>

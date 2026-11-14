@@ -1,6 +1,7 @@
 package com.kodosi.mobile
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.LocalActivity
@@ -71,6 +72,7 @@ import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiNavigation
 import com.kodosi.mobile.ui.KodosiNotice
+import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.LinkActions
@@ -119,7 +121,8 @@ fun App(model: AppModel, openSignIn: (String) -> Unit) {
                                 else -> R.string.account_restore_unavailable
                             }
                         ),
-                        model::retry
+                        model::retry,
+                        update = account.restoring == "updateRequired"
                     )
 
                     account.authResolved -> OnboardingScreen(model.account, openSignIn)
@@ -399,8 +402,10 @@ private fun Launch() {
 }
 
 @Composable
-private fun Failure(message: String, retry: () -> Unit) {
+private fun Failure(message: String, retry: () -> Unit, update: Boolean = false) {
     val colors = KodosiTheme.colors
+    val context = LocalContext.current
+    val links = LocalLinkOpener.current
     Column(
         verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -414,6 +419,22 @@ private fun Failure(message: String, retry: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.widthIn(max = 440.dp)
         )
-        KodosiButton(stringResource(R.string.try_again), onClick = retry)
+        if (update) {
+            KodosiButton(stringResource(R.string.update), onClick = { links.open(updatePage(context)) })
+            KodosiTextButton(onClick = retry) { Text(stringResource(R.string.try_again)) }
+        } else {
+            KodosiButton(stringResource(R.string.try_again), onClick = retry)
+        }
+    }
+}
+
+private fun updatePage(context: Context): String {
+    val store = runCatching {
+        context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
+    }.getOrNull()
+    return if (store == "com.android.vending") {
+        "https://play.google.com/store/apps/details?id=${context.packageName}"
+    } else {
+        "https://updates.kodosi.com/download/android"
     }
 }

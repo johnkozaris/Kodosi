@@ -77,11 +77,12 @@
     <string name="terminal_opens_when_back">电脑重新上线后，终端会打开。</string>
     <string name="terminal_opens_when_connection_back">连接恢复后，终端会打开。</string>
     <string name="terminals">终端</string>
-    <string name="terminals_empty_message">在电脑上的 Kodosi 中启动一个终端，或请好友共享一个。它会显示在这里，方便你关注它的工作并回复它的 Agent。</string>
+    <string name="terminals_empty_message">在 kodosi.com 下载适用于 macOS、Linux 或 Windows 电脑的 Kodosi。在电脑上启动一个终端，或请好友共享一个。它会显示在这里，方便你关注它的工作并回复它的 Agent。</string>
     <string name="terminals_empty_title">你的终端运行在你的电脑上</string>
     <string name="trust_message">Kodosi 会对你的终端和项目进行端到端加密。由你已信任的设备将密钥交给这部手机。</string>
     <string name="trust_title">信任这部手机</string>
     <string name="try_again">重试</string>
+    <string name="update">更新</string>
     <string name="use_recovery_key">使用我的恢复密钥</string>
     <string name="waiting_for_approval">等待批准</string>
     <string name="waiting_for_sign_in_page">正在等待登录页面</string>

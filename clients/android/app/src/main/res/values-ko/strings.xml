@@ -77,11 +77,12 @@
     <string name="terminal_opens_when_back">컴퓨터가 다시 온라인이 되면 터미널이 열려요.</string>
     <string name="terminal_opens_when_connection_back">연결이 돌아오면 터미널이 열려요.</string>
     <string name="terminals">터미널</string>
-    <string name="terminals_empty_message">컴퓨터의 Kodosi에서 터미널을 시작하거나 친구에게 공유를 부탁하세요. 여기에 나타나서 작업을 지켜보고 에이전트에 답할 수 있어요.</string>
+    <string name="terminals_empty_message">kodosi.com에서 macOS, Linux, Windows 컴퓨터용 Kodosi를 받으세요. 거기서 터미널을 시작하거나 친구에게 공유를 부탁하세요. 여기에 나타나서 작업을 지켜보고 에이전트에 답할 수 있어요.</string>
     <string name="terminals_empty_title">터미널은 내 컴퓨터에서 실행돼요</string>
     <string name="trust_message">Kodosi는 터미널과 프로젝트를 종단 간 암호화해요. 이미 신뢰하는 기기가 이 휴대폰에 키를 전달해요.</string>
     <string name="trust_title">이 휴대폰 신뢰</string>
     <string name="try_again">다시 시도</string>
+    <string name="update">업데이트</string>
     <string name="use_recovery_key">내 복구 키 사용</string>
     <string name="waiting_for_approval">승인 대기 중</string>
     <string name="waiting_for_sign_in_page">로그인 페이지 기다리는 중</string>

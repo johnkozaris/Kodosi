@@ -85,11 +85,12 @@
     <string name="terminal_opens_when_back">The terminal opens when its computer is back.</string>
     <string name="terminal_opens_when_connection_back">The terminal opens when the connection is back.</string>
     <string name="terminals">Terminals</string>
-    <string name="terminals_empty_message">Start a terminal in Kodosi on your computer, or ask a friend to share one. It shows up here, so you can follow its work and answer its agents.</string>
+    <string name="terminals_empty_message">Get Kodosi for your Mac, Linux or Windows computer at kodosi.com. Start a terminal there, or ask a friend to share one. It shows up here, so you can follow its work and answer its agents.</string>
     <string name="terminals_empty_title">Your terminals run on your computers</string>
     <string name="trust_message">Kodosi encrypts your terminals and projects end to end. A device you already trust gives this phone its keys.</string>
     <string name="trust_title">Trust this phone</string>
     <string name="try_again">Try again</string>
+    <string name="update">Update</string>
     <string name="use_recovery_key">Use my recovery key</string>
     <string name="waiting_for_approval">Waiting for approval</string>
     <string name="waiting_for_sign_in_page">Waiting for the sign-in page</string>
