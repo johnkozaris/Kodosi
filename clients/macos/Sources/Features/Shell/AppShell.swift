@@ -63,6 +63,16 @@ struct AppShell: View {
         } message: { share in
             Text(projectShareMessage(share))
         }
+        .blockConfirmation(isPresented: Binding(get: { workbench.blocking != nil }, set: {
+            if !$0 {
+                workbench.blocking = nil
+            }
+        }), name: workbench.blocking?.name ?? "") {
+            if let target = workbench.blocking {
+                deps.people.block(handle: target.handle)
+            }
+            workbench.blocking = nil
+        }
         .onChange(of: workbench.stagedSessionIds) { _, _ in deps.reconcileTerminals() }
         .onChange(of: workbench.focusedSessionId) { _, _ in deps.reconcileTerminals() }
         .background(VisibleReporter())

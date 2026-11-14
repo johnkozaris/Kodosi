@@ -357,6 +357,21 @@
     </message>
 </context>
 <context>
+    <name>BlockPersonDialog</name>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1을(를) 차단할까요?</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>차단</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
+        <translation>이 사람은 나에게 친구 요청을 보낼 수 없어요. 친구라면 서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 프로젝트에서 나가요.</translation>
+    </message>
+</context>
+<context>
     <name>BrowserSettings</name>
     <message>
         <source>Kodosi Browser</source>
@@ -2332,10 +2347,6 @@
         <translation>내 초대 복사</translation>
     </message>
     <message>
-        <source>Kodosi got your report.</source>
-        <translation>Kodosi가 신고를 받았습니다.</translation>
-    </message>
-    <message>
         <source>Wants to be your friend</source>
         <translation>친구 요청을 보냈어요</translation>
     </message>
@@ -2428,38 +2439,6 @@
         <translation>초대를 보내거나 위에 사용자 이름을 추가하세요.</translation>
     </message>
     <message>
-        <source>Block %1?</source>
-        <translation>%1을(를) 차단할까요?</translation>
-    </message>
-    <message>
-        <source>Block</source>
-        <translation>차단</translation>
-    </message>
-    <message>
-        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
-        <translation>이 사람은 나에게 친구 요청을 보낼 수 없어요. 친구라면 서로 터미널을 더 이상 공유하지 않고, 각자 상대가 만든 프로젝트에서 나가요.</translation>
-    </message>
-    <message>
-        <source>Report %1</source>
-        <translation>%1 신고</translation>
-    </message>
-    <message>
-        <source>Report</source>
-        <translation>신고</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>취소</translation>
-    </message>
-    <message>
-        <source>Kodosi gets their user name and what you write here.</source>
-        <translation>Kodosi는 상대의 사용자 이름과 여기에 쓴 내용을 받습니다.</translation>
-    </message>
-    <message>
-        <source>What happened (optional)</source>
-        <translation>무슨 일이 있었나요 (선택)</translation>
-    </message>
-    <message>
         <source>Remove %1?</source>
         <translation>%1을(를) 제거할까요?</translation>
     </message>
@@ -2532,10 +2511,6 @@
     <message>
         <source>Owner</source>
         <translation>소유자</translation>
-    </message>
-    <message>
-        <source>Remove %1 from the project</source>
-        <translation>%1 님을 프로젝트에서 내보내기</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2634,6 +2609,18 @@
     <message>
         <source>Remove from project</source>
         <translation>프로젝트에서 제거</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 옵션</translation>
+    </message>
+    <message>
+        <source>Block…</source>
+        <translation>차단…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>신고…</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -2745,6 +2732,18 @@
     <message>
         <source>Make this a task</source>
         <translation>작업으로 만들기</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 옵션</translation>
+    </message>
+    <message>
+        <source>Block…</source>
+        <translation>차단…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>신고…</translation>
     </message>
     <message numerus="yes">
         <source>%n new</source>
@@ -3080,6 +3079,36 @@
     <message>
         <source>Remove from canvas</source>
         <translation>캔버스에서 제거</translation>
+    </message>
+</context>
+<context>
+    <name>ReportPersonDialog</name>
+    <message>
+        <source>Report %1</source>
+        <translation>%1 신고</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>신고</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Kodosi는 상대의 사용자 이름과 여기에 쓴 내용을 받습니다.</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>무슨 일이 있었나요 (선택)</translation>
+    </message>
+</context>
+<context>
+    <name>ReportReceived</name>
+    <message>
+        <source>Kodosi got your report.</source>
+        <translation>Kodosi가 신고를 받았습니다.</translation>
     </message>
 </context>
 <context>

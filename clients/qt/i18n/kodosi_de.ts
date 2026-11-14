@@ -357,6 +357,21 @@
     </message>
 </context>
 <context>
+    <name>BlockPersonDialog</name>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1 blockieren?</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>Blockieren</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
+        <translation>Die Person kann dir keine Freundschaftsanfragen mehr senden. Wenn ihr befreundet seid, teilt ihr keine Terminals mehr miteinander, und jeder von euch verlässt die Projekte, die dem anderen gehören.</translation>
+    </message>
+</context>
+<context>
     <name>BrowserSettings</name>
     <message>
         <source>Kodosi Browser</source>
@@ -2336,10 +2351,6 @@
         <translation>Meine Einladung kopieren</translation>
     </message>
     <message>
-        <source>Kodosi got your report.</source>
-        <translation>Kodosi hat deine Meldung erhalten.</translation>
-    </message>
-    <message>
         <source>Wants to be your friend</source>
         <translation>Möchte mit dir befreundet sein</translation>
     </message>
@@ -2432,38 +2443,6 @@
         <translation>Schick deine Einladung oder füge oben einen Benutzernamen hinzu.</translation>
     </message>
     <message>
-        <source>Block %1?</source>
-        <translation>%1 blockieren?</translation>
-    </message>
-    <message>
-        <source>Block</source>
-        <translation>Blockieren</translation>
-    </message>
-    <message>
-        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
-        <translation>Die Person kann dir keine Freundschaftsanfragen mehr senden. Wenn ihr befreundet seid, teilt ihr keine Terminals mehr miteinander, und jeder von euch verlässt die Projekte, die dem anderen gehören.</translation>
-    </message>
-    <message>
-        <source>Report %1</source>
-        <translation>%1 melden</translation>
-    </message>
-    <message>
-        <source>Report</source>
-        <translation>Melden</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>Abbrechen</translation>
-    </message>
-    <message>
-        <source>Kodosi gets their user name and what you write here.</source>
-        <translation>Kodosi erhält den Benutzernamen und das, was du hier schreibst.</translation>
-    </message>
-    <message>
-        <source>What happened (optional)</source>
-        <translation>Was ist passiert? (optional)</translation>
-    </message>
-    <message>
         <source>Remove %1?</source>
         <translation>%1 entfernen?</translation>
     </message>
@@ -2538,10 +2517,6 @@
     <message>
         <source>Owner</source>
         <translation>Eigentümer</translation>
-    </message>
-    <message>
-        <source>Remove %1 from the project</source>
-        <translation>%1 aus dem Projekt entfernen</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2641,6 +2616,18 @@
     <message>
         <source>Remove from project</source>
         <translation>Aus dem Projekt entfernen</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>Optionen für %1</translation>
+    </message>
+    <message>
+        <source>Block…</source>
+        <translation>Blockieren…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>Melden…</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -2752,6 +2739,18 @@
     <message>
         <source>Make this a task</source>
         <translation>Als Aufgabe anlegen</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>Optionen für %1</translation>
+    </message>
+    <message>
+        <source>Block…</source>
+        <translation>Blockieren…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>Melden…</translation>
     </message>
     <message numerus="yes">
         <source>%n new</source>
@@ -3092,6 +3091,36 @@
     <message>
         <source>Remove from canvas</source>
         <translation>Aus dem Canvas entfernen</translation>
+    </message>
+</context>
+<context>
+    <name>ReportPersonDialog</name>
+    <message>
+        <source>Report %1</source>
+        <translation>%1 melden</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>Melden</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Kodosi erhält den Benutzernamen und das, was du hier schreibst.</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>Was ist passiert? (optional)</translation>
+    </message>
+</context>
+<context>
+    <name>ReportReceived</name>
+    <message>
+        <source>Kodosi got your report.</source>
+        <translation>Kodosi hat deine Meldung erhalten.</translation>
     </message>
 </context>
 <context>

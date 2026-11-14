@@ -22,7 +22,7 @@ struct ProjectMessageRow: View {
     }
 
     private var author: ProjectMemberEntry? {
-        isMine ? nil : model.projects.member(message.authorId, in: projectId)
+        model.projects.otherAuthor(of: message, in: projectId)
     }
 
     private var terminal: RuntimeSession? {

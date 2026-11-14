@@ -150,7 +150,15 @@ Item {
                             Models.Projects.setPresentation("conversation", false);
                     }
                 }
-                Item { Layout.fillWidth: true }
+                Item {
+                    Layout.fillWidth: true
+
+                    ReportReceived {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        shown: reportPerson.received
+                    }
+                }
                 KIconButton {
                     glyph: "warning"
                     glyphColor: KodosiTheme.caution
@@ -209,12 +217,37 @@ Item {
                                     }
                                     Tag { visible: member.modelData.isOwner === true; text: qsTr("Owner") }
                                     KIconButton {
-                                        glyph: "close"
+                                        id: memberMore
+                                        glyph: "more"
                                         size: 24
-                                        destructive: true
-                                        visible: root.owner && !member.modelData.isOwner
-                                        Accessible.name: qsTr("Remove %1 from the project").arg(member.fullName)
-                                        onClicked: Models.Projects.removeMember(member.modelData.userId)
+                                        visible: !member.self
+                                        Accessible.name: qsTr("Options for %1").arg(member.fullName)
+                                        objectName: "project.member.more." + member.modelData.userId
+                                        Accessible.id: objectName
+                                        onClicked: memberMenu.popup(memberMore, 0, memberMore.height + 4)
+
+                                        KMenu {
+                                            id: memberMenu
+                                            KMenuItem {
+                                                visible: root.owner
+                                                text: qsTr("Remove from project")
+                                                iconName: "close"
+                                                destructive: true
+                                                onTriggered: Models.Projects.removeMember(member.modelData.userId)
+                                            }
+                                            KMenuItem {
+                                                text: qsTr("Block…")
+                                                iconName: "hand"
+                                                destructive: true
+                                                onTriggered: { people.close(); blockPerson.ask(member.modelData.handle, member.fullName); }
+                                            }
+                                            KMenuItem {
+                                                text: qsTr("Report…")
+                                                iconName: "warning"
+                                                destructive: true
+                                                onTriggered: { people.close(); reportPerson.ask(member.modelData.handle, member.fullName); }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -737,6 +770,8 @@ Item {
                 Raised { anchors.fill: parent; radius: KodosiTheme.radiusXl; fill: KodosiTheme.sheet; elevation: 2 }
                 ProjectConversation {
                     anchors.fill: parent
+                    onBlockAsked: (handle, name) => blockPerson.ask(handle, name)
+                    onReportAsked: (handle, name) => reportPerson.ask(handle, name)
                     onTerminalRequested: id => {
                         Models.Projects.setPresentation("section", 0);
                         Models.SessionActions.activateInProject(id);
@@ -810,4 +845,6 @@ Item {
             KButton { text: qsTr("Try again"); compact: true; onClicked: { Models.Projects.act({ type: "read" }); failure.close(); } }
         }
     }
+    BlockPersonDialog { id: blockPerson }
+    ReportPersonDialog { id: reportPerson }
 }

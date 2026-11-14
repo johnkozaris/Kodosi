@@ -82,6 +82,11 @@ public final class ProjectStore {
         details[projectId]?.members.first { $0.userId == userId }
     }
 
+    /// A message of your own agent has you as its author, and you cannot block or report yourself.
+    public func otherAuthor(of message: ProjectMessage, in projectId: String) -> ProjectMemberEntry? {
+        message.authorId == userId ? nil : member(message.authorId, in: projectId)
+    }
+
     public func invitable(_ friends: [FriendEntry], to projectId: String) -> [FriendEntry] {
         let members = Set((details[projectId]?.members ?? []).map(\.userId))
         return friends.filter { !members.contains($0.userId) }

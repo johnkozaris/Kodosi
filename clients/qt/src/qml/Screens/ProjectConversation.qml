@@ -20,6 +20,8 @@ Item {
     property int highlighted: 0
 
     signal terminalRequested(string sessionId)
+    signal blockAsked(string handle, string name)
+    signal reportAsked(string handle, string name)
 
     function rememberPosition() {
         Models.Projects.setPresentation("followLatest", transcript.atYEnd);
@@ -353,7 +355,7 @@ Item {
                             anchors.rightMargin: entry.own ? 0 : 4
                             anchors.top: parent.top
                             anchors.topMargin: -12
-                            visible: hover.hovered
+                            visible: hover.hovered || authorMenu.opened
                             spacing: 0
                             z: 2
 
@@ -377,6 +379,34 @@ Item {
                                         ToolTip.text: qsTr("Make this a task")
                                         enabled: !Models.Projects.busy
                                         onClicked: Models.Projects.act({ type: "createTask", title: entry.modelData.text.split("\n")[0].slice(0, 120), description: entry.modelData.text, repositoryIds: [] })
+                                    }
+                                    KIconButton {
+                                        id: authorMore
+
+                                        readonly property var author: Models.Projects.members.find(member => member.userId === entry.modelData.authorId && member.userId !== Models.Account.userId) || null
+                                        readonly property string fullName: author ? author.displayName || author.handle : ""
+
+                                        size: 26
+                                        glyph: "more"
+                                        visible: !!author
+                                        Accessible.name: qsTr("Options for %1").arg(fullName)
+                                        onClicked: authorMenu.popup(authorMore, 0, authorMore.height + 4)
+
+                                        KMenu {
+                                            id: authorMenu
+                                            KMenuItem {
+                                                text: qsTr("Block…")
+                                                iconName: "hand"
+                                                destructive: true
+                                                onTriggered: root.blockAsked(authorMore.author.handle, authorMore.fullName)
+                                            }
+                                            KMenuItem {
+                                                text: qsTr("Report…")
+                                                iconName: "warning"
+                                                destructive: true
+                                                onTriggered: root.reportAsked(authorMore.author.handle, authorMore.fullName)
+                                            }
+                                        }
                                     }
                                 }
                             }

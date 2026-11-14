@@ -174,6 +174,28 @@ struct ProjectStoreTests {
         #expect(projects.snapshots["project-1"]?.messages.count == 1)
     }
 
+    @Test func `only a message of another member names a person to block or report`() async throws {
+        let opening = Task { await projects.open("project-1") }
+        let open = try await log.next("project.open")
+        let read = try await log.next("project.act")
+        try reply(to: open, "project.result", [
+            "operation": "project.open",
+            "project": project("project-1", owner: "user-2"),
+            "members": [
+                ["userId": "user-1", "handle": "me", "displayName": "Me", "isOwner": false],
+                ["userId": "user-2", "handle": "ana", "displayName": "Ana", "isOwner": true],
+            ],
+        ])
+        try deliver("project.snapshot", ["content": content("project-1", messages: [
+            message("m1", 1, author: "user-2"), message("m2", 2, author: "user-1"),
+            message("m3", 3, author: "user-1", agent: "Claude Code"), message("m4", 4, author: "user-3"),
+        ])])
+        try reply(to: read, "project.result", acted("read"))
+        await opening.value
+        let messages = try #require(projects.snapshots["project-1"]?.messages)
+        #expect(messages.map { projects.otherAuthor(of: $0, in: "project-1")?.handle } == ["ana", nil, nil, nil])
+    }
+
     @Test func `the newest load of the people of a project wins`() async throws {
         projects.visibleProjectId = "project-1"
         try deliver("projects.snapshot", list(["project-1"]))

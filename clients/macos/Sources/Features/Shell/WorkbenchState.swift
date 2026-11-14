@@ -51,6 +51,7 @@ final class WorkbenchState {
     var showsPalette = false
     var showsNewProject = false
     var trusting: FriendTrust?
+    var blocking: BlockTarget?
     var reporting: ReportTarget?
     var projectShare: ProjectShare?
     var friendDraft = ""

@@ -278,6 +278,9 @@ qt_add_qml_module(kodosi-ui
     QML_FILES
         qml/Main.qml
         qml/Screens/PeopleView.qml
+        qml/Screens/BlockPersonDialog.qml
+        qml/Screens/ReportPersonDialog.qml
+        qml/Screens/ReportReceived.qml
         qml/Screens/FriendTrustDialog.qml
         qml/Screens/IssuePicker.qml
         qml/Screens/RepositoryPicker.qml
