@@ -171,6 +171,7 @@
     <string name="remove_friend">Retirer l\'ami</string>
     <string name="remove_friend_message">Vous perdez les terminaux partagés de l\'autre et quittez les projets qui lui appartiennent.</string>
     <string name="block">Bloquer</string>
+    <string name="block_person">Bloquer %1$s ?</string>
     <string name="unblock">Débloquer</string>
     <string name="block_message">Vous perdez ce que vous partagez. Cette personne ne pourra pas vous envoyer de demande d\'ami tant que vous ne la débloquerez pas.</string>
     <string name="report">Signaler</string>

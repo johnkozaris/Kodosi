@@ -171,6 +171,7 @@
     <string name="remove_friend">Αφαίρεση φίλου</string>
     <string name="remove_friend_message">Χάνετε τα κοινόχρηστα τερματικά ο ένας του άλλου και αποχωρείτε από τα έργα που ανήκουν στον άλλον.</string>
     <string name="block">Αποκλεισμός</string>
+    <string name="block_person">Αποκλεισμός %1$s;</string>
     <string name="unblock">Άρση αποκλεισμού</string>
     <string name="block_message">Χάνετε όσα μοιράζεστε. Αυτό το άτομο δεν μπορεί να σας στείλει αίτημα φιλίας μέχρι να το ξεμπλοκάρετε.</string>
     <string name="report">Αναφορά</string>

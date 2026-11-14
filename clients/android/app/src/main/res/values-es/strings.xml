@@ -171,6 +171,7 @@
     <string name="remove_friend">Quitar amigo</string>
     <string name="remove_friend_message">Ambos perdéis los terminales compartidos del otro y abandonáis los proyectos que el otro posee.</string>
     <string name="block">Bloquear</string>
+    <string name="block_person">¿Bloquear a %1$s?</string>
     <string name="unblock">Desbloquear</string>
     <string name="block_message">Pierdes lo que compartís. Esta persona no podrá enviarte una solicitud de amistad hasta que la desbloquees.</string>
     <string name="report">Denunciar</string>

@@ -95,6 +95,23 @@ struct OutgoingRequestRow: View {
     }
 }
 
+/// The member stays after its dialog or sheet closes, so that the closing view keeps the name.
+struct MemberAction {
+    var member: ProjectMemberEntry?
+    var blocking = false
+    var reporting = false
+
+    mutating func block(_ member: ProjectMemberEntry) {
+        self.member = member
+        blocking = true
+    }
+
+    mutating func report(_ member: ProjectMemberEntry) {
+        self.member = member
+        reporting = true
+    }
+}
+
 extension View {
     func friendTrust(_ trust: Binding<FriendTrust?>, confirm: @escaping (FriendTrust) -> Void) -> some View {
         modifier(FriendTrustAsk(trust: trust, confirm: confirm))
@@ -102,6 +119,16 @@ extension View {
 
     func reportSheet(_ shown: Binding<Bool>, handle: String, name: String, key: String) -> some View {
         modifier(ReportAsk(shown: shown, handle: handle, name: name, key: key))
+    }
+
+    func memberAction(_ action: Binding<MemberAction>, people: PeopleStore) -> some View {
+        let member = action.wrappedValue.member
+        return blockConfirmation(isPresented: action.blocking, name: member?.personName ?? "") {
+            if let member {
+                people.block(handle: member.handle)
+            }
+        }
+        .reportSheet(action.reporting, handle: member?.handle ?? "", name: member?.personName ?? "", key: member?.userId ?? "")
     }
 }
 

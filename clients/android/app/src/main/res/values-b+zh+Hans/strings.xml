@@ -171,6 +171,7 @@
     <string name="remove_friend">移除好友</string>
     <string name="remove_friend_message">双方将失去彼此共享的终端，并退出对方拥有的项目。</string>
     <string name="block">屏蔽</string>
+    <string name="block_person">屏蔽 %1$s？</string>
     <string name="unblock">解除屏蔽</string>
     <string name="block_message">你将失去双方共享的内容。在你解除屏蔽之前，此人无法向你发送好友请求。</string>
     <string name="report">举报</string>

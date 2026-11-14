@@ -1,5 +1,6 @@
 package com.kodosi.mobile.projects
 
+import com.kodosi.mobile.people.Person
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -16,6 +17,7 @@ data class ProjectMember(
     val isOwner: Boolean = false
 ) {
     val name: String get() = displayName.ifBlank { handle }
+    val person: Person get() = Person(userId, handle, displayName)
 }
 
 @Serializable

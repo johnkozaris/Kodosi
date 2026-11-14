@@ -21,6 +21,10 @@ struct ProjectMessageRow: View {
         model.projects.isOwn(message)
     }
 
+    private var author: ProjectMemberEntry? {
+        isMine ? nil : model.projects.member(message.authorId, in: projectId)
+    }
+
     private var terminal: RuntimeSession? {
         message.terminalId.flatMap { model.terminals.session($0) }
     }
@@ -129,6 +133,14 @@ struct ProjectMessageRow: View {
         if let terminal, let link = ProjectMentions.terminalLink(terminal.id) {
             Button { openURL(link) } label: {
                 Label("Open \(terminal.name)", systemImage: "apple.terminal")
+            }
+        }
+        if let author {
+            Button(role: .destructive) { model.projectScreen(projectId).memberAction.block(author) } label: {
+                Label("Block…", systemImage: "hand.raised")
+            }
+            Button(role: .destructive) { model.projectScreen(projectId).memberAction.report(author) } label: {
+                Label("Report…", systemImage: "flag")
             }
         }
     }

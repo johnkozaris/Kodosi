@@ -12,6 +12,7 @@ struct ProjectInfoSheet: View {
     @State private var renaming = false
     @State private var confirmingEnd = false
     @State private var removing: ProjectMemberEntry?
+    @State private var memberAction = MemberAction()
     @State private var busy = false
     @State private var failure: String?
     @State private var done = 0
@@ -44,7 +45,13 @@ struct ProjectInfoSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 6)
-                    ProjectMembersSection(projectId: projectId, owner: owner) { removing = $0 }
+                    ProjectMembersSection(projectId: projectId, owner: owner) {
+                        removing = $0
+                    } block: {
+                        memberAction.block($0)
+                    } report: {
+                        memberAction.report($0)
+                    }
                     if owner {
                         inviteSection
                     }
@@ -115,6 +122,7 @@ struct ProjectInfoSheet: View {
             } message: { _ in
                 Text("They lose its terminals and conversation until you invite them again.")
             }
+            .memberAction($memberAction, people: model.people)
         }
         .presentationDetents([.medium, .large])
         .kodosiSheet()

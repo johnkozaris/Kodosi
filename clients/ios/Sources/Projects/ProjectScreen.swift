@@ -48,6 +48,7 @@ struct ProjectScreen: View {
                 }
             }
             .sheet(item: $screen.selectedText) { ProjectTextSheet(text: $0.text) }
+            .memberAction($screen.memberAction, people: model.people)
             .navigationDestination(item: $terminal) { TerminalScreen(sessionId: $0.sessionId) }
             .environment(\.openURL, OpenURLAction(handler: open))
             .sensoryFeedback(.selection, trigger: screen.section) { _, _ in !wide }

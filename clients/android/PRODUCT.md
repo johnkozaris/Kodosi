@@ -44,8 +44,9 @@ reading provider conversations stay on the computer. The app needs Android 15 or
   count on Settings.
 - Friends shows your invite as a code and scans a friend's code with the camera. The
   code is read on the phone, without Google Play services. A scanned or opened invite
-  asks the trust question before it sends the request. Block a friend or a person who
-  asks to be one, or report them to Kodosi.
+  asks the trust question before it sends the request. Block a friend, a person who asks
+  to be one or a member of your project, or report them to Kodosi: on their page, on
+  their request, in the project's members or on their message.
 - Dosi has its shared conversation, questions and the computer that answers. Choose
   a computer that is online or the one that answered last. A message for a computer
   that is away waits for it; stop a turn, take back a queued message or start a new chat.

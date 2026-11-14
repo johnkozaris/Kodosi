@@ -179,6 +179,7 @@
     <string name="remove_friend">Remove friend</string>
     <string name="remove_friend_message">You lose each other\'s shared terminals and leave the projects that the other owns.</string>
     <string name="block">Block</string>
+    <string name="block_person">Block %1$s?</string>
     <string name="unblock">Unblock</string>
     <string name="block_message">You lose what you share. This person cannot send you a friend request until you unblock them.</string>
     <string name="report">Report</string>

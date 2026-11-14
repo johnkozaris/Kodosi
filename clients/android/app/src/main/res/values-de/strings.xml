@@ -171,6 +171,7 @@
     <string name="remove_friend">Freund entfernen</string>
     <string name="remove_friend_message">Ihr verliert die geteilten Terminals des anderen und verlasst die Projekte, die dem anderen gehören.</string>
     <string name="block">Blockieren</string>
+    <string name="block_person">%1$s blockieren?</string>
     <string name="unblock">Blockierung aufheben</string>
     <string name="block_message">Du verlierst die geteilten Inhalte. Diese Person kann dir erst nach dem Entsperren wieder eine Freundschaftsanfrage senden.</string>
     <string name="report">Melden</string>
