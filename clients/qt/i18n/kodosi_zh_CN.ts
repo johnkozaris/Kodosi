@@ -357,6 +357,21 @@
     </message>
 </context>
 <context>
+    <name>BlockPersonDialog</name>
+    <message>
+        <source>Block %1?</source>
+        <translation>屏蔽 %1？</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>屏蔽</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
+        <translation>此人无法再向你发送好友请求。如果你们是好友，你们将不再互相共享终端，并且各自退出对方拥有的项目。</translation>
+    </message>
+</context>
+<context>
     <name>BrowserSettings</name>
     <message>
         <source>Kodosi Browser</source>
@@ -2332,10 +2347,6 @@
         <translation>复制我的邀请</translation>
     </message>
     <message>
-        <source>Kodosi got your report.</source>
-        <translation>Kodosi 已收到你的举报。</translation>
-    </message>
-    <message>
         <source>Wants to be your friend</source>
         <translation>想加你为好友</translation>
     </message>
@@ -2428,38 +2439,6 @@
         <translation>发送你的邀请，或在上方添加用户名。</translation>
     </message>
     <message>
-        <source>Block %1?</source>
-        <translation>屏蔽 %1？</translation>
-    </message>
-    <message>
-        <source>Block</source>
-        <translation>屏蔽</translation>
-    </message>
-    <message>
-        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
-        <translation>此人无法再向你发送好友请求。如果你们是好友，你们将不再互相共享终端，并且各自退出对方拥有的项目。</translation>
-    </message>
-    <message>
-        <source>Report %1</source>
-        <translation>举报 %1</translation>
-    </message>
-    <message>
-        <source>Report</source>
-        <translation>举报</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>取消</translation>
-    </message>
-    <message>
-        <source>Kodosi gets their user name and what you write here.</source>
-        <translation>Kodosi 会收到对方的用户名和你在这里写的内容。</translation>
-    </message>
-    <message>
-        <source>What happened (optional)</source>
-        <translation>发生了什么（可选）</translation>
-    </message>
-    <message>
         <source>Remove %1?</source>
         <translation>移除 %1？</translation>
     </message>
@@ -2532,10 +2511,6 @@
     <message>
         <source>Owner</source>
         <translation>所有者</translation>
-    </message>
-    <message>
-        <source>Remove %1 from the project</source>
-        <translation>将 %1 移出项目</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2634,6 +2609,18 @@
     <message>
         <source>Remove from project</source>
         <translation>从项目移除</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 的选项</translation>
+    </message>
+    <message>
+        <source>Block…</source>
+        <translation>屏蔽…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>举报…</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -2745,6 +2732,18 @@
     <message>
         <source>Make this a task</source>
         <translation>设为任务</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 的选项</translation>
+    </message>
+    <message>
+        <source>Block…</source>
+        <translation>屏蔽…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>举报…</translation>
     </message>
     <message numerus="yes">
         <source>%n new</source>
@@ -3080,6 +3079,36 @@
     <message>
         <source>Remove from canvas</source>
         <translation>从画布移除</translation>
+    </message>
+</context>
+<context>
+    <name>ReportPersonDialog</name>
+    <message>
+        <source>Report %1</source>
+        <translation>举报 %1</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>举报</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Kodosi 会收到对方的用户名和你在这里写的内容。</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>发生了什么（可选）</translation>
+    </message>
+</context>
+<context>
+    <name>ReportReceived</name>
+    <message>
+        <source>Kodosi got your report.</source>
+        <translation>Kodosi 已收到你的举报。</translation>
     </message>
 </context>
 <context>

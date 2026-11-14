@@ -11,7 +11,6 @@ Item {
     readonly property bool accountReady: Models.Account.signedIn && Models.Devices.localDeviceEnrolled
     readonly property var friends: Models.People.friends
     property bool copied: false
-    property bool reportReceived: false
 
     function add() {
         if (handle.text.trim().length === 0)
@@ -120,49 +119,20 @@ Item {
                     onClicked: Models.People.copyInvite()
                 }
                 Timer { id: copiedTimer; interval: 2000; onTriggered: root.copied = false }
-                Timer { id: reportReceivedTimer; interval: 6000; onTriggered: root.reportReceived = false }
                 Connections {
                     target: Models.People
                     function onInviteCopied() {
                         root.copied = true;
                         copiedTimer.restart();
                     }
-                    function onReported() {
-                        reportPerson.close();
-                        root.reportReceived = true;
-                        reportReceivedTimer.restart();
-                    }
-                    function onReportFailed(message) {
-                        reportPerson.failure = message;
-                    }
                 }
                 Item {
                     Layout.fillWidth: true
 
-                    Row {
+                    ReportReceived {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: opacity > 0
-                        opacity: root.reportReceived ? 1 : 0
-                        scale: root.reportReceived ? 1 : 0.9
-                        spacing: 4
+                        shown: reportPerson.received
                         objectName: "panel.people.report-received"
-
-                        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade; easing.type: Easing.OutCubic } }
-                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
-
-                        KIcon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 12
-                            height: 12
-                            name: "check"
-                            color: KodosiTheme.ready
-                        }
-                        PlainLabel {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: qsTr("Kodosi got your report.")
-                            color: KodosiTheme.ready
-                            font.pixelSize: KodosiTheme.fontFootnote
-                        }
                     }
                 }
             }
@@ -510,145 +480,8 @@ Item {
         id: trust
         onAdded: handle.clear()
     }
-    KDialog {
-        id: blockPerson
-
-        property string username: ""
-        property string fullName: ""
-
-        function ask(handle, name) {
-            username = handle;
-            fullName = name;
-            open();
-        }
-
-        destructive: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        title: qsTr("Block %1?").arg(fullName)
-        onOpened: standardButton(Dialog.Ok).text = qsTr("Block")
-
-        onAccepted: Models.People.block(username)
-
-        PlainLabel {
-            width: 340
-            color: KodosiTheme.inkMuted
-            text: qsTr("They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.")
-            wrapMode: Text.WordWrap
-        }
-    }
-    KDialog {
-        id: reportPerson
-
-        property string username: ""
-        property string fullName: ""
-        property string failure: ""
-
-        function ask(handle, name) {
-            username = handle;
-            fullName = name;
-            failure = "";
-            note.clear();
-            open();
-        }
-
-        closePolicy: Models.People.reporting ? Popup.NoAutoClose : Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        contentWidth: 360
-        objectName: "panel.people.report"
-        title: qsTr("Report %1").arg(fullName)
-        onOpened: note.forceActiveFocus()
-        // Dialog closes when a button box that is its footer accepts, and Report waits for the answer.
-        footer: Item {
-            implicitWidth: reportButtons.implicitWidth
-            implicitHeight: reportButtons.implicitHeight
-
-            DialogButtonBox {
-                id: reportButtons
-
-                anchors.fill: parent
-                padding: 16
-                topPadding: 4
-                spacing: 8
-                alignment: Qt.AlignRight
-                background: Item {}
-
-                onAccepted: {
-                    reportPerson.failure = "";
-                    Models.People.report(reportPerson.username, note.text);
-                }
-                onRejected: reportPerson.close()
-
-                KButton {
-                    id: sendReport
-
-                    Accessible.id: objectName
-                    DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-                    enabled: !Models.People.reporting
-                    working: Models.People.reporting
-                    objectName: "panel.people.report.send"
-                    text: qsTr("Report")
-                    variant: KButton.Danger
-                }
-                KButton {
-                    Accessible.id: objectName
-                    DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
-                    enabled: !Models.People.reporting
-                    objectName: "panel.people.report.cancel"
-                    text: qsTr("Cancel")
-                    variant: KButton.Ghost
-                }
-            }
-        }
-
-        ColumnLayout {
-            width: parent.width
-            spacing: 12
-
-            PlainLabel {
-                Layout.fillWidth: true
-                color: KodosiTheme.inkMuted
-                text: qsTr("Kodosi gets their user name and what you write here.")
-                wrapMode: Text.WordWrap
-            }
-            Well {
-                Layout.fillWidth: true
-                implicitHeight: Math.max(88, note.implicitHeight + 4)
-                radius: KodosiTheme.radiusMd
-
-                TextArea {
-                    id: note
-
-                    anchors.fill: parent
-                    enabled: !Models.People.reporting
-                    wrapMode: TextEdit.Wrap
-                    selectByMouse: true
-                    placeholderText: qsTr("What happened (optional)")
-                    color: KodosiTheme.ink
-                    placeholderTextColor: KodosiTheme.inkFaint
-                    selectionColor: KodosiTheme.accent
-                    selectedTextColor: KodosiTheme.accentInk
-                    font.pixelSize: KodosiTheme.fontBody
-                    background: null
-                    objectName: "panel.people.report.note"
-                    Accessible.id: objectName
-                    Accessible.name: qsTr("What happened (optional)")
-                    KeyNavigation.priority: KeyNavigation.BeforeItem
-                    KeyNavigation.tab: sendReport
-                    onTextChanged: {
-                        const kept = Models.People.clippedNote(note.text);
-                        if (kept.length < note.length)
-                            note.remove(kept.length, note.length);
-                    }
-                }
-            }
-            PlainLabel {
-                Layout.fillWidth: true
-                visible: reportPerson.failure.length > 0
-                color: KodosiTheme.danger
-                text: reportPerson.failure
-                wrapMode: Text.WordWrap
-            }
-        }
-    }
+    BlockPersonDialog { id: blockPerson }
+    ReportPersonDialog { id: reportPerson }
     KDialog {
         id: removeFriend
 

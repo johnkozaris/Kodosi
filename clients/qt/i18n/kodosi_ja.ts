@@ -357,6 +357,21 @@
     </message>
 </context>
 <context>
+    <name>BlockPersonDialog</name>
+    <message>
+        <source>Block %1?</source>
+        <translation>%1 をブロックしますか？</translation>
+    </message>
+    <message>
+        <source>Block</source>
+        <translation>ブロック</translation>
+    </message>
+    <message>
+        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
+        <translation>この人はあなたにフレンドリクエストを送れなくなります。フレンドの場合は、お互いにターミナルを共有しなくなり、それぞれ相手が所有するプロジェクトから退出します。</translation>
+    </message>
+</context>
+<context>
     <name>BrowserSettings</name>
     <message>
         <source>Kodosi Browser</source>
@@ -2332,10 +2347,6 @@
         <translation>招待をコピー</translation>
     </message>
     <message>
-        <source>Kodosi got your report.</source>
-        <translation>Kodosi に報告が届きました。</translation>
-    </message>
-    <message>
         <source>Wants to be your friend</source>
         <translation>フレンドリクエストが届いています</translation>
     </message>
@@ -2428,38 +2439,6 @@
         <translation>招待を送るか、上でユーザー名を追加してください。</translation>
     </message>
     <message>
-        <source>Block %1?</source>
-        <translation>%1 をブロックしますか？</translation>
-    </message>
-    <message>
-        <source>Block</source>
-        <translation>ブロック</translation>
-    </message>
-    <message>
-        <source>They cannot send you friend requests. If you are friends, you stop sharing terminals with each other, and each of you leaves the projects that the other owns.</source>
-        <translation>この人はあなたにフレンドリクエストを送れなくなります。フレンドの場合は、お互いにターミナルを共有しなくなり、それぞれ相手が所有するプロジェクトから退出します。</translation>
-    </message>
-    <message>
-        <source>Report %1</source>
-        <translation>%1 を報告</translation>
-    </message>
-    <message>
-        <source>Report</source>
-        <translation>報告</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>キャンセル</translation>
-    </message>
-    <message>
-        <source>Kodosi gets their user name and what you write here.</source>
-        <translation>Kodosi には相手のユーザー名と、ここに書いた内容が届きます。</translation>
-    </message>
-    <message>
-        <source>What happened (optional)</source>
-        <translation>何があったか（任意）</translation>
-    </message>
-    <message>
         <source>Remove %1?</source>
         <translation>%1 を削除しますか？</translation>
     </message>
@@ -2532,10 +2511,6 @@
     <message>
         <source>Owner</source>
         <translation>オーナー</translation>
-    </message>
-    <message>
-        <source>Remove %1 from the project</source>
-        <translation>%1 をプロジェクトから削除</translation>
     </message>
     <message>
         <source>Invite</source>
@@ -2634,6 +2609,18 @@
     <message>
         <source>Remove from project</source>
         <translation>プロジェクトから削除</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 のオプション</translation>
+    </message>
+    <message>
+        <source>Block…</source>
+        <translation>ブロック…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>報告…</translation>
     </message>
     <message>
         <source>Delete %1?</source>
@@ -2745,6 +2732,18 @@
     <message>
         <source>Make this a task</source>
         <translation>タスクにする</translation>
+    </message>
+    <message>
+        <source>Options for %1</source>
+        <translation>%1 のオプション</translation>
+    </message>
+    <message>
+        <source>Block…</source>
+        <translation>ブロック…</translation>
+    </message>
+    <message>
+        <source>Report…</source>
+        <translation>報告…</translation>
     </message>
     <message numerus="yes">
         <source>%n new</source>
@@ -3080,6 +3079,36 @@
     <message>
         <source>Remove from canvas</source>
         <translation>キャンバスから削除</translation>
+    </message>
+</context>
+<context>
+    <name>ReportPersonDialog</name>
+    <message>
+        <source>Report %1</source>
+        <translation>%1 を報告</translation>
+    </message>
+    <message>
+        <source>Report</source>
+        <translation>報告</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Kodosi gets their user name and what you write here.</source>
+        <translation>Kodosi には相手のユーザー名と、ここに書いた内容が届きます。</translation>
+    </message>
+    <message>
+        <source>What happened (optional)</source>
+        <translation>何があったか（任意）</translation>
+    </message>
+</context>
+<context>
+    <name>ReportReceived</name>
+    <message>
+        <source>Kodosi got your report.</source>
+        <translation>Kodosi に報告が届きました。</translation>
     </message>
 </context>
 <context>
