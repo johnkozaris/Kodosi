@@ -182,8 +182,13 @@ Réglages › Dosi.
 
 Connectez-vous sur le nouvel ordinateur avec le même compte. Il affiche un code, et les
 ordinateurs que vous utilisez déjà vous demandent de l'approuver. Choisissez Approuver sur l'un
-d'eux et saisissez le code. Un iPhone ou un iPad se joint de la même manière. Ensuite, chaque
-ordinateur affiche les terminaux de tous vos ordinateurs.
+d'eux et saisissez le code, ou scannez le code avec Kodosi sur un téléphone que vous utilisez
+déjà.
+
+Un nouveau téléphone ou une nouvelle tablette se joint en un seul scan. Sur un ordinateur que
+vous utilisez déjà, ouvrez les Réglages, choisissez « Afficher un code » sous « Ajouter un
+appareil » et scannez le code avec le nouveau téléphone. Ensuite, chaque ordinateur affiche les
+terminaux de tous vos ordinateurs.
 
 Pour lancer un terminal sur un autre de vos ordinateurs, choisissez cet ordinateur à
 l'extrémité droite de la bande du lanceur. Le bouton de dossier liste alors ses dossiers

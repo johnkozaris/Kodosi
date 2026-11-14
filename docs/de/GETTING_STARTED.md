@@ -183,8 +183,12 @@ Einstellungen › Dosi aus.
 
 Melde dich auf dem neuen Computer mit demselben Konto an. Er zeigt einen Code, und die
 Computer, die du schon nutzt, bitten dich, ihn freizugeben. Wähle auf einem davon Freigeben
-und gib den Code ein. Ein iPhone oder iPad kommt auf dieselbe Weise dazu. Danach zeigt jeder
-Computer die Terminals all deiner Computer.
+und gib den Code ein, oder scanne den Code mit Kodosi auf einem Telefon, das du schon nutzt.
+
+Ein neues Telefon oder Tablet kommt mit einem Scan dazu. Öffne auf einem Computer, den du
+schon nutzt, die Einstellungen, wähle unter „Gerät hinzufügen“ die Option „Code anzeigen“
+und scanne den Code mit dem neuen Telefon. Danach zeigt jeder Computer die Terminals all
+deiner Computer.
 
 Um ein Terminal auf einem anderen deiner Computer zu starten, wähle diesen Computer am rechten
 Ende der Leiste des Launchers. Der Ordner-Button listet dann seine letzten Ordner, und Ordner

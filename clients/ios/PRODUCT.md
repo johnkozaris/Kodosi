@@ -21,5 +21,8 @@ terminal with friends and reading provider conversations stay on the computer.
 - **Invite in person.** The invite also shows as a code that a friend scans with the
   Camera app or in Kodosi. A scanned invite still asks whether they trust the person
   before the request goes out.
+- **Join with one scan.** A new iPhone or iPad scans the code that a computer shows, and
+  an approved one scans the code of a new device. A code that the Camera app opens can
+  only start the first: an approval always begins in the app.
 - **Lock.** With the lock on, the app asks for Face ID, Touch ID or the passcode, and
   covers what it shows while it is not in front.

@@ -173,9 +173,12 @@ quitar Dosi de un ordenador, desactiva Usar Dosi en Ajustes › Dosi.
 ## 6. Añade tus otros ordenadores
 
 Inicia sesión en el ordenador nuevo con la misma cuenta. Muestra un código, y los ordenadores
-que ya usas te piden que lo apruebes. Elige Aprobar en uno de ellos y escribe el código. Un
-iPhone o un iPad se une de la misma manera. Después, cada ordenador muestra los terminales de
-todos tus ordenadores.
+que ya usas te piden que lo apruebes. Elige Aprobar en uno de ellos y escribe el código, o
+escanea el código con Kodosi en un teléfono que ya uses.
+
+Un teléfono o una tableta nuevos se unen con un solo escaneo. En un ordenador que ya uses,
+abre Ajustes, elige «Mostrar un código» en «Añadir un dispositivo» y escanea el código con el
+teléfono nuevo. Después, cada ordenador muestra los terminales de todos tus ordenadores.
 
 Para iniciar un terminal en otro de tus ordenadores, elige ese ordenador en el extremo
 derecho de la banda del lanzador. El botón de carpeta muestra entonces sus carpetas
