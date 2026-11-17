@@ -365,6 +365,7 @@ class XlsxEditor implements Editor, Pictures {
           workerURL: worker,
           toolbar: false,
           footer: false,
+          sheets: { enableFillHandle: person.canEdit },
         }),
       ],
     });
