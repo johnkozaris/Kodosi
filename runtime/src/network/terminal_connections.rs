@@ -34,19 +34,21 @@ use super::{HostRequest, LocalPublication, PublicationOutput, PublishedFrame, Pu
 
 mod calls;
 mod channel;
-mod direct;
 #[cfg(feature = "host")]
 mod host;
 mod link;
 #[cfg(feature = "host")]
 mod pacer;
 mod participant;
+mod peers;
+mod route;
 
 #[cfg(feature = "host")]
 pub(crate) use calls::{Answering, answer as answer_calls};
 pub(crate) use calls::{Lines, ask as ask_computer};
 pub(crate) use channel::ChannelKeys;
 pub(crate) use link::{Link, Wait};
+pub(crate) use peers::Peers;
 
 pub(crate) type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -135,10 +137,6 @@ pub(crate) enum RemoteRequest {
     PipeClose {
         pipe: Uuid,
     },
-    DirectAsk {
-        pipe: Uuid,
-        reply: oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>,
-    },
     Picture {
         picture: crate::terminal::Picture,
         reply: oneshot::Sender<Result<()>>,
@@ -152,16 +150,45 @@ pub(super) fn open_pipe(
 ) -> crate::canvas::PipeEnds {
     let (to_view, receiver) = mpsc::channel(crate::canvas::PIPE_QUEUE);
     let (sender, from_view) = mpsc::channel(crate::canvas::PIPE_QUEUE);
-    tokio::spawn(direct::run(direct::Pipe {
+    tokio::spawn(cancel.run_until_cancelled_owned(carry_pipe(
         commands,
-        cancel,
-        id,
-        key,
-        name,
+        (id, key, name),
         to_view,
         from_view,
-    }));
+    )));
     crate::canvas::PipeEnds { sender, receiver }
+}
+
+/// A pipe of the canvas goes in the terminal's channel, in parts that fit a frame.
+async fn carry_pipe(
+    commands: mpsc::Sender<RemoteRequest>,
+    (pipe, key, name): (Uuid, String, String),
+    frames: mpsc::Sender<Vec<u8>>,
+    mut from_view: mpsc::Receiver<Vec<u8>>,
+) {
+    let opened = RemoteRequest::PipeOpen {
+        pipe,
+        key,
+        name,
+        frames,
+    };
+    if commands.send(opened).await.is_err() {
+        return;
+    }
+    while let Some(frame) = from_view.recv().await {
+        let parts = frame.len().div_ceil(wire::PIPE_PART);
+        for (index, part) in frame.chunks(wire::PIPE_PART).enumerate() {
+            let data = RemoteRequest::PipeData {
+                pipe,
+                more: index + 1 < parts,
+                part: Bytes::copy_from_slice(part),
+            };
+            if commands.send(data).await.is_err() {
+                return;
+            }
+        }
+    }
+    drop(commands.send(RemoteRequest::PipeClose { pipe }).await);
 }
 
 #[cfg(feature = "host")]

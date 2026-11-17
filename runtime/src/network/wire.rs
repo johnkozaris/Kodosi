@@ -9,7 +9,6 @@ use crate::terminal::{
 
 mod frame;
 mod packing;
-#[cfg(all(feature = "host", not(test)))]
 pub(crate) use frame::MOST_DIRECT_ADDRESSES;
 #[cfg(feature = "host")]
 pub(crate) use frame::answer_fits;

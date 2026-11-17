@@ -55,7 +55,7 @@
   <Extensions>
     <desktop2:Extension Category="windows.firewallRules">
       <desktop2:FirewallRules Executable="kodosi.exe">
-        <desktop2:Rule Direction="in" IPProtocol="TCP" Profile="domainAndPrivate" LocalPortMin="47360" LocalPortMax="47379" />
+        <desktop2:Rule Direction="in" IPProtocol="UDP" Profile="domainAndPrivate" LocalPortMin="47360" LocalPortMax="47379" />
       </desktop2:FirewallRules>
     </desktop2:Extension>
   </Extensions>

@@ -2,8 +2,7 @@ use std::collections::VecDeque;
 
 use super::{
     channel::{Channel, Transport},
-    direct,
-    link::Pipe,
+    route::{Finder, Paths, Role, Route},
     wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
 };
@@ -146,7 +145,7 @@ pub(super) async fn connect(
     }
     let opened = async {
         let (mut dto, kept) = network.known_session(&credentials, id).await?;
-        let (channel, public) = match open(&network, &credentials, &dto).await {
+        let (channel, public, paths, pipe) = match open(&network, &credentials, &dto).await {
             Err(
                 Error::Stale
                 | Error::Backend {
@@ -158,9 +157,9 @@ pub(super) async fn connect(
             }
             opened => opened?,
         };
-        Ok((dto, channel, public))
+        Ok((dto, channel, public, paths, pipe))
     };
-    let (dto, channel, public) = tokio::select! {
+    let (dto, channel, public, paths, pipe) = tokio::select! {
         biased;
         () = credentials.cancel.cancelled() => Err(Error::Stale),
         opened = opened => opened,
@@ -176,13 +175,12 @@ pub(super) async fn connect(
     }
     let session = dto.clone().into();
     let cancel = cancellation.clone();
-    let host = Arc::new(direct::Host::new(
-        network.channel_keys(&credentials)?,
-        dto.host_device_id.clone(),
-        public.clone(),
-    ));
+    let peers = (dto.owner_user_id == credentials.user_id)
+        .then(|| network.peers(&credentials).ok())
+        .flatten();
+    let finder = Finder::viewer(peers, paths, public.clone(), pipe);
     tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), host);
+        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), finder);
         let result = tokio::select! {
             () = cancel.cancelled() => Ok(()),
             () = network.inner.shutdown.cancelled() => Ok(()),
@@ -215,8 +213,10 @@ async fn open(
     network: &BackendClient,
     credentials: &Credentials,
     dto: &SessionDto,
-) -> Result<(Channel<Pipe>, Vec<u8>)> {
+) -> Result<(Channel<Route>, Vec<u8>, Paths, Uuid)> {
     let pipe = network.inner.link.open(dto.id, dto.incarnation_id).await?;
+    let id = pipe.id();
+    let (route, paths) = Route::new(pipe, Role::Viewer);
     let host_key = |owner: &crate::identity::pins::VerifiedIdentity| {
         owner
             .devices
@@ -245,7 +245,7 @@ async fn open(
         .ok_or_else(|| Error::Trust(text!("The hosting device is not approved.")))?,
     };
     let mut channel = Channel::connect(
-        pipe,
+        route,
         &*network.channel_keys(credentials)?,
         &dto.host_device_id,
         &public,
@@ -270,7 +270,7 @@ async fn open(
             {
                 return Err(untrusted("The host answered for another terminal."));
             }
-            Ok((channel, public))
+            Ok((channel, public, paths, id))
         }
         Some((Frame::Refuse(refuse), _)) => Err(match refuse.code.as_str() {
             "busy" => Error::Busy,
@@ -351,8 +351,7 @@ struct Viewer<T> {
     input_sent: u64,
     input_confirmed: u64,
     pipes: BTreeMap<Uuid, PipeOut>,
-    host: Arc<direct::Host>,
-    asking: BTreeMap<Uuid, oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>>,
+    finder: Finder,
     upload: Option<Upload>,
 }
 
@@ -361,7 +360,7 @@ impl<T: Transport> Viewer<T> {
         channel: Channel<T>,
         commands: mpsc::Receiver<RemoteRequest>,
         updates: mpsc::Sender<RemoteUpdate>,
-        host: Arc<direct::Host>,
+        finder: Finder,
     ) -> Self {
         Self {
             channel,
@@ -380,8 +379,7 @@ impl<T: Transport> Viewer<T> {
             input_sent: 0,
             input_confirmed: 0,
             pipes: BTreeMap::new(),
-            host,
-            asking: BTreeMap::new(),
+            finder,
             upload: None,
         }
     }
@@ -473,6 +471,9 @@ impl<T: Transport> Viewer<T> {
                 Some((frame, size)) => self.frame(frame, size as u64).await?,
                 None => return Err(Error::Closed),
             },
+            Some(frame) = self.finder.next() => {
+                self.channel.send(&frame).await?;
+            }
         }
         Ok(false)
     }
@@ -595,11 +596,6 @@ impl<T: Transport> Viewer<T> {
             RemoteRequest::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
                 self.channel.send(&Frame::PipeClose { pipe }).await?;
-            }
-            RemoteRequest::DirectAsk { pipe, reply } => {
-                self.asking.retain(|_, waiting| !waiting.is_closed());
-                self.asking.insert(pipe, reply);
-                self.channel.send(&Frame::DirectAsk { pipe }).await?;
             }
             RemoteRequest::Control { .. }
             | RemoteRequest::Picture { .. }
@@ -739,11 +735,7 @@ impl<T: Transport> Viewer<T> {
             Frame::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
             }
-            Frame::DirectOffer { pipe, addresses } => {
-                if let Some(waiting) = self.asking.remove(&pipe) {
-                    drop(waiting.send((Arc::clone(&self.host), addresses)));
-                }
-            }
+            frame @ Frame::PathAnswer { .. } => self.finder.heard(frame),
             Frame::PictureState(state) => self.picture_state(state).await?,
             _ => return Err(invalid("Unsupported terminal host frame.")),
         }

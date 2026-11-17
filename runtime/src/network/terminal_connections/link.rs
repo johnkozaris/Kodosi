@@ -168,7 +168,6 @@ pub(crate) struct Pipe {
     waiting: Arc<AtomicUsize>,
 }
 
-#[cfg(feature = "host")]
 impl Pipe {
     pub(super) const fn id(&self) -> Uuid {
         self.id

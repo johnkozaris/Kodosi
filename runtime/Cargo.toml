@@ -73,7 +73,7 @@ version.workspace = true
 
 [features]
 default = ["host"]
-host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:if-addrs", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:rusqlite", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
+host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:rusqlite", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
 
 [dependencies]
 ghostty-vt = { path = "crates/ghostty-vt" }
@@ -81,7 +81,7 @@ kodosi-os = { workspace = true }
 kodosi-pty = { path = "crates/kodosi-pty", optional = true }
 documents = { path = "../documents/crates/documents", optional = true }
 documents-cli = { path = "../documents/crates/cli", optional = true }
-if-addrs = { version = "0.15", optional = true }
+if-addrs = "0.15"
 shared-browser = { path = "../browser/crate", default-features = false, optional = true }
 tar = { version = "0.4.46", default-features = false, optional = true }
 aws-lc-rs = { workspace = true }
@@ -90,11 +90,13 @@ bytes = { workspace = true }
 flate2 = { version = "1.1.11", default-features = false, features = ["zlib-rs", "runtime_detection"] }
 futures-util = { workspace = true }
 qrcodegen = "1.8.0"
+quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-aws-lc-rs"] }
 reqwest = { workspace = true }
 rusqlite = { version = "0.42.0", default-features = false, features = ["bundled"], optional = true }
 rustls = { version = "0.23.46", default-features = false, features = ["aws-lc-rs", "prefer-post-quantum", "std"] }
 rustls-platform-verifier = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+socket2 = "0.6.5"
 serde_json = { workspace = true, features = ["raw_value"] }
 specta = { workspace = true, features = ["derive", "serde_json"] }
 thiserror = { workspace = true }

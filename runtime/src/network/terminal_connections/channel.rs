@@ -61,6 +61,9 @@ pub(crate) struct ChannelKeys {
     client: Arc<ClientConfig>,
     #[cfg(any(feature = "host", test))]
     server: Arc<ServerConfig>,
+    direct_client: Arc<ClientConfig>,
+    #[cfg(feature = "host")]
+    direct_server: Arc<ServerConfig>,
 }
 
 impl ChannelKeys {
@@ -68,29 +71,64 @@ impl ChannelKeys {
         let provider = provider();
         let own = certified(&provider, signing_pkcs8)?;
         #[cfg(any(feature = "host", test))]
-        let server = server_config(&provider, Arc::clone(&own))?;
-        let mut client = ClientConfig::builder_with_provider(Arc::clone(&provider))
-            .with_protocol_versions(&[&TLS13])
-            .map_err(tls)?
-            .dangerous()
-            .with_custom_certificate_verifier(Arc::new(DeviceKey {
-                algorithms: provider.signature_verification_algorithms,
-            }))
-            .with_client_cert_resolver(Arc::new(AlwaysResolvesClientRawPublicKeys::new(own)));
-        client.resumption = Resumption::in_memory_sessions(RESUMABLE_HOSTS);
-        client.enable_sni = false;
-        client.alpn_protocols = channel_protocols();
+        let server = server_config(&provider, Arc::clone(&own), channel_protocols())?;
+        #[cfg(feature = "host")]
+        let direct_server = server_config(&provider, Arc::clone(&own), vec![direct_protocol()])?;
+        let client = client_config(&provider, Arc::clone(&own), channel_protocols())?;
+        let direct_client = client_config(&provider, own, vec![direct_protocol()])?;
         Ok(Self {
             public: signing_public.to_vec(),
             client: Arc::new(client),
             #[cfg(any(feature = "host", test))]
             server: Arc::new(server),
+            direct_client: Arc::new(direct_client),
+            #[cfg(feature = "host")]
+            direct_server: Arc::new(direct_server),
         })
     }
 
     pub(crate) fn belongs_to(&self, signing_public: &[u8]) -> bool {
         self.public == signing_public
     }
+
+    pub(super) fn direct_client(&self) -> Arc<ClientConfig> {
+        Arc::clone(&self.direct_client)
+    }
+
+    #[cfg(feature = "host")]
+    pub(super) fn direct_server(&self) -> Arc<ServerConfig> {
+        Arc::clone(&self.direct_server)
+    }
+}
+
+fn client_config(
+    provider: &Arc<CryptoProvider>,
+    own: Arc<CertifiedKey>,
+    protocols: Vec<Vec<u8>>,
+) -> Result<ClientConfig> {
+    let mut client = ClientConfig::builder_with_provider(Arc::clone(provider))
+        .with_protocol_versions(&[&TLS13])
+        .map_err(tls)?
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(DeviceKey {
+            algorithms: provider.signature_verification_algorithms,
+        }))
+        .with_client_cert_resolver(Arc::new(AlwaysResolvesClientRawPublicKeys::new(own)));
+    client.resumption = Resumption::in_memory_sessions(RESUMABLE_HOSTS);
+    client.enable_sni = false;
+    client.alpn_protocols = protocols;
+    Ok(client)
+}
+
+/// The device key at the end of a raw public key, which a channel or a direct connection proved.
+pub(super) fn device_key(presented: Option<&CertificateDer<'_>>) -> Result<Vec<u8>> {
+    let info = presented
+        .ok_or_else(|| Error::Trust(text!("The other device did not prove its key.")))?
+        .as_ref();
+    if info.len() <= DEVICE_KEY_BYTES {
+        return Err(untrusted("The other device key is not valid."));
+    }
+    Ok(info[info.len() - DEVICE_KEY_BYTES..].to_vec())
 }
 
 impl<T: Transport> Channel<T> {
@@ -159,16 +197,11 @@ impl<T: Transport> Channel<T> {
     }
 
     pub(super) fn peer_key(&self) -> Result<Vec<u8>> {
-        let info = self
-            .tls
-            .peer_certificates()
-            .and_then(<[CertificateDer<'_>]>::first)
-            .ok_or_else(|| Error::Trust(text!("The other device did not prove its key.")))?;
-        let info = info.as_ref();
-        if info.len() <= DEVICE_KEY_BYTES {
-            return Err(untrusted("The other device key is not valid."));
-        }
-        Ok(info[info.len() - DEVICE_KEY_BYTES..].to_vec())
+        device_key(
+            self.tls
+                .peer_certificates()
+                .and_then(<[CertificateDer<'_>]>::first),
+        )
     }
 
     pub(super) async fn send(&mut self, frame: &Frame) -> Result<usize> {
@@ -269,7 +302,11 @@ fn provider() -> Arc<CryptoProvider> {
 }
 
 #[cfg(any(feature = "host", test))]
-fn server_config(provider: &Arc<CryptoProvider>, own: Arc<CertifiedKey>) -> Result<ServerConfig> {
+fn server_config(
+    provider: &Arc<CryptoProvider>,
+    own: Arc<CertifiedKey>,
+    protocols: Vec<Vec<u8>>,
+) -> Result<ServerConfig> {
     let mut server = ServerConfig::builder_with_provider(Arc::clone(provider))
         .with_protocol_versions(&[&TLS13])
         .map_err(tls)?
@@ -280,12 +317,16 @@ fn server_config(provider: &Arc<CryptoProvider>, own: Arc<CertifiedKey>) -> Resu
     server.session_storage = ServerSessionMemoryCache::new(RESUMABLE_VIEWS);
     server.send_tls13_tickets = 2;
     server.send_half_rtt_data = true;
-    server.alpn_protocols = channel_protocols();
+    server.alpn_protocols = protocols;
     Ok(server)
 }
 
 fn channel_protocol() -> Vec<u8> {
     format!("kodosi-channel/{}", crate::protocol::CHANNEL_VERSION).into_bytes()
+}
+
+fn direct_protocol() -> Vec<u8> {
+    format!("kodosi-direct/{}", crate::protocol::CHANNEL_VERSION).into_bytes()
 }
 
 /// The host takes the newest version that both sides have, so two versions of Kodosi still meet,
@@ -658,9 +699,9 @@ pub(super) mod tests {
         let mut server = (*keys.server).clone();
         server.alpn_protocols = vec![protocol];
         ChannelKeys {
-            public: keys.public,
             client: Arc::new(client),
             server: Arc::new(server),
+            ..keys
         }
     }
 
@@ -705,9 +746,9 @@ pub(super) mod tests {
         let mut server = (*keys.server).clone();
         server.alpn_protocols.clear();
         ChannelKeys {
-            public: keys.public,
             client: Arc::new(client),
             server: Arc::new(server),
+            ..keys
         }
     }
 

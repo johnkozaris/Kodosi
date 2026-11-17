@@ -59,6 +59,7 @@ pub(crate) struct Inner {
     pub(crate) link: Arc<terminal_connections::Link>,
     pub(crate) calls: terminal_connections::Lines,
     channel_keys: std::sync::Mutex<Option<Arc<terminal_connections::ChannelKeys>>>,
+    peers: std::sync::Mutex<Option<Arc<terminal_connections::Peers>>>,
     identities: std::sync::Mutex<BTreeMap<String, device_identity::KeptIdentity>>,
     sessions: std::sync::Mutex<BTreeMap<Uuid, SessionDto>>,
     notifications: Mutex<Option<CancellationToken>>,
@@ -159,6 +160,7 @@ impl BackendClient {
                 link: Arc::default(),
                 calls: terminal_connections::Lines::default(),
                 channel_keys: std::sync::Mutex::new(None),
+                peers: std::sync::Mutex::new(None),
                 identities: std::sync::Mutex::default(),
                 sessions: std::sync::Mutex::default(),
                 notifications: Mutex::new(None),
@@ -1275,6 +1277,21 @@ impl BackendClient {
         )?);
         *self.inner.channel_keys.lock().map_err(|_| Error::Closed)? = Some(Arc::clone(&keys));
         Ok(keys)
+    }
+
+    pub(crate) fn peers(
+        &self,
+        credentials: &Credentials,
+    ) -> Result<Arc<terminal_connections::Peers>> {
+        let keys = self.channel_keys(credentials)?;
+        let mut peers = self.inner.peers.lock().map_err(|_| Error::Closed)?;
+        if let Some(kept) = peers.as_ref().filter(|kept| kept.uses(&keys)) {
+            return Ok(Arc::clone(kept));
+        }
+        let fresh = terminal_connections::Peers::new(keys);
+        *peers = Some(Arc::clone(&fresh));
+        drop(peers);
+        Ok(fresh)
     }
 
     pub(crate) async fn known_session(
