@@ -151,8 +151,6 @@ terminale, e un banner indica cosa l'agente mostra o cambia, con Apri.
   ogni accesso e tutti i dati dei siti dei tuoi terminali privati. Su un Mac, quando macOS
   protegge da Kodosi gli accessi di un browser, come quelli di Safari, seleziona Consenti…
   accanto al browser per dare a Kodosi l'Accesso completo al disco.
-- Sulla stessa rete, l'immagine del browser passa direttamente tra i tuoi dispositivi. macOS e
-  iOS chiedono una volta l'accesso alla rete locale; senza, l'immagine passa dal servizio.
 - Tutte le persone che possono aprire il terminale vedono il suo canvas e usano il suo
   browser. Quando il terminale si chiude, il suo canvas e gli accessi del browser spariscono.
 
@@ -196,6 +194,10 @@ destra della banda del launcher. Il pulsante della cartella elenca allora le sue
 recenti, e Scegli una cartella… apre le cartelle della sua home. Su un iPhone o un iPad,
 seleziona + in Terminali, o il + accanto a uno dei tuoi computer. Su quel computer deve essere
 aperto Kodosi, o deve girare `kodosi host` in un terminale.
+
+Quando due dei tuoi dispositivi possono raggiungersi, i loro terminali e browser passano
+direttamente tra loro e rispondono più rapidamente. Sulla stessa rete, macOS, iOS e Android
+chiedono una volta l'accesso alla rete locale; senza, passano dal servizio.
 
 Crea anche lì una chiave di recupero e conservala bene. Se perdi tutti i tuoi dispositivi,
 accedi da uno nuovo e scegli «Usa la mia chiave di recupero» per mantenere amici e progetti.

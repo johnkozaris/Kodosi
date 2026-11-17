@@ -145,8 +145,6 @@ bar, and a banner names what the agent shows or changes, with Open.
   sign-in and all site data of your private terminals. On a Mac, when macOS keeps a
   browser's sign-ins from Kodosi, as it does Safari's, select Allow… beside the browser to
   give Kodosi Full Disk Access.
-- On one network, the browser's picture goes straight between your devices. macOS and iOS
-  ask once for local network access; without it, the picture goes through the service.
 - Everyone who can open the terminal sees its canvas and uses its browser. When the
   terminal closes, its canvas and the browser's sign-ins go.
 
@@ -189,6 +187,10 @@ of the launcher's band. The folder key then lists its recent folders, and Choose
 folder… opens the folders in its home. On an iPhone or iPad, select + in Terminals, or
 the + beside one of your computers. That computer needs Kodosi open, or `kodosi host`
 running in a terminal.
+
+When two of your devices can reach each other, their terminals and browsers go straight
+between them and answer faster. On one network, macOS, iOS and Android ask once for local
+network access; without it, they go through the service.
 
 Make a recovery key there too, and keep it safe. If you lose all your devices, sign in
 on a new one and choose "Use my recovery key" to keep your friends and projects. Remove a

@@ -32,9 +32,14 @@ replaces, so views on other devices follow it.
 The computer that starts a terminal hosts it: it owns the process, the terminal state
 and the order of its output. Each view gets a checkpoint and then ordered updates, with
 bounded buffering. A view on another device gets them over its own end-to-end encrypted
-channel, which the backend relays. The host does not replay input whose delivery is
-uncertain, and a stale view cannot control a replacement terminal. Work that a short
-drop of the channel holds back goes out once on the next channel.
+channel, which the backend relays. When the view and the host are devices of one person
+that reach each other, on one network or through their routers, the channel goes on a
+direct QUIC connection of the two devices instead, and back to the relay when that
+connection fails, without a new checkpoint and without losing or repeating a frame. Its
+relay pipe stays open, so the backend still ends the channel when access ends. The host
+does not replay input whose delivery is uncertain, and a stale view cannot control a
+replacement terminal. Work that a short drop of the channel holds back goes out once on
+the next channel.
 
 Each app tells its host which terminals are on its screen. The channel to a terminal of
 another computer is open only while a client shows the terminal or has work for it. A
@@ -126,8 +131,7 @@ Browser for each terminal: Chromium on a ready-built CEF that draws off screen a
 nothing on the computer. The host gets it from a signed feed and keeps it up to date.
 
 While a device looks, the engine encodes the page as video. The frames, and the clicks
-and keys that come back, travel on the terminal's encrypted channel, or straight between
-two devices that can reach each other, under the same device keys. The agent drives its
+and keys that come back, travel on the terminal's encrypted channel. The agent drives its
 window with agent-browser through a port that the host serves, where it sees only the
 tabs of its own terminal.
 

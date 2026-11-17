@@ -161,9 +161,6 @@ Leiste des Terminals, und ein Banner nennt, was der Agent zeigt oder ändert, mi
   Terminals. Wenn macOS auf einem Mac die Anmeldungen eines Browsers vor Kodosi schützt, wie
   die von Safari, wähle Erlauben… neben dem Browser, um Kodosi den Festplattenvollzugriff zu
   geben.
-- In einem Netzwerk geht das Bild des Browsers direkt zwischen deinen Geräten hin und her.
-  macOS und iOS fragen einmal nach dem Zugriff auf das lokale Netzwerk; ohne ihn geht das
-  Bild über den Dienst.
 - Alle, die das Terminal öffnen können, sehen sein Canvas und nutzen seinen Browser. Wenn
   das Terminal geschlossen wird, verschwinden sein Canvas und die Anmeldungen des Browsers.
 
@@ -209,6 +206,10 @@ Ende der Leiste des Launchers. Der Ordner-Button listet dann seine letzten Ordne
 auswählen… öffnet die Ordner in seinem Home-Verzeichnis. Auf einem iPhone oder iPad wählst
 du + in Terminals oder das + neben einem deiner Computer. Auf diesem Computer muss Kodosi
 geöffnet sein oder `kodosi host` in einem Terminal laufen.
+
+Wenn zwei deiner Geräte einander erreichen können, gehen ihre Terminals und Browser direkt
+zwischen ihnen hin und her und reagieren schneller. Im selben Netzwerk fragen macOS, iOS und
+Android einmal nach dem Zugriff auf das lokale Netzwerk; ohne ihn gehen sie über den Dienst.
 
 Erstelle dort auch einen Wiederherstellungsschlüssel und bewahre ihn sicher auf. Wenn du all
 deine Geräte verlierst, meldest du dich auf einem neuen an und wählst „Meinen

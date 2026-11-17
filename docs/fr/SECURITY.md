@@ -26,35 +26,44 @@ cadre fermé, sans réseau, sans fichiers et sans stockage qui persiste. Tant qu
 partagé est éveillé, son port de débogage et le port de pilotage de chaque fenêtre écoutent sur
 `127.0.0.1` ou `::1`, où d'autres comptes de cet ordinateur peuvent les atteindre. Un site dans le
 navigateur partagé enregistre un téléchargement dans le dossier du terminal pour chaque action
-d'une personne ou d'un agent, et il n'accède à votre presse-papiers que lorsque vous copiez. Quand
-un appareil ouvre le navigateur d'un terminal sur un autre ordinateur, cet ordinateur écoute sur un
-port TCP pendant quelques secondes, pour que les deux se connectent directement. Seul cet appareil
-passe, avec le chiffrement du terminal. L'app Linux n'affiche des pages que là où Chromium peut les
-isoler dans un sandbox ; sous Ubuntu, son profil AppArmor permet à l'app, à son processus de pages
-et à Kodosi Browser de créer les user namespaces dont le sandbox a besoin. Pour la même raison, le
-navigateur partagé ne tourne pas en root sous Linux. Les apps ne contiennent pas Kodosi Browser.
-Quand un ordinateur ouvre son premier navigateur partagé, Kodosi récupère le navigateur dans le
-flux de `updates.kodosi.com` et y cherche une nouvelle version chaque jour. Kodosi n'utilise un
-téléchargement que si le flux porte la signature de la clé des mises à jour de Kodosi et que le
-téléchargement a le SHA-256 indiqué par le flux.
+d'une personne ou d'un agent, et il n'accède à votre presse-papiers que lorsque vous copiez.
+L'app Linux n'affiche des pages que là où Chromium peut les isoler dans un sandbox ; sous Ubuntu,
+son profil AppArmor permet à l'app, à son processus de pages et à Kodosi Browser de créer les
+user namespaces dont le sandbox a besoin. Pour la même raison, le navigateur partagé ne tourne
+pas en root sous Linux. Les apps ne contiennent pas Kodosi Browser. Quand un ordinateur ouvre son
+premier navigateur partagé, Kodosi récupère le navigateur dans le flux de `updates.kodosi.com` et
+y cherche une nouvelle version chaque jour. Kodosi n'utilise un téléchargement que si le flux
+porte la signature de la clé des mises à jour de Kodosi et que le téléchargement a le SHA-256
+indiqué par le flux.
+
+## Connexions directes
+
+Quand deux de vos propres appareils peuvent s'atteindre, sur un même réseau ou à travers leurs
+routeurs, le trafic d'un terminal circule directement entre eux au lieu de passer par le service,
+avec le même chiffrement. Chacun des deux appareils voit alors les adresses IP de l'autre. Pour
+connaître l'adresse publique d'un appareil, Kodosi interroge un serveur STUN de Cloudflare, qui
+voit cette adresse. Tant qu'un appareil cherche une telle connexion ou en a une, et pendant une
+minute ensuite, il garde un port UDP ouvert, et il n'y accepte de connexions que de vos propres
+appareils. Les terminaux d'autres personnes passent toujours par le service, si bien que ces
+personnes ne voient jamais vos adresses.
 
 ## Ce que voit le service
 
 Le service voit les données des comptes et des appareils, les membres des projets, les
 métadonnées des projets et des terminaux, l'agent et l'état de chaque terminal (par exemple en
 cours ou en attente d'une approbation, jamais son texte) et si vous avez déjà vu cet état, les
-champs de routage, les horaires et la taille des textes chiffrés. Il voit aussi, pour chacun de
-vos appareils, si vous y utilisez Kodosi, si vous utilisez une autre app sur cet ordinateur ou
-si vous ne l'utilisez pas, pour qu'une notification n'aille que sur un appareil que vous
-utilisez. Les notifications push vers votre iPhone, iPad ou appareil Android passent par le
-service push d'Apple ou de Google, qui voit les identifiants de vos terminaux qui attendent,
-ont terminé ou ont échoué, leurs agents et leurs états, jamais de noms ni de texte. Le
-chiffrement ne cache pas ces métadonnées et n'empêche pas une panne. Un appareil que vous
-retirez perd l'accès dès ce moment. Après avoir retiré un
-appareil perdu ou volé, créez une nouvelle clé de récupération pour garder cet appareil dehors.
-Quand quelqu'un repart de zéro sur votre compte alors que vous avez des appareils, cela attend
-un jour et vos appareils l'affichent, pour que vous puissiez l'arrêter. Les identifiants GitHub
-et Gitea restent sur votre ordinateur.
+champs de routage, les horaires et la taille des textes chiffrés, sauf pour le trafic qui passe
+directement entre vos appareils. Il voit aussi, pour chacun de vos appareils, si vous y
+utilisez Kodosi, si vous utilisez une autre app sur cet ordinateur ou si vous ne l'utilisez
+pas, pour qu'une notification n'aille que sur un appareil que vous utilisez. Les notifications
+push vers votre iPhone, iPad ou appareil Android passent par le service push d'Apple ou de
+Google, qui voit les identifiants de vos terminaux qui attendent, ont terminé ou ont échoué,
+leurs agents et leurs états, jamais de noms ni de texte. Le chiffrement ne cache pas ces
+métadonnées et n'empêche pas une panne. Un appareil que vous retirez perd l'accès dès ce
+moment. Après avoir retiré un appareil perdu ou volé, créez une nouvelle clé de récupération
+pour garder cet appareil dehors. Quand quelqu'un repart de zéro sur votre compte alors que vous
+avez des appareils, cela attend un jour et vos appareils l'affichent, pour que vous puissiez
+l'arrêter. Les identifiants GitHub et Gitea restent sur votre ordinateur.
 
 Supprimer un compte retire ses appareils, ses données de récupération, ses amis, ses partages
 et les projets dont il est propriétaire ; les messages dans les projets des autres restent, sans

@@ -50,7 +50,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Kodosi asks for Face ID before it shows your terminals, when you lock it in Settings.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Kodosi connects straight to your computer on this network, so that a shared browser answers at once.</string>
+	<string>Kodosi connects straight to your computer on this network, so that its terminals and shared browser answer at once.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIBackgroundModes</key>
