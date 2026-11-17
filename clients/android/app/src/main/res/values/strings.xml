@@ -383,8 +383,10 @@
     <string name="agent_quiet_detail">Shows less of its work.</string>
     <string name="agent_standard_detail">Shows its work as the agent is set up.</string>
     <string name="agent_detailed_detail">Shows each step of its work in full.</string>
+    <string name="agent_fast">Fast mode</string>
+    <string name="agent_fast_detail">Answers faster and costs more.</string>
     <string name="agent_after_turn">%1$s, after this turn</string>
-    <string name="agent_keeps_settings">%1$s also keeps the model and effort the next time it starts.</string>
+    <string name="agent_keeps_settings">%1$s also keeps the model, effort and fast mode the next time it starts.</string>
     <string name="agent_effort_none">None</string>
     <string name="agent_effort_minimal">Minimal</string>
     <string name="agent_effort_low">Low</string>

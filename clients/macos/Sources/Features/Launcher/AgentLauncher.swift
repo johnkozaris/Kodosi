@@ -159,7 +159,7 @@ struct AgentLauncher: View {
                 if let info, info.accounts.count > 1 || info.addsAccounts {
                     accountKey(info).transition(AnyTransition.pop)
                 }
-                if let info, plan.listsModels || !plan.efforts.isEmpty {
+                if let info, plan.listsModels || !plan.efforts.isEmpty || info.fast {
                     modelKey(info).transition(AnyTransition.pop)
                 }
                 if let info, info.permissions.count > 1 || !info.outputs.isEmpty {
@@ -476,6 +476,10 @@ private extension AgentLauncher {
                 EffortBars(level: level, count: plan.efforts.count, height: 10)
                     .transition(AnyTransition.pop)
             }
+            if plan.fast {
+                Image(systemName: "bolt.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(info.kind.tint)
+                    .transition(AnyTransition.pop)
+            }
         } action: {
             toggle(.model)
         }
@@ -489,6 +493,13 @@ private extension AgentLauncher {
                     Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
                     EffortMeter(levels: plan.efforts, current: plan.effortId) { effort in
                         choosePick { $0.effort = effort }
+                        closeMenu()
+                    }
+                }
+                if info.fast {
+                    Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
+                    FastSwitch(isOn: plan.fast) { fast in
+                        choosePick { $0.fast = fast }
                         closeMenu()
                     }
                 }

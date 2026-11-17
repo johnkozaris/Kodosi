@@ -55,6 +55,7 @@ impl AgentChanges {
             effort: part.effort.clone().or(change.effort),
             permissions: part.permissions.or(change.permissions),
             output: part.output.or(change.output),
+            fast: part.fast.or(change.fast),
         });
         (!change.is_empty()).then_some(change)
     }
@@ -122,4 +123,5 @@ fn overlaps(earlier: &AgentSettings, later: &AgentSettings) -> bool {
         || (earlier.effort.is_some() && later.effort.is_some())
         || (earlier.permissions.is_some() && later.permissions.is_some())
         || (earlier.output.is_some() && later.output.is_some())
+        || (earlier.fast.is_some() && later.fast.is_some())
 }

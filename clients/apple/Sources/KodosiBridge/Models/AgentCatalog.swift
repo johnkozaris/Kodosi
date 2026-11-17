@@ -17,11 +17,12 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
     public var outputs: [AgentOutput]
     public var defaultPermissions: AgentPermissions
     public var defaultOutput: AgentOutput
+    public var fast: Bool
 
     public init(
         agent: String, program: String, installed: Bool, accounts: [AgentAccount], install: String, addsAccounts: Bool,
         reportsUsage: Bool, permissions: [AgentPermissions] = [.ask], outputs: [AgentOutput] = [],
-        defaultPermissions: AgentPermissions = .ask, defaultOutput: AgentOutput = .standard,
+        defaultPermissions: AgentPermissions = .ask, defaultOutput: AgentOutput = .standard, fast: Bool = false,
     ) {
         self.agent = agent
         self.program = program
@@ -34,6 +35,7 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
         self.outputs = outputs
         self.defaultPermissions = defaultPermissions
         self.defaultOutput = defaultOutput
+        self.fast = fast
     }
 
     public var id: String {
@@ -215,10 +217,11 @@ public struct AgentStart: Equatable, Sendable {
     public var effort: String?
     public var permissions: AgentPermissions?
     public var output: AgentOutput?
+    public var fast: Bool?
 
     public init(
         agent: String, account: String? = nil, model: String? = nil, effort: String? = nil,
-        permissions: AgentPermissions? = nil, output: AgentOutput? = nil,
+        permissions: AgentPermissions? = nil, output: AgentOutput? = nil, fast: Bool? = nil,
     ) {
         self.agent = agent
         self.account = account
@@ -226,6 +229,7 @@ public struct AgentStart: Equatable, Sendable {
         self.effort = effort
         self.permissions = permissions
         self.output = output
+        self.fast = fast
     }
 
     public var json: JSONValue {
@@ -235,6 +239,7 @@ public struct AgentStart: Equatable, Sendable {
         fields["effort"] = effort.map(JSONValue.string)
         fields["permissions"] = permissions.map { .string($0.rawValue) }
         fields["output"] = output.map { .string($0.rawValue) }
+        fields["fast"] = fast.map(JSONValue.bool)
         return .object(fields)
     }
 }
@@ -307,11 +312,15 @@ public struct LaunchPlan {
         return saved
     }
 
+    public var fast: Bool {
+        pick?.fast == true && info?.fast == true
+    }
+
     public var shown: AgentPick? {
         info.map {
             AgentPick(
                 agent: $0.agent, account: account?.name, model: modelId, effort: effortId, permissions: permissions,
-                output: output,
+                output: output, fast: fast,
             )
         }
     }
@@ -320,7 +329,7 @@ public struct LaunchPlan {
         guard let info, info.installed, let account else { return nil }
         return AgentStart(
             agent: info.agent, account: account.name, model: modelId ?? "", effort: effortId ?? "", permissions: permissions,
-            output: info.outputs.isEmpty ? nil : output,
+            output: info.outputs.isEmpty ? nil : output, fast: fast,
         )
     }
 }

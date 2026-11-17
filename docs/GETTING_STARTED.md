@@ -37,15 +37,17 @@ the shell of the new terminal.
   verbosity, how much of their work Claude Code, Codex and Copilot CLI show; they start
   at Quiet. Copilot CLI takes its verbosity only from its own settings, so Kodosi changes
   them while Copilot CLI runs at Quiet and puts them back after.
+- Claude Code and Codex have a fast mode, which answers faster and costs more. Turn it on
+  with the model and effort. While it is off, the agent keeps its own setting.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
 - In a terminal at its prompt, the actions key (two sliders) in its header lists the
   installed agents. Select one to start it with your last choice.
-- While an agent runs, the same actions key changes its model and effort, and for some
-  agents its permissions, with the agent's own commands, so it doesn't start again. A
-  change waits for the end of the agent's turn, and Claude Code also keeps a model and
-  effort for its next sessions.
+- While an agent runs, the same actions key changes its model, effort and fast mode, and
+  for some agents its permissions, with the agent's own commands, so it doesn't start
+  again. A change waits for the end of the agent's turn, and Claude Code also keeps a
+  model, effort and fast mode for its next sessions.
 - In zsh and bash (not the bash 3.2 of macOS), ⌘↑ and ⌘↓ jump between prompts.
 - ⌘-click a link to open it (Ctrl-click on Linux and Windows). In a program that uses the
   mouse, also hold Shift. On the iPhone, tap the link; a tap does not open a link in a
@@ -70,7 +72,8 @@ Kodosi, your terminals stop. Kodosi saves what they show on your computer and no
 else. When you open Kodosi again, they start again in their folders, projects and places on
 the stage, with their earlier screen and history above a new prompt (on Windows, scroll
 up to see it). Claude Code, Codex and Copilot CLI continue their conversations, and on a
-Mac or on Linux they keep the model, effort, permissions and output that you chose.
+Mac or on Linux they keep the model, effort, fast mode, permissions and output that you
+chose.
 When Kodosi cannot tell which conversation an agent showed, the agent lists its
 conversations so that you can continue one. In Settings, you can choose what closing
 the window does.
@@ -237,7 +240,7 @@ does.
 
 | Command | What it does |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Starts an agent with your last choice. `--account`, `--model`, `--effort`, `--permissions` and `--output` change it. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Starts an agent with your last choice. `--account`, `--model`, `--effort`, `--fast`, `--permissions` and `--output` change it. |
 | `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch, in its own worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Starts a terminal on another of your computers. A relative folder, or one that starts with `~`, is in your home there. `kodosi devices list` shows which computers are online. |
 | `kodosi agent list` | Shows the agents, their accounts and your last choice. |
@@ -245,7 +248,7 @@ does.
 | `kodosi terminal list` | Shows your terminals with their names and IDs. Give either one as `<terminal>`. |
 | `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Gives the agent in a terminal a message, with who sends it and from where. |
-| `kodosi terminal agent <terminal> --model sonnet` | Changes the model, effort or permissions of the agent in a terminal while it runs. |
+| `kodosi terminal agent <terminal> --model sonnet` | Changes the model, effort, fast mode or permissions of the agent in a terminal while it runs. |
 | `kodosi terminal input <terminal> --enter "make test"` | Types a line. |
 | `kodosi terminal keys <terminal> ctrl-c` | Presses keys. |
 | `kodosi terminal wait <terminal> --until done,failed` | Waits for a state. |

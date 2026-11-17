@@ -84,3 +84,21 @@ struct EffortMeter: View {
         .accessibilityIdentifier("\(identifier).\(AccessibilityIdentifier.token(effort ?? LauncherMenu.standard))")
     }
 }
+
+struct FastSwitch: View {
+    @Environment(\.theme) private var theme
+    let isOn: Bool
+    let turn: (Bool) -> Void
+
+    var body: some View {
+        Toggle(isOn: Binding(get: { isOn }, set: { turn($0) })) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Fast mode").appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
+                Text("Answers faster and costs more.").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 12)
+        .accessibilityIdentifier("launcher.fast")
+    }
+}

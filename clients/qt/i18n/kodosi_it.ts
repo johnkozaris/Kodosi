@@ -117,6 +117,14 @@
         <source>Verbosity</source>
         <translation>Verbosità</translation>
     </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Modalità veloce</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>Risponde più velocemente e costa di più.</translation>
+    </message>
 </context>
 <context>
     <name>AgentLauncher</name>
@@ -335,6 +343,14 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>Mostra ogni passo del suo lavoro per intero.</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Modalità veloce</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>Risponde più velocemente e costa di più.</translation>
     </message>
 </context>
 <context>
@@ -4215,8 +4231,8 @@
         <translation>%1 lo cambia quando finisce il suo turno.</translation>
     </message>
     <message>
-        <source>%1 also keeps the model and effort the next time it starts.</source>
-        <translation>%1 mantiene modello e ragionamento anche al prossimo avvio.</translation>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1 mantiene modello, ragionamento e modalità veloce anche al prossimo avvio.</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -4241,6 +4257,10 @@
     <message>
         <source>Detailed</source>
         <translation>Dettagliata</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Modalità veloce</translation>
     </message>
 </context>
 <context>

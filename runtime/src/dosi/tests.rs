@@ -168,6 +168,14 @@ fn kodosi_commands_become_receipts_and_other_commands_stay_commands() {
         ))
     );
     assert_eq!(
+        shown("kodosi terminal agent --fast on api"),
+        Some((
+            DosiAction::Other,
+            Some(target(DosiTargetKind::Terminal, "api")),
+            None
+        ))
+    );
+    assert_eq!(
         shown(r#"kodosi dosi ask "Which?" --option a --option b"#),
         None
     );

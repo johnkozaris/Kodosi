@@ -465,6 +465,18 @@ Item {
                                 note: agentChanges.keepingNote
                                 onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { effort: id })
                             }
+                            KMenuItem {
+                                text: agentChanges.fastTitle
+                                checkable: true
+                                checked: agentChanges.fast
+                                visible: agentChanges.shown && agentChanges.live.fast === true
+                                objectName: root.objectName + ".agent.fast"
+                                onToggled: {
+                                    const wanted = checked;
+                                    checked = Qt.binding(() => agentChanges.fast);
+                                    Models.SessionActions.changeAgent(root.sessionId, { fast: wanted });
+                                }
+                            }
                             AgentChoiceMenu {
                                 title: qsTr("Permissions")
                                 objectName: root.objectName + ".agent.permissions"
@@ -984,9 +996,11 @@ Item {
             && root.session.kind === "local" && Models.Launcher.computer.length === 0
         readonly property var models: local ? Models.Launcher.models[agent] || null : null
         readonly property string output: settings.output ?? ""
-        readonly property bool shown: root.session.canControl === true && (models !== null || changesModes || output.length > 0)
+        readonly property bool shown: root.session.canControl === true
+            && (models !== null || changesModes || output.length > 0 || live.fast === true)
         readonly property string model: pending.model ?? settings.model ?? ""
         readonly property string effort: pending.model !== undefined ? pending.effort ?? "" : pending.effort ?? settings.effort ?? ""
+        readonly property bool fast: pending.fast ?? settings.fast ?? false
         readonly property string permissions: pending.permissions ?? settings.permissions ?? ""
         readonly property var modelOptions: (models ? models.models || [] : []).map(option => ({ id: option.id, label: option.label }))
         readonly property var effortOptions: {
@@ -1009,6 +1023,7 @@ Item {
         readonly property string modelHint: shownValue(modelLabel(model), pending.model !== undefined)
         readonly property string effortHint: shownValue(effort.length > 0 ? Models.DesktopSettings.effortLabel(effort) : "",
             pending.effort !== undefined)
+        readonly property string fastTitle: shownValue(qsTr("Fast mode"), pending.fast !== undefined)
         readonly property string permissionsHint: shownValue(permissionLabel(permissions), pending.permissions !== undefined)
         readonly property string outputHint: outputLabel(output)
         readonly property string keepingNote: note(live.keeps === true)
@@ -1039,7 +1054,7 @@ Item {
             const label = Models.DesktopSettings.agentLabel(agent)
             const busy = root.session.working === true || root.session.asks === true
             return [busy ? qsTr("%1 changes when it finishes its turn.").arg(label) : "",
-                keeps ? qsTr("%1 also keeps the model and effort the next time it starts.").arg(label) : ""]
+                keeps ? qsTr("%1 also keeps the model, effort and fast mode the next time it starts.").arg(label) : ""]
                 .filter(text => text.length > 0).join(" ")
         }
     }

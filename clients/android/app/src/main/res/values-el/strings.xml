@@ -376,8 +376,10 @@
     <string name="agent_quiet_detail">Δείχνει λιγότερα από τη δουλειά του.</string>
     <string name="agent_standard_detail">Δείχνει τη δουλειά του όπως είναι ρυθμισμένος ο agent.</string>
     <string name="agent_detailed_detail">Δείχνει αναλυτικά κάθε βήμα της δουλειάς του.</string>
+    <string name="agent_fast">Γρήγορη λειτουργία</string>
+    <string name="agent_fast_detail">Απαντά πιο γρήγορα και κοστίζει περισσότερο.</string>
     <string name="agent_after_turn">%1$s, μετά από αυτή τη σειρά</string>
-    <string name="agent_keeps_settings">Το %1$s κρατά το μοντέλο και την ένταση σκέψης και την επόμενη φορά που θα ξεκινήσει.</string>
+    <string name="agent_keeps_settings">Το %1$s κρατά το μοντέλο, την ένταση σκέψης και τη γρήγορη λειτουργία και την επόμενη φορά που θα ξεκινήσει.</string>
     <string name="agent_effort_none">Καμία</string>
     <string name="agent_effort_minimal">Ελάχιστη</string>
     <string name="agent_effort_low">Χαμηλή</string>

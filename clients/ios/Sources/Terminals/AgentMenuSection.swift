@@ -40,6 +40,10 @@ struct AgentMenuSection: View {
         pending.permissions ?? settings.permissions
     }
 
+    private var currentFast: Bool {
+        pending.fast ?? settings.fast ?? false
+    }
+
     var body: some View {
         if shows {
             Section(agent.label) {
@@ -67,6 +71,12 @@ struct AgentMenuSection: View {
                     .pickerStyle(.menu)
                     .accessibilityIdentifier("terminal.menu.effort")
                 }
+                if live.fast {
+                    Toggle(isOn: choice(currentFast) { AgentSettings(fast: $0) }) {
+                        Label(shown(String(localized: "Fast mode"), waits: pending.fast != nil), systemImage: "bolt")
+                    }
+                    .accessibilityIdentifier("terminal.menu.fast")
+                }
                 if !live.permissions.isEmpty {
                     let options = AgentPermissions.allCases.filter { live.permissions.contains($0) || $0 == currentPermissions }
                     Picker(selection: choice(currentPermissions?.rawValue ?? "") { AgentSettings(permissions: AgentPermissions(rawValue: $0)) }) {
@@ -80,8 +90,8 @@ struct AgentMenuSection: View {
                     .pickerStyle(.menu)
                     .accessibilityIdentifier("terminal.menu.permissions")
                 }
-                if live.keeps, live.model || live.effort, models != nil {
-                    Text("\(agent.label) also keeps the model and effort the next time it starts.")
+                if live.keeps {
+                    Text("\(agent.label) also keeps the model, effort and fast mode the next time it starts.")
                 }
             }
             .task(id: session.program) { await launcher?.loadModels(agent.rawValue) }
@@ -89,7 +99,7 @@ struct AgentMenuSection: View {
     }
 
     private var shows: Bool {
-        session.canControl && ((launcher != nil && (live.model || live.effort)) || !live.permissions.isEmpty)
+        session.canControl && ((launcher != nil && (live.model || live.effort)) || live.fast || !live.permissions.isEmpty)
     }
 
     private var modelLabel: String {
@@ -101,7 +111,7 @@ struct AgentMenuSection: View {
         waits ? String(localized: "\(value), after this turn") : value
     }
 
-    private func choice(_ current: String, change: @escaping (String) -> AgentSettings) -> Binding<String> {
+    private func choice<Value: Equatable & Sendable>(_ current: Value, change: @escaping (Value) -> AgentSettings) -> Binding<Value> {
         Binding(get: { current }, set: { picked in
             if picked != current {
                 model.terminals.changeAgent(change(picked), in: session)

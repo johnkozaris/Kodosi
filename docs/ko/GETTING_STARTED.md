@@ -36,13 +36,16 @@ Kodosi를 열고 사이드바 아래쪽의 로그인을 선택하세요. Kodosi�
   Copilot CLI가 작업을 얼마나 보여 줄지도 고를 수 있고, 처음에는 간결이에요. Copilot CLI는
   상세도를 자기 설정에서만 읽기 때문에, Copilot CLI가 간결로 실행되는 동안 Kodosi가 그
   설정을 바꾸고 끝나면 되돌려 놓아요.
+- Claude Code와 Codex에는 빠른 모드가 있어요. 더 빨리 답하지만 비용이 더 들어요. 모델,
+  추론 수준과 함께 켜세요. 꺼져 있는 동안에는 에이전트가 자기 설정을 그대로 써요.
 - 새 계정은 `~/.claude-work`처럼 자기만의 로그인 폴더를 가져요. Kodosi는
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`처럼 셸에서 설정한 계정도 찾아요.
 - 프롬프트에서 기다리는 터미널에서는 헤더의 동작 버튼(슬라이더 두 개)에 설치된 에이전트가
   나와요. 하나를 고르면 지난번 선택으로 시작해요.
-- 에이전트가 실행 중일 때는 같은 동작 버튼으로 에이전트 자신의 명령을 써서 모델과 추론
-  수준을, 일부 에이전트는 권한도 바꿀 수 있어요. 다시 시작하지 않아요. 변경은 에이전트의
-  차례가 끝날 때까지 기다리고, Claude Code는 모델과 추론 수준을 다음 세션에도 그대로 써요.
+- 에이전트가 실행 중일 때는 같은 동작 버튼으로 에이전트 자신의 명령을 써서 모델, 추론
+  수준, 빠른 모드를, 일부 에이전트는 권한도 바꿀 수 있어요. 다시 시작하지 않아요. 변경은
+  에이전트의 차례가 끝날 때까지 기다리고, Claude Code는 모델, 추론 수준, 빠른 모드를 다음
+  세션에도 그대로 써요.
 - zsh와 bash(macOS의 bash 3.2 제외)에서는 ⌘↑와 ⌘↓로 프롬프트 사이를 이동해요.
 - 링크를 열려면 ⌘를 누른 채 클릭하세요(Linux와 Windows에서는 Ctrl+클릭). 마우스를 쓰는
   프로그램 안에서는 Shift도 함께 누르세요. iPhone에서는 링크를 탭하세요. 마우스를 쓰는
@@ -66,7 +69,7 @@ Kodosi를 열고 사이드바 아래쪽의 로그인을 선택하세요. Kodosi�
 터미널에 보이던 내용을 내 컴퓨터에만 저장해요. Kodosi를 다시 열면 터미널이 원래 폴더, 프로젝트,
 스테이지의 자리에서 다시 시작하고, 새 프롬프트 위에 이전 화면과 기록이 나와요(Windows에서는
 위로 스크롤하면 보여요). Claude Code, Codex, Copilot CLI는 대화를 이어 가고, Mac과
-Linux에서는 고른 모델, 추론 수준, 권한, 출력도 그대로 써요. 어떤 대화였는지 Kodosi가 알 수
+Linux에서는 고른 모델, 추론 수준, 빠른 모드, 권한, 출력도 그대로 써요. 어떤 대화였는지 Kodosi가 알 수
 없으면 에이전트가 대화 목록을 보여 줘서 하나를 골라 이어 갈 수 있어요. 창을 닫을 때의
 동작은 설정에서 고를 수 있어요.
 
@@ -219,7 +222,7 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
 
 | 명령 | 하는 일 |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | 지난번 선택으로 에이전트를 시작해요. `--account`, `--model`, `--effort`, `--permissions`, `--output`로 바꿀 수 있어요. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | 지난번 선택으로 에이전트를 시작해요. `--account`, `--model`, `--effort`, `--fast`, `--permissions`, `--output`로 바꿀 수 있어요. |
 | `kodosi terminal start --directory <repository> --branch <name>` | 전용 worktree의 새 브랜치에서 터미널을 시작해요. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | 내 다른 컴퓨터에서 터미널을 시작해요. 상대 경로 폴더나 `~`로 시작하는 폴더는 그 컴퓨터의 홈에 있어요. 어느 컴퓨터가 온라인인지는 `kodosi devices list`로 볼 수 있어요. |
 | `kodosi agent list` | 에이전트, 그 계정, 지난번 선택을 보여 줘요. |
@@ -227,7 +230,7 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
 | `kodosi terminal list` | 터미널을 이름과 ID와 함께 보여 줘요. 둘 중 무엇이든 `<terminal>`로 쓸 수 있어요. |
 | `kodosi terminal read <terminal>` | 화면을 출력해요. `--history`는 스크롤로 넘어간 줄도 더해요. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 보낸 사람과 보낸 곳을 붙여 터미널의 에이전트에게 메시지를 전달해요. |
-| `kodosi terminal agent <terminal> --model sonnet` | 실행 중인 터미널 에이전트의 모델, 추론 수준, 권한을 바꿔요. |
+| `kodosi terminal agent <terminal> --model sonnet` | 실행 중인 터미널 에이전트의 모델, 추론 수준, 빠른 모드, 권한을 바꿔요. |
 | `kodosi terminal input <terminal> --enter "make test"` | 한 줄을 입력해요. |
 | `kodosi terminal keys <terminal> ctrl-c` | 키를 눌러요. |
 | `kodosi terminal wait <terminal> --until done,failed` | 상태가 될 때까지 기다려요. |

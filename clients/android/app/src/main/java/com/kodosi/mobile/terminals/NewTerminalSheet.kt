@@ -91,6 +91,7 @@ import com.kodosi.mobile.ui.ListLine
 import com.kodosi.mobile.ui.MenuPicker
 import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.Radius
+import com.kodosi.mobile.ui.SwitchRow
 import com.kodosi.mobile.ui.TileTint
 import com.kodosi.mobile.ui.raised
 import com.kodosi.mobile.ui.reducedMotion
@@ -426,6 +427,16 @@ private fun LauncherOptions(launcher: Launcher, state: LauncherState, model: App
         ) {
             scope.launch { model.runAction { launcher.choose(pick.copy(effort = it.ifBlank { null })) } }
         }
+    }
+    if (agent.fast) {
+        SwitchRow(
+            stringResource(R.string.agent_fast),
+            pick.fast,
+            { on -> scope.launch { model.runAction { launcher.choose(pick.copy(fast = on)) } } },
+            leading = { IconTile(AppSymbol.BOLT, AgentKind.of(agent.agent).tint()) },
+            subtitle = stringResource(R.string.agent_fast_detail),
+            enabled = enabled
+        )
     }
     val permissions = pick.permissions?.takeIf(agent.permissions::contains) ?: agent.defaultPermissions
     if (agent.permissions.size > 1) {

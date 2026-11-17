@@ -31,6 +31,7 @@ import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.ListLine
 import com.kodosi.mobile.ui.MenuPicker
 import com.kodosi.mobile.ui.ProgressCaption
+import com.kodosi.mobile.ui.SwitchRow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
@@ -39,11 +40,12 @@ import kotlinx.serialization.json.JsonObject
 internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
     val live = session.programLive ?: return
     val readsModels = session.isOwner && session.hostDeviceId != null && (live.model || live.effort)
-    if (!readsModels && live.permissions.isEmpty()) return
+    if (!readsModels && !live.fast && live.permissions.isEmpty()) return
     val settings = session.programSettings ?: AgentSettings()
     val pending = session.programPending ?: AgentSettings()
     val currentModel = pending.model ?: settings.model
     val currentEffort = if (pending.model != null) pending.effort else pending.effort ?: settings.effort
+    val currentFast = pending.fast ?: settings.fast ?: false
     val currentPermissions = pending.permissions ?: settings.permissions
     val scope = rememberCoroutineScope()
     var models by remember(session.id, session.program) { mutableStateOf<List<AgentModel>?>(null) }
@@ -121,6 +123,16 @@ internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
             enabled = !changing && session.canControl
         ) { if (it != currentEffort) change(AgentSettings(effort = it)) }
     }
+    if (live.fast) {
+        SwitchRow(
+            shown(stringResource(R.string.agent_fast), pending.fast != null),
+            currentFast,
+            { change(AgentSettings(fast = it)) },
+            leading = { AppIcon(AppSymbol.BOLT) },
+            subtitle = stringResource(R.string.agent_fast_detail),
+            enabled = !changing && session.canControl
+        )
+    }
     if (live.permissions.isNotEmpty()) {
         val options = AgentPermissions.entries.filter { it in live.permissions || it == currentPermissions }
         MenuPicker(
@@ -135,7 +147,7 @@ internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
             if (permissions != currentPermissions) change(AgentSettings(permissions = permissions))
         }
     }
-    if (live.keeps && readsModels && models != null) {
+    if (live.keeps) {
         Text(
             stringResource(R.string.agent_keeps_settings, agentLabel(session.agent)),
             Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

@@ -517,13 +517,14 @@ std::optional<QVariantMap> SessionCatalogModel::decodeAgentSettings(const QJsonV
     for (auto entry = settings.begin(); entry != settings.end(); ++entry) {
         const auto key = entry.key();
         const auto word = entry.value().toString();
-        const bool valid = entry.value().isString()
-            && ((key == QStringLiteral("model") || key == QStringLiteral("effort")) ? !word.isEmpty() && word.size() <= 128
-                : key == QStringLiteral("permissions") ? permissions.contains(word)
-                : key == QStringLiteral("output") && outputs.contains(word));
+        const bool valid = key == QStringLiteral("fast") ? entry.value().isBool()
+            : entry.value().isString()
+                && ((key == QStringLiteral("model") || key == QStringLiteral("effort")) ? !word.isEmpty() && word.size() <= 128
+                    : key == QStringLiteral("permissions") ? permissions.contains(word)
+                    : key == QStringLiteral("output") && outputs.contains(word));
         if (!valid)
             return std::nullopt;
-        decoded.insert(key, word);
+        decoded.insert(key, entry.value().toVariant());
     }
     return decoded;
 }
@@ -540,10 +541,12 @@ std::optional<QVariantMap> SessionCatalogModel::decodeAgentLive(const QJsonValue
         permissions.append(entry.toString());
     }
     if (!value.isObject() || !live.value(QStringLiteral("model")).isBool() || !live.value(QStringLiteral("effort")).isBool()
-        || !live.value(QStringLiteral("keeps")).isBool() || !live.value(QStringLiteral("permissions")).isArray())
+        || !live.value(QStringLiteral("fast")).isBool() || !live.value(QStringLiteral("keeps")).isBool()
+        || !live.value(QStringLiteral("permissions")).isArray())
         return std::nullopt;
     return QVariantMap { { QStringLiteral("model"), live.value(QStringLiteral("model")).toBool() },
         { QStringLiteral("effort"), live.value(QStringLiteral("effort")).toBool() },
+        { QStringLiteral("fast"), live.value(QStringLiteral("fast")).toBool() },
         { QStringLiteral("keeps"), live.value(QStringLiteral("keeps")).toBool() },
         { QStringLiteral("permissions"), permissions } };
 }

@@ -475,7 +475,7 @@ void ControlsTest::agentMenuShowsChoicesThatNeverChanged()
         auto entry = test::session(1);
         entry.insert(QStringLiteral("program"), program);
         entry.insert(QStringLiteral("programLive"),
-            QJsonObject { { QStringLiteral("model"), true }, { QStringLiteral("effort"), true },
+            QJsonObject { { QStringLiteral("model"), true }, { QStringLiteral("effort"), true }, { QStringLiteral("fast"), true },
                 { QStringLiteral("keeps"), false }, { QStringLiteral("permissions"), livePermissions } });
         entry.insert(QStringLiteral("programSettings"), chosen);
         return entry;
@@ -514,21 +514,28 @@ void ControlsTest::agentMenuShowsChoicesThatNeverChanged()
     QVERIFY2(component.isReady(), qPrintable(component.errorString()));
     std::unique_ptr<QObject> root(component.create());
     QVERIFY2(root, qPrintable(component.errorString()));
-    const auto hint = [&root](const char* choice) {
-        auto* menu = root->findChild<QObject*>(
-            QStringLiteral("stage.tile.") + test::id(1) + QStringLiteral(".agent.") + QLatin1String(choice));
+    const auto choice = [&root](const char* name) {
+        return root->findChild<QObject*>(
+            QStringLiteral("stage.tile.") + test::id(1) + QStringLiteral(".agent.") + QLatin1String(name));
+    };
+    const auto hint = [&choice](const char* name) {
+        auto* menu = choice(name);
         return menu ? menu->property("hint").toString() : QStringLiteral("no menu");
     };
     QCOMPARE(hint("model"), QStringLiteral("Default"));
     QCOMPARE(hint("output"), QStringLiteral("Standard"));
+    auto* fast = choice("fast");
+    QVERIFY(fast);
+    QVERIFY(!fast->property("checked").toBool());
 
     workspace.apply(test::snapshot({ running(QStringLiteral("codex"), { QStringLiteral("ask"), QStringLiteral("auto") },
                         { { QStringLiteral("permissions"), QStringLiteral("auto") },
-                            { QStringLiteral("output"), QStringLiteral("detailed") } }) }),
+                            { QStringLiteral("output"), QStringLiteral("detailed") }, { QStringLiteral("fast"), true } }) }),
         0);
     QCOMPARE(hint("model"), QStringLiteral("Default"));
     QCOMPARE(hint("permissions"), QStringLiteral("Auto"));
     QCOMPARE(hint("output"), QStringLiteral("Detailed"));
+    QVERIFY(fast->property("checked").toBool());
 }
 
 void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()

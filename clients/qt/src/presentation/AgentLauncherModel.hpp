@@ -59,7 +59,7 @@ public:
     Q_INVOKABLE QString accountTitle(const QString& name, const QString& program) const;
     Q_INVOKABLE void addAccount(const QString& agent, const QString& name);
     Q_INVOKABLE void chooseAgent(const QString& agent);
-    Q_INVOKABLE void choose(const QString& kind, const QString& agent, const QString& value);
+    Q_INVOKABLE void choose(const QString& kind, const QString& agent, const QVariant& value);
     Q_INVOKABLE void listFolders(const QString& path = {}, bool browse = false);
     Q_INVOKABLE void closeFolders();
 

@@ -23,7 +23,7 @@ private let catalog: JSONValue = .object([
     "choice": .object([
         "agent": .string("claude"),
         "picks": .array([
-            .object(["agent": .string("claude"), "account": .string("work"), "model": .null, "effort": .string("high")]),
+            .object(["agent": .string("claude"), "account": .string("work"), "model": .null, "effort": .string("high"), "fast": .bool(true)]),
         ]),
     ]),
     "agents": .array([
@@ -32,7 +32,7 @@ private let catalog: JSONValue = .object([
             "addsAccounts": .bool(true), "reportsUsage": .bool(true),
             "permissions": .array(["ask", "auto", "unrestricted"].map(JSONValue.string)),
             "outputs": .array(["quiet", "standard", "detailed"].map(JSONValue.string)),
-            "defaultPermissions": .string("unrestricted"), "defaultOutput": .string("quiet"),
+            "defaultPermissions": .string("unrestricted"), "defaultOutput": .string("quiet"), "fast": .bool(true),
             "accounts": .array([
                 .object(["name": .string("default"), "command": .string("claude"), "identity": .string("ada@example.com"),
                          "folder": .string("~/.claude")]),
@@ -45,7 +45,7 @@ private let catalog: JSONValue = .object([
             "install": .string("curl -fsSL https://chatgpt.com/codex/install.sh | sh"), "addsAccounts": .bool(true),
             "reportsUsage": .bool(true), "permissions": .array(["ask", "auto", "unrestricted"].map(JSONValue.string)),
             "outputs": .array(["quiet", "standard", "detailed"].map(JSONValue.string)),
-            "defaultPermissions": .string("unrestricted"), "defaultOutput": .string("quiet"),
+            "defaultPermissions": .string("unrestricted"), "defaultOutput": .string("quiet"), "fast": .bool(true),
             "accounts": .array([]),
         ]),
     ]),
@@ -327,14 +327,21 @@ private func terminal(running agent: [String: JSONValue]) throws -> RuntimeSessi
     try await answerAgentRequests(app, sent: sent)
     #expect(app.launcher.installed.map(\.agent) == ["claude"])
     #expect(LaunchPlan(launcher: app.launcher).start == AgentStart(
-        agent: "claude", account: "work", model: "", effort: "high", permissions: .unrestricted, output: .quiet,
+        agent: "claude", account: "work", model: "", effort: "high", permissions: .unrestricted, output: .quiet, fast: true,
     ))
     #expect(LaunchPlan(launcher: app.launcher, agent: "codex").start == nil)
     app.launcher.choose(.pick(AgentPick(agent: "claude", account: "gone", permissions: .ask, output: .standard)))
     let plan = LaunchPlan(launcher: app.launcher)
     #expect(plan.account?.name == "default")
-    #expect(plan.start?.permissions == .ask && plan.start?.output == .standard)
+    #expect(plan.start?.permissions == .ask && plan.start?.output == .standard && plan.start?.fast == false)
     #expect(plan.shown?.permissions == .ask)
+}
+
+@Test func `a pick reaches the computer that keeps the choice as it was made`() throws {
+    let pick = AgentPick(
+        agent: "codex", account: "work", model: "gpt-6", effort: "high", permissions: .auto, output: .detailed, fast: true,
+    )
+    #expect(try AgentChoiceChange.pick(pick).json.decode(as: AgentPick.self) == pick)
 }
 
 @Test func `usage shows only on accounts that are signed in`() async throws {

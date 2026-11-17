@@ -24,6 +24,7 @@ Item {
         case "person": return "M12 11.5 A3.5 3.5 0 1 0 12 4.5 A3.5 3.5 0 1 0 12 11.5 M5.5 19.5 Q5.5 14 12 14 Q18.5 14 18.5 19.5"
         case "wind": return "M3 9 H13 A3 3 0 1 0 10 6 M3 13 H18 A3 3 0 1 1 15 16 M3 17 H9"
         case "sparkle": return "M12 3 Q13 11 21 12 Q13 13 12 21 Q11 13 3 12 Q11 11 12 3 Z"
+        case "bolt": return "M13 2 L3 14 H12 L11 22 L21 10 H12 Z"
         case "more": return "M5 12 H5.1 M12 12 H12.1 M19 12 H19.1"
         case "minus": return "M5 12 H19"
         case "window-minimize": return "M4.5 12 H19.5"

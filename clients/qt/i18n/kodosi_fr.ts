@@ -117,6 +117,14 @@
         <source>Verbosity</source>
         <translation>Verbosité</translation>
     </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Mode rapide</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>Répond plus vite et coûte plus cher.</translation>
+    </message>
 </context>
 <context>
     <name>AgentLauncher</name>
@@ -335,6 +343,14 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>Montre chaque étape de son travail en entier.</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Mode rapide</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>Répond plus vite et coûte plus cher.</translation>
     </message>
 </context>
 <context>
@@ -4215,8 +4231,8 @@
         <translation>%1 le change à la fin de son tour.</translation>
     </message>
     <message>
-        <source>%1 also keeps the model and effort the next time it starts.</source>
-        <translation>%1 garde aussi le modèle et le raisonnement à son prochain démarrage.</translation>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1 garde aussi le modèle, le raisonnement et le mode rapide à son prochain démarrage.</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -4241,6 +4257,10 @@
     <message>
         <source>Detailed</source>
         <translation>Détaillée</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Mode rapide</translation>
     </message>
 </context>
 <context>

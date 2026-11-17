@@ -174,6 +174,25 @@ impl Agent {
         }
     }
 
+    /// Claude Code ranks the `fastMode` of its launch `--settings` above a later `/fast off` and
+    /// reads it again at each model change, which turns fast mode back on. `/fast` keeps its
+    /// `--fast-mode` in step, although `claude --help` does not list it.
+    #[cfg(feature = "host")]
+    pub(crate) const fn fast_words(self, fast: bool) -> Option<&'static [&'static str]> {
+        match (self, fast) {
+            (Self::Claude, true) => Some(&["--fast-mode", "on"]),
+            (Self::Claude, false) => Some(&["--fast-mode", "off"]),
+            (Self::Codex, true) => Some(&["-c", "service_tier=fast"]),
+            (Self::Codex, false) => Some(&["-c", "service_tier=default"]),
+            (Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
+        }
+    }
+
+    #[cfg(feature = "host")]
+    pub(crate) const fn has_fast(self) -> bool {
+        self.fast_words(true).is_some()
+    }
+
     #[cfg(feature = "host")]
     pub(crate) fn permissions(self) -> Vec<Permissions> {
         Permissions::ALL
@@ -214,49 +233,60 @@ impl Agent {
     }
 
     #[cfg(feature = "host")]
-    const fn mode_flags(self) -> &'static [(&'static str, Option<&'static str>)] {
+    const fn mode_flags(self) -> &'static [(&'static str, Option<&'static str>, Setting)] {
+        use Setting::{Fast, Output, Permissions};
         match self {
             Self::Claude => &[
-                ("--permission-mode", Some("")),
-                ("--dangerously-skip-permissions", None),
-                ("--allow-dangerously-skip-permissions", None),
-                ("--settings", Some(r#"{"viewMode""#)),
-                ("--verbose", None),
+                ("--permission-mode", Some(""), Permissions),
+                ("--dangerously-skip-permissions", None, Permissions),
+                ("--allow-dangerously-skip-permissions", None, Permissions),
+                ("--settings", Some(r#"{"viewMode""#), Output),
+                ("--verbose", None, Output),
+                ("--fast-mode", Some(""), Fast),
             ],
             Self::Codex => &[
-                ("-a", Some("")),
-                ("--ask-for-approval", Some("")),
-                ("-s", Some("")),
-                ("--sandbox", Some("")),
-                ("--dangerously-bypass-approvals-and-sandbox", None),
-                ("--yolo", None),
-                ("--full-auto", None),
-                ("-c", Some("hide_agent_reasoning=")),
-                ("-c", Some("show_raw_agent_reasoning=")),
-                ("-c", Some("model_reasoning_summary=")),
-                ("-c", Some("tui.auto_recap=")),
-                ("-c", Some("tui.show_tooltips=")),
-                ("-c", Some("tui.animations=")),
-                ("-c", Some("tui.status_line=")),
+                ("-a", Some(""), Permissions),
+                ("--ask-for-approval", Some(""), Permissions),
+                ("-s", Some(""), Permissions),
+                ("--sandbox", Some(""), Permissions),
+                (
+                    "--dangerously-bypass-approvals-and-sandbox",
+                    None,
+                    Permissions,
+                ),
+                ("--yolo", None, Permissions),
+                ("--full-auto", None, Permissions),
+                ("-c", Some("hide_agent_reasoning="), Output),
+                ("-c", Some("show_raw_agent_reasoning="), Output),
+                ("-c", Some("model_reasoning_summary="), Output),
+                ("-c", Some("tui.auto_recap="), Output),
+                ("-c", Some("tui.show_tooltips="), Output),
+                ("-c", Some("tui.animations="), Output),
+                ("-c", Some("tui.status_line="), Output),
+                ("-c", Some("service_tier="), Fast),
             ],
             Self::Copilot => &[
-                ("--yolo", None),
-                ("--allow-all", None),
-                ("--allow-all-tools", None),
-                ("--allow-all-paths", None),
-                ("--allow-all-urls", None),
-                ("--assisted-approval", None),
+                ("--yolo", None, Permissions),
+                ("--allow-all", None, Permissions),
+                ("--allow-all-tools", None, Permissions),
+                ("--allow-all-paths", None, Permissions),
+                ("--allow-all-urls", None, Permissions),
+                ("--assisted-approval", None, Permissions),
             ],
             Self::Gemini => &[
-                ("--approval-mode", Some("")),
-                ("--yolo", None),
-                ("-y", None),
+                ("--approval-mode", Some(""), Permissions),
+                ("--yolo", None, Permissions),
+                ("-y", None, Permissions),
             ],
-            Self::Cursor => &[("--force", None), ("-f", None), ("--yolo", None)],
+            Self::Cursor => &[
+                ("--force", None, Permissions),
+                ("-f", None, Permissions),
+                ("--yolo", None, Permissions),
+            ],
             Self::Opencode => &[
-                ("--auto", None),
-                ("--yolo", None),
-                ("--dangerously-skip-permissions", None),
+                ("--auto", None, Permissions),
+                ("--yolo", None, Permissions),
+                ("--dangerously-skip-permissions", None, Permissions),
             ],
         }
     }
@@ -281,9 +311,13 @@ impl Agent {
             Some(format!("{flag} {}", shell_word(&value)?))
         })
         .collect();
-        for (flag, start) in self.mode_flags() {
-            let output = is_output_flag(flag, *start);
-            if (output && changed.output.is_some()) || (!output && changed.permissions.is_some()) {
+        for (flag, start, setting) in self.mode_flags() {
+            let replaced = match setting {
+                Setting::Permissions => changed.permissions.is_some(),
+                Setting::Output => changed.output.is_some(),
+                Setting::Fast => changed.fast.is_some(),
+            };
+            if replaced {
                 continue;
             }
             let word = start.map_or_else(
@@ -307,6 +341,7 @@ impl Agent {
                 .permissions
                 .and_then(|permissions| self.permission_words(permissions)),
             changed.output.and_then(|output| self.output_words(output)),
+            changed.fast.and_then(|fast| self.fast_words(fast)),
         ];
         words.extend(
             now.into_iter()
@@ -674,6 +709,10 @@ pub struct AgentCatalog {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a separate fact about one agent"
+)]
 pub struct AgentInfo {
     pub agent: Agent,
     pub program: String,
@@ -686,6 +725,7 @@ pub struct AgentInfo {
     pub outputs: Vec<Output>,
     pub default_permissions: Permissions,
     pub default_output: Output,
+    pub fast: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -807,6 +847,8 @@ pub struct AgentPick {
     pub permissions: Option<Permissions>,
     #[serde(default)]
     pub output: Option<Output>,
+    #[serde(default)]
+    pub fast: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -823,6 +865,8 @@ pub struct AgentStart {
     pub permissions: Option<Permissions>,
     #[serde(default)]
     pub output: Option<Output>,
+    #[serde(default)]
+    pub fast: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -1065,21 +1109,10 @@ pub(crate) fn as_shell_word(shell: &Path, word: &str) -> String {
 }
 
 #[cfg(feature = "host")]
-fn is_output_flag(flag: &str, start: Option<&str>) -> bool {
-    matches!(flag, "--settings" | "--verbose")
-        || (flag == "-c"
-            && start.is_some_and(|start| {
-                [
-                    "hide_agent_reasoning=",
-                    "show_raw_agent_reasoning=",
-                    "model_reasoning_summary=",
-                    "tui.auto_recap=",
-                    "tui.show_tooltips=",
-                    "tui.animations=",
-                    "tui.status_line=",
-                ]
-                .contains(&start)
-            }))
+enum Setting {
+    Permissions,
+    Output,
+    Fast,
 }
 
 #[cfg(feature = "host")]

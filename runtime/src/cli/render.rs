@@ -272,6 +272,7 @@ fn chosen(pick: &Value) -> String {
     ["account", "model", "effort", "permissions", "output"]
         .into_iter()
         .filter_map(|key| pick[key].as_str())
+        .chain((pick["fast"] == true).then_some("fast"))
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -307,6 +308,7 @@ fn agents(result: &Value) -> String {
                 let values = values.collect::<Vec<_>>().join(", ");
                 (!values.is_empty()).then(|| format!("; {key} {values}"))
             })
+            .chain((info["fast"] == true).then(|| "; fast on, off".to_owned()))
             .collect::<String>();
         let last = chosen(pick(result, &agent));
         lines.push(format!(

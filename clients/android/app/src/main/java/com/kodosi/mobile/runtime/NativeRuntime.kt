@@ -69,7 +69,7 @@ internal object NativeRuntime {
 
 object Ffi {
     const val ABI_VERSION = 11
-    const val PROTOCOL_VERSION = 92
+    const val PROTOCOL_VERSION = 93
     const val OK = 0
     const val RUNTIME_STOPPED = 5
     const val BUSY = 6

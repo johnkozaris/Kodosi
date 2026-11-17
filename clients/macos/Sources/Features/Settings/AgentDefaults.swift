@@ -25,6 +25,13 @@ struct AgentDefaults: View {
             if plan.listsModels || !plan.efforts.isEmpty {
                 model(plan)
             }
+            if info.fast {
+                SwitchRow(
+                    String(localized: "Fast mode"), subtitle: String(localized: "Answers faster and costs more."), symbol: "bolt",
+                    tint: info.kind.tint, isOn: Binding(get: { plan.fast }, set: { fast in choosePick { $0.fast = fast } }),
+                )
+                .accessibilityIdentifier("settings.agents.fast")
+            }
             if info.permissions.count > 1 {
                 let permissions = plan.permissions
                 ModeSetting(

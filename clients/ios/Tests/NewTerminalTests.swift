@@ -42,8 +42,9 @@ struct NewTerminalTests {
         let create = try await request("session.create")
         #expect(create["computer"] as? String == "studio")
         #expect(create["workingDir"] as? String == "/home/maya/atlas")
-        #expect(create["agent"] as? [String: String] == [
+        #expect(create["agent"] as? NSDictionary == [
             "agent": "claude", "account": "work", "model": "", "effort": "high", "permissions": "unrestricted", "output": "quiet",
+            "fast": true,
         ])
         #expect(create["prompt"] as? String == "fix the failing test")
         #expect(create["size"] == nil)
@@ -124,13 +125,13 @@ struct NewTerminalTests {
         "kodosi": NSNull(),
         "choice": [
             "agent": "claude",
-            "picks": [["agent": "claude", "account": "work", "model": NSNull(), "effort": "high"]],
+            "picks": [["agent": "claude", "account": "work", "model": NSNull(), "effort": "high", "fast": true]],
         ],
         "agents": [
             [
                 "agent": "claude", "program": "claude", "installed": true, "install": "", "addsAccounts": true, "reportsUsage": true,
                 "permissions": ["ask", "auto", "unrestricted"], "outputs": ["quiet", "standard", "detailed"],
-                "defaultPermissions": "unrestricted", "defaultOutput": "quiet",
+                "defaultPermissions": "unrestricted", "defaultOutput": "quiet", "fast": true,
                 "accounts": [
                     ["name": "default", "command": "claude", "identity": NSNull(), "folder": "~/.claude"],
                     ["name": "work", "command": "env CLAUDE_CONFIG_DIR=/home/maya/.claude-work claude", "identity": NSNull(),

@@ -32,13 +32,15 @@ data class AgentSettings(
     val model: String? = null,
     val effort: String? = null,
     val permissions: AgentPermissions? = null,
-    val output: AgentOutput? = null
+    val output: AgentOutput? = null,
+    val fast: Boolean? = null
 )
 
 @Serializable
 data class AgentLive(
     val model: Boolean,
     val effort: Boolean,
+    val fast: Boolean,
     val permissions: List<AgentPermissions>,
     val keeps: Boolean
 )

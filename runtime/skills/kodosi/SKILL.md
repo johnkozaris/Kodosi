@@ -25,14 +25,16 @@ app, and in a Kodosi terminal it knows its own terminal and project.
 - `kodosi terminal start --agent claude --prompt "task"`: starts a terminal with an agent
   on that task. The user sees it in the app at once. `--directory <folder>`, `--branch
   <name>` (a new branch in a folder of its own), `--computer <name>` (another computer of
-  the user, as `kodosi devices list` names it), `--project <name>`, `--model`, `--effort`
-  and `--name` change it. Without `--agent`, it is a shell.
+  the user, as `kodosi devices list` names it), `--project <name>`, `--model`, `--effort`,
+  `--fast on` (Claude Code and Codex answer faster and it costs more) and `--name` change
+  it. Without `--agent`, it is a shell.
 - `kodosi agent list`: the agents that Kodosi can start here, with their accounts.
   `kodosi agent models <agent>`: the models and efforts of one.
 - `kodosi terminal wait <terminal> --until waiting,done,failed`: returns when the agent
   there reaches one of these states.
-- `kodosi terminal agent <terminal> --model <id> --effort <level>`: changes the agent of a
-  terminal while it runs, as far as that agent can.
+- `kodosi terminal agent <terminal> --model <id> --effort <level> --fast on`: changes the
+  agent of a terminal while it runs, as far as that agent can; `--fast off` turns fast mode
+  off.
 - `kodosi terminal input <terminal> --enter "text"` and `kodosi terminal keys <terminal>
   enter`: type as a person does, for a program that is not an agent.
 - `kodosi terminal interrupt <terminal>`: sends Ctrl-C. `kodosi terminal close

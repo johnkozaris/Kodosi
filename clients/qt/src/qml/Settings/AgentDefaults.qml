@@ -20,6 +20,7 @@ ListGroup {
     readonly property var efforts: plan ? plan.efforts : []
     readonly property string effortId: plan ? plan.effortId : ""
     readonly property int effortLevel: efforts.findIndex(entry => entry.id === effortId)
+    readonly property bool fast: plan ? plan.fast : false
     readonly property string permissions: plan ? plan.permissions : ""
     readonly property string output: plan ? plan.output : ""
 
@@ -233,6 +234,26 @@ ListGroup {
                         }
                     }
                 }
+            }
+        }
+    }
+    ListRow {
+        visible: root.info !== null && root.info.fast === true
+        title: qsTr("Fast mode")
+        subtitle: qsTr("Answers faster and costs more.")
+        iconName: "bolt"
+        tint: Identity.kindTint(root.agent)
+
+        KSwitch {
+            objectName: "settings.agents.fast"
+            Accessible.id: objectName
+            Accessible.name: qsTr("Fast mode")
+            Accessible.description: qsTr("Answers faster and costs more.")
+            checked: root.fast
+            onToggled: {
+                const wanted = checked
+                checked = Qt.binding(() => root.fast)
+                Models.Launcher.choose("fast", root.agent, wanted)
             }
         }
     }

@@ -25,7 +25,8 @@ data class AgentInfo(
     val defaultPermissions: AgentPermissions,
     val defaultOutput: AgentOutput,
     val accounts: List<AgentAccount> = emptyList(),
-    val reportsUsage: Boolean = false
+    val reportsUsage: Boolean = false,
+    val fast: Boolean = false
 )
 
 @Serializable
@@ -38,7 +39,8 @@ data class AgentPick(
     val model: String? = null,
     val effort: String? = null,
     val permissions: AgentPermissions? = null,
-    val output: AgentOutput? = null
+    val output: AgentOutput? = null,
+    val fast: Boolean = false
 ) {
     fun fields(): JsonObject = fields(
         "agent" to agent,
@@ -46,7 +48,8 @@ data class AgentPick(
         "model" to model,
         "effort" to effort,
         "permissions" to permissions?.let { RuntimeJson.encodeToJsonElement(AgentPermissions.serializer(), it) },
-        "output" to output?.let { RuntimeJson.encodeToJsonElement(AgentOutput.serializer(), it) }
+        "output" to output?.let { RuntimeJson.encodeToJsonElement(AgentOutput.serializer(), it) },
+        "fast" to fast
     )
 }
 
@@ -197,7 +200,8 @@ class Launcher(private val commands: CommandSink, val computer: String) {
                 model ?: "",
                 effort ?: "",
                 pick?.permissions?.takeIf(it.permissions::contains) ?: it.defaultPermissions,
-                if (it.outputs.isEmpty()) null else pick?.output?.takeIf(it.outputs::contains) ?: it.defaultOutput
+                if (it.outputs.isEmpty()) null else pick?.output?.takeIf(it.outputs::contains) ?: it.defaultOutput,
+                it.fast && pick?.fast == true
             ).fields()
         }
         val words = prompt.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').trim()

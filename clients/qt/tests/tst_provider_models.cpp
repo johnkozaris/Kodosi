@@ -212,7 +212,8 @@ private slots:
             { QStringLiteral("addsAccounts"), true },
             { QStringLiteral("permissions"), QJsonArray { QStringLiteral("ask"), QStringLiteral("auto"), QStringLiteral("unrestricted") } },
             { QStringLiteral("outputs"), QJsonArray { QStringLiteral("quiet"), QStringLiteral("standard"), QStringLiteral("detailed") } },
-            { QStringLiteral("defaultPermissions"), QStringLiteral("unrestricted") }, { QStringLiteral("defaultOutput"), QStringLiteral("quiet") } };
+            { QStringLiteral("defaultPermissions"), QStringLiteral("unrestricted") }, { QStringLiteral("defaultOutput"), QStringLiteral("quiet") },
+            { QStringLiteral("fast"), true } };
         const QJsonObject codex { { QStringLiteral("agent"), QStringLiteral("codex") },
             { QStringLiteral("program"), QStringLiteral("codex") }, { QStringLiteral("installed"), false },
             { QStringLiteral("accounts"), QJsonArray {} }, { QStringLiteral("install"), QStringLiteral("npm install -g @openai/codex") },
@@ -230,7 +231,8 @@ private slots:
         const auto starts = [](const QString& account, const QString& model, const QString& effort) {
             return QVariantMap { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("account"), account },
                 { QStringLiteral("model"), model }, { QStringLiteral("effort"), effort },
-                { QStringLiteral("permissions"), QStringLiteral("unrestricted") }, { QStringLiteral("output"), QStringLiteral("quiet") } };
+                { QStringLiteral("permissions"), QStringLiteral("unrestricted") }, { QStringLiteral("output"), QStringLiteral("quiet") },
+                { QStringLiteral("fast"), false } };
         };
         QCOMPARE(start(QStringLiteral("claude")), starts(QStringLiteral("work"), QStringLiteral("opus"), QStringLiteral("max")));
         QVERIFY(start(QStringLiteral("codex")).isEmpty());
@@ -257,7 +259,7 @@ private slots:
             QJsonObject({ { QStringLiteral("type"), QStringLiteral("pick") }, { QStringLiteral("agent"), QStringLiteral("claude") },
                 { QStringLiteral("account"), QStringLiteral("default") }, { QStringLiteral("model"), QStringLiteral("opus") },
                 { QStringLiteral("effort"), QStringLiteral("high") }, { QStringLiteral("permissions"), QStringLiteral("unrestricted") },
-                { QStringLiteral("output"), QStringLiteral("quiet") } }));
+                { QStringLiteral("output"), QStringLiteral("quiet") }, { QStringLiteral("fast"), false } }));
 
         launcher.choose(QStringLiteral("permissions"), QStringLiteral("claude"), QStringLiteral("ask"));
         launcher.choose(QStringLiteral("output"), QStringLiteral("claude"), QStringLiteral("standard"));
@@ -266,6 +268,10 @@ private slots:
         const auto change = commands.values.last().value(QStringLiteral("change")).toObject();
         QCOMPARE(change.value(QStringLiteral("permissions")).toString(), QStringLiteral("ask"));
         QCOMPARE(change.value(QStringLiteral("output")).toString(), QStringLiteral("standard"));
+
+        launcher.choose(QStringLiteral("fast"), QStringLiteral("claude"), true);
+        QVERIFY(start(QStringLiteral("claude")).value(QStringLiteral("fast")).toBool());
+        QVERIFY(commands.values.last().value(QStringLiteral("change")).toObject().value(QStringLiteral("fast")).toBool());
     }
     void usageAsksOnceAtATimeAndKeepsTheHeadlineOfEachAccount()
     {

@@ -105,6 +105,7 @@ enum class AppSymbol {
     KEY,
     APPEARANCE,
     SUN,
+    BOLT,
     LANGUAGE,
     NOTIFICATIONS,
     TEXT_SIZE,
@@ -359,6 +360,8 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 path(4f, 20f, 6f, 18f)
                 path(18f, 6f, 20f, 4f)
             }
+
+            AppSymbol.BOLT -> path(11f, 14f, 9f, 22f, 19f, 10f, 13f, 10f, 15f, 2f, 5f, 14f, 11f, 14f)
 
             AppSymbol.LANGUAGE -> {
                 path(2f, 5f, 14f, 5f)

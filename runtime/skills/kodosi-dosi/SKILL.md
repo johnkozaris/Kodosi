@@ -46,9 +46,9 @@ context between terminals and projects.
   left, right, home, end, pageup, pagedown, space and ctrl- with a letter. While the person
   types in that terminal, both stop with a message; try again later.
 - `kodosi terminal start --agent claude --prompt "task"` starts an agent with the person's
-  last choice; `--account`, `--model`, `--effort`, `--directory`, `--branch` and
-  `--project` change it. `kodosi terminal run <terminal> --agent codex` starts an agent in
-  a terminal that waits at its shell prompt.
+  last choice; `--account`, `--model`, `--effort`, `--fast on`, `--directory`, `--branch`
+  and `--project` change it. `kodosi terminal run <terminal> --agent codex` starts an
+  agent in a terminal that waits at its shell prompt.
 - `kodosi terminal message <terminal> "text"` gives the agent in a terminal a message
   from you, with your name and the person's. It stops with a message while that agent
   waits for a person's answer or the person types there.

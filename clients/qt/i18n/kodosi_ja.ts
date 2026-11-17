@@ -117,6 +117,14 @@
         <source>Verbosity</source>
         <translation>詳細度</translation>
     </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>高速モード</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>応答が速くなり、料金が高くなります。</translation>
+    </message>
 </context>
 <context>
     <name>AgentLauncher</name>
@@ -335,6 +343,14 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>作業の各ステップをすべて表示します。</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>高速モード</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>応答が速くなり、料金が高くなります。</translation>
     </message>
 </context>
 <context>
@@ -4202,8 +4218,8 @@
         <translation>%1 は、今のターンが終わると変更します。</translation>
     </message>
     <message>
-        <source>%1 also keeps the model and effort the next time it starts.</source>
-        <translation>%1 は、次回の起動時もこのモデルと推論レベルを使います。</translation>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1 は、次回の起動時もこのモデル、推論レベル、高速モードを使います。</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -4228,6 +4244,10 @@
     <message>
         <source>Detailed</source>
         <translation>詳細</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>高速モード</translation>
     </message>
 </context>
 <context>

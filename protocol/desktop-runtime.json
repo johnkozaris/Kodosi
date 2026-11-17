@@ -1759,6 +1759,16 @@
                       }
                     ]
                   },
+                  "fast": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "model": {
                     "anyOf": [
                       {
@@ -2202,6 +2212,16 @@
                       }
                     ]
                   },
+                  "fast": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "model": {
                     "anyOf": [
                       {
@@ -2515,6 +2535,16 @@
                 "anyOf": [
                   {
                     "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fast": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
                   },
                   {
                     "type": "null"
@@ -5294,6 +5324,9 @@
                       }
                     ]
                   },
+                  "fast": {
+                    "type": "boolean"
+                  },
                   "model": {
                     "anyOf": [
                       {
@@ -5985,6 +6018,9 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "fast": {
+                    "type": "boolean"
                   },
                   "model": {
                     "anyOf": [
@@ -8475,6 +8511,9 @@
                         "effort": {
                           "type": "boolean"
                         },
+                        "fast": {
+                          "type": "boolean"
+                        },
                         "keeps": {
                           "type": "boolean"
                         },
@@ -8501,6 +8540,7 @@
                       "required": [
                         "model",
                         "effort",
+                        "fast",
                         "permissions",
                         "keeps"
                       ],
@@ -8523,6 +8563,16 @@
                           "anyOf": [
                             {
                               "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "fast": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
                             },
                             {
                               "type": "null"
@@ -8597,6 +8647,16 @@
                           "anyOf": [
                             {
                               "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "fast": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
                             },
                             {
                               "type": "null"
@@ -11141,6 +11201,9 @@
                             }
                           ]
                         },
+                        "fast": {
+                          "type": "boolean"
+                        },
                         "install": {
                           "type": "string"
                         },
@@ -11197,7 +11260,8 @@
                         "permissions",
                         "outputs",
                         "defaultPermissions",
-                        "defaultOutput"
+                        "defaultOutput",
+                        "fast"
                       ],
                       "type": "object"
                     },
@@ -11281,6 +11345,9 @@
                                 }
                               ]
                             },
+                            "fast": {
+                              "type": "boolean"
+                            },
                             "model": {
                               "anyOf": [
                                 {
@@ -11338,7 +11405,8 @@
                             "model",
                             "effort",
                             "permissions",
-                            "output"
+                            "output",
+                            "fast"
                           ],
                           "type": "object"
                         },
@@ -11487,6 +11555,9 @@
                                 }
                               ]
                             },
+                            "fast": {
+                              "type": "boolean"
+                            },
                             "model": {
                               "anyOf": [
                                 {
@@ -11544,7 +11615,8 @@
                             "model",
                             "effort",
                             "permissions",
-                            "output"
+                            "output",
+                            "fast"
                           ],
                           "type": "object"
                         },
@@ -11951,6 +12023,9 @@
                             }
                           ]
                         },
+                        "fast": {
+                          "type": "boolean"
+                        },
                         "model": {
                           "anyOf": [
                             {
@@ -12008,7 +12083,8 @@
                         "model",
                         "effort",
                         "permissions",
-                        "output"
+                        "output",
+                        "fast"
                       ],
                       "type": "object"
                     },
@@ -12998,6 +13074,9 @@
                             }
                           ]
                         },
+                        "fast": {
+                          "type": "boolean"
+                        },
                         "model": {
                           "anyOf": [
                             {
@@ -13055,7 +13134,8 @@
                         "model",
                         "effort",
                         "permissions",
-                        "output"
+                        "output",
+                        "fast"
                       ],
                       "type": "object"
                     },
@@ -14149,7 +14229,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 92,
+  "protocolVersion": 93,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

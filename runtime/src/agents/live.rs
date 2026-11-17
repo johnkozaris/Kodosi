@@ -15,6 +15,8 @@ pub struct AgentSettings {
     pub permissions: Option<Permissions>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<Output>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fast: Option<bool>,
 }
 
 impl AgentSettings {
@@ -42,6 +44,7 @@ impl AgentSettings {
             effort,
             permissions: change.permissions.or(self.permissions),
             output: change.output.or(self.output),
+            fast: change.fast.or(self.fast),
         }
     }
 }
@@ -68,9 +71,14 @@ pub(crate) fn live_of(program: Option<&str>) -> Option<AgentLive> {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a separate fact about what the agent does while it runs"
+)]
 pub struct AgentLive {
     pub model: bool,
     pub effort: bool,
+    pub fast: bool,
     pub permissions: Vec<Permissions>,
     pub keeps: bool,
 }
@@ -95,12 +103,14 @@ impl Agent {
             Self::Claude => AgentLive {
                 model: true,
                 effort: true,
+                fast: true,
                 keeps: true,
                 ..AgentLive::default()
             },
             Self::Codex => AgentLive {
                 model: true,
                 effort: true,
+                fast: true,
                 permissions: vec![Permissions::Ask, Permissions::Auto],
                 ..AgentLive::default()
             },
@@ -118,6 +128,17 @@ impl Agent {
                 ..AgentLive::default()
             },
             Self::Opencode => AgentLive::default(),
+        }
+    }
+
+    #[cfg(feature = "host")]
+    const fn fast_line(self, fast: bool) -> Option<&'static str> {
+        match (self, fast) {
+            (Self::Claude, true) => Some("/fast on"),
+            (Self::Claude, false) => Some("/fast off"),
+            (Self::Codex, true) => Some("/model --speed=fast"),
+            (Self::Codex, false) => Some("/model --speed=standard"),
+            (Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
         }
     }
 
@@ -144,6 +165,9 @@ impl Agent {
         }
         if change.effort.is_some() && !can.effort {
             return Err(unchanged("effort"));
+        }
+        if change.fast.is_some() && !can.fast {
+            return Err(format!("{label} has no fast mode."));
         }
         if change
             .permissions
@@ -187,6 +211,16 @@ impl Agent {
                 }
             }
             _ => {}
+        }
+        if let Some(fast) = change.fast {
+            let line = self.fast_line(fast).ok_or_else(|| unchanged("fast mode"))?;
+            lines.push((
+                line.to_owned(),
+                AgentSettings {
+                    fast: Some(fast),
+                    ..AgentSettings::default()
+                },
+            ));
         }
         if let Some(permissions) = change.permissions {
             let line = match (self, permissions) {
@@ -284,11 +318,28 @@ impl Agent {
             }
             Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
         };
+        let fast = match self {
+            Self::Claude => match value("--fast-mode") {
+                Some("on") => Some(true),
+                Some("off") => Some(false),
+                _ => None,
+            },
+            Self::Codex => match last_value(arguments, "-c", "service_tier=")
+                .and_then(|value| value.strip_prefix("service_tier="))
+                .map(|tier| tier.trim_matches('"'))
+            {
+                Some("fast" | "priority") => Some(true),
+                Some("default" | "standard") => Some(false),
+                _ => None,
+            },
+            Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
+        };
         AgentSettings {
             model,
             effort,
             permissions,
             output,
+            fast,
         }
     }
 }

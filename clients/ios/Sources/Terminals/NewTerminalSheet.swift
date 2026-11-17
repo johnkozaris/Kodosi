@@ -140,6 +140,9 @@ struct NewTerminalSheet: View {
                         if !plan.efforts.isEmpty {
                             effortRow(plan, launcher: launcher)
                         }
+                        if agent.fast {
+                            fastRow(agent, plan: plan, launcher: launcher)
+                        }
                         if agent.permissions.count > 1 {
                             permissionsRow(agent, plan: plan, launcher: launcher)
                         }
@@ -284,6 +287,14 @@ struct NewTerminalSheet: View {
             },
         )
         .accessibilityIdentifier("terminals.new.effort")
+    }
+
+    private func fastRow(_ agent: AgentInfo, plan: LaunchPlan, launcher: LauncherState) -> some View {
+        SwitchRow(
+            String(localized: "Fast mode"), subtitle: String(localized: "Answers faster and costs more."), symbol: "bolt",
+            tint: agent.kind.tint, isOn: Binding(get: { plan.fast }, set: { fast in choosePick(plan, launcher) { $0.fast = fast } }),
+        )
+        .accessibilityIdentifier("terminals.new.fast")
     }
 
     private func permissionsRow(_ agent: AgentInfo, plan: LaunchPlan, launcher: LauncherState) -> some View {

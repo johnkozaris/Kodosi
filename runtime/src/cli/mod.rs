@@ -121,6 +121,9 @@ const TERMINAL: &str =
 const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where the agent's own safety check decides and asks for the rest; or unrestricted, which never asks. It starts with your last choice, else unrestricted, or ask for an agent without it";
 const LIVE_PERMISSIONS: &str = "How the agent asks before it acts: ask, auto or unrestricted, as far as the agent can change it while it runs";
 const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed for Claude Code and Codex, and quiet or standard for Copilot CLI. It starts with your last choice, else quiet";
+const FAST: &str = "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off for the agent's own setting. It starts with your last choice";
+const LIVE_FAST: &str =
+    "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off";
 
 #[derive(Clone, Copy, ValueEnum)]
 enum SkillTopic {
@@ -226,7 +229,7 @@ enum TerminalAction {
         /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
         #[arg(long)]
         branch: Option<String>,
-        /// Start an agent in the terminal, for example claude or codex, with your last choice of account, model, effort, permissions and output.
+        /// Start an agent in the terminal, for example claude or codex, with your last choice of account, model, effort, fast mode, permissions and output.
         #[arg(long)]
         agent: Option<String>,
         /// The agent's account, by the name that `kodosi agent list` shows.
@@ -242,6 +245,8 @@ enum TerminalAction {
         permissions: Option<String>,
         #[arg(long, requires = "agent", help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
         output: Option<String>,
+        #[arg(long, requires = "agent", help = FAST, value_parser = on_off())]
+        fast: Option<bool>,
         /// The agent's first prompt.
         #[arg(long, requires = "agent")]
         prompt: Option<String>,
@@ -250,7 +255,7 @@ enum TerminalAction {
     Run {
         #[arg(help = TERMINAL)]
         terminal: String,
-        /// The agent, for example claude or codex. It starts with your last choice of account, model, effort, permissions and output.
+        /// The agent, for example claude or codex. It starts with your last choice of account, model, effort, fast mode, permissions and output.
         #[arg(long)]
         agent: String,
         /// The agent's account, by the name that `kodosi agent list` shows.
@@ -266,6 +271,8 @@ enum TerminalAction {
         permissions: Option<String>,
         #[arg(long, help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
         output: Option<String>,
+        #[arg(long, help = FAST, value_parser = on_off())]
+        fast: Option<bool>,
     },
     /// Start a terminal that resumes a saved conversation of Claude Code or Copilot CLI.
     Resume {
@@ -291,7 +298,7 @@ enum TerminalAction {
         #[arg(long)]
         agent: Option<String>,
     },
-    /// Change the model, effort or permissions of the agent in a terminal while it runs, with the agent's own commands. Kodosi types them when the agent waits for its next prompt.
+    /// Change the model, effort, fast mode or permissions of the agent in a terminal while it runs, with the agent's own commands. Kodosi types them when the agent waits for its next prompt.
     Agent {
         #[arg(help = TERMINAL)]
         terminal: String,
@@ -301,6 +308,8 @@ enum TerminalAction {
         /// The agent's effort.
         #[arg(long)]
         effort: Option<String>,
+        #[arg(long, help = LIVE_FAST, value_parser = on_off())]
+        fast: Option<bool>,
         #[arg(long, help = LIVE_PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
         permissions: Option<String>,
     },
@@ -892,6 +901,7 @@ async fn terminal_command(
             effort,
             permissions,
             output,
+            fast,
             prompt,
         } => {
             let agent = agent
@@ -902,6 +912,7 @@ async fn terminal_command(
                         [model.as_deref(), effort.as_deref()],
                         permissions.as_deref(),
                         output.as_deref(),
+                        fast,
                     )
                 })
                 .transpose()?;
@@ -961,6 +972,7 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             effort,
             permissions,
             output,
+            fast,
         } => {
             let agent = agent_start(
                 &agent,
@@ -968,6 +980,7 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
                 [model.as_deref(), effort.as_deref()],
                 permissions.as_deref(),
                 output.as_deref(),
+                fast,
             )?;
             (terminal, "session.run", false, json!({"agent":agent}))
         }
@@ -998,12 +1011,13 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             terminal,
             model,
             effort,
+            fast,
             permissions,
         } => (
             terminal,
             "session.agent",
             true,
-            json!({"change":{"model":model,"effort":effort,"permissions":permissions}}),
+            json!({"change":{"model":model,"effort":effort,"fast":fast,"permissions":permissions}}),
         ),
         TerminalAction::Input {
             terminal,
@@ -1412,10 +1426,16 @@ fn agent_start(
     [model, effort]: [Option<&str>; 2],
     permissions: Option<&str>,
     output: Option<&str>,
+    fast: Option<bool>,
 ) -> Result<Value> {
     Ok(
-        json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort,"permissions":permissions,"output":output}),
+        json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort,"permissions":permissions,"output":output,"fast":fast}),
     )
+}
+
+fn on_off() -> impl clap::builder::TypedValueParser<Value = bool> {
+    use clap::builder::TypedValueParser as _;
+    clap::builder::PossibleValuesParser::new(["on", "off"]).map(|value| value == "on")
 }
 
 fn provider_command(action: ProviderAction, request: &str) -> Result<Value> {

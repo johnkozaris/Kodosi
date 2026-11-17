@@ -112,12 +112,11 @@ fun SwitchRow(
     title: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    symbol: AppSymbol,
-    tint: Color,
+    leading: @Composable () -> Unit,
     subtitle: String? = null,
     enabled: Boolean = true
 ) {
-    ListLine(title, subtitle = subtitle, leading = { IconTile(symbol, tint) }) {
+    ListLine(title, subtitle = subtitle, leading = leading) {
         KodosiSwitch(checked, onCheckedChange, title, enabled)
     }
 }

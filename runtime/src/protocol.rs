@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 92;
+pub const VERSION: u32 = 93;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -2562,7 +2562,8 @@ impl Command {
                 parse_id(expected_runtime_incarnation_id)?;
                 if change.is_empty() || !change.is_valid() {
                     return Err(Error::Invalid(
-                        "Change the model, effort, permissions or output of the agent.".to_owned(),
+                        "Change the model, effort, fast mode, permissions or output of the agent."
+                            .to_owned(),
                     ));
                 }
             }

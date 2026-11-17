@@ -374,8 +374,10 @@
     <string name="agent_quiet_detail">作業の表示を減らします。</string>
     <string name="agent_standard_detail">エージェントの設定どおりに作業を表示します。</string>
     <string name="agent_detailed_detail">作業の各ステップをすべて表示します。</string>
+    <string name="agent_fast">高速モード</string>
+    <string name="agent_fast_detail">応答が速くなり、料金が高くなります。</string>
     <string name="agent_after_turn">%1$s（このターンの後）</string>
-    <string name="agent_keeps_settings">%1$s は、次回の起動時もこのモデルと推論レベルを使います。</string>
+    <string name="agent_keeps_settings">%1$s は、次回の起動時もこのモデル、推論レベル、高速モードを使います。</string>
     <string name="agent_effort_none">なし</string>
     <string name="agent_effort_minimal">最小</string>
     <string name="agent_effort_low">低</string>

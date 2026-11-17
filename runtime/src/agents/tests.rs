@@ -818,6 +818,7 @@ fn claude_with_accounts() -> AgentInfo {
         outputs: Agent::Claude.outputs(),
         default_permissions: Agent::Claude.default_permissions(),
         default_output: Agent::Claude.default_output(),
+        fast: true,
     }
 }
 
@@ -856,6 +857,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         effort: Some("high".to_owned()),
         permissions: Some(Permissions::Unrestricted),
         output: Some(Output::Standard),
+        fast: false,
     };
     let start = |account: Option<&str>, model: Option<&str>, effort: Option<&str>| AgentStart {
         agent: Agent::Claude,
@@ -864,6 +866,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         effort: effort.map(str::to_owned),
         permissions: None,
         output: None,
+        fast: None,
     };
     let plan =
         |info: &AgentInfo, models: Option<&AgentModels>, saved: &AgentPick, start: &AgentStart| {
@@ -946,10 +949,11 @@ fn a_terminal_like_a_running_agent_takes_what_its_host_knows_of_it() {
         model: model.map(str::to_owned),
         effort: effort.map(str::to_owned),
         permissions,
-        output: None,
+        ..AgentSettings::default()
     };
-    let like_in = |accounts: &[AgentAccount], folder: Option<&str>, settings, pending| {
-        RunningAgent {
+    let like_in = |accounts: &[AgentAccount], folder: Option<&str>, settings, pending| AgentStart {
+        fast: None,
+        ..RunningAgent {
             agent: Agent::Claude,
             account_folder: folder.map(|folder| home.join(folder)),
             settings,
@@ -966,6 +970,7 @@ fn a_terminal_like_a_running_agent_takes_what_its_host_knows_of_it() {
             effort: effort.map(str::to_owned),
             permissions,
             output: None,
+            fast: None,
         }
     };
     let running = Some(settings(Some("opus"), Some("low"), Some(Permissions::Auto)));
@@ -1034,6 +1039,42 @@ fn a_terminal_like_a_running_agent_takes_what_its_host_knows_of_it() {
     );
 }
 
+#[test]
+fn a_terminal_like_a_running_agent_takes_the_fast_mode_that_its_host_knows() {
+    let fast = |fast| {
+        Some(AgentSettings {
+            fast,
+            ..AgentSettings::default()
+        })
+    };
+    let like = |settings, pending| {
+        RunningAgent {
+            agent: Agent::Codex,
+            account_folder: None,
+            settings,
+            pending,
+        }
+        .start(&[], Path::new("/home/ana"))
+        .fast
+    };
+    assert_eq!(like(fast(Some(true)), None), Some(true));
+    assert_eq!(
+        like(fast(Some(true)), fast(Some(false))),
+        Some(false),
+        "a fast mode that waits for the end of the turn wins"
+    );
+    assert_eq!(
+        like(fast(None), None),
+        Some(false),
+        "an agent that started without a fast mode keeps its own setting"
+    );
+    assert_eq!(
+        like(None, None),
+        None,
+        "an agent that Kodosi knows nothing of starts with the last choice"
+    );
+}
+
 fn installed(agent: Agent) -> AgentInfo {
     AgentInfo {
         agent,
@@ -1052,6 +1093,7 @@ fn installed(agent: Agent) -> AgentInfo {
         outputs: agent.outputs(),
         default_permissions: agent.default_permissions(),
         default_output: agent.default_output(),
+        fast: agent.has_fast(),
     }
 }
 
@@ -1068,6 +1110,7 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
             effort: None,
             permissions: saved,
             output: None,
+            fast: false,
         };
         let start = AgentStart {
             agent,
@@ -1076,6 +1119,7 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
             effort: None,
             permissions,
             output,
+            fast: None,
         };
         plan(
             &installed(agent),
@@ -1137,9 +1181,66 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
     );
 }
 
+#[test]
+fn an_agent_starts_fast_when_chosen_and_else_with_its_own_setting() {
+    let line = |agent: Agent, saved: bool, fast: Option<bool>| {
+        let saved = AgentPick {
+            agent,
+            account: None,
+            model: None,
+            effort: None,
+            permissions: Some(Permissions::Ask),
+            output: None,
+            fast: saved,
+        };
+        let start = AgentStart {
+            agent,
+            account: None,
+            model: None,
+            effort: None,
+            permissions: None,
+            output: Some(Output::Standard),
+            fast,
+        };
+        plan(
+            &installed(agent),
+            None,
+            &saved,
+            &start,
+            Path::new("/bin/zsh"),
+        )
+        .map(|(line, pick)| (line, pick.fast))
+    };
+    assert_eq!(
+        line(Agent::Claude, true, None).unwrap(),
+        (
+            "claude --permission-mode manual --fast-mode on".to_owned(),
+            true
+        )
+    );
+    assert_eq!(
+        line(Agent::Claude, true, Some(false)).unwrap(),
+        ("claude --permission-mode manual".to_owned(), false),
+        "off leaves the agent's own setting"
+    );
+    assert_eq!(
+        line(Agent::Codex, false, None).unwrap(),
+        ("codex -a on-request -s read-only".to_owned(), false)
+    );
+    assert_eq!(
+        line(Agent::Copilot, true, None).unwrap(),
+        ("copilot".to_owned(), false),
+        "an agent without fast mode starts as it is"
+    );
+    assert_eq!(
+        line(Agent::Copilot, false, Some(true)).unwrap_err(),
+        "Copilot CLI has no fast mode."
+    );
+}
+
 #[cfg(unix)]
 #[test]
-fn a_running_agent_shows_each_permissions_and_output_that_kodosi_starts_it_with() {
+fn a_running_agent_shows_each_permissions_output_and_fast_mode_that_kodosi_starts_it_with() {
     let shell = Path::new("/bin/sh");
     let arguments = |line: &str| {
         let printed = std::process::Command::new(shell)
@@ -1159,34 +1260,44 @@ fn a_running_agent_shows_each_permissions_and_output_that_kodosi_starts_it_with(
         if outputs.is_empty() {
             outputs.push(agent.default_output());
         }
+        let speeds: &[Option<bool>] = if agent.has_fast() {
+            &[None, Some(true)]
+        } else {
+            &[None]
+        };
         for permissions in agent.permissions() {
             for &output in &outputs {
-                let start = AgentStart {
-                    agent,
-                    account: None,
-                    model: None,
-                    effort: None,
-                    permissions: Some(permissions),
-                    output: Some(output),
-                };
-                let saved = AgentPick {
-                    agent,
-                    account: None,
-                    model: None,
-                    effort: None,
-                    permissions: None,
-                    output: None,
-                };
-                let (line, _) = plan(&installed(agent), None, &saved, &start, shell).unwrap();
-                let notes = Notes {
-                    shell: shell.to_owned(),
-                    ..Notes::default()
-                };
-                let line = agent.with_context(&line, &notes);
-                let started = agent.started_with(&arguments(&line));
-                assert_eq!(started.permissions, Some(permissions), "{line}");
-                if agent != Agent::Copilot {
-                    assert_eq!(started.output, Some(output), "{line}");
+                for &fast in speeds {
+                    let start = AgentStart {
+                        agent,
+                        account: None,
+                        model: None,
+                        effort: None,
+                        permissions: Some(permissions),
+                        output: Some(output),
+                        fast,
+                    };
+                    let saved = AgentPick {
+                        agent,
+                        account: None,
+                        model: None,
+                        effort: None,
+                        permissions: None,
+                        output: None,
+                        fast: false,
+                    };
+                    let (line, _) = plan(&installed(agent), None, &saved, &start, shell).unwrap();
+                    let notes = Notes {
+                        shell: shell.to_owned(),
+                        ..Notes::default()
+                    };
+                    let line = agent.with_context(&line, &notes);
+                    let started = agent.started_with(&arguments(&line));
+                    assert_eq!(started.permissions, Some(permissions), "{line}");
+                    if agent != Agent::Copilot {
+                        assert_eq!(started.output, Some(output), "{line}");
+                    }
+                    assert_eq!(started.fast, fast, "{line}");
                 }
             }
         }
@@ -1203,6 +1314,7 @@ async fn the_launch_choice_survives_a_restart() {
         effort: None,
         permissions: Some(Permissions::Auto),
         output: Some(Output::Detailed),
+        fast: true,
     };
     let launcher = Arc::new(Launcher::load(
         root.path(),
@@ -1430,7 +1542,7 @@ fn a_running_agent_changes_with_its_own_commands() {
         model: model.map(str::to_owned),
         effort: effort.map(str::to_owned),
         permissions,
-        output: None,
+        ..AgentSettings::default()
     };
     let lines = |agent: Agent, change: AgentSettings| {
         agent
@@ -1512,6 +1624,42 @@ fn a_running_agent_changes_with_its_own_commands() {
 }
 
 #[test]
+fn a_running_agent_changes_its_fast_mode_with_its_own_commands() {
+    let change = |model: Option<&str>, effort: Option<&str>, fast| AgentSettings {
+        model: model.map(str::to_owned),
+        effort: effort.map(str::to_owned),
+        fast: Some(fast),
+        ..AgentSettings::default()
+    };
+    let lines = |agent: Agent, change: AgentSettings| {
+        agent
+            .live_lines(&change)
+            .map(|lines| lines.into_iter().map(|(line, _)| line).collect::<Vec<_>>())
+    };
+    assert_eq!(
+        lines(Agent::Claude, change(Some("opus"), None, true)).unwrap(),
+        ["/model opus", "/fast on"]
+    );
+    assert_eq!(
+        lines(Agent::Claude, change(None, None, false)).unwrap(),
+        ["/fast off"]
+    );
+    assert_eq!(
+        lines(Agent::Codex, change(None, None, true)).unwrap(),
+        ["/model --speed=fast"]
+    );
+    assert_eq!(
+        lines(Agent::Codex, change(Some("gpt-6"), Some("high"), false)).unwrap(),
+        ["/model gpt-6 --reasoning=high", "/model --speed=standard"],
+        "a later change of one of them replaces only its own command"
+    );
+    assert_eq!(
+        lines(Agent::Copilot, change(None, None, true)).unwrap_err(),
+        "Copilot CLI has no fast mode."
+    );
+}
+
+#[test]
 fn a_new_model_runs_at_its_own_effort() {
     let now = AgentSettings {
         model: Some("opus".to_owned()),
@@ -1560,6 +1708,7 @@ fn a_running_agent_shows_what_it_started_with() {
             effort: Some("high".to_owned()),
             permissions: Some(Permissions::Unrestricted),
             output: Some(Output::Quiet),
+            fast: None,
         }
     );
     assert_eq!(
@@ -1582,7 +1731,21 @@ fn a_running_agent_shows_what_it_started_with() {
             effort: Some("high".to_owned()),
             permissions: Some(Permissions::Auto),
             output: Some(Output::Standard),
+            fast: None,
         }
+    );
+    assert_eq!(
+        started(Agent::Claude, &["claude", "--fast-mode", "off"]).fast,
+        Some(false)
+    );
+    assert_eq!(
+        started(Agent::Codex, &["codex", "-c", r#"service_tier="priority""#]).fast,
+        Some(true),
+        "Codex also calls its fast tier priority"
+    );
+    assert_eq!(
+        started(Agent::Codex, &["codex", "-c", "service_tier=flex"]).fast,
+        None
     );
     assert_eq!(
         started(Agent::Copilot, &["copilot", "--allow-all"]).permissions,
@@ -1637,5 +1800,49 @@ fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
             .chosen(&arguments, &AgentSettings::default())
             .join(" "),
         r#"--model opus --effort high --permission-mode manual --settings '{"viewMode":"verbose"}'"#
+    );
+}
+
+#[test]
+fn a_restart_keeps_the_fast_mode_that_the_agent_started_with_or_that_kodosi_changed() {
+    let fast = |fast| AgentSettings {
+        fast: Some(fast),
+        ..AgentSettings::default()
+    };
+    let claude = ["claude", "--settings", CLAUDE_QUIET, "--fast-mode", "on"].map(str::to_owned);
+    assert_eq!(
+        Agent::Claude
+            .chosen(&claude, &AgentSettings::default())
+            .join(" "),
+        format!("--settings '{CLAUDE_QUIET}' --fast-mode on")
+    );
+    assert_eq!(
+        Agent::Claude.chosen(&claude, &fast(false)).join(" "),
+        format!("--settings '{CLAUDE_QUIET}' --fast-mode off")
+    );
+    assert_eq!(
+        Agent::Claude
+            .chosen(&["claude".to_owned()], &fast(true))
+            .join(" "),
+        "--fast-mode on",
+        "a fast mode that Kodosi turned on while the agent ran is added"
+    );
+    let codex = [
+        "codex",
+        "-c",
+        "hide_agent_reasoning=true",
+        "-c",
+        "service_tier=fast",
+    ]
+    .map(str::to_owned);
+    assert_eq!(
+        Agent::Codex
+            .chosen(&codex, &AgentSettings::default())
+            .join(" "),
+        "-c hide_agent_reasoning=true -c service_tier=fast"
+    );
+    assert_eq!(
+        Agent::Codex.chosen(&codex, &fast(false)).join(" "),
+        "-c hide_agent_reasoning=true -c service_tier=default"
     );
 }

@@ -4555,6 +4555,10 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
         effort: effort.map(str::to_owned),
         ..crate::agents::AgentSettings::default()
     };
+    let fast = |change: crate::agents::AgentSettings| crate::agents::AgentSettings {
+        fast: Some(true),
+        ..change
+    };
     assert!(
         runtime
             .change_agent_here(
@@ -4577,13 +4581,16 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
     runtime
         .change_agent_here(id, &change(Some("sonnet"), None))
         .unwrap();
+    runtime
+        .change_agent_here(id, &fast(change(None, None)))
+        .unwrap();
     assert!(
         runtime.jobs.is_empty(),
         "an agent at work gets its commands after its turn"
     );
     assert_eq!(
         runtime.local[&id].entry.program_pending,
-        Some(change(Some("sonnet"), Some("high"))),
+        Some(fast(change(Some("sonnet"), Some("high")))),
         "the apps show what waits"
     );
     set(&mut runtime, ProgramState::Done);
@@ -4604,14 +4611,15 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
     );
     assert!(
         !types_until(&mut runtime, Duration::from_secs(4), |runtime| {
-            runtime.local[&id].changed.effort.is_some()
+            let changed = &runtime.local[&id].changed;
+            changed.effort.is_some() || changed.fast.is_some()
         })
         .await,
         "Kodosi types nothing into the question that Claude Code asks on its screen"
     );
     assert_eq!(
         runtime.local[&id].entry.program_pending,
-        Some(change(None, Some("high")))
+        Some(fast(change(None, Some("high"))))
     );
     terminal
         .send_input(Bytes::from_static(b"1\r"))
@@ -4619,14 +4627,14 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
         .unwrap();
     assert!(
         types_until(&mut runtime, Duration::from_secs(20), |runtime| {
-            runtime.local[&id].changed.effort.is_some()
+            runtime.local[&id].changed.fast.is_some()
         })
         .await
     );
     let lines = timeout(Duration::from_secs(5), async {
         loop {
             let lines = std::fs::read_to_string(&typed).unwrap_or_default();
-            if lines.ends_with("/effort high\n") {
+            if lines.ends_with("/fast on\n") {
                 return lines;
             }
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -4635,12 +4643,12 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
     .await
     .unwrap();
     assert_eq!(
-        lines, "/model sonnet\n1\n/effort high\n",
-        "a later change of the model replaces one that waits, and the effort follows the answer"
+        lines, "/model sonnet\n1\n/effort high\n/fast on\n",
+        "a later change of the model replaces one that waits, and the effort and the fast mode follow the answer"
     );
     assert_eq!(
         runtime.local[&id].entry.program_settings,
-        Some(change(Some("sonnet"), Some("high")))
+        Some(fast(change(Some("sonnet"), Some("high"))))
     );
     assert_eq!(runtime.local[&id].entry.program_pending, None);
     terminal.close().await.unwrap();
@@ -4743,6 +4751,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
         effort: Some("high".to_owned()),
         permissions: Some(Permissions::Ask),
         output: Some(crate::agents::Output::Standard),
+        fast: false,
     }));
     let folder = |name: &str| {
         let folder = root.join(name);
@@ -4762,7 +4771,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
         model: Some(model.to_owned()),
         effort: effort.map(str::to_owned),
         permissions: Some(permissions),
-        output: None,
+        ..AgentSettings::default()
     };
     let runs = |runtime: &mut Runtime, account: &str, pending: AgentSettings| {
         runtime.local.get_mut(&agent).unwrap().account_folder = Some(home.join(account));

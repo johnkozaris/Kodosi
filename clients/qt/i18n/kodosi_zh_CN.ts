@@ -117,6 +117,14 @@
         <source>Verbosity</source>
         <translation>详细程度</translation>
     </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>快速模式</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>回答更快，费用更高。</translation>
+    </message>
 </context>
 <context>
     <name>AgentLauncher</name>
@@ -335,6 +343,14 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>完整显示每一步工作过程。</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>快速模式</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>回答更快，费用更高。</translation>
     </message>
 </context>
 <context>
@@ -4202,8 +4218,8 @@
         <translation>%1 会在这一轮结束后更改。</translation>
     </message>
     <message>
-        <source>%1 also keeps the model and effort the next time it starts.</source>
-        <translation>%1 下次启动时也会沿用这个模型和推理强度。</translation>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1 下次启动时也会沿用这个模型、推理强度和快速模式。</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -4228,6 +4244,10 @@
     <message>
         <source>Detailed</source>
         <translation>详细</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>快速模式</translation>
     </message>
 </context>
 <context>

@@ -374,8 +374,10 @@
     <string name="agent_quiet_detail">작업을 덜 보여줘요.</string>
     <string name="agent_standard_detail">에이전트 설정대로 작업을 보여줘요.</string>
     <string name="agent_detailed_detail">작업의 모든 단계를 자세히 보여줘요.</string>
+    <string name="agent_fast">빠른 모드</string>
+    <string name="agent_fast_detail">더 빨리 답하고 비용이 더 들어요.</string>
     <string name="agent_after_turn">%1$s (이번 차례 후)</string>
-    <string name="agent_keeps_settings">%1$s은(는) 다음에 시작할 때도 이 모델과 추론 수준을 그대로 써요.</string>
+    <string name="agent_keeps_settings">%1$s은(는) 다음에 시작할 때도 이 모델, 추론 수준, 빠른 모드를 그대로 써요.</string>
     <string name="agent_effort_none">없음</string>
     <string name="agent_effort_minimal">최소</string>
     <string name="agent_effort_low">낮음</string>

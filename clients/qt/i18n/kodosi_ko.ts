@@ -117,6 +117,14 @@
         <source>Verbosity</source>
         <translation>상세도</translation>
     </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>빠른 모드</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>더 빨리 답하고 비용이 더 들어요.</translation>
+    </message>
 </context>
 <context>
     <name>AgentLauncher</name>
@@ -335,6 +343,14 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>작업의 모든 단계를 자세히 보여줘요.</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>빠른 모드</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>더 빨리 답하고 비용이 더 들어요.</translation>
     </message>
 </context>
 <context>
@@ -4202,8 +4218,8 @@
         <translation>%1은(는) 지금 차례가 끝나면 바꿔요.</translation>
     </message>
     <message>
-        <source>%1 also keeps the model and effort the next time it starts.</source>
-        <translation>%1은(는) 다음에 시작할 때도 이 모델과 추론 수준을 그대로 써요.</translation>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1은(는) 다음에 시작할 때도 이 모델, 추론 수준, 빠른 모드를 그대로 써요.</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -4228,6 +4244,10 @@
     <message>
         <source>Detailed</source>
         <translation>자세히</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>빠른 모드</translation>
     </message>
 </context>
 <context>

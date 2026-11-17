@@ -38,6 +38,7 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
                     outputs: agent.outputs(),
                     default_permissions: agent.default_permissions(),
                     default_output: agent.default_output(),
+                    fast: agent.has_fast(),
                 }
             })
             .collect(),

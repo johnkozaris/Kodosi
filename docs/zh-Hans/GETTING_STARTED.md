@@ -21,15 +21,16 @@
 - 按键与 Ghostty 一致。⌘1 到 ⌘9 选择终端（Linux 和 Windows 上为 Alt+1 到 Alt+9），⌥⌘ 加方向键选择相邻的终端（Ctrl+Alt 加方向键），⌘W 关闭所选终端。“设置 › 快捷键”列出了所有按键，并可以修改。
 - 如果缺少某个 Agent，启动器会显示它的安装命令。
 - Agent 启动时为“不受限制”：会直接修改文件、运行命令，不会先询问你。若想让某个 Agent 先询问，在模型后面的“更多”中选择“询问”。在那里还可以选择“详细程度”，即 Claude Code、Codex 和 Copilot CLI 显示多少工作内容，开始时为“简洁”。Copilot CLI 只从自己的设置中读取详细程度，因此在 Copilot CLI 以“简洁”运行期间，Kodosi 会修改它的设置，结束后再改回来。
+- Claude Code 和 Codex 有“快速模式”，回答更快，但费用更高。可在模型和推理强度旁边打开。关闭时，Agent 沿用它自己的设置。
 - 新账号有自己的登录文件夹，例如 `~/.claude-work`。Kodosi 也会找到你在 shell 中设置的账号，例如 `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`。
 - 在停在提示符处的终端里，标题栏中的操作按钮（两个滑块）会列出已安装的 Agent。选择一个，即可按你上次的选择启动它。
-- Agent 运行时，同一个操作按钮可以用 Agent 自己的命令更改它的模型和推理强度，部分 Agent 还能更改权限，无需重新启动。更改会等到 Agent 这一轮结束后生效；Claude Code 还会在之后的会话中沿用这个模型和推理强度。
+- Agent 运行时，同一个操作按钮可以用 Agent 自己的命令更改它的模型、推理强度和快速模式，部分 Agent 还能更改权限，无需重新启动。更改会等到 Agent 这一轮结束后生效；Claude Code 还会在之后的会话中沿用这个模型、推理强度和快速模式。
 - 在 zsh 和 bash（不包括 macOS 自带的 bash 3.2）中，⌘↑ 和 ⌘↓ 可在提示符之间跳转。
 - 按住 ⌘ 点按链接即可打开（Linux 和 Windows 上为 Ctrl+点按）。在使用鼠标的程序中，还要同时按住 Shift。在 iPhone 上，轻点链接即可；在使用鼠标的程序中，轻点不会打开链接。链接会在你当前所用设备上的浏览器中打开。在其他应用中打开链接之前，Kodosi 会先询问。它不会打开可以运行程序的文件，也不会打开其他电脑上终端的文件或 `localhost` 地址。
 - 要把截图等图片交给 Agent，用 ⌘V 粘贴即可（Linux 和 Windows 上为 Ctrl+Shift+V，iPhone 上为“粘贴”）。Kodosi 会把图片保存到终端所在的电脑上，并粘贴文件路径，Agent 会把它作为附件。其他电脑上的终端会显示图片已传输了多少。Agent 自己的图片快捷键（例如 Claude Code 中的 Ctrl+V）读取的是 Agent 所在电脑的剪贴板。
 - 要给 Agent 一份独立的仓库副本，在侧边栏中将指针悬停在仓库文件夹上，选择分支按钮并为分支命名。Kodosi 会在新的 Git worktree 中启动终端。终端结束时，如果没有任何改动，Kodosi 会删除这个 worktree。这些文件夹的位置可在“设置 › 终端”中设置。
 
-终端是运行它的那台电脑上的真实 shell。“最小化”会隐藏终端，但它继续运行；“关闭”会结束终端及其中的程序。关闭窗口后，Kodosi 和你的终端会继续运行，Kodosi 图标会留在菜单栏或系统托盘中；在没有系统托盘的桌面环境中，关闭窗口会退出 Kodosi。退出 Kodosi 后，你的终端会停止。Kodosi 只把终端显示的内容保存在你的电脑上，不会保存到别处。再次打开 Kodosi 时，终端会在原来的文件夹、项目和舞台位置重新启动，新提示符上方会显示之前的屏幕内容和历史记录（在 Windows 上，向上滚动即可看到）。Claude Code、Codex 和 Copilot CLI 会继续各自的对话，在 Mac 和 Linux 上还会沿用你选的模型、推理强度、权限和输出。如果 Kodosi 无法判断 Agent 显示的是哪个对话，Agent 会列出它的对话，方便你继续其中一个。你可以在“设置”中选择关闭窗口时的行为。
+终端是运行它的那台电脑上的真实 shell。“最小化”会隐藏终端，但它继续运行；“关闭”会结束终端及其中的程序。关闭窗口后，Kodosi 和你的终端会继续运行，Kodosi 图标会留在菜单栏或系统托盘中；在没有系统托盘的桌面环境中，关闭窗口会退出 Kodosi。退出 Kodosi 后，你的终端会停止。Kodosi 只把终端显示的内容保存在你的电脑上，不会保存到别处。再次打开 Kodosi 时，终端会在原来的文件夹、项目和舞台位置重新启动，新提示符上方会显示之前的屏幕内容和历史记录（在 Windows 上，向上滚动即可看到）。Claude Code、Codex 和 Copilot CLI 会继续各自的对话，在 Mac 和 Linux 上还会沿用你选的模型、推理强度、快速模式、权限和输出。如果 Kodosi 无法判断 Agent 显示的是哪个对话，Agent 会列出它的对话，方便你继续其中一个。你可以在“设置”中选择关闭窗口时的行为。
 
 在 Mac 上，和任何终端 App 一样，终端中的程序拥有你授予 Kodosi 的权限。当 macOS 提示已阻止 Kodosi 修改 App 时，说明终端中的某个程序尝试更改另一个 App。若要允许，请在“App 管理”中打开 Kodosi；“设置 › 常规”可以打开它。你也可以在那里为控制 App 或查看屏幕的程序允许“设备控制和数据访问”（macOS 27 之前为“辅助功能”）和“录屏与系统录音”。
 
@@ -107,7 +108,7 @@ Dosi 头像旁的那一行会告诉你 Dosi 何时在工作、何时已回答、
 
 | 命令 | 作用 |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | 按你上次的选择启动 Agent。`--account`、`--model`、`--effort`、`--permissions` 和 `--output` 可以更改选择。 |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | 按你上次的选择启动 Agent。`--account`、`--model`、`--effort`、`--fast`、`--permissions` 和 `--output` 可以更改选择。 |
 | `kodosi terminal start --directory <repository> --branch <name>` | 在新分支上、独立的 worktree 中启动终端。 |
 | `kodosi terminal start --computer <computer> --directory <folder>` | 在你的另一台电脑上启动终端。相对路径的文件夹或以 `~` 开头的文件夹位于那台电脑上你的主目录中。`kodosi devices list` 会显示哪些电脑在线。 |
 | `kodosi agent list` | 显示 Agent、它们的账号和你上次的选择。 |
@@ -115,7 +116,7 @@ Dosi 头像旁的那一行会告诉你 Dosi 何时在工作、何时已回答、
 | `kodosi terminal list` | 显示你的终端及其名称和 ID。两者都可以作为 `<terminal>` 使用。 |
 | `kodosi terminal read <terminal>` | 输出屏幕内容。`--history` 会加上已滚出屏幕的行。 |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 把一条消息交给终端里的 Agent，并附上发送者和来源。 |
-| `kodosi terminal agent <terminal> --model sonnet` | 在终端里的 Agent 运行时更改它的模型、推理强度或权限。 |
+| `kodosi terminal agent <terminal> --model sonnet` | 在终端里的 Agent 运行时更改它的模型、推理强度、快速模式或权限。 |
 | `kodosi terminal input <terminal> --enter "make test"` | 输入一行内容。 |
 | `kodosi terminal keys <terminal> ctrl-c` | 按下按键。 |
 | `kodosi terminal wait <terminal> --until done,failed` | 等待某个状态。 |

@@ -117,6 +117,14 @@
         <source>Verbosity</source>
         <translation>Λεπτομέρεια</translation>
     </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Γρήγορη λειτουργία</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>Απαντά πιο γρήγορα και κοστίζει περισσότερο.</translation>
+    </message>
 </context>
 <context>
     <name>AgentLauncher</name>
@@ -335,6 +343,14 @@
     <message>
         <source>Shows each step of its work in full.</source>
         <translation>Δείχνει αναλυτικά κάθε βήμα της δουλειάς του.</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Γρήγορη λειτουργία</translation>
+    </message>
+    <message>
+        <source>Answers faster and costs more.</source>
+        <translation>Απαντά πιο γρήγορα και κοστίζει περισσότερο.</translation>
     </message>
 </context>
 <context>
@@ -4215,8 +4231,8 @@
         <translation>Το %1 το αλλάζει όταν τελειώσει τη σειρά του.</translation>
     </message>
     <message>
-        <source>%1 also keeps the model and effort the next time it starts.</source>
-        <translation>Το %1 κρατά το μοντέλο και την ένταση σκέψης και την επόμενη φορά που θα ξεκινήσει.</translation>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>Το %1 κρατά το μοντέλο, την ένταση σκέψης και τη γρήγορη λειτουργία και την επόμενη φορά που θα ξεκινήσει.</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -4241,6 +4257,10 @@
     <message>
         <source>Detailed</source>
         <translation>Αναλυτική</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Γρήγορη λειτουργία</translation>
     </message>
 </context>
 <context>

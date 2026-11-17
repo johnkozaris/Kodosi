@@ -836,15 +836,19 @@ private slots:
         auto running = test::session(1);
         running.insert(QStringLiteral("program"), QStringLiteral("codex"));
         running.insert(QStringLiteral("programSettings"),
-            QJsonObject { { QStringLiteral("model"), QStringLiteral("gpt-6") }, { QStringLiteral("permissions"), QStringLiteral("unrestricted") } });
-        running.insert(QStringLiteral("programPending"), QJsonObject { { QStringLiteral("effort"), QStringLiteral("high") } });
+            QJsonObject { { QStringLiteral("model"), QStringLiteral("gpt-6") }, { QStringLiteral("permissions"), QStringLiteral("unrestricted") },
+                { QStringLiteral("fast"), true } });
+        running.insert(QStringLiteral("programPending"),
+            QJsonObject { { QStringLiteral("effort"), QStringLiteral("high") }, { QStringLiteral("fast"), false } });
         running.insert(QStringLiteral("programLive"),
-            QJsonObject { { QStringLiteral("model"), true }, { QStringLiteral("effort"), true }, { QStringLiteral("keeps"), false },
-                { QStringLiteral("permissions"), QJsonArray { QStringLiteral("ask"), QStringLiteral("auto") } } });
+            QJsonObject { { QStringLiteral("model"), true }, { QStringLiteral("effort"), true }, { QStringLiteral("fast"), true },
+                { QStringLiteral("keeps"), false }, { QStringLiteral("permissions"), QJsonArray { QStringLiteral("ask"), QStringLiteral("auto") } } });
         f.workspace.apply(test::snapshot({ running }), 0);
         const auto shown = f.sessions.presentationForSession(test::id(1));
         QCOMPARE(shown.value(QStringLiteral("programSettings")).toMap().value(QStringLiteral("model")).toString(), QStringLiteral("gpt-6"));
         QCOMPARE(shown.value(QStringLiteral("programPending")).toMap().value(QStringLiteral("effort")).toString(), QStringLiteral("high"));
+        QCOMPARE(shown.value(QStringLiteral("programPending")).toMap().value(QStringLiteral("fast")), QVariant(false));
+        QVERIFY(shown.value(QStringLiteral("programLive")).toMap().value(QStringLiteral("fast")).toBool());
         QCOMPARE(shown.value(QStringLiteral("programLive")).toMap().value(QStringLiteral("permissions")).toStringList(),
             (QStringList { QStringLiteral("ask"), QStringLiteral("auto") }));
         QVERIFY(f.workspace.sessionActions().changeAgent(test::id(1), { { QStringLiteral("permissions"), QStringLiteral("ask") } }));

@@ -68,6 +68,9 @@ impl RunningAgent {
             effort,
             permissions: pending.permissions.or(settings.permissions),
             output: pending.output.or(settings.output),
+            fast: pending
+                .fast
+                .or_else(|| known.then(|| settings.fast.unwrap_or_default())),
         }
     }
 }
@@ -375,6 +378,7 @@ impl AgentChoice {
                 effort: None,
                 permissions: None,
                 output: None,
+                fast: false,
             })
     }
 
@@ -422,6 +426,7 @@ impl State {
         let mut saved = self.saved.choice.pick(agent);
         saved.permissions = Some(permissions_of(agent, saved.permissions));
         saved.output = Some(output_of(agent, saved.output));
+        saved.fast = fast_of(agent, saved.fast);
         let account = match self
             .catalog
             .as_ref()
@@ -466,6 +471,10 @@ fn output_of(agent: Agent, saved: Option<Output>) -> Output {
     saved
         .filter(|output| agent.output_words(*output).is_some())
         .unwrap_or_else(|| agent.default_output())
+}
+
+const fn fast_of(agent: Agent, saved: bool) -> bool {
+    saved && agent.has_fast()
 }
 
 fn agent_info(catalog: &AgentCatalog, agent: Agent) -> Option<&AgentInfo> {
@@ -561,7 +570,7 @@ pub(super) fn plan(
             .as_deref()
             .and_then(|id| efforts(models, model).find(|effort| effort.id == id)),
     };
-    let (permissions, output, words) = modes(info.agent, saved, start)?;
+    let (permissions, output, fast, words) = modes(info.agent, saved, start)?;
     let line = [
         Some(account.command.clone()),
         model.map(|model| model.argument.clone()),
@@ -581,6 +590,7 @@ pub(super) fn plan(
             effort: effort.map(|effort| effort.id.clone()),
             permissions: Some(permissions),
             output: Some(output),
+            fast,
         },
     ))
 }
@@ -589,7 +599,15 @@ fn modes(
     agent: Agent,
     saved: &AgentPick,
     start: &AgentStart,
-) -> Result<(Permissions, Output, impl Iterator<Item = &'static str>), String> {
+) -> Result<
+    (
+        Permissions,
+        Output,
+        bool,
+        impl Iterator<Item = &'static str>,
+    ),
+    String,
+> {
     let label = agent.label();
     let permissions = start
         .permissions
@@ -611,9 +629,22 @@ fn modes(
             listed(agent.outputs().into_iter().map(Output::name))
         )
     })?;
+    let fast = start.fast.unwrap_or_else(|| fast_of(agent, saved.fast));
+    let fast_words = if fast {
+        agent
+            .fast_words(true)
+            .ok_or_else(|| format!("{label} has no fast mode."))?
+    } else {
+        &[]
+    };
     Ok((
         permissions,
         output,
-        permission_words.iter().chain(output_words).copied(),
+        fast,
+        permission_words
+            .iter()
+            .chain(output_words)
+            .chain(fast_words)
+            .copied(),
     ))
 }

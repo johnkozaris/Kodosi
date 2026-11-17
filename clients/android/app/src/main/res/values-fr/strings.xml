@@ -378,8 +378,10 @@
     <string name="agent_quiet_detail">Montre moins de son travail.</string>
     <string name="agent_standard_detail">Montre son travail selon la configuration de l\'agent.</string>
     <string name="agent_detailed_detail">Montre chaque étape de son travail en entier.</string>
+    <string name="agent_fast">Mode rapide</string>
+    <string name="agent_fast_detail">Répond plus vite et coûte plus cher.</string>
     <string name="agent_after_turn">%1$s, après ce tour</string>
-    <string name="agent_keeps_settings">%1$s garde aussi le modèle et le raisonnement à son prochain démarrage.</string>
+    <string name="agent_keeps_settings">%1$s garde aussi le modèle, le raisonnement et le mode rapide à son prochain démarrage.</string>
     <string name="agent_effort_none">Aucun</string>
     <string name="agent_effort_minimal">Minimal</string>
     <string name="agent_effort_low">Faible</string>

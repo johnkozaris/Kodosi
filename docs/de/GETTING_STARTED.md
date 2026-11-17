@@ -40,15 +40,19 @@ Befehl in die Shell des neuen Terminals.
   zeigen; sie beginnen bei Knapp. Copilot CLI liest seine Ausführlichkeit nur aus seinen
   eigenen Einstellungen, deshalb ändert Kodosi diese, solange Copilot CLI mit Knapp läuft,
   und stellt sie danach zurück.
+- Claude Code und Codex haben einen Schnellmodus, der schneller antwortet und mehr kostet.
+  Schalte ihn bei Modell und Denkaufwand ein. Solange er aus ist, behält der Agent seine
+  eigene Einstellung.
 - Ein neues Konto bekommt seinen eigenen Anmeldeordner, zum Beispiel `~/.claude-work`.
   Kodosi findet auch die Konten, die deine Shell einrichtet, etwa
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
 - Steht ein Terminal an seinem Prompt, listet der Aktionen-Button (zwei Regler) in seiner
   Kopfzeile die installierten Agents. Wähle einen, um ihn mit deiner letzten Wahl zu starten.
-- Während ein Agent läuft, ändert derselbe Aktionen-Button sein Modell und seinen Denkaufwand
-  und bei manchen Agents seine Berechtigungen, mit den eigenen Befehlen des Agents, ohne ihn
-  neu zu starten. Eine Änderung wartet, bis der Agent mit seiner Antwort fertig ist, und
-  Claude Code behält Modell und Denkaufwand auch für seine nächsten Sitzungen.
+- Während ein Agent läuft, ändert derselbe Aktionen-Button sein Modell, seinen Denkaufwand
+  und seinen Schnellmodus und bei manchen Agents seine Berechtigungen, mit den eigenen
+  Befehlen des Agents, ohne ihn neu zu starten. Eine Änderung wartet, bis der Agent mit
+  seiner Antwort fertig ist, und Claude Code behält Modell, Denkaufwand und Schnellmodus auch
+  für seine nächsten Sitzungen.
 - In zsh und bash (nicht in der bash 3.2 von macOS) springen ⌘↑ und ⌘↓ zwischen den Prompts.
 - Klicke mit ⌘ auf einen Link, um ihn zu öffnen (Strg-Klick unter Linux und Windows). In
   einem Programm, das die Maus nutzt, hältst du zusätzlich Umschalt. Auf dem iPhone tippst du
@@ -78,8 +82,8 @@ sie zeigen, auf deinem Computer und sonst nirgends. Wenn du Kodosi wieder öffne
 erneut in ihren Ordnern, Projekten und Plätzen auf der Bühne, mit ihrem früheren Bildschirm und
 Verlauf über einem neuen Prompt (unter Windows scrollst du nach oben, um ihn zu sehen). Claude
 Code, Codex und Copilot CLI setzen ihre Unterhaltungen fort, und auf einem Mac oder unter Linux
-behalten sie das Modell, den Denkaufwand, die Berechtigungen und die Ausgabe, die du gewählt
-hast. Wenn Kodosi nicht erkennen kann, welche Unterhaltung ein Agent zeigte, listet der Agent
+behalten sie das Modell, den Denkaufwand, den Schnellmodus, die Berechtigungen und die Ausgabe,
+die du gewählt hast. Wenn Kodosi nicht erkennen kann, welche Unterhaltung ein Agent zeigte, listet der Agent
 seine Unterhaltungen auf, damit du eine fortsetzen kannst. In den Einstellungen wählst du, was
 das Schließen des Fensters tut.
 
@@ -259,7 +263,7 @@ tut.
 
 | Befehl | Was er tut |
 | --- | --- |
-| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Startet einen Agent mit deiner letzten Wahl. `--account`, `--model`, `--effort`, `--permissions` und `--output` ändern sie. |
+| `kodosi terminal start --agent claude --prompt "fix the failing test"` | Startet einen Agent mit deiner letzten Wahl. `--account`, `--model`, `--effort`, `--fast`, `--permissions` und `--output` ändern sie. |
 | `kodosi terminal start --directory <repository> --branch <name>` | Startet ein Terminal auf einem neuen Branch, in seinem eigenen Worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Startet ein Terminal auf einem anderen deiner Computer. Ein relativer Ordner oder einer, der mit `~` beginnt, liegt dort in deinem Home-Verzeichnis. `kodosi devices list` zeigt, welche Computer online sind. |
 | `kodosi agent list` | Zeigt die Agents, ihre Konten und deine letzte Wahl. |
@@ -267,7 +271,7 @@ tut.
 | `kodosi terminal list` | Zeigt deine Terminals mit ihren Namen und IDs. Gib eines davon als `<terminal>` an. |
 | `kodosi terminal read <terminal>` | Gibt den Bildschirm aus. `--history` fügt die Zeilen hinzu, die weggescrollt sind. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Gibt dem Agent in einem Terminal eine Nachricht, mit Absender und Herkunft. |
-| `kodosi terminal agent <terminal> --model sonnet` | Ändert Modell, Denkaufwand oder Berechtigungen des Agents in einem Terminal, während er läuft. |
+| `kodosi terminal agent <terminal> --model sonnet` | Ändert Modell, Denkaufwand, Schnellmodus oder Berechtigungen des Agents in einem Terminal, während er läuft. |
 | `kodosi terminal input <terminal> --enter "make test"` | Tippt eine Zeile. |
 | `kodosi terminal keys <terminal> ctrl-c` | Drückt Tasten. |
 | `kodosi terminal wait <terminal> --until done,failed` | Wartet auf einen Zustand. |

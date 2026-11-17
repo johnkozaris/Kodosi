@@ -8,6 +8,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -54,15 +55,15 @@ class LauncherTest {
             "provider.agents",
             """"result":{"agents":[{"agent":"claude","program":"claude","installed":true,
                 "accounts":[{"name":"work","command":"claude"}],"permissions":["ask","auto","unrestricted"],
-                "outputs":["quiet","standard","detailed"],"defaultPermissions":"unrestricted","defaultOutput":"quiet"}],
-                "choice":{"agent":"claude","picks":[]}}"""
+                "outputs":["quiet","standard","detailed"],"defaultPermissions":"unrestricted","defaultOutput":"quiet",
+                "fast":true}],"choice":{"agent":"claude","picks":[]}}"""
         )
         runCurrent()
         sent.reply(
             "provider.agentModels",
             """"result":{"models":[{"id":"sonnet","label":"Sonnet","efforts":["high"]}],"efforts":[{"id":"high"}],
                 "choice":{"agent":"claude","picks":[{"agent":"claude","account":"work","model":"sonnet",
-                "effort":"high","permissions":"unrestricted","output":"quiet"}]}}"""
+                "effort":"high","permissions":"unrestricted","output":"quiet","fast":true}]}}"""
         )
         loading.await()
         val starting = async(start = CoroutineStart.UNDISPATCHED) { launcher.start("Work", null, "", null) }
@@ -71,21 +72,22 @@ class LauncherTest {
         assertEquals("high", plan.string("effort"))
         assertEquals("unrestricted", plan.string("permissions"))
         assertEquals("quiet", plan.string("output"))
+        assertEquals(JsonPrimitive(true), plan["fast"])
         sent.reply("session.create", """"sessionId":"terminal"""")
         starting.await()
     }
 
     @Test
-    fun changingAnAccountPreservesTheRuntimePermissionAndOutputChoice() = runTest {
+    fun changingAnAccountPreservesTheRuntimePermissionOutputAndFastChoice() = runTest {
         val loading = async(start = CoroutineStart.UNDISPATCHED) { launcher.refresh() }
         val choice = """"choice":{"agent":"claude","picks":[{"agent":"claude","account":"work",
-            "permissions":"auto","output":"detailed"}]}"""
+            "permissions":"auto","output":"detailed","fast":true}]}"""
         sent.reply(
             "provider.agents",
             """"result":{"agents":[{"agent":"claude","program":"claude","installed":true,
                 "accounts":[{"name":"work","command":"claude"},{"name":"personal","command":"claude-personal"}],
                 "permissions":["ask","auto","unrestricted"],"outputs":["quiet","standard","detailed"],
-                "defaultPermissions":"unrestricted","defaultOutput":"quiet"}],$choice}"""
+                "defaultPermissions":"unrestricted","defaultOutput":"quiet","fast":true}],$choice}"""
         )
         runCurrent()
         sent.reply("provider.agentModels", """"result":{"models":[],"efforts":[],$choice}""")
@@ -97,10 +99,11 @@ class LauncherTest {
         assertEquals("personal", change.string("account"))
         assertEquals("auto", change.string("permissions"))
         assertEquals("detailed", change.string("output"))
+        assertEquals(JsonPrimitive(true), change["fast"])
         sent.reply(
             "provider.choose",
             """"result":{"agent":"claude","picks":[{"agent":"claude","account":"personal",
-                "permissions":"auto","output":"detailed"}]}"""
+                "permissions":"auto","output":"detailed","fast":true}]}"""
         )
         choosing.await()
     }

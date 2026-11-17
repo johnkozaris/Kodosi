@@ -4,54 +4,54 @@
     "%@" : {
       "shouldTranslate" : false
     },
-    "%@ also keeps the model and effort the next time it starts." : {
+    "%@ also keeps the model, effort and fast mode the next time it starts." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ behält Modell und Denkaufwand auch beim nächsten Start."
+            "value" : "%@ behält Modell, Denkaufwand und Schnellmodus auch beim nächsten Start."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το %@ κρατά το μοντέλο και την ένταση σκέψης και την επόμενη φορά που θα ξεκινήσει."
+            "value" : "Το %@ κρατά το μοντέλο, την ένταση σκέψης και τη γρήγορη λειτουργία και την επόμενη φορά που θα ξεκινήσει."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ también conserva el modelo y el razonamiento la próxima vez que se inicie."
+            "value" : "%@ también conserva el modelo, el razonamiento y el modo rápido la próxima vez que se inicie."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ garde aussi le modèle et le raisonnement à son prochain démarrage."
+            "value" : "%@ garde aussi le modèle, le raisonnement et le mode rapide à son prochain démarrage."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ mantiene modello e ragionamento anche al prossimo avvio."
+            "value" : "%@ mantiene modello, ragionamento e modalità veloce anche al prossimo avvio."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ は、次回の起動時もこのモデルと推論レベルを使います。"
+            "value" : "%@ は、次回の起動時もこのモデル、推論レベル、高速モードを使います。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@은(는) 다음에 시작할 때도 이 모델과 추론 수준을 그대로 써요."
+            "value" : "%@은(는) 다음에 시작할 때도 이 모델, 추론 수준, 빠른 모드를 그대로 써요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 下次启动时也会沿用这个模型和推理强度。"
+            "value" : "%@ 下次启动时也会沿用这个模型、推理强度和快速模式。"
           }
         }
       }
@@ -2658,6 +2658,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在它们提问时回答"
+          }
+        }
+      }
+    },
+    "Answers faster and costs more." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antwortet schneller und kostet mehr."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Απαντά πιο γρήγορα και κοστίζει περισσότερο."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Responde más rápido y cuesta más."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Répond plus vite et coûte plus cher."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Risponde più velocemente e costa di più."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "応答が速くなり、料金が高くなります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "더 빨리 답하고 비용이 더 들어요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回答更快，费用更高。"
           }
         }
       }
@@ -6246,6 +6298,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你共享给的每个人都可以在此终端中输入、调整大小和关闭它。"
+          }
+        }
+      }
+    },
+    "Fast mode" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schnellmodus"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Γρήγορη λειτουργία"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modo rápido"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mode rapide"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modalità veloce"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高速モード"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "빠른 모드"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快速模式"
           }
         }
       }

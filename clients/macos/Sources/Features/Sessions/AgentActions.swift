@@ -48,6 +48,10 @@ struct AgentActions: View {
         pending.model != nil ? pending.effort : pending.effort ?? settings.effort
     }
 
+    private var fast: Bool {
+        pending.fast ?? settings.fast ?? false
+    }
+
     private var permissions: AgentPermissions? {
         pending.permissions ?? settings.permissions
     }
@@ -57,7 +61,7 @@ struct AgentActions: View {
     }
 
     var body: some View {
-        if changesModel || !live.permissions.isEmpty || output != nil {
+        if changesModel || live.fast || !live.permissions.isEmpty || output != nil {
             PanelMenuHeader(verbatim: agent.label)
                 .task { await launcher?.loadModels(agent.rawValue) }
             if changesModel {
@@ -70,6 +74,21 @@ struct AgentActions: View {
                     }
                 }
                 .kodosiFlyout(isPresented: flyout == .model) { modelFlyout.chromeScope() }
+            }
+            if live.fast {
+                PanelMenuRow(Text("Fast mode"), icon: .symbol("bolt"), identifier: "\(stageId).agent.fast") {
+                    change(AgentSettings(fast: !fast))
+                } trailing: {
+                    if pending.fast != nil {
+                        Image(systemName: "clock").font(.system(size: 10, weight: .semibold)).foregroundStyle(theme.colors.inkFaint)
+                            .help(String(localized: "\(agent.label) changes when it finishes its turn."))
+                    }
+                    if fast {
+                        Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(theme.colors.accentStrong)
+                    }
+                }
+                .accessibilityAddTraits(fast ? .isSelected : [])
+                .closesFlyout($flyout)
             }
             if !live.permissions.isEmpty {
                 FlyoutRow(
@@ -204,7 +223,7 @@ struct AgentActions: View {
         if busy || keeps {
             Text(verbatim: [
                 busy ? String(localized: "\(agent.label) changes when it finishes its turn.") : nil,
-                keeps ? String(localized: "\(agent.label) also keeps the model and effort the next time it starts.") : nil,
+                keeps ? String(localized: "\(agent.label) also keeps the model, effort and fast mode the next time it starts.") : nil,
             ].compactMap(\.self).joined(separator: " "))
                 .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)

@@ -41,6 +41,8 @@ ColumnLayout {
     readonly property var model: plan ? plan.model || null : null
     readonly property var efforts: plan ? plan.efforts : []
     readonly property string effortId: plan ? plan.effortId : ""
+    readonly property bool hasFast: info !== null && info.fast === true
+    readonly property bool fast: plan ? plan.fast : false
     readonly property var outputs: info ? info.outputs || [] : []
     readonly property string defaultPermissions: info ? info.defaultPermissions : "ask"
     readonly property string defaultOutput: info ? info.defaultOutput : "standard"
@@ -810,7 +812,7 @@ ColumnLayout {
                     PickerKey {
                         id: modelKey
 
-                        visible: root.info !== null && root.info.installed && (root.listsModels || root.efforts.length > 0)
+                        visible: root.info !== null && root.info.installed && (root.listsModels || root.efforts.length > 0 || root.hasFast)
                         title: root.modelTitle.length > 0 ? root.modelTitle : qsTr("Model")
                         quiet: root.modelTitle.length === 0
                         loading: !root.modelSet && root.loadingModels
@@ -818,14 +820,31 @@ ColumnLayout {
                         objectName: "launcher.model"
                         Accessible.id: objectName
                         Accessible.name: qsTr("Model and effort")
+                        Accessible.description: [modelKey.title].concat(root.fast ? [qsTr("Fast mode")] : []).join(", ")
                         glyph: KIcon { width: 11; height: 11; name: "sparkle"; filled: true; strokeWidth: 1; color: Identity.kindTint(root.agentId) }
-                        accessoryShown: root.effortLevel >= 0
-                        accessory: EffortBars {
-                            level: root.effortLevel
-                            count: root.efforts.length
-                            barHeight: 10
-                            lit: KodosiTheme.terminalAccent
-                            unlit: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.2)
+                        accessoryShown: root.effortLevel >= 0 || root.fast
+                        accessory: Row {
+                            spacing: 5
+
+                            EffortBars {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: root.effortLevel >= 0
+                                level: root.effortLevel
+                                count: root.efforts.length
+                                barHeight: 10
+                                lit: KodosiTheme.terminalAccent
+                                unlit: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.2)
+                            }
+                            KIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: root.fast
+                                width: 11
+                                height: 11
+                                name: "bolt"
+                                filled: true
+                                strokeWidth: 1
+                                color: KodosiTheme.terminalAccent
+                            }
                         }
                         onClicked: root.toggleMenu("model")
                     }
@@ -1130,6 +1149,65 @@ ColumnLayout {
                 objectName: "launcher.effort"
                 Accessible.id: objectName
                 onPicked: effort => root.pick("effort", effort)
+            }
+            Rectangle {
+                visible: root.hasFast
+                width: parent.width
+                height: 1
+                color: KodosiTheme.alpha(KodosiTheme.hairline, 0.6)
+            }
+            Item {
+                visible: root.hasFast
+                width: parent.width
+                implicitHeight: Math.max(48, fastWords.implicitHeight + 20)
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    spacing: 10
+
+                    KIcon {
+                        Layout.preferredWidth: 13
+                        Layout.preferredHeight: 13
+                        name: "bolt"
+                        filled: true
+                        strokeWidth: 1
+                        color: root.fast ? KodosiTheme.accent : KodosiTheme.inkFaint
+                    }
+                    ColumnLayout {
+                        id: fastWords
+
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        PlainLabel {
+                            Layout.fillWidth: true
+                            text: qsTr("Fast mode")
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                        }
+                        PlainLabel {
+                            Layout.fillWidth: true
+                            text: qsTr("Answers faster and costs more.")
+                            color: KodosiTheme.inkMuted
+                            font.pixelSize: KodosiTheme.fontFootnote
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                    KSwitch {
+                        checked: root.fast
+                        objectName: "launcher.fast"
+                        Accessible.id: objectName
+                        Accessible.name: qsTr("Fast mode")
+                        Accessible.description: qsTr("Answers faster and costs more.")
+                        onToggled: {
+                            const wanted = checked
+                            checked = Qt.binding(() => root.fast)
+                            root.launcher.choose("fast", root.info.agent, wanted)
+                        }
+                    }
+                }
             }
         }
     }
