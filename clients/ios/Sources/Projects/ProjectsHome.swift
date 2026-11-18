@@ -45,7 +45,7 @@ struct ProjectsHome: View {
             }
             .sharedBackgroundVisibility(.hidden)
         }
-        .searchable(text: $query, prompt: Text("Find a project"))
+        .pageSearch($query, prompt: Text("Find a project"))
         .refreshable { await projects.refreshList() }
         .task(id: projects.entries.map(\.id)) { await projects.prefetchDetails() }
         .animation(theme.motion.spring, value: projects.entries.map(\.id))

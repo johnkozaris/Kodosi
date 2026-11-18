@@ -16,6 +16,12 @@ enum BarAppearance {
             .kern: -0.2,
             .foregroundColor: ink,
         ]
+        let facts: [NSAttributedString.Key: Any] = [
+            .font: UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .systemFont(ofSize: 13)),
+            .foregroundColor: color(\.inkMuted),
+        ]
+        navigation.subtitleTextAttributes = facts
+        navigation.largeSubtitleTextAttributes = facts
         let bar = UINavigationBar.appearance()
         bar.standardAppearance = navigation
         bar.scrollEdgeAppearance = navigation
