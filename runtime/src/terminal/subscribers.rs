@@ -322,7 +322,6 @@ impl Subscribers {
         self.entries.values().any(Subscriber::caught_up)
     }
 
-    #[cfg(feature = "host")]
     pub(crate) fn behind(&self) -> bool {
         self.entries
             .values()

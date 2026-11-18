@@ -251,6 +251,27 @@ impl Attention {
         }
     }
 
+    /// A mark that cannot be told yet waits for its terminal, not for a time.
+    pub(super) fn due(
+        &self,
+        watched: &BTreeSet<String>,
+        can_tell: impl Fn(&str) -> bool,
+    ) -> Option<Instant> {
+        let settles = self
+            .kept
+            .values()
+            .filter(|kept| kept.wait.is_some() && kept.look == Look::Settling)
+            .map(|kept| kept.since + SETTLE);
+        let told_again = watched
+            .iter()
+            .filter(|id| can_tell(id))
+            .filter_map(|id| self.reported.get(id))
+            .filter(|reported| reported.marked)
+            .filter_map(|reported| reported.told)
+            .map(|told| told + SEEN_AGAIN);
+        settles.chain(told_again).min()
+    }
+
     pub(super) fn retain(&mut self, ids: &BTreeSet<String>) {
         self.kept.retain(|id, _| ids.contains(id));
         self.reported.retain(|id, _| ids.contains(id));

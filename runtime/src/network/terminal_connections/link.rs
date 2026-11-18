@@ -3,6 +3,8 @@ use std::{
     sync::atomic::{AtomicU64, AtomicUsize},
 };
 
+use tokio::sync::watch;
+
 use super::{channel::Transport, *};
 use crate::{
     network::{Moment, TerminalStatus},
@@ -102,6 +104,7 @@ pub(crate) struct Link {
     wanted: Notify,
     asked: Notify,
     connects: AtomicU64,
+    ups_and_downs: watch::Sender<()>,
 }
 
 #[cfg(feature = "host")]
@@ -395,6 +398,7 @@ impl Link {
         }
         self.connects.fetch_add(1, Ordering::AcqRel);
         self.reconnected.notify_waiters();
+        self.ups_and_downs.send_replace(());
         self.announce();
     }
 
@@ -402,28 +406,30 @@ impl Link {
         self.connects.load(Ordering::Acquire)
     }
 
+    pub(crate) fn ups_and_downs(&self) -> watch::Receiver<()> {
+        self.ups_and_downs.subscribe()
+    }
+
     pub(crate) fn start_wanting(&self) {
         if let Ok(mut shared) = self.shared.lock()
             && shared.outgoing.is_none()
+            && shared.down_since.is_none()
         {
-            shared
-                .down_since
-                .get_or_insert_with(tokio::time::Instant::now);
+            shared.down_since = Some(tokio::time::Instant::now());
+            self.ups_and_downs.send_replace(());
         }
     }
 
     pub(crate) fn stop_wanting(&self) {
-        if let Ok(mut shared) = self.shared.lock() {
-            shared.down_since = None;
+        if let Ok(mut shared) = self.shared.lock()
+            && shared.down_since.take().is_some()
+        {
+            self.ups_and_downs.send_replace(());
         }
     }
 
-    pub(crate) fn down_for(&self) -> Option<Duration> {
-        self.shared
-            .lock()
-            .ok()?
-            .down_since
-            .map(|since| since.elapsed())
+    pub(crate) fn down_since(&self) -> Option<tokio::time::Instant> {
+        self.shared.lock().ok()?.down_since
     }
 
     #[cfg(test)]
@@ -432,6 +438,7 @@ impl Link {
             shared.down_since = None;
         }
         self.connects.fetch_add(1, Ordering::AcqRel);
+        self.ups_and_downs.send_replace(());
     }
 
     fn disconnected(&self) {
@@ -444,6 +451,7 @@ impl Link {
                 drop(route.incoming.send(Incoming::Closed(None)));
             }
         }
+        self.ups_and_downs.send_replace(());
     }
 
     fn announce(&self) {

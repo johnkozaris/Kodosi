@@ -148,6 +148,7 @@ pub(crate) enum SessionChange {
         incarnation: Uuid,
         instance_id: Uuid,
     },
+    RemoteResumed,
     RemoteStalled {
         id: Uuid,
         incarnation: Uuid,

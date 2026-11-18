@@ -695,7 +695,10 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             unsent: HashMap::new(),
             folder_asks: HashMap::new(),
             link_connects: 0,
+            next_reconnects: Instant::now(),
             online: true,
+            consumers: HashMap::new(),
+            leaving: FuturesUnordered::new(),
             #[cfg(feature = "host")]
             publishing: BTreeSet::new(),
             #[cfg(feature = "host")]
@@ -736,6 +739,38 @@ fn remote_session(id: Uuid, incarnation_id: Uuid) -> RemoteSession {
         hidden: false,
         restored_from: None,
     }
+}
+
+fn changes_of(runtime: &mut Runtime) -> mpsc::Receiver<SessionChange> {
+    let (changes, receiver) = mpsc::channel(128);
+    runtime.changes = changes;
+    receiver
+}
+
+/// The account starts before the loop, as its start reads the disk in real time and would wake
+/// the loop at a moment that a test does not choose.
+async fn loop_fixture() -> (Runtime, tempfile::TempDir, mpsc::Receiver<SessionChange>) {
+    let (mut runtime, root) = registry_fixture();
+    drop(runtime.network.initialize().await);
+    let changes = changes_of(&mut runtime);
+    (runtime, root, changes)
+}
+
+async fn start_loop(
+    mut runtime: Runtime,
+    changes: mpsc::Receiver<SessionChange>,
+) -> (mpsc::Sender<Request>, tokio::task::JoinHandle<()>) {
+    while runtime.jobs.join_next().await.is_some() {}
+    let (requests, receiver) = mpsc::channel(COMMAND_CAPACITY);
+    let network_events = runtime.network.events();
+    let (_dosi, dosi) = mpsc::channel(1);
+    let looping = tokio::spawn(Box::pin(runtime.run(
+        receiver,
+        changes,
+        network_events,
+        dosi,
+    )));
+    (requests, looping)
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1146,6 +1181,46 @@ async fn a_client_that_goes_leaves_its_documents() {
             .try_recv()
             .is_err_and(|error| error == mpsc::error::TryRecvError::Empty)
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_client_that_goes_lets_go_of_the_terminals_that_it_opened_at_once() {
+    let (mut runtime, _root, changes) = loop_fixture().await;
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let (_view, _updates) = open_shown(&mut runtime, &remote, client, &lifetime).await;
+    let terminal = runtime.connections[&remote.id].clone();
+    let shows = CommandEnvelope {
+        account_user_id: runtime.scope.user.clone(),
+        account_epoch: runtime.scope.epoch,
+        computer: None,
+        command: Command::Visible {
+            request_id: Uuid::now_v7().to_string(),
+            session_ids: vec![remote.id.to_string()],
+            watching: true,
+        },
+    };
+    let mut events = runtime.events.subscribe();
+    let (requests, looping) = start_loop(runtime, changes).await;
+    requests
+        .send(Request::Command {
+            envelope: shows,
+            consumer: client,
+            lifetime: lifetime.clone(),
+        })
+        .await
+        .unwrap();
+    while events.recv().await.unwrap().recipient != Some(client) {}
+    lifetime.cancel();
+    timeout(Duration::from_millis(100), async {
+        while !terminal.is_closed() {
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .expect("the terminal is let go");
+    looping.abort();
 }
 
 fn opened(runtime: &Runtime, pipe: Uuid, consumer: Uuid, ends: crate::canvas::PipeEnds) -> Job {
@@ -1757,6 +1832,35 @@ async fn kodosi_is_offline_only_when_the_server_stays_out_of_reach_longer_than_a
     );
 }
 
+async fn online(events: &mut broadcast::Receiver<Event>) -> bool {
+    loop {
+        let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+        if event["type"] == "connection.state" {
+            return event["online"] == true;
+        }
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn kodosi_turns_offline_when_the_server_stays_away_and_online_as_soon_as_it_is_back() {
+    let (runtime, _root, changes) = loop_fixture().await;
+    let link = Arc::clone(&runtime.network.inner.link);
+    let mut events = runtime.events.subscribe();
+    let (_requests, looping) = start_loop(runtime, changes).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    link.start_wanting();
+    let down = Instant::now();
+    assert!(!online(&mut events).await);
+    let away = down.elapsed();
+    assert!(away >= crate::network::RECONNECT_WAIT);
+    assert!(away < crate::network::RECONNECT_WAIT + Duration::from_millis(100));
+    link.note_connected();
+    let back = Instant::now();
+    assert!(online(&mut events).await);
+    assert!(back.elapsed() < Duration::from_millis(100));
+    looping.abort();
+}
+
 #[tokio::test]
 async fn a_terminal_that_could_not_open_tries_again_as_soon_as_the_server_is_back() {
     let (mut runtime, _root) = registry_fixture();
@@ -1784,6 +1888,40 @@ async fn a_terminal_that_could_not_open_tries_again_as_soon_as_the_server_is_bac
     runtime.network.inner.link.note_connected();
     runtime.reconnect_views();
     assert!(runtime.opening.contains_key(&id));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_terminal_that_could_not_open_tries_again_when_its_wait_is_over() {
+    let (mut runtime, _root, changes) = loop_fixture().await;
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote]);
+    let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    show(&mut runtime, client, &lifetime, &[id]);
+    runtime
+        .apply_for_consumer(&open_remote(id), client, lifetime.clone())
+        .unwrap();
+    connected(
+        &mut runtime,
+        id,
+        Err(Error::Text(crate::text::Text::plain("unreachable"))),
+    );
+    let wait_ends = runtime.reconnect[&id].next;
+    let mut events = runtime.events.subscribe();
+    let (_requests, looping) = start_loop(runtime, changes).await;
+    loop {
+        if let crate::protocol::EventBody::SessionsSnapshot { sessions } =
+            events.recv().await.unwrap().event
+            && sessions.iter().any(|entry| {
+                entry.id == id.to_string() && entry.connection_state == ConnectionState::Connecting
+            })
+        {
+            break;
+        }
+    }
+    let now = Instant::now();
+    assert!(now >= wait_ends && now < wait_ends + Duration::from_millis(100));
+    looping.abort();
 }
 
 #[tokio::test(start_paused = true)]
@@ -2259,6 +2397,29 @@ async fn a_friends_open_terminal_calls_once_a_new_state_lasts_unseen_and_not_whe
 }
 
 #[tokio::test(start_paused = true)]
+async fn a_new_state_of_a_friends_open_terminal_calls_when_it_lasts_with_nothing_else_going_on() {
+    let (mut runtime, _root, changes) = loop_fixture().await;
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![remote.clone()]);
+    runtime
+        .remotes
+        .get_mut(&remote.id)
+        .unwrap()
+        .connection_state = ConnectionState::Connected;
+    reports(&mut runtime, &remote, true, &json!({"state":"done"}));
+    let reported = Instant::now();
+    let mut events = runtime.events.subscribe();
+    let (_requests, looping) = start_loop(runtime, changes).await;
+    while !matches!(
+        events.recv().await.unwrap().event,
+        crate::protocol::EventBody::TerminalAttention { .. }
+    ) {}
+    let lasted = reported.elapsed();
+    assert!(lasted >= Duration::from_secs(2) && lasted < Duration::from_millis(2100));
+    looping.abort();
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_terminal_of_the_person_on_another_computer_has_the_mark_that_its_host_reports() {
     use crate::terminal::Waiting;
     let (mut runtime, _root) = registry_fixture();
@@ -2375,6 +2536,73 @@ async fn a_person_in_kodosi_who_looks_at_a_marked_terminal_tells_its_host() {
     assert!(runtime.entries()[0].attention);
     reports(&mut runtime, &remote, true, &json!({"state":"blocked"}));
     assert!(!runtime.entries()[0].attention);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_marked_terminal_that_its_person_looked_at_while_its_link_was_lost_hears_it_once_back() {
+    let (mut runtime, _root, changes) = loop_fixture().await;
+    runtime.network.assume_identity(crate::network::Identity {
+        user_id: "me".to_owned(),
+        device_id: "phone".to_owned(),
+        display_name: "Me".to_owned(),
+        enrolled: true,
+    });
+    runtime.scope.user = Some("me".to_owned());
+    let mut remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    remote.owner_user_id = "me".to_owned();
+    remote.status = Some(TerminalStatus {
+        state: Some(crate::terminal::ProgramState::Blocked),
+        attention: true,
+        ..TerminalStatus::default()
+    });
+    let id = remote.id;
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    reports_presence(&mut runtime, (client, &lifetime), Presence::Idle);
+    let (_view, updates) = open_shown(&mut runtime, &remote, client, &lifetime).await;
+    let terminal = runtime.connections[&id].clone();
+    let looks = CommandEnvelope {
+        account_user_id: runtime.scope.user.clone(),
+        account_epoch: runtime.scope.epoch,
+        computer: None,
+        command: Command::Presence {
+            request_id: Uuid::now_v7().to_string(),
+            state: Presence::Kodosi,
+        },
+    };
+    let mut events = runtime.events.subscribe();
+    let (requests, looping) = start_loop(runtime, changes).await;
+    updates
+        .send(crate::network::RemoteUpdate::Closed {
+            reason: crate::text::Text::plain("link lost"),
+        })
+        .await
+        .unwrap();
+    loop {
+        if let crate::protocol::EventBody::SessionsSnapshot { sessions } =
+            events.recv().await.unwrap().event
+            && sessions.iter().any(|entry| {
+                entry.id == id.to_string() && entry.status == SessionStatus::Reconnecting
+            })
+        {
+            break;
+        }
+    }
+    requests
+        .send(Request::Command {
+            envelope: looks,
+            consumer: client,
+            lifetime: lifetime.clone(),
+        })
+        .await
+        .unwrap();
+    while events.recv().await.unwrap().recipient != Some(client) {}
+    let (again, mut host, updates) = crate::network::test_remote_connection(remote);
+    assert!(terminal.resume(again));
+    drop(terminal);
+    updates.send(first_snapshot()).await.unwrap();
+    assert!(seen_reached_host(&mut host).await);
+    looping.abort();
 }
 
 #[cfg(all(unix, feature = "host"))]

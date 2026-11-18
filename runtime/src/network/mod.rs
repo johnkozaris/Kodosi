@@ -533,7 +533,7 @@ impl RemoteControl {
         pipe: Uuid,
         key: String,
         name: String,
-    ) -> Result<crate::canvas::PipeEnds> {
+    ) -> Result<(crate::canvas::PipeEnds, tokio::task::JoinHandle<()>)> {
         if self.cancellation.is_cancelled() {
             return Err(Error::Closed);
         }
