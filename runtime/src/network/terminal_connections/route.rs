@@ -322,19 +322,27 @@ impl<R: Transport> Actor<R> {
             Carrier::Relay => self.relay.send(message).await,
             Carrier::Lane => {
                 let written = match self.lane.as_mut() {
-                    Some(lane) => matches!(
-                        tokio::time::timeout(STALL, lane.write(&message)).await,
-                        Ok(Ok(()))
-                    ),
-                    None => false,
+                    Some(lane) => tokio::time::timeout(STALL, lane.write(&message)).await,
+                    None => Ok(Err(Error::Closed)),
                 };
-                if !written {
-                    self.lane = None;
-                    self.lane_lost = true;
+                match written {
+                    Ok(Ok(())) => {}
+                    Ok(Err(_)) => {
+                        self.lane = None;
+                        self.lane_lost = true;
+                    }
+                    Err(_) => self.abandon_lane(),
                 }
                 Ok(())
             }
         }
+    }
+
+    fn abandon_lane(&mut self) {
+        if let Some(lane) = self.lane.take() {
+            lane.abandon();
+        }
+        self.lane_lost = true;
     }
 
     fn acknowledge(&mut self, upto: u64) {
@@ -386,7 +394,7 @@ impl<R: Transport> Actor<R> {
             && !self.unacknowledged.is_empty()
             && now >= self.progress + STALL;
         if unanswered || stalled {
-            self.lane_lost = true;
+            self.abandon_lane();
         }
         if self.ack_at.is_some_and(|at| now >= at) {
             self.ack().await?;

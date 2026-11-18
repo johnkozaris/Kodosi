@@ -129,13 +129,13 @@ pub(super) struct Lane {
     writer: Writer,
     pub(super) reader: mpsc::UnboundedReceiver<Vec<u8>>,
     pub(super) lan: bool,
-    _use: Option<Use>,
+    used: Option<Use>,
 }
 
 enum Writer {
     Quic(quinn::SendStream),
     #[cfg(test)]
-    Memory(mpsc::UnboundedSender<Vec<u8>>),
+    Memory(mpsc::UnboundedSender<Vec<u8>>, CancellationToken),
 }
 
 impl Lane {
@@ -146,7 +146,7 @@ impl Lane {
             writer: Writer::Quic(send),
             reader,
             lan,
-            _use: Some(used),
+            used: Some(used),
         }
     }
 
@@ -160,7 +160,21 @@ impl Lane {
                 send.write_all(&framed).await.map_err(|_| Error::Closed)
             }
             #[cfg(test)]
-            Writer::Memory(sender) => sender.send(message.to_vec()).map_err(|_| Error::Closed),
+            Writer::Memory(sender, _) => sender.send(message.to_vec()).map_err(|_| Error::Closed),
+        }
+    }
+
+    /// QUIC keeps a connection whose path went silent open until its idle timeout, and the next
+    /// try would open its lane there and wait, so a silent lane ends its connection.
+    pub(super) fn abandon(self) {
+        match &self.writer {
+            Writer::Quic(_) => {
+                if let Some(used) = &self.used {
+                    used.0.connection.close(VarInt::from_u32(0), b"");
+                }
+            }
+            #[cfg(test)]
+            Writer::Memory(_, wire) => wire.cancel(),
         }
     }
 
@@ -169,12 +183,13 @@ impl Lane {
         writer: mpsc::UnboundedSender<Vec<u8>>,
         reader: mpsc::UnboundedReceiver<Vec<u8>>,
         lan: bool,
+        wire: CancellationToken,
     ) -> Self {
         Self {
-            writer: Writer::Memory(writer),
+            writer: Writer::Memory(writer, wire),
             reader,
             lan,
-            _use: None,
+            used: None,
         }
     }
 }
@@ -184,7 +199,7 @@ impl Drop for Lane {
         match &mut self.writer {
             Writer::Quic(send) => drop(send.finish()),
             #[cfg(test)]
-            Writer::Memory(_) => {}
+            Writer::Memory(..) => {}
         }
     }
 }

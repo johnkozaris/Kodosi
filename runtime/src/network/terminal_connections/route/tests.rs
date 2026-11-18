@@ -66,8 +66,8 @@ fn lanes(lan: bool) -> (Lane, Lane, Wire) {
         ));
     }
     (
-        Lane::memory(near_out, near_heard, lan),
-        Lane::memory(far_out, far_heard, lan),
+        Lane::memory(near_out, near_heard, lan, wire.cut.clone()),
+        Lane::memory(far_out, far_heard, lan, wire.cut.clone()),
         wire,
     )
 }
@@ -174,7 +174,7 @@ async fn each_message_arrives_once_and_in_order_while_the_route_moves_to_a_lane_
 }
 
 #[tokio::test(start_paused = true)]
-async fn what_a_silent_lane_swallowed_arrives_over_the_relay() {
+async fn a_silent_lane_ends_its_connection_and_what_it_swallowed_arrives_over_the_relay() {
     let ((mut viewer, mut viewer_paths), (mut host, host_paths), _service) = routes();
     let (near, far, wire) = lanes(false);
     host_paths.attach(far);
@@ -190,6 +190,7 @@ async fn what_a_silent_lane_swallowed_arrives_over_the_relay() {
     let heard = tokio::time::timeout(Duration::from_secs(30), viewer.receive()).await;
     assert_eq!(heard.unwrap().unwrap().unwrap(), b"echoed");
     assert_eq!(viewer_paths.path(), Path::Relay);
+    assert!(wire.cut.is_cancelled());
 }
 
 #[tokio::test]
