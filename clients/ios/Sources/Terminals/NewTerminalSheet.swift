@@ -131,24 +131,7 @@ struct NewTerminalSheet: View {
                     computerRow(launcher)
                     folderRow(launcher)
                     if let agent, let plan {
-                        if agent.accounts.count > 1 || agent.addsAccounts {
-                            accountRow(agent, plan: plan, launcher: launcher)
-                        }
-                        if plan.listsModels {
-                            modelRow(agent, plan: plan, launcher: launcher)
-                        }
-                        if !plan.efforts.isEmpty {
-                            effortRow(plan, launcher: launcher)
-                        }
-                        if agent.fast {
-                            fastRow(agent, plan: plan, launcher: launcher)
-                        }
-                        if agent.permissions.count > 1 {
-                            permissionsRow(agent, plan: plan, launcher: launcher)
-                        }
-                        if !agent.outputs.isEmpty {
-                            outputRow(agent, plan: plan, launcher: launcher)
-                        }
+                        agentRows(agent, plan: plan, launcher: launcher)
                     }
                 }
                 if let agent {
@@ -215,6 +198,28 @@ struct NewTerminalSheet: View {
                     .buttonStyle(.kodosi(.secondary, size: .small))
                     .accessibilityIdentifier("terminals.new.retry")
             }
+        }
+    }
+
+    @ContentBuilder
+    private func agentRows(_ agent: AgentInfo, plan: LaunchPlan, launcher: LauncherState) -> some View {
+        if agent.accounts.count > 1 || agent.addsAccounts {
+            accountRow(agent, plan: plan, launcher: launcher)
+        }
+        if plan.listsModels {
+            modelRow(agent, plan: plan, launcher: launcher)
+        }
+        if !plan.efforts.isEmpty {
+            effortRow(plan, launcher: launcher)
+        }
+        if agent.fast {
+            fastRow(agent, plan: plan, launcher: launcher)
+        }
+        if agent.permissions.count > 1 {
+            permissionsRow(agent, plan: plan, launcher: launcher)
+        }
+        if !agent.outputs.isEmpty {
+            outputRow(agent, plan: plan, launcher: launcher)
         }
     }
 
