@@ -23,10 +23,11 @@ async fn view() -> View {
     let (late, lateness) = watch::channel(false);
     let ended = tokio::spawn(async move {
         let mut viewer = Viewer::new(channel, requests, updates_tx, Finder::relay(), lateness);
-        let mut deadlines = tokio::time::interval(Duration::from_millis(250));
+        let timer = tokio::time::sleep_until(tokio::time::Instant::now());
+        tokio::pin!(timer);
         let mut trust = tokio::time::interval(Duration::from_hours(1));
         loop {
-            if let Err(error) = viewer.step(&mut deadlines, &mut trust).await {
+            if let Err(error) = viewer.step(timer.as_mut(), &mut trust).await {
                 viewer.settle(&error);
                 let reason = viewer.unconfirmed(Text::plain("Lost."));
                 return (Err(error), reason);
@@ -283,6 +284,27 @@ async fn typing_stalls_the_view_only_while_its_connection_does_not_answer() {
         view.updates.recv().await,
         Some(RemoteUpdate::Stalled(false))
     ));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_control_without_an_answer_fails_in_time_and_a_silent_host_ends_the_view() {
+    let mut view = view().await;
+    view.keyframe(0, 200).await;
+    view.updates.recv().await.unwrap();
+    let started = tokio::time::Instant::now();
+    let (reply, answer) = oneshot::channel();
+    view.commands
+        .send(RemoteRequest::Control {
+            control: TerminalControl::Interrupt,
+            reply,
+        })
+        .await
+        .unwrap();
+    assert!(answer.await.unwrap().is_err());
+    assert_eq!(started.elapsed().as_secs(), CONTROL_TIMEOUT.as_secs());
+    let (result, _) = view.ended.await.unwrap();
+    assert!(result.is_err());
+    assert_eq!(started.elapsed().as_secs(), CHANNEL_SILENCE.as_secs());
 }
 
 #[tokio::test(start_paused = true)]

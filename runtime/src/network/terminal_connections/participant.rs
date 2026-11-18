@@ -353,7 +353,7 @@ struct Viewer<T> {
     heard: tokio::time::Instant,
     input_sent: u64,
     input_confirmed: u64,
-    late: watch::Receiver<bool>,
+    late: Option<watch::Receiver<bool>>,
     stalled: bool,
     pipes: BTreeMap<Uuid, PipeOut>,
     finder: Finder,
@@ -384,7 +384,7 @@ impl<T: Transport> Viewer<T> {
             heard: tokio::time::Instant::now(),
             input_sent: 0,
             input_confirmed: 0,
-            late,
+            late: Some(late),
             stalled: false,
             pipes: BTreeMap::new(),
             finder,
@@ -423,14 +423,14 @@ impl<T: Transport> Viewer<T> {
         public: &[u8],
     ) -> Result<()> {
         let generation = credentials.generation;
-        let mut deadlines = tokio::time::interval(Duration::from_millis(250));
-        deadlines.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let timer = tokio::time::sleep_until(tokio::time::Instant::now());
+        tokio::pin!(timer);
         let mut trust = tokio::time::interval(TRUST_CHECK);
         trust.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         trust.tick().await;
         loop {
             check_generation(network, generation)?;
-            if self.step(&mut deadlines, &mut trust).await? {
+            if self.step(timer.as_mut(), &mut trust).await? {
                 match host_trusted(network, credentials, dto, public).await {
                     Err(error) if error.unanswered() => {
                         tracing::warn!(%error, "host trust check got no answer; it will be tried again");
@@ -444,29 +444,26 @@ impl<T: Transport> Viewer<T> {
         }
     }
 
+    /// Hearing the host moves its deadline later with each frame, so the timer is set again only
+    /// for an earlier deadline, and one that goes off early finds nothing due.
     async fn step(
         &mut self,
-        deadlines: &mut tokio::time::Interval,
+        mut timer: std::pin::Pin<&mut tokio::time::Sleep>,
         trust: &mut tokio::time::Interval,
     ) -> Result<bool> {
+        let due = self.due();
+        if due < timer.deadline() || timer.is_elapsed() {
+            timer.as_mut().reset(due);
+        }
         let acknowledge = self.acknowledge_at;
         tokio::select! {
             _ = trust.tick() => return Ok(true),
-            _ = deadlines.tick() => {
-                let now = tokio::time::Instant::now();
-                if self.heard.elapsed() >= CHANNEL_SILENCE {
-                    return Err(Error::Text(text!("The terminal's computer did not answer.")));
+            () = timer => self.expire()?,
+            () = self.updates.closed() => {}
+            alive = changed(&mut self.late) => {
+                if !alive {
+                    self.late = None;
                 }
-                let expired = self.pending.iter().filter(|(_, pending)| pending.deadline <= now).map(|(id, _)| *id).collect::<Vec<_>>();
-                for id in expired {
-                    if let Some(pending) = self.pending.remove(&id) {
-                        drop(pending.reply.send(Err(Error::Text(text!("The terminal's computer did not confirm the operation, and Kodosi did not send it again.")))));
-                    }
-                }
-                if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {
-                    drop(upload.reply.send(Err(Error::Text(picture_not_confirmed()))));
-                }
-                self.tell_stalled().await?;
             }
             () = std::future::ready(()), if self.upload.as_ref().is_some_and(Upload::wants_part) => self.send_part().await?,
             () = async { tokio::time::sleep_until(acknowledge.unwrap_or_else(tokio::time::Instant::now)).await }, if acknowledge.is_some() => {
@@ -484,7 +481,42 @@ impl<T: Transport> Viewer<T> {
                 self.channel.send(&frame).await?;
             }
         }
+        self.tell_stalled().await?;
         Ok(false)
+    }
+
+    fn due(&self) -> tokio::time::Instant {
+        let pending = self.pending.values().map(|pending| pending.deadline);
+        let upload = self.upload.as_ref().map(|upload| upload.deadline);
+        pending
+            .chain(upload)
+            .fold(self.heard + CHANNEL_SILENCE, std::cmp::min)
+    }
+
+    fn expire(&mut self) -> Result<()> {
+        let now = tokio::time::Instant::now();
+        if self.heard.elapsed() >= CHANNEL_SILENCE {
+            return Err(Error::Text(text!(
+                "The terminal's computer did not answer."
+            )));
+        }
+        let expired = self
+            .pending
+            .iter()
+            .filter(|(_, pending)| pending.deadline <= now)
+            .map(|(id, _)| *id)
+            .collect::<Vec<_>>();
+        for id in expired {
+            if let Some(pending) = self.pending.remove(&id) {
+                drop(pending.reply.send(Err(Error::Text(text!(
+                    "The terminal's computer did not confirm the operation, and Kodosi did not send it again."
+                )))));
+            }
+        }
+        if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {
+            drop(upload.reply.send(Err(Error::Text(picture_not_confirmed()))));
+        }
+        Ok(())
     }
 
     async fn acknowledge(&mut self) -> Result<()> {
@@ -828,7 +860,7 @@ impl<T: Transport> Viewer<T> {
     async fn tell_stalled(&mut self) -> Result<()> {
         // The remote terminal holds typing back while a control of its view waits for an answer.
         let waits = self.input_sent > self.input_confirmed || !self.pending.is_empty();
-        let stalled = waits && *self.late.borrow();
+        let stalled = waits && self.late.as_ref().is_some_and(|late| *late.borrow());
         if stalled == self.stalled {
             return Ok(());
         }
@@ -842,6 +874,13 @@ impl<T: Transport> Viewer<T> {
     )]
     async fn update(&mut self, update: RemoteUpdate) -> Result<()> {
         self.updates.send(update).await.map_err(|_| Error::Closed)
+    }
+}
+
+async fn changed(late: &mut Option<watch::Receiver<bool>>) -> bool {
+    match late {
+        Some(late) => late.changed().await.is_ok(),
+        None => std::future::pending().await,
     }
 }
 
