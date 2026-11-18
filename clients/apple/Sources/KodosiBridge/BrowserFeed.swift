@@ -20,6 +20,8 @@ public final class BrowserFeed {
     private static let frameHeader = 14
     private static let messageTag: UInt8 = 0
     private static let frameTag: UInt8 = 1
+    private static let keyFlag: UInt8 = 1
+    private static let anchorFlag: UInt8 = 2
     private static let longestWait = Duration.seconds(30)
     private static let settle = Duration.milliseconds(250)
 
@@ -56,7 +58,7 @@ public final class BrowserFeed {
     @ObservationIgnored private weak var surface: AnyObject?
     @ObservationIgnored private var samples = H264Samples()
     @ObservationIgnored private var lastFrame: UInt32 = 0
-    @ObservationIgnored private var behind = true
+    @ObservationIgnored private var holds = Holds.nothing
     @ObservationIgnored private var sentSize: BrowserSize?
     @ObservationIgnored private var settling: Task<Void, Never>?
     @ObservationIgnored private var holding = false
@@ -137,7 +139,7 @@ public final class BrowserFeed {
     }
 
     public func restart() {
-        behind = true
+        holds = .nothing
         post(.keyframe)
     }
 
@@ -184,7 +186,7 @@ public final class BrowserFeed {
             do {
                 try await link.open()
                 failure = nil
-                behind = true
+                holds = .nothing
                 let size = currentSize
                 sentSize = size
                 post(.watch(size))
@@ -252,21 +254,43 @@ public final class BrowserFeed {
         }
     }
 
+    /// The host skips frames for a view that falls behind and goes on at an anchor, so only a
+    /// delta frame after a gap shows a frame lost on the way, and the decoder needs a key frame.
     private func frame(_ message: Data) {
         guard message.count > Self.frameHeader else { return }
         let header = [UInt8](message.prefix(Self.frameHeader))
         let id = header[1 ..< 5].reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
-        let key = header[5] != 0
+        let key = header[5] & Self.keyFlag != 0
+        let anchor = header[5] & Self.anchorFlag != 0
         post(.ack(id))
-        if !key, !behind, id != lastFrame &+ 1 {
-            restart()
+        if holds == .stream, id != lastFrame &+ 1 {
+            holds = .gap
         }
         lastFrame = id
-        guard key || !behind, let sample = samples.sample(of: message.dropFirst(Self.frameHeader)) else { return }
-        behind = false
+        switch holds {
+        case .nothing where !key:
+            return
+        case .gap where !key && !anchor:
+            restart()
+            return
+        default:
+            break
+        }
+        guard let sample = samples.sample(of: message.dropFirst(Self.frameHeader)) else { return }
+        holds = .stream
         picture = .live
         display(sample)
     }
+}
+
+/// What the decoder of a feed holds.
+private enum Holds {
+    /// Nothing that a frame after a key frame needs, as a new decoder.
+    case nothing
+    /// Each frame since its key frame.
+    case stream
+    /// Every frame up to one that the host skipped.
+    case gap
 }
 
 private enum ToBrowserWindow: Encodable {

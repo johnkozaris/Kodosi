@@ -53,7 +53,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private val link = store.link(session, "browser")
     private var joining: Job? = null
     private var active = false
-    private var behind = true
+    private var holds = Holds.NOTHING
     private var last: Long? = null
     private var decoder: BrowserDecoder? = null
     private var size = fields("width" to 360, "height" to 640, "scale" to 1)
@@ -146,7 +146,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
                 try {
                     link.open()
                     failure.value = null
-                    behind = true
+                    holds = Holds.NOTHING
                     last = null
                     sent = size
                     post(fields("type" to "watch", "size" to size))
@@ -203,22 +203,29 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         }
         if (bytes[0] != 1.toByte() || bytes.size <= HEADER) return
         val id = ByteBuffer.wrap(bytes, 1, 4).order(ByteOrder.BIG_ENDIAN).int.toLong() and 0xffffffffL
-        val key = bytes[5] != 0.toByte()
+        val key = bytes[5].toInt() and KEY != 0
+        val anchor = bytes[5].toInt() and ANCHOR != 0
         post(fields("type" to "ack", "frame" to id))
-        if (!key && !behind && id != (last?.plus(1)?.and(0xffffffffL))) restart()
+        if (holds == Holds.STREAM && id != (last?.plus(1)?.and(0xffffffffL))) holds = Holds.GAP
         last = id
-        if (behind && !key) return
+        // The host skips frames for a view that falls behind and goes on at an anchor, so only a
+        // delta frame after a gap shows a frame lost on the way, and the decoder needs a key frame.
+        if (holds == Holds.NOTHING && !key) return
+        if (holds == Holds.GAP && !key && !anchor) {
+            restart()
+            return
+        }
         if (decoder?.frame(bytes.copyOfRange(HEADER, bytes.size), key) != true) {
             restart()
             return
         }
-        behind = false
+        holds = Holds.STREAM
         stopAwaitingFrames()
     }
 
     /** A key frame costs the host and the link many times the bits of the frames between. */
     private fun restart() {
-        behind = true
+        holds = Holds.NOTHING
         if (decoder == null || keyFrameRequest?.isActive == true) return
         val wait = keyFrameRequested + KEY_FRAME_REQUEST_GAP_MS - SystemClock.elapsedRealtime()
         if (wait <= 0) {
@@ -226,7 +233,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         } else {
             keyFrameRequest = scope.launch {
                 delay(wait)
-                if (behind && decoder != null) requestKeyFrame()
+                if (holds == Holds.NOTHING && decoder != null) requestKeyFrame()
             }
         }
     }
@@ -250,8 +257,13 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         decoder = null
     }
 
+    /** What the decoder holds: a new or broken one takes only a key frame, and one that the host skipped goes on at an anchor. */
+    private enum class Holds { NOTHING, STREAM, GAP }
+
     private companion object {
         const val HEADER = 14
+        const val KEY = 1
+        const val ANCHOR = 2
         const val SETTLE_MS = 250L
         const val KEY_FRAME_REQUEST_GAP_MS = 500L
         const val RECONNECTING_AFTER_MS = 1500L

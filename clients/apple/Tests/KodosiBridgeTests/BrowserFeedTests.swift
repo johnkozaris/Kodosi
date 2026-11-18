@@ -52,6 +52,25 @@ import Testing
 }
 
 @MainActor
+@Test func `a view that the host skipped goes on at an anchor, and one that lost a frame asks for a key frame`() async throws {
+    let runtime = BrowserRuntime()
+    var shown = 0
+    runtime.feed.show(on: NSObject()) { _ in shown += 1 }
+    let watching = Task { await runtime.feed.watch() }
+    defer { watching.cancel() }
+
+    let pipe = try await runtime.open()
+    try runtime.send(BrowserRuntime.keyFrame, on: pipe)
+    try runtime.send(BrowserRuntime.frame(4, anchor: true), on: pipe)
+    try runtime.send(BrowserRuntime.frame(5), on: pipe)
+    #expect(shown == 3)
+    try runtime.send(BrowserRuntime.frame(7), on: pipe)
+    try runtime.send(BrowserRuntime.frame(9, anchor: true), on: pipe)
+    #expect(shown == 3)
+    #expect(runtime.messages() == ["ack", "ack", "ack", "ack", "keyframe", "ack"])
+}
+
+@MainActor
 private final class BrowserRuntime {
     static let keyFrame: Data = {
         let start: [UInt8] = [0, 0, 0, 1]
@@ -61,6 +80,14 @@ private final class BrowserRuntime {
         let keyPicture: [UInt8] = [0x25, 0x88, 0x84]
         return Data(header + start + sequenceParameters + start + pictureParameters + start + keyPicture)
     }()
+
+    static func frame(_ id: UInt32, anchor: Bool = false) -> Data {
+        let start: [UInt8] = [0, 0, 0, 1]
+        let number = withUnsafeBytes(of: id.bigEndian, Array.init)
+        let header: [UInt8] = [1] + number + [anchor ? 2 : 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        let picture: [UInt8] = [0x21, 0xE0, 0x84]
+        return Data(header + start + picture)
+    }
 
     let feed: BrowserFeed
     private let commands = CommandSink()

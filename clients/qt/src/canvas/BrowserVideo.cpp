@@ -22,6 +22,8 @@ namespace {
 constexpr char messageTag = 0;
 constexpr char frameTag = 1;
 constexpr qsizetype frameHeader = 14;
+constexpr char keyFlag = 1;
+constexpr char anchorFlag = 2;
 constexpr int longestWait = 30000;
 constexpr int settleWait = 250;
 constexpr int keyframeFloor = 500;
@@ -216,7 +218,7 @@ void BrowserVideo::opened(const QString& pipe)
     if (pipe != m_pipe)
         return;
     m_wait = 1000;
-    m_behind = true;
+    m_holds = Holds::Nothing;
     m_holding = false;
     m_keyframeFloor.stop();
     m_keyframeOwed = false;
@@ -273,22 +275,27 @@ void BrowserVideo::lost(const QString& pipe)
         m_stale.start();
 }
 
+// The host skips frames for a view that falls behind and goes on at an anchor, so only a delta
+// frame after a gap shows a frame lost on the way, and the decoder needs a key frame.
 void BrowserVideo::frame(const QByteArray& message)
 {
     if (message.size() <= frameHeader)
         return;
     const auto id = qFromBigEndian<quint32>(message.constData() + 1);
-    const bool key = message.at(5) != 0;
-    if (!key && !m_behind && id != m_lastFrame + 1) {
-        m_behind = true;
-        askKeyframe();
-    }
+    const bool key = (message.at(5) & keyFlag) != 0;
+    const bool anchor = (message.at(5) & anchorFlag) != 0;
+    if (m_holds == Holds::Stream && id != m_lastFrame + 1)
+        m_holds = Holds::Gap;
     m_lastFrame = id;
-    if (m_behind && !key) {
+    if ((m_holds == Holds::Nothing && !key) || (m_holds == Holds::Gap && !key && !anchor)) {
+        if (m_holds == Holds::Gap) {
+            m_holds = Holds::Nothing;
+            askKeyframe();
+        }
         ack(id);
         return;
     }
-    m_behind = false;
+    m_holds = Holds::Stream;
     emit decodeRequested(m_pipe, id, key, message.mid(frameHeader));
 }
 
@@ -313,6 +320,7 @@ void BrowserVideo::decodeFailed(const QString& pipe, quint32 frame)
 {
     if (pipe != m_pipe)
         return;
+    m_holds = Holds::Nothing;
     ack(frame);
     askKeyframe();
 }
