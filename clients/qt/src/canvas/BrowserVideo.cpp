@@ -9,12 +9,13 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QQuickWindow>
-#include <QSGSimpleTextureNode>
+#include <QSGImageNode>
 #include <QSet>
 #include <QTimer>
 #include <QtEndian>
 
 #include <algorithm>
+#include <utility>
 
 namespace kodosi {
 namespace {
@@ -23,6 +24,8 @@ constexpr char frameTag = 1;
 constexpr qsizetype frameHeader = 14;
 constexpr int longestWait = 30000;
 constexpr int settleWait = 250;
+constexpr int keyframeFloor = 500;
+constexpr int staleWait = 1500;
 constexpr qsizetype mostTyped = 16 * 1024;
 
 int browserModifiers(int modifiers)
@@ -31,37 +34,60 @@ int browserModifiers(int modifiers)
         | (modifiers & Qt::MetaModifier ? 4 : 0) | (modifiers & Qt::ShiftModifier ? 8 : 0);
 }
 
-// Decodes on its own thread. A frame depends on the frames before it, so each one is decoded.
+// Decodes on its own thread. A frame depends on the frames before it, so each one is decoded, and
+// after a broken frame or on a new pipe only a key frame can begin again.
 class Decoder final : public QObject {
     Q_OBJECT
 
 public:
-    Decoder()
-        : m_decoder(kodosi_video_decoder_new())
-    {
-    }
     ~Decoder() override { kodosi_video_decoder_free(m_decoder); }
 
 public slots:
-    void decode(quint32 frame, const QByteArray& data)
+    void decode(const QString& pipe, quint32 frame, bool key, const QByteArray& data)
     {
+        if (pipe != m_pipe) {
+            m_pipe = pipe;
+            reset();
+        }
+        if (!m_decoder && key)
+            m_decoder = kodosi_video_decoder_new();
+        if (!m_decoder) {
+            if (key)
+                emit failed(pipe, frame);
+            else
+                emit done(pipe, frame, {});
+            return;
+        }
         kodosi_picture_t picture {};
         const auto answer = kodosi_video_decoder_decode(
             m_decoder, reinterpret_cast<const uint8_t*>(data.constData()), static_cast<size_t>(data.size()), &picture);
-        if (answer <= 0) {
-            emit done(frame, {});
+        if (answer < 0) {
+            reset();
+            emit failed(pipe, frame);
+            return;
+        }
+        if (answer == 0) {
+            emit done(pipe, frame, {});
             return;
         }
         const QImage image(picture.rgba, static_cast<int>(picture.width), static_cast<int>(picture.height),
             static_cast<qsizetype>(picture.width) * 4, QImage::Format_RGBA8888);
-        emit done(frame, image.copy());
+        emit done(pipe, frame, image.copy());
     }
 
 signals:
-    void done(quint32 frame, const QImage& image);
+    void done(const QString& pipe, quint32 frame, const QImage& image);
+    void failed(const QString& pipe, quint32 frame);
 
 private:
-    kodosi_video_decoder_t* m_decoder;
+    void reset()
+    {
+        kodosi_video_decoder_free(m_decoder);
+        m_decoder = nullptr;
+    }
+
+    kodosi_video_decoder_t* m_decoder = nullptr;
+    QString m_pipe;
 };
 }
 
@@ -74,12 +100,22 @@ BrowserVideo::BrowserVideo(QQuickItem* parent)
     connect(&m_decoding, &QThread::finished, decoder, &QObject::deleteLater);
     connect(this, &BrowserVideo::decodeRequested, decoder, &Decoder::decode);
     connect(decoder, &Decoder::done, this, &BrowserVideo::decoded);
+    connect(decoder, &Decoder::failed, this, &BrowserVideo::decodeFailed);
     m_decoding.start();
     m_again.setSingleShot(true);
     connect(&m_again, &QTimer::timeout, this, &BrowserVideo::join);
     m_settle.setSingleShot(true);
     m_settle.setInterval(settleWait);
     connect(&m_settle, &QTimer::timeout, this, &BrowserVideo::sendSize);
+    m_keyframeFloor.setSingleShot(true);
+    m_keyframeFloor.setInterval(keyframeFloor);
+    connect(&m_keyframeFloor, &QTimer::timeout, this, [this] {
+        if (std::exchange(m_keyframeOwed, false))
+            askKeyframe();
+    });
+    m_stale.setSingleShot(true);
+    m_stale.setInterval(staleWait);
+    connect(&m_stale, &QTimer::timeout, this, [this] { setReconnecting(true); });
 }
 
 BrowserVideo::~BrowserVideo()
@@ -112,7 +148,28 @@ void BrowserVideo::setSessionId(const QString& sessionId)
         return;
     leave();
     m_sessionId = sessionId;
+    forgetTerminal();
     join();
+}
+
+void BrowserVideo::forgetTerminal()
+{
+    m_wait = 1000;
+    m_stale.stop();
+    setReconnecting(false);
+    if (!m_image.isNull()) {
+        m_image = {};
+        update();
+        emit showsChanged();
+    }
+    if (!m_window.isEmpty()) {
+        m_window.clear();
+        emit windowChanged();
+    }
+    if (!m_icons.isEmpty()) {
+        m_icons.clear();
+        emit iconsChanged();
+    }
 }
 
 void BrowserVideo::setActive(bool active)
@@ -161,6 +218,8 @@ void BrowserVideo::opened(const QString& pipe)
     m_wait = 1000;
     m_behind = true;
     m_holding = false;
+    m_keyframeFloor.stop();
+    m_keyframeOwed = false;
     m_sentSize = sizeMessage();
     post({ { QStringLiteral("type"), QStringLiteral("watch") }, { QStringLiteral("size"), m_sentSize } });
 }
@@ -210,6 +269,8 @@ void BrowserVideo::lost(const QString& pipe)
     m_pipe.clear();
     m_again.start(m_wait);
     m_wait = std::min(m_wait * 2, longestWait);
+    if (!m_stale.isActive())
+        m_stale.start();
 }
 
 void BrowserVideo::frame(const QByteArray& message)
@@ -220,28 +281,65 @@ void BrowserVideo::frame(const QByteArray& message)
     const bool key = message.at(5) != 0;
     if (!key && !m_behind && id != m_lastFrame + 1) {
         m_behind = true;
-        post({ { QStringLiteral("type"), QStringLiteral("keyframe") } });
+        askKeyframe();
     }
     m_lastFrame = id;
     if (m_behind && !key) {
-        post({ { QStringLiteral("type"), QStringLiteral("ack") }, { QStringLiteral("frame"), static_cast<qint64>(id) } });
+        ack(id);
         return;
     }
     m_behind = false;
-    emit decodeRequested(id, message.mid(frameHeader));
+    emit decodeRequested(m_pipe, id, key, message.mid(frameHeader));
 }
 
-void BrowserVideo::decoded(quint32 frame, const QImage& image)
+void BrowserVideo::decoded(const QString& pipe, quint32 frame, const QImage& image)
+{
+    if (pipe != m_pipe)
+        return;
+    if (!image.isNull()) {
+        const bool first = m_image.isNull();
+        m_image = image;
+        m_fresh = true;
+        update();
+        m_stale.stop();
+        setReconnecting(false);
+        if (first)
+            emit showsChanged();
+    }
+    ack(frame);
+}
+
+void BrowserVideo::decodeFailed(const QString& pipe, quint32 frame)
+{
+    if (pipe != m_pipe)
+        return;
+    ack(frame);
+    askKeyframe();
+}
+
+// A key frame costs every viewer of the page, so this asks at most once per floor and keeps an
+// ask within the floor for its end.
+void BrowserVideo::askKeyframe()
+{
+    if (m_keyframeFloor.isActive()) {
+        m_keyframeOwed = true;
+        return;
+    }
+    m_keyframeFloor.start();
+    post({ { QStringLiteral("type"), QStringLiteral("keyframe") } });
+}
+
+void BrowserVideo::ack(quint32 frame)
 {
     post({ { QStringLiteral("type"), QStringLiteral("ack") }, { QStringLiteral("frame"), static_cast<qint64>(frame) } });
-    if (image.isNull())
+}
+
+void BrowserVideo::setReconnecting(bool reconnecting)
+{
+    if (reconnecting == m_reconnecting)
         return;
-    const bool first = m_image.isNull();
-    m_image = image;
-    m_fresh = true;
-    update();
-    if (first)
-        emit showsChanged();
+    m_reconnecting = reconnecting;
+    emit reconnectingChanged();
 }
 
 void BrowserVideo::post(const QJsonObject& message)
@@ -389,22 +487,29 @@ QRectF BrowserVideo::pictureRect() const
 
 QSGNode* BrowserVideo::updatePaintNode(QSGNode* node, UpdatePaintNodeData*)
 {
-    auto* texture = static_cast<QSGSimpleTextureNode*>(node);
+    auto* picture = static_cast<QSGImageNode*>(node);
     if (m_image.isNull()) {
-        delete texture;
+        delete picture;
         return nullptr;
     }
-    if (!texture) {
-        texture = new QSGSimpleTextureNode;
-        texture->setOwnsTexture(true);
-        texture->setFiltering(QSGTexture::Linear);
+    if (!picture) {
+        picture = QQuickItem::window()->createImageNode();
+        picture->setOwnsTexture(true);
+        picture->setFiltering(QSGTexture::Linear);
     }
-    if (m_fresh || !texture->texture()) {
-        texture->setTexture(QQuickItem::window()->createTextureFromImage(m_image, QQuickWindow::TextureIsOpaque));
+    const auto shown = pictureRect();
+    // Linear filtering alone skips pixels of a picture larger than the view, which makes it
+    // shimmer. A texture keeps no copy of its picture, so other mipmaps need a new texture.
+    const auto mipmaps = qRound(shown.width() * QQuickItem::window()->effectiveDevicePixelRatio()) < m_image.width()
+        ? QSGTexture::Linear
+        : QSGTexture::None;
+    if (m_fresh || !picture->texture() || picture->mipmapFiltering() != mipmaps) {
+        picture->setMipmapFiltering(mipmaps);
+        picture->setTexture(QQuickItem::window()->createTextureFromImage(m_image, QQuickWindow::TextureIsOpaque));
         m_fresh = false;
     }
-    texture->setRect(pictureRect());
-    return texture;
+    picture->setRect(shown);
+    return picture;
 }
 
 void BrowserVideo::geometryChange(const QRectF& next, const QRectF& previous)
@@ -418,8 +523,10 @@ void BrowserVideo::geometryChange(const QRectF& next, const QRectF& previous)
 void BrowserVideo::itemChange(ItemChange change, const ItemChangeData& value)
 {
     QQuickItem::itemChange(change, value);
-    if (change == ItemDevicePixelRatioHasChanged)
+    if (change == ItemDevicePixelRatioHasChanged) {
         m_settle.start();
+        update();
+    }
 }
 }
 
