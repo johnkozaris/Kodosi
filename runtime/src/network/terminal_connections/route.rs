@@ -25,7 +25,6 @@ const ANSWER_WAIT: Duration = Duration::from_secs(10);
 pub(crate) enum Path {
     Relay,
     Direct,
-    Lan,
 }
 
 /// Only the viewer moves a route to a direct lane; either side moves it back to the relay.
@@ -135,10 +134,6 @@ impl Transport for Route {
 impl Paths {
     pub(super) fn attach(&self, lane: Lane) -> bool {
         self.lanes.try_send(lane).is_ok()
-    }
-
-    pub(super) fn path(&self) -> Path {
-        *self.path.borrow()
     }
 
     pub(super) fn late(&self) -> watch::Receiver<bool> {
@@ -461,7 +456,6 @@ impl<R: Transport> Actor<R> {
 
     fn publish(&self) {
         let path = match (&self.lane, self.sending, self.held) {
-            (Some(lane), Carrier::Lane, false) if lane.lan => Path::Lan,
             (Some(_), Carrier::Lane, false) => Path::Direct,
             _ => Path::Relay,
         };
@@ -696,7 +690,7 @@ async fn look(
         };
         if reached {
             failures = 0;
-            tracing::info!(path = ?paths.path(), "a terminal connection went straight to its computer");
+            tracing::info!("a terminal connection went straight to its computer");
             if !paths.back_on_relay().await {
                 return;
             }

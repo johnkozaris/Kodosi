@@ -17,10 +17,10 @@ export interface Sheet {
   merges: [number, number, number, number][];
   widths: Record<string, number>;
   heights: Record<string, number>;
-  hiddenRows?: number[];
-  hiddenColumns?: number[];
-  frozen?: Frozen;
-  links?: { ranges: string; to: LinkTarget }[];
+  hiddenRows: number[];
+  hiddenColumns: number[];
+  frozen: Frozen;
+  links: { ranges: string; to: LinkTarget }[];
 }
 
 /** The rows and the columns that stay in sight: `rows` rows from `top`, `columns` from `left`. */
@@ -67,7 +67,7 @@ function cellOf(name: string): { row: number; column: number } | null {
 }
 
 export function linksOf(sheet: Sheet): SheetLink[] {
-  return (sheet.links ?? []).flatMap(({ ranges, to }) =>
+  return sheet.links.flatMap(({ ranges, to }) =>
     ranges.split(" ").flatMap((name) => {
       const range = rangeOf(name);
       return range ? [{ sheet: sheet.id, ...range, to }] : [];

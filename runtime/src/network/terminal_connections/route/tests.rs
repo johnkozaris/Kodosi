@@ -51,7 +51,7 @@ struct Wire {
     far_abandoned: CancellationToken,
 }
 
-fn lanes(lan: bool) -> (Lane, Lane, Wire) {
+fn lanes() -> (Lane, Lane, Wire) {
     let wire = Wire {
         cut: CancellationToken::new(),
         silent: Arc::new(AtomicBool::new(false)),
@@ -71,8 +71,8 @@ fn lanes(lan: bool) -> (Lane, Lane, Wire) {
         ));
     }
     (
-        Lane::memory(near_out, near_heard, lan, wire.near_abandoned.clone()),
-        Lane::memory(far_out, far_heard, lan, wire.far_abandoned.clone()),
+        Lane::memory(near_out, near_heard, wire.near_abandoned.clone()),
+        Lane::memory(far_out, far_heard, wire.far_abandoned.clone()),
         wire,
     )
 }
@@ -141,7 +141,7 @@ async fn until_seen(seen: &[&Arc<AtomicUsize>], count: usize) {
 #[tokio::test]
 async fn each_message_arrives_once_and_in_order_while_the_route_moves_to_a_lane_and_back() {
     let ((viewer, mut viewer_paths), (host, host_paths), _service) = routes();
-    let (near, far, wire) = lanes(true);
+    let (near, far, wire) = lanes();
     let count = 400;
     let (allow, allowed) = watch::channel(100);
     let (viewer_seen, host_seen) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
@@ -159,7 +159,7 @@ async fn each_message_arrives_once_and_in_order_while_the_route_moves_to_a_lane_
     assert!(viewer_paths.attach(near));
     allow.send(200).unwrap();
     assert!(viewer_paths.went_direct().await);
-    assert_eq!(viewer_paths.path(), Path::Lan);
+    assert_eq!(*viewer_paths.path.borrow(), Path::Direct);
     until_seen(&[&viewer_seen, &host_seen], 200).await;
 
     allow.send(count).unwrap();
@@ -184,11 +184,11 @@ async fn each_message_arrives_once_and_in_order_while_the_route_moves_to_a_lane_
 #[tokio::test(start_paused = true)]
 async fn a_silent_lane_ends_its_connection_and_what_it_swallowed_arrives_over_the_relay() {
     let ((mut viewer, mut viewer_paths), (mut host, host_paths), _service) = routes();
-    let (near, far, wire) = lanes(false);
+    let (near, far, wire) = lanes();
     host_paths.attach(far);
     viewer_paths.attach(near);
     assert!(viewer_paths.went_direct().await);
-    assert_eq!(viewer_paths.path(), Path::Direct);
+    assert_eq!(*viewer_paths.path.borrow(), Path::Direct);
 
     wire.silent.store(true, Ordering::Release);
     viewer.send(b"typed".to_vec()).await.unwrap();
@@ -197,14 +197,14 @@ async fn a_silent_lane_ends_its_connection_and_what_it_swallowed_arrives_over_th
     assert_eq!(heard.unwrap().unwrap().unwrap(), b"typed");
     let heard = tokio::time::timeout(Duration::from_secs(30), viewer.receive()).await;
     assert_eq!(heard.unwrap().unwrap().unwrap(), b"echoed");
-    assert_eq!(viewer_paths.path(), Path::Relay);
+    assert_eq!(*viewer_paths.path.borrow(), Path::Relay);
     assert!(wire.near_abandoned.is_cancelled() && wire.far_abandoned.is_cancelled());
 }
 
 #[tokio::test(start_paused = true)]
 async fn a_view_ends_the_connection_of_a_lane_that_its_host_found_silent() {
     let ((mut viewer, mut viewer_paths), (mut host, host_paths), _service) = routes();
-    let (near, far, wire) = lanes(false);
+    let (near, far, wire) = lanes();
     host_paths.attach(far);
     viewer_paths.attach(near);
     assert!(viewer_paths.went_direct().await);
@@ -220,7 +220,7 @@ async fn a_view_ends_the_connection_of_a_lane_that_its_host_found_silent() {
 #[tokio::test(start_paused = true)]
 async fn a_route_is_late_only_while_its_messages_wait_for_an_answer() {
     let ((mut viewer, mut viewer_paths), (mut host, host_paths), _service) = routes();
-    let (near, far, wire) = lanes(false);
+    let (near, far, wire) = lanes();
     host_paths.attach(far);
     viewer_paths.attach(near);
     assert!(viewer_paths.went_direct().await);
@@ -246,7 +246,7 @@ async fn a_route_is_late_only_while_its_messages_wait_for_an_answer() {
 async fn a_route_that_ends_on_a_lane_delivers_its_last_messages_first() {
     let ((mut viewer, mut viewer_paths), (mut host, host_paths), service) = routes();
     drop(service);
-    let (near, far, _wire) = lanes(false);
+    let (near, far, _wire) = lanes();
     host_paths.attach(far);
     viewer_paths.attach(near);
     assert!(viewer_paths.went_direct().await);
@@ -270,7 +270,7 @@ async fn a_route_that_ends_on_a_lane_stops_when_nothing_answers_its_last_message
         },
         Role::Viewer,
     );
-    let (near, mut far, wire) = lanes(false);
+    let (near, mut far, wire) = lanes();
     paths.attach(near);
     far.reader.recv().await.unwrap();
     far.write(&numbered(RESUME, 0)).await.unwrap();
@@ -289,7 +289,7 @@ async fn a_route_that_ends_on_a_lane_stops_when_nothing_answers_its_last_message
 #[tokio::test]
 async fn the_service_ends_the_route_by_its_relay_pipe_while_the_messages_go_straight() {
     let ((mut viewer, mut viewer_paths), (_host, host_paths), service) = routes();
-    let (near, far, _wire) = lanes(false);
+    let (near, far, _wire) = lanes();
     host_paths.attach(far);
     viewer_paths.attach(near);
     assert!(viewer_paths.went_direct().await);
@@ -308,12 +308,12 @@ async fn the_service_ends_the_route_by_its_relay_pipe_while_the_messages_go_stra
 #[tokio::test]
 async fn a_host_moves_to_a_lane_only_when_its_viewer_does() {
     let ((mut viewer, viewer_paths), (mut host, host_paths), _service) = routes();
-    let (_near, far, _wire) = lanes(true);
+    let (_near, far, _wire) = lanes();
     host_paths.attach(far);
     host.send(b"output".to_vec()).await.unwrap();
     assert_eq!(viewer.receive().await.unwrap().unwrap(), b"output");
     assert_eq!(
-        (host_paths.path(), viewer_paths.path()),
+        (*host_paths.path.borrow(), *viewer_paths.path.borrow()),
         (Path::Relay, Path::Relay)
     );
 }
@@ -338,7 +338,7 @@ async fn a_channel_keeps_its_session_while_its_route_moves() {
         Ok(Some((Frame::Ack { received: 1 }, _)))
     ));
 
-    let (near, far, _wire) = lanes(true);
+    let (near, far, _wire) = lanes();
     host_paths.attach(far);
     viewer_paths.attach(near);
     assert!(viewer_paths.went_direct().await);
@@ -404,7 +404,7 @@ async fn two_finders_take_a_view_straight_and_its_channel_goes_on_over_the_lane(
     })
     .await;
     assert!(straight.is_ok());
-    assert_eq!(viewer_paths.path(), Path::Lan);
+    assert_eq!(*viewer_paths.path.borrow(), Path::Direct);
 
     hosted.send(&Frame::Ack { received: 7 }).await.unwrap();
     assert!(matches!(

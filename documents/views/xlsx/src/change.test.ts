@@ -62,6 +62,9 @@ test("a link belongs to its cells and moves with them", () => {
     merges: [],
     widths: {},
     heights: {},
+    hiddenRows: [],
+    hiddenColumns: [],
+    frozen: { top: 0, left: 0, rows: 0, columns: 0 },
     links: [
       { ranges: "A1", to: { href: "https://kodosi.com/docs" } },
       { ranges: "B2:B4", to: { location: "'Data'!A3" } },

@@ -692,7 +692,7 @@ private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: ()
 }
 
 @Composable
-private fun StateCard(title: String, message: String?, working: Boolean, action: @Composable () -> Unit = {}) {
+private fun StateCard(title: String, message: String?, working: Boolean, action: @Composable () -> Unit) {
     val colors = KodosiTheme.colors
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
