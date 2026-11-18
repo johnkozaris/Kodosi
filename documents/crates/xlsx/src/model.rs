@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 use serde_json::{Map, json};
 
 use crate::Op;
@@ -124,20 +124,54 @@ pub(crate) struct DefinedName {
     pub(crate) text: String,
 }
 
+/// serde reads `null` as a field that is not there, which would keep what `null` empties.
+#[expect(
+    clippy::option_option,
+    reason = "a field that is not there keeps, and `null` empties"
+)]
+fn emptied<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    value: D,
+) -> Result<Option<Option<T>>, D::Error> {
+    Option::<T>::deserialize(value).map(Some)
+}
+
 /// What a change does not name stays.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CellChange {
     pub row: u32,
     pub column: u32,
     /// `null` empties the cell. Without it, the value stays.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "emptied",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub value: Option<Option<Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "emptied",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub formula: Option<Option<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "emptied",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub style: Option<Option<u32>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub look: Option<Look>,
+}
+
+/// JSON names a line by its number as text, which serde does not read as a number in a tagged
+/// change.
+fn line_keys<'de, D: Deserializer<'de>, V: Deserialize<'de>>(
+    lines: D,
+) -> Result<BTreeMap<u32, V>, D::Error> {
+    BTreeMap::<String, V>::deserialize(lines)?
+        .into_iter()
+        .map(|(line, value)| Ok((line.parse().map_err(D::Error::custom)?, value)))
+        .collect()
 }
 
 /// Cells name a key, so the last change wins. Rows and columns name positions, so a view moves
@@ -177,9 +211,9 @@ pub enum Change {
     },
     Size {
         sheet: String,
-        #[serde(default)]
+        #[serde(default, deserialize_with = "line_keys")]
         widths: BTreeMap<u32, f64>,
-        #[serde(default)]
+        #[serde(default, deserialize_with = "line_keys")]
         heights: BTreeMap<u32, f64>,
     },
     Merges {

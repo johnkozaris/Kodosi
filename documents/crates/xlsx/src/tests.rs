@@ -1023,3 +1023,46 @@ fn a_link_of_a_cell_says_where_it_goes_and_moves_with_its_row() {
         (&json!("A2"), &json!("B3"))
     );
 }
+
+fn change(model: &mut Model, change: Change) {
+    Xlsx::apply(model, change, &[], &mut Assets::default()).unwrap();
+}
+
+#[test]
+fn a_view_names_lines_by_their_number_as_text() {
+    let mut model = read(&xlsx_file());
+    let batch = serde_json::from_value(json!({
+        "kind": "group",
+        "changes": [
+            { "kind": "size", "sheet": "1", "widths": { "1": 30 }, "heights": { "4": 22.5 } },
+        ],
+    }))
+    .unwrap();
+    change(&mut model, batch);
+    let sheet = &Xlsx::snapshot(&model).0["sheets"][0];
+    assert_eq!(
+        (&sheet["widths"], &sheet["heights"]),
+        (&json!({ "1": 30.0 }), &json!({ "0": 20.0, "4": 22.5 }))
+    );
+}
+
+#[test]
+fn a_cell_that_a_view_empties_goes_from_the_file_and_from_the_others() {
+    let file = xlsx_file();
+    let mut model = read(&file);
+    let cleared = serde_json::from_value(json!({
+        "kind": "cells",
+        "sheet": "1",
+        "cells": [{ "row": 1, "column": 0, "value": null, "formula": null, "style": null }],
+    }))
+    .unwrap();
+    let sent = Xlsx::apply(&mut model, cleared, &[], &mut Assets::default()).unwrap();
+    assert_eq!(
+        serde_json::to_value(&sent).unwrap()["cells"][0],
+        json!({ "row": 1, "column": 0, "value": null, "formula": null, "style": null })
+    );
+    assert_eq!(
+        cell_value(&read(&saved(&model, &file)), "A2"),
+        serde_json::Value::Null
+    );
+}
