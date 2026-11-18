@@ -730,6 +730,8 @@ fn run(command: ToEngine) {
         ToEngine::Capture { .. }
         | ToEngine::Stop { .. }
         | ToEngine::Keyframe { .. }
+        | ToEngine::Recover { .. }
+        | ToEngine::Held { .. }
         | ToEngine::Bitrate { .. } => capture(&command),
         ToEngine::Activate { tab } => activate(tab),
         ToEngine::NewTab {
@@ -804,8 +806,8 @@ fn resize(window: i64, size: Size) {
     }
 }
 
-/// A new capture or a key frame asks the page to draw again, since a still page sends no
-/// pictures.
+/// A new capture, a key frame or an anchor asks the page to draw again, since a still page sends
+/// no pictures.
 fn capture(command: &ToEngine) {
     let repaint_tab = with(|engine| match *command {
         ToEngine::Capture {
@@ -833,6 +835,20 @@ fn capture(command: &ToEngine) {
             let capture = capture.as_mut()?;
             capture.encoder.want_key();
             engine.browser_of(capture.tab)
+        }
+        ToEngine::Recover { window } => {
+            let shared = engine.shared_of(window)?;
+            let mut capture = shared.capture.borrow_mut();
+            let capture = capture.as_mut()?;
+            capture.encoder.recover();
+            engine.browser_of(capture.tab)
+        }
+        ToEngine::Held { window, ref marks } => {
+            let shared = engine.shared_of(window)?;
+            if let Some(capture) = shared.capture.borrow_mut().as_mut() {
+                capture.encoder.held(marks);
+            }
+            None
         }
         ToEngine::Bitrate { window, bitrate } => {
             let shared = engine.shared_of(window)?;

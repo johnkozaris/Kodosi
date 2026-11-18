@@ -1,13 +1,24 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     time::{Duration, Instant},
 };
 
+use crate::link::FrameKind;
+
 /// Bytes on their way to one viewer before it counts as behind.
 const WAITING_MOST: usize = 2 * 1024 * 1024;
-/// A viewer that is behind can take a key frame again when this much still waits.
+/// A viewer that is behind can go on when this much still waits.
 const WAITING_DRAINED: usize = 256 * 1024;
+/// A frame that waits this much longer than the link's own round trip shows a queue.
+const LATE: Duration = Duration::from_millis(250);
+/// A viewer that stays late this long cannot take the stream. The frames that queued behind a
+/// key frame catch up sooner.
+const LATE_FOR: Duration = Duration::from_millis(500);
+/// Frames for one viewer that its pipe has not taken.
+const QUEUED_MOST: usize = 3;
 const KEYFRAME_FLOOR: Duration = Duration::from_secs(1);
+const ANCHOR_FLOOR: Duration = Duration::from_millis(250);
+/// A viewer that takes no frame for this long is gone.
 const HOPELESS: Duration = Duration::from_secs(15);
 /// More round trip than the link's own shows that a queue forms.
 const QUEUE_LIMIT: Duration = Duration::from_millis(40);
@@ -18,17 +29,31 @@ pub(crate) const FIRST_BITRATE: u32 = 8_000_000;
 const LOWEST_BITRATE: u32 = 1_000_000;
 const HIGHEST_BITRATE: u32 = 40_000_000;
 
+/// What a viewer's decoder holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Holds {
+    /// Nothing that a frame after a key frame needs, as a new decoder or one that broke.
+    Nothing,
+    /// Each frame since its key frame.
+    Stream,
+    /// The marks that every viewer held before it missed a frame, but not the frames since.
+    Gap,
+}
+
 struct Sent {
     id: u32,
     bytes: usize,
     at: Instant,
+    kind: FrameKind,
 }
 
 struct Seat {
-    live: bool,
+    holds: Holds,
     sent: VecDeque<Sent>,
     waiting: usize,
-    over_since: Option<Instant>,
+    late_since: Option<Instant>,
+    /// When the viewer last took a frame, or when a frame went to it while none waited.
+    heard_at: Instant,
     round: Option<Duration>,
     least_round: Option<Duration>,
     window_least: Option<Duration>,
@@ -38,10 +63,11 @@ struct Seat {
 impl Seat {
     fn new(now: Instant) -> Self {
         Self {
-            live: false,
+            holds: Holds::Nothing,
             sent: VecDeque::new(),
             waiting: 0,
-            over_since: None,
+            late_since: None,
+            heard_at: now,
             round: None,
             least_round: None,
             window_least: None,
@@ -65,36 +91,88 @@ impl Seat {
             self.window_at = now;
         }
     }
+
+    /// A key frame or an anchor takes longer to cross than the frames behind it, so nothing is
+    /// late while one crosses.
+    fn late(&self, now: Instant) -> bool {
+        let Some(oldest) = self.sent.front() else {
+            return false;
+        };
+        self.sent.iter().all(|sent| sent.kind == FrameKind::Delta)
+            && now.duration_since(oldest.at) > self.least_round.unwrap_or_default() + LATE
+    }
+
+    fn behind(&mut self, queued: usize, now: Instant) -> bool {
+        let late = self.late(now);
+        if !late {
+            self.late_since = None;
+        }
+        self.waiting > WAITING_MOST
+            || queued >= QUEUED_MOST
+            || late && now.duration_since(*self.late_since.get_or_insert(now)) >= LATE_FOR
+    }
+
+    fn caught_up(&self, now: Instant) -> bool {
+        self.waiting <= WAITING_DRAINED && !self.late(now)
+    }
+
+    fn send(&mut self, sent: Sent) {
+        if self.sent.is_empty() {
+            self.heard_at = sent.at;
+        }
+        self.waiting += sent.bytes;
+        self.sent.push_back(sent);
+    }
+}
+
+/// A frame's mark, until each viewer that took the frame said so.
+struct MarkedFrame {
+    id: u32,
+    mark: u64,
+    waiting: HashSet<String>,
+    taken: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Ask {
+    Keyframe,
+    Recover,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct Delivery {
     pub to: Vec<String>,
-    pub ask_keyframe: bool,
-    pub dropped: Vec<String>,
+    pub ask: Option<Ask>,
 }
 
 /// One encoder serves all viewers of a window. Viewers report each frame, the bitrate follows
-/// the round trip, and a viewer that falls behind gets no new frames until a key frame.
+/// the round trip, and a viewer that falls behind misses frames until a key frame or an anchor,
+/// so it never sees an old page and never slows the others.
 pub(crate) struct Flow {
     seats: HashMap<String, Seat>,
+    marks: VecDeque<MarkedFrame>,
+    held: Vec<u64>,
+    /// The encoder marks frames, so it can make anchors.
+    anchors: bool,
     bitrate: u32,
     steered_at: Option<Instant>,
     cut_at: Option<Instant>,
     keyframe_at: Option<Instant>,
-    /// A viewer asked for a key frame within the floor, so one comes when the floor passes.
-    keyframe_owed: bool,
+    recovered_at: Option<Instant>,
 }
 
 impl Flow {
     pub(crate) fn new() -> Self {
         Self {
             seats: HashMap::new(),
+            marks: VecDeque::new(),
+            held: Vec::new(),
+            anchors: false,
             bitrate: FIRST_BITRATE,
             steered_at: None,
             cut_at: None,
             keyframe_at: None,
-            keyframe_owed: false,
+            recovered_at: None,
         }
     }
 
@@ -103,94 +181,129 @@ impl Flow {
     }
 
     pub(crate) fn seat(&mut self, viewer: &str, now: Instant) {
+        self.forget(viewer);
         self.seats.insert(viewer.to_owned(), Seat::new(now));
     }
 
     pub(crate) fn leave(&mut self, viewer: &str) {
         self.seats.remove(viewer);
+        self.forget(viewer);
     }
 
-    pub(crate) fn frame(&mut self, id: u32, key: bool, bytes: usize, now: Instant) -> Delivery {
+    /// Takes how many frames wait in each viewer's pipe, and returns the viewers that take the
+    /// frame.
+    pub(crate) fn frame(
+        &mut self,
+        id: u32,
+        kind: FrameKind,
+        mark: Option<u64>,
+        bytes: usize,
+        now: Instant,
+        queued: impl Fn(&str) -> usize,
+    ) -> Delivery {
         let mut delivery = Delivery::default();
-        let mut wants_key = false;
-        if key {
-            self.keyframe_owed = false;
+        if kind == FrameKind::Key {
+            self.marks.clear();
+            self.keyframe_at = Some(now);
         }
         for (viewer, seat) in &mut self.seats {
-            if seat.waiting > WAITING_MOST {
-                let since = *seat.over_since.get_or_insert(now);
-                seat.live = false;
-                if now.duration_since(since) >= HOPELESS {
-                    delivery.dropped.push(viewer.clone());
-                }
-                continue;
+            let behind = seat.behind(queued(viewer), now);
+            let takes = match kind {
+                FrameKind::Key => seat.waiting <= WAITING_MOST,
+                FrameKind::Anchor => seat.holds != Holds::Nothing && !behind,
+                FrameKind::Delta => seat.holds == Holds::Stream && !behind,
+            };
+            if takes {
+                seat.holds = Holds::Stream;
+                seat.send(Sent {
+                    id,
+                    bytes,
+                    at: now,
+                    kind,
+                });
+                delivery.to.push(viewer.clone());
+            } else if kind == FrameKind::Key {
+                seat.holds = Holds::Nothing;
+            } else if seat.holds == Holds::Stream {
+                seat.holds = Holds::Gap;
             }
-            seat.over_since = None;
-            if !key && !seat.live {
-                wants_key |= seat.waiting <= WAITING_DRAINED;
-                continue;
+        }
+        if let Some(mark) = mark {
+            self.anchors = true;
+            let missed = self.seats.values().any(|seat| seat.holds == Holds::Gap);
+            if !missed && !delivery.to.is_empty() {
+                self.marks.push_back(MarkedFrame {
+                    id,
+                    mark,
+                    waiting: delivery.to.iter().cloned().collect(),
+                    taken: false,
+                });
             }
-            seat.live = true;
-            seat.waiting += bytes;
-            seat.sent.push_back(Sent { id, bytes, at: now });
-            delivery.to.push(viewer.clone());
         }
-        for viewer in &delivery.dropped {
-            self.seats.remove(viewer);
-        }
-        delivery.ask_keyframe = wants_key && self.keyframe_allowed(now);
+        delivery.ask = self.ask(now);
         delivery
     }
 
-    /// A frame that never reached a viewer: the frames after it need it, so the viewer waits
-    /// for a key frame again.
+    /// A frame that never reached a viewer: the frames after it need it, and the viewer does
+    /// not hold its mark.
     pub(crate) fn lost(&mut self, viewer: &str, id: u32) {
         let Some(seat) = self.seats.get_mut(viewer) else {
             return;
         };
-        if seat.sent.back().is_some_and(|sent| sent.id == id)
-            && let Some(sent) = seat.sent.pop_back()
-        {
+        if let Some(sent) = seat.sent.pop_back_if(|sent| sent.id == id) {
             seat.waiting -= sent.bytes;
+            seat.holds = if sent.kind == FrameKind::Key {
+                Holds::Nothing
+            } else {
+                Holds::Gap
+            };
         }
-        seat.live = false;
+        self.marks
+            .retain(|marked| marked.id != id || !marked.waiting.contains(viewer));
     }
 
-    /// Whether a viewer may have a key frame now. Each key frame costs every viewer bandwidth.
-    pub(crate) fn keyframe_allowed(&mut self, now: Instant) -> bool {
-        let allowed = self
-            .keyframe_at
-            .is_none_or(|at| now.duration_since(at) >= KEYFRAME_FLOOR);
-        if allowed {
-            self.keyframe_at = Some(now);
-        }
-        allowed
+    /// A viewer whose decoder starts again holds nothing, so it gets no frame before a key frame.
+    pub(crate) fn reset(&mut self, viewer: &str, now: Instant) -> Option<Ask> {
+        self.seats.get_mut(viewer)?.holds = Holds::Nothing;
+        self.forget(viewer);
+        self.ask(now)
     }
 
-    pub(crate) fn ask_keyframe(&mut self, now: Instant) -> bool {
-        let allowed = self.keyframe_allowed(now);
-        self.keyframe_owed |= !allowed;
-        allowed
-    }
-
-    pub(crate) fn keyframe_sent(&mut self, now: Instant) {
+    /// The window asked for a key frame itself.
+    pub(crate) fn keyframe_asked(&mut self, now: Instant) {
         self.keyframe_at = Some(now);
-        self.keyframe_owed = false;
     }
 
-    /// Whether a viewer waits for a key frame that no frame asks for, as on a still page that
-    /// draws nothing more: an ask within the floor, or a viewer that lost a frame or caught up.
-    pub(crate) fn keyframe_due(&mut self, now: Instant) -> bool {
-        let waits = self.keyframe_owed
-            || self
-                .seats
+    /// What a viewer that waits needs while no frame comes, as on a still page.
+    pub(crate) fn due(&mut self, now: Instant) -> Option<Ask> {
+        self.ask(now)
+    }
+
+    /// A viewer that holds nothing gets a key frame once it takes frames again, and one that
+    /// missed frames an anchor. Each key frame costs every viewer.
+    fn ask(&mut self, now: Instant) -> Option<Ask> {
+        let ready = |holds| {
+            self.seats
                 .values()
-                .any(|seat| !seat.live && seat.waiting <= WAITING_DRAINED);
-        if waits && self.keyframe_allowed(now) {
-            self.keyframe_owed = false;
-            return true;
+                .any(|seat| seat.holds == holds && seat.caught_up(now))
+        };
+        if ready(Holds::Nothing) || (!self.anchors && ready(Holds::Gap)) {
+            let allowed = self
+                .keyframe_at
+                .is_none_or(|at| now.duration_since(at) >= KEYFRAME_FLOOR);
+            if allowed {
+                self.keyframe_at = Some(now);
+            }
+            return allowed.then_some(Ask::Keyframe);
         }
-        false
+        let allowed = ready(Holds::Gap)
+            && self
+                .recovered_at
+                .is_none_or(|at| now.duration_since(at) >= ANCHOR_FLOOR);
+        if allowed {
+            self.recovered_at = Some(now);
+        }
+        allowed.then_some(Ask::Recover)
     }
 
     /// Frame ids wrap, so a frame is older than the ack when it lies less than half the range
@@ -200,17 +313,65 @@ impl Flow {
             return;
         };
         let mut newest = None;
-        while let Some(sent) = seat.sent.front() {
-            if frame.wrapping_sub(sent.id) >= u32::MAX / 2 {
-                break;
-            }
+        while let Some(sent) = seat
+            .sent
+            .pop_front_if(|sent| frame.wrapping_sub(sent.id) < u32::MAX / 2)
+        {
             seat.waiting -= sent.bytes;
-            newest = Some(sent.at);
-            seat.sent.pop_front();
+            seat.heard_at = now;
+            newest = Some(sent);
         }
-        if let Some(at) = newest {
-            seat.measure(now.duration_since(at), now);
+        // A key frame or an anchor takes longer to cross than the link's round trip.
+        if let Some(sent) = newest.filter(|sent| sent.kind == FrameKind::Delta) {
+            seat.measure(now.duration_since(sent.at), now);
         }
+        for marked in &mut self.marks {
+            if frame.wrapping_sub(marked.id) < u32::MAX / 2 && marked.waiting.remove(viewer) {
+                marked.taken = true;
+            }
+        }
+        self.settle();
+    }
+
+    /// The marks that every viewer holds since the last call.
+    pub(crate) fn held(&mut self) -> Vec<u64> {
+        std::mem::take(&mut self.held)
+    }
+
+    /// The viewers that took no frame for too long, which leave.
+    pub(crate) fn hopeless(&mut self, now: Instant) -> Vec<String> {
+        let gone: Vec<String> = self
+            .seats
+            .iter()
+            .filter(|(_, seat)| {
+                !seat.sent.is_empty() && now.duration_since(seat.heard_at) >= HOPELESS
+            })
+            .map(|(viewer, _)| viewer.clone())
+            .collect();
+        for viewer in &gone {
+            self.leave(viewer);
+        }
+        gone
+    }
+
+    fn forget(&mut self, viewer: &str) {
+        for marked in &mut self.marks {
+            marked.waiting.remove(viewer);
+        }
+        self.settle();
+    }
+
+    fn settle(&mut self) {
+        let held = &mut self.held;
+        self.marks.retain(|marked| {
+            if !marked.waiting.is_empty() {
+                return true;
+            }
+            if marked.taken {
+                held.push(marked.mark);
+            }
+            false
+        });
     }
 
     pub(crate) fn steer(&mut self, now: Instant) -> Option<u32> {
@@ -224,7 +385,7 @@ impl Flow {
         let queue = self
             .seats
             .values()
-            .filter(|seat| seat.live)
+            .filter(|seat| seat.holds == Holds::Stream)
             .map(Seat::queue)
             .max()?;
         let bitrate = if queue > QUEUE_LIMIT {
@@ -261,122 +422,223 @@ mod tests {
         flow
     }
 
+    fn none(_: &str) -> usize {
+        0
+    }
+
+    fn after(now: Instant, millis: u64) -> Instant {
+        now + Duration::from_millis(millis)
+    }
+
+    fn send(flow: &mut Flow, id: u32, kind: FrameKind, now: Instant) -> Delivery {
+        let mut delivery = flow.frame(id, kind, None, 100, now, none);
+        delivery.to.sort();
+        delivery
+    }
+
+    /// The slow viewer takes frames 1 to 4 and then stays late.
+    fn slow_and_fast(mark: Option<u64>) -> (Flow, Instant) {
+        let now = Instant::now();
+        let mut flow = flow_with(&["slow", "fast"], now);
+        flow.frame(1, FrameKind::Key, mark, 100, now, none);
+        flow.frame(2, FrameKind::Delta, None, 100, after(now, 10), none);
+        for viewer in ["slow", "fast"] {
+            flow.ack(viewer, 2, after(now, 10));
+        }
+        for (id, at) in [(3, 100), (4, 400), (5, 899)] {
+            assert_eq!(
+                send(&mut flow, id, FrameKind::Delta, after(now, at)).to,
+                ["fast", "slow"]
+            );
+            flow.ack("fast", id, after(now, at));
+        }
+        let late = send(&mut flow, 6, FrameKind::Delta, after(now, 900));
+        assert_eq!(late.to, ["fast"]);
+        assert_eq!(late.ask, None);
+        flow.ack("fast", 6, after(now, 900));
+        flow.ack("slow", 5, after(now, 950));
+        (flow, now)
+    }
+
     #[test]
     fn a_new_viewer_starts_at_a_key_frame() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
-        let waiting = flow.frame(1, false, 100, now);
+        let waiting = send(&mut flow, 1, FrameKind::Delta, now);
         assert_eq!(waiting.to, Vec::<String>::new());
-        assert!(waiting.ask_keyframe);
-        assert_eq!(flow.frame(2, true, 100, now).to, ["a"]);
-        assert_eq!(flow.frame(3, false, 100, now).to, ["a"]);
+        assert_eq!(waiting.ask, Some(Ask::Keyframe));
+        assert_eq!(
+            send(&mut flow, 2, FrameKind::Anchor, now).to,
+            Vec::<String>::new()
+        );
+        assert_eq!(send(&mut flow, 3, FrameKind::Key, now).to, ["a"]);
+        assert_eq!(send(&mut flow, 4, FrameKind::Delta, now).to, ["a"]);
     }
 
     #[test]
-    fn a_slow_viewer_waits_for_a_key_frame_and_the_others_go_on() {
-        let now = Instant::now();
-        let mut flow = flow_with(&["slow", "fast"], now);
-        flow.frame(1, true, LARGE, now);
-        flow.ack("fast", 1, now);
-        assert_eq!(flow.frame(2, false, 100, now).to, ["fast"]);
-        flow.ack("fast", 2, now);
-        flow.ack("slow", 1, now);
-        let drained = flow.frame(3, false, 100, now + KEYFRAME_FLOOR);
-        assert_eq!(drained.to, ["fast"]);
-        assert!(drained.ask_keyframe);
-        let mut to = flow.frame(4, true, 100, now + KEYFRAME_FLOOR).to;
-        to.sort();
-        assert_eq!(to, ["fast", "slow"]);
+    fn a_late_viewer_misses_frames_and_goes_on_at_an_anchor_while_the_other_takes_each() {
+        let (mut flow, now) = slow_and_fast(Some(1));
+        assert_eq!(flow.due(after(now, 950)), Some(Ask::Recover));
+        assert_eq!(flow.due(after(now, 960)), None);
+        assert_eq!(
+            send(&mut flow, 7, FrameKind::Delta, after(now, 960)).to,
+            ["fast"]
+        );
+        assert_eq!(
+            send(&mut flow, 8, FrameKind::Anchor, after(now, 970)).to,
+            ["fast", "slow"]
+        );
+        assert_eq!(
+            send(&mut flow, 9, FrameKind::Delta, after(now, 980)).to,
+            ["fast", "slow"]
+        );
     }
 
     #[test]
-    fn a_viewer_that_lost_a_frame_waits_for_a_key_frame_and_owes_nothing_for_it() {
+    fn without_marks_a_late_viewer_goes_on_at_a_key_frame_after_the_floor() {
+        let (mut flow, now) = slow_and_fast(None);
+        assert_eq!(flow.due(after(now, 950)), None);
+        assert_eq!(flow.due(after(now, 1000)), Some(Ask::Keyframe));
+        assert_eq!(
+            send(&mut flow, 7, FrameKind::Key, after(now, 1010)).to,
+            ["fast", "slow"]
+        );
+        assert_eq!(
+            send(&mut flow, 8, FrameKind::Delta, after(now, 1020)).to,
+            ["fast", "slow"]
+        );
+    }
+
+    #[test]
+    fn the_frames_behind_a_slow_key_frame_are_not_late() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
-        flow.frame(1, true, 100, now);
-        flow.ack("a", 1, now);
-        assert_eq!(flow.frame(2, false, 500, now).to, ["a"]);
-        flow.lost("a", 2);
-        let waiting = flow.frame(3, false, 100, now);
-        assert_eq!(waiting.to, Vec::<String>::new());
-        assert!(waiting.ask_keyframe);
-        assert_eq!(flow.frame(4, true, 100, now + KEYFRAME_FLOOR).to, ["a"]);
-        flow.ack("a", 4, now + KEYFRAME_FLOOR);
+        flow.frame(1, FrameKind::Key, None, 500_000, now, none);
+        for id in 2..=50 {
+            let at = after(now, u64::from(id) * 16);
+            assert_eq!(send(&mut flow, id, FrameKind::Delta, at).to, ["a"]);
+        }
+        flow.ack("a", 1, after(now, 800));
         assert_eq!(
-            flow.frame(5, false, LARGE - 1, now + KEYFRAME_FLOOR).to,
+            send(&mut flow, 51, FrameKind::Delta, after(now, 816)).to,
+            ["a"]
+        );
+        flow.ack("a", 51, after(now, 830));
+        assert_eq!(
+            send(&mut flow, 52, FrameKind::Delta, after(now, 1400)).to,
             ["a"]
         );
     }
 
     #[test]
-    fn key_frames_keep_a_floor_between_them() {
+    fn a_viewer_whose_pipe_takes_no_frames_misses_them() {
         let now = Instant::now();
-        let mut flow = flow_with(&["a"], now);
-        assert!(flow.frame(1, false, 100, now).ask_keyframe);
-        assert!(!flow.frame(2, false, 100, now).ask_keyframe);
-        assert!(flow.frame(3, false, 100, now + KEYFRAME_FLOOR).ask_keyframe);
+        let mut flow = flow_with(&["a", "b"], now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        let full = |viewer: &str| if viewer == "a" { QUEUED_MOST } else { 0 };
+        assert_eq!(
+            flow.frame(2, FrameKind::Delta, None, 100, now, full).to,
+            ["b"]
+        );
+        assert_eq!(send(&mut flow, 3, FrameKind::Delta, now).to, ["b"]);
     }
 
     #[test]
-    fn a_viewer_that_lost_a_frame_of_a_still_page_gets_a_key_frame_after_the_floor() {
+    fn a_mark_is_held_once_each_viewer_that_took_its_frame_said_so_and_never_after_a_miss() {
         let now = Instant::now();
-        let mut flow = flow_with(&["a"], now);
-        flow.keyframe_sent(now);
-        flow.frame(1, true, 100, now);
-        flow.ack("a", 1, now);
-        flow.frame(2, false, 100, now);
+        let mut flow = flow_with(&["a", "b"], now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        flow.frame(2, FrameKind::Delta, Some(20), 100, now, none);
+        flow.ack("a", 2, now);
+        assert_eq!(flow.held(), Vec::<u64>::new());
+        flow.ack("b", 2, now);
+        assert_eq!(flow.held(), [20]);
+        let full = |viewer: &str| if viewer == "b" { QUEUED_MOST } else { 0 };
+        flow.frame(3, FrameKind::Delta, Some(30), 100, now, full);
+        flow.ack("a", 3, now);
+        flow.frame(4, FrameKind::Delta, Some(40), 100, now, none);
+        flow.ack("a", 4, now);
+        flow.ack("b", 4, now);
+        assert_eq!(flow.held(), Vec::<u64>::new());
+    }
+
+    #[test]
+    fn a_lost_frame_breaks_its_viewers_stream_and_mark() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["a", "b"], now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        flow.frame(2, FrameKind::Delta, Some(20), 100, now, none);
         flow.lost("a", 2);
-        assert!(!flow.keyframe_due(now));
-        assert!(flow.keyframe_due(now + KEYFRAME_FLOOR));
-        assert!(!flow.keyframe_due(now + KEYFRAME_FLOOR));
+        flow.ack("b", 2, now);
+        assert_eq!(flow.held(), Vec::<u64>::new());
+        assert_eq!(send(&mut flow, 3, FrameKind::Delta, now).to, ["b"]);
+        assert_eq!(send(&mut flow, 4, FrameKind::Anchor, now).to, ["a", "b"]);
     }
 
     #[test]
-    fn an_ask_within_the_floor_comes_later_unless_a_key_frame_came_first() {
+    fn a_viewer_that_starts_its_decoder_again_gets_no_frame_before_a_key_frame() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
-        flow.frame(1, true, 100, now);
-        assert!(flow.ask_keyframe(now));
-        assert!(!flow.ask_keyframe(now));
-        assert!(!flow.keyframe_due(now));
-        assert!(flow.keyframe_due(now + KEYFRAME_FLOOR));
-        assert!(!flow.ask_keyframe(now + KEYFRAME_FLOOR));
-        flow.frame(2, true, 100, now + KEYFRAME_FLOOR);
-        assert!(!flow.keyframe_due(now + KEYFRAME_FLOOR * 2));
+        send(&mut flow, 1, FrameKind::Key, now);
+        flow.ack("a", 1, now);
+        assert_eq!(flow.reset("a", now), None);
+        assert_eq!(
+            send(&mut flow, 2, FrameKind::Anchor, now).to,
+            Vec::<String>::new()
+        );
+        assert_eq!(flow.due(after(now, 999)), None);
+        assert_eq!(flow.due(after(now, 1000)), Some(Ask::Keyframe));
+        assert_eq!(flow.due(after(now, 1000)), None);
     }
 
     #[test]
-    fn a_viewer_that_stays_behind_goes() {
+    fn a_viewer_that_takes_nothing_for_long_goes() {
         let now = Instant::now();
-        let mut flow = flow_with(&["gone"], now);
-        flow.frame(1, true, LARGE, now);
-        assert_eq!(flow.frame(2, true, 100, now).dropped, Vec::<String>::new());
-        let later = flow.frame(3, true, 100, now + HOPELESS);
-        assert_eq!(later.dropped, ["gone"]);
-        assert!(flow.is_empty());
+        let mut flow = flow_with(&["gone", "here"], now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        flow.ack("here", 1, after(now, 10));
+        assert_eq!(flow.hopeless(now + HOPELESS), ["gone"]);
+        assert_eq!(
+            send(&mut flow, 2, FrameKind::Delta, now + HOPELESS).to,
+            ["here"]
+        );
+    }
+
+    #[test]
+    fn a_viewer_behind_by_many_bytes_gets_no_key_frame_until_they_drain() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["a"], now);
+        flow.frame(1, FrameKind::Key, None, LARGE, now, none);
+        assert_eq!(
+            send(&mut flow, 2, FrameKind::Key, now).to,
+            Vec::<String>::new()
+        );
+        flow.ack("a", 1, now);
+        assert_eq!(send(&mut flow, 3, FrameKind::Key, now).to, ["a"]);
     }
 
     #[test]
     fn an_ack_after_the_id_wraps_clears_older_frames() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
-        flow.frame(u32::MAX, true, LARGE, now);
+        flow.frame(u32::MAX, FrameKind::Key, None, LARGE, now, none);
         flow.ack("a", 1, now);
-        assert_eq!(flow.frame(2, false, 100, now).to, ["a"]);
+        assert_eq!(send(&mut flow, 2, FrameKind::Delta, now).to, ["a"]);
     }
 
     #[test]
     fn a_rising_round_trip_cuts_the_bitrate_and_a_calm_one_raises_it() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
-        flow.frame(1, true, 100, now);
-        flow.ack("a", 1, now + Duration::from_millis(10));
-        flow.frame(2, false, 100, now);
-        flow.ack("a", 2, now + Duration::from_millis(100));
+        send(&mut flow, 1, FrameKind::Key, now);
+        send(&mut flow, 2, FrameKind::Delta, now);
+        flow.ack("a", 2, after(now, 10));
+        send(&mut flow, 3, FrameKind::Delta, now);
+        flow.ack("a", 3, after(now, 100));
         assert_eq!(flow.steer(now), Some(FIRST_BITRATE / 5 * 4));
         let after_cut = now + STEER_EVERY;
-        flow.frame(3, false, 100, after_cut);
-        flow.ack("a", 3, after_cut + Duration::from_millis(10));
+        send(&mut flow, 4, FrameKind::Delta, after_cut);
+        flow.ack("a", 4, after_cut + Duration::from_millis(10));
         assert_eq!(flow.steer(after_cut), None);
         let later = now + RISE_AFTER + STEER_EVERY;
         let lower = FIRST_BITRATE / 5 * 4;

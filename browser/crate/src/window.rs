@@ -16,7 +16,7 @@ use crate::{
     Error,
     driver::{self, Driver},
     engine::Engine,
-    flow::{self, Flow},
+    flow::{self, Ask, Flow},
     input,
     link::{EncodedFrame, EngineTab, MOST_ICON, ToEngine},
     message::{
@@ -198,20 +198,14 @@ impl Window {
     }
 }
 
+/// What a window sends to one viewer must reach it all: the window chooses the pictures that a
+/// slow viewer misses, and a picture that goes missing on the way breaks the ones after it.
 pub struct Pipe {
     viewer: String,
     seat: u64,
     incoming: mpsc::Receiver<Bytes>,
     mailbox: Arc<Mailbox>,
     events: mpsc::Sender<Event>,
-}
-
-/// What a window sends to one viewer. A picture that finds no room can go, as a key frame heals
-/// it, but a state must arrive, because the viewer places each point by its size.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ToView {
-    State(Bytes),
-    Picture(Bytes),
 }
 
 /// The newest state for one viewer, which its pipe takes as soon as it has room. A newer state
@@ -259,15 +253,15 @@ impl Pipe {
     }
 
     /// The newest state comes before the pictures that wait.
-    pub async fn receive(&mut self) -> Option<ToView> {
+    pub async fn receive(&mut self) -> Option<Bytes> {
         loop {
             if let Some(state) = self.mailbox.take() {
-                return Some(ToView::State(ToViewer::State(Box::new(state)).encode()));
+                return Some(ToViewer::State(Box::new(state)).encode());
             }
             tokio::select! {
                 biased;
                 () = self.mailbox.ready.notified() => {}
-                picture = self.incoming.recv() => return picture.map(ToView::Picture),
+                picture = self.incoming.recv() => return picture,
             }
         }
     }
@@ -540,8 +534,26 @@ impl Live {
                 bitrate,
             });
         }
-        if self.capturing.is_some() && self.flow.keyframe_due(now) {
-            self.ask_keyframe();
+        let hopeless = self.flow.hopeless(now);
+        if !hopeless.is_empty() {
+            for viewer in hopeless {
+                self.seats.remove(&viewer);
+                self.gone(&viewer);
+            }
+            self.update_capture();
+            self.dirty = true;
+        }
+        if self.capturing.is_some()
+            && let Some(ask) = self.flow.due(now)
+        {
+            self.ask(ask);
+        }
+        let marks = self.flow.held();
+        if !marks.is_empty() {
+            self.engine.command(ToEngine::Held {
+                window: self.id,
+                marks,
+            });
         }
         if self.dirty {
             self.publish();
@@ -707,13 +719,13 @@ impl Live {
                 self.control.get_or_insert_with(|| Control::of(viewer));
                 self.keep_size(viewer, size);
                 self.update_capture();
-                self.flow.keyframe_sent(now);
-                self.ask_keyframe();
+                self.flow.keyframe_asked(now);
+                self.ask(Ask::Keyframe);
             }
             ToWindow::Ack { frame } => self.flow.ack(viewer, frame, now),
             ToWindow::Keyframe => {
-                if self.flow.ask_keyframe(now) {
-                    self.ask_keyframe();
+                if let Some(ask) = self.flow.reset(viewer, now) {
+                    self.ask(ask);
                 }
             }
             ToWindow::Size { size } => self.keep_size(viewer, size),
@@ -721,19 +733,31 @@ impl Live {
         }
     }
 
-    fn ask_keyframe(&self) {
-        self.engine.command(ToEngine::Keyframe { window: self.id });
+    fn ask(&self, ask: Ask) {
+        let window = self.id;
+        self.engine.command(match ask {
+            Ask::Keyframe => ToEngine::Keyframe { window },
+            Ask::Recover => ToEngine::Recover { window },
+        });
     }
 
     fn frame(&mut self, frame: EncodedFrame) {
         let now = Instant::now();
         self.next_frame = self.next_frame.wrapping_add(1);
         let id = self.next_frame;
-        let delivery = self.flow.frame(id, frame.key, frame.data.len(), now);
+        let seats = &self.seats;
+        let queued = |viewer: &str| {
+            seats.get(viewer).map_or(0, |seat| {
+                seat.outgoing.max_capacity() - seat.outgoing.capacity()
+            })
+        };
+        let delivery = self
+            .flow
+            .frame(id, frame.kind, frame.mark, frame.data.len(), now, queued);
         if !delivery.to.is_empty() {
             let message = ToViewer::Frame(Frame {
                 id,
-                key: frame.key,
+                kind: frame.kind,
                 timestamp: frame.timestamp,
                 data: frame.data,
             })
@@ -748,13 +772,8 @@ impl Live {
                 }
             }
         }
-        if delivery.ask_keyframe {
-            self.ask_keyframe();
-        }
-        for viewer in delivery.dropped {
-            self.seats.remove(&viewer);
-            self.gone(&viewer);
-            self.dirty = true;
+        if let Some(ask) = delivery.ask {
+            self.ask(ask);
         }
     }
 
@@ -1776,9 +1795,8 @@ mod tests {
         let outgoing = live.seats["ana"].outgoing.clone();
         while outgoing.try_send(Bytes::from_static(&[1])).is_ok() {}
         reshape(&mut live, "ana", view(1100, 700)).await;
-        let Some(ToView::State(state)) = ana.receive().await else {
-            panic!("the state must come before the pictures");
-        };
+        let state = ana.receive().await.unwrap();
+        assert_eq!(state[0], 0, "the state must come before the pictures");
         let state: serde_json::Value = serde_json::from_slice(&state[1..]).unwrap();
         assert_eq!(
             (&state["width"], &state["height"]),

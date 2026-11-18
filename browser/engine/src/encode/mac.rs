@@ -9,15 +9,16 @@ use std::{
 };
 
 use bytes::Bytes;
-use shared_browser::link::{EncodedFrame, FromEngine};
+use shared_browser::link::{EncodedFrame, FrameKind, FromEngine};
 
-use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS, frame_budget};
+use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS, frame_budget, sps};
 use crate::{engine, link::Link};
 
 /// The most pictures that wait in the encoder. A picture that finds no room is dropped, and the
 /// page draws again as soon as there is room, so the viewer still sees the page as it is now.
 const MOST_WAITING: usize = 2;
 const START_CODE: [u8; 4] = [0, 0, 0, 1];
+const SEQUENCE_PARAMETERS: u8 = 7;
 
 type OSStatus = i32;
 type Ref = *const c_void;
@@ -49,6 +50,9 @@ const KEY_INTERVAL: i64 = 3600;
 const BURST: f64 = 1.5;
 /// The flag of the encoder's callback for a picture that it dropped.
 const FRAME_DROPPED: u32 = 1 << 1;
+/// What a picture carries to the encoder's callback.
+const REFINEMENT: usize = 1;
+const RECOVERY: usize = 2;
 
 type OutputCallback = unsafe extern "C" fn(*mut c_void, *mut c_void, OSStatus, u32, *mut c_void);
 
@@ -96,6 +100,10 @@ unsafe extern "C" {
     static kVTProfileLevel_H264_ConstrainedBaseline_AutoLevel: Ref;
     static kVTEncodeFrameOptionKey_ForceKeyFrame: Ref;
     static kVTVideoEncoderSpecification_EnableLowLatencyRateControl: Ref;
+    static kVTCompressionPropertyKey_EnableLTR: Ref;
+    static kVTEncodeFrameOptionKey_AcknowledgedLTRTokens: Ref;
+    static kVTEncodeFrameOptionKey_ForceLTRRefresh: Ref;
+    static kVTSampleAttachmentKey_RequireLTRAcknowledgementToken: Ref;
 }
 
 #[link(name = "CoreVideo", kind = "framework")]
@@ -169,6 +177,7 @@ unsafe extern "C" {
     fn CFArrayGetCount(array: Ref) -> isize;
     fn CFArrayGetValueAtIndex(array: Ref, index: isize) -> Ref;
     fn CFNumberCreate(allocator: Ref, kind: isize, value: *const c_void) -> Ref;
+    fn CFNumberGetValue(number: Ref, kind: isize, value: *mut c_void) -> u8;
     static kCFBooleanTrue: Ref;
     static kCFBooleanFalse: Ref;
     static kCFTypeDictionaryKeyCallBacks: c_void;
@@ -211,6 +220,18 @@ fn number_f64(value: f64) -> Option<Owned> {
     Owned::new(unsafe { CFNumberCreate(ptr::null(), NUMBER_F64, (&raw const value).cast()) })
 }
 
+fn array(values: &[Ref]) -> Option<Owned> {
+    // SAFETY: the values are live CF objects, and the array retains them.
+    Owned::new(unsafe {
+        CFArrayCreate(
+            ptr::null(),
+            values.as_ptr(),
+            isize::try_from(values.len()).ok()?,
+            (&raw const kCFTypeArrayCallBacks).cast(),
+        )
+    })
+}
+
 fn dictionary(pairs: &[(Ref, Ref)]) -> Option<Owned> {
     let keys: Vec<Ref> = pairs.iter().map(|(key, _)| *key).collect();
     let values: Vec<Ref> = pairs.iter().map(|(_, value)| *value).collect();
@@ -234,8 +255,8 @@ struct Output {
     link: Link,
     waiting: AtomicUsize,
     failed: AtomicBool,
-    /// The link lost a picture, so the next one is a key frame.
-    want_key: AtomicBool,
+    /// The link lost a picture or the encoder an anchor, so the next picture is an anchor.
+    want_anchor: AtomicBool,
     /// A picture found the encoder full, so the page draws again when there is room.
     missed: AtomicBool,
     clean: AtomicBool,
@@ -269,6 +290,9 @@ pub(crate) struct Encoder {
     link: Link,
     bitrate: u32,
     want_key: bool,
+    recover: bool,
+    /// The marks that every viewer holds, for the next picture.
+    held: Vec<u64>,
     started: Instant,
     session: Option<Session>,
     transfer: *mut c_void,
@@ -286,6 +310,8 @@ impl Encoder {
             link,
             bitrate,
             want_key: true,
+            recover: false,
+            held: Vec::new(),
             started: Instant::now(),
             session: None,
             transfer,
@@ -295,6 +321,16 @@ impl Encoder {
 
     pub(crate) fn want_key(&mut self) {
         self.want_key = true;
+    }
+
+    /// `VideoToolbox` makes an anchor from a mark that every viewer holds, or a key frame when
+    /// none does.
+    pub(crate) fn recover(&mut self) {
+        self.recover = true;
+    }
+
+    pub(crate) fn held(&mut self, marks: &[u64]) {
+        self.held.extend_from_slice(marks);
     }
 
     pub(crate) fn set_bitrate(&mut self, bitrate: u32) {
@@ -392,6 +428,7 @@ impl Encoder {
         {
             self.session = None;
             self.last = None;
+            self.held.clear();
             self.session = self.start(width, height);
             self.want_key = true;
         }
@@ -399,8 +436,8 @@ impl Encoder {
             return;
         };
         let output = &session.output;
-        let want_key = self.want_key || output.want_key.load(Ordering::Acquire);
-        if output.waiting.load(Ordering::Acquire) >= MOST_WAITING && !want_key {
+        let wanted = self.want_key || self.recover || output.want_anchor.load(Ordering::Acquire);
+        if output.waiting.load(Ordering::Acquire) >= MOST_WAITING && !wanted {
             output.missed.store(true, Ordering::Release);
             if output.waiting.load(Ordering::Acquire) < MOST_WAITING
                 && output.missed.swap(false, Ordering::AcqRel)
@@ -441,20 +478,47 @@ impl Encoder {
     }
 
     /// A refinement carries a marker to the callback, because the page need not draw again for
-    /// one that the encoder dropped.
+    /// one that the encoder dropped, and so does an anchor, which the callback names.
     fn submit(&mut self, target: *mut c_void, refinement: bool) -> bool {
         let Some(session) = &self.session else {
             return false;
         };
         let output = &session.output;
-        let key =
-            std::mem::take(&mut self.want_key) | output.want_key.swap(false, Ordering::AcqRel);
-        let options = if key {
-            // SAFETY: the key and the boolean are constants of the frameworks.
-            dictionary(&[unsafe { (kVTEncodeFrameOptionKey_ForceKeyFrame, kCFBooleanTrue) }])
-        } else {
+        let key = std::mem::take(&mut self.want_key);
+        let recovery = !key
+            && (std::mem::take(&mut self.recover)
+                | output.want_anchor.swap(false, Ordering::AcqRel));
+        let tokens: Vec<Owned> = std::mem::take(&mut self.held)
+            .into_iter()
+            .filter_map(|mark| number_i64(mark.cast_signed()))
+            .collect();
+        let acknowledged = if tokens.is_empty() {
             None
+        } else {
+            array(&tokens.iter().map(|token| token.0).collect::<Vec<_>>())
         };
+        let mut pairs = Vec::new();
+        // SAFETY: the keys and the boolean are constants of the frameworks.
+        unsafe {
+            if key {
+                pairs.push((kVTEncodeFrameOptionKey_ForceKeyFrame, kCFBooleanTrue));
+            }
+            if recovery {
+                pairs.push((kVTEncodeFrameOptionKey_ForceLTRRefresh, kCFBooleanTrue));
+            }
+            if let Some(acknowledged) = &acknowledged {
+                pairs.push((
+                    kVTEncodeFrameOptionKey_AcknowledgedLTRTokens,
+                    acknowledged.0,
+                ));
+            }
+        }
+        let options = if pairs.is_empty() {
+            None
+        } else {
+            dictionary(&pairs)
+        };
+        let marker = if refinement { REFINEMENT } else { 0 } | if recovery { RECOVERY } else { 0 };
         let time = CMTime {
             value: i64::try_from(self.started.elapsed().as_micros()).unwrap_or(i64::MAX),
             timescale: MICROSECONDS,
@@ -471,17 +535,14 @@ impl Encoder {
                 time,
                 NO_TIME,
                 options.as_ref().map_or(ptr::null(), |options| options.0),
-                if refinement {
-                    ptr::dangling_mut()
-                } else {
-                    ptr::null_mut()
-                },
+                ptr::without_provenance_mut(marker),
                 ptr::null_mut(),
             )
         };
         if status != 0 {
             output.waiting.fetch_sub(1, Ordering::AcqRel);
             self.want_key = key;
+            self.recover |= recovery;
             self.fail(&format!("the encoder refused a picture: {status}"));
         }
         status == 0
@@ -518,7 +579,7 @@ impl Encoder {
             link: self.link.clone(),
             waiting: AtomicUsize::new(0),
             failed: AtomicBool::new(false),
-            want_key: AtomicBool::new(false),
+            want_anchor: AtomicBool::new(false),
             missed: AtomicBool::new(false),
             clean: AtomicBool::new(false),
             sharpening: Mutex::default(),
@@ -570,6 +631,7 @@ impl Encoder {
                 kVTCompressionPropertyKey_MaxKeyFrameInterval,
                 interval.0,
             );
+            VTSessionSetProperty(raw, kVTCompressionPropertyKey_EnableLTR, kCFBooleanTrue);
         }
         set_bitrate(raw, self.bitrate);
         Some(Session {
@@ -609,16 +671,7 @@ fn set_bitrate(session: *mut c_void, bitrate: u32) {
     ) else {
         return;
     };
-    let pair = [bytes.0, second.0];
-    // SAFETY: the values are live CF numbers, and the array retains them.
-    let Some(limits) = Owned::new(unsafe {
-        CFArrayCreate(
-            ptr::null(),
-            pair.as_ptr(),
-            2,
-            (&raw const kCFTypeArrayCallBacks).cast(),
-        )
-    }) else {
+    let Some(limits) = array(&[bytes.0, second.0]) else {
         return;
     };
     // SAFETY: the session is live and the values have the kinds that the keys take.
@@ -632,7 +685,7 @@ fn set_bitrate(session: *mut c_void, bitrate: u32) {
 /// out, the page draws again, as a still page would never send it.
 unsafe extern "C" fn encoded(
     refcon: *mut c_void,
-    refinement: *mut c_void,
+    marker: *mut c_void,
     status: OSStatus,
     flags: u32,
     sample: *mut c_void,
@@ -640,6 +693,8 @@ unsafe extern "C" fn encoded(
     // SAFETY: `refcon` is the session's `Output`, which lives until the session completed its
     // frames.
     let output = unsafe { &*refcon.cast::<Output>() };
+    let refinement = marker.addr() & REFINEMENT != 0;
+    let recovery = marker.addr() & RECOVERY != 0;
     output.waiting.fetch_sub(1, Ordering::AcqRel);
     if output.missed.swap(false, Ordering::AcqRel) {
         engine::redraw(output.window, 0);
@@ -650,25 +705,33 @@ unsafe extern "C" fn encoded(
                 window: output.window,
                 problem: format!("the encoder failed: {status}"),
             });
-        } else if flags & FRAME_DROPPED != 0 && refinement.is_null() {
+        } else if flags & FRAME_DROPPED != 0 && (recovery || !refinement) {
+            output.want_anchor.fetch_or(recovery, Ordering::AcqRel);
             engine::redraw(output.window, REDRAW_AFTER_MS);
         }
         return;
     }
     // SAFETY: the sample is live during the callback.
-    let Some((key, data)) = (unsafe { annex_b(sample) }) else {
+    let Some(coded) = (unsafe { annex_b(sample) }) else {
         return;
     };
     // SAFETY: as above.
     let time = unsafe { CMSampleBufferGetPresentationTimeStamp(sample) };
-    let size = data.len();
+    let size = coded.data.len();
     let lost = output.link.send_frame(&EncodedFrame {
         window: output.window,
-        key,
+        kind: if coded.key {
+            FrameKind::Key
+        } else if recovery {
+            FrameKind::Anchor
+        } else {
+            FrameKind::Delta
+        },
         timestamp: u64::try_from(time.value).unwrap_or(0),
-        data: Bytes::from(data),
+        mark: coded.mark,
+        data: Bytes::from(coded.data),
     });
-    if !refinement.is_null()
+    if refinement
         && output
             .sharpening
             .lock()
@@ -678,24 +741,39 @@ unsafe extern "C" fn encoded(
         output.clean.store(true, Ordering::Release);
     }
     if lost {
-        output.want_key.store(true, Ordering::Release);
+        output.want_anchor.store(true, Ordering::Release);
         engine::redraw(output.window, REDRAW_AFTER_MS);
     }
 }
 
-/// The picture as Annex B, with the parameter sets before a key frame.
+struct Coded {
+    key: bool,
+    mark: Option<u64>,
+    data: Vec<u8>,
+}
+
+/// The picture as Annex B, with the parameter sets before a key frame, and the mark that the
+/// encoder gave it.
 ///
 /// # Safety
 ///
 /// `sample` is a live compressed sample buffer.
-unsafe fn annex_b(sample: *mut c_void) -> Option<(bool, Vec<u8>)> {
-    // SAFETY: the sample is live; the attachments are borrowed from it.
-    let key = unsafe {
+unsafe fn annex_b(sample: *mut c_void) -> Option<Coded> {
+    // SAFETY: the sample is live; the attachments and their values are borrowed from it.
+    let (key, mark) = unsafe {
         let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, 0);
-        attachments.is_null() || CFArrayGetCount(attachments) == 0 || {
+        if attachments.is_null() || CFArrayGetCount(attachments) == 0 {
+            (true, None)
+        } else {
             let first = CFArrayGetValueAtIndex(attachments, 0);
             let not_sync = CFDictionaryGetValue(first, kCMSampleAttachmentKey_NotSync);
-            not_sync.is_null() || not_sync == kCFBooleanFalse
+            let token =
+                CFDictionaryGetValue(first, kVTSampleAttachmentKey_RequireLTRAcknowledgementToken);
+            let mut value = 0_i64;
+            let mark = (!token.is_null()
+                && CFNumberGetValue(token, NUMBER_I64, (&raw mut value).cast()) != 0)
+                .then(|| value.cast_unsigned());
+            (not_sync.is_null() || not_sync == kCFBooleanFalse, mark)
         }
     };
     // SAFETY: the sample is live; its description and data are borrowed from it.
@@ -738,9 +816,14 @@ unsafe fn annex_b(sample: *mut c_void) -> Option<(bool, Vec<u8>)> {
                 )
             };
             if status == 0 && !set.is_null() {
-                out.extend_from_slice(&START_CODE);
                 // SAFETY: the set has `size` bytes.
-                out.extend_from_slice(unsafe { std::slice::from_raw_parts(set, size) });
+                let set = unsafe { std::slice::from_raw_parts(set, size) };
+                let allowing = set
+                    .first()
+                    .filter(|header| *header & 0x1f == SEQUENCE_PARAMETERS)
+                    .and_then(|_| sps::allowing_gaps(set));
+                out.extend_from_slice(&START_CODE);
+                out.extend_from_slice(allowing.as_deref().unwrap_or(set));
             }
         }
     }
@@ -752,7 +835,11 @@ unsafe fn annex_b(sample: *mut c_void) -> Option<(bool, Vec<u8>)> {
             .then_some(data)
     }?;
     annex_b_units(&data, usize::try_from(length_size).ok()?, &mut out)?;
-    Some((key, out))
+    Some(Coded {
+        key,
+        mark,
+        data: out,
+    })
 }
 
 fn annex_b_units(data: &[u8], length_size: usize, out: &mut Vec<u8>) -> Option<()> {

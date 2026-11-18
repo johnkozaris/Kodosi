@@ -2,6 +2,8 @@
 mod mac;
 #[cfg(not(target_os = "macos"))]
 mod software;
+#[cfg(target_os = "macos")]
+mod sps;
 
 #[cfg(target_os = "macos")]
 pub(crate) use mac::Encoder;

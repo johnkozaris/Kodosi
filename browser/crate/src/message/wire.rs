@@ -2,10 +2,13 @@ use bytes::{BufMut, Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
 
 use super::{Size, State};
+use crate::link::FrameKind;
 
 const JSON: u8 = 0;
 const FRAME: u8 = 1;
 const FRAME_HEADER: usize = 1 + 4 + 1 + 8;
+const KEY: u8 = 1;
+const ANCHOR: u8 = 2;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(
@@ -112,12 +115,12 @@ pub(crate) enum KeyAction {
     Up,
 }
 
-/// The data is H.264 in Annex B form, and it depends on the frames since the last key frame of
-/// this viewer.
+/// The data is H.264 in Annex B form. A delta frame depends on the frame before it, so a viewer
+/// that missed one goes on at the next key frame or anchor.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Frame {
     pub(crate) id: u32,
-    pub(crate) key: bool,
+    pub(crate) kind: FrameKind,
     pub(crate) timestamp: u64,
     pub(crate) data: Bytes,
 }
@@ -154,7 +157,11 @@ impl Frame {
         let mut message = BytesMut::with_capacity(FRAME_HEADER + self.data.len());
         message.put_u8(FRAME);
         message.put_u32(self.id);
-        message.put_u8(u8::from(self.key));
+        message.put_u8(match self.kind {
+            FrameKind::Delta => 0,
+            FrameKind::Key => KEY,
+            FrameKind::Anchor => ANCHOR,
+        });
         message.put_u64(self.timestamp);
         message.put_slice(&self.data);
         message.freeze()
@@ -175,18 +182,24 @@ mod tests {
 
     #[test]
     fn a_frame_has_the_header_that_viewers_read() {
-        let frame = Frame {
-            id: 7,
-            key: true,
-            timestamp: 90_000,
-            data: Bytes::from_static(&[0, 0, 0, 1, 0x65]),
-        };
-        assert_eq!(
-            &ToViewer::Frame(frame).encode()[..],
-            &[
-                FRAME, 0, 0, 0, 7, 1, 0, 0, 0, 0, 0, 1, 0x5f, 0x90, 0, 0, 0, 1, 0x65
-            ][..]
-        );
+        for (kind, flags) in [
+            (FrameKind::Key, 1),
+            (FrameKind::Anchor, 2),
+            (FrameKind::Delta, 0),
+        ] {
+            let frame = Frame {
+                id: 7,
+                kind,
+                timestamp: 90_000,
+                data: Bytes::from_static(&[0, 0, 0, 1, 0x65]),
+            };
+            assert_eq!(
+                &ToViewer::Frame(frame).encode()[..],
+                &[
+                    FRAME, 0, 0, 0, 7, flags, 0, 0, 0, 0, 0, 1, 0x5f, 0x90, 0, 0, 0, 1, 0x65
+                ][..]
+            );
+        }
     }
 
     #[test]

@@ -18,7 +18,7 @@ use openh264_sys2::{
     ENCODER_OPTION, ENCODER_OPTION_BITRATE, ENCODER_OPTION_MAX_BITRATE, LAYER_NUM, SBitrateInfo,
     SPATIAL_LAYER_0, SPATIAL_LAYER_ALL, cmResultSuccess,
 };
-use shared_browser::link::{EncodedFrame, FromEngine};
+use shared_browser::link::{EncodedFrame, FrameKind, FromEngine};
 
 use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS, frame_budget};
 use crate::link::Link;
@@ -85,6 +85,15 @@ impl Encoder {
     pub(crate) fn want_key(&mut self) {
         self.change(|slot| slot.key = true);
     }
+
+    /// `OpenH264` takes acknowledged references only in its camera mode, which codes a scrolled
+    /// page at half the quality of its screen mode, so a viewer that missed frames gets a key
+    /// frame.
+    pub(crate) fn recover(&mut self) {
+        self.want_key();
+    }
+
+    pub(crate) const fn held(&mut self, _marks: &[u64]) {}
 
     pub(crate) fn set_bitrate(&mut self, bitrate: u32) {
         self.change(|slot| slot.bitrate = Some(bitrate));
@@ -389,8 +398,13 @@ impl Worker<'_> {
         let size = data.len();
         self.lost = self.link.send_frame(&EncodedFrame {
             window: self.window,
-            key: key_frame,
+            kind: if key_frame {
+                FrameKind::Key
+            } else {
+                FrameKind::Delta
+            },
             timestamp: time.unwrap_or_else(|| micros_since(self.started)),
+            mark: None,
             data: Bytes::from(data),
         });
         if self.lost {
