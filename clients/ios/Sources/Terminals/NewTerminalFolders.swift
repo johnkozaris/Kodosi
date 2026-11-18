@@ -51,46 +51,51 @@ struct FolderPage: View {
                         }
                     }
                 }
-                if let listing {
-                    group(title: listing.shown(listing.path)) {
-                        Button { pick(listing.path, browser.launcher) } label: {
-                            SheetRow(title: String(localized: "Use \(listing.name(of: listing.path))"), titleColor: theme.colors.accentStrong) {
-                                IconTile(symbol: "checkmark", tint: theme.colors.accent, size: 28)
-                            }
-                        }
-                        .buttonStyle(ListRowButtonStyle())
-                        .accessibilityIdentifier("terminals.new.folder.use")
-                        if let parent = listing.parent {
-                            Button { open(parent) } label: {
-                                SheetRow(title: listing.name(of: parent), subtitle: String(localized: "Parent folder")) {
-                                    IconTile(symbol: "arrow.up", tint: TileTint.graphite, size: 28)
+                ZStack(alignment: .topLeading) {
+                    if let listing {
+                        group(title: listing.shown(listing.path)) {
+                            Button { pick(listing.path, browser.launcher) } label: {
+                                SheetRow(title: String(localized: "Use \(listing.name(of: listing.path))"), titleColor: theme.colors.accentStrong) {
+                                    IconTile(symbol: "checkmark", tint: theme.colors.accent, size: 28)
                                 }
                             }
                             .buttonStyle(ListRowButtonStyle())
-                            .accessibilityIdentifier("terminals.new.folder.up")
-                        }
-                        ForEach(listing.folders, id: \.self) { name in
-                            Button { open(listing.child(name)) } label: {
-                                SheetRow(title: name) {
-                                    IconTile(symbol: "folder.fill", tint: TileTint.teal, size: 28)
-                                } trailing: {
-                                    Disclosure()
+                            .accessibilityIdentifier("terminals.new.folder.use")
+                            if let parent = listing.parent {
+                                Button { open(parent) } label: {
+                                    SheetRow(title: listing.name(of: parent), subtitle: String(localized: "Parent folder")) {
+                                        IconTile(symbol: "arrow.up", tint: TileTint.graphite, size: 28)
+                                    }
                                 }
+                                .buttonStyle(ListRowButtonStyle())
+                                .accessibilityIdentifier("terminals.new.folder.up")
                             }
-                            .buttonStyle(ListRowButtonStyle())
-                            .accessibilityIdentifier("terminals.new.folder.\(AccessibilityIdentifier.token(name))")
+                            ForEach(listing.folders, id: \.self) { name in
+                                Button { open(listing.child(name)) } label: {
+                                    SheetRow(title: name) {
+                                        IconTile(symbol: "folder.fill", tint: TileTint.teal, size: 28)
+                                    } trailing: {
+                                        Disclosure()
+                                    }
+                                }
+                                .buttonStyle(ListRowButtonStyle())
+                                .accessibilityIdentifier("terminals.new.folder.\(AccessibilityIdentifier.token(name))")
+                            }
                         }
+                        .transition(.opacity)
+                    } else if let failure = browser.failure {
+                        failureNote(failure)
+                    } else {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text("Asking \(computer) for its folders").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        }
+                        .padding(.leading, 4)
+                        .transition(.opacity)
                     }
-                } else if browser.failure == nil {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                        Text("Asking \(computer) for its folders").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
-                    }
-                    .padding(.leading, 4)
                 }
-                if let failure = browser.failure {
-                    ErrorNote(message: failure)
-                        .accessibilityIdentifier("terminals.new.folder.failure")
+                if listing != nil, let failure = browser.failure {
+                    failureNote(failure)
                 }
             }
             .padding(20)
@@ -100,8 +105,15 @@ struct FolderPage: View {
         .background(theme.colors.surface)
         .navigationTitle(listing.map { $0.name(of: $0.path) } ?? "")
         .navigationBarTitleDisplayMode(.inline)
-        .animation(theme.motion.soft, value: listing)
+        .animation(theme.motion.fade, value: listing)
+        .animation(theme.motion.fade, value: browser.failure)
         .task { await browser.open(path) }
+    }
+
+    private func failureNote(_ failure: String) -> some View {
+        ErrorNote(message: failure)
+            .accessibilityIdentifier("terminals.new.folder.failure")
+            .transition(.opacity)
     }
 
     private func group(title: String, @ContentBuilder rows: @escaping () -> some View) -> some View {

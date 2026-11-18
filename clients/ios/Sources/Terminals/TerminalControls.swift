@@ -22,25 +22,41 @@ struct TerminalControls: View {
         controller.inputNote ?? controller.inputError
     }
 
+    private var parts: Set<TerminalControlPart> {
+        var parts: Set<TerminalControlPart> = [input.showsKeys ? .keys : .composer]
+        if input.showsAsk, session.needsUser {
+            parts.insert(.ask)
+        }
+        if note != nil {
+            parts.insert(.note)
+        }
+        return parts
+    }
+
     var body: some View {
-        VStack(spacing: 8) {
-            if input.showsAsk, session.needsUser {
+        let parts = parts
+        TerminalControlsColumn(shown: parts, spacing: 8) {
+            if parts.contains(.ask) {
                 TerminalAsk(session: session, answers: controller.canType, press: controller.press)
+                    .layoutValue(key: TerminalControlPart.self, value: .ask)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if let note {
                 CautionNote(message: note, identifier: "terminal.inputNote", dismiss: controller.dismissInputNotes)
+                    .layoutValue(key: TerminalControlPart.self, value: .note)
                     .transition(.opacity)
             }
-            if input.showsKeys {
+            if parts.contains(.keys) {
                 TerminalKeyBar(enabled: controller.canType, compact: compact, press: controller.press, actions: actions, menu: menu)
-                    .transition(.opacity)
+                    .layoutValue(key: TerminalControlPart.self, value: .keys)
+                    .transition(.opacity.animation(theme.motion.fade))
             } else {
                 TerminalComposer(
                     controller: controller, session: session, compact: compact, composing: composing, actions: actions,
                     focusesOnAppear: input == .composing,
                 )
-                .transition(.opacity)
+                .layoutValue(key: TerminalControlPart.self, value: .composer)
+                .transition(.opacity.animation(theme.motion.fade))
             }
         }
         .padding(.horizontal, Self.margin(compact: compact))
@@ -53,6 +69,40 @@ struct TerminalControls: View {
 
     static func margin(compact: Bool) -> CGFloat {
         compact ? 8 : 12
+    }
+}
+
+private nonisolated enum TerminalControlPart: LayoutValueKey {
+    case ask, note, keys, composer
+
+    static let defaultValue = TerminalControlPart.composer
+}
+
+/// A part that goes fades where it was but no longer counts in the height, so that the terminal
+/// above takes its new size at once: each size of the terminal reaches everyone in it.
+private nonisolated struct TerminalControlsColumn: Layout {
+    let shown: Set<TerminalControlPart>
+    let spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let sizes = subviews.filter { shown.contains($0[TerminalControlPart.self]) }
+            .map { $0.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) }
+        let height = sizes.map(\.height).reduce(0, +) + spacing * CGFloat(max(0, sizes.count - 1))
+        return CGSize(width: proposal.width ?? sizes.map(\.width).max() ?? 0, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
+        var base = bounds.maxY
+        for subview in subviews.reversed() {
+            let part = subview[TerminalControlPart.self]
+            let height = subview.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil)).height
+            let bottom = part == .keys || part == .composer ? bounds.maxY : base
+            subview.place(at: CGPoint(x: bounds.minX, y: bottom), anchor: .bottomLeading,
+                          proposal: ProposedViewSize(width: bounds.width, height: height))
+            if shown.contains(part) {
+                base = bottom - height - spacing
+            }
+        }
     }
 }
 

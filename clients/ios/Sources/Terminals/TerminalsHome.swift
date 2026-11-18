@@ -18,6 +18,7 @@ struct TerminalsHome: View {
         let sessions = TerminalCatalog.matching(store.sessions.filter { !$0.hidden }, query: query)
         let computers = SessionComputerGroup.groups(sessions)
         let online = model.account.computers.map(\.deviceId)
+        let placeholder = Placeholder(isEmpty: sessions.isEmpty, listed: store.loaded && store.listed, searching: !query.isEmpty)
         List {
             ForEach(computers) { computer in
                 ComputerHeader(group: computer, newTerminal: starting(TerminalCatalog.newTerminal(on: computer, online: online)))
@@ -38,7 +39,8 @@ struct TerminalsHome: View {
         .scrollContentBackground(.hidden)
         .background(theme.colors.surface)
         .readableWidth()
-        .overlay { emptyContent(isEmpty: sessions.isEmpty) }
+        .overlay { emptyContent(placeholder) }
+        .animation(theme.motion.fade, value: placeholder)
         .animation(theme.motion.soft, value: computers.flatMap { $0.folders.map(\.id) })
         .tabPage("Terminals")
         .toolbar {
@@ -127,14 +129,30 @@ struct TerminalsHome: View {
         }
     }
 
-    @ContentBuilder
-    private func emptyContent(isEmpty: Bool) -> some View {
-        if isEmpty, !store.loaded || !store.listed {
-            TerminalsLoading()
-        } else if isEmpty, !query.isEmpty {
-            NothingMatches()
-        } else if isEmpty {
-            TerminalsEmpty()
+    private enum Placeholder: Equatable {
+        case loading, nothingMatches, noTerminals
+
+        init?(isEmpty: Bool, listed: Bool, searching: Bool) {
+            guard isEmpty else { return nil }
+            self = !listed ? .loading : searching ? .nothingMatches : .noTerminals
+        }
+    }
+
+    private func emptyContent(_ placeholder: Placeholder?) -> some View {
+        ZStack {
+            switch placeholder {
+            case .loading:
+                TerminalsLoading()
+                    .transition(.opacity)
+            case .nothingMatches:
+                NothingMatches()
+                    .transition(.opacity)
+            case .noTerminals:
+                TerminalsEmpty()
+                    .transition(.opacity)
+            case nil:
+                EmptyView()
+            }
         }
     }
 }
