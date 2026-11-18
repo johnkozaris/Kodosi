@@ -57,6 +57,7 @@ data class RuntimeSession(
     val isOwner: Boolean = false,
     val status: Status,
     val connectionState: Connection,
+    val stalled: Boolean = false,
     @SerialName("working")
     val isWorking: Boolean,
     @SerialName("waiting")
@@ -114,6 +115,8 @@ data class RuntimeSession(
 
     val isConnected: Boolean get() = connectionState == Connection.LOCAL || connectionState == Connection.CONNECTED
     val canControl: Boolean get() = isConnected && status == Status.RUNNING
+    val waitsForConnection: Boolean
+        get() = kind == Kind.REMOTE && isConnected && (status == Status.RECONNECTING || stalled)
     val canOpen: Boolean get() = status != Status.CLOSING && connectionState != Connection.BLOCKED
     val hostOffline: Boolean get() = kind == Kind.REMOTE && status == Status.OFFLINE
     val isTroubled: Boolean

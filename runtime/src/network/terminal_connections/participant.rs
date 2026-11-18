@@ -12,6 +12,8 @@ use crate::text::Text;
 const ACKNOWLEDGE_BYTES: u64 = 4 * 1024;
 const ACKNOWLEDGE_DELAY: Duration = Duration::from_millis(100);
 const UNCONFIRMED_INPUT: u64 = 64 * 1024;
+/// About when a person notices that the keys they typed do not appear.
+const STALLED_AFTER: Duration = Duration::from_secs(1);
 const PROGRESS_SPACING: Duration = Duration::from_millis(100);
 const PICTURE_TRANSIT_SECONDS: f64 = 0.5;
 
@@ -350,6 +352,8 @@ struct Viewer<T> {
     heard: tokio::time::Instant,
     input_sent: u64,
     input_confirmed: u64,
+    input_progress: tokio::time::Instant,
+    stalled: bool,
     pipes: BTreeMap<Uuid, PipeOut>,
     finder: Finder,
     upload: Option<Upload>,
@@ -378,6 +382,8 @@ impl<T: Transport> Viewer<T> {
             heard: tokio::time::Instant::now(),
             input_sent: 0,
             input_confirmed: 0,
+            input_progress: tokio::time::Instant::now(),
+            stalled: false,
             pipes: BTreeMap::new(),
             finder,
             upload: None,
@@ -458,6 +464,7 @@ impl<T: Transport> Viewer<T> {
                 if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {
                     drop(upload.reply.send(Err(Error::Text(picture_not_confirmed()))));
                 }
+                self.tell_stalled().await?;
             }
             () = std::future::ready(()), if self.upload.as_ref().is_some_and(Upload::wants_part) => self.send_part().await?,
             () = async { tokio::time::sleep_until(acknowledge.unwrap_or_else(tokio::time::Instant::now)).await }, if acknowledge.is_some() => {
@@ -525,6 +532,9 @@ impl<T: Transport> Viewer<T> {
                 if let Err(error) = self.channel.send(&frame).await {
                     drop(reply.send(Err(invalid(error.to_string()))));
                     return Err(error);
+                }
+                if self.input_sent == self.input_confirmed {
+                    self.input_progress = tokio::time::Instant::now();
                 }
                 self.input_sent += length;
                 drop(reply.send(Ok(Value::Null)));
@@ -708,7 +718,11 @@ impl<T: Transport> Viewer<T> {
                 if offset < self.input_confirmed || offset > self.input_sent {
                     return Err(invalid("The host confirmed input that was not sent."));
                 }
+                if offset > self.input_confirmed {
+                    self.input_progress = tokio::time::Instant::now();
+                }
                 self.input_confirmed = offset;
+                self.tell_stalled().await?;
             }
             Frame::ControlResult(ControlResult {
                 request_id,
@@ -813,6 +827,16 @@ impl<T: Transport> Viewer<T> {
             }
         }
         Ok(())
+    }
+
+    async fn tell_stalled(&mut self) -> Result<()> {
+        let stalled = self.input_sent > self.input_confirmed
+            && self.input_progress.elapsed() >= STALLED_AFTER;
+        if stalled == self.stalled {
+            return Ok(());
+        }
+        self.stalled = stalled;
+        self.update(RemoteUpdate::Stalled(stalled)).await
     }
 
     #[expect(

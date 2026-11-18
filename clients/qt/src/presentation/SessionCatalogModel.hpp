@@ -55,6 +55,7 @@ public:
         QString projectName;
         QString status;
         QString connectionState;
+        bool stalled = false;
         QString message;
         QStringList sharedWith;
         QString restoredFrom;

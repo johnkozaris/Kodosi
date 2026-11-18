@@ -36,7 +36,9 @@ channel, which the backend relays. When the view and the host are devices of one
 that reach each other, on one network or through their routers, the channel goes on a
 direct QUIC connection of the two devices instead, and back to the relay when that
 connection fails, without a new checkpoint and without losing or repeating a frame. Its
-relay pipe stays open, so the backend still ends the channel when access ends. The host
+relay pipe stays open, so the backend still ends the channel when access ends. When the
+host leaves a view's typing unconfirmed for a moment, the viewing device reports the
+terminal as stalled, and its apps say that it reconnects while the typing goes on. The host
 does not replay input whose delivery is uncertain, and a stale view cannot control a
 replacement terminal. Work that a short drop of the channel holds back goes out once on
 the next channel.

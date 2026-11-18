@@ -83,10 +83,6 @@ struct SessionTileHeader: View {
                 .opacity(showsActions ? 1 : 0.28)
                 .accessibilityIdentifier("\(stageId).unreachable.retry")
         } else {
-            if session.kind == .remote, session.isConnected, session.status == .reconnecting {
-                Text("Reconnecting").appTextStyle(.caption).foregroundStyle(theme.colors.caution).shimmer()
-                    .accessibilityIdentifier("\(stageId).reconnecting")
-            }
             if session.kind == .remote, session.isConnected, session.status == .offline {
                 Text(session.statusLabel).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
                     .accessibilityIdentifier("\(stageId).offline")

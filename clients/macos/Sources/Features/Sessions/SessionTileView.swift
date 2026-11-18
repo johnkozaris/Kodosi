@@ -214,6 +214,18 @@ struct SessionTileView: View {
                 failure(message: message, manager: manager)
             }
         }
+        .overlay(alignment: .top) {
+            let waits = session.waitsForConnection && state == .rendered
+            ZStack {
+                if waits {
+                    ReconnectingNotice()
+                        .padding(10)
+                        .transition(.opacity.combined(with: .offset(y: -8)))
+                }
+            }
+            .animation(theme.motion.spring, value: waits)
+            .allowsHitTesting(false)
+        }
         .overlay(alignment: .bottomTrailing) {
             let picture = manager.picture(for: session.id)
             ZStack {

@@ -248,6 +248,11 @@ private struct TerminalScreenContent: View {
             .terminalTile()
             .overlay(alignment: .top) {
                 VStack(spacing: 8) {
+                    if waitsForConnection(session) {
+                        ReconnectingNotice()
+                            .transition(.opacity.combined(with: .offset(y: -8)))
+                            .allowsHitTesting(false)
+                    }
                     if let note = controller.sizeNote, session?.isConnected == true {
                         TerminalSizeNote(note: note, resize: controller.resizeHere)
                             .transition(.move(edge: .top).combined(with: .opacity))
@@ -273,9 +278,14 @@ private struct TerminalScreenContent: View {
             }
             .terminalScope()
             .animation(theme.motion.soft, value: liveKey)
+            .animation(theme.motion.spring, value: waitsForConnection(session))
             .animation(theme.motion.soft, value: controller.sizeNote)
             .animation(theme.motion.spring, value: controller.picture == nil)
             .animation(theme.motion.spring, value: arrival)
+    }
+
+    private func waitsForConnection(_ session: RuntimeSession?) -> Bool {
+        session?.waitsForConnection == true && controller.renderState == .rendered
     }
 
     @ContentBuilder

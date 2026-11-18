@@ -237,6 +237,38 @@ async fn input_goes_at_once_in_order_and_waits_only_when_too_much_is_not_confirm
     );
 }
 
+#[tokio::test(start_paused = true)]
+async fn typing_that_the_host_does_not_confirm_for_a_second_stalls_the_view_until_it_does() {
+    let mut view = view().await;
+    view.keyframe(0, 200).await;
+    view.updates.recv().await.unwrap();
+    assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
+    view.input(b"ls").await.unwrap();
+    assert!(matches!(
+        view.sent_by_view().await,
+        Frame::Input { offset: 0, .. }
+    ));
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    view.host
+        .send(&Frame::InputAck { offset: 1 })
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    assert!(view.updates.try_recv().is_err());
+    assert!(matches!(
+        view.updates.recv().await,
+        Some(RemoteUpdate::Stalled(true))
+    ));
+    view.host
+        .send(&Frame::InputAck { offset: 2 })
+        .await
+        .unwrap();
+    assert!(matches!(
+        view.updates.recv().await,
+        Some(RemoteUpdate::Stalled(false))
+    ));
+}
+
 #[tokio::test]
 async fn a_lost_connection_says_that_input_was_not_sent_when_the_host_did_not_confirm_all_of_it() {
     let mut view = view().await;

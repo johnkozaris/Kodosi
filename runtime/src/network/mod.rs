@@ -478,6 +478,7 @@ pub enum RemoteUpdate {
         sent: u64,
         total: u64,
     },
+    Stalled(bool),
 }
 
 pub struct RemoteConnection {

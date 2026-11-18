@@ -1,6 +1,9 @@
 package com.kodosi.mobile.terminals
 
 import android.content.res.Configuration
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -76,6 +80,7 @@ import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ConfirmDialog
+import com.kodosi.mobile.ui.Elevation
 import com.kodosi.mobile.ui.FileIcon
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiMenu
@@ -92,6 +97,7 @@ import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.TextEntryDialog
 import com.kodosi.mobile.ui.bezel
 import com.kodosi.mobile.ui.raised
+import com.kodosi.mobile.ui.reducedMotion
 import com.kodosi.mobile.ui.terminalTile
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -243,6 +249,10 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
 
                     else -> RenderState(state, connection)
                 }
+                ReconnectingNotice(
+                    session?.waitsForConnection == true && state == TerminalConnection.State.Rendered,
+                    Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                )
                 clipboardAnswer?.let { answer ->
                     ConfirmDialog(
                         session?.name.orEmpty(),
@@ -603,6 +613,28 @@ private fun RenderState(state: TerminalConnection.State, connection: TerminalCon
             KodosiButton(stringResource(R.string.try_again), onClick = connection::retry)
         }
     }
+}
+
+@Composable
+private fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier) {
+    val colors = KodosiTheme.colors
+    val presence by animateFloatAsState(
+        if (shown) 1f else 0f,
+        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        label = "reconnecting"
+    )
+    if (presence <= 0f) return
+    ProgressCaption(
+        stringResource(R.string.reconnecting),
+        modifier
+            .graphicsLayer {
+                alpha = presence.coerceIn(0f, 1f)
+                translationY = (presence - 1f) * 8.dp.toPx()
+            }
+            .raised(colors, RoundedCornerShape(percent = 50), fill = colors.lifted, elevation = Elevation.FLOATING)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite }
+    )
 }
 
 @Composable

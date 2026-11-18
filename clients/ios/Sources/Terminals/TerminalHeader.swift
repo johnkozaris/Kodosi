@@ -72,10 +72,6 @@ struct TerminalTitle: View {
         if unreachable {
             Text("Offline")
                 .foregroundStyle(theme.colors.caution)
-        } else if session.isConnected, session.status == .reconnecting {
-            Text("Reconnecting")
-                .foregroundStyle(theme.colors.caution)
-                .shimmer()
         } else if session.isConnected, session.status == .offline {
             Text(session.statusLabel)
                 .foregroundStyle(theme.colors.caution)

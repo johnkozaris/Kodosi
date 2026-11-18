@@ -1807,6 +1807,7 @@ impl Runtime {
                     is_owner: true,
                     status: SessionStatus::Running,
                     connection_state: ConnectionState::Local,
+                    stalled: false,
                     hidden: false,
                     message: None,
                     project_id: project_id.clone(),
@@ -1962,6 +1963,7 @@ impl Runtime {
                 let mut entry = self.remote_entry(self.listed_remote(&connection.session));
                 entry.connection_state = ConnectionState::Connected;
                 entry.status = SessionStatus::Running;
+                entry.stalled = false;
                 entry.message = notice;
                 let resumed = self.connections.get(&id).is_some_and(|existing| {
                     existing.is_interrupted()

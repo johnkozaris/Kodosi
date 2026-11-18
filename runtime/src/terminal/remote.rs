@@ -45,6 +45,7 @@ pub(crate) struct RemoteTerminal {
     input_budget: Arc<Semaphore>,
     link: Arc<AtomicU8>,
     hidden: Arc<AtomicBool>,
+    stalled: Arc<AtomicBool>,
     pub incarnation_id: Uuid,
     pub instance_id: Uuid,
 }
@@ -93,18 +94,21 @@ impl RemoteTerminal {
         let input_budget = Arc::new(Semaphore::new(INPUT_BUDGET));
         let link = Arc::new(AtomicU8::new(Link::Open as u8));
         let hidden = Arc::new(AtomicBool::new(false));
+        let stalled = Arc::new(AtomicBool::new(false));
         let terminal = Self {
             requests,
             cancellation: cancellation.clone(),
             input_budget,
             link: Arc::clone(&link),
             hidden: Arc::clone(&hidden),
+            stalled: Arc::clone(&stalled),
             incarnation_id,
             instance_id,
         };
         let mut actor = RemoteActor::new(connection, receiver, cancellation, changes, instance_id);
         actor.shared_link = link;
         actor.hidden = hidden;
+        actor.stalled = stalled;
         tokio::spawn(actor.run());
         terminal
     }
@@ -115,6 +119,10 @@ impl RemoteTerminal {
 
     pub(crate) fn is_interrupted(&self) -> bool {
         self.link.load(Ordering::Acquire) != Link::Open as u8
+    }
+
+    pub(crate) fn is_stalled(&self) -> bool {
+        self.stalled.load(Ordering::Acquire)
     }
 
     pub(crate) fn is_paused(&self) -> bool {
@@ -441,6 +449,10 @@ enum Link {
     Waking,
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a separate fact about one remote terminal"
+)]
 struct RemoteActor {
     connection: RemoteConnection,
     controls: RemoteControl,
@@ -462,6 +474,8 @@ struct RemoteActor {
     resyncing: bool,
     shared_link: Arc<AtomicU8>,
     hidden: Arc<AtomicBool>,
+    stalled: Arc<AtomicBool>,
+    told_stalled: bool,
     link: Link,
     held: VecDeque<Request>,
     asking: Arc<()>,
@@ -508,6 +522,8 @@ impl RemoteActor {
             resyncing: false,
             shared_link: Arc::new(AtomicU8::new(Link::Open as u8)),
             hidden: Arc::new(AtomicBool::new(false)),
+            stalled: Arc::new(AtomicBool::new(false)),
+            told_stalled: false,
             link: Link::Open,
             held: VecDeque::new(),
             asking: Arc::new(()),
@@ -543,6 +559,8 @@ impl RemoteActor {
         self.set_link(Link::Lost);
         self.lost_at.get_or_insert_with(tokio::time::Instant::now);
         self.connection.disconnect();
+        self.stalled.store(false, Ordering::Release);
+        self.tell_stalled();
         let refuse = || Error::Text(reason.clone());
         for reply in self
             .in_flight
@@ -908,9 +926,31 @@ impl RemoteActor {
             }
             RemoteUpdate::Resync => self.reset(),
             RemoteUpdate::Picture { sent, total } => self.picture_progress(sent, total),
+            RemoteUpdate::Stalled(stalled) => {
+                self.stalled.store(stalled, Ordering::Release);
+                self.tell_stalled();
+            }
             RemoteUpdate::Ended | RemoteUpdate::Closed { .. } => return Err(Error::Stopped),
         }
         Ok(())
+    }
+
+    /// A change that does not fit the queue goes on the next tick, so the runtime never keeps a
+    /// stall that ended.
+    fn tell_stalled(&mut self) {
+        let stalled = self.stalled.load(Ordering::Acquire);
+        if stalled != self.told_stalled
+            && self
+                .changes
+                .try_send(SessionChange::RemoteStalled {
+                    id: self.connection.session.id,
+                    incarnation: self.connection.session.incarnation_id,
+                    instance_id: self.instance_id,
+                })
+                .is_ok()
+        {
+            self.told_stalled = stalled;
+        }
     }
 
     fn queue(&mut self, queued: QueuedControl) -> Result<()> {
@@ -1254,6 +1294,7 @@ impl RemoteActor {
         }
         self.subscribers.prune();
         self.documents.retain(Self::open_document);
+        self.tell_stalled();
         if self.lost_too_long() {
             for reply in self.queued.drain(..).filter_map(|queued| queued.reply) {
                 drop(reply.send(Err(Error::Text(reconnecting()))));
