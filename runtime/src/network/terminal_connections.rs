@@ -147,16 +147,15 @@ pub(super) fn open_pipe(
     commands: mpsc::Sender<RemoteRequest>,
     cancel: CancellationToken,
     (id, key, name): (Uuid, String, String),
-) -> crate::canvas::PipeEnds {
+) -> (crate::canvas::PipeEnds, tokio::task::JoinHandle<()>) {
     let (to_view, receiver) = mpsc::channel(crate::canvas::PIPE_QUEUE);
     let (sender, from_view) = mpsc::channel(crate::canvas::PIPE_QUEUE);
-    tokio::spawn(cancel.run_until_cancelled_owned(carry_pipe(
-        commands,
-        (id, key, name),
-        to_view,
-        from_view,
-    )));
-    crate::canvas::PipeEnds { sender, receiver }
+    let carrying = tokio::spawn(async move {
+        cancel
+            .run_until_cancelled_owned(carry_pipe(commands, (id, key, name), to_view, from_view))
+            .await;
+    });
+    (crate::canvas::PipeEnds { sender, receiver }, carrying)
 }
 
 async fn carry_pipe(

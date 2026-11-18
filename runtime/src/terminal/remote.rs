@@ -6,14 +6,18 @@ use std::{
         Arc,
         atomic::{AtomicBool, AtomicU8, Ordering},
     },
+    task::{Context, Poll},
     time::Duration,
 };
 
 use bytes::Bytes;
-use futures_util::FutureExt as _;
+use futures_util::{FutureExt as _, StreamExt as _, stream::FuturesUnordered};
 use serde_json::Value;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot};
-use tokio_util::sync::CancellationToken;
+use tokio::{
+    sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot, watch},
+    task::JoinHandle,
+};
+use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
 use uuid::Uuid;
 
 use super::subscribers::{DATA_CAPACITY, MAX_RAW_BYTES, Subscribers};
@@ -37,6 +41,7 @@ const PICTURES_WAITING: usize = 8;
 const INPUT_BUDGET: usize = 4 * 1024 * 1024;
 const BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(5);
 const MERGED_INPUT_BYTES: usize = 64 * 1024;
+const LOOK_AGAIN: Duration = Duration::from_millis(100);
 
 #[derive(Clone)]
 pub(crate) struct RemoteTerminal {
@@ -44,7 +49,7 @@ pub(crate) struct RemoteTerminal {
     cancellation: CancellationToken,
     input_budget: Arc<Semaphore>,
     link: Arc<AtomicU8>,
-    hidden: Arc<AtomicBool>,
+    hidden: watch::Sender<bool>,
     stalled: Arc<AtomicBool>,
     pub incarnation_id: Uuid,
     pub instance_id: Uuid,
@@ -93,21 +98,27 @@ impl RemoteTerminal {
         let cancellation = CancellationToken::new();
         let input_budget = Arc::new(Semaphore::new(INPUT_BUDGET));
         let link = Arc::new(AtomicU8::new(Link::Open as u8));
-        let hidden = Arc::new(AtomicBool::new(false));
+        let (hidden, hidden_seen) = watch::channel(false);
         let stalled = Arc::new(AtomicBool::new(false));
         let terminal = Self {
             requests,
             cancellation: cancellation.clone(),
             input_budget,
             link: Arc::clone(&link),
-            hidden: Arc::clone(&hidden),
+            hidden,
             stalled: Arc::clone(&stalled),
             incarnation_id,
             instance_id,
         };
-        let mut actor = RemoteActor::new(connection, receiver, cancellation, changes, instance_id);
+        let mut actor = RemoteActor::new(
+            connection,
+            receiver,
+            cancellation,
+            changes,
+            instance_id,
+            hidden_seen,
+        );
         actor.shared_link = link;
-        actor.hidden = hidden;
         actor.stalled = stalled;
         tokio::spawn(actor.run());
         terminal
@@ -131,7 +142,8 @@ impl RemoteTerminal {
     }
 
     pub(crate) fn show(&self, shown: bool) {
-        self.hidden.store(!shown, Ordering::Release);
+        self.hidden
+            .send_if_modified(|hidden| std::mem::replace(hidden, !shown) == shown);
     }
 
     pub(crate) fn resume(&self, connection: RemoteConnection) -> bool {
@@ -353,6 +365,13 @@ impl CaptureReply {
         }
     }
 
+    fn poll_closed(&mut self, context: &mut Context<'_>) -> Poll<()> {
+        match self {
+            Self::Subscribe(reply) => reply.poll_closed(context),
+            Self::Checkpoint { reply, .. } => reply.poll_closed(context),
+        }
+    }
+
     fn reject(self, error: Error) {
         match self {
             Self::Subscribe(reply) => {
@@ -369,6 +388,17 @@ struct PendingCapture {
     reply: CaptureReply,
     minimum_cut: u64,
     deadline: tokio::time::Instant,
+}
+
+fn abandoned(pending: &mut [PendingCapture], context: &mut Context<'_>) -> Poll<()> {
+    if pending
+        .iter_mut()
+        .any(|waiting| waiting.reply.poll_closed(context).is_ready())
+    {
+        Poll::Ready(())
+    } else {
+        Poll::Pending
+    }
 }
 
 struct RequestedResize {
@@ -464,7 +494,7 @@ struct RemoteActor {
     pending: Vec<PendingCapture>,
     metadata: Option<super::TerminalMetadata>,
     capture_requested: bool,
-    capture_due: tokio::time::Instant,
+    capture_asked: tokio::time::Instant,
     next_sequence: Option<u64>,
     delivered: u64,
     recent: VecDeque<DataFrame>,
@@ -473,13 +503,13 @@ struct RemoteActor {
     future_checkpoint: Option<CheckpointCut>,
     resyncing: bool,
     shared_link: Arc<AtomicU8>,
-    hidden: Arc<AtomicBool>,
+    hidden: watch::Receiver<bool>,
     stalled: Arc<AtomicBool>,
     told_stalled: bool,
     link: Link,
     held: VecDeque<Request>,
-    asking: Arc<()>,
-    documents: Vec<mpsc::WeakSender<Vec<u8>>>,
+    carrying: FuturesUnordered<JoinHandle<()>>,
+    leaving: FuturesUnordered<WaitForCancellationFutureOwned>,
     queued: VecDeque<QueuedControl>,
     in_flight: Option<InFlight>,
     focused: HashSet<Uuid>,
@@ -499,6 +529,7 @@ impl RemoteActor {
         cancellation: CancellationToken,
         changes: mpsc::Sender<SessionChange>,
         instance_id: Uuid,
+        hidden: watch::Receiver<bool>,
     ) -> Self {
         let controls = connection.control_handle();
         Self {
@@ -512,7 +543,7 @@ impl RemoteActor {
             pending: Vec::new(),
             metadata: None,
             capture_requested: false,
-            capture_due: tokio::time::Instant::now(),
+            capture_asked: tokio::time::Instant::now(),
             next_sequence: None,
             delivered: 0,
             recent: VecDeque::new(),
@@ -521,13 +552,13 @@ impl RemoteActor {
             future_checkpoint: None,
             resyncing: false,
             shared_link: Arc::new(AtomicU8::new(Link::Open as u8)),
-            hidden: Arc::new(AtomicBool::new(false)),
+            hidden,
             stalled: Arc::new(AtomicBool::new(false)),
             told_stalled: false,
             link: Link::Open,
             held: VecDeque::new(),
-            asking: Arc::new(()),
-            documents: Vec::new(),
+            carrying: FuturesUnordered::new(),
+            leaving: FuturesUnordered::new(),
             queued: VecDeque::new(),
             in_flight: None,
             focused: HashSet::new(),
@@ -601,7 +632,7 @@ impl RemoteActor {
         None
     }
 
-    fn resume(&mut self, connection: RemoteConnection) {
+    async fn resume(&mut self, connection: RemoteConnection) {
         if connection.session.incarnation_id != self.connection.session.incarnation_id
             || self.link == Link::Open
         {
@@ -612,6 +643,7 @@ impl RemoteActor {
         self.connection = connection;
         self.set_link(Link::Open);
         self.lost_at = None;
+        drop(self.changes.send(SessionChange::RemoteResumed).await);
     }
 
     fn hold(&mut self, request: Request) {
@@ -622,20 +654,18 @@ impl RemoteActor {
         }
     }
 
-    fn forward(&mut self, request: Request) {
+    fn forward(&self, request: Request) {
         match request {
             Request::Canvas { reply, .. } if reply.is_closed() => {}
             Request::Document { reply, .. } if reply.is_closed() => {}
             Request::Canvas { request, reply } => {
                 let controls = self.controls.clone();
-                let asking = Arc::clone(&self.asking);
-                tokio::spawn(async move {
+                self.carrying.push(tokio::spawn(async move {
                     let answer = controls
                         .send_control(TerminalControl::Canvas { request })
                         .await;
                     drop(reply.send(answer.map_err(Error::from)));
-                    drop(asking);
-                });
+                }));
             }
             Request::Document {
                 pipe,
@@ -646,18 +676,15 @@ impl RemoteActor {
                 let ends = self
                     .controls
                     .open_pipe(pipe, key, name)
+                    .map(|(ends, carrying)| {
+                        self.carrying.push(carrying);
+                        ends
+                    })
                     .map_err(Error::from);
-                if let Ok(ends) = &ends {
-                    self.documents.push(ends.sender.downgrade());
-                }
                 drop(reply.send(ends));
             }
             _ => {}
         }
-    }
-
-    fn open_document(pipe: &mpsc::WeakSender<Vec<u8>>) -> bool {
-        pipe.upgrade().is_some_and(|sender| !sender.is_closed())
     }
 
     fn set_link(&mut self, link: Link) {
@@ -697,8 +724,7 @@ impl RemoteActor {
             && self.pending.is_empty()
             && self.held.is_empty()
             && self.requests.is_empty()
-            && Arc::strong_count(&self.asking) == 1
-            && !self.documents.iter().any(Self::open_document)
+            && self.carrying.is_empty()
     }
 
     async fn pause(&mut self) {
@@ -719,17 +745,18 @@ impl RemoteActor {
         );
     }
 
-    async fn request_capture(&mut self) -> Result<()> {
-        if self.link != Link::Open {
-            return Ok(());
-        }
-        if !self.capture_requested
+    fn wants_capture(&self) -> bool {
+        self.link == Link::Open
+            && !self.capture_requested
             && self.future_checkpoint.is_none()
             && (!self.pending.is_empty() || self.subscribers.caught_up())
-        {
+    }
+
+    async fn request_capture(&mut self) -> Result<()> {
+        if self.wants_capture() {
             self.controls.request_checkpoint().await?;
             self.capture_requested = true;
-            self.capture_due = tokio::time::Instant::now() + BOOTSTRAP_TIMEOUT;
+            self.capture_asked = tokio::time::Instant::now();
         }
         Ok(())
     }
@@ -825,8 +852,11 @@ impl RemoteActor {
                                 drop(reply.send(Err(Error::Busy)));
                                 continue;
                             }
+                            let lifetime = self.subscribers.authorization(id);
                             if reply.send(Ok(subscription)).is_err() {
                                 self.subscribers.remove(id);
+                            } else if let Ok(lifetime) = lifetime {
+                                self.leaving.push(lifetime.cancelled_owned());
                             }
                         }
                         Err(error) => {
@@ -935,7 +965,7 @@ impl RemoteActor {
         Ok(())
     }
 
-    /// A change that does not fit the queue goes on the next tick, so the runtime never keeps a
+    /// A change that does not fit the queue goes again a moment later, so the runtime never keeps a
     /// stall that ended.
     fn tell_stalled(&mut self) {
         let stalled = self.stalled.load(Ordering::Acquire);
@@ -1293,7 +1323,6 @@ impl RemoteActor {
             self.metadata = Some(metadata);
         }
         self.subscribers.prune();
-        self.documents.retain(Self::open_document);
         self.tell_stalled();
         if self.lost_too_long() {
             for reply in self.queued.drain(..).filter_map(|queued| queued.reply) {
@@ -1318,10 +1347,49 @@ impl RemoteActor {
             }
         }
         self.pending = pending;
-        if now >= self.capture_due || self.pending.is_empty() && !self.subscribers.caught_up() {
+        if now >= self.capture_asked + BOOTSTRAP_TIMEOUT
+            || self.pending.is_empty() && !self.subscribers.caught_up()
+        {
             self.capture_requested = false;
         }
+        // A busy terminal answers with a screen that is already old, so it is not asked again at
+        // once.
+        if now < self.capture_asked + LOOK_AGAIN {
+            return Ok(());
+        }
         self.request_capture().await
+    }
+
+    /// Nothing tells when a view that fell behind has read what waits for it, so the terminal
+    /// looks again while such a view still has to get a new screen.
+    fn due(&self) -> Option<tokio::time::Instant> {
+        let unsent = (self.metadata.is_some()
+            || self.stalled.load(Ordering::Acquire) != self.told_stalled)
+            && !self.changes.is_closed();
+        let behind = self.link == Link::Open
+            && !self.capture_requested
+            && self.future_checkpoint.is_none()
+            && self.subscribers.behind();
+        let lost = self
+            .lost_at
+            .filter(|_| {
+                self.link == Link::Lost && !(self.queued.is_empty() && self.held.is_empty())
+            })
+            .map(|at| at + RECONNECT_WAIT);
+        self.pending
+            .iter()
+            .map(|waiting| waiting.deadline)
+            .chain(
+                self.capture_requested
+                    .then_some(self.capture_asked + BOOTSTRAP_TIMEOUT),
+            )
+            .chain(
+                self.wants_capture()
+                    .then_some(self.capture_asked + LOOK_AGAIN),
+            )
+            .chain(lost)
+            .chain((unsent || behind).then(|| tokio::time::Instant::now() + LOOK_AGAIN))
+            .min()
     }
 
     fn connection_update(&mut self, update: Option<RemoteUpdate>) -> Step {
@@ -1425,9 +1493,11 @@ impl RemoteActor {
         );
     }
 
-    async fn step(&mut self, tick: &mut tokio::time::Interval) -> Step {
+    /// A look again moves later with each step, so the timer is set again only for an earlier
+    /// deadline, and one that goes off early finds nothing due.
+    async fn step(&mut self, mut timer: Pin<&mut tokio::time::Sleep>) -> Step {
         let interrupted = self.link != Link::Open;
-        if !interrupted && self.hidden.load(Ordering::Acquire) && self.idle() {
+        if !interrupted && *self.hidden.borrow() && self.idle() {
             self.pause().await;
             return Step::Next;
         }
@@ -1437,6 +1507,12 @@ impl RemoteActor {
             }
             self.next_control();
             self.next_picture().await;
+        }
+        let due = self.due();
+        if let Some(at) = due
+            && (at < timer.deadline() || timer.is_elapsed())
+        {
+            timer.as_mut().reset(at);
         }
         let outcome = tokio::select! {
             () = self.cancellation.cancelled() => return Step::Stop(text!("Disconnected from the remote terminal.")),
@@ -1451,13 +1527,16 @@ impl RemoteActor {
                 }
                 Ok(())
             }
-            update = self.connection.updates.recv(), if !interrupted => return self.connection_update(update),
+            update = self.connection.updates.recv(), if !interrupted => match self.connection_update(update) {
+                Step::Next => Ok(()),
+                step => return step,
+            },
             request = self.requests.recv() => {
                 if request.as_ref().is_some_and(wakes) && self.dormant() {
                     self.wake().await;
                 }
                 match request {
-                Some(Request::Reconnected(connection)) => { self.resume(*connection); Ok(()) }
+                Some(Request::Reconnected(connection)) => { self.resume(*connection).await; Ok(()) }
                 Some(Request::Subscribe(reply)) => self.add_capture(CaptureReply::Subscribe(reply)).await,
                 Some(Request::Checkpoint { connection, reply }) => self.add_capture(CaptureReply::Checkpoint { connection, reply }).await,
                 Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); Ok(()) }
@@ -1487,20 +1566,27 @@ impl RemoteActor {
                 None => return Step::Stop(text!("Disconnected from the remote terminal.")),
                 }
             }
-            _ = tick.tick() => self.maintain().await,
+            Some(()) = self.leaving.next() => Ok(()),
+            Some(_) = self.carrying.next() => Ok(()),
+            Ok(()) = self.hidden.changed() => Ok(()),
+            () = std::future::poll_fn(|context| abandoned(&mut self.pending, context)), if !self.pending.is_empty() => Ok(()),
+            () = timer, if due.is_some() => Ok(()),
         };
-        Step::from(outcome)
+        if let Err(error) = outcome {
+            return Step::Failed(error.text());
+        }
+        Step::from(self.maintain().await)
     }
 
     async fn run(mut self) {
-        let mut tick = tokio::time::interval(Duration::from_millis(100));
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let timer = tokio::time::sleep_until(tokio::time::Instant::now());
+        tokio::pin!(timer);
         let mut ended = false;
         let reason = loop {
             if self.cancellation.is_cancelled() {
                 break text!("Disconnected from the remote terminal.");
             }
-            match self.step(&mut tick).await {
+            match self.step(timer.as_mut()).await {
                 Step::Next => {}
                 Step::Failed(failure) => {
                     if let Some(reason) = self.interrupt(failure).await {

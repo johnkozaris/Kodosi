@@ -8,13 +8,13 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures_util::FutureExt as _;
+use futures_util::{FutureExt as _, StreamExt as _, stream::FuturesUnordered};
 use serde_json::{Value, json};
 use tokio::{
     sync::{OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot, watch},
     task::JoinSet,
 };
-use tokio_util::sync::CancellationToken;
+use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
 use uuid::Uuid;
 
 use crate::{
@@ -75,6 +75,8 @@ const CALL_ANSWER: Duration = Duration::from_secs(20);
 const AGENT_ANSWER: Duration = Duration::from_secs(2);
 const ENTER_PAUSE: Duration = Duration::from_millis(500);
 const STARTING: Duration = Duration::from_secs(20);
+/// Views connect again a few at a time, so a link that comes back does not open them all at once.
+const RECONNECT_PACE: Duration = Duration::from_millis(100);
 /// The frames of documents and of the browser go to their client alone, so a busy picture never
 /// pushes the other events of each client out.
 const DIRECT_QUEUE: usize = 256;
@@ -1157,7 +1159,10 @@ struct Runtime {
     unsent: HashMap<Uuid, u64>,
     folder_asks: HashMap<String, terminal_folders::FolderAsk>,
     link_connects: u64,
+    next_reconnects: tokio::time::Instant,
     online: bool,
+    consumers: HashMap<Uuid, CancellationToken>,
+    leaving: FuturesUnordered<WaitForCancellationFutureOwned>,
     #[cfg(feature = "host")]
     publishing: BTreeSet<Uuid>,
     #[cfg(feature = "host")]
@@ -1306,7 +1311,10 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         unsent: HashMap::new(),
         folder_asks: HashMap::new(),
         link_connects: 0,
+        next_reconnects: tokio::time::Instant::now(),
         online: true,
+        consumers: HashMap::new(),
+        leaving: FuturesUnordered::new(),
         #[cfg(feature = "host")]
         publishing: BTreeSet::new(),
         #[cfg(feature = "host")]
@@ -1428,6 +1436,13 @@ impl Runtime {
                 drop(self.events.send(event));
             }
             Err(error) => tracing::error!(%error, "invalid runtime event"),
+        }
+    }
+
+    fn know_consumer(&mut self, consumer: Uuid, lifetime: &CancellationToken) {
+        if let std::collections::hash_map::Entry::Vacant(known) = self.consumers.entry(consumer) {
+            known.insert(lifetime.clone());
+            self.leaving.push(lifetime.clone().cancelled_owned());
         }
     }
 
@@ -1561,11 +1576,7 @@ impl Runtime {
 
     fn tell_seen(&mut self, watched: &BTreeSet<String>, now: tokio::time::Instant) {
         for id in self.attention.to_tell(watched, now) {
-            let Some(connection) = Uuid::parse_str(&id)
-                .ok()
-                .filter(|terminal| self.streams(*terminal))
-                .and_then(|terminal| self.connections.get(&terminal))
-            else {
+            let Some(connection) = self.streaming(&id) else {
                 continue;
             };
             let seen = connection.control(None, TerminalControl::Seen);
@@ -1576,6 +1587,13 @@ impl Runtime {
             });
             self.attention.told(&id, now);
         }
+    }
+
+    fn streaming(&self, id: &str) -> Option<&RemoteTerminal> {
+        Uuid::parse_str(id)
+            .ok()
+            .filter(|terminal| self.streams(*terminal))
+            .and_then(|terminal| self.connections.get(&terminal))
     }
 
     fn shown(&self, id: Uuid) -> bool {
@@ -1728,8 +1746,8 @@ impl Runtime {
                 .network
                 .inner
                 .link
-                .down_for()
-                .is_none_or(|down| down < crate::network::RECONNECT_WAIT);
+                .down_since()
+                .is_none_or(|since| since.elapsed() < crate::network::RECONNECT_WAIT);
         if online != self.online {
             self.online = online;
             self.emit(self.connection_event());
@@ -1818,6 +1836,41 @@ impl Runtime {
         });
     }
 
+    fn catch_up(&mut self) {
+        self.prune_views();
+        self.prune_answers();
+        self.prune_pipes();
+        if tokio::time::Instant::now() >= self.next_reconnects {
+            self.reconnect_views();
+        }
+        self.publish_connection();
+        self.attend();
+    }
+
+    fn next_deadline(&self) -> Option<tokio::time::Instant> {
+        let link = &self.network.inner.link;
+        let reconnects = if link.connects() == self.link_connects {
+            self.waiting_views().map(|(_, next)| next).min()
+        } else {
+            Some(self.next_reconnects)
+        };
+        let offline = link
+            .down_since()
+            .filter(|_| self.online)
+            .map(|since| since + crate::network::RECONNECT_WAIT);
+        let attention = self
+            .attention
+            .due(&self.watched(), |id| self.streaming(id).is_some());
+        [
+            reconnects.map(|at| at.max(self.next_reconnects)),
+            offline,
+            attention,
+        ]
+        .into_iter()
+        .flatten()
+        .min()
+    }
+
     async fn run(
         mut self,
         mut requests: mpsc::Receiver<Request>,
@@ -1831,12 +1884,21 @@ impl Runtime {
         self.spawn(async move {
             Completion::Initialized(network.initialize().await.map_err(Error::from))
         });
-        let mut demand = tokio::time::interval(Duration::from_millis(100));
+        let mut link = self.network.inner.link.ups_and_downs();
+        let timer = tokio::time::sleep_until(tokio::time::Instant::now());
+        tokio::pin!(timer);
         let mut retry = tokio::time::interval(Duration::from_secs(5));
         retry.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             if self.synchronize_account().is_err() {
                 break;
+            }
+            self.catch_up();
+            let due = self.next_deadline();
+            if let Some(at) = due
+                && timer.deadline() != at
+            {
+                timer.as_mut().reset(at);
             }
             tokio::select! {
                 request = requests.recv() => {
@@ -1845,6 +1907,7 @@ impl Runtime {
                         None | Some(Request::Shutdown) => break,
                         Some(Request::Command { envelope, consumer, lifetime }) => {
                             if !lifetime.is_cancelled() {
+                                self.know_consumer(consumer, &lifetime);
                                 self.command(&envelope, consumer, lifetime);
                             }
                         }
@@ -1888,8 +1951,10 @@ impl Runtime {
                         None => {},
                     }
                 }
-                _ = demand.tick() => { self.prune_views(); self.prune_answers(); self.prune_pipes(); self.reconnect_views(); self.publish_connection(); self.attend(); }
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.reconnect_views(); self.started_remotes(); self.ask_folders(); }
+                Some(()) = self.leaving.next() => self.consumers.retain(|_, lifetime| !lifetime.is_cancelled()),
+                Ok(()) = link.changed() => {}
+                () = &mut timer, if due.is_some() => {}
+                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); }
             }
         }
         requests.close();
@@ -3688,6 +3753,9 @@ impl Runtime {
                 incarnation,
                 instance_id,
             } => self.remote_paused(id, incarnation, instance_id),
+            // The loop catches up after each change, and a terminal that streams again can then
+            // hear what its person saw.
+            SessionChange::RemoteResumed => {}
             SessionChange::RemoteStalled {
                 id,
                 incarnation,
@@ -3827,11 +3895,24 @@ impl Runtime {
         }
         let now = tokio::time::Instant::now();
         let ids = self
-            .reconnect
+            .waiting_views()
+            .filter(|(_, next)| *next <= now)
+            .map(|(id, _)| id)
+            .take(4)
+            .collect::<Vec<_>>();
+        if !ids.is_empty() {
+            self.next_reconnects = now + RECONNECT_PACE;
+        }
+        for id in ids {
+            self.connect(id);
+        }
+    }
+
+    fn waiting_views(&self) -> impl Iterator<Item = (Uuid, tokio::time::Instant)> {
+        self.reconnect
             .iter()
-            .filter(|(id, retry)| {
-                retry.next <= now
-                    && self.shown(**id)
+            .filter(|(id, _)| {
+                self.shown(**id)
                     && self.host_online(**id)
                     && self
                         .connections
@@ -3839,12 +3920,7 @@ impl Runtime {
                         .is_none_or(RemoteTerminal::is_interrupted)
                     && !self.opening.contains_key(id)
             })
-            .map(|(id, _)| *id)
-            .take(4)
-            .collect::<Vec<_>>();
-        for id in ids {
-            self.connect(id);
-        }
+            .map(|(id, retry)| (*id, retry.next))
     }
 
     #[cfg(feature = "host")]
