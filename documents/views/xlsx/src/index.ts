@@ -161,6 +161,7 @@ const SET_COLUMN_HIDDEN = "sheet.mutation.set-col-hidden";
 const SET_COLUMN_VISIBLE = "sheet.mutation.set-col-visible";
 const SET_FROZEN = "sheet.mutation.set-frozen";
 const SET_AUTO_HEIGHT = "sheet.mutation.set-worksheet-row-is-auto-height";
+const MOVE_RANGE = "sheet.mutation.move-range";
 const SET_SELECTIONS = "sheet.operation.set-selections";
 const SET_SCROLL = "sheet.operation.set-scroll";
 const SET_ACTIVE_SHEET = "sheet.operation.set-worksheet-active";
@@ -315,6 +316,15 @@ function valueOf(cell: UniverCell | null | undefined): CellChange["value"] {
   const value = cell?.v;
   if (value === undefined || value === null || value === "") return null;
   return cell?.t === BOOLEAN_TYPE ? Boolean(value) : value;
+}
+
+/** A cell that moves takes the place of what was there as a whole. */
+function wholeCell(look: CellChange, cell: UniverCell | null | undefined): CellChange {
+  return {
+    ...look,
+    value: valueOf(cell) ?? null,
+    formula: cell?.f ? cell.f.replace(/^=/, "") : null,
+  };
 }
 
 /** Univer changes only part of a style, so the look is the cell's whole look. */
@@ -683,6 +693,21 @@ class XlsxEditor implements Editor, Pictures {
               : null,
           ),
         };
+      }
+      case MOVE_RANGE: {
+        const sides = [params.from, params.to] as {
+          subUnitId: string;
+          value: Record<string, Record<string, UniverCell | null>>;
+        }[];
+        const changes = sides.flatMap<Change>(({ subUnitId, value }) => {
+          const cells = Object.entries(value ?? {}).flatMap(([row, columns]) =>
+            Object.entries(columns).map(([column, cell]) =>
+              wholeCell(this.lookOf(subUnitId, Number(row), Number(column)), cell),
+            ),
+          );
+          return cells.length > 0 ? [{ kind: "cells", sheet: subUnitId, cells }] : [];
+        });
+        return changes.length > 0 ? { kind: "group", changes } : null;
       }
       default:
         return null;
