@@ -19,7 +19,6 @@ const STALL: Duration = Duration::from_secs(3);
 /// About when a person notices that the keys they typed do not appear.
 const LATE: Duration = Duration::from_secs(1);
 const RESUME_WAIT: Duration = Duration::from_secs(10);
-const TICK: Duration = Duration::from_millis(100);
 const ANSWER_WAIT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -192,9 +191,15 @@ impl<R: Transport> Actor<R> {
     }
 
     async fn serve(&mut self) -> Result<()> {
-        let mut tick = tokio::time::interval(TICK);
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let timer = tokio::time::sleep_until(tokio::time::Instant::now());
+        tokio::pin!(timer);
         loop {
+            let due = self.due();
+            if let Some(at) = due
+                && timer.deadline() != at
+            {
+                timer.as_mut().reset(at);
+            }
             tokio::select! {
                 biased;
                 Some(lane) = self.attached.recv() => self.attach(lane).await?,
@@ -214,7 +219,7 @@ impl<R: Transport> Actor<R> {
                         return Ok(());
                     }
                 },
-                _ = tick.tick() => self.timers().await?,
+                () = &mut timer, if due.is_some() => self.timers().await?,
             }
             if std::mem::take(&mut self.lane_lost) {
                 self.lost().await?;
@@ -222,6 +227,7 @@ impl<R: Transport> Actor<R> {
             if self.closing.is_some() && self.unacknowledged.is_empty() {
                 return Ok(());
             }
+            self.tell_late();
         }
     }
 
@@ -412,13 +418,9 @@ impl<R: Transport> Actor<R> {
 
     async fn timers(&mut self) -> Result<()> {
         let now = tokio::time::Instant::now();
-        if self.closing.is_some_and(|since| now >= since + RESUME_WAIT) {
-            return Err(Error::Closed);
-        }
-        let late = !self.unacknowledged.is_empty() && now >= self.progress + LATE;
-        self.late
-            .send_if_modified(|current| std::mem::replace(current, late) != late);
-        if self.held && now >= self.proposed_at + RESUME_WAIT {
+        if self.closing.is_some_and(|since| now >= since + RESUME_WAIT)
+            || (self.held && now >= self.proposed_at + RESUME_WAIT)
+        {
             return Err(Error::Closed);
         }
         let unanswered = self.proposed == Some(Carrier::Lane) && now >= self.proposed_at + STALL;
@@ -433,6 +435,28 @@ impl<R: Transport> Actor<R> {
             self.ack().await?;
         }
         Ok(())
+    }
+
+    fn due(&self) -> Option<tokio::time::Instant> {
+        let waiting = !self.unacknowledged.is_empty();
+        [
+            self.closing.map(|since| since + RESUME_WAIT),
+            self.held.then(|| self.proposed_at + RESUME_WAIT),
+            (waiting && !*self.late.borrow()).then(|| self.progress + LATE),
+            (self.proposed == Some(Carrier::Lane)).then(|| self.proposed_at + STALL),
+            (self.sending == Carrier::Lane && !self.held && waiting).then(|| self.progress + STALL),
+            self.ack_at,
+        ]
+        .into_iter()
+        .flatten()
+        .min()
+    }
+
+    fn tell_late(&self) {
+        let late =
+            !self.unacknowledged.is_empty() && tokio::time::Instant::now() >= self.progress + LATE;
+        self.late
+            .send_if_modified(|current| std::mem::replace(current, late) != late);
     }
 
     fn publish(&self) {
