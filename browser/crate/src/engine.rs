@@ -21,7 +21,7 @@ use tokio::{
 use crate::{
     Error,
     devtools::{self, Devtools},
-    link::{EncodedFrame, EngineTab, FromEngine, ToEngine},
+    link::{EncodedFrame, EngineTab, FrameKind, FromEngine, ToEngine},
     message::Size,
     socket::{Report, Socket},
     window::Event,
@@ -519,7 +519,7 @@ impl Engine {
         let window = frame.window;
         let sender = {
             let mut routes = self.routes();
-            if frame.key {
+            if frame.kind == FrameKind::Key {
                 routes.behind.remove(&window);
             } else if routes.behind.contains(&window) {
                 return;

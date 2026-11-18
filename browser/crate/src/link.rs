@@ -16,8 +16,11 @@ pub const AS_ROOT: i32 = 73;
 /// The host bounds what a page says, so a bigger icon shows as none.
 pub const MOST_ICON: usize = 12 * 1024;
 
-/// The bytes before a picture's data: its window, whether it is a key frame, and its time.
-const FRAME_HEADER: usize = 8 + 1 + 8;
+/// The bytes before a picture's data: its window, its kind, its time and its mark.
+const FRAME_HEADER: usize = 8 + 1 + 8 + 8;
+const KEY: u8 = 1;
+const ANCHOR: u8 = 2;
+const MARKED: u8 = 4;
 
 /// The host writes the address into the engine's profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,6 +63,16 @@ pub enum ToEngine {
     },
     Keyframe {
         window: i64,
+    },
+    /// A frame that each viewer can take after frames that it missed: an anchor when the encoder
+    /// has marks that every viewer holds, or else a key frame.
+    Recover {
+        window: i64,
+    },
+    /// Marks of frames that every viewer took, which an anchor may refer to.
+    Held {
+        window: i64,
+        marks: Vec<u64>,
     },
     Bitrate {
         window: i64,
@@ -180,32 +193,66 @@ pub enum FromEngine {
     },
 }
 
-/// H.264 in Annex B form.
+/// What a frame needs from the frames before it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FrameKind {
+    /// The frame before it.
+    Delta,
+    /// Nothing.
+    Key,
+    /// Only frames whose marks the host said every viewer holds, so a viewer that missed the
+    /// frames before it can go on from here.
+    Anchor,
+}
+
+/// H.264 in Annex B form. The encoder gives a mark to a frame that a later anchor may refer to,
+/// once every viewer holds it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncodedFrame {
     pub window: i64,
-    pub key: bool,
+    pub kind: FrameKind,
     /// Microseconds.
     pub timestamp: u64,
+    pub mark: Option<u64>,
     pub data: Bytes,
 }
 
 impl EncodedFrame {
     pub fn to_message(&self) -> Vec<u8> {
+        let mut flags = match self.kind {
+            FrameKind::Delta => 0,
+            FrameKind::Key => KEY,
+            FrameKind::Anchor => ANCHOR,
+        };
+        if self.mark.is_some() {
+            flags |= MARKED;
+        }
         let mut message = Vec::with_capacity(FRAME_HEADER + self.data.len());
         message.extend_from_slice(&self.window.to_be_bytes());
-        message.push(u8::from(self.key));
+        message.push(flags);
         message.extend_from_slice(&self.timestamp.to_be_bytes());
+        message.extend_from_slice(&self.mark.unwrap_or_default().to_be_bytes());
         message.extend_from_slice(&self.data);
         message
     }
 
     pub fn from_message(message: &Bytes) -> Option<Self> {
         let header = message.get(..FRAME_HEADER)?;
+        let flags = header[8];
+        let kind = if flags & KEY != 0 {
+            FrameKind::Key
+        } else if flags & ANCHOR != 0 {
+            FrameKind::Anchor
+        } else {
+            FrameKind::Delta
+        };
         Some(Self {
             window: i64::from_be_bytes(header[..8].try_into().ok()?),
-            key: header[8] != 0,
-            timestamp: u64::from_be_bytes(header[9..].try_into().ok()?),
+            kind,
+            timestamp: u64::from_be_bytes(header[9..17].try_into().ok()?),
+            mark: (flags & MARKED != 0)
+                .then(|| header[17..].try_into().ok().map(u64::from_be_bytes))
+                .flatten(),
             data: message.slice(FRAME_HEADER..),
         })
     }
@@ -216,15 +263,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_frame_keeps_its_window_kind_time_and_data() {
-        let frame = EncodedFrame {
-            window: -7,
-            key: true,
-            timestamp: 1_234_567,
-            data: Bytes::from_static(b"\0\0\0\x01picture"),
-        };
-        let message = Bytes::from(frame.to_message());
-        assert_eq!(EncodedFrame::from_message(&message), Some(frame));
+    fn a_frame_keeps_its_window_kind_time_mark_and_data() {
+        for (kind, mark) in [
+            (FrameKind::Key, None),
+            (FrameKind::Anchor, Some(0)),
+            (FrameKind::Delta, Some(u64::MAX)),
+        ] {
+            let frame = EncodedFrame {
+                window: -7,
+                kind,
+                timestamp: 1_234_567,
+                mark,
+                data: Bytes::from_static(b"\0\0\0\x01picture"),
+            };
+            let message = Bytes::from(frame.to_message());
+            assert_eq!(EncodedFrame::from_message(&message), Some(frame));
+        }
     }
 
     #[test]

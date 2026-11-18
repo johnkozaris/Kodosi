@@ -9,19 +9,28 @@ import Observation
 @MainActor
 @Observable
 public final class BrowserFeed {
+    public enum Picture: Sendable {
+        case waiting
+        case live
+        /// The surface keeps the last picture while the feed joins again, until a new frame
+        /// replaces it.
+        case kept
+    }
+
     private static let frameHeader = 14
     private static let messageTag: UInt8 = 0
     private static let frameTag: UInt8 = 1
+    private static let keyFlag: UInt8 = 1
+    private static let anchorFlag: UInt8 = 2
     private static let longestWait = Duration.seconds(30)
     private static let settle = Duration.milliseconds(250)
 
     public private(set) var window = BrowserWindow()
     public private(set) var icons: [String: CGImage] = [:]
-    public private(set) var hasPicture = false
+    public private(set) var picture = Picture.waiting
     public private(set) var failure: String?
     /// Counts each press, key and scroll of a person on this device.
     public private(set) var touches = 0
-    @ObservationIgnored public var show: (CMSampleBuffer) -> Void = { _ in }
     @ObservationIgnored public var copied: (String) -> Void = { _ in }
     /// The page takes the shape of the view of the person who acted last, so a new size goes to
     /// the host once the view settles, never while a button is held, and one that waits goes
@@ -45,9 +54,11 @@ public final class BrowserFeed {
     @ObservationIgnored private let store: CanvasStore
     @ObservationIgnored private let session: String
     @ObservationIgnored private var link: DocumentLink?
+    @ObservationIgnored private var display: (CMSampleBuffer) -> Void = { _ in }
+    @ObservationIgnored private weak var surface: AnyObject?
     @ObservationIgnored private var samples = H264Samples()
     @ObservationIgnored private var lastFrame: UInt32 = 0
-    @ObservationIgnored private var behind = true
+    @ObservationIgnored private var holds = Holds.nothing
     @ObservationIgnored private var sentSize: BrowserSize?
     @ObservationIgnored private var settling: Task<Void, Never>?
     @ObservationIgnored private var holding = false
@@ -71,9 +82,17 @@ public final class BrowserFeed {
         }
         await join(link)
         for await _ in losses {
-            hasPicture = false
             await join(link)
         }
+    }
+
+    /// A surface that is new to the feed has no picture, so the host sends a key frame at once.
+    public func show(on surface: AnyObject, _ display: @escaping (CMSampleBuffer) -> Void) {
+        self.display = display
+        guard surface !== self.surface else { return }
+        self.surface = surface
+        picture = .waiting
+        restart()
     }
 
     public func wake() async {
@@ -120,7 +139,7 @@ public final class BrowserFeed {
     }
 
     public func restart() {
-        behind = true
+        holds = .nothing
         post(.keyframe)
     }
 
@@ -159,12 +178,15 @@ public final class BrowserFeed {
 
     /// The computer of the terminal can be away for a time, so this goes on until the view ends.
     private func join(_ link: DocumentLink) async {
+        if picture == .live {
+            picture = .kept
+        }
         var wait = Duration.seconds(1)
         while !Task.isCancelled {
             do {
                 try await link.open()
                 failure = nil
-                behind = true
+                holds = .nothing
                 let size = currentSize
                 sentSize = size
                 post(.watch(size))
@@ -232,21 +254,43 @@ public final class BrowserFeed {
         }
     }
 
+    /// The host skips frames for a view that falls behind and goes on at an anchor, so only a
+    /// delta frame after a gap shows a frame lost on the way, and the decoder needs a key frame.
     private func frame(_ message: Data) {
         guard message.count > Self.frameHeader else { return }
         let header = [UInt8](message.prefix(Self.frameHeader))
         let id = header[1 ..< 5].reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
-        let key = header[5] != 0
+        let key = header[5] & Self.keyFlag != 0
+        let anchor = header[5] & Self.anchorFlag != 0
         post(.ack(id))
-        if !key, !behind, id != lastFrame &+ 1 {
-            restart()
+        if holds == .stream, id != lastFrame &+ 1 {
+            holds = .gap
         }
         lastFrame = id
-        guard key || !behind, let sample = samples.sample(of: message.dropFirst(Self.frameHeader)) else { return }
-        behind = false
-        hasPicture = true
-        show(sample)
+        switch holds {
+        case .nothing where !key:
+            return
+        case .gap where !key && !anchor:
+            restart()
+            return
+        default:
+            break
+        }
+        guard let sample = samples.sample(of: message.dropFirst(Self.frameHeader)) else { return }
+        holds = .stream
+        picture = .live
+        display(sample)
     }
+}
+
+/// What the decoder of a feed holds.
+private enum Holds {
+    /// Nothing that a frame after a key frame needs, as a new decoder.
+    case nothing
+    /// Each frame since its key frame.
+    case stream
+    /// Every frame up to one that the host skipped.
+    case gap
 }
 
 private enum ToBrowserWindow: Encodable {
@@ -262,6 +306,7 @@ private enum ToBrowserWindow: Encodable {
         case let .watch(size):
             try container.encode("watch", forKey: .type)
             try container.encode(size, forKey: .size)
+            try container.encode(true, forKey: .anchors)
         case let .size(size):
             try container.encode("size", forKey: .type)
             try container.encode(size, forKey: .size)
@@ -276,7 +321,7 @@ private enum ToBrowserWindow: Encodable {
         }
     }
 
-    private enum Field: String, CodingKey { case type, size, frame, input }
+    private enum Field: String, CodingKey { case type, size, frame, input, anchors }
 }
 
 private struct BrowserSize: Encodable, Equatable {

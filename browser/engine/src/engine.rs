@@ -14,7 +14,12 @@ use shared_browser::{
     link::{EngineTab, FromEngine, MOST_ICON, ToEngine},
 };
 
-use crate::{client, encode::Encoder, link::Link, renderer};
+use crate::{
+    client,
+    encode::{Cleanup, Encoder, REFINE_MS},
+    link::Link,
+    renderer,
+};
 
 const REPORT_DELAY_MS: i64 = 50;
 /// How long the browsers may take to close when the engine quits. The host waits longer.
@@ -116,11 +121,13 @@ wrap_task! {
 
 /// A still page draws nothing by itself, so a picture that never reached the viewers would stay
 /// missing.
+#[cfg(target_os = "macos")]
 pub(crate) fn redraw(window: i64, delay_ms: i64) {
     let mut task = RedrawTaskBuilder::new(window);
     post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
 }
 
+#[cfg(target_os = "macos")]
 wrap_task! {
     struct RedrawTaskBuilder {
         window: i64,
@@ -167,8 +174,42 @@ impl Shared {
 }
 
 pub(crate) struct Capture {
+    pub window: i64,
     pub tab: i64,
     pub encoder: Encoder,
+    pub cleanup: Cleanup,
+}
+
+/// The encoder codes the last picture again only while the page drew nothing new since `picture`.
+pub(crate) fn clean_up(window: i64, picture: u64, delay_ms: i64) {
+    let mut task = CleanUpTaskBuilder::new(window, picture);
+    post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
+}
+
+wrap_task! {
+    struct CleanUpTaskBuilder {
+        window: i64,
+        picture: u64,
+    }
+
+    impl Task {
+        fn execute(&self) {
+            let due = with(|engine| {
+                let shared = engine.shared_of(self.window)?;
+                let mut capture = shared.capture.borrow_mut();
+                let capture = capture.as_mut()?;
+                let due = capture.cleanup.due(self.picture);
+                if due && capture.encoder.refine() {
+                    capture.cleanup.refined();
+                }
+                Some(due)
+            })
+            .flatten();
+            if due == Some(true) {
+                clean_up(self.window, self.picture, REFINE_MS);
+            }
+        }
+    }
 }
 
 /// CEF gives each browser its id only when it exists, so a browser carries where it belongs.
@@ -689,6 +730,8 @@ fn run(command: ToEngine) {
         ToEngine::Capture { .. }
         | ToEngine::Stop { .. }
         | ToEngine::Keyframe { .. }
+        | ToEngine::Recover { .. }
+        | ToEngine::Held { .. }
         | ToEngine::Bitrate { .. } => capture(&command),
         ToEngine::Activate { tab } => activate(tab),
         ToEngine::NewTab {
@@ -763,8 +806,8 @@ fn resize(window: i64, size: Size) {
     }
 }
 
-/// A new capture or a key frame asks the page to draw again, since a still page sends no
-/// pictures.
+/// A new capture, a key frame or an anchor asks the page to draw again, since a still page sends
+/// no pictures.
 fn capture(command: &ToEngine) {
     let repaint_tab = with(|engine| match *command {
         ToEngine::Capture {
@@ -774,7 +817,12 @@ fn capture(command: &ToEngine) {
         } => {
             let shared = engine.shared_of(window)?;
             let encoder = Encoder::new(window, bitrate, engine.link().clone());
-            *shared.capture.borrow_mut() = Some(Capture { tab, encoder });
+            *shared.capture.borrow_mut() = Some(Capture {
+                window,
+                tab,
+                encoder,
+                cleanup: Cleanup::default(),
+            });
             engine.browser_of(tab)
         }
         ToEngine::Stop { window } => {
@@ -787,6 +835,21 @@ fn capture(command: &ToEngine) {
             let capture = capture.as_mut()?;
             capture.encoder.want_key();
             engine.browser_of(capture.tab)
+        }
+        ToEngine::Recover { window } => {
+            let shared = engine.shared_of(window)?;
+            let mut capture = shared.capture.borrow_mut();
+            let capture = capture.as_mut()?;
+            capture.encoder.recover();
+            engine.browser_of(capture.tab)
+        }
+        #[cfg(target_os = "macos")]
+        ToEngine::Held { window, ref marks } => {
+            let shared = engine.shared_of(window)?;
+            if let Some(capture) = shared.capture.borrow_mut().as_mut() {
+                capture.encoder.held(marks);
+            }
+            None
         }
         ToEngine::Bitrate { window, bitrate } => {
             let shared = engine.shared_of(window)?;

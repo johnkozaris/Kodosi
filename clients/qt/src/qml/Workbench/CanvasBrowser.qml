@@ -243,6 +243,11 @@ Item {
                 active: !root.browser.problem && KodosiTheme.shown
                 visible: root.browserState === "awake" && shows
             }
+            Spinner {
+                anchors.centerIn: parent
+                size: 18
+                visible: root.browserState === "awake" && (!video.shows || video.reconnecting)
+            }
             MouseArea {
                 anchors.fill: parent
                 enabled: root.browserState === "awake"

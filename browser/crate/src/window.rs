@@ -16,7 +16,7 @@ use crate::{
     Error,
     driver::{self, Driver},
     engine::Engine,
-    flow::{self, Flow},
+    flow::{Ask, Flow},
     input,
     link::{EncodedFrame, EngineTab, MOST_ICON, ToEngine},
     message::{
@@ -35,6 +35,13 @@ const ANSWER_LIMIT: Duration = Duration::from_secs(1);
 const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
 /// Chrome keeps its window at least this wide.
 const NARROWEST: u32 = 500;
+/// The longer and the shorter side of the largest picture that the encoder takes: `VideoToolbox`
+/// refuses one larger than 4096 by 2304, and `OpenH264` one larger than 3840 by 2160.
+const MOST_PICTURE: (u16, u16) = if cfg!(target_os = "macos") {
+    (4096, 2304)
+} else {
+    (3840, 2160)
+};
 const MOST_DOWNLOADS: usize = 16;
 const MOST_TEXT: usize = 1024 * 1024;
 /// What a page says goes to every viewer with each change of the window, so it has bounds.
@@ -191,20 +198,14 @@ impl Window {
     }
 }
 
+/// What a window sends to one viewer must reach it all: the window chooses the pictures that a
+/// slow viewer misses, and a picture that goes missing on the way breaks the ones after it.
 pub struct Pipe {
     viewer: String,
     seat: u64,
     incoming: mpsc::Receiver<Bytes>,
     mailbox: Arc<Mailbox>,
     events: mpsc::Sender<Event>,
-}
-
-/// What a window sends to one viewer. A picture that finds no room can go, as a key frame heals
-/// it, but a state must arrive, because the viewer places each point by its size.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ToView {
-    State(Bytes),
-    Picture(Bytes),
 }
 
 /// The newest state for one viewer, which its pipe takes as soon as it has room. A newer state
@@ -252,15 +253,15 @@ impl Pipe {
     }
 
     /// The newest state comes before the pictures that wait.
-    pub async fn receive(&mut self) -> Option<ToView> {
+    pub async fn receive(&mut self) -> Option<Bytes> {
         loop {
             if let Some(state) = self.mailbox.take() {
-                return Some(ToView::State(ToViewer::State(Box::new(state)).encode()));
+                return Some(ToViewer::State(Box::new(state)).encode());
             }
             tokio::select! {
                 biased;
                 () = self.mailbox.ready.notified() => {}
-                picture = self.incoming.recv() => return picture.map(ToView::Picture),
+                picture = self.incoming.recv() => return picture,
             }
         }
     }
@@ -330,6 +331,13 @@ struct Seat {
     pointer: Option<(f64, f64)>,
     /// The size of the viewer's view, which the page takes while this viewer is in control.
     size: Option<Size>,
+}
+
+/// The frames that wait in a viewer's pipe.
+fn queued(seats: &HashMap<String, Seat>, viewer: &str) -> usize {
+    seats.get(viewer).map_or(0, |seat| {
+        seat.outgoing.max_capacity() - seat.outgoing.capacity()
+    })
 }
 
 /// Frees a viewer's seat only for the join that took it. A viewer that joined again on a new
@@ -527,14 +535,34 @@ impl Live {
             self.capture_failed_at = None;
             self.update_capture();
         }
-        if let Some(bitrate) = self.flow.steer(now) {
+        let control = self.control.as_ref().map(|control| control.viewer.as_str());
+        if let Some(bitrate) = self.flow.steer(control, now) {
             self.engine.command(ToEngine::Bitrate {
                 window: self.id,
                 bitrate,
             });
         }
-        if self.capturing.is_some() && self.flow.keyframe_due(now) {
-            self.ask_keyframe();
+        let hopeless = self.flow.hopeless(now);
+        if !hopeless.is_empty() {
+            for viewer in hopeless {
+                self.seats.remove(&viewer);
+                self.gone(&viewer);
+            }
+            self.update_capture();
+            self.dirty = true;
+        }
+        let seats = &self.seats;
+        if self.capturing.is_some()
+            && let Some(ask) = self.flow.due(now, |viewer| queued(seats, viewer))
+        {
+            self.ask(ask);
+        }
+        let marks = self.flow.held();
+        if !marks.is_empty() {
+            self.engine.command(ToEngine::Held {
+                window: self.id,
+                marks,
+            });
         }
         if self.dirty {
             self.publish();
@@ -694,19 +722,20 @@ impl Live {
     fn message(&mut self, viewer: &str, message: ToWindow) {
         let now = Instant::now();
         match message {
-            ToWindow::Watch { size } => {
-                self.flow.seat(viewer, now);
+            ToWindow::Watch { size, anchors } => {
+                self.flow.seat(viewer, anchors, now);
                 self.used_at = now;
                 self.control.get_or_insert_with(|| Control::of(viewer));
                 self.keep_size(viewer, size);
                 self.update_capture();
-                self.flow.keyframe_sent(now);
-                self.ask_keyframe();
+                self.flow.keyframe_asked(now);
+                self.ask(Ask::Keyframe);
             }
             ToWindow::Ack { frame } => self.flow.ack(viewer, frame, now),
             ToWindow::Keyframe => {
-                if self.flow.ask_keyframe(now) {
-                    self.ask_keyframe();
+                let seats = &self.seats;
+                if let Some(ask) = self.flow.reset(viewer, now, |viewer| queued(seats, viewer)) {
+                    self.ask(ask);
                 }
             }
             ToWindow::Size { size } => self.keep_size(viewer, size),
@@ -714,19 +743,31 @@ impl Live {
         }
     }
 
-    fn ask_keyframe(&self) {
-        self.engine.command(ToEngine::Keyframe { window: self.id });
+    fn ask(&self, ask: Ask) {
+        let window = self.id;
+        self.engine.command(match ask {
+            Ask::Keyframe => ToEngine::Keyframe { window },
+            Ask::Recover => ToEngine::Recover { window },
+        });
     }
 
     fn frame(&mut self, frame: EncodedFrame) {
         let now = Instant::now();
         self.next_frame = self.next_frame.wrapping_add(1);
         let id = self.next_frame;
-        let delivery = self.flow.frame(id, frame.key, frame.data.len(), now);
+        let seats = &self.seats;
+        let delivery = self.flow.frame(
+            id,
+            frame.kind,
+            frame.mark,
+            frame.data.len(),
+            now,
+            |viewer| queued(seats, viewer),
+        );
         if !delivery.to.is_empty() {
             let message = ToViewer::Frame(Frame {
                 id,
-                key: frame.key,
+                kind: frame.kind,
                 timestamp: frame.timestamp,
                 data: frame.data,
             })
@@ -737,17 +778,12 @@ impl Live {
                     .get(viewer)
                     .is_some_and(|seat| seat.outgoing.try_send(message.clone()).is_ok());
                 if !sent {
-                    self.flow.lost(viewer, id);
+                    self.flow.lost(viewer, id, now);
                 }
             }
         }
-        if delivery.ask_keyframe {
-            self.ask_keyframe();
-        }
-        for viewer in delivery.dropped {
-            self.seats.remove(&viewer);
-            self.gone(&viewer);
-            self.dirty = true;
+        if let Some(ask) = delivery.ask {
+            self.ask(ask);
         }
     }
 
@@ -818,12 +854,12 @@ impl Live {
         self.engine.command(ToEngine::Capture {
             window: self.id,
             tab,
-            bitrate: flow::FIRST_BITRATE,
+            bitrate: self.flow.bitrate(),
         });
     }
 
-    /// A viewer that only looks keeps its size here, so that it never changes the page under the
-    /// viewer who uses it.
+    /// A viewer that only looks keeps its size here, so that it never changes the shape of the
+    /// page under the viewer who uses it, only the pixels that the page gets.
     fn keep_size(&mut self, viewer: &str, size: Size) {
         if let Some(seat) = self.seats.get_mut(viewer) {
             seat.size = Some(size);
@@ -850,7 +886,8 @@ impl Live {
             .is_some_and(|control| control.viewer == viewer)
     }
 
-    /// The control goes to the viewer that came first of those that stay.
+    /// The control goes to the viewer that came first of those that stay, and the page loses the
+    /// pixels that only the viewer that went showed.
     fn gone(&mut self, viewer: &str) {
         if self.in_control(viewer) {
             self.control = self
@@ -858,8 +895,8 @@ impl Live {
                 .values()
                 .min_by_key(|seat| seat.number)
                 .map(|seat| Control::of(&seat.viewer.id));
-            self.follow();
         }
+        self.follow();
     }
 
     /// The page takes the size of the view in control, but never under a held button, and only
@@ -876,7 +913,7 @@ impl Live {
             .filter(|control| !control.held)
             .and_then(|control| self.seats.get(&control.viewer))
             .and_then(|seat| seat.size)
-            .and_then(fitted)
+            .and_then(|size| fitted(size, self.seats.values().filter_map(|seat| seat.size)))
         else {
             return;
         };
@@ -897,9 +934,9 @@ impl Live {
         self.resize(size);
     }
 
-    /// The engine draws the pages of this window at the size and the scale of the viewer, so
-    /// that the picture has the pixels that the viewer shows. The new size goes to the viewers
-    /// at once, because they place each point by it.
+    /// The engine draws the pages of this window at the size of the viewer in control and with
+    /// the pixels of the sharpest view, so that each picture has the pixels that its viewers show.
+    /// The new size goes to the viewers at once, because they place each point by it.
     fn resize(&mut self, size: Size) {
         self.size = size;
         self.state.width = size.width;
@@ -1298,21 +1335,85 @@ fn keep_latest(
 }
 
 /// A view that is narrower than Chrome's window gets a wider page of its own shape, drawn with
-/// fewer pixels for each point, so that the picture fills the view and still has its pixels.
-fn fitted(size: Size) -> Option<Size> {
-    if !(SIZES.contains(&size.width) && SIZES.contains(&size.height) && size.scale > 0.0) {
+/// fewer pixels for each point, so that the picture fills the view and still has its pixels. Each
+/// of the `views` fits the page into itself, and the page gets the pixels of the sharpest.
+fn fitted(size: Size, views: impl IntoIterator<Item = Size>) -> Option<Size> {
+    if !usable(size) {
         return None;
     }
     let width = size.width.max(NARROWEST);
     let height = (u64::from(size.height) * u64::from(width) + u64::from(size.width) / 2)
         / u64::from(size.width);
+    let height = u32::try_from(height).map_or(*SIZES.end(), |height| height.min(*SIZES.end()));
     let scale = size.scale * f32::from(u16::try_from(size.width).ok()?)
         / f32::from(u16::try_from(width).ok()?);
-    Some(Size {
-        width,
-        height: u32::try_from(height).map_or(*SIZES.end(), |height| height.min(*SIZES.end())),
-        scale: scale.clamp(1.0, 4.0),
-    })
+    let scale = views
+        .into_iter()
+        .filter_map(|view| shown(view, width, height))
+        .fold(scale.clamp(1.0, 4.0), f32::max)
+        .min(4.0);
+    encodable(
+        Size {
+            width,
+            height,
+            scale,
+        },
+        MOST_PICTURE,
+    )
+}
+
+fn usable(size: Size) -> bool {
+    SIZES.contains(&size.width) && SIZES.contains(&size.height) && size.scale > 0.0
+}
+
+/// The pixels for each point of a page that a view shows when it fits the page into itself.
+fn shown(view: Size, width: u32, height: u32) -> Option<f32> {
+    if !usable(view) {
+        return None;
+    }
+    let side = |points: u32| u16::try_from(points).ok().map(f32::from);
+    let fit = f32::min(
+        side(view.width)? / side(width)?,
+        side(view.height)? / side(height)?,
+    );
+    Some(fit * view.scale)
+}
+
+/// A page whose picture the encoder would refuse gets fewer pixels for each point, and one that is
+/// too large for it even at one pixel for each point gets smaller in its own shape. Chrome rounds
+/// the pixels of each side up.
+fn encodable(size: Size, (most_long, most_short): (u16, u16)) -> Option<Size> {
+    let tall = size.height > size.width;
+    let (long, short) = if tall {
+        (size.height, size.width)
+    } else {
+        (size.width, size.height)
+    };
+    let (longest, shortest) = (u32::from(most_long), u32::from(most_short));
+    if long > longest || short > shortest {
+        let (long, short) = if long * shortest >= short * longest {
+            (longest, short * longest / long)
+        } else {
+            (long * shortest / short, shortest)
+        };
+        let (width, height) = if tall { (short, long) } else { (long, short) };
+        return Some(Size {
+            width: width.max(NARROWEST),
+            height,
+            scale: 1.0,
+        });
+    }
+    let (long, short) = (
+        f32::from(u16::try_from(long).ok()?),
+        f32::from(u16::try_from(short).ok()?),
+    );
+    let (longest, shortest) = (f32::from(most_long), f32::from(most_short));
+    let fits = |scale: f32| (long * scale).ceil() <= longest && (short * scale).ceil() <= shortest;
+    let mut scale = size.scale.min(longest / long).min(shortest / short);
+    while !fits(scale) {
+        scale = scale.next_down();
+    }
+    Some(Size { scale, ..size })
 }
 
 fn cut(text: &str, most: usize) -> String {
@@ -1447,7 +1548,10 @@ mod tests {
     async fn look(live: &mut Live, viewer: &str, size: Size) {
         live.handle(Event::Message {
             viewer: viewer.to_owned(),
-            message: ToWindow::Watch { size },
+            message: ToWindow::Watch {
+                size,
+                anchors: false,
+            },
         })
         .await;
     }
@@ -1469,6 +1573,28 @@ mod tests {
         look(&mut live, "bob", view(600, 1000)).await;
         reshape(&mut live, "bob", view(620, 1000)).await;
         assert_eq!(live.size, view(900, 700));
+    }
+
+    #[tokio::test]
+    async fn a_sharper_view_that_only_looks_gets_its_pixels_until_it_goes() {
+        let mut live = live();
+        let _ana = join(&mut live, "ana").await;
+        let small = Size {
+            width: 600,
+            height: 571,
+            scale: 1.0,
+        };
+        look(&mut live, "ana", small).await;
+        let bob = join(&mut live, "bob").await;
+        look(&mut live, "bob", view(1134, 1172)).await;
+        assert_eq!((live.size.width, live.size.height), (600, 571));
+        assert!((live.size.scale - 3.78).abs() < 0.01);
+        live.handle(Event::Leave {
+            viewer: "bob".to_owned(),
+            seat: bob.seat,
+        })
+        .await;
+        assert_eq!(live.size, small);
     }
 
     #[tokio::test]
@@ -1682,9 +1808,8 @@ mod tests {
         let outgoing = live.seats["ana"].outgoing.clone();
         while outgoing.try_send(Bytes::from_static(&[1])).is_ok() {}
         reshape(&mut live, "ana", view(1100, 700)).await;
-        let Some(ToView::State(state)) = ana.receive().await else {
-            panic!("the state must come before the pictures");
-        };
+        let state = ana.receive().await.unwrap();
+        assert_eq!(state[0], 0, "the state must come before the pictures");
         let state: serde_json::Value = serde_json::from_slice(&state[1..]).unwrap();
         assert_eq!(
             (&state["width"], &state["height"]),
@@ -1733,11 +1858,14 @@ mod tests {
     #[test]
     fn a_narrow_view_gets_a_wider_page_of_its_own_shape_with_its_own_pixels() {
         assert_eq!(
-            fitted(Size {
-                width: 440,
-                height: 717,
-                scale: 3.0,
-            }),
+            fitted(
+                Size {
+                    width: 440,
+                    height: 717,
+                    scale: 3.0,
+                },
+                [],
+            ),
             Some(Size {
                 width: NARROWEST,
                 height: 815,
@@ -1745,11 +1873,14 @@ mod tests {
             })
         );
         assert_eq!(
-            fitted(Size {
-                width: 1280,
-                height: 800,
-                scale: 2.0,
-            }),
+            fitted(
+                Size {
+                    width: 1280,
+                    height: 800,
+                    scale: 2.0,
+                },
+                [],
+            ),
             Some(Size {
                 width: 1280,
                 height: 800,
@@ -1761,28 +1892,68 @@ mod tests {
     #[test]
     fn a_broken_size_is_ignored() {
         assert_eq!(
-            fitted(Size {
-                width: 0,
-                height: 400,
-                scale: 1.0
-            }),
+            fitted(
+                Size {
+                    width: 0,
+                    height: 400,
+                    scale: 1.0
+                },
+                [],
+            ),
             None
         );
         assert_eq!(
-            fitted(Size {
-                width: 800,
-                height: 9000,
-                scale: 1.0
-            }),
+            fitted(
+                Size {
+                    width: 800,
+                    height: 9000,
+                    scale: 1.0
+                },
+                [],
+            ),
             None
         );
         assert_eq!(
-            fitted(Size {
-                width: 800,
-                height: 400,
-                scale: 0.0
-            }),
+            fitted(
+                Size {
+                    width: 800,
+                    height: 400,
+                    scale: 0.0
+                },
+                [],
+            ),
             None
+        );
+    }
+
+    #[test]
+    fn a_picture_that_the_encoder_would_refuse_gets_fewer_pixels_or_a_smaller_page() {
+        let openh264 = (3840, 2160);
+        let retina = encodable(
+            Size {
+                width: 1134,
+                height: 1172,
+                scale: 2.0,
+            },
+            openh264,
+        )
+        .unwrap();
+        assert_eq!((retina.width, retina.height), (1134, 1172));
+        assert!((1134.0 * retina.scale).ceil() <= 2160.0 && retina.scale > 1.9);
+        assert_eq!(
+            encodable(
+                Size {
+                    width: 4096,
+                    height: 2400,
+                    scale: 1.0,
+                },
+                openh264,
+            ),
+            Some(Size {
+                width: 3686,
+                height: 2160,
+                scale: 1.0,
+            })
         );
     }
 

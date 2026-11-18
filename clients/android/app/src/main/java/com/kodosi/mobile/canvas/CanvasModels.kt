@@ -47,6 +47,7 @@ data class CanvasBrowser(
     val state: String,
     val changed: Long,
     val tabs: List<BrowserTab> = emptyList(),
+    val getting: Int? = null,
     val doing: JsonObject? = null,
     val problem: String? = null,
     val ownSignIns: Boolean = false

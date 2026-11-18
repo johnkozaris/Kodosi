@@ -150,6 +150,7 @@ mod tests {
     use bytes::Bytes;
 
     use super::*;
+    use crate::link::FrameKind;
 
     #[tokio::test]
     async fn only_the_engine_with_the_token_connects_and_only_once() {
@@ -176,8 +177,9 @@ mod tests {
         ));
         let frame = EncodedFrame {
             window: 4,
-            key: true,
+            kind: FrameKind::Key,
             timestamp: 9,
+            mark: None,
             data: Bytes::from_static(b"\0\0\0\x01x"),
         };
         engine

@@ -20,6 +20,7 @@ class BrowserVideo : public QQuickItem {
     Q_PROPERTY(QString sessionId READ sessionId WRITE setSessionId FINAL)
     Q_PROPERTY(bool active READ active WRITE setActive FINAL)
     Q_PROPERTY(bool shows READ shows NOTIFY showsChanged FINAL)
+    Q_PROPERTY(bool reconnecting READ reconnecting NOTIFY reconnectingChanged FINAL)
     Q_PROPERTY(QVariantMap window READ window NOTIFY windowChanged FINAL)
     Q_PROPERTY(QVariantMap icons READ icons NOTIFY iconsChanged FINAL)
 
@@ -34,6 +35,7 @@ public:
     [[nodiscard]] bool active() const { return m_active; }
     void setActive(bool active);
     [[nodiscard]] bool shows() const { return !m_image.isNull(); }
+    [[nodiscard]] bool reconnecting() const { return m_reconnecting; }
     [[nodiscard]] QVariantMap window() const { return m_window; }
     [[nodiscard]] QVariantMap icons() const { return m_icons; }
 
@@ -46,9 +48,10 @@ public:
 
 signals:
     void showsChanged();
+    void reconnectingChanged();
     void windowChanged();
     void iconsChanged();
-    void decodeRequested(quint32 frame, const QByteArray& data);
+    void decodeRequested(const QString& pipe, quint32 frame, bool key, const QByteArray& data);
 
 protected:
     QSGNode* updatePaintNode(QSGNode* node, UpdatePaintNodeData* data) override;
@@ -58,13 +61,18 @@ protected:
 private:
     void join();
     void leave();
+    void forgetTerminal();
     void opened(const QString& pipe);
     void received(const QString& pipe, const QByteArray& message);
     void lost(const QString& pipe);
     void reachable(const QString& sessionId);
     void frame(const QByteArray& message);
     void keepIcons(const QJsonObject& changed, const QJsonArray& tabs);
-    void decoded(quint32 frame, const QImage& image);
+    void decoded(const QString& pipe, quint32 frame, const QImage& image);
+    void decodeFailed(const QString& pipe, quint32 frame);
+    void askKeyframe();
+    void ack(quint32 frame);
+    void setReconnecting(bool reconnecting);
     void post(const QJsonObject& message);
     void input(const QJsonObject& event);
     void sendSize();
@@ -87,6 +95,10 @@ private:
     int m_wait = 1000;
     QTimer m_again;
     QTimer m_settle;
+    QTimer m_keyframeFloor;
+    bool m_keyframeOwed = false;
+    QTimer m_stale;
+    bool m_reconnecting = false;
     QJsonObject m_sentSize;
     bool m_holding = false;
     QThread m_decoding;
