@@ -68,8 +68,16 @@ import "./xlsx.css";
 interface UniverCell {
   v?: number | string | boolean | null;
   f?: string | null;
+  /** The mark of a shared formula, whose first cell alone holds its text. */
+  si?: string | null;
   s?: string | UniverStyle | null;
   t?: number | null;
+}
+
+/** What a sheet holds for a cell once Univer has changed it. */
+interface CellReader {
+  look(row: number, column: number): CellChange;
+  formula(row: number, column: number): string | null;
 }
 
 interface Range {
@@ -338,11 +346,16 @@ function valueOf(cell: UniverCell | null | undefined): CellChange["value"] {
 }
 
 /** A cell that moves takes the place of what was there as a whole. */
-function wholeCell(look: CellChange, cell: UniverCell | null | undefined): CellChange {
+function wholeCell(
+  row: number,
+  column: number,
+  cell: UniverCell | null | undefined,
+  reader: CellReader,
+): CellChange {
   return {
-    ...look,
+    ...reader.look(row, column),
     value: valueOf(cell) ?? null,
-    formula: cell?.f ? cell.f.replace(/^=/, "") : null,
+    formula: reader.formula(row, column),
   };
 }
 
@@ -351,24 +364,22 @@ function cellChange(
   row: number,
   column: number,
   cell: UniverCell | null,
-  lookOf: (row: number, column: number) => CellChange,
+  reader: CellReader,
 ): CellChange {
-  const change: CellChange = cell && "s" in cell ? lookOf(row, column) : { row, column };
+  const change: CellChange = cell && "s" in cell ? reader.look(row, column) : { row, column };
   if (cell === null || "v" in cell) change.value = valueOf(cell) ?? null;
-  if (cell === null || "f" in cell) {
-    change.formula = cell?.f ? cell.f.replace(/^=/, "") : null;
-  }
+  if (cell === null || "f" in cell || "si" in cell) change.formula = reader.formula(row, column);
   if (cell === null) change.style = null;
   return change;
 }
 
 function cellsOf(
   rows: Record<string, Record<string, UniverCell | null>>,
-  lookOf: (row: number, column: number) => CellChange,
+  reader: CellReader,
 ): CellChange[] {
   return Object.entries(rows).flatMap(([row, columns]) =>
     Object.entries(columns).map(([column, cell]) =>
-      cellChange(Number(row), Number(column), cell, lookOf),
+      cellChange(Number(row), Number(column), cell, reader),
     ),
   );
 }
@@ -564,6 +575,16 @@ class XlsxEditor implements Editor, Pictures {
     return Object.keys(look).length > 0 ? { row, column, look } : { row, column, style: null };
   }
 
+  private reader(sheet: string): CellReader {
+    const worksheet = () => this.univer?.univerAPI.getActiveWorkbook()?.getSheetBySheetId(sheet);
+    return {
+      look: (row, column) => this.lookOf(sheet, row, column),
+      // A cell of a shared formula has no text of its own, so Univer works it out.
+      formula: (row, column) =>
+        worksheet()?.getRange(row, column).getFormula().replace(/^=/, "") || null,
+    };
+  }
+
   private restyled(sheet: string, ranges: readonly Range[]): Change | null {
     const cells: CellChange[] = [];
     for (const range of ranges) {
@@ -604,11 +625,11 @@ class XlsxEditor implements Editor, Pictures {
   private changeOf(id: string, params: Record<string, unknown>): Change | null {
     const sheet = params.subUnitId as string;
     const range = params.range as Range;
-    const lookOf = (row: number, column: number) => this.lookOf(sheet, row, column);
+    const reader = this.reader(sheet);
     switch (id) {
       case SET_VALUES: {
         const rows = (params.cellValue ?? {}) as Record<string, Record<string, UniverCell | null>>;
-        const cells = cellsOf(rows, lookOf);
+        const cells = cellsOf(rows, reader);
         return cells.length > 0 ? { kind: "cells", sheet, cells } : null;
       }
       case SET_NUMBER_FORMAT: {
@@ -654,9 +675,7 @@ class XlsxEditor implements Editor, Pictures {
           cellData?: Record<string, Record<string, UniverCell | null>>;
         };
         const added: Change = { kind: "addSheet", id: made.id, name: made.name };
-        const cells = cellsOf(made.cellData ?? {}, (row, column) =>
-          this.lookOf(made.id, row, column),
-        );
+        const cells = cellsOf(made.cellData ?? {}, this.reader(made.id));
         return cells.length > 0
           ? { kind: "group", changes: [added, { kind: "cells", sheet: made.id, cells }] }
           : added;
@@ -722,9 +741,10 @@ class XlsxEditor implements Editor, Pictures {
           value: Record<string, Record<string, UniverCell | null>>;
         }[];
         const changes = sides.flatMap<Change>(({ subUnitId, value }) => {
+          const reader = this.reader(subUnitId);
           const cells = Object.entries(value ?? {}).flatMap(([row, columns]) =>
             Object.entries(columns).map(([column, cell]) =>
-              wholeCell(this.lookOf(subUnitId, Number(row), Number(column)), cell),
+              wholeCell(Number(row), Number(column), cell, reader),
             ),
           );
           return cells.length > 0 ? [{ kind: "cells", sheet: subUnitId, cells }] : [];
