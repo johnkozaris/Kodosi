@@ -60,9 +60,7 @@ public struct CanvasBrowserView: View {
                     BrowserInputArea(feed: feed, typing: typing, ask: ask)
                     BrowserPointersLayer(feed: feed)
                     AgentPointerLayer(browser: browser, feed: feed)
-                    if feed.picture == .kept {
-                        BrowserReconnecting()
-                    }
+                    BrowserReconnecting(kept: feed.picture == .kept)
                     BrowserPartsLayer(feed: feed, ask: ask)
                 } else {
                     sleeping.transition(.opacity)
@@ -455,31 +453,17 @@ private struct BrowserReconnecting: View {
     private static let patience = Duration.milliseconds(1500)
 
     @Environment(\.theme) private var theme
-    @State private var late = false
+    let kept: Bool
 
     var body: some View {
-        VStack {
-            if late {
-                HStack(spacing: 7) {
-                    Spinner(size: 11)
-                    Text("Reconnecting", bundle: .module).appTextStyle(.footnote).fontWeight(.medium)
-                        .foregroundStyle(theme.colors.caution)
-                }
-                .padding(.horizontal, 12).controlHeight(28)
-                .raisedCapsule(fill: theme.colors.lifted, elevation: .lifted)
-                .transition(.opacity)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("canvas.browser.reconnecting")
+        ZStack {
+            if kept {
+                ReconnectingNotice(identifier: "canvas.browser.reconnecting", patience: Self.patience)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.top, 10)
-        .allowsHitTesting(false)
-        .task {
-            try? await Task.sleep(for: Self.patience)
-            guard !Task.isCancelled else { return }
-            withAnimation(theme.motion.fade) { late = true }
-        }
+        .animation(theme.motion.spring, value: kept)
     }
 }
 

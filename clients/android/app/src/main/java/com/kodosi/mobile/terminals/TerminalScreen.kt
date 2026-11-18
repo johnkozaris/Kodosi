@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -55,7 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -88,7 +86,6 @@ import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ConfirmDialog
-import com.kodosi.mobile.ui.Elevation
 import com.kodosi.mobile.ui.FileIcon
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiMenu
@@ -101,6 +98,7 @@ import com.kodosi.mobile.ui.MarkActivity
 import com.kodosi.mobile.ui.MessageComposer
 import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.Radius
+import com.kodosi.mobile.ui.ReconnectingNotice
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.TextEntryDialog
 import com.kodosi.mobile.ui.bezel
@@ -691,28 +689,6 @@ private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: ()
             }
         }
     }
-}
-
-@Composable
-private fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier) {
-    val colors = KodosiTheme.colors
-    val presence by animateFloatAsState(
-        if (shown) 1f else 0f,
-        snappy(),
-        label = "reconnecting"
-    )
-    if (presence <= 0f) return
-    ProgressCaption(
-        stringResource(R.string.reconnecting),
-        modifier
-            .graphicsLayer {
-                alpha = presence.coerceIn(0f, 1f)
-                translationY = (presence - 1f) * 8.dp.toPx()
-            }
-            .raised(colors, RoundedCornerShape(percent = 50), fill = colors.lifted, elevation = Elevation.FLOATING)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite }
-    )
 }
 
 @Composable

@@ -3289,6 +3289,13 @@
     </message>
 </context>
 <context>
+    <name>ReconnectingNotice</name>
+    <message>
+        <source>Reconnecting</source>
+        <translation>Riconnessione in corso</translation>
+    </message>
+</context>
+<context>
     <name>RedoAction</name>
     <message>
         <source>Redo</source>
@@ -4049,10 +4056,6 @@
     <message>
         <source>Offline</source>
         <translation>Offline</translation>
-    </message>
-    <message>
-        <source>Reconnecting</source>
-        <translation>Riconnessione in corso</translation>
     </message>
     <message>
         <source>This terminal is not available now.</source>

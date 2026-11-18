@@ -3,10 +3,12 @@ package com.kodosi.mobile.ui
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
@@ -56,10 +58,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -125,6 +130,32 @@ fun KodosiSpinner(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun BreathingDot(color: Color, modifier: Modifier = Modifier) {
+    val breath = if (reducedMotion()) {
+        null
+    } else {
+        rememberInfiniteTransition(label = "breathing dot").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(1600, easing = EaseOut), RepeatMode.Restart),
+            label = "breath"
+        )
+    }
+    Canvas(modifier.size(7.dp)) {
+        val radius = size.minDimension / 2
+        drawCircle(color, radius)
+        breath?.value?.let { phase ->
+            val scale = 1f + 1.4f * phase
+            drawCircle(
+                color.copy(alpha = 0.55f * (1f - phase)),
+                radius * scale,
+                style = Stroke(1.5.dp.toPx() * scale)
+            )
+        }
+    }
+}
+
+@Composable
 fun ProgressCaption(text: String, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
     Row(
@@ -135,6 +166,28 @@ fun ProgressCaption(text: String, modifier: Modifier = Modifier) {
         KodosiSpinner(Modifier.size(16.dp))
         Spacer(Modifier.width(10.dp))
         Text(text, style = KodosiType.callout, color = colors.inkMuted)
+    }
+}
+
+@Composable
+fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier) {
+    val colors = KodosiTheme.colors
+    val presence by animateFloatAsState(if (shown) 1f else 0f, snappy(), label = "reconnecting")
+    if (presence <= 0f) return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+            .graphicsLayer {
+                alpha = presence.coerceIn(0f, 1f)
+                translationY = (presence - 1f) * 8.dp.toPx()
+            }
+            .raised(colors, RoundedCornerShape(percent = 50), fill = colors.lifted, elevation = Elevation.FLOATING)
+            .padding(start = 12.dp, top = 8.dp, end = 14.dp, bottom = 8.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite }
+    ) {
+        BreathingDot(colors.glowOrange)
+        Text(stringResource(R.string.reconnecting), style = KodosiType.footnote, color = colors.ink)
     }
 }
 

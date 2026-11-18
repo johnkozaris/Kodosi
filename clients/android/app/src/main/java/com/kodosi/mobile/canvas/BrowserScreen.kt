@@ -102,15 +102,15 @@ import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.ProgressCaption
+import com.kodosi.mobile.ui.ReconnectingNotice
 import com.kodosi.mobile.ui.fade
-import com.kodosi.mobile.ui.raised
 import com.kodosi.mobile.ui.well
 import java.text.NumberFormat
 import kotlin.math.hypot
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
-private enum class BrowserCover { ASLEEP, LOADING, RECONNECTING }
+private enum class BrowserCover { ASLEEP, LOADING }
 
 @Composable
 fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask: ((String?) -> Unit)? = null) {
@@ -349,7 +349,6 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                 val cover = when {
                     browser.state == "asleep" -> BrowserCover.ASLEEP
                     !picture -> BrowserCover.LOADING
-                    reconnecting -> BrowserCover.RECONNECTING
                     else -> null
                 }
                 AnimatedContent(
@@ -393,20 +392,13 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                             }
                         }
 
-                        BrowserCover.RECONNECTING -> Box(
-                            Modifier.fillMaxSize().padding(12.dp),
-                            contentAlignment = Alignment.TopCenter
-                        ) {
-                            ProgressCaption(
-                                stringResource(R.string.reconnecting),
-                                Modifier.raised(KodosiTheme.colors, CircleShape)
-                                    .padding(horizontal = 14.dp, vertical = 8.dp)
-                            )
-                        }
-
                         null -> Unit
                     }
                 }
+                ReconnectingNotice(
+                    cover == null && reconnecting,
+                    Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                )
             }
         }
     }
