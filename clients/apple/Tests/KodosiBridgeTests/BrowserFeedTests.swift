@@ -71,6 +71,19 @@ import Testing
 }
 
 @MainActor
+@Test func `a view says that a person opened the browser, but not when it joins again after a lost link`() async throws {
+    let runtime = BrowserRuntime()
+    let watching = Task { await runtime.feed.watch() }
+    defer { watching.cancel() }
+
+    let first = try await runtime.open()
+    #expect(runtime.opened == true)
+    try runtime.lose(first)
+    _ = try await runtime.open()
+    #expect(runtime.opened == false)
+}
+
+@MainActor
 private final class BrowserRuntime {
     static let keyFrame: Data = {
         let start: [UInt8] = [0, 0, 0, 1]
@@ -90,6 +103,7 @@ private final class BrowserRuntime {
     }
 
     let feed: BrowserFeed
+    private(set) var opened: Bool?
     private let commands = CommandSink()
     private let store: CanvasStore
     private let log = ProjectCommandLog()
@@ -110,7 +124,11 @@ private final class BrowserRuntime {
     func open() async throws -> String {
         let opening = try await log.next("document.open")
         try deliver("document.result", ["requestId": opening["requestId"] ?? "", "operation": "document.open"])
-        while try await Self.message(log.next("document.send")) != "watch" {}
+        var sent = try await Self.body(log.next("document.send"))
+        while sent?["type"] as? String != "watch" {
+            sent = try await Self.body(log.next("document.send"))
+        }
+        opened = sent?["opened"] as? Bool
         return try #require(opening["pipe"] as? String)
     }
 
@@ -142,10 +160,12 @@ private final class BrowserRuntime {
         store.receive(event)
     }
 
+    private static func body(_ command: [String: Any]) -> [String: Any]? {
+        guard let data = (command["data"] as? String).flatMap({ Data(base64Encoded: $0) }) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data.dropFirst()) as? [String: Any]
+    }
+
     private static func message(_ command: [String: Any]) -> String? {
-        guard let data = (command["data"] as? String).flatMap({ Data(base64Encoded: $0) }),
-              let message = try? JSONSerialization.jsonObject(with: data.dropFirst()) as? [String: Any]
-        else { return nil }
-        return message["type"] as? String
+        body(command)?["type"] as? String
     }
 }

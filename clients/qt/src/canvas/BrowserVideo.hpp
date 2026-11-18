@@ -86,6 +86,9 @@ private:
     QString m_sessionId;
     QString m_pipe;
     bool m_active = false;
+    // The page takes the shape of the person's device that comes on the screen, but never of
+    // one that only joins again after a lost link.
+    bool m_opening = false;
     QVariantMap m_window;
     QVariantMap m_icons;
     QImage m_image;

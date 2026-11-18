@@ -80,9 +80,9 @@ public final class BrowserFeed {
             link.close()
             self.link = nil
         }
-        await join(link)
+        await join(link, opened: true)
         for await _ in losses {
-            await join(link)
+            await join(link, opened: false)
         }
     }
 
@@ -177,7 +177,7 @@ public final class BrowserFeed {
     }
 
     /// The computer of the terminal can be away for a time, so this goes on until the view ends.
-    private func join(_ link: DocumentLink) async {
+    private func join(_ link: DocumentLink, opened: Bool) async {
         if picture == .live {
             picture = .kept
         }
@@ -189,9 +189,11 @@ public final class BrowserFeed {
                 holds = .nothing
                 let size = currentSize
                 sentSize = size
-                post(.watch(size))
+                post(.watch(size, opened: opened))
                 return
             } catch {
+                // The view ends on each trip off the screen, which is no problem of the browser.
+                guard !Task.isCancelled else { return }
                 failure = error.localizedDescription
                 wait = await link.pause(wait) ? .seconds(1) : min(wait * 2, Self.longestWait)
             }
@@ -294,7 +296,7 @@ private enum Holds {
 }
 
 private enum ToBrowserWindow: Encodable {
-    case watch(BrowserSize)
+    case watch(BrowserSize, opened: Bool)
     case size(BrowserSize)
     case ack(UInt32)
     case keyframe
@@ -303,10 +305,11 @@ private enum ToBrowserWindow: Encodable {
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Field.self)
         switch self {
-        case let .watch(size):
+        case let .watch(size, opened):
             try container.encode("watch", forKey: .type)
             try container.encode(size, forKey: .size)
             try container.encode(true, forKey: .anchors)
+            try container.encode(opened, forKey: .opened)
         case let .size(size):
             try container.encode("size", forKey: .type)
             try container.encode(size, forKey: .size)
@@ -321,7 +324,7 @@ private enum ToBrowserWindow: Encodable {
         }
     }
 
-    private enum Field: String, CodingKey { case type, size, frame, input, anchors }
+    private enum Field: String, CodingKey { case type, size, frame, input, anchors, opened }
 }
 
 private struct BrowserSize: Encodable, Equatable {
