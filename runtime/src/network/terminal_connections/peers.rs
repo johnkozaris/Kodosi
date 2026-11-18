@@ -76,16 +76,14 @@ impl Drop for Bound {
 
 struct Joined {
     connection: quinn::Connection,
-    lan: bool,
     uses: AtomicUsize,
     unused_since: Locked<tokio::time::Instant>,
 }
 
 impl Joined {
-    fn new(connection: quinn::Connection, lan: bool) -> Arc<Self> {
+    fn new(connection: quinn::Connection) -> Arc<Self> {
         Arc::new(Self {
             connection,
-            lan,
             uses: AtomicUsize::new(0),
             unused_since: Locked::new(tokio::time::Instant::now()),
         })
@@ -127,7 +125,6 @@ impl Drop for Use {
 pub(super) struct Lane {
     writer: Writer,
     pub(super) reader: mpsc::UnboundedReceiver<Vec<u8>>,
-    pub(super) lan: bool,
     used: Option<Use>,
 }
 
@@ -138,13 +135,12 @@ enum Writer {
 }
 
 impl Lane {
-    fn quic(send: quinn::SendStream, receive: quinn::RecvStream, lan: bool, used: Use) -> Self {
+    fn quic(send: quinn::SendStream, receive: quinn::RecvStream, used: Use) -> Self {
         let (messages, reader) = mpsc::unbounded_channel();
         tokio::spawn(read_lane(receive, messages));
         Self {
             writer: Writer::Quic(send),
             reader,
-            lan,
             used: Some(used),
         }
     }
@@ -181,13 +177,11 @@ impl Lane {
     pub(super) fn memory(
         writer: mpsc::UnboundedSender<Vec<u8>>,
         reader: mpsc::UnboundedReceiver<Vec<u8>>,
-        lan: bool,
         wire: CancellationToken,
     ) -> Self {
         Self {
             writer: Writer::Memory(writer, wire),
             reader,
-            lan,
             used: None,
         }
     }
@@ -213,7 +207,7 @@ async fn open_lane(joined: &Arc<Joined>, pipe: Uuid) -> Option<Lane> {
         (taken == [TAKEN]).then_some((send, receive))
     };
     let (send, receive) = tokio::time::timeout(ARRIVAL, opened).await.ok()??;
-    Some(Lane::quic(send, receive, joined.lan, used))
+    Some(Lane::quic(send, receive, used))
 }
 
 async fn read_lane(mut receive: quinn::RecvStream, messages: mpsc::UnboundedSender<Vec<u8>>) {
@@ -391,7 +385,11 @@ impl Peers {
             .await
             .ok()
             .flatten()?;
-        let joined = Joined::new(connection, lan);
+        tracing::info!(
+            lan,
+            "this device reached another device of its person straight"
+        );
+        let joined = Joined::new(connection);
         self.dialed
             .lock()
             .ok()?
@@ -666,8 +664,7 @@ async fn welcome(peers: Weak<Peers>, incoming: quinn::Incoming) {
             connection.close(VarInt::from_u32(1), b"");
             return;
         }
-        let lan = is_lan(connection.remote_address().ip(), &(peers.networks)());
-        let joined = Joined::new(connection.clone(), lan);
+        let joined = Joined::new(connection.clone());
         if let Ok(mut arrived) = peers.arrived.lock() {
             arrived.insert(key.clone(), Arc::clone(&joined));
         }
@@ -697,7 +694,7 @@ async fn welcome(peers: Weak<Peers>, incoming: quinn::Incoming) {
             tokio::time::timeout(ARRIVAL, send.write_all(&[TAKEN])).await,
             Ok(Ok(()))
         ) {
-            let _taken = waiting.send(Lane::quic(send, receive, joined.lan, Use::new(&joined)));
+            let _taken = waiting.send(Lane::quic(send, receive, Use::new(&joined)));
         }
     }
 }

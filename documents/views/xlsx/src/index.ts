@@ -262,7 +262,7 @@ function isFrozen({ rows, columns }: Frozen): boolean {
 function lineData(
   sizes: Record<string, number>,
   size: (value: number) => object,
-  hidden: readonly number[] = [],
+  hidden: readonly number[],
 ): Record<string, object> {
   const data: Record<string, object> = Object.fromEntries(
     Object.entries(sizes).map(([line, value]) => [line, size(value)]),
@@ -317,7 +317,7 @@ function workbookData(snapshot: Snapshot) {
         (height) => ({ h: height * PIXELS_PER_POINT, ia: CUSTOM_HEIGHT }),
         sheet.hiddenRows,
       ),
-      freeze: univerFreeze(sheet.frozen ?? NOTHING_FROZEN),
+      freeze: univerFreeze(sheet.frozen),
     };
   }
   return {
