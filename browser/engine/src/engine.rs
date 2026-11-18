@@ -192,14 +192,18 @@ wrap_task! {
 
     impl Task {
         fn execute(&self) {
-            let refined = with(|engine| {
+            let due = with(|engine| {
                 let shared = engine.shared_of(self.window)?;
                 let mut capture = shared.capture.borrow_mut();
                 let capture = capture.as_mut()?;
-                capture.cleanup.refine(self.picture).then(|| capture.encoder.refine())
+                let due = capture.cleanup.due(self.picture);
+                if due && capture.encoder.refine() {
+                    capture.cleanup.refined();
+                }
+                Some(due)
             })
             .flatten();
-            if refined.is_some() {
+            if due == Some(true) {
                 clean_up(self.window, self.picture, REFINE_MS);
             }
         }

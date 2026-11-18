@@ -2,7 +2,7 @@ use std::{
     ffi::c_void,
     ptr,
     sync::{
-        Arc,
+        Arc, Mutex, PoisonError,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Instant,
@@ -11,7 +11,7 @@ use std::{
 use bytes::Bytes;
 use shared_browser::link::{EncodedFrame, FromEngine};
 
-use super::{FRAME_RATE, REDRAW_AFTER_MS};
+use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS};
 use crate::{engine, link::Link};
 
 /// The most pictures that wait in the encoder. A picture that finds no room is dropped, and the
@@ -238,6 +238,8 @@ struct Output {
     want_key: AtomicBool,
     /// A picture found the encoder full, so the page draws again when there is room.
     missed: AtomicBool,
+    clean: AtomicBool,
+    sharpening: Mutex<Convergence>,
 }
 
 struct Session {
@@ -301,14 +303,18 @@ impl Encoder {
     }
 
     /// Codes the last picture again, unless the encoder is still busy.
-    pub(crate) fn refine(&mut self) {
+    pub(crate) fn refine(&mut self) -> bool {
         let (Some(session), Some(last)) = (&self.session, &self.last) else {
-            return;
+            return false;
         };
-        if session.output.waiting.load(Ordering::Acquire) < MOST_WAITING {
-            let last = last.mutable();
-            self.submit(last, true);
+        if session.output.clean.load(Ordering::Acquire) {
+            return true;
         }
+        if session.output.waiting.load(Ordering::Acquire) >= MOST_WAITING {
+            return false;
+        }
+        let last = last.mutable();
+        self.submit(last, true)
     }
 
     /// Encodes a picture that CEF drew on the GPU. The surface is CEF's only during this call,
@@ -415,15 +421,24 @@ impl Encoder {
         if copied != 0 {
             return;
         }
-        self.submit(target.mutable(), false);
-        self.last = Some(target);
+        if self.submit(target.mutable(), false) {
+            self.last = Some(target);
+            if let Some(session) = &self.session {
+                session.output.clean.store(false, Ordering::Release);
+                *session
+                    .output
+                    .sharpening
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner) = Convergence::default();
+            }
+        }
     }
 
     /// A refinement carries a marker to the callback, because the page need not draw again for
     /// one that the encoder dropped.
-    fn submit(&mut self, target: *mut c_void, refinement: bool) {
+    fn submit(&mut self, target: *mut c_void, refinement: bool) -> bool {
         let Some(session) = &self.session else {
-            return;
+            return false;
         };
         let output = &session.output;
         let key =
@@ -463,6 +478,7 @@ impl Encoder {
             self.want_key = key;
             self.fail(&format!("the encoder refused a picture: {status}"));
         }
+        status == 0
     }
 
     /// Makes every value first, so that no failure leaves a session behind.
@@ -498,6 +514,8 @@ impl Encoder {
             failed: AtomicBool::new(false),
             want_key: AtomicBool::new(false),
             missed: AtomicBool::new(false),
+            clean: AtomicBool::new(false),
+            sharpening: Mutex::default(),
         });
         let refcon = Arc::into_raw(Arc::clone(&output))
             .cast_mut()
@@ -636,12 +654,22 @@ unsafe extern "C" fn encoded(
     };
     // SAFETY: as above.
     let time = unsafe { CMSampleBufferGetPresentationTimeStamp(sample) };
+    let size = data.len();
     let lost = output.link.send_frame(&EncodedFrame {
         window: output.window,
         key,
         timestamp: u64::try_from(time.value).unwrap_or(0),
         data: Bytes::from(data),
     });
+    if !refinement.is_null()
+        && output
+            .sharpening
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .refined(size)
+    {
+        output.clean.store(true, Ordering::Release);
+    }
     if lost {
         output.want_key.store(true, Ordering::Release);
         engine::redraw(output.window, REDRAW_AFTER_MS);

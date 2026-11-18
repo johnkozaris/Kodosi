@@ -2,7 +2,7 @@ use std::{
     os::raw::c_int,
     sync::{Arc, Condvar, Mutex, PoisonError},
     thread::JoinHandle,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use bytes::Bytes;
@@ -20,8 +20,8 @@ use openh264_sys2::{
 };
 use shared_browser::link::{EncodedFrame, FromEngine};
 
-use super::{FRAME_RATE, REDRAW_AFTER_MS};
-use crate::{engine, link::Link};
+use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS};
+use crate::link::Link;
 
 struct Picture {
     pixels: Vec<u8>,
@@ -38,6 +38,7 @@ struct Slot {
     key: bool,
     bitrate: Option<u32>,
     refine: bool,
+    clean: bool,
     stop: bool,
 }
 
@@ -82,9 +83,12 @@ impl Encoder {
         self.change(|slot| slot.bitrate = Some(bitrate));
     }
 
-    /// Codes the last picture again, unless a newer one waits.
-    pub(crate) fn refine(&mut self) {
-        self.change(|slot| slot.refine = true);
+    /// Codes the last picture again, unless a newer one or a refinement waits. A clean picture
+    /// needs none.
+    pub(crate) fn refine(&mut self) -> bool {
+        self.change(|slot| {
+            slot.clean || (!std::mem::replace(&mut slot.refine, true) && slot.picture.is_none())
+        })
     }
 
     /// Takes BGRA rows; an odd width or height loses its last column or row. The copy happens
@@ -114,6 +118,7 @@ impl Encoder {
                 height: even_height,
                 time,
             });
+            slot.clean = false;
         });
     }
 }
@@ -187,20 +192,35 @@ fn work(window: i64, mut bitrate: u32, started: Instant, link: &Link, shared: &S
     let (slot, ready) = &**shared;
     let mut running: Option<Running> = None;
     let mut lost = false;
+    let mut missing = false;
+    let mut again: Option<Instant> = None;
+    let mut sharpening = Convergence::default();
     loop {
         let (picture, asked, changed, refine) = {
             let mut slot = slot.lock().unwrap_or_else(PoisonError::into_inner);
             while slot.picture.is_none() && !slot.refine && !slot.stop {
-                slot = ready.wait(slot).unwrap_or_else(PoisonError::into_inner);
+                let Some(wait) = again.map(|at| at.saturating_duration_since(Instant::now()))
+                else {
+                    slot = ready.wait(slot).unwrap_or_else(PoisonError::into_inner);
+                    continue;
+                };
+                if wait.is_zero() {
+                    break;
+                }
+                slot = ready
+                    .wait_timeout(slot, wait)
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .0;
             }
             if slot.stop {
                 return;
             }
+            let retried = again.take().is_some();
             (
                 slot.picture.take(),
                 std::mem::take(&mut slot.key),
                 slot.bitrate.take(),
-                std::mem::take(&mut slot.refine),
+                std::mem::take(&mut slot.refine) || retried,
             )
         };
         let previous = bitrate;
@@ -231,7 +251,13 @@ fn work(window: i64, mut bitrate: u32, started: Instant, link: &Link, shared: &S
                 &picture.pixels,
                 (picture.width, picture.height),
             ));
-            slot.lock().unwrap_or_else(PoisonError::into_inner).spare = picture.pixels;
+            {
+                let mut slot = slot.lock().unwrap_or_else(PoisonError::into_inner);
+                slot.spare = picture.pixels;
+                slot.clean = false;
+            }
+            sharpening = Convergence::default();
+            missing = true;
             Some(picture.time)
         } else {
             None
@@ -263,15 +289,17 @@ fn work(window: i64, mut bitrate: u32, started: Instant, link: &Link, shared: &S
             }
         };
         let data = stream.to_vec();
-        // A refinement that the rate control skipped leaves the viewers with the picture that
-        // they have, so the page need not draw again.
+        // A picture that the viewers miss goes again from here, not from a page that draws again,
+        // which would look changed and earn a clean-up.
+        let retry = Instant::now() + Duration::from_millis(REDRAW_AFTER_MS.unsigned_abs());
         if data.is_empty() {
             lost = key;
-            if key || time.is_some() {
-                engine::redraw(window, REDRAW_AFTER_MS);
+            if lost || missing {
+                again = Some(retry);
             }
             continue;
         }
+        let size = data.len();
         lost = link.send_frame(&EncodedFrame {
             window,
             key: matches!(stream.frame_type(), FrameType::IDR | FrameType::I),
@@ -279,7 +307,12 @@ fn work(window: i64, mut bitrate: u32, started: Instant, link: &Link, shared: &S
             data: Bytes::from(data),
         });
         if lost {
-            engine::redraw(window, REDRAW_AFTER_MS);
+            again = Some(retry);
+        } else {
+            missing = false;
+        }
+        if time.is_none() && sharpening.refined(size) {
+            slot.lock().unwrap_or_else(PoisonError::into_inner).clean = true;
         }
     }
 }
