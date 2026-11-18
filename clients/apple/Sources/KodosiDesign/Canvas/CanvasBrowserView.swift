@@ -71,10 +71,10 @@ public struct CanvasBrowserView: View {
             .clipped()
             .onGeometryChange(for: CGSize.self) { $0.size } action: { feed.viewSize = $0 }
             .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
-            // A device in the background would keep the host coding a page that nobody sees
-            // there, and the page in its shape, so it watches again once it comes back.
-            .task(id: browser.problem == nil && scenePhase != .background) {
-                if browser.problem == nil, scenePhase != .background {
+            // A device off its screen would keep the host coding a page that nobody sees there,
+            // and the page in its shape, so it watches again once it is back.
+            .task(id: browser.problem == nil && scenePhase.showsBrowser) {
+                if browser.problem == nil, scenePhase.showsBrowser {
                     feed.copied = Pasteboard.copy
                     await feed.watch()
                 }
@@ -473,5 +473,18 @@ private struct BrowserReconnecting: View {
 private extension Character {
     var isASCIIDigit: Bool {
         isASCII && isWholeNumber
+    }
+}
+
+private extension ScenePhase {
+    var showsBrowser: Bool {
+        #if os(macOS)
+            // A minimized window is only inactive on macOS, and a visible one behind another app
+            // stays active.
+            self == .active
+        #else
+            // iOS makes a scene inactive for a moment, as for Notification Center.
+            self != .background
+        #endif
     }
 }

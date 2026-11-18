@@ -192,6 +192,8 @@ public final class BrowserFeed {
                 post(.watch(size, opened: opened))
                 return
             } catch {
+                // The view ends on each trip off the screen, which is no problem of the browser.
+                guard !Task.isCancelled else { return }
                 failure = error.localizedDescription
                 wait = await link.pause(wait) ? .seconds(1) : min(wait * 2, Self.longestWait)
             }

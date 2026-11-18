@@ -342,12 +342,9 @@ fn queued(seats: &HashMap<String, Seat>, viewer: &str) -> usize {
 
 /// Frees a viewer's seat only for the join that took it. A viewer that joined again on a new
 /// pipe keeps its new seat when the earlier pipe goes.
-fn free(seats: &mut HashMap<String, Seat>, viewer: &str, number: u64) -> bool {
+fn free(seats: &mut HashMap<String, Seat>, viewer: &str, number: u64) -> Option<Seat> {
     let taken = seats.get(viewer).is_some_and(|seat| seat.number == number);
-    if taken {
-        seats.remove(viewer);
-    }
-    taken
+    taken.then(|| seats.remove(viewer)).flatten()
 }
 
 struct OpenMenu {
@@ -545,8 +542,9 @@ impl Live {
         let hopeless = self.flow.hopeless(now);
         if !hopeless.is_empty() {
             for viewer in hopeless {
-                self.seats.remove(&viewer);
-                self.gone(&viewer);
+                if let Some(left) = self.seats.remove(&viewer) {
+                    self.gone(&left);
+                }
             }
             self.update_capture();
             self.dirty = true;
@@ -644,10 +642,10 @@ impl Live {
             }
             Event::Message { viewer, message } => self.message(&viewer, message),
             Event::Leave { viewer, seat } => {
-                if free(&mut self.seats, &viewer, seat) {
+                if let Some(left) = free(&mut self.seats, &viewer, seat) {
                     self.flow.leave(&viewer);
                     self.update_capture();
-                    self.gone(&viewer);
+                    self.gone(&left);
                     self.dirty = true;
                 }
             }
@@ -912,14 +910,15 @@ impl Live {
             .is_some_and(|control| control.viewer == viewer)
     }
 
-    /// The control goes to the viewer that came first of those that stay, and the page loses the
-    /// pixels that only the viewer that went showed.
-    fn gone(&mut self, viewer: &str) {
-        if self.in_control(viewer) {
+    /// The control goes to another view of the person whose view went, as they use it now, or
+    /// else to the viewer that came first of those that stay, and the page loses the pixels that
+    /// only the viewer that went showed.
+    fn gone(&mut self, left: &Seat) {
+        if self.in_control(&left.viewer.id) {
             self.control = self
                 .seats
                 .values()
-                .min_by_key(|seat| seat.number)
+                .min_by_key(|seat| (seat.viewer.person != left.viewer.person, seat.number))
                 .map(|seat| Control::of(&seat.viewer.id));
         }
         self.follow();
@@ -1631,6 +1630,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn when_the_device_in_use_goes_the_page_takes_the_shape_of_its_persons_other_device() {
+        let mut live = live();
+        let _bob = join(&mut live, "bob").await;
+        look(&mut live, "bob", view(700, 900)).await;
+        let _mac = join_of(&mut live, "mac", "ana").await;
+        look(&mut live, "mac", view(900, 700)).await;
+        press(&mut live, "mac").await;
+        release(&mut live, "mac").await;
+        let phone = join_of(&mut live, "phone", "ana").await;
+        look(&mut live, "phone", view(600, 1000)).await;
+        let shape = |live: &Live| (live.size.width, live.size.height);
+        assert_eq!(shape(&live), (600, 1000));
+        live.handle(Event::Leave {
+            viewer: "phone".to_owned(),
+            seat: phone.seat,
+        })
+        .await;
+        assert_eq!(shape(&live), (900, 700));
+    }
+
+    #[tokio::test]
     async fn a_sharper_view_that_only_looks_gets_its_pixels_until_it_goes() {
         let mut live = live();
         let _ana = join(&mut live, "ana").await;
@@ -1879,9 +1899,9 @@ mod tests {
         let mut seats = HashMap::new();
         seats.insert("app".to_owned(), seat(1));
         seats.insert("app".to_owned(), seat(2));
-        assert!(!free(&mut seats, "app", 1));
+        assert!(free(&mut seats, "app", 1).is_none());
         assert_eq!(seats.get("app").map(|seat| seat.number), Some(2));
-        assert!(free(&mut seats, "app", 2));
+        assert!(free(&mut seats, "app", 2).is_some());
         assert!(seats.is_empty());
     }
 
