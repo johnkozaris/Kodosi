@@ -17,7 +17,18 @@ export interface Sheet {
   merges: [number, number, number, number][];
   widths: Record<string, number>;
   heights: Record<string, number>;
+  hiddenRows?: number[];
+  hiddenColumns?: number[];
+  frozen?: Frozen;
   links?: { ranges: string; to: LinkTarget }[];
+}
+
+/** The rows and the columns that stay in sight: `rows` rows from `top`, `columns` from `left`. */
+export interface Frozen {
+  top: number;
+  left: number;
+  rows: number;
+  columns: number;
 }
 
 export type LinkTarget = { href: string } | { location: string };
@@ -125,9 +136,17 @@ export type Change =
       kind: "size";
       sheet: string;
       widths?: Record<string, number>;
-      heights?: Record<string, number>;
+      /** `null` makes a row fit what it holds. */
+      heights?: Record<string, number | null>;
     }
   | { kind: "merges"; sheet: string; add?: Merge[]; remove?: Merge[] }
+  | {
+      kind: "hidden";
+      sheet: string;
+      rows?: Record<string, boolean>;
+      columns?: Record<string, boolean>;
+    }
+  | ({ kind: "freeze"; sheet: string } & Frozen)
   | { kind: "group"; changes: Change[] };
 
 export type Merge = [number, number, number, number];
@@ -145,6 +164,31 @@ export function moveLine(line: number, at: number, count: number): number | null
   if (line < at) return line;
   if (count > 0) return line + count;
   return line < at - count ? null : line + count;
+}
+
+/**
+ * Lines that come in before the first line that scrolls join the frozen ones, and lines that go
+ * before it leave them, though one stays. Univer moves the panes this way for a person's own
+ * change, and the document moves them alike.
+ */
+export function moveFrozen(frozen: Frozen, kind: Line, at: number, count: number): Frozen {
+  const [start, lines] =
+    kind === "rows" ? (["top", "rows"] as const) : (["left", "columns"] as const);
+  const end = frozen[start] + frozen[lines];
+  if (frozen[lines] === 0 || at >= end) return frozen;
+  if (count > 0) return { ...frozen, [lines]: frozen[lines] + count };
+  const gone = Math.min(end, at - count) - at;
+  const kept = Math.max(frozen[lines] - gone, 1);
+  return { ...frozen, [start]: Math.max(end - gone, 1) - kept, [lines]: kept };
+}
+
+function moveKeys<V>(record: Record<string, V>, at: number, count: number): Record<string, V> {
+  return Object.fromEntries(
+    Object.entries(record).flatMap(([line, value]) => {
+      const moved = moveLine(Number(line), at, count);
+      return moved === null ? [] : [[String(moved), value]];
+    }),
+  );
 }
 
 export function moveChange(
@@ -173,6 +217,19 @@ export function moveChange(
     const moved = moveLine(change.at, at, count);
     return moved === null ? null : { ...change, at: moved };
   }
+  if (change.kind === "size") {
+    const key = kind === "rows" ? "heights" : "widths";
+    const sizes = change[key];
+    return sizes ? { ...change, [key]: moveKeys(sizes, at, count) } : change;
+  }
+  if (change.kind === "hidden") {
+    const lines = change[kind];
+    if (!lines) return change;
+    const moved = { ...change, [kind]: moveKeys(lines, at, count) };
+    const left = Object.keys(moved.rows ?? {}).length + Object.keys(moved.columns ?? {}).length;
+    return left > 0 ? moved : null;
+  }
+  if (change.kind === "freeze") return { ...change, ...moveFrozen(change, kind, at, count) };
   return change;
 }
 
@@ -260,6 +317,20 @@ export function touches(change: Change, sheet: string, row: number, column: numb
     default:
       return false;
   }
+}
+
+/** Whether an unanswered change hides or shows a line, which then stays as that change has it. */
+export function hides(change: Change, sheet: string, kind: Line, line: number): boolean {
+  if (change.kind === "group") {
+    return change.changes.some((inner) => hides(inner, sheet, kind, line));
+  }
+  return change.kind === "hidden" && change.sheet === sheet && String(line) in (change[kind] ?? {});
+}
+
+/** Whether an unanswered change sets the panes of a sheet, which then stay as it has them. */
+export function freezes(change: Change, sheet: string): boolean {
+  if (change.kind === "group") return change.changes.some((inner) => freezes(inner, sheet));
+  return change.kind === "freeze" && change.sheet === sheet;
 }
 
 /** The value of an unanswered edit wins over the document's. */

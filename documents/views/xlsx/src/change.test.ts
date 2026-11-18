@@ -1,8 +1,12 @@
 import { expect, test } from "bun:test";
 import {
   type Change,
+  freezes,
+  hides,
   linkAt,
   linksOf,
+  moveChange,
+  moveFrozen,
   moveLink,
   movePlace,
   rangeOf,
@@ -125,4 +129,62 @@ test("what waits for a sheet that another person removed goes with it", () => {
   });
   expect(withoutSheet({ kind: "removeSheet", sheet: "2" }, "2")).toBeNull();
   expect(withoutSheet(cells, "1")).toBe(cells);
+});
+
+test("lines that come or go before frozen panes move them as the document does", () => {
+  const frozen = { top: 3, left: 1, rows: 2, columns: 1 };
+  expect(moveFrozen(frozen, "rows", 5, 4)).toEqual(frozen);
+  const grown = moveFrozen(frozen, "rows", 4, 2);
+  expect(grown).toEqual({ ...frozen, rows: 4 });
+  const shrunk = moveFrozen(grown, "rows", 0, -2);
+  expect(shrunk).toEqual({ ...frozen, rows: 2 });
+  const kept = moveFrozen(shrunk, "rows", 2, -10);
+  expect(kept).toEqual({ ...frozen, top: 1, rows: 1 });
+  expect(moveFrozen(kept, "columns", 0, 3)).toEqual({ ...kept, columns: 4 });
+});
+
+test("waiting sizes, hidden lines and panes move with the lines that others insert or delete", () => {
+  const hidden: Change = {
+    kind: "hidden",
+    sheet,
+    rows: { "2": true, "6": false },
+    columns: { "1": true },
+  };
+  expect(moveChange(hidden, sheet, "rows", 0, 2)).toEqual({
+    ...hidden,
+    rows: { "4": true, "8": false },
+  });
+  expect(moveChange(hidden, sheet, "rows", 2, -1)).toEqual({ ...hidden, rows: { "5": false } });
+  expect(moveChange(hidden, "2", "rows", 0, 2)).toBe(hidden);
+  expect(
+    moveChange({ kind: "hidden", sheet, columns: { "1": true } }, sheet, "columns", 1, -1),
+  ).toBeNull();
+  const sizes: Change = {
+    kind: "size",
+    sheet,
+    widths: { "3": 20 },
+    heights: { "2": 30, "5": null },
+  };
+  expect(moveChange(sizes, sheet, "rows", 3, -1)).toEqual({
+    ...sizes,
+    heights: { "2": 30, "4": null },
+  });
+  const panes: Change = { kind: "freeze", sheet, top: 0, left: 0, rows: 1, columns: 0 };
+  expect(moveChange(panes, sheet, "rows", 0, 1)).toEqual({ ...panes, rows: 2 });
+});
+
+test("an unanswered change keeps the lines that it hides or shows and the panes that it sets", () => {
+  const waiting: Change = {
+    kind: "group",
+    changes: [
+      { kind: "hidden", sheet, rows: { "4": false } },
+      { kind: "freeze", sheet, top: 0, left: 0, rows: 1, columns: 0 },
+    ],
+  };
+  expect(hides(waiting, sheet, "rows", 4)).toBe(true);
+  expect(hides(waiting, sheet, "rows", 5)).toBe(false);
+  expect(hides(waiting, sheet, "columns", 4)).toBe(false);
+  expect(hides(waiting, "2", "rows", 4)).toBe(false);
+  expect(freezes(waiting, sheet)).toBe(true);
+  expect(freezes(waiting, "2")).toBe(false);
 });

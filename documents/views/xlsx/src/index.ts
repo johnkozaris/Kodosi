@@ -35,11 +35,15 @@ import {
   type CellChange,
   type Change,
   covers,
+  type Frozen,
+  freezes,
+  hides,
   type LinkTarget,
   linkAt,
   linksOf,
   type Merge,
   moveChange,
+  moveFrozen,
   moveLine,
   moveLink,
   movePlace,
@@ -73,6 +77,15 @@ interface Range {
 interface Mutation {
   id: string;
   params: object;
+}
+
+type LineInfo = Record<string, { h?: number; w?: number } | undefined> | undefined;
+
+interface UniverFreeze {
+  startRow: number;
+  startColumn: number;
+  ySplit: number;
+  xSplit: number;
 }
 
 interface Selections {
@@ -142,9 +155,20 @@ const ADD_MERGE = "sheet.mutation.add-worksheet-merge";
 const REMOVE_MERGE = "sheet.mutation.remove-worksheet-merge";
 const SET_NUMBER_FORMAT = "sheet.mutation.set.numfmt";
 const REMOVE_NUMBER_FORMAT = "sheet.mutation.remove.numfmt";
+const SET_ROW_HIDDEN = "sheet.mutation.set-row-hidden";
+const SET_ROW_VISIBLE = "sheet.mutation.set-row-visible";
+const SET_COLUMN_HIDDEN = "sheet.mutation.set-col-hidden";
+const SET_COLUMN_VISIBLE = "sheet.mutation.set-col-visible";
+const SET_FROZEN = "sheet.mutation.set-frozen";
+const SET_AUTO_HEIGHT = "sheet.mutation.set-worksheet-row-is-auto-height";
 const SET_SELECTIONS = "sheet.operation.set-selections";
 const SET_SCROLL = "sheet.operation.set-scroll";
 const SET_ACTIVE_SHEET = "sheet.operation.set-worksheet-active";
+
+const HIDDEN = 1;
+const CUSTOM_HEIGHT = 0;
+const AUTO_HEIGHT = 1;
+const NOTHING_FROZEN: Frozen = { top: 0, left: 0, rows: 0, columns: 0 };
 
 const STRUCTURE = {
   rows: {
@@ -153,6 +177,8 @@ const STRUCTURE = {
     insertCommand: "sheet.command.insert-row",
     removeCommand: "sheet.command.remove-row",
     direction: DIRECTION_UP,
+    hide: SET_ROW_HIDDEN,
+    show: SET_ROW_VISIBLE,
   },
   columns: {
     insert: INSERT_COLUMN,
@@ -160,6 +186,8 @@ const STRUCTURE = {
     insertCommand: "sheet.command.insert-col",
     removeCommand: "sheet.command.remove-col",
     direction: DIRECTION_LEFT,
+    hide: SET_COLUMN_HIDDEN,
+    show: SET_COLUMN_VISIBLE,
   },
 } as const;
 
@@ -191,6 +219,48 @@ function characterWidth(pixels: number): number {
   return (pixels - WIDTH_PADDING) / PIXELS_PER_CHARACTER;
 }
 
+/** Univer counts the frozen lines back from the first line that scrolls, which is -1 for none. */
+function frozenOf({ startRow, startColumn, ySplit, xSplit }: UniverFreeze): Frozen {
+  return {
+    top: ySplit > 0 ? Math.max(startRow - ySplit, 0) : 0,
+    left: xSplit > 0 ? Math.max(startColumn - xSplit, 0) : 0,
+    rows: ySplit,
+    columns: xSplit,
+  };
+}
+
+function univerFreeze({ top, left, rows, columns }: Frozen): UniverFreeze {
+  return {
+    startRow: rows > 0 ? top + rows : -1,
+    startColumn: columns > 0 ? left + columns : -1,
+    ySplit: rows,
+    xSplit: columns,
+  };
+}
+
+function isFrozen({ rows, columns }: Frozen): boolean {
+  return rows > 0 || columns > 0;
+}
+
+/** Univer keeps the size of a line and whether it is hidden together. */
+function lineData(
+  sizes: Record<string, number>,
+  size: (value: number) => object,
+  hidden: readonly number[] = [],
+): Record<string, object> {
+  const data: Record<string, object> = Object.fromEntries(
+    Object.entries(sizes).map(([line, value]) => [line, size(value)]),
+  );
+  for (const line of hidden) data[line] = { ...data[line], hd: HIDDEN };
+  return data;
+}
+
+function lineRange(kind: "rows" | "columns", line: number): Range {
+  return kind === "rows"
+    ? { startRow: line, endRow: line, startColumn: 0, endColumn: 0 }
+    : { startRow: 0, endRow: 0, startColumn: line, endColumn: line };
+}
+
 function workbookData(snapshot: Snapshot) {
   const styles: Record<string, UniverStyle> = {};
   for (const [index, look] of snapshot.looks.entries()) styles[String(index)] = toUniver(look);
@@ -209,15 +279,17 @@ function workbookData(snapshot: Snapshot) {
       columnCount: Math.max(sheet.columns + SPARE_COLUMNS, MIN_COLUMNS),
       cellData,
       mergeData: sheet.merges.map(mergeRange),
-      columnData: Object.fromEntries(
-        Object.entries(sheet.widths).map(([column, width]) => [column, { w: pixelWidth(width) }]),
+      columnData: lineData(
+        sheet.widths,
+        (width) => ({ w: pixelWidth(width) }),
+        sheet.hiddenColumns,
       ),
-      rowData: Object.fromEntries(
-        Object.entries(sheet.heights).map(([row, height]) => [
-          row,
-          { h: height * PIXELS_PER_POINT },
-        ]),
+      rowData: lineData(
+        sheet.heights,
+        (height) => ({ h: height * PIXELS_PER_POINT, ia: CUSTOM_HEIGHT }),
+        sheet.hiddenRows,
       ),
+      freeze: univerFreeze(sheet.frozen ?? NOTHING_FROZEN),
     };
   }
   return {
@@ -272,21 +344,32 @@ function cellsOf(
   );
 }
 
-function sizes(
-  ranges: Range[],
-  size: number | Record<string, number | null | undefined>,
-  start: (range: Range) => number,
-  end: (range: Range) => number,
-  convert: (pixels: number) => number,
-): Record<string, number> {
-  const out: Record<string, number> = {};
+function perLine<V>(
+  ranges: readonly Range[],
+  kind: "rows" | "columns",
+  value: (line: number) => V | undefined,
+): Record<string, V> {
+  const [start, end] =
+    kind === "rows" ? (["startRow", "endRow"] as const) : (["startColumn", "endColumn"] as const);
+  const out: Record<string, V> = {};
   for (const range of ranges) {
-    for (let line = start(range); line <= end(range); line++) {
-      const pixels = typeof size === "number" ? size : size[line];
-      if (typeof pixels === "number") out[line] = convert(pixels);
+    for (let line = range[start]; line <= range[end]; line++) {
+      const found = value(line);
+      if (found !== undefined) out[line] = found;
     }
   }
   return out;
+}
+
+/** Univer gives one size for each line or one for all of them. */
+function sized(
+  size: number | Record<string, number | null | undefined>,
+  convert: (pixels: number) => number,
+): (line: number) => number | undefined {
+  return (line) => {
+    const pixels = typeof size === "number" ? size : size[line];
+    return typeof pixels === "number" ? convert(pixels) : undefined;
+  };
 }
 
 class XlsxEditor implements Editor, Pictures {
@@ -506,15 +589,22 @@ class XlsxEditor implements Editor, Pictures {
       case REMOVE_NUMBER_FORMAT:
         return this.restyled(sheet, params.ranges as Range[]);
       case INSERT_ROW:
-        return this.lines("rows", sheet, range.startRow, range.endRow - range.startRow + 1);
+        return this.inserted(
+          "rows",
+          sheet,
+          range.startRow,
+          range.endRow - range.startRow + 1,
+          params.rowInfo as LineInfo,
+        );
       case REMOVE_ROW:
         return this.lines("rows", sheet, range.startRow, range.startRow - range.endRow - 1);
       case INSERT_COLUMN:
-        return this.lines(
+        return this.inserted(
           "columns",
           sheet,
           range.startColumn,
           range.endColumn - range.startColumn + 1,
+          params.colInfo as LineInfo,
         );
       case REMOVE_COLUMN:
         return this.lines(
@@ -545,33 +635,86 @@ class XlsxEditor implements Editor, Pictures {
         return {
           kind: "size",
           sheet,
-          widths: sizes(
+          widths: perLine(
             params.ranges as Range[],
-            params.colWidth as number,
-            (line) => line.startColumn,
-            (line) => line.endColumn,
-            characterWidth,
+            "columns",
+            sized(params.colWidth as number, characterWidth),
           ),
         };
       case SET_HEIGHT:
         return {
           kind: "size",
           sheet,
-          heights: sizes(
+          heights: perLine(
             params.ranges as Range[],
-            params.rowHeight as number,
-            (line) => line.startRow,
-            (line) => line.endRow,
-            (pixels) => pixels / PIXELS_PER_POINT,
+            "rows",
+            sized(params.rowHeight as number, (pixels) => pixels / PIXELS_PER_POINT),
           ),
         };
       case ADD_MERGE:
         return { kind: "merges", sheet, add: (params.ranges as Range[]).map(mergeOf) };
       case REMOVE_MERGE:
         return { kind: "merges", sheet, remove: (params.ranges as Range[]).map(mergeOf) };
+      case SET_ROW_HIDDEN:
+      case SET_ROW_VISIBLE:
+        return {
+          kind: "hidden",
+          sheet,
+          rows: perLine(params.ranges as Range[], "rows", () => id === SET_ROW_HIDDEN),
+        };
+      case SET_COLUMN_HIDDEN:
+      case SET_COLUMN_VISIBLE:
+        return {
+          kind: "hidden",
+          sheet,
+          columns: perLine(params.ranges as Range[], "columns", () => id === SET_COLUMN_HIDDEN),
+        };
+      case SET_FROZEN:
+        return { kind: "freeze", sheet, ...frozenOf(params as unknown as UniverFreeze) };
+      case SET_AUTO_HEIGHT: {
+        const fits = params.autoHeightInfo as number | Record<string, number | undefined>;
+        const worksheet = this.univer?.univerAPI.getActiveWorkbook()?.getSheetBySheetId(sheet);
+        return {
+          kind: "size",
+          sheet,
+          heights: perLine(params.ranges as Range[], "rows", (row) =>
+            (typeof fits === "number" ? fits : fits[row]) === CUSTOM_HEIGHT
+              ? (worksheet?.getRowHeight(row) ?? 0) / PIXELS_PER_POINT
+              : null,
+          ),
+        };
+      }
       default:
         return null;
     }
+  }
+
+  /**
+   * Univer gives new lines the size of the line beside them. The document keeps a copied height as
+   * the row's own, so this copy does too, and no longer fits the row to what it holds.
+   */
+  private inserted(
+    kind: "rows" | "columns",
+    sheet: string,
+    at: number,
+    count: number,
+    info: LineInfo,
+  ): Change {
+    const lines = this.lines(kind, sheet, at, count);
+    const sizes: Record<string, number> = {};
+    for (const [offset, line] of Object.entries(info ?? {})) {
+      const pixels = kind === "rows" ? line?.h : line?.w;
+      if (typeof pixels !== "number") continue;
+      sizes[at + Number(offset)] =
+        kind === "rows" ? pixels / PIXELS_PER_POINT : characterWidth(pixels);
+    }
+    if (Object.keys(sizes).length === 0) return lines;
+    if (kind === "columns") {
+      return { kind: "group", changes: [lines, { kind: "size", sheet, widths: sizes }] };
+    }
+    const heights: Change = { kind: "size", sheet, heights: sizes };
+    this.showSizes(heights);
+    return { kind: "group", changes: [lines, heights] };
   }
 
   private lines(kind: "rows" | "columns", sheet: string, at: number, count: number): Change {
@@ -657,20 +800,69 @@ class XlsxEditor implements Editor, Pictures {
       direction: names.direction,
     };
     const inserts = count > 0;
+    const panes = this.frozenOf(sheet);
+    const shown =
+      this.univer?.univerAPI.getActiveWorkbook()?.getActiveSheet().getSheetId() ?? sheet;
+    const shownPanes = this.frozenOf(shown);
     const intercepted = this.interceptor?.onCommandExecute({
       id: inserts ? names.insertCommand : names.removeCommand,
       params,
     });
+    // Univer moves the panes of the sheet in view, whichever sheet the lines are on.
+    const withoutPanes = (mutations: Mutation[] = []) =>
+      mutations.filter(({ id }) => id !== SET_FROZEN);
     this.run([
-      ...(intercepted?.preRedos ?? []),
+      ...withoutPanes(intercepted?.preRedos),
       {
         id: inserts ? names.insert : names.remove,
         params: { unitId: WORKBOOK, subUnitId: sheet, range },
       },
-      ...(intercepted?.redos ?? []),
+      ...withoutPanes(intercepted?.redos),
     ]);
+    if (isFrozen(panes)) this.freeze(sheet, moveFrozen(panes, kind, at, count));
+    if (shown !== sheet && isFrozen(shownPanes)) this.freeze(shown, shownPanes);
     this.undo?.clearUndoRedo(WORKBOOK);
     this.follow(kind, sheet, at, count);
+  }
+
+  private frozenOf(sheet: string): Frozen {
+    const freeze = this.univer?.univerAPI
+      .getActiveWorkbook()
+      ?.getSheetBySheetId(sheet)
+      ?.getFreeze();
+    return freeze ? frozenOf(freeze) : NOTHING_FROZEN;
+  }
+
+  /** Panes that another person sets leave this person's sheet where it is scrolled. */
+  private freeze(sheet: string, frozen: Frozen): void {
+    this.run([
+      {
+        id: SET_FROZEN,
+        params: { unitId: WORKBOOK, subUnitId: sheet, ...univerFreeze(frozen), resetScroll: false },
+      },
+    ]);
+  }
+
+  /** A line that an unanswered change of this person's hides or shows stays as that has it. */
+  private showHidden(change: Extract<Change, { kind: "hidden" }>, own: boolean): void {
+    const unanswered = own ? [] : this.outbox.unanswered();
+    const mutations: Mutation[] = [];
+    for (const kind of ["rows", "columns"] as const) {
+      const lines = Object.entries(change[kind] ?? {}).filter(
+        ([line]) => !unanswered.some((waiting) => hides(waiting, change.sheet, kind, Number(line))),
+      );
+      for (const hide of [true, false]) {
+        const ranges = lines
+          .filter(([, hidden]) => hidden === hide)
+          .map(([line]) => lineRange(kind, Number(line)));
+        if (ranges.length === 0) continue;
+        mutations.push({
+          id: hide ? STRUCTURE[kind].hide : STRUCTURE[kind].show,
+          params: { unitId: WORKBOOK, subUnitId: change.sheet, ranges },
+        });
+      }
+    }
+    this.run(mutations);
   }
 
   private follow(kind: "rows" | "columns", sheet: string, at: number, count: number): void {
@@ -766,6 +958,14 @@ class XlsxEditor implements Editor, Pictures {
             : []),
         ]);
         break;
+      case "hidden":
+        this.showHidden(change, own);
+        break;
+      case "freeze":
+        if (own || !this.outbox.unanswered().some((waiting) => freezes(waiting, change.sheet))) {
+          this.freeze(change.sheet, change);
+        }
+        break;
       case "group":
         for (const inner of change.changes) this.show(inner, own);
         break;
@@ -785,24 +985,32 @@ class XlsxEditor implements Editor, Pictures {
           id: SET_WIDTH,
           params: {
             ...unit,
-            ranges: [{ startRow: 0, endRow: 0, startColumn: line, endColumn: line }],
+            ranges: [lineRange("columns", line)],
             colWidth: pixelWidth(width),
           },
         },
       ]);
     }
+    const columns = this.univer?.univerAPI
+      .getActiveWorkbook()
+      ?.getSheetBySheetId(change.sheet)
+      ?.getMaxColumns();
     for (const [row, height] of Object.entries(change.heights ?? {})) {
-      const line = Number(row);
-      this.run([
-        {
-          id: SET_HEIGHT,
-          params: {
-            ...unit,
-            ranges: [{ startRow: line, endRow: line, startColumn: 0, endColumn: 0 }],
-            rowHeight: height * PIXELS_PER_POINT,
-          },
-        },
-      ]);
+      const ranges = [
+        { ...lineRange("rows", Number(row)), endColumn: Math.max((columns ?? 1) - 1, 0) },
+      ];
+      if (height === null) {
+        this.run([
+          { id: SET_AUTO_HEIGHT, params: { ...unit, ranges, autoHeightInfo: AUTO_HEIGHT } },
+        ]);
+        // The document has no height for a row that fits, so each copy measures the row.
+        this.run(this.interceptor?.generateMutationsOfAutoHeight({ ...unit, ranges }).redos ?? []);
+      } else {
+        this.run([
+          { id: SET_HEIGHT, params: { ...unit, ranges, rowHeight: height * PIXELS_PER_POINT } },
+          { id: SET_AUTO_HEIGHT, params: { ...unit, ranges, autoHeightInfo: CUSTOM_HEIGHT } },
+        ]);
+      }
     }
   }
 
