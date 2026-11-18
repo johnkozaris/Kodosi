@@ -299,6 +299,8 @@ class XlsxEditor implements Editor, Pictures {
   private readonly outbox = new Outbox<Change>();
   private readonly scheme: MutationObserver;
   private univer: ReturnType<typeof createUniver> | undefined;
+  /** Univer stops only a worker that it starts itself. */
+  private worker: Worker | undefined;
   private commands: ICommandService | undefined;
   private interceptor: SheetInterceptorService | undefined;
   private undo: IUndoRedoService | undefined;
@@ -354,7 +356,8 @@ class XlsxEditor implements Editor, Pictures {
     this.outbox.move((change) => fitting.fit(change));
     if (dropped || fitting.lost) this.status.kept("");
     this.univer?.univer.dispose();
-    const worker = new Worker(new URL("./formula-worker.ts", import.meta.url), { type: "module" });
+    this.worker?.terminate();
+    this.worker = new Worker(new URL("./formula-worker.ts", import.meta.url), { type: "module" });
     const made = createUniver({
       darkMode: this.dark(),
       locale: UNIVER_LOCALE,
@@ -362,9 +365,10 @@ class XlsxEditor implements Editor, Pictures {
       presets: [
         UniverSheetsCorePreset({
           container: this.canvas,
-          workerURL: worker,
+          workerURL: this.worker,
           toolbar: false,
           footer: false,
+          sheets: { enableFillHandle: person.canEdit },
         }),
       ],
     });
@@ -962,6 +966,7 @@ class XlsxEditor implements Editor, Pictures {
     this.scheme.disconnect();
     this.bar.destroy();
     this.univer?.univer.dispose();
+    this.worker?.terminate();
   }
 }
 
