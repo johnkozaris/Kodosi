@@ -34,7 +34,7 @@ const RISE_AFTER: Duration = Duration::from_secs(2);
 const ROUND_WINDOW: Duration = Duration::from_secs(10);
 /// What a link that is slower than the stream carried in this time is what it can take.
 const CARRIED_FOR: Duration = Duration::from_secs(1);
-pub(crate) const FIRST_BITRATE: u32 = 8_000_000;
+const FIRST_BITRATE: u32 = 8_000_000;
 const LOWEST_BITRATE: u32 = 250_000;
 const HIGHEST_BITRATE: u32 = 40_000_000;
 
@@ -305,8 +305,16 @@ impl Flow {
 
     pub(crate) fn seat(&mut self, viewer: &str, anchors: bool, now: Instant) {
         self.forget(viewer);
+        if self.seats.is_empty() {
+            self.bitrate = FIRST_BITRATE;
+            self.cut_at = None;
+        }
         self.seats
             .insert(viewer.to_owned(), Seat::new(anchors, now));
+    }
+
+    pub(crate) const fn bitrate(&self) -> u32 {
+        self.bitrate
     }
 
     pub(crate) fn leave(&mut self, viewer: &str) {
@@ -982,5 +990,28 @@ mod tests {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
         assert_eq!(flow.steer(None, now), None);
+    }
+
+    #[test]
+    fn viewers_that_come_after_all_others_left_start_at_the_first_bitrate() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["phone"], now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        flow.ack("phone", 1, after(now, 20));
+        let slow = Link {
+            viewer: "phone",
+            rate: 600_000,
+            round: Duration::from_millis(20),
+        };
+        let every = Duration::from_millis(25);
+        let mut acks = stream(&mut flow, &[slow], 2..=13, 25_000, every, after(now, 25));
+        let end = ack_until(&mut flow, &mut acks, None).unwrap();
+        let fitted = flow.steer(Some("phone"), end).unwrap();
+        assert_eq!(flow.bitrate(), fitted);
+        flow.seat("phone", true, end);
+        assert_eq!(flow.bitrate(), fitted);
+        flow.leave("phone");
+        flow.seat("mac", true, end);
+        assert_eq!(flow.bitrate(), FIRST_BITRATE);
     }
 }

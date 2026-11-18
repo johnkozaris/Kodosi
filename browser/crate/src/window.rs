@@ -16,7 +16,7 @@ use crate::{
     Error,
     driver::{self, Driver},
     engine::Engine,
-    flow::{self, Ask, Flow},
+    flow::{Ask, Flow},
     input,
     link::{EncodedFrame, EngineTab, MOST_ICON, ToEngine},
     message::{
@@ -854,7 +854,7 @@ impl Live {
         self.engine.command(ToEngine::Capture {
             window: self.id,
             tab,
-            bitrate: flow::FIRST_BITRATE,
+            bitrate: self.flow.bitrate(),
         });
     }
 
