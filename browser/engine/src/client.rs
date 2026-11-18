@@ -5,7 +5,8 @@ use shared_browser::{Dialog, DialogKind};
 
 use crate::{
     cursor,
-    engine::{self, Origin, Shared},
+    encode::STILL_MS,
+    engine::{self, Capture, Origin, Shared},
     filters, renderer,
 };
 
@@ -168,7 +169,7 @@ wrap_render_handler! {
             &self,
             browser: Option<&mut Browser>,
             type_: PaintElementType,
-            _dirty_rects: Option<&[Rect]>,
+            dirty_rects: Option<&[Rect]>,
             buffer: *const u8,
             width: c_int,
             height: c_int,
@@ -187,13 +188,14 @@ wrap_render_handler! {
             // until this call returns.
             let pixels = unsafe { std::slice::from_raw_parts(buffer, width * height * 4) };
             capture.encoder.encode_pixels(pixels, width, height);
+            drawn(capture, dirty_rects, &self.shared);
         }
 
         fn on_accelerated_paint(
             &self,
             browser: Option<&mut Browser>,
             type_: PaintElementType,
-            _dirty_rects: Option<&[Rect]>,
+            dirty_rects: Option<&[Rect]>,
             info: Option<&AcceleratedPaintInfo>,
         ) {
             let (Some(tab), Some(info)) = (id_of(browser), info) else {
@@ -207,10 +209,29 @@ wrap_render_handler! {
                 return;
             };
             #[cfg(target_os = "macos")]
-            capture.encoder.encode_surface(info.shared_texture_io_surface);
+            {
+                capture.encoder.encode_surface(info.shared_texture_io_surface);
+                drawn(capture, dirty_rects, &self.shared);
+            }
             #[cfg(not(target_os = "macos"))]
-            let _ = (capture, info);
+            let _ = (capture, info, dirty_rects);
         }
+    }
+}
+
+/// CEF names the changed parts of the page in its pixels.
+fn drawn(capture: &mut Capture, dirty_rects: Option<&[Rect]>, shared: &Shared) {
+    let size = shared.size.get();
+    let pixels = |points: u32| f64::from(points) * f64::from(size.scale);
+    let page = pixels(size.width) * pixels(size.height);
+    let changed = dirty_rects.map_or(page, |rects| {
+        rects
+            .iter()
+            .map(|rect| f64::from(rect.width.max(0)) * f64::from(rect.height.max(0)))
+            .sum()
+    });
+    if let Some(picture) = capture.cleanup.drawn((changed / page.max(1.0)).min(1.0)) {
+        engine::clean_up(capture.window, picture, STILL_MS);
     }
 }
 

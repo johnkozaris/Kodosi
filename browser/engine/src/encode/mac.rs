@@ -268,6 +268,8 @@ pub(crate) struct Encoder {
     started: Instant,
     session: Option<Session>,
     transfer: *mut c_void,
+    /// The newest picture in the session's format, which a refinement codes again.
+    last: Option<Owned>,
 }
 
 impl Encoder {
@@ -283,6 +285,7 @@ impl Encoder {
             started: Instant::now(),
             session: None,
             transfer,
+            last: None,
         }
     }
 
@@ -294,6 +297,17 @@ impl Encoder {
         self.bitrate = bitrate;
         if let Some(session) = &self.session {
             set_bitrate(session.raw, bitrate);
+        }
+    }
+
+    /// Codes the last picture again, unless the encoder is still busy.
+    pub(crate) fn refine(&mut self) {
+        let (Some(session), Some(last)) = (&self.session, &self.last) else {
+            return;
+        };
+        if session.output.waiting.load(Ordering::Acquire) < MOST_WAITING {
+            let last = last.mutable();
+            self.submit(last, true);
         }
     }
 
@@ -365,6 +379,7 @@ impl Encoder {
             .is_none_or(|session| (session.width, session.height) != (width, height))
         {
             self.session = None;
+            self.last = None;
             self.session = self.start(width, height);
             self.want_key = true;
         }
@@ -400,6 +415,17 @@ impl Encoder {
         if copied != 0 {
             return;
         }
+        self.submit(target.mutable(), false);
+        self.last = Some(target);
+    }
+
+    /// A refinement carries a marker to the callback, because the page need not draw again for
+    /// one that the encoder dropped.
+    fn submit(&mut self, target: *mut c_void, refinement: bool) {
+        let Some(session) = &self.session else {
+            return;
+        };
+        let output = &session.output;
         let key =
             std::mem::take(&mut self.want_key) | output.want_key.swap(false, Ordering::AcqRel);
         let options = if key {
@@ -420,11 +446,15 @@ impl Encoder {
         let status = unsafe {
             VTCompressionSessionEncodeFrame(
                 session.raw,
-                target.mutable(),
+                target,
                 time,
                 NO_TIME,
                 options.as_ref().map_or(ptr::null(), |options| options.0),
-                ptr::null_mut(),
+                if refinement {
+                    ptr::dangling_mut()
+                } else {
+                    ptr::null_mut()
+                },
                 ptr::null_mut(),
             )
         };
@@ -577,7 +607,7 @@ fn set_bitrate(session: *mut c_void, bitrate: u32) {
 /// out, the page draws again, as a still page would never send it.
 unsafe extern "C" fn encoded(
     refcon: *mut c_void,
-    _frame: *mut c_void,
+    refinement: *mut c_void,
     status: OSStatus,
     flags: u32,
     sample: *mut c_void,
@@ -595,7 +625,7 @@ unsafe extern "C" fn encoded(
                 window: output.window,
                 problem: format!("the encoder failed: {status}"),
             });
-        } else if flags & FRAME_DROPPED != 0 {
+        } else if flags & FRAME_DROPPED != 0 && refinement.is_null() {
             engine::redraw(output.window, REDRAW_AFTER_MS);
         }
         return;

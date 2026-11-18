@@ -14,7 +14,12 @@ use shared_browser::{
     link::{EngineTab, FromEngine, MOST_ICON, ToEngine},
 };
 
-use crate::{client, encode::Encoder, link::Link, renderer};
+use crate::{
+    client,
+    encode::{Cleanup, Encoder, REFINE_MS},
+    link::Link,
+    renderer,
+};
 
 const REPORT_DELAY_MS: i64 = 50;
 /// How long the browsers may take to close when the engine quits. The host waits longer.
@@ -167,8 +172,38 @@ impl Shared {
 }
 
 pub(crate) struct Capture {
+    pub window: i64,
     pub tab: i64,
     pub encoder: Encoder,
+    pub cleanup: Cleanup,
+}
+
+/// The encoder codes the last picture again only while the page drew nothing new since `picture`.
+pub(crate) fn clean_up(window: i64, picture: u64, delay_ms: i64) {
+    let mut task = CleanUpTaskBuilder::new(window, picture);
+    post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
+}
+
+wrap_task! {
+    struct CleanUpTaskBuilder {
+        window: i64,
+        picture: u64,
+    }
+
+    impl Task {
+        fn execute(&self) {
+            let refined = with(|engine| {
+                let shared = engine.shared_of(self.window)?;
+                let mut capture = shared.capture.borrow_mut();
+                let capture = capture.as_mut()?;
+                capture.cleanup.refine(self.picture).then(|| capture.encoder.refine())
+            })
+            .flatten();
+            if refined.is_some() {
+                clean_up(self.window, self.picture, REFINE_MS);
+            }
+        }
+    }
 }
 
 /// CEF gives each browser its id only when it exists, so a browser carries where it belongs.
@@ -774,7 +809,12 @@ fn capture(command: &ToEngine) {
         } => {
             let shared = engine.shared_of(window)?;
             let encoder = Encoder::new(window, bitrate, engine.link().clone());
-            *shared.capture.borrow_mut() = Some(Capture { tab, encoder });
+            *shared.capture.borrow_mut() = Some(Capture {
+                window,
+                tab,
+                encoder,
+                cleanup: Cleanup::default(),
+            });
             engine.browser_of(tab)
         }
         ToEngine::Stop { window } => {
