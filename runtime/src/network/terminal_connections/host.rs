@@ -5,9 +5,9 @@ use tokio::task::JoinSet;
 
 use super::{
     channel::{Channel, Transport},
-    direct::Door,
     link::{HostEvent, Hosted, Pipe},
     pacer::Pacer,
+    route::{Finder, Role, Route},
     wire::{Accept, ControlResult, End, Frame, PictureOffer, PictureState, PictureStep, Refuse},
     *,
 };
@@ -448,7 +448,8 @@ async fn connect(
 ) -> Result<()> {
     let id = pipe.id();
     let keys = network.channel_keys(credentials)?;
-    let mut channel = Channel::accept(pipe, &keys).await?;
+    let (route, paths) = Route::new(pipe, Role::Host);
+    let mut channel = Channel::accept(route, &keys).await?;
     let key = channel.peer_key()?;
     if let Err(refuse) = admit(
         network,
@@ -497,13 +498,10 @@ async fn connect(
         .map_err(|_| Error::Closed)?;
     let authorization = cancel.child_token();
     let _authorization = authorization.clone().drop_guard();
-    let door = Door::new(
-        keys,
-        key,
-        publication.requests.clone(),
-        id,
-        authorization.clone(),
-    );
+    let peers = (user == credentials.user_id)
+        .then(|| network.peers(credentials).ok())
+        .flatten();
+    let finder = Finder::host(peers, paths, key, id);
     let (ended, channel) = {
         let mut stream = Stream::new(
             channel,
@@ -513,7 +511,7 @@ async fn connect(
                 connection: id,
                 authorization,
             },
-            door,
+            finder,
         );
         (stream.serve().await, stream.channel)
     };
@@ -640,7 +638,7 @@ struct Stream<'a, T> {
     output: PublicationOutput,
     requests: &'a mpsc::Sender<HostRequest>,
     controller: Controller,
-    door: Door,
+    finder: Finder,
     pacer: Pacer,
     parts: VecDeque<Bytes>,
     waiting: VecDeque<Waiting>,
@@ -656,6 +654,7 @@ struct Stream<'a, T> {
     heartbeat: u32,
     input_offset: u64,
     input_confirmed: u64,
+    typed_at: Option<tokio::time::Instant>,
     inputs: Inputs,
     controls: Controls,
     pipes: HashMap<Uuid, PipeIn>,
@@ -678,7 +677,7 @@ impl<'a, T: Transport> Stream<'a, T> {
         output: PublicationOutput,
         requests: &'a mpsc::Sender<HostRequest>,
         controller: Controller,
-        door: Door,
+        finder: Finder,
     ) -> Self {
         let (leaving_to, leaving) = mpsc::channel(LEAVING_FRAMES);
         Self {
@@ -686,7 +685,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             output,
             requests,
             controller,
-            door,
+            finder,
             pacer: Pacer::default(),
             parts: VecDeque::new(),
             waiting: VecDeque::new(),
@@ -702,6 +701,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             heartbeat: 0,
             input_offset: 0,
             input_confirmed: 0,
+            typed_at: None,
             inputs: Inputs::new(),
             controls: Controls::new(),
             pipes: HashMap::new(),
@@ -745,6 +745,9 @@ impl<'a, T: Transport> Stream<'a, T> {
                 }
                 Some(answer) = self.controls.next(), if !self.controls.is_empty() => {
                     self.channel.send(&answer).await?;
+                }
+                Some(frame) = self.finder.next() => {
+                    self.channel.send(&frame).await?;
                 }
                 answer = async { match self.picture_answer.as_mut() { Some(answer) => answer.await, None => std::future::pending().await } }, if self.picture_answer.is_some() => {
                     self.picture_answer = None;
@@ -812,10 +815,17 @@ impl<'a, T: Transport> Stream<'a, T> {
 
     /// Terminal output goes first. Documents use the project that it leaves.
     async fn send_pipe_parts(&mut self) -> Result<()> {
+        let typing = self
+            .typed_at
+            .is_some_and(|at| at.elapsed() < crate::terminal::TYPING);
         while !self.pipe_parts.is_empty()
             && self.parts.is_empty()
             && (!self.live || self.waiting.is_empty())
-            && self.pacer.project()
+            && if typing {
+                self.pacer.beside_typing()
+            } else {
+                self.pacer.project()
+            }
         {
             let Some(frame) = self.pipe_parts.pop_front() else {
                 break;
@@ -1183,6 +1193,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                     )));
                 }
                 self.input_offset += bytes.len() as u64;
+                self.typed_at = Some(tokio::time::Instant::now());
                 let end = self.input_offset;
                 let response = self
                     .submit(TerminalControl::Input {
@@ -1236,12 +1247,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             Frame::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
             }
-            Frame::DirectAsk { pipe } => {
-                let addresses = self.door.open().await;
-                self.channel
-                    .send(&Frame::DirectOffer { pipe, addresses })
-                    .await?;
-            }
+            frame @ Frame::PathOffer { .. } => self.finder.heard(frame),
             Frame::Picture(offer) => self.offered(offer).await?,
             Frame::PicturePart { id, offset, bytes } => self.part(id, offset, &bytes).await?,
             _ => return Err(invalid("Unsupported terminal viewer frame.")),

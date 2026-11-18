@@ -3,14 +3,33 @@ import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
+/// The sign-in stage that the onboarding shows. Once this device is signed in, the onboarding
+/// fades out on the stage that it was on, so the sign-in card does not come back on the way out.
+struct OnboardingStage {
+    private var last = SignInStage.idle
+
+    func shown(_ stage: SignInStage) -> SignInStage {
+        stage == .signedIn ? last : stage
+    }
+
+    mutating func follow(_ stage: SignInStage) {
+        last = shown(stage)
+    }
+}
+
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.theme) private var theme
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @State private var onboarding = OnboardingStage()
 
     private var account: AccountStore {
         model.account
+    }
+
+    private var stage: SignInStage {
+        onboarding.shown(account.stage)
     }
 
     private var compactHeight: Bool {
@@ -18,7 +37,7 @@ struct OnboardingView: View {
     }
 
     private var showsTrack: Bool {
-        switch account.stage {
+        switch stage {
         case .awaitingBrowser, .finalizing, .trustingDevice: true
         case .idle, .starting, .signedIn, .failed: false
         }
@@ -42,18 +61,20 @@ struct OnboardingView: View {
                     }
                     if showsTrack {
                         SignInTrack(
-                            completed: account.stage.completedSteps, working: account.stage.isPending,
+                            completed: stage.completedSteps, working: stage.isPending,
                             device: ThisDevice.title, symbol: ThisDevice.symbol,
                         )
                         .transition(.opacity.combined(with: .offset(y: -10)))
                     }
-                    stageContent
-                        .frame(maxWidth: compactHeight ? 760 : 440)
-                        .id(stageKey)
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .offset(y: 14)),
-                            removal: .opacity,
-                        ))
+                    ZStack {
+                        stageContent
+                            .frame(maxWidth: compactHeight ? 760 : 440)
+                            .id(stageKey)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .offset(y: 14)),
+                                removal: .opacity,
+                            ))
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, compactHeight ? 16 : 32)
@@ -64,6 +85,7 @@ struct OnboardingView: View {
         }
         .animation(theme.motion.soft, value: stageKey)
         .animation(theme.motion.soft, value: showsTrack)
+        .onChange(of: account.stage, initial: true) { _, stage in onboarding.follow(stage) }
         .sensoryFeedback(.success, trigger: account.stage == .signedIn) { _, signedIn in signedIn }
         .sensoryFeedback(.error, trigger: failed) { _, failed in failed }
         .task(id: account.signInPage) {
@@ -85,7 +107,7 @@ struct OnboardingView: View {
     }
 
     private var stageKey: String {
-        switch account.stage {
+        switch stage {
         case .idle, .failed, .signedIn, .starting: "welcome"
         case .awaitingBrowser: "browser"
         case .finalizing: "finalizing"
@@ -95,7 +117,7 @@ struct OnboardingView: View {
 
     @ContentBuilder
     private var stageContent: some View {
-        switch account.stage {
+        switch stage {
         case .idle, .signedIn:
             WelcomeCard(failure: nil, starting: false)
         case let .failed(message, _):

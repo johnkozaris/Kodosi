@@ -5,6 +5,11 @@ import com.kodosi.mobile.runtime.SentCommands
 import com.kodosi.mobile.runtime.answer
 import com.kodosi.mobile.runtime.event
 import com.kodosi.mobile.runtime.string
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
@@ -63,5 +68,35 @@ class TerminalStoreTest {
         assertEquals(JsonArray(listOf(JsonPrimitive("a"))), visible[0]["sessionIds"])
         assertEquals(JsonArray(emptyList()), visible[1]["sessionIds"])
         assertEquals(JsonPrimitive(false), visible[1]["watching"])
+    }
+
+    @Test
+    fun aTerminalOpensUntilItsRequestIsAnsweredAndKeepsWhyItDidNot() = runTest {
+        val refused = async(start = CoroutineStart.UNDISPATCHED) { store.open("a") }
+        assertFalse("a" in store.openResults.value)
+        val requestId = sent.last("session.openRemote").string("requestId")
+        sent.sink.receive(answer("session.error", requestId, "session.openRemote", "\"message\":\"busy\""))
+        assertEquals(OpenResult("busy"), refused.await())
+        assertEquals(OpenResult("busy"), store.openResults.value["a"])
+
+        val again = async(start = CoroutineStart.UNDISPATCHED) { store.open("a") }
+        assertFalse("a" in store.openResults.value)
+        sent.reply("session.openRemote")
+        again.await()
+        assertEquals(OpenResult(null), store.openResults.value["a"])
+
+        store.disconnect("a")
+        assertFalse("a" in store.openResults.value)
+    }
+
+    @Test
+    fun aRequestThatStopsWaitingEndsTheOpeningUnlessTheTerminalWasLetGo() = runTest {
+        launch(start = CoroutineStart.UNDISPATCHED) { store.open("a") }.cancelAndJoin()
+        assertEquals(OpenResult(null), store.openResults.value["a"])
+
+        val leaving = launch(start = CoroutineStart.UNDISPATCHED) { store.open("b") }
+        store.disconnect("b")
+        leaving.cancelAndJoin()
+        assertFalse("b" in store.openResults.value)
     }
 }

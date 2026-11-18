@@ -19,6 +19,10 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -94,9 +98,12 @@ import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.ProgressCaption
+import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.well
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+
+private enum class BrowserCover { ASLEEP, LOADING }
 
 @Composable
 fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask: ((String?) -> Unit)? = null) {
@@ -325,15 +332,34 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
             )
             BrowserPointers(window, browser, feed)
             KodosiTheme(dark = true) {
-                if (browser.state == "asleep") {
-                    EmptyState(stringResource(R.string.browser_sleeping), browser.problem, AppSymbol.BROWSER) {
-                        KodosiTextButton(onClick = {
-                            scope.launch { model.runAction { model.canvas.wake(session) } }
-                        }) { Text(stringResource(R.string.wake_browser)) }
-                    }
-                } else if (!picture) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        ProgressCaption(stringResource(R.string.loading))
+                val fading = fade<Float>()
+                val cover = when {
+                    browser.state == "asleep" -> BrowserCover.ASLEEP
+                    !picture -> BrowserCover.LOADING
+                    else -> null
+                }
+                AnimatedContent(
+                    cover,
+                    Modifier.fillMaxSize(),
+                    transitionSpec = { (fadeIn(fading) togetherWith fadeOut(fading)).using(null) },
+                    label = "browser cover"
+                ) { shown ->
+                    when (shown) {
+                        BrowserCover.ASLEEP -> EmptyState(
+                            stringResource(R.string.browser_sleeping),
+                            browser.problem,
+                            AppSymbol.BROWSER
+                        ) {
+                            KodosiTextButton(onClick = {
+                                scope.launch { model.runAction { model.canvas.wake(session) } }
+                            }) { Text(stringResource(R.string.wake_browser)) }
+                        }
+
+                        BrowserCover.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            ProgressCaption(stringResource(R.string.loading))
+                        }
+
+                        null -> Unit
                     }
                 }
             }

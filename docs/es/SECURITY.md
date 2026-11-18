@@ -25,32 +25,41 @@ almacenamiento que perdure. Mientras un navegador compartido está despierto, su
 el puerto de driver de cada ventana escuchan en `127.0.0.1` o `::1`, donde pueden alcanzarlos otras
 cuentas de ese ordenador. Un sitio en el navegador compartido guarda una descarga en la carpeta del
 terminal por cada acción de una persona o de un agente, y solo llega a tu portapapeles cuando copias.
-Cuando un dispositivo abre el navegador de un terminal de otro ordenador, ese ordenador escucha en un
-puerto TCP durante unos segundos para que los dos se conecten directamente. Solo pasa ese dispositivo,
-con el cifrado del terminal. La app de Linux muestra páginas solo donde Chromium puede aislarlas en un
-sandbox; en Ubuntu, su perfil de AppArmor permite a la app, a su proceso de páginas y a Kodosi Browser
-crear los user namespaces que necesita el sandbox. Por la misma razón, el navegador compartido no se
-ejecuta como root en Linux. Las apps no incluyen Kodosi Browser. Cuando un ordenador abre su primer
-navegador compartido, Kodosi descarga el navegador del feed de `updates.kodosi.com` y busca allí una
-versión nueva cada día. Kodosi solo usa una descarga cuando el feed lleva la firma de la clave de las
+La app de Linux muestra páginas solo donde Chromium puede aislarlas en un sandbox; en Ubuntu, su
+perfil de AppArmor permite a la app, a su proceso de páginas y a Kodosi Browser crear los user
+namespaces que necesita el sandbox. Por la misma razón, el navegador compartido no se ejecuta como
+root en Linux. Las apps no incluyen Kodosi Browser. Cuando un ordenador abre su primer navegador
+compartido, Kodosi descarga el navegador del feed de `updates.kodosi.com` y busca allí una versión
+nueva cada día. Kodosi solo usa una descarga cuando el feed lleva la firma de la clave de las
 actualizaciones de Kodosi y la descarga tiene el SHA-256 que indica el feed.
+
+## Conexiones directas
+
+Cuando dos de tus propios dispositivos pueden alcanzarse entre sí, en una misma red o a través de
+sus routers, el tráfico de un terminal va directamente entre ellos en lugar de pasar por el
+servicio, con el mismo cifrado. Cada uno de los dos dispositivos ve entonces las direcciones IP del
+otro. Para conocer la dirección pública de un dispositivo, Kodosi consulta un servidor STUN de
+Cloudflare, que ve esa dirección. Mientras un dispositivo busca o tiene una conexión así, y durante
+un minuto después, mantiene abierto un puerto UDP, y allí solo acepta conexiones de tus propios
+dispositivos. Los terminales de otras personas siempre pasan por el servicio, así que esas personas
+nunca ven tus direcciones.
 
 ## Qué ve el servicio
 
 El servicio ve los registros de cuentas y dispositivos, los miembros de los proyectos, los
 metadatos de proyectos y terminales, el agente y el estado de cada terminal (como trabajando o
 esperando una aprobación, nunca su texto) y si ya has visto ese estado, los campos de
-enrutamiento, los tiempos y los tamaños del texto cifrado. También ve, para cada uno de tus
-dispositivos, si usas Kodosi en él, usas otra app en ese ordenador o no lo usas, para que
-una notificación vaya solo a un dispositivo que uses. Las notificaciones push a tu iPhone,
-iPad o dispositivo Android pasan por el servicio push de Apple o de Google, que ve los ID de
-tus terminales que esperan, han terminado o han fallado, sus agentes y sus estados, nunca
-nombres ni texto. El cifrado no oculta estos metadatos ni evita una caída del servicio. Un
-dispositivo que quitas pierde el acceso desde ese momento. Después de quitar un dispositivo
-perdido o robado, crea una clave de recuperación nueva para mantenerlo fuera. Cuando alguien
-empieza de cero en tu cuenta mientras tienes dispositivos, eso espera un día y tus dispositivos
-lo muestran, para que puedas detenerlo. Las credenciales de GitHub y Gitea se quedan en tu
-ordenador.
+enrutamiento, los tiempos y los tamaños del texto cifrado, salvo en el tráfico que va
+directamente entre tus dispositivos. También ve, para cada uno de tus dispositivos, si usas
+Kodosi en él, usas otra app en ese ordenador o no lo usas, para que una notificación vaya solo
+a un dispositivo que uses. Las notificaciones push a tu iPhone, iPad o dispositivo Android
+pasan por el servicio push de Apple o de Google, que ve los ID de tus terminales que esperan,
+han terminado o han fallado, sus agentes y sus estados, nunca nombres ni texto. El cifrado no
+oculta estos metadatos ni evita una caída del servicio. Un dispositivo que quitas pierde el
+acceso desde ese momento. Después de quitar un dispositivo perdido o robado, crea una clave de
+recuperación nueva para mantenerlo fuera. Cuando alguien empieza de cero en tu cuenta mientras
+tienes dispositivos, eso espera un día y tus dispositivos lo muestran, para que puedas
+detenerlo. Las credenciales de GitHub y Gitea se quedan en tu ordenador.
 
 Eliminar una cuenta quita sus dispositivos, sus datos de recuperación, sus amigos, lo que
 comparte y los proyectos que son suyos; los mensajes en proyectos de otras personas se quedan sin

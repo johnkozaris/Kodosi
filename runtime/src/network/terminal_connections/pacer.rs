@@ -9,6 +9,7 @@ const INITIAL_WINDOW: u64 = 16 * 1024;
 const MINIMUM_WINDOW: u64 = 4 * 1024;
 const MAXIMUM_WINDOW: u64 = 8 * 1024 * 1024;
 const TRANSIT_SECONDS: f64 = 0.5;
+const TYPING_SECONDS: f64 = 0.05;
 const IMAGE_SECONDS: f64 = 2.0;
 const SAMPLE: Duration = Duration::from_millis(200);
 
@@ -69,6 +70,19 @@ impl Pacer {
         }
         self.blocked();
         false
+    }
+
+    /// While the person types, the frames of a document fill only a moment of the link, so an
+    /// echo never waits behind more of them. The link is not full then, so its speed is not
+    /// measured.
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the product is clamped to the window bounds"
+    )]
+    pub(super) fn beside_typing(&self) -> bool {
+        let moment = ((self.rate * TYPING_SECONDS) as u64).clamp(MINIMUM_WINDOW, self.window());
+        self.in_transit() < moment
     }
 
     pub(super) const fn blocked(&mut self) {

@@ -64,7 +64,7 @@ issues, and Git credentials stay on the participant's computer.
 
 **End-to-end encryption.** The participants' devices encrypt terminal traffic and project
 content, and private keys stay on devices. The backend connects participants and relays
-ciphertext. It runs no commands and sees only each terminal's agent and reported state. A
+ciphertext; two devices of one person that reach each other go straight. It runs no commands and sees only each terminal's agent and reported state. A
 new device shares nothing until an approved device approves it, and a recovery key keeps
 friends and projects for a person who lost all devices.
 

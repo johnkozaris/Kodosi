@@ -13,76 +13,85 @@ extension AppModel {
     }
 }
 
-struct TerminalSessionState: View {
-    let session: RuntimeSession
-    let unreachable: Bool
-    let opening: Bool
-    let failure: String?
-    let connect: () -> Void
-    let reconnect: () -> Void
+/// What takes the terminal's place until it draws. It is one card that changes in place, so the
+/// screen never lays a second card over the first.
+struct TerminalCover: Equatable {
+    enum Action: Equatable {
+        case connect, reconnect, retry
+    }
 
-    var body: some View {
+    let symbol: String?
+    let title: String
+    let message: String?
+    let working: Bool
+    let action: Action?
+    let identifier: String
+
+    static let connecting = TerminalCover(symbol: nil, title: String(localized: "Connecting"), message: nil, working: true, action: nil,
+                                          identifier: "terminal.state.connecting")
+
+    /// `nil` once the terminal draws; `render` is `nil` until the terminal has a surface.
+    static func of(_ session: RuntimeSession, unreachable: Bool, opening: Bool, failure: String?, render: TerminalRenderState?) -> TerminalCover? {
         switch session.connectionState {
         case .blocked:
-            TerminalStateCard(symbol: "lock", title: session.statusLabel, message: session.message, working: false) { EmptyView() }
-                .accessibilityIdentifier("terminal.state.blocked")
+            TerminalCover(symbol: "lock", title: session.statusLabel, message: session.message, working: false, action: nil,
+                          identifier: "terminal.state.blocked")
         case .connecting where unreachable, .offline where unreachable:
-            TerminalStateCard(symbol: "wifi.slash", title: String(localized: "Offline"),
-                              message: String(localized: "The terminal opens when the connection is back."), working: false)
-            {
-                Button("Try again", action: reconnect)
-                    .buttonStyle(.kodosi(.primary))
-                    .accessibilityIdentifier("terminal.unreachable.retry")
-            }
-            .accessibilityIdentifier("terminal.state.unreachable")
+            TerminalCover(symbol: "wifi.slash", title: String(localized: "Offline"),
+                          message: String(localized: "The terminal opens when the connection is back."), working: false, action: .reconnect,
+                          identifier: "terminal.state.unreachable")
         case .offline where session.status == .offline:
-            TerminalStateCard(symbol: "wifi.slash", title: session.statusLabel, message: String(localized: "The terminal opens when its computer is back."),
-                              working: false) { EmptyView() }
-                .accessibilityIdentifier("terminal.state.away")
+            TerminalCover(symbol: "wifi.slash", title: session.statusLabel, message: String(localized: "The terminal opens when its computer is back."),
+                          working: false, action: nil, identifier: "terminal.state.away")
         case .offline where !opening:
-            TerminalStateCard(symbol: "wifi.slash", title: session.statusLabel, message: failure ?? session.message, working: false) {
-                if session.canOpen {
-                    Button("Connect", action: connect)
-                        .buttonStyle(.kodosi(.primary))
-                        .accessibilityIdentifier("terminal.connect")
-                }
+            TerminalCover(symbol: "wifi.slash", title: session.statusLabel, message: failure ?? session.message, working: false,
+                          action: session.canOpen ? .connect : nil, identifier: "terminal.state.offline")
+        case .local, .connected:
+            switch render {
+            case .rendered: nil
+            case let .closed(message): unavailable(message ?? String(localized: "The terminal closed."))
+            case let .failed(message): unavailable(message)
+            case .connecting, nil: connecting
             }
-            .accessibilityIdentifier("terminal.state.offline")
-        default:
-            TerminalStateCard(symbol: nil, title: String(localized: "Connecting"), message: nil, working: true) { EmptyView() }
-                .accessibilityIdentifier("terminal.state.connecting")
+        case .connecting, .offline:
+            connecting
         }
+    }
+
+    private static func unavailable(_ message: String) -> TerminalCover {
+        TerminalCover(symbol: "bolt.slash", title: String(localized: "This terminal is not available"), message: message, working: false,
+                      action: .retry, identifier: "terminal.state.failed")
     }
 }
 
-struct TerminalRenderOverlay: View {
+struct TerminalCoverCard: View {
     @Environment(\.theme) private var theme
-    let state: TerminalRenderState
+    let cover: TerminalCover
+    let connect: () -> Void
+    let reconnect: () -> Void
     let retry: () -> Void
 
     var body: some View {
-        switch state {
-        case .rendered:
-            EmptyView()
-        case .connecting:
-            TerminalStateCard(symbol: nil, title: String(localized: "Connecting"), message: nil, working: true) { EmptyView() }
-                .background(theme.colors.terminal)
-                .accessibilityIdentifier("terminal.state.connecting")
-        case let .closed(message):
-            failure(message ?? String(localized: "The terminal closed."))
-        case let .failed(message):
-            failure(message)
-        }
-    }
-
-    private func failure(_ message: String) -> some View {
-        TerminalStateCard(symbol: "bolt.slash", title: String(localized: "This terminal is not available"), message: message, working: false) {
-            Button("Try again", action: retry)
-                .buttonStyle(.kodosi(.primary))
-                .accessibilityIdentifier("terminal.retry")
+        TerminalStateCard(symbol: cover.symbol, title: cover.title, message: cover.message, working: cover.working) {
+            switch cover.action {
+            case .connect:
+                Button("Connect", action: connect)
+                    .buttonStyle(.kodosi(.primary))
+                    .accessibilityIdentifier("terminal.connect")
+            case .reconnect:
+                Button("Try again", action: reconnect)
+                    .buttonStyle(.kodosi(.primary))
+                    .accessibilityIdentifier("terminal.unreachable.retry")
+            case .retry:
+                Button("Try again", action: retry)
+                    .buttonStyle(.kodosi(.primary))
+                    .accessibilityIdentifier("terminal.retry")
+            case nil:
+                EmptyView()
+            }
         }
         .background(theme.colors.terminal)
-        .accessibilityIdentifier("terminal.state.failed")
+        .accessibilityIdentifier(cover.identifier)
     }
 }
 

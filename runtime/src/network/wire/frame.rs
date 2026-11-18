@@ -17,7 +17,7 @@ use crate::{
 pub(crate) const FRAME_LIMIT: usize = 1024 * 1024;
 pub(crate) const KEYFRAME_PART: usize = 32 * 1024;
 pub(crate) const PIPE_PART: usize = 32 * 1024;
-pub(crate) const MOST_DIRECT_ADDRESSES: usize = 8;
+pub(crate) const MOST_DIRECT_ADDRESSES: usize = 16;
 #[cfg(feature = "host")]
 pub(crate) const OUTPUT_FRAME: usize = 32 * 1024;
 /// A picture part fills a frame of 32 KiB, as output does, so it needs no padding.
@@ -158,11 +158,10 @@ pub(crate) enum Frame {
     PipeClose {
         pipe: Uuid,
     },
-    DirectAsk {
-        pipe: Uuid,
+    PathOffer {
+        addresses: Vec<SocketAddr>,
     },
-    DirectOffer {
-        pipe: Uuid,
+    PathAnswer {
         addresses: Vec<SocketAddr>,
     },
 }
@@ -302,15 +301,8 @@ impl Frame {
                 (23, body)
             }
             Self::PipeClose { pipe } => (24, pipe.as_bytes().to_vec()),
-            Self::DirectAsk { pipe } => (25, pipe.as_bytes().to_vec()),
-            Self::DirectOffer { pipe, addresses } => {
-                if addresses.len() > MOST_DIRECT_ADDRESSES {
-                    return Err(invalid("Terminal control exceeds its bound."));
-                }
-                let mut body = pipe.as_bytes().to_vec();
-                body.extend_from_slice(&serde_json::to_vec(addresses)?);
-                (26, body)
-            }
+            Self::PathOffer { addresses } => (25, path_addresses(addresses)?),
+            Self::PathAnswer { addresses } => (26, path_addresses(addresses)?),
         };
         let length = padded(HEADER + body.len());
         if length > FRAME_LIMIT {
@@ -484,28 +476,30 @@ impl Frame {
                     pipe: pipe_id(body)?,
                 }
             }
-            25 => {
-                exact(body, 16)?;
-                Self::DirectAsk {
-                    pipe: pipe_id(body)?,
-                }
-            }
-            26 => {
-                if body.len() < 16 || body.len() > 16 + CONTROL_LIMIT {
-                    return Err(invalid("Direct offer frame is invalid."));
-                }
-                let addresses: Vec<SocketAddr> = serde_json::from_slice(&body[16..])?;
-                if addresses.len() > MOST_DIRECT_ADDRESSES {
-                    return Err(invalid("Direct offer frame is invalid."));
-                }
-                Self::DirectOffer {
-                    pipe: pipe_id(body)?,
-                    addresses,
-                }
-            }
+            25 => Self::PathOffer {
+                addresses: read_path_addresses(json(CONTROL_LIMIT)?)?,
+            },
+            26 => Self::PathAnswer {
+                addresses: read_path_addresses(json(CONTROL_LIMIT)?)?,
+            },
             _ => return Err(invalid("Unsupported terminal frame.")),
         })
     }
+}
+
+fn path_addresses(addresses: &[SocketAddr]) -> Result<Vec<u8>> {
+    if addresses.len() > MOST_DIRECT_ADDRESSES {
+        return Err(invalid("Terminal control exceeds its bound."));
+    }
+    Ok(serde_json::to_vec(addresses)?)
+}
+
+fn read_path_addresses(body: &[u8]) -> Result<Vec<SocketAddr>> {
+    let addresses: Vec<SocketAddr> = serde_json::from_slice(body)?;
+    if addresses.len() > MOST_DIRECT_ADDRESSES {
+        return Err(invalid("Direct path frame is invalid."));
+    }
+    Ok(addresses)
 }
 
 fn call_json(value: &Value, limit: usize) -> Result<Vec<u8>> {
@@ -749,28 +743,29 @@ mod tests {
     }
 
     #[test]
-    fn a_host_offers_a_short_list_of_addresses() {
-        let pipe = Uuid::now_v7();
-        let addresses: Vec<SocketAddr> = vec!["192.168.1.20:47360".parse().unwrap()];
-        let mut bytes = Frame::DirectAsk { pipe }.encode().unwrap();
+    fn a_path_offer_and_its_answer_carry_a_short_list_of_addresses() {
+        let addresses: Vec<SocketAddr> = vec![
+            "192.168.1.20:47360".parse().unwrap(),
+            "[2001:db8::7]:47360".parse().unwrap(),
+        ];
+        let mut bytes = Frame::PathOffer {
+            addresses: addresses.clone(),
+        }
+        .encode()
+        .unwrap();
         bytes.extend(
-            Frame::DirectOffer {
-                pipe,
-                addresses: addresses.clone(),
+            Frame::PathAnswer {
+                addresses: Vec::new(),
             }
             .encode()
             .unwrap(),
         );
-        let (asked, _) = Frame::take(&mut bytes).unwrap().unwrap();
-        assert!(matches!(asked, Frame::DirectAsk { pipe: read } if read == pipe));
         let (offered, _) = Frame::take(&mut bytes).unwrap().unwrap();
-        assert!(matches!(
-            offered,
-            Frame::DirectOffer { pipe: read, addresses: list } if read == pipe && list == addresses
-        ));
+        assert!(matches!(offered, Frame::PathOffer { addresses: list } if list == addresses));
+        let (answered, _) = Frame::take(&mut bytes).unwrap().unwrap();
+        assert!(matches!(answered, Frame::PathAnswer { addresses } if addresses.is_empty()));
         assert!(
-            Frame::DirectOffer {
-                pipe,
+            Frame::PathAnswer {
                 addresses: vec![addresses[0]; MOST_DIRECT_ADDRESSES + 1],
             }
             .encode()

@@ -24,10 +24,11 @@ struct ProjectsHome: View {
 
     var body: some View {
         let shown = shown
+        let placeholder = Placeholder(listed: projects.listed, empty: query.isEmpty && projects.entries.isEmpty && projects.invitations.isEmpty)
         List {
             invitationsSection
             projectsSection(shown)
-            placeholder
+            placeholderRow(placeholder)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -48,6 +49,7 @@ struct ProjectsHome: View {
         .pageSearch($query, prompt: Text("Find a project"))
         .refreshable { await projects.refreshList() }
         .task(id: projects.entries.map(\.id)) { await projects.prefetchDetails() }
+        .animation(theme.motion.fade, value: placeholder)
         .animation(theme.motion.spring, value: projects.entries.map(\.id))
         .animation(theme.motion.spring, value: projects.invitations.map(\.id))
         .sheet(isPresented: $showsNewProject, onDismiss: openCreated) {
@@ -141,13 +143,31 @@ struct ProjectsHome: View {
             .accessibilityIdentifier("projects.row.\(AccessibilityIdentifier.token(project.id))")
     }
 
+    private enum Placeholder: Equatable {
+        case loading, noProjects
+
+        init?(listed: Bool, empty: Bool) {
+            if !listed {
+                self = .loading
+            } else if empty {
+                self = .noProjects
+            } else {
+                return nil
+            }
+        }
+    }
+
     @ContentBuilder
-    private var placeholder: some View {
-        if !projects.listed {
+    private func placeholderRow(_ placeholder: Placeholder?) -> some View {
+        switch placeholder {
+        case .loading:
             ProjectListSkeleton()
                 .cardRow()
-        } else if query.isEmpty, projects.entries.isEmpty, projects.invitations.isEmpty {
-            EmptyState(title: "Make your first project", message: "A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.") {
+        case .noProjects:
+            EmptyState(
+                title: "Make your first project",
+                message: "A project gathers terminals from any folder and computer, with its tasks and repositories. Invite friends when you want.",
+            ) {
                 ProjectSigil(key: "kodosi", size: 64)
             } actions: {
                 Button { showsNewProject = true } label: { Label("New project", systemImage: "plus") }
@@ -156,6 +176,8 @@ struct ProjectsHome: View {
             }
             .frame(minHeight: 420)
             .cardRow()
+        case nil:
+            EmptyView()
         }
     }
 

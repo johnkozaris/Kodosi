@@ -86,6 +86,9 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let isOwner: Bool
     public let status: Status
     public let connectionState: Connection
+    /// This device's typing waits, and the connection to the other computer has not answered
+    /// for a while. The connection stays open, and the typing arrives in order once it answers.
+    public let stalled: Bool?
     public let message: String?
     public let projectId: String?
     public let projectName: String?
@@ -129,6 +132,12 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var canControl: Bool {
         isConnected && status == .running
+    }
+
+    /// An open terminal of another computer that reconnects, or whose typing waits for its
+    /// connection. Its screen stays, and typing goes on while its connection stalls.
+    public var waitsForConnection: Bool {
+        kind == .remote && isConnected && (status == .reconnecting || stalled == true)
     }
 
     public var hostOffline: Bool {

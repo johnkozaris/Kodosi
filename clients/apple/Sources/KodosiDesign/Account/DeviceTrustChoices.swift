@@ -45,21 +45,24 @@ public struct DeviceTrustChoices: View {
     }
 
     public var body: some View {
-        content
-            .animation(theme.motion.spring, value: trust)
-            .confirmationDialog(
-                Text("Start fresh on this \(device)?", bundle: .module), isPresented: $confirmingReset, titleVisibility: .visible,
-            ) {
-                Button(role: .destructive, action: actions.startFresh) { Text("Start fresh", bundle: .module) }
-                    .accessibilityIdentifier("deviceTrust.confirmReset")
-            } message: {
-                Text("""
-                Your other devices lose access until you approve them again from this \(device). \
-                Friends confirm your identity again, and you make your projects again. \
-                When your account has devices, this \(device) waits a day. \
-                If you have another device or a recovery key, cancel and use it: you keep your friends and projects.
-                """, bundle: .module)
-            }
+        ZStack {
+            content
+                .transition(.opacity)
+        }
+        .animation(theme.motion.fade, value: trust)
+        .confirmationDialog(
+            Text("Start fresh on this \(device)?", bundle: .module), isPresented: $confirmingReset, titleVisibility: .visible,
+        ) {
+            Button(role: .destructive, action: actions.startFresh) { Text("Start fresh", bundle: .module) }
+                .accessibilityIdentifier("deviceTrust.confirmReset")
+        } message: {
+            Text("""
+            Your other devices lose access until you approve them again from this \(device). \
+            Friends confirm your identity again, and you make your projects again. \
+            When your account has devices, this \(device) waits a day. \
+            If you have another device or a recovery key, cancel and use it: you keep your friends and projects.
+            """, bundle: .module)
+        }
     }
 
     @ContentBuilder
@@ -84,18 +87,20 @@ public struct DeviceTrustChoices: View {
                 }
                 .buttonStyle(.kodosi(actions.scan == nil ? .primary : .secondary, size: .large))
                 .accessibilityIdentifier("deviceTrust.request")
-                if enteringRecoveryKey {
-                    recoveryField
-                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                } else {
-                    Button {
-                        enteringRecoveryKey = true
-                        keyFocused = true
-                    } label: {
-                        Text("Use my recovery key", bundle: .module).frame(maxWidth: .infinity)
+                ZStack {
+                    if enteringRecoveryKey {
+                        recoveryField
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    } else {
+                        Button {
+                            enteringRecoveryKey = true
+                            keyFocused = true
+                        } label: {
+                            Text("Use my recovery key", bundle: .module).frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.kodosi(.secondary, size: .large))
+                        .accessibilityIdentifier("deviceTrust.useRecoveryKey")
                     }
-                    .buttonStyle(.kodosi(.secondary, size: .large))
-                    .accessibilityIdentifier("deviceTrust.useRecoveryKey")
                 }
                 Button { confirmingReset = true } label: { Text("I have no other device", bundle: .module) }
                     .buttonStyle(.kodosi(.ghost))

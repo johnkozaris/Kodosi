@@ -57,6 +57,11 @@ each field carries its length.
   and uses that pair until it has its own keys in every project.
 - **Terminal channels.** A terminal channel is TLS 1.3 from viewer to host through the
   backend, with ML-DSA-65 raw public keys, X25519MLKEM768 and TLS_AES_256_GCM_SHA384.
+  Between two devices of one person that reach each other, its records go on a QUIC
+  connection of the two devices instead, whose TLS 1.3 uses the same keys and algorithms,
+  and the host takes that connection only from a device whose channel waits for it. The
+  records keep one sequence on the relay and on QUIC, so a move between the two needs no
+  new handshake.
   Traffic keys change after 2^24 frames or an hour, and resumption makes a new key
   exchange. The viewer accepts only the host device's approved key. The host admits only
   verified, non-recovery devices of accounts that may use the terminal, and checks again

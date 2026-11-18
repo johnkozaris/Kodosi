@@ -248,6 +248,11 @@ private struct TerminalScreenContent: View {
             .terminalTile()
             .overlay(alignment: .top) {
                 VStack(spacing: 8) {
+                    if waitsForConnection(session) {
+                        ReconnectingNotice()
+                            .transition(.opacity.combined(with: .offset(y: -8)))
+                            .allowsHitTesting(false)
+                    }
                     if let note = controller.sizeNote, session?.isConnected == true {
                         TerminalSizeNote(note: note, resize: controller.resizeHere)
                             .transition(.move(edge: .top).combined(with: .opacity))
@@ -273,47 +278,55 @@ private struct TerminalScreenContent: View {
             }
             .terminalScope()
             .animation(theme.motion.soft, value: liveKey)
+            .animation(theme.motion.spring, value: waitsForConnection(session))
             .animation(theme.motion.soft, value: controller.sizeNote)
             .animation(theme.motion.spring, value: controller.picture == nil)
             .animation(theme.motion.spring, value: arrival)
     }
 
+    private func waitsForConnection(_ session: RuntimeSession?) -> Bool {
+        session?.waitsForConnection == true && controller.renderState == .rendered
+    }
+
     @ContentBuilder
     private func stageContent(_ session: RuntimeSession?) -> some View {
         if let session {
-            if session.isConnected, let surface = controller.surface {
-                TerminalRowsFrame(renderer: surface.renderer) {
-                    TerminalRendererView(
-                        session: surface.renderer,
-                        sessionName: session.name,
-                        accessibilityIdentifier: "terminal.surface",
-                        shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType && keyboardAllowed,
-                        allowsFocus: keyboardAllowed,
-                        allowsInput: controller.canType,
-                        asksBeforeClipboardRead: !session.isOwner,
-                        otherComputer: session.otherComputer,
-                        isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
-                        onFocusChange: { focused in
-                            keyboard.terminalFocused(focused, allowed: keyboardAllowed)
-                            if focused {
-                                controller.focusTerminal()
-                            }
-                        },
-                    )
+            let surface = session.isConnected ? controller.surface : nil
+            let cover = TerminalCover.of(session, unreachable: model.unreachable(session), opening: controller.opening,
+                                         failure: controller.openFailure, render: surface.map { _ in controller.renderState })
+            ZStack {
+                if let surface {
+                    TerminalRowsFrame(renderer: surface.renderer) {
+                        TerminalRendererView(
+                            session: surface.renderer,
+                            sessionName: session.name,
+                            accessibilityIdentifier: "terminal.surface",
+                            shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType && keyboardAllowed,
+                            allowsFocus: keyboardAllowed,
+                            allowsInput: controller.canType,
+                            asksBeforeClipboardRead: !session.isOwner,
+                            otherComputer: session.otherComputer,
+                            isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
+                            onFocusChange: { focused in
+                                keyboard.terminalFocused(focused, allowed: keyboardAllowed)
+                                if focused {
+                                    controller.focusTerminal()
+                                }
+                            },
+                        )
+                    }
+                    .onDisappear { keyboard.terminalGone() }
+                    .padding(5)
+                    .id(surface.token.subscriptionId)
+                    .transition(.identity)
                 }
-                .onDisappear { keyboard.terminalGone() }
-                .padding(5)
-                .overlay {
-                    TerminalRenderOverlay(state: controller.renderState, retry: controller.retry)
+                if let cover {
+                    TerminalCoverCard(cover: cover, connect: controller.open, reconnect: model.account.retryConnection, retry: controller.retry)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
+                        .transition(.opacity)
                 }
-                .id(surface.token.subscriptionId)
-            } else {
-                TerminalSessionState(
-                    session: session, unreachable: model.unreachable(session), opening: controller.opening, failure: controller.openFailure,
-                    connect: controller.open, reconnect: model.account.retryConnection,
-                )
             }
+            .animation(theme.motion.fade, value: cover)
         } else {
             TerminalEnded { dismiss() }
         }

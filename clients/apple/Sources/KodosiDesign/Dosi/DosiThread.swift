@@ -169,9 +169,13 @@ public struct DosiThread: View {
                 following = true
             }
             .overlay {
-                if items.isEmpty {
-                    DosiWelcome(listening: listening)
+                let welcome = items.isEmpty && place.dosi.snapshot != nil
+                ZStack {
+                    if welcome {
+                        DosiWelcome(listening: listening).transition(.opacity)
+                    }
                 }
+                .animation(theme.motion.fade, value: welcome)
             }
             .overlay(alignment: .bottom) {
                 ZStack {

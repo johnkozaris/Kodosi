@@ -45,7 +45,7 @@ struct RootView: View {
                 MainTabView().transition(.opacity)
             }
         }
-        .animation(theme.motion.soft, value: screen)
+        .animation(theme.motion.fade, value: screen)
         .overlay(alignment: .top) {
             if screen == .main || screen == .onboarding, model.updateRequired, !model.updateNoticeDismissed {
                 NoticePill(message: String(localized: "Update Kodosi to connect."), identifier: "notice.update",

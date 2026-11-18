@@ -1,6 +1,16 @@
 package com.kodosi.mobile.terminals
 
 import android.content.res.Configuration
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -65,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
 import com.kodosi.mobile.canvas.readPickedFile
@@ -76,6 +88,7 @@ import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ConfirmDialog
+import com.kodosi.mobile.ui.Elevation
 import com.kodosi.mobile.ui.FileIcon
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiMenu
@@ -91,7 +104,9 @@ import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.TextEntryDialog
 import com.kodosi.mobile.ui.bezel
+import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
+import com.kodosi.mobile.ui.snappy
 import com.kodosi.mobile.ui.terminalTile
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -108,6 +123,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     val connection = remember(sessionId) { model.connection(sessionId, scope) } ?: return
     val catalog by model.terminals.state.collectAsStateWithLifecycle()
     val state by connection.state.collectAsStateWithLifecycle()
+    val openResults by model.terminals.openResults.collectAsStateWithLifecycle()
     val session = catalog.sessions.firstOrNull { it.id == sessionId }
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var control by remember { mutableStateOf(false) }
@@ -228,21 +244,29 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                 modifier = Modifier.fillMaxSize().padding(8.dp)
             )
             KodosiTheme(dark = true) {
-                when {
-                    session == null -> StateCard(stringResource(R.string.terminal_ended), null, working = false) {
+                if (session == null) {
+                    StateCard(stringResource(R.string.terminal_ended), null, working = false) {
                         KodosiButton(
                             stringResource(R.string.back_to_terminals),
                             onClick = back,
                             kind = ButtonKind.SECONDARY
                         )
                     }
-
-                    !session.isConnected -> SessionState(session, online, connection, model.account::retryConnection)
-
-                    session.unreachable(online) && state !is TerminalConnection.State.Closed -> Unit
-
-                    else -> RenderState(state, connection)
+                } else {
+                    val cover = coverOf(session, online, state, openResults[sessionId])
+                    // The app lets a terminal go as soon as its screen starts to leave; the card stays as it was.
+                    val leaving = LocalNavAnimatedContentScope.current.transition.targetState == EnterExitState.PostExit
+                    val kept = remember(leaving) { cover }
+                    CoverLayer(
+                        if (leaving) kept else cover,
+                        connect = connection::retry,
+                        reconnect = model.account::retryConnection
+                    )
                 }
+                ReconnectingNotice(
+                    session?.waitsForConnection == true && state == TerminalConnection.State.Rendered,
+                    Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                )
                 clipboardAnswer?.let { answer ->
                     ConfirmDialog(
                         session?.name.orEmpty(),
@@ -462,6 +486,12 @@ private fun TerminalActions(
     }
 }
 
+private sealed interface HeaderLine {
+    data class Caption(val words: String, val color: Color) : HeaderLine
+
+    data class Place(val host: String, val folder: String?) : HeaderLine
+}
+
 @Composable
 private fun Header(
     session: RuntimeSession?,
@@ -496,46 +526,74 @@ private fun Header(
                 verticalArrangement = Arrangement.Center
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        session.name,
-                        style = KodosiType.headline,
-                        color = colors.ink,
-                        modifier = Modifier.weight(1f, fill = false),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    session.sign()?.let {
-                        Spacer(Modifier.width(6.dp))
-                        StatusSign(it, 13.dp)
+                    Crossfade(session.name, Modifier.weight(1f, fill = false), fade(), label = "name") { name ->
+                        Text(
+                            name,
+                            style = KodosiType.headline,
+                            color = colors.ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    val fading = fade<Float>()
+                    val pop = snappy<Float>()
+                    AnimatedContent(
+                        session.sign(),
+                        transitionSpec = {
+                            (fadeIn(fading) + scaleIn(pop, initialScale = 0.6f)) togetherWith
+                                (fadeOut(fading) + scaleOut(pop, targetScale = 0.6f)) using SizeTransform(clip = false)
+                        },
+                        contentKey = { it != null },
+                        label = "sign"
+                    ) { sign ->
+                        if (sign != null) {
+                            Row {
+                                Spacer(Modifier.width(6.dp))
+                                StatusSign(sign, 13.dp)
+                            }
+                        }
                     }
                 }
-                if (session.unreachable(online)) {
-                    TerminalCaption(session, online)
+                val line = if (session.unreachable(online)) {
+                    captionOf(session, online).let { (words, color) -> HeaderLine.Caption(words, color) }
                 } else {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AppIcon(AppSymbol.COMPUTER, Modifier.size(10.dp), tint = colors.inkFaint)
-                        Text(
-                            session.hostName ?: stringResource(R.string.remote_computer),
-                            style = KodosiType.caption,
-                            color = colors.inkFaint,
+                    HeaderLine.Place(session.hostName ?: stringResource(R.string.remote_computer), session.folderName)
+                }
+                Crossfade(line, animationSpec = fade(), label = "line") { shown ->
+                    when (shown) {
+                        is HeaderLine.Caption -> Text(
+                            shown.words,
+                            style = KodosiType.footnote,
+                            color = shown.color,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            overflow = TextOverflow.Ellipsis
                         )
-                        session.folderName?.let {
-                            AppIcon(AppSymbol.FORWARD, Modifier.size(7.dp), tint = colors.inkFaint)
-                            AppIcon(AppSymbol.FOLDER, Modifier.size(10.dp))
+
+                        is HeaderLine.Place -> Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppIcon(AppSymbol.COMPUTER, Modifier.size(10.dp), tint = colors.inkFaint)
                             Text(
-                                it,
+                                shown.host,
                                 style = KodosiType.caption,
-                                color = colors.inkMuted,
+                                color = colors.inkFaint,
                                 maxLines = 1,
-                                overflow = TextOverflow.MiddleEllipsis,
+                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false)
                             )
+                            shown.folder?.let {
+                                AppIcon(AppSymbol.FORWARD, Modifier.size(7.dp), tint = colors.inkFaint)
+                                AppIcon(AppSymbol.FOLDER, Modifier.size(10.dp))
+                                Text(
+                                    it,
+                                    style = KodosiType.caption,
+                                    color = colors.inkMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.MiddleEllipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                            }
                         }
                     }
                 }
@@ -547,62 +605,114 @@ private fun Header(
     }
 }
 
+/** What takes the terminal's place until it draws. It is one card that changes in place. */
+private data class TerminalCover(
+    val title: String,
+    val message: String?,
+    val working: Boolean,
+    val action: CoverAction?
+)
+
+private enum class CoverAction { CONNECT, RECONNECT, RETRY }
+
+/** Until the request to open the terminal is answered, an offline terminal without a message is still opening. */
 @Composable
-private fun SessionState(
+private fun coverOf(
     session: RuntimeSession,
     online: Boolean,
-    connection: TerminalConnection,
-    retryConnection: () -> Unit
-) {
-    when {
-        session.connectionState == RuntimeSession.Connection.BLOCKED -> StateCard(
-            statusLabel(session),
-            session.message,
-            working = false
-        )
+    state: TerminalConnection.State,
+    opened: OpenResult?
+): TerminalCover? {
+    val connecting = TerminalCover(stringResource(R.string.connecting), null, working = true, action = null)
+    val unavailable = stringResource(R.string.terminal_not_available)
+    return when {
+        !session.isConnected -> when {
+            session.connectionState == RuntimeSession.Connection.BLOCKED ->
+                TerminalCover(statusLabel(session), session.message, working = false, action = null)
 
-        session.unreachable(online) -> StateCard(
-            stringResource(R.string.offline),
-            stringResource(R.string.terminal_opens_when_connection_back),
-            working = false
-        ) { KodosiButton(stringResource(R.string.try_again), onClick = retryConnection) }
+            session.unreachable(online) -> TerminalCover(
+                stringResource(R.string.offline),
+                stringResource(R.string.terminal_opens_when_connection_back),
+                working = false,
+                action = CoverAction.RECONNECT
+            )
 
-        session.status == RuntimeSession.Status.OFFLINE ->
-            StateCard(statusLabel(session), stringResource(R.string.terminal_opens_when_back), working = false)
+            session.status == RuntimeSession.Status.OFFLINE ->
+                TerminalCover(statusLabel(session), stringResource(R.string.terminal_opens_when_back), false, null)
 
-        session.connectionState == RuntimeSession.Connection.OFFLINE -> StateCard(
-            statusLabel(session),
-            session.message,
-            working = false
-        ) {
-            if (session.canOpen) KodosiButton(stringResource(R.string.connect), onClick = connection::retry)
+            session.connectionState == RuntimeSession.Connection.OFFLINE &&
+                (opened != null || session.message != null || !session.canOpen) -> TerminalCover(
+                statusLabel(session),
+                opened?.failure ?: session.message,
+                working = false,
+                action = if (session.canOpen) CoverAction.CONNECT else null
+            )
+
+            else -> connecting
         }
 
-        else -> StateCard(stringResource(R.string.connecting), null, working = true)
+        session.unreachable(online) && state !is TerminalConnection.State.Closed -> null
+
+        else -> when (state) {
+            TerminalConnection.State.Rendered -> null
+
+            TerminalConnection.State.Connecting -> connecting
+
+            is TerminalConnection.State.Closed ->
+                TerminalCover(
+                    unavailable,
+                    state.reason ?: stringResource(R.string.terminal_closed),
+                    false,
+                    CoverAction.RETRY
+                )
+
+            is TerminalConnection.State.Failed -> TerminalCover(unavailable, state.message, false, CoverAction.RETRY)
+        }
     }
 }
 
 @Composable
-private fun RenderState(state: TerminalConnection.State, connection: TerminalConnection) {
-    when (state) {
-        TerminalConnection.State.Rendered -> Unit
-
-        TerminalConnection.State.Connecting -> StateCard(stringResource(R.string.connecting), null, working = true)
-
-        is TerminalConnection.State.Closed -> StateCard(
-            stringResource(R.string.terminal_not_available),
-            state.reason ?: stringResource(R.string.terminal_closed),
-            working = false
-        ) { KodosiButton(stringResource(R.string.try_again), onClick = connection::retry) }
-
-        is TerminalConnection.State.Failed -> StateCard(
-            stringResource(R.string.terminal_not_available),
-            state.message,
-            working = false
-        ) {
-            KodosiButton(stringResource(R.string.try_again), onClick = connection::retry)
+private fun CoverLayer(cover: TerminalCover?, connect: () -> Unit, reconnect: () -> Unit) {
+    val fading = fade<Float>()
+    AnimatedContent(
+        cover,
+        Modifier.fillMaxSize(),
+        transitionSpec = { (fadeIn(fading) togetherWith fadeOut(fading)).using(null) },
+        label = "cover"
+    ) { shown ->
+        if (shown != null) {
+            StateCard(shown.title, shown.message, shown.working) {
+                when (shown.action) {
+                    CoverAction.CONNECT -> KodosiButton(stringResource(R.string.connect), onClick = connect)
+                    CoverAction.RECONNECT -> KodosiButton(stringResource(R.string.try_again), onClick = reconnect)
+                    CoverAction.RETRY -> KodosiButton(stringResource(R.string.try_again), onClick = connect)
+                    null -> Unit
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier) {
+    val colors = KodosiTheme.colors
+    val presence by animateFloatAsState(
+        if (shown) 1f else 0f,
+        snappy(),
+        label = "reconnecting"
+    )
+    if (presence <= 0f) return
+    ProgressCaption(
+        stringResource(R.string.reconnecting),
+        modifier
+            .graphicsLayer {
+                alpha = presence.coerceIn(0f, 1f)
+                translationY = (presence - 1f) * 8.dp.toPx()
+            }
+            .raised(colors, RoundedCornerShape(percent = 50), fill = colors.lifted, elevation = Elevation.FLOATING)
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite }
+    )
 }
 
 @Composable

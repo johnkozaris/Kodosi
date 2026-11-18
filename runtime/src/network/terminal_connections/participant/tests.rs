@@ -1,5 +1,5 @@
 use super::{
-    super::channel::tests::{Pipe, channel_keys, pair, stand_in_snapshot},
+    super::channel::tests::{Pipe, pair, stand_in_snapshot},
     *,
 };
 use crate::{identity::keys::DeviceKeys, terminal::Checkpoint};
@@ -8,6 +8,7 @@ struct View {
     host: Channel<Pipe>,
     commands: mpsc::Sender<RemoteRequest>,
     updates: mpsc::Receiver<RemoteUpdate>,
+    late: watch::Sender<bool>,
     ended: tokio::task::JoinHandle<(Result<()>, Text)>,
 }
 
@@ -16,20 +17,17 @@ async fn view() -> View {
         DeviceKeys::generate().unwrap(),
         DeviceKeys::generate().unwrap(),
     );
-    let straight = Arc::new(direct::Host::new(
-        Arc::new(channel_keys(&viewer)),
-        "host-device".to_owned(),
-        host.signing_public().to_vec(),
-    ));
     let (channel, host) = pair(&host, &viewer).await;
     let (commands, requests) = mpsc::channel(128);
     let (updates_tx, updates) = mpsc::channel(128);
+    let (late, lateness) = watch::channel(false);
     let ended = tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, requests, updates_tx, straight);
-        let mut deadlines = tokio::time::interval(Duration::from_millis(250));
+        let mut viewer = Viewer::new(channel, requests, updates_tx, Finder::relay(), lateness);
+        let timer = tokio::time::sleep_until(tokio::time::Instant::now());
+        tokio::pin!(timer);
         let mut trust = tokio::time::interval(Duration::from_hours(1));
         loop {
-            if let Err(error) = viewer.step(&mut deadlines, &mut trust).await {
+            if let Err(error) = viewer.step(timer.as_mut(), &mut trust).await {
                 viewer.settle(&error);
                 let reason = viewer.unconfirmed(Text::plain("Lost."));
                 return (Err(error), reason);
@@ -40,6 +38,7 @@ async fn view() -> View {
         host,
         commands,
         updates,
+        late,
         ended,
     }
 }
@@ -171,15 +170,16 @@ async fn a_view_refuses_a_snapshot_that_does_not_end() {
         DeviceKeys::generate().unwrap(),
         DeviceKeys::generate().unwrap(),
     );
-    let straight = Arc::new(direct::Host::new(
-        Arc::new(channel_keys(&viewer)),
-        "host-device".to_owned(),
-        host.signing_public().to_vec(),
-    ));
     let (channel, _host) = pair(&host, &viewer).await;
     let (_commands, requests) = mpsc::channel(1);
     let (updates, _updates) = mpsc::channel(1);
-    let mut viewer = Viewer::new(channel, requests, updates, straight);
+    let mut viewer = Viewer::new(
+        channel,
+        requests,
+        updates,
+        Finder::relay(),
+        watch::channel(false).1,
+    );
     viewer.snapshot_sequence = Some(1);
     viewer.snapshot = vec![0; wire::PACKED_SNAPSHOT_LIMIT - wire::KEYFRAME_PART / 2];
     let part = Frame::Keyframe {
@@ -245,6 +245,104 @@ async fn input_goes_at_once_in_order_and_waits_only_when_too_much_is_not_confirm
             .unwrap()
             .is_ok()
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn typing_stalls_the_view_only_while_its_connection_does_not_answer() {
+    let mut view = view().await;
+    view.keyframe(0, 200).await;
+    view.updates.recv().await.unwrap();
+    assert!(matches!(view.sent_by_view().await, Frame::Ack { .. }));
+    view.input(b"ls").await.unwrap();
+    assert!(matches!(
+        view.sent_by_view().await,
+        Frame::Input { offset: 0, .. }
+    ));
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    assert!(view.updates.try_recv().is_err());
+
+    view.late.send(true).unwrap();
+    assert!(matches!(
+        view.updates.recv().await,
+        Some(RemoteUpdate::Stalled(true))
+    ));
+    view.late.send(false).unwrap();
+    assert!(matches!(
+        view.updates.recv().await,
+        Some(RemoteUpdate::Stalled(false))
+    ));
+    view.late.send(true).unwrap();
+    assert!(matches!(
+        view.updates.recv().await,
+        Some(RemoteUpdate::Stalled(true))
+    ));
+    view.host
+        .send(&Frame::InputAck { offset: 2 })
+        .await
+        .unwrap();
+    assert!(matches!(
+        view.updates.recv().await,
+        Some(RemoteUpdate::Stalled(false))
+    ));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_control_without_an_answer_fails_in_time_and_a_silent_host_ends_the_view() {
+    let mut view = view().await;
+    view.keyframe(0, 200).await;
+    view.updates.recv().await.unwrap();
+    let started = tokio::time::Instant::now();
+    let (reply, answer) = oneshot::channel();
+    view.commands
+        .send(RemoteRequest::Control {
+            control: TerminalControl::Interrupt,
+            reply,
+        })
+        .await
+        .unwrap();
+    assert!(answer.await.unwrap().is_err());
+    assert_eq!(started.elapsed().as_secs(), CONTROL_TIMEOUT.as_secs());
+    let (result, _) = view.ended.await.unwrap();
+    assert!(result.is_err());
+    assert_eq!(started.elapsed().as_secs(), CHANNEL_SILENCE.as_secs());
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_control_that_waits_stalls_the_view_while_its_connection_does_not_answer() {
+    let mut view = view().await;
+    view.keyframe(0, 200).await;
+    view.updates.recv().await.unwrap();
+    let (reply, _answer) = oneshot::channel();
+    view.commands
+        .send(RemoteRequest::Control {
+            control: TerminalControl::Focus { focused: true },
+            reply,
+        })
+        .await
+        .unwrap();
+    let request_id = loop {
+        if let Frame::Control { request_id, .. } = view.sent_by_view().await {
+            break request_id;
+        }
+    };
+
+    view.late.send(true).unwrap();
+    assert!(matches!(
+        view.updates.recv().await,
+        Some(RemoteUpdate::Stalled(true))
+    ));
+    view.host
+        .send(&Frame::ControlResult(ControlResult {
+            request_id,
+            accepted: true,
+            message: None,
+        }))
+        .await
+        .unwrap();
+    assert!(matches!(
+        view.updates.recv().await,
+        Some(RemoteUpdate::Stalled(false))
+    ));
 }
 
 #[tokio::test]

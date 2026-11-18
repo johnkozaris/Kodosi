@@ -2,8 +2,6 @@ package com.kodosi.mobile.ui
 
 import androidx.compose.animation.animateBounds
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -35,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 
 data class DockItem(val title: String, val symbol: AppSymbol, val count: Int = 0)
@@ -43,14 +43,7 @@ data class DockItem(val title: String, val symbol: AppSymbol, val count: Int = 0
 fun SectionDock(items: List<DockItem>, selection: Int, select: (Int) -> Unit) {
     val colors = KodosiTheme.colors
     val haptics = LocalHapticFeedback.current
-    val motion = if (reducedMotion()) {
-        snap()
-    } else {
-        spring<androidx.compose.ui.unit.IntSize>(
-            dampingRatio = 0.8f,
-            stiffness = 620f
-        )
-    }
+    val motion = snappy<IntSize>()
     Box(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
@@ -162,6 +155,7 @@ fun SegmentedPill(options: List<SegmentOption>, selection: Int, select: (Int) ->
 private fun PillTrack(faceHeight: Dp = 34.dp, content: @Composable RowScope.(@Composable (Modifier) -> Unit) -> Unit) {
     val colors = KodosiTheme.colors
     val reduced = reducedMotion()
+    val moving = snappy<Rect>()
     LookaheadScope {
         val scope = this
         val thumb = remember(colors) {
@@ -185,7 +179,7 @@ private fun PillTrack(faceHeight: Dp = 34.dp, content: @Composable RowScope.(@Co
                         } else {
                             face.animateBounds(
                                 scope,
-                                boundsTransform = { _, _ -> spring(dampingRatio = 0.8f, stiffness = 620f) }
+                                boundsTransform = { _, _ -> moving }
                             )
                         }
                     )

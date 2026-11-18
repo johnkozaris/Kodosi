@@ -8850,6 +8850,9 @@
                   },
                   "type": "array"
                 },
+                "stalled": {
+                  "type": "boolean"
+                },
                 "status": {
                   "oneOf": [
                     {

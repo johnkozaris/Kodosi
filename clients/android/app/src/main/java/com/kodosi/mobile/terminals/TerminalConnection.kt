@@ -2,7 +2,6 @@ package com.kodosi.mobile.terminals
 
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.Ffi
-import com.kodosi.mobile.runtime.RuntimeFailure
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.TerminalLink
 import com.kodosi.mobile.runtime.TerminalRuntime
@@ -162,11 +161,7 @@ class TerminalConnection(
         val session = store.session(sessionId)
         if (session == null || !session.canOpen) return
         opening = scope.launch {
-            try {
-                store.open(sessionId)
-            } catch (failure: RuntimeFailure) {
-                state.value = State.Failed(failure.message.orEmpty())
-            }
+            store.open(sessionId).failure?.let { state.value = State.Failed(it) }
             opening = null
         }
     }

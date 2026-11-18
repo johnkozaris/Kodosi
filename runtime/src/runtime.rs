@@ -3334,6 +3334,14 @@ impl Runtime {
             .is_some_and(|connection| !connection.is_closed() && !connection.is_interrupted())
     }
 
+    fn stalls(&self, id: Uuid) -> bool {
+        self.streams(id)
+            && self
+                .connections
+                .get(&id)
+                .is_some_and(RemoteTerminal::is_stalled)
+    }
+
     fn keeps_screen(&self, id: Uuid) -> bool {
         self.connections
             .get(&id)
@@ -3422,6 +3430,7 @@ impl Runtime {
             is_owner,
             status: self.remote_status(remote.id, remote.online),
             connection_state,
+            stalled: self.stalls(remote.id),
             hidden: remote.hidden && !remote.online,
             message: self
                 .remotes
@@ -3679,6 +3688,22 @@ impl Runtime {
                 incarnation,
                 instance_id,
             } => self.remote_paused(id, incarnation, instance_id),
+            SessionChange::RemoteStalled {
+                id,
+                incarnation,
+                instance_id,
+            } => {
+                let stalled = self.stalls(id);
+                if self.current(id, incarnation, instance_id)
+                    && let Some(entry) = self
+                        .remotes
+                        .get_mut(&id)
+                        .filter(|entry| entry.stalled != stalled)
+                {
+                    entry.stalled = stalled;
+                    self.publish_catalog();
+                }
+            }
             SessionChange::RemoteWanted {
                 id,
                 incarnation,

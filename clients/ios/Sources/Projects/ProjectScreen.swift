@@ -20,13 +20,10 @@ struct ProjectScreen: View {
         sizeClass == .regular && width >= 720
     }
 
-    private var present: Bool {
-        projects.project(projectId) != nil && !(projects.departed.contains(projectId) && !leaving)
-    }
-
     var body: some View {
         @Bindable var screen = model.projectScreen(projectId)
-        content(screen)
+        let kind = contentKind(screen)
+        content(kind, screen: screen)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(wide || screen.section != .conversation ? theme.colors.surface : theme.colors.sheet)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
@@ -35,7 +32,7 @@ struct ProjectScreen: View {
             .toolbar { toolbar(screen) }
             .toolbarVisibility(wide ? .automatic : .hidden, for: .tabBar)
             .safeAreaBar(edge: .top) {
-                if present, !wide {
+                if !wide, kind != .departed {
                     dock(sections: [.conversation, .tasks, .terminals], selection: screen.section) { screen.section = $0 }
                         .background(screen.section == .conversation ? theme.colors.sheet : theme.colors.surface)
                 }
@@ -55,25 +52,60 @@ struct ProjectScreen: View {
             .sensoryFeedback(.selection, trigger: screen.shownSection) { _, _ in wide }
     }
 
-    @ContentBuilder
-    private func content(_ screen: ProjectScreenState) -> some View {
+    private enum ContentKind: Equatable {
+        case leaving, departed, failed(String), loading, sections
+    }
+
+    /// The sections that draw from the project's snapshot wait for it here, so that a project opens
+    /// in one change rather than one skeleton after another.
+    private func contentKind(_ screen: ProjectScreenState) -> ContentKind {
         if leaving {
-            Color.clear
-        } else if projects.departed.contains(projectId) {
-            EmptyState(title: "You are no longer in this project", message: "It ended, or someone removed you.") {
-                ProjectSigil(key: projectId, size: 56)
-            } actions: {
-                Button("Back to projects") { dismiss() }
-                    .buttonStyle(.kodosi(.primary))
-                    .accessibilityIdentifier("projects.departed.back")
-            }
-        } else if projects.project(projectId) == nil {
-            if let failure = projects.detailFailures[projectId] {
+            return .leaving
+        }
+        if projects.departed.contains(projectId) {
+            return .departed
+        }
+        if projects.project(projectId) == nil {
+            return projects.detailFailures[projectId].map(ContentKind.failed) ?? .loading
+        }
+        let drawsSnapshot = wide || screen.section != .terminals
+        if drawsSnapshot, projects.snapshots[projectId] == nil, projects.view(projectId).readFailure == nil {
+            return .loading
+        }
+        return .sections
+    }
+
+    private func content(_ kind: ContentKind, screen: ProjectScreenState) -> some View {
+        ZStack {
+            switch kind {
+            case .leaving:
+                Color.clear
+            case .departed:
+                EmptyState(title: "You are no longer in this project", message: "It ended, or someone removed you.") {
+                    ProjectSigil(key: projectId, size: 56)
+                } actions: {
+                    Button("Back to projects") { dismiss() }
+                        .buttonStyle(.kodosi(.primary))
+                        .accessibilityIdentifier("projects.departed.back")
+                }
+                .transition(.opacity)
+            case let .failed(failure):
                 ProjectRecovery(message: failure) { Task { await projects.open(projectId) } }
-            } else {
+                    .transition(.opacity)
+            case .loading:
                 ProjectSkeleton()
+                    .transition(.opacity)
+            case .sections:
+                sections(screen)
+                    .transition(.opacity)
             }
-        } else if wide {
+        }
+        .animation(theme.motion.fade, value: kind)
+    }
+
+    @ContentBuilder
+    private func sections(_ screen: ProjectScreenState) -> some View {
+        if wide {
             HStack(alignment: .top, spacing: 12) {
                 VStack(spacing: 0) {
                     dock(sections: [.terminals, .tasks], selection: screen.shownSection) { screen.shownSection = $0 }
@@ -93,15 +125,17 @@ struct ProjectScreen: View {
     }
 
     private func section(_ section: ProjectSection) -> some View {
-        Group {
-            switch section {
-            case .conversation: ProjectConversation(projectId: projectId)
-            case .tasks: ProjectTasks(projectId: projectId)
-            case .terminals: ProjectTerminals(projectId: projectId)
+        ZStack {
+            Group {
+                switch section {
+                case .conversation: ProjectConversation(projectId: projectId)
+                case .tasks: ProjectTasks(projectId: projectId)
+                case .terminals: ProjectTerminals(projectId: projectId)
+                }
             }
+            .id(section)
+            .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)), removal: .identity))
         }
-        .id(section)
-        .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: theme.motion.reduced ? 0 : 6)), removal: .identity))
         .animation(theme.motion.snappy, value: section)
     }
 

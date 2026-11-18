@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -60,7 +61,9 @@ import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
 import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.StatusSign
+import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
+import com.kodosi.mobile.ui.snappy
 
 @Composable
 fun TerminalsScreen(
@@ -106,7 +109,8 @@ fun TerminalsScreen(
                         { start(NewTerminalRequest(computer = group.place.id)) }
                     } else {
                         null
-                    }
+                    },
+                    Modifier.animateItem(fade(), snappy(), fade())
                 )
             }
             val hosts = group.sessions.groupBy { it.hostDeviceId }
@@ -117,7 +121,7 @@ fun TerminalsScreen(
                             terminals.first().hostName.orEmpty(),
                             style = KodosiType.footnote,
                             color = colors.inkMuted,
-                            modifier = Modifier.padding(top = 12.dp)
+                            modifier = Modifier.animateItem(fade(), snappy(), fade()).padding(top = 12.dp)
                         )
                     }
                 }
@@ -126,14 +130,15 @@ fun TerminalsScreen(
                     if (folder != null) {
                         item(key = "folder-$key") {
                             Row(
-                                Modifier.fillMaxWidth().heightIn(min = 48.dp).combinedClickable(
-                                    onClick = { folded = if (key in folded) folded - key else folded + key },
-                                    onLongClick = if (own && host in onlineHosts) {
-                                        { start(NewTerminalRequest(host, folder)) }
-                                    } else {
-                                        null
-                                    }
-                                ),
+                                Modifier.animateItem(fade(), snappy(), fade()).fillMaxWidth().heightIn(min = 48.dp)
+                                    .combinedClickable(
+                                        onClick = { folded = if (key in folded) folded - key else folded + key },
+                                        onLongClick = if (own && host in onlineHosts) {
+                                            { start(NewTerminalRequest(host, folder)) }
+                                        } else {
+                                            null
+                                        }
+                                    ),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
@@ -156,7 +161,7 @@ fun TerminalsScreen(
                         items(entries, key = { it.id }) { session ->
                             TerminalCard(session, online, summaryFirst = summaryFirst, onClick = {
                                 open(session.id)
-                            }, modifier = Modifier.padding(vertical = 5.dp))
+                            }, modifier = Modifier.animateItem(fade(), snappy(), fade()).padding(vertical = 5.dp))
                         }
                     }
                 }
@@ -201,11 +206,11 @@ private fun SearchField(query: TextFieldState) {
 }
 
 @Composable
-private fun GroupHeader(group: TerminalGroup, start: (() -> Unit)?) {
+private fun GroupHeader(group: TerminalGroup, start: (() -> Unit)?, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp).semantics(mergeDescendants = true) {
+        modifier = modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp).semantics(mergeDescendants = true) {
             heading()
         }
     ) {
@@ -296,8 +301,14 @@ internal fun RuntimeSession.cardLines(online: Boolean, summaryFirst: Boolean): P
 
 @Composable
 fun TerminalCaption(session: RuntimeSession, online: Boolean, detail: String? = session.activity) {
+    val (words, color) = captionOf(session, online, detail)
+    Text(words, style = KodosiType.footnote, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+@Composable
+fun captionOf(session: RuntimeSession, online: Boolean, detail: String? = session.activity): Pair<String, Color> {
     val colors = KodosiTheme.colors
-    val (words, color) = when (session.captionState(online)) {
+    return when (session.captionState(online)) {
         CaptionState.OFFLINE -> stringResource(R.string.offline) to colors.caution
 
         CaptionState.TROUBLED -> statusLabel(session) to if (session.isTroubled) colors.caution else colors.inkFaint
@@ -311,7 +322,6 @@ fun TerminalCaption(session: RuntimeSession, online: Boolean, detail: String? = 
         null -> (detail ?: session.folderName ?: agentLabel(session.agent)) to
             if (detail == null) colors.inkFaint else colors.inkMuted
     }
-    Text(words, style = KodosiType.footnote, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable

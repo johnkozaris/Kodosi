@@ -1,6 +1,7 @@
 package com.kodosi.mobile.onboarding
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.R
@@ -69,14 +71,20 @@ import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.ScanCode
 import com.kodosi.mobile.ui.ScanCodeCard
 import com.kodosi.mobile.ui.StatusSign
+import com.kodosi.mobile.ui.Unfolding
 import com.kodosi.mobile.ui.Wordmark
 import com.kodosi.mobile.ui.canScanCodes
+import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
 
 @Composable
 fun OnboardingScreen(account: AccountStore, openSignIn: (String) -> Unit) {
     val state by account.state.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
+    var lastStage by remember { mutableStateOf<SignInStage>(SignInStage.Idle) }
+    LaunchedEffect(state.stage) { if (state.stage != SignInStage.SignedIn) lastStage = state.stage }
+    // Once this phone is signed in, the onboarding fades out on the stage that it showed, not on the sign-in card.
+    val shownStage = if (state.stage == SignInStage.SignedIn) lastStage else state.stage
     LaunchedEffect(state.signInPage) { state.signInPage?.let(openSignIn) }
     LaunchedEffect(state.stage is SignInStage.Failed) {
         if (state.stage is SignInStage.Failed) haptics.performHapticFeedback(HapticFeedbackType.Reject)
@@ -91,9 +99,14 @@ fun OnboardingScreen(account: AccountStore, openSignIn: (String) -> Unit) {
             modifier = Modifier.widthIn(max = 440.dp).padding(horizontal = 24.dp, vertical = 32.dp)
         ) {
             Wordmark(height = 30.dp)
+            val fading = fade<Float>()
+            val sizing = fade<IntSize>()
             AnimatedContent(
-                targetState = state.stage,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                targetState = shownStage,
+                contentAlignment = Alignment.Center,
+                transitionSpec = {
+                    fadeIn(fading) togetherWith fadeOut(fading) using SizeTransform(clip = false) { _, _ -> sizing }
+                },
                 contentKey = ::stageKey,
                 label = "sign-in stage"
             ) { stage ->
@@ -164,8 +177,8 @@ private fun Welcome(account: AccountStore, failure: String?, starting: Boolean) 
                 }
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (failure != null) ErrorNote(failure, Modifier.fillMaxWidth())
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Unfolding(failure) { ErrorNote(it, Modifier.fillMaxWidth().padding(bottom = 12.dp)) }
             KodosiButton(
                 stringResource(if (starting) R.string.opening_sign_in else R.string.sign_in),
                 onClick = account::signIn,
@@ -173,7 +186,7 @@ private fun Welcome(account: AccountStore, failure: String?, starting: Boolean) 
                 enabled = !starting,
                 modifier = Modifier.fillMaxWidth()
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Glyph(R.drawable.ic_lock, colors.inkFaint, 12.dp)
                 Spacer(Modifier.width(5.dp))
                 Text(stringResource(R.string.encrypted_end_to_end), style = KodosiType.caption, color = colors.inkFaint)

@@ -7,6 +7,15 @@ import android.os.Build
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,14 +52,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import com.kodosi.mobile.canvas.CanvasScreen
@@ -77,6 +91,7 @@ import com.kodosi.mobile.ui.LinkActions
 import com.kodosi.mobile.ui.LocalLinkOpener
 import com.kodosi.mobile.ui.NavigationItem
 import com.kodosi.mobile.ui.Wordmark
+import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.groundBackdrop
 import com.kodosi.mobile.ui.raised
 import kotlinx.coroutines.launch
@@ -100,17 +115,17 @@ fun App(model: AppModel, openSignIn: (String) -> Unit) {
     }
     LinkActions {
         Box(Modifier.fillMaxSize().groundBackdrop(colors)) {
-            when (val current = phase) {
-                AppModel.Phase.Launching -> Launch()
+            val stage = when (val current = phase) {
+                AppModel.Phase.Launching -> Stage.Launch
 
-                is AppModel.Phase.Failed -> Failure(current.message, model::retry)
+                is AppModel.Phase.Failed -> Stage.Failure(current.message)
 
                 AppModel.Phase.Ready -> when {
-                    locked -> Locked(model)
+                    locked -> Stage.Locked
 
-                    account.isReady -> home.SaveableStateProvider(account.userId.orEmpty()) { Home(model) }
+                    account.isReady -> Stage.Home(account.userId.orEmpty())
 
-                    account.restoring != null -> Failure(
+                    account.restoring != null -> Stage.Failure(
                         stringResource(
                             when (account.restoring) {
                                 "offline" -> R.string.account_restore_offline
@@ -119,18 +134,59 @@ fun App(model: AppModel, openSignIn: (String) -> Unit) {
                                 else -> R.string.account_restore_unavailable
                             }
                         ),
-                        model::retry,
                         update = account.restoring == "updateRequired"
                     )
 
-                    account.authResolved -> OnboardingScreen(model.account, openSignIn)
+                    account.authResolved -> Stage.Onboarding
 
-                    else -> Launch()
+                    else -> Stage.Launch
+                }
+            }
+            val fading = fade<Float>()
+            AnimatedContent(
+                stage,
+                Modifier.fillMaxSize(),
+                transitionSpec = {
+                    val transform = if (initialState is Stage.Home && targetState == Stage.Locked) {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        fadeIn(fading) togetherWith fadeOut(fading)
+                    }
+                    transform using null
+                },
+                contentKey = { it.key },
+                label = "stage"
+            ) { shown ->
+                when (shown) {
+                    Stage.Launch -> Launch()
+
+                    is Stage.Failure -> Failure(shown.message, model::retry, update = shown.update)
+
+                    Stage.Locked -> Locked(model)
+
+                    // The app lock hides the person's work in the frame that it locks, not after a fade.
+                    is Stage.Home -> if (!locked) home.SaveableStateProvider(shown.userId) { Home(model) }
+
+                    Stage.Onboarding -> OnboardingScreen(model.account, openSignIn)
                 }
             }
             SnackbarHost(notices, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { KodosiNotice(it) }
         }
     }
+}
+
+// Saved state finds its place again after Android ends the app only under keys that hash the same in each process,
+// which a class does not.
+private sealed class Stage(val key: String) {
+    data object Launch : Stage("launch")
+
+    data class Failure(val message: String, val update: Boolean = false) : Stage("failure")
+
+    data object Locked : Stage("locked")
+
+    data class Home(val userId: String) : Stage("home")
+
+    data object Onboarding : Stage("onboarding")
 }
 
 @Serializable
@@ -153,9 +209,7 @@ private fun Home(model: AppModel) {
     }?.id
     val visibleSession = terminals.sessions.firstOrNull { it.id == visibleTerminal }
     LaunchedEffect(visibleTerminal, visibleSession?.canOpen) {
-        visibleSession?.takeIf { it.canOpen }?.let { session ->
-            model.runAction { model.terminals.open(session.id) }
-        }
+        visibleSession?.takeIf { it.canOpen }?.let { model.terminals.open(it.id) }
     }
     LifecycleResumeEffect(visibleTerminal) {
         visibleTerminal?.let { model.terminals.watch(it, true) }
@@ -254,10 +308,23 @@ private fun Home(model: AppModel) {
         Unit
     }
     val terminal: (String) -> Unit = { openTerminal(it, tab) }
+    val fading = fade<Float>()
+    val sliding = fade<IntOffset>()
+    val forward = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
+    val shift = with(LocalDensity.current) { PushShift.roundToPx() } * forward
     val content: @Composable () -> Unit = {
         NavDisplay(
             backStack = stack,
             onBack = back,
+            transitionSpec = {
+                if (initialState.root() == targetState.root()) {
+                    push(shift, fading, sliding)
+                } else {
+                    fadeIn(fading) togetherWith fadeOut(fading)
+                }
+            },
+            popTransitionSpec = { push(-shift, fading, sliding) },
+            predictivePopTransitionSpec = { _ -> push(-shift, fading, sliding) },
             entryProvider = entryProvider {
                 entry<Destination> { destination ->
                     when (destination.kind) {
@@ -377,6 +444,16 @@ private fun Home(model: AppModel) {
         NewTerminalSheet(model, request, dismiss = { starting = null }, started = terminal)
     }
 }
+
+private val PushShift = 32.dp
+
+/** A tab's stack starts at its own root, so a scene with another root is another tab. */
+private fun Scene<*>.root(): Any? = (previousEntries.firstOrNull() ?: entries.firstOrNull())?.contentKey
+
+/** Going back runs the same path in reverse, so that a screen leaves the way it came. */
+private fun push(shift: Int, fading: FiniteAnimationSpec<Float>, sliding: FiniteAnimationSpec<IntOffset>) =
+    (fadeIn(fading) + slideInHorizontally(sliding) { shift }) togetherWith
+        (fadeOut(fading) + slideOutHorizontally(sliding) { -shift })
 
 @Composable
 private fun Locked(model: AppModel) {

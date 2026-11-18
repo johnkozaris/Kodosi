@@ -149,6 +149,35 @@ struct AccountStoreTests {
         #expect(store.stage == .failed(message: "The sign-in service is down.", completed: 0))
     }
 
+    @Test func `the onboarding leaves on the stage that it showed when this device is signed in`() throws {
+        var approved = OnboardingStage()
+        try store.receiveAuth(event("auth.finalizing"))
+        approved.follow(store.stage)
+        try store.receiveAuth(event("auth.ready", ["userId": "user-1", "enrolled": false]))
+        approved.follow(store.stage)
+        store.requestDeviceApproval()
+        approved.follow(store.stage)
+        try store.receiveDevices(event("devices.result", ["operation": "devices.link.startSelf", "requestId": "request-1", "code": "ABCD-EFGH"]))
+        approved.follow(store.stage)
+        try deliverDevices()
+        #expect(store.isReady)
+        #expect(approved.shown(store.stage) == .trustingDevice(.pendingApproval(code: "ABCD-EFGH", qr: [])))
+
+        var known = OnboardingStage()
+        store.reset(userId: "user-1")
+        try store.receiveAuth(event("auth.finalizing"))
+        known.follow(store.stage)
+        try store.receiveAuth(event("auth.ready", ["userId": "user-1", "enrolled": true]))
+        #expect(store.isReady)
+        #expect(known.shown(store.stage) == .finalizing)
+    }
+
+    @Test func `a device that is no longer trusted signs in again from the start`() throws {
+        try store.receiveAuth(event("auth.ready", ["userId": "user-1", "enrolled": true]))
+        try store.receiveDevices(event("devices.list", ["selfDeviceId": "phone", "localDeviceEnrolled": false, "devices": []]))
+        #expect(store.stage == .signedIn && store.needsOnboarding)
+    }
+
     @Test func `refresh devices waits for the next list`() async throws {
         let refresh = Task { await store.refreshDevices() }
         for _ in 0 ..< 100 where outbox.sent.isEmpty {

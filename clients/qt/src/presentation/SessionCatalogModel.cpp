@@ -359,7 +359,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("placeLabel"), placeLabel(session) }, { QStringLiteral("root"), s->root },
         { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("projectId"), s->projectId },
         { QStringLiteral("projectName"), s->projectName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
-        { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("isOwner"), s->isOwner },
+        { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("stalled"), !local && s->stalled },
+        { QStringLiteral("isOwner"), s->isOwner },
         { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
         { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden },
         { QStringLiteral("canvas"), s->canvas.isEmpty() ? QVariant {} : QVariant(s->canvas) } };
@@ -436,6 +437,10 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (!repository.isUndefined() && !repository.isBool())
         return std::nullopt;
     s.repository = repository.toBool();
+    const auto stalled = o.value(QStringLiteral("stalled"));
+    if (!stalled.isUndefined() && !stalled.isBool())
+        return std::nullopt;
+    s.stalled = stalled.toBool();
     const auto reported = o.value(QStringLiteral("programStatus"));
     if (!reported.isUndefined() && !reported.isNull()) {
         if (!reported.isObject())

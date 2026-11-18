@@ -25,32 +25,42 @@ modificarli. Una pagina sul canvas e un documento dal vivo girano in un frame ch
 senza file e senza memoria che resti. Finché un browser condiviso è attivo, la sua porta di debug e la
 porta del driver di ogni finestra ascoltano su `127.0.0.1` o `::1`, dove possono raggiungerle altri
 account di quel computer. Un sito nel browser condiviso salva un download nella cartella del terminale
-per ogni azione di una persona o di un agent, e arriva ai tuoi appunti solo quando copi. Quando un
-dispositivo apre il browser di un terminale su un altro computer, quel computer ascolta su una porta
-TCP per pochi secondi, così i due si collegano direttamente. Passa solo quel dispositivo, con la
-crittografia del terminale. L'app per Linux mostra le pagine solo dove Chromium può isolarle in una
-sandbox; su Ubuntu il suo profilo AppArmor permette all'app, al suo processo delle pagine e a Kodosi
-Browser di creare gli user namespace che servono alla sandbox. Per lo stesso motivo, su Linux il
-browser condiviso non gira come root. Le app non contengono Kodosi Browser. Quando un computer apre il
-suo primo browser condiviso, Kodosi scarica il browser dal feed su `updates.kodosi.com` e lì cerca
-ogni giorno una nuova versione. Kodosi usa un download solo quando il feed ha la firma della chiave
-degli aggiornamenti di Kodosi e il download ha lo SHA-256 indicato dal feed.
+per ogni azione di una persona o di un agent, e arriva ai tuoi appunti solo quando copi. L'app per
+Linux mostra le pagine solo dove Chromium può isolarle in una sandbox; su Ubuntu il suo profilo
+AppArmor permette all'app, al suo processo delle pagine e a Kodosi Browser di creare gli user
+namespace che servono alla sandbox. Per lo stesso motivo, su Linux il browser condiviso non gira come
+root. Le app non contengono Kodosi Browser. Quando un computer apre il suo primo browser condiviso,
+Kodosi scarica il browser dal feed su `updates.kodosi.com` e lì cerca ogni giorno una nuova versione.
+Kodosi usa un download solo quando il feed ha la firma della chiave degli aggiornamenti di Kodosi e
+il download ha lo SHA-256 indicato dal feed.
+
+## Connessioni dirette
+
+Quando due dei tuoi dispositivi possono raggiungersi, sulla stessa rete o attraverso i loro router,
+il traffico di un terminale passa direttamente tra loro invece di passare dal servizio, con la
+stessa crittografia. Ognuno dei due dispositivi vede allora gli indirizzi IP dell'altro. Per
+conoscere l'indirizzo pubblico di un dispositivo, Kodosi chiede a un server STUN di Cloudflare, che
+vede quell'indirizzo. Finché un dispositivo cerca una connessione del genere o ne ha una, e per un
+minuto dopo, tiene aperta una porta UDP, e lì accetta connessioni solo dai tuoi dispositivi. I
+terminali di altre persone passano sempre dal servizio, quindi quelle persone non vedono mai i tuoi
+indirizzi.
 
 ## Cosa vede il servizio
 
 Il servizio vede i dati di account e dispositivi, i membri dei progetti, i metadati di progetti
 e terminali, l'agente e lo stato di ogni terminale (ad esempio al lavoro o in attesa di
 un'approvazione, mai il suo testo) e se hai già visto quello stato, i campi di instradamento, i
-tempi e le dimensioni del testo cifrato. Vede anche, per ognuno dei tuoi dispositivi, se usi
-Kodosi su di esso, se usi un'altra app su quel computer o se non lo usi, così che una notifica
-arrivi solo a un dispositivo che usi. Le notifiche push al tuo iPhone, iPad o dispositivo Android passano dal servizio push di Apple
-o di Google, che vede gli ID dei tuoi terminali che attendono, hanno finito o non sono
-riusciti, i loro agenti e i loro stati, mai nomi o testo. La crittografia non nasconde questi
-metadati e non evita un'interruzione del servizio. Un dispositivo che rimuovi perde l'accesso
-da quel momento. Dopo aver rimosso un dispositivo perso o rubato, crea una nuova chiave di
-recupero per tenerlo fuori. Quando qualcuno ricomincia da zero sul tuo account mentre hai dei
-dispositivi, si attende un giorno e i tuoi dispositivi lo mostrano, così puoi fermarlo. Le
-credenziali di GitHub e Gitea restano sul tuo computer.
+tempi e le dimensioni del testo cifrato, tranne per il traffico che passa direttamente tra i
+tuoi dispositivi. Vede anche, per ognuno dei tuoi dispositivi, se usi Kodosi su di esso, se usi
+un'altra app su quel computer o se non lo usi, così che una notifica arrivi solo a un
+dispositivo che usi. Le notifiche push al tuo iPhone, iPad o dispositivo Android passano dal
+servizio push di Apple o di Google, che vede gli ID dei tuoi terminali che attendono, hanno
+finito o non sono riusciti, i loro agenti e i loro stati, mai nomi o testo. La crittografia non
+nasconde questi metadati e non evita un'interruzione del servizio. Un dispositivo che rimuovi
+perde l'accesso da quel momento. Dopo aver rimosso un dispositivo perso o rubato, crea una
+nuova chiave di recupero per tenerlo fuori. Quando qualcuno ricomincia da zero sul tuo account
+mentre hai dei dispositivi, si attende un giorno e i tuoi dispositivi lo mostrano, così puoi
+fermarlo. Le credenziali di GitHub e Gitea restano sul tuo computer.
 
 Eliminare un account rimuove i suoi dispositivi, i dati di recupero, gli amici, le
 condivisioni e i progetti di sua proprietà; i messaggi nei progetti di altri restano, senza

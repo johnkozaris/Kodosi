@@ -1,8 +1,6 @@
 package com.kodosi.mobile.ui
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -145,7 +143,7 @@ fun KodosiButton(
     }
     val scale by animateFloatAsState(
         if (pressed) 0.97f else 1f,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "button press"
     )
     val quiet = !enabled || kind == ButtonKind.SECONDARY || kind == ButtonKind.TINTED
@@ -226,7 +224,7 @@ fun KodosiSendKey(enabled: Boolean, working: Boolean, onClick: () -> Unit) {
     val reduced = reducedMotion()
     val scale by animateFloatAsState(
         if (pressed) 0.95f else 1f,
-        if (reduced) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "send press"
     )
     Box(
@@ -354,7 +352,7 @@ fun KodosiSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: St
     val focused by interaction.collectIsFocusedAsState()
     val position by animateFloatAsState(
         if (checked) 1f else 0f,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "switch"
     )
     Box(
@@ -442,12 +440,12 @@ fun KodosiCard(
     val lifted = onClick != null && (pressed || hovered || focused)
     val scale by animateFloatAsState(
         if (pressed) 0.98f else 1f,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "card press"
     )
     val rise by animateFloatAsState(
         if (lifted) -1f else 0f,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "card lift"
     )
     Box(

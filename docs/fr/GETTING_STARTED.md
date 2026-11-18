@@ -159,8 +159,6 @@ change, avec Ouvrir.
   privés. Sur un Mac, quand macOS protège de Kodosi les connexions d'un navigateur, comme
   celles de Safari, sélectionnez Autoriser… à côté du navigateur pour donner à Kodosi
   l'accès complet au disque.
-- Sur un même réseau, l'image du navigateur passe directement entre vos appareils. macOS et
-  iOS demandent une fois l'accès au réseau local ; sans lui, l'image passe par le service.
 - Toutes les personnes qui peuvent ouvrir le terminal voient son canvas et utilisent son
   navigateur. Quand le terminal se ferme, son canvas et les connexions du navigateur
   disparaissent.
@@ -208,6 +206,10 @@ l'extrémité droite de la bande du lanceur. Le bouton de dossier liste alors se
 récents, et Choisir un dossier… ouvre les dossiers de son dossier personnel. Sur un iPhone ou
 un iPad, choisissez + dans Terminaux, ou le + à côté de l'un de vos ordinateurs. Cet
 ordinateur doit avoir Kodosi ouvert, ou `kodosi host` en cours dans un terminal.
+
+Quand deux de vos appareils peuvent s'atteindre, leurs terminaux et leurs navigateurs passent
+directement entre eux et répondent plus vite. Sur un même réseau, macOS, iOS et Android
+demandent une fois l'accès au réseau local ; sans lui, ils passent par le service.
 
 Créez aussi une clé de récupération et gardez-la en lieu sûr. Si vous perdez tous vos
 appareils, connectez-vous sur un nouveau et choisissez « Utiliser ma clé de récupération »

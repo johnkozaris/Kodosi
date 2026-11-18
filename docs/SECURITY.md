@@ -29,10 +29,7 @@ can edit them. A page on the canvas and a live document run in a closed frame wi
 files and no storage that stays. While a shared browser is awake, its debug port and the driver
 port of each window listen on `127.0.0.1` or `::1`, where other accounts of that computer can reach
 them. A site in the shared browser saves one download into the terminal's folder for each action of
-a person or an agent, and it reaches your clipboard only when you copy. When a device opens the
-browser of a terminal on another computer, that computer listens on a TCP port for a few seconds,
-so that the two can connect straight. Only that device gets through, with the encryption of the
-terminal. The Linux app shows pages only where Chromium can sandbox them; on Ubuntu its AppArmor
+a person or an agent, and it reaches your clipboard only when you copy. The Linux app shows pages only where Chromium can sandbox them; on Ubuntu its AppArmor
 profile lets the app, its page process and Kodosi Browser make the user namespaces that the sandbox
 needs. For the same reason the shared browser does not run as root on Linux. The apps do not
 contain Kodosi Browser. When a computer opens its first shared browser, Kodosi gets the browser
@@ -40,12 +37,22 @@ from the feed on `updates.kodosi.com`, and it looks there for a new version each
 download only when the feed has the signature of the key of Kodosi's updates and the download has
 the SHA-256 that the feed gives.
 
+## Straight connections
+
+When two of your own devices can reach each other, on one network or through their routers, a
+terminal's traffic goes straight between them instead of through the service, with the same
+encryption. Each of the two devices then sees the other's IP addresses. To learn the public address
+of a device, Kodosi asks a STUN server of Cloudflare, which sees that address. While a device looks
+for or has such a connection, and for a minute after, it keeps one UDP port open, and it takes a
+connection there only from your own devices. Terminals of other people always go through the service, so they
+never see your addresses.
+
 ## What the service sees
 
 The service sees account and device records, project membership, project and terminal
 metadata, each terminal's agent and state (such as working or waiting for an approval,
 never its text) and whether you saw that state yet, routing fields, timing and ciphertext
-sizes. It also sees, for each of your devices, whether you use Kodosi on it, use another
+sizes, except for traffic that goes straight between your devices. It also sees, for each of your devices, whether you use Kodosi on it, use another
 app on that computer, or do not use it, so that a notification goes only to a device that
 you use. Push notifications to your iPhone, iPad or Android device go through Apple's or
 Google's push service, which sees the IDs of your terminals that wait, finished or failed,

@@ -32,8 +32,8 @@ Item {
     readonly property string awayText: qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer"))
     readonly property bool unreachable: session.kind === "remote" && !Models.Account.online && session.connectionState !== "blocked"
     readonly property bool remoteConnected: session.kind === "remote" && session.connectionState === "connected"
-    readonly property string remoteState: !remoteConnected ? "" : unreachable ? qsTr("Offline") : away ? awayText
-        : session.status === "reconnecting" ? qsTr("Reconnecting") : ""
+    readonly property string remoteState: !remoteConnected ? "" : unreachable ? qsTr("Offline") : away ? awayText : ""
+    readonly property bool waitsForConnection: remoteConnected && (session.status === "reconnecting" || session.stalled === true)
     readonly property string notice: remoteConnected && !away && session.status !== "reconnecting" ? session.message || "" : ""
     property string terminalError: ""
     property bool connectingLong: false
@@ -652,6 +652,44 @@ Item {
                 onPicturePasted: path => Models.SessionActions.pastePicture(root.sessionId, path)
                 onTerminalClosed: root.terminalError = qsTr("The terminal closed.")
                 onTerminalError: message => root.terminalError = message
+            }
+            Item {
+                id: reconnectingCard
+                readonly property bool shown: root.waitsForConnection && terminal.terminalReady
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: shown ? 10 : 2
+                width: reconnectingRow.implicitWidth + 26
+                height: 34
+                opacity: shown ? 1 : 0
+                visible: opacity > 0
+                objectName: root.objectName + ".reconnecting"
+                Accessible.role: Accessible.StaticText
+                Accessible.name: reconnectingLabel.text
+
+                Behavior on anchors.topMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
+                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
+
+                Raised {
+                    anchors.fill: parent
+                    radius: height / 2
+                    fill: KodosiTheme.terminalLifted
+                    dark: true
+                    elevation: 2
+                }
+                RowLayout {
+                    id: reconnectingRow
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: 12
+                    spacing: 8
+
+                    BreathingDot { color: KodosiTheme.glowOrange }
+                    PlainLabel {
+                        id: reconnectingLabel
+                        text: qsTr("Reconnecting")
+                        color: KodosiTheme.terminalInk
+                    }
+                }
             }
             Item {
                 id: pictureCard

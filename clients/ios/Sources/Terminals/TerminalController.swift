@@ -59,6 +59,8 @@ final class TerminalController {
         self.sessionId = sessionId
         self.store = store
         self.lock = lock
+        // The screen opens its terminal as it appears, after its first frame.
+        opening = store.session(sessionId).map { $0.canOpen && !$0.isConnected } ?? false
     }
 
     var session: RuntimeSession? {

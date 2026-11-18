@@ -1,9 +1,10 @@
 use std::collections::VecDeque;
 
+use tokio::sync::watch;
+
 use super::{
     channel::{Channel, Transport},
-    direct,
-    link::Pipe,
+    route::{Finder, Paths, Role, Route},
     wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
 };
@@ -146,7 +147,7 @@ pub(super) async fn connect(
     }
     let opened = async {
         let (mut dto, kept) = network.known_session(&credentials, id).await?;
-        let (channel, public) = match open(&network, &credentials, &dto).await {
+        let (channel, public, paths, pipe) = match open(&network, &credentials, &dto).await {
             Err(
                 Error::Stale
                 | Error::Backend {
@@ -158,9 +159,9 @@ pub(super) async fn connect(
             }
             opened => opened?,
         };
-        Ok((dto, channel, public))
+        Ok((dto, channel, public, paths, pipe))
     };
-    let (dto, channel, public) = tokio::select! {
+    let (dto, channel, public, paths, pipe) = tokio::select! {
         biased;
         () = credentials.cancel.cancelled() => Err(Error::Stale),
         opened = opened => opened,
@@ -176,13 +177,13 @@ pub(super) async fn connect(
     }
     let session = dto.clone().into();
     let cancel = cancellation.clone();
-    let host = Arc::new(direct::Host::new(
-        network.channel_keys(&credentials)?,
-        dto.host_device_id.clone(),
-        public.clone(),
-    ));
+    let peers = (dto.owner_user_id == credentials.user_id)
+        .then(|| network.peers(&credentials).ok())
+        .flatten();
+    let late = paths.late();
+    let finder = Finder::viewer(peers, paths, public.clone(), pipe);
     tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), host);
+        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), finder, late);
         let result = tokio::select! {
             () = cancel.cancelled() => Ok(()),
             () = network.inner.shutdown.cancelled() => Ok(()),
@@ -215,8 +216,10 @@ async fn open(
     network: &BackendClient,
     credentials: &Credentials,
     dto: &SessionDto,
-) -> Result<(Channel<Pipe>, Vec<u8>)> {
+) -> Result<(Channel<Route>, Vec<u8>, Paths, Uuid)> {
     let pipe = network.inner.link.open(dto.id, dto.incarnation_id).await?;
+    let id = pipe.id();
+    let (route, paths) = Route::new(pipe, Role::Viewer);
     let host_key = |owner: &crate::identity::pins::VerifiedIdentity| {
         owner
             .devices
@@ -245,7 +248,7 @@ async fn open(
         .ok_or_else(|| Error::Trust(text!("The hosting device is not approved.")))?,
     };
     let mut channel = Channel::connect(
-        pipe,
+        route,
         &*network.channel_keys(credentials)?,
         &dto.host_device_id,
         &public,
@@ -270,7 +273,7 @@ async fn open(
             {
                 return Err(untrusted("The host answered for another terminal."));
             }
-            Ok((channel, public))
+            Ok((channel, public, paths, id))
         }
         Some((Frame::Refuse(refuse), _)) => Err(match refuse.code.as_str() {
             "busy" => Error::Busy,
@@ -350,9 +353,10 @@ struct Viewer<T> {
     heard: tokio::time::Instant,
     input_sent: u64,
     input_confirmed: u64,
+    late: Option<watch::Receiver<bool>>,
+    stalled: bool,
     pipes: BTreeMap<Uuid, PipeOut>,
-    host: Arc<direct::Host>,
-    asking: BTreeMap<Uuid, oneshot::Sender<(Arc<direct::Host>, Vec<std::net::SocketAddr>)>>,
+    finder: Finder,
     upload: Option<Upload>,
 }
 
@@ -361,7 +365,8 @@ impl<T: Transport> Viewer<T> {
         channel: Channel<T>,
         commands: mpsc::Receiver<RemoteRequest>,
         updates: mpsc::Sender<RemoteUpdate>,
-        host: Arc<direct::Host>,
+        finder: Finder,
+        late: watch::Receiver<bool>,
     ) -> Self {
         Self {
             channel,
@@ -379,9 +384,10 @@ impl<T: Transport> Viewer<T> {
             heard: tokio::time::Instant::now(),
             input_sent: 0,
             input_confirmed: 0,
+            late: Some(late),
+            stalled: false,
             pipes: BTreeMap::new(),
-            host,
-            asking: BTreeMap::new(),
+            finder,
             upload: None,
         }
     }
@@ -417,14 +423,14 @@ impl<T: Transport> Viewer<T> {
         public: &[u8],
     ) -> Result<()> {
         let generation = credentials.generation;
-        let mut deadlines = tokio::time::interval(Duration::from_millis(250));
-        deadlines.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let timer = tokio::time::sleep_until(tokio::time::Instant::now());
+        tokio::pin!(timer);
         let mut trust = tokio::time::interval(TRUST_CHECK);
         trust.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         trust.tick().await;
         loop {
             check_generation(network, generation)?;
-            if self.step(&mut deadlines, &mut trust).await? {
+            if self.step(timer.as_mut(), &mut trust).await? {
                 match host_trusted(network, credentials, dto, public).await {
                     Err(error) if error.unanswered() => {
                         tracing::warn!(%error, "host trust check got no answer; it will be tried again");
@@ -438,27 +444,25 @@ impl<T: Transport> Viewer<T> {
         }
     }
 
+    /// Hearing the host moves its deadline later with each frame, so the timer is set again only
+    /// for an earlier deadline, and one that goes off early finds nothing due.
     async fn step(
         &mut self,
-        deadlines: &mut tokio::time::Interval,
+        mut timer: std::pin::Pin<&mut tokio::time::Sleep>,
         trust: &mut tokio::time::Interval,
     ) -> Result<bool> {
+        let due = self.due();
+        if due < timer.deadline() || timer.is_elapsed() {
+            timer.as_mut().reset(due);
+        }
         let acknowledge = self.acknowledge_at;
         tokio::select! {
             _ = trust.tick() => return Ok(true),
-            _ = deadlines.tick() => {
-                let now = tokio::time::Instant::now();
-                if self.heard.elapsed() >= CHANNEL_SILENCE {
-                    return Err(Error::Text(text!("The terminal's computer did not answer.")));
-                }
-                let expired = self.pending.iter().filter(|(_, pending)| pending.deadline <= now).map(|(id, _)| *id).collect::<Vec<_>>();
-                for id in expired {
-                    if let Some(pending) = self.pending.remove(&id) {
-                        drop(pending.reply.send(Err(Error::Text(text!("The terminal's computer did not confirm the operation, and Kodosi did not send it again.")))));
-                    }
-                }
-                if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {
-                    drop(upload.reply.send(Err(Error::Text(picture_not_confirmed()))));
+            () = timer => self.expire()?,
+            () = self.updates.closed() => {}
+            alive = changed(&mut self.late) => {
+                if !alive {
+                    self.late = None;
                 }
             }
             () = std::future::ready(()), if self.upload.as_ref().is_some_and(Upload::wants_part) => self.send_part().await?,
@@ -473,8 +477,46 @@ impl<T: Transport> Viewer<T> {
                 Some((frame, size)) => self.frame(frame, size as u64).await?,
                 None => return Err(Error::Closed),
             },
+            Some(frame) = self.finder.next() => {
+                self.channel.send(&frame).await?;
+            }
         }
+        self.tell_stalled().await?;
         Ok(false)
+    }
+
+    fn due(&self) -> tokio::time::Instant {
+        let pending = self.pending.values().map(|pending| pending.deadline);
+        let upload = self.upload.as_ref().map(|upload| upload.deadline);
+        pending
+            .chain(upload)
+            .fold(self.heard + CHANNEL_SILENCE, std::cmp::min)
+    }
+
+    fn expire(&mut self) -> Result<()> {
+        let now = tokio::time::Instant::now();
+        if self.heard.elapsed() >= CHANNEL_SILENCE {
+            return Err(Error::Text(text!(
+                "The terminal's computer did not answer."
+            )));
+        }
+        let expired = self
+            .pending
+            .iter()
+            .filter(|(_, pending)| pending.deadline <= now)
+            .map(|(id, _)| *id)
+            .collect::<Vec<_>>();
+        for id in expired {
+            if let Some(pending) = self.pending.remove(&id) {
+                drop(pending.reply.send(Err(Error::Text(text!(
+                    "The terminal's computer did not confirm the operation, and Kodosi did not send it again."
+                )))));
+            }
+        }
+        if let Some(upload) = self.upload.take_if(|upload| upload.deadline <= now) {
+            drop(upload.reply.send(Err(Error::Text(picture_not_confirmed()))));
+        }
+        Ok(())
     }
 
     async fn acknowledge(&mut self) -> Result<()> {
@@ -596,11 +638,6 @@ impl<T: Transport> Viewer<T> {
                 self.pipes.remove(&pipe);
                 self.channel.send(&Frame::PipeClose { pipe }).await?;
             }
-            RemoteRequest::DirectAsk { pipe, reply } => {
-                self.asking.retain(|_, waiting| !waiting.is_closed());
-                self.asking.insert(pipe, reply);
-                self.channel.send(&Frame::DirectAsk { pipe }).await?;
-            }
             RemoteRequest::Control { .. }
             | RemoteRequest::Picture { .. }
             | RemoteRequest::Checkpoint => {}
@@ -713,6 +750,7 @@ impl<T: Transport> Viewer<T> {
                     return Err(invalid("The host confirmed input that was not sent."));
                 }
                 self.input_confirmed = offset;
+                self.tell_stalled().await?;
             }
             Frame::ControlResult(ControlResult {
                 request_id,
@@ -739,11 +777,7 @@ impl<T: Transport> Viewer<T> {
             Frame::PipeClose { pipe } => {
                 self.pipes.remove(&pipe);
             }
-            Frame::DirectOffer { pipe, addresses } => {
-                if let Some(waiting) = self.asking.remove(&pipe) {
-                    drop(waiting.send((Arc::clone(&self.host), addresses)));
-                }
-            }
+            frame @ Frame::PathAnswer { .. } => self.finder.heard(frame),
             Frame::PictureState(state) => self.picture_state(state).await?,
             _ => return Err(invalid("Unsupported terminal host frame.")),
         }
@@ -823,12 +857,30 @@ impl<T: Transport> Viewer<T> {
         Ok(())
     }
 
+    async fn tell_stalled(&mut self) -> Result<()> {
+        // The remote terminal holds typing back while a control of its view waits for an answer.
+        let waits = self.input_sent > self.input_confirmed || !self.pending.is_empty();
+        let stalled = waits && self.late.as_ref().is_some_and(|late| *late.borrow());
+        if stalled == self.stalled {
+            return Ok(());
+        }
+        self.stalled = stalled;
+        self.update(RemoteUpdate::Stalled(stalled)).await
+    }
+
     #[expect(
         clippy::needless_pass_by_ref_mut,
         reason = "exclusive borrow keeps the viewer future Send across the await"
     )]
     async fn update(&mut self, update: RemoteUpdate) -> Result<()> {
         self.updates.send(update).await.map_err(|_| Error::Closed)
+    }
+}
+
+async fn changed(late: &mut Option<watch::Receiver<bool>>) -> bool {
+    match late {
+        Some(late) => late.changed().await.is_ok(),
+        None => std::future::pending().await,
     }
 }
 

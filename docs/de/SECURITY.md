@@ -25,29 +25,37 @@ Frame ohne Netzwerk, ohne Dateien und ohne Speicher, der bleibt. Solange ein get
 wach ist, lauschen sein Debug-Port und der Treiber-Port jedes Fensters auf `127.0.0.1` oder
 `::1`, wo andere Konten dieses Computers sie erreichen können. Eine Website im geteilten
 Browser speichert pro Aktion einer Person oder eines Agents einen Download im Ordner des
-Terminals, und sie erreicht deine Zwischenablage nur, wenn du kopierst. Wenn ein Gerät den
-Browser eines Terminals auf einem anderen Computer öffnet, lauscht dieser Computer für ein paar
-Sekunden auf einem TCP-Port, damit sich die beiden direkt verbinden können. Nur dieses Gerät
-kommt durch, mit der Verschlüsselung des Terminals. Die Linux-App zeigt Seiten nur dort, wo
-Chromium sie in einer Sandbox ausführen kann; unter Ubuntu erlaubt ihr AppArmor-Profil der App,
-ihrem Seitenprozess und Kodosi Browser, die User-Namespaces anzulegen, die die Sandbox braucht.
-Aus demselben Grund läuft der geteilte Browser unter Linux nicht als root. Die Apps enthalten
-Kodosi Browser nicht. Wenn ein Computer seinen ersten geteilten Browser öffnet, holt Kodosi den
-Browser aus dem Feed auf `updates.kodosi.com` und sieht dort jeden Tag nach einer neuen
-Version. Kodosi nutzt einen Download nur, wenn der Feed die Signatur des Schlüssels der
-Kodosi-Updates trägt und der Download den SHA-256 hat, den der Feed angibt.
+Terminals, und sie erreicht deine Zwischenablage nur, wenn du kopierst. Die Linux-App zeigt
+Seiten nur dort, wo Chromium sie in einer Sandbox ausführen kann; unter Ubuntu erlaubt ihr
+AppArmor-Profil der App, ihrem Seitenprozess und Kodosi Browser, die User-Namespaces anzulegen,
+die die Sandbox braucht. Aus demselben Grund läuft der geteilte Browser unter Linux nicht als
+root. Die Apps enthalten Kodosi Browser nicht. Wenn ein Computer seinen ersten geteilten Browser
+öffnet, holt Kodosi den Browser aus dem Feed auf `updates.kodosi.com` und sieht dort jeden Tag
+nach einer neuen Version. Kodosi nutzt einen Download nur, wenn der Feed die Signatur des
+Schlüssels der Kodosi-Updates trägt und der Download den SHA-256 hat, den der Feed angibt.
+
+## Direkte Verbindungen
+
+Wenn zwei deiner eigenen Geräte einander erreichen können, im selben Netzwerk oder über ihre
+Router, geht der Verkehr eines Terminals direkt zwischen ihnen statt über den Dienst, mit
+derselben Verschlüsselung. Jedes der beiden Geräte sieht dann die IP-Adressen des anderen. Um
+die öffentliche Adresse eines Geräts zu erfahren, fragt Kodosi einen STUN-Server von
+Cloudflare, der diese Adresse sieht. Solange ein Gerät eine solche Verbindung sucht oder hat,
+und noch eine Minute danach, hält es einen UDP-Port offen, und es nimmt dort nur Verbindungen
+von deinen eigenen Geräten an. Terminals anderer Personen gehen immer über den Dienst, daher
+sehen diese Personen deine Adressen nie.
 
 ## Was der Dienst sieht
 
 Der Dienst sieht Konto- und Gerätedaten, Projektmitgliedschaften, Metadaten von Projekten und
 Terminals, den Agent und den Zustand jedes Terminals (etwa arbeitet oder wartet auf eine
 Freigabe, nie seinen Text) und ob du diesen Zustand schon gesehen hast, Routing-Felder,
-Zeitpunkte und die Größen der Chiffretexte. Er sieht auch für jedes deiner Geräte, ob du
-Kodosi darauf nutzt, an diesem Computer eine andere App nutzt oder das Gerät nicht nutzt,
-damit eine Mitteilung nur an ein Gerät geht, das du nutzt. Push-Benachrichtigungen an dein
-iPhone, iPad oder Android-Gerät laufen über den Push-Dienst von Apple oder Google, der die IDs
-deiner Terminals, die warten, fertig oder fehlgeschlagen sind, ihre Agents und ihre Zustände
-sieht, nie Namen oder Text.
+Zeitpunkte und die Größen der Chiffretexte, außer bei Verkehr, der direkt zwischen deinen
+Geräten geht. Er sieht auch für jedes deiner Geräte, ob du Kodosi darauf nutzt, an diesem
+Computer eine andere App nutzt oder das Gerät nicht nutzt, damit eine Mitteilung nur an ein
+Gerät geht, das du nutzt. Push-Benachrichtigungen an dein iPhone, iPad oder Android-Gerät laufen
+über den Push-Dienst von Apple oder Google, der die IDs deiner Terminals, die warten, fertig
+oder fehlgeschlagen sind, ihre Agents und ihre Zustände sieht, nie Namen oder Text.
 Verschlüsselung verbirgt diese Metadaten nicht und verhindert keinen Ausfall. Ein Gerät, das du
 entfernst, verliert ab dann den Zugriff. Nachdem du ein verlorenes oder gestohlenes Gerät
 entfernt hast, erstelle einen neuen Wiederherstellungsschlüssel, um dieses Gerät draußen zu

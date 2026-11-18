@@ -152,8 +152,6 @@ con Abrir.
   sesiones y todos los datos de sitios de tus terminales privados. En un Mac, cuando macOS
   protege de Kodosi los inicios de sesión de un navegador, como los de Safari, selecciona
   Permitir… junto al navegador para dar a Kodosi Acceso total al disco.
-- En una misma red, la imagen del navegador va directamente entre tus dispositivos. macOS e
-  iOS piden una vez acceso a la red local; sin él, la imagen pasa por el servicio.
 - Todas las personas que pueden abrir el terminal ven su lienzo y usan su navegador. Cuando
   el terminal se cierra, su lienzo y las sesiones del navegador desaparecen.
 
@@ -197,6 +195,10 @@ derecho de la banda del lanzador. El botón de carpeta muestra entonces sus carp
 recientes, y Elegir una carpeta… abre las carpetas de su directorio personal. En un iPhone o
 iPad, selecciona + en Terminales, o el + junto a uno de tus ordenadores. Ese ordenador
 necesita Kodosi abierto, o `kodosi host` ejecutándose en un terminal.
+
+Cuando dos de tus dispositivos pueden alcanzarse entre sí, sus terminales y navegadores van
+directamente entre ellos y responden más rápido. En una misma red, macOS, iOS y Android
+piden una vez acceso a la red local; sin él, pasan por el servicio.
 
 Crea también allí una clave de recuperación y guárdala bien. Si pierdes todos tus
 dispositivos, inicia sesión en uno nuevo y elige «Usar mi clave de recuperación» para

@@ -982,6 +982,11 @@ pub struct SessionEntry {
     pub is_owner: bool,
     pub status: SessionStatus,
     pub connection_state: ConnectionState,
+    /// This device's typing or another of its requests waits, and the connection to the other
+    /// computer has not answered for a while. The connection stays open, and the typing arrives
+    /// in order once it answers.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stalled: bool,
     pub hidden: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<Text>,

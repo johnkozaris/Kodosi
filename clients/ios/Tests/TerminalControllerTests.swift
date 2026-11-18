@@ -33,6 +33,14 @@ struct TerminalControllerTests {
         #expect(!controller.opening)
     }
 
+    @Test func `a terminal that the screen opens says from its first frame that it connects`() throws {
+        try deliver("sessions.snapshot", ["sessions": [terminalEntry("s1", state: "working", connection: "offline")]])
+        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
+        let session = try #require(controller.session)
+        let cover = TerminalCover.of(session, unreachable: false, opening: controller.opening, failure: nil, render: nil)
+        #expect(cover == .connecting)
+    }
+
     @Test func `a terminal without access is not opened`() async throws {
         try deliver("sessions.snapshot", ["sessions": [terminalEntry("s1", state: "working", connection: "blocked")]])
         let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)

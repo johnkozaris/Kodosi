@@ -1,7 +1,7 @@
 {
   "terminalConnectionProtocolVersion": 26,
   "oldestTerminalConnectionProtocolVersion": 26,
-  "channelProtocolVersion": 13,
+  "channelProtocolVersion": 14,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
     "channel": "each side offers the ALPN protocols kodosi-channel/ with each version from its channelProtocolVersion down to 1, and the host selects the newest that both have; a side whose own version is not the selected one, or that has no selected protocol, closes the channel and shows that the other computer must update Kodosi. The accept frame carries the host's channelProtocolVersion; a host that selected an older version sends only the accept frame and closes, and a viewer whose version differs from it closes the channel and shows which side must update Kodosi"
@@ -70,7 +70,7 @@
     "calls": "a hosting device takes at most callsMax calls at once; a call counts toward deviceMax of the calling device"
   },
   "channel": {
-    "transport": "TLS 1.3 records in pipe frames; the viewer is the TLS client",
+    "transport": "TLS 1.3 records in route messages (route), which go in pipe frames and, once the two devices reach each other, on a direct lane (direct); the viewer is the TLS client",
     "keyExchange": "X25519MLKEM768",
     "cipherSuite": "TLS_AES_256_GCM_SHA384",
     "authentication": "raw public keys (RFC 7250): the ML-DSA-65 signing key of each device certificate, both sides",
@@ -213,15 +213,15 @@
         "direction": "both",
         "body": "pipe (16 bytes)"
       },
-      "directAsk": {
+      "pathOffer": {
         "type": 25,
         "direction": "viewer",
-        "body": "pipe (16 bytes): the viewer asks for a straight connection for this pipe"
+        "body": "a JSON array of at most 16 addresses (ip:port) where the host can reach the viewer (direct)"
       },
-      "directOffer": {
+      "pathAnswer": {
         "type": 26,
         "direction": "host",
-        "body": "pipe (16 bytes), then a JSON array of at most 8 addresses (ip:port); an empty array sends the pipe to the channel"
+        "body": "a JSON array of at most 16 addresses (ip:port) of the host; an empty array keeps the channel on the relay"
       }
     }
   },
@@ -316,13 +316,23 @@
     "order": "output that waits is sent before end when the viewer is current",
     "lostConnection": "a closed transport without end is a lost connection, not the end of the terminal"
   },
+  "route": {
+    "purpose": "carries the TLS records of a view's channel on the relay pipe or on a direct lane, and moves between the two without losing, repeating or reordering a record",
+    "messages": "one route message in each transport message: data (0) is sequence:u64, acknowledged:u64 and then TLS records; ack (1) is acknowledged:u64; resume (2) is received:u64; numbers in network byte order, and sequences start at 1",
+    "delivery": "a side delivers data in the order of its sequences and drops a sequence that it has; it acknowledges with each data message, or after 32 messages or 200 ms; it keeps what the other side did not acknowledge, at most 25165824 bytes, and ends the channel beyond that",
+    "move": "a side that moves sends resume with the last sequence that it received as its first message on the new carrier; the other side answers there with its own resume unless it proposed the move, and both send again there what the other did not receive; only the viewer moves to a lane; either side moves back to the relay when the lane ends, a write to it takes 3 seconds, or data on it waits 3 seconds for an acknowledgement; a side that moves back sends no new data until the answer, and ends the channel after 10 seconds without one",
+    "anchor": "the relay pipe stays open while the messages go on a lane, and its end ends the route"
+  },
   "direct": {
-    "transport": "TLS 1.3 of the channel, on TCP, with the same keys, ALPN and resumption",
-    "ports": "the host listens on the first free TCP port from 47360 to 47379 on IPv4, for at most 5 seconds and only after directAsk",
-    "hostCheck": "the viewer key must equal the key that the viewer proved on the terminal's channel",
+    "who": "only the devices of one person: the viewer offers for a terminal of its own person, and a host answers a viewer of another person with no addresses",
+    "offer": "the viewer sends pathOffer after accept, and the host answers with pathAnswer; when no lane comes, the viewer offers again after 30 seconds, 2 minutes and then each 10 minutes, and 5 seconds after a lane ended; an empty answer ends its offers",
+    "addresses": "the addresses of the device's networks that are up, without loopback and link-local ones, and the public addresses of its UDP socket that a STUN server (stun.cloudflare.com:3478) sees, at most 16; a side tries a private address of the other only on one of its own networks",
+    "transport": "QUIC on one UDP socket of the runtime, which also carries the STUN questions; ALPN kodosi-direct/<channelProtocolVersion>; TLS 1.3 with the keys, the key exchange and the cipher suite of the channel",
     "viewerCheck": "the host key must equal the key of the hosting device, as on the channel",
-    "frames": "the first frame is pipeOpen, then pipeData and pipeClose of that one pipe, and heartbeat in both directions every 5 seconds; 15 silent seconds end the connection",
-    "trying": "the viewer tries all addresses at once for 500 ms; when none answers, pipeOpen goes on the channel",
-    "life": "the path stays until the pipe ends, and the view then joins again; the connection ends with the access of the viewer"
+    "hostCheck": "the host takes a connection only from a device whose key a route of the host waits for",
+    "meeting": "the viewer connects to the host's addresses, one each 40 ms, for 3 seconds; until the two devices have a connection, the host sends one byte to each address of the viewer each 100 ms so that its router lets the viewer in; one connection of two devices carries all their lanes",
+    "lane": "the viewer opens a bidirectional stream and writes the pipe identity (16 bytes); the host writes one byte, 1, when the route of that pipe takes the stream; then each route message goes with its length (u32, network byte order) first",
+    "life": "keep-alive each 10 seconds and 25 silent seconds end the connection; a connection that no lane used for 60 seconds ends, and the socket closes 60 seconds after its last connection",
+    "access": "the host ends the lane with the access of the viewer, and the service ends it with the relay pipe"
   }
 }

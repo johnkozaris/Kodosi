@@ -25,21 +25,23 @@ struct DosiComposer: View {
         let connected = model.dosiConnected
         let computer = model.dosiComputer
         VStack(alignment: .leading, spacing: 8) {
-            Group {
+            ZStack(alignment: .leading) {
                 if !connected {
                     ProgressCaption(text: String(localized: "Connecting…"))
                         .accessibilityIdentifier("dosi.connecting")
+                        .transition(.opacity)
                 } else if let computer {
                     DosiComputerMenu(computer: computer)
+                        .transition(.opacity)
                 } else {
                     Label("Open Kodosi on one of your computers to talk with Dosi.", systemImage: "laptopcomputer")
                         .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                         .padding(.horizontal, 12).padding(.vertical, 9)
                         .raised(Radius.md, fill: theme.colors.raised)
                         .accessibilityIdentifier("dosi.noComputer")
+                        .transition(.opacity)
                 }
             }
-            .transition(.opacity)
             HStack(alignment: .bottom, spacing: 4) {
                 DosiFace(mood: dosi.mood(listening: focused.wrappedValue), size: 24)
                     .frame(width: 34, height: 34)
@@ -81,8 +83,8 @@ struct DosiComposer: View {
         .animation(theme.motion.snappy, value: stops)
         .animation(theme.motion.snappy, value: canSend)
         .animation(theme.motion.hover, value: focused.wrappedValue)
-        .animation(theme.motion.soft, value: connected)
-        .animation(theme.motion.soft, value: computer == nil)
+        .animation(theme.motion.fade, value: connected)
+        .animation(theme.motion.fade, value: computer == nil)
         .sensoryFeedback(.impact(weight: .light), trigger: sent)
     }
 

@@ -1,6 +1,12 @@
 package com.kodosi.mobile.projects
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +43,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -73,7 +80,10 @@ import com.kodosi.mobile.ui.ProjectMark
 import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.SectionDock
 import com.kodosi.mobile.ui.SelectableWords
+import com.kodosi.mobile.ui.Unfolding
+import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
+import com.kodosi.mobile.ui.snappy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -116,25 +126,32 @@ fun ProjectScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
                 ProjectMark(projectId, 28.dp)
                 Column {
-                    Text(
+                    Crossfade(
                         project?.name ?: stringResource(R.string.projects),
-                        style = KodosiType.headline,
-                        color = KodosiTheme.colors.ink,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (members != null) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AppIcon(AppSymbol.LOCK, Modifier.size(9.dp), tint = KodosiTheme.colors.inkFaint)
-                            Text(
-                                pluralStringResource(R.plurals.member_count, members.size, members.size),
-                                style = KodosiType.caption,
-                                color = KodosiTheme.colors.inkFaint
-                            )
-                        }
+                        animationSpec = fade(),
+                        label = "name"
+                    ) {
+                        Text(
+                            it,
+                            style = KodosiType.headline,
+                            color = KodosiTheme.colors.ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    // The members line keeps its room while it loads, so that the name above it stays still.
+                    val membersShown by animateFloatAsState(if (members != null) 1f else 0f, fade(), label = "members")
+                    Row(
+                        Modifier.graphicsLayer { alpha = membersShown },
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AppIcon(AppSymbol.LOCK, Modifier.size(9.dp), tint = KodosiTheme.colors.inkFaint)
+                        Text(
+                            members?.let { pluralStringResource(R.plurals.member_count, it.size, it.size) }.orEmpty(),
+                            style = KodosiType.caption,
+                            color = KodosiTheme.colors.inkFaint
+                        )
                     }
                 }
             }
@@ -161,6 +178,7 @@ fun ProjectScreen(
             DockItem(stringResource(R.string.terminals), AppSymbol.TERMINAL),
             DockItem(stringResource(R.string.repositories), AppSymbol.REPOSITORY)
         )
+        val fading = fade<Float>()
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val wide = maxWidth >= 720.dp && section != 4
             val chatWidth = (maxWidth * 0.42f).coerceIn(340.dp, 480.dp)
@@ -171,7 +189,12 @@ fun ProjectScreen(
                 ) {
                     Column(Modifier.weight(1f)) {
                         SectionDock(sections.drop(1), wideSection - 1) { wideSection = it + 1 }
-                        ProjectWork(model, projectId, snapshot, wideSection, terminal, start)
+                        AnimatedContent(
+                            wideSection,
+                            Modifier.weight(1f),
+                            transitionSpec = { (fadeIn(fading) togetherWith fadeOut(fading)).using(null) },
+                            label = "work"
+                        ) { shown -> ProjectWork(model, projectId, snapshot, shown, loading, terminal, start) }
                     }
                     val shape = RoundedCornerShape(Radius.xl)
                     Column(
@@ -184,25 +207,30 @@ fun ProjectScreen(
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    if (section != 4) {
-                        SectionDock(sections, section) {
+                    Unfolding(section != 4) {
+                        SectionDock(sections, if (section == 4) beforeInfo else section) {
                             section = it
                             if (it in 1..3) wideSection = it
                         }
                     }
-                    Box(Modifier.weight(1f)) {
-                        when (section) {
+                    AnimatedContent(
+                        section,
+                        Modifier.weight(1f),
+                        transitionSpec = { (fadeIn(fading) togetherWith fadeOut(fading)).using(null) },
+                        label = "section"
+                    ) { shown ->
+                        when (shown) {
                             0 -> Conversation(model, projectId, snapshot, members.orEmpty(), failure, loading, terminal)
                             4 -> ProjectInfo(model, projectId, back)
-                            else -> ProjectWork(model, projectId, snapshot, section, terminal, start)
+                            else -> ProjectWork(model, projectId, snapshot, shown, loading, terminal, start)
                         }
                     }
                 }
             }
         }
-        if (failure != null) {
+        Unfolding(failure) { message ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ErrorNote(failure.orEmpty(), Modifier.weight(1f))
+                ErrorNote(message, Modifier.weight(1f))
                 KodosiTextButton(onClick = {
                     loading = true
                     scope.launch {
@@ -269,8 +297,9 @@ private fun Conversation(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             items(messages.asReversed(), key = { it.id }) { message ->
+                val itemMotion = Modifier.animateItem(fade(), snappy(), fade())
                 if (message.deleted) {
-                    DeletedMessage(message.isOwn(account.userId))
+                    DeletedMessage(message.isOwn(account.userId), itemMotion)
                 } else {
                     MessageRow(
                         model,
@@ -281,7 +310,8 @@ private fun Conversation(
                         members.firstOrNull { it.userId == message.authorId && it.userId != account.userId }?.person,
                         { reporting = it },
                         { blocking = it },
-                        terminal
+                        terminal,
+                        itemMotion
                     )
                 }
             }
@@ -308,15 +338,24 @@ private fun Conversation(
             if (loading &&
                 snapshot == null
             ) {
-                item { ProgressCaption(stringResource(R.string.loading), Modifier.padding(24.dp)) }
+                item(key = "loading") {
+                    ProgressCaption(
+                        stringResource(R.string.loading),
+                        Modifier.animateItem(fade(), snappy(), fade()).padding(24.dp)
+                    )
+                }
             }
             if (!loading && failure == null &&
                 messages.isEmpty()
             ) {
-                item { EmptyState(stringResource(R.string.no_messages)) }
+                item(key = "empty") {
+                    Box(Modifier.animateItem(fade(), snappy(), fade())) {
+                        EmptyState(stringResource(R.string.no_messages))
+                    }
+                }
             }
         }
-        error?.let { ErrorNote(it, Modifier.padding(horizontal = 12.dp)) }
+        Unfolding(error) { ErrorNote(it, Modifier.padding(horizontal = 12.dp)) }
         MessageComposer(
             draft,
             sending,
@@ -344,10 +383,10 @@ private fun Conversation(
 }
 
 @Composable
-private fun DeletedMessage(own: Boolean) {
+private fun DeletedMessage(own: Boolean, modifier: Modifier = Modifier) {
     Text(
         stringResource(R.string.message_deleted),
-        Modifier.fillMaxWidth().padding(start = if (own) 48.dp else 32.dp),
+        modifier.fillMaxWidth().padding(start = if (own) 48.dp else 32.dp),
         style = KodosiType.footnote,
         color = KodosiTheme.colors.inkFaint,
         fontStyle = FontStyle.Italic,
@@ -365,13 +404,14 @@ private fun MessageRow(
     author: Person?,
     report: (Person) -> Unit,
     block: (Person) -> Unit,
-    terminal: (String) -> Unit
+    terminal: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colors = KodosiTheme.colors
     val scope = rememberCoroutineScope()
     var actions by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         if (own) {
             Spacer(Modifier.width(48.dp))
         } else {
@@ -484,13 +524,14 @@ private fun ProjectWork(
     projectId: String,
     snapshot: ProjectSnapshot?,
     section: Int,
+    loading: Boolean,
     terminal: (String) -> Unit,
     start: (String) -> Unit
 ) {
     when (section) {
-        1 -> ProjectTasks(model, projectId, snapshot)
+        1 -> ProjectTasks(model, projectId, snapshot, loading)
         2 -> ProjectTerminals(model, projectId, terminal, start)
-        3 -> ProjectRepositories(model, projectId, snapshot)
+        3 -> ProjectRepositories(model, projectId, snapshot, loading)
     }
 }
 
@@ -508,7 +549,7 @@ private fun ProjectTerminals(model: AppModel, projectId: String, terminal: (Stri
                 account.online,
                 summaryFirst = preferences.summaryFirst,
                 onClick = { terminal(session.id) },
-                modifier = Modifier.padding(vertical = 5.dp)
+                modifier = Modifier.animateItem(fade(), snappy(), fade()).padding(vertical = 5.dp)
             )
         }
         if (sessions.isEmpty()) {

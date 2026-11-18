@@ -70,6 +70,23 @@ public struct PictureNotice: View {
     #endif
 }
 
+public struct ReconnectingNotice: View {
+    @Environment(\.theme) private var theme
+
+    public init() {}
+
+    public var body: some View {
+        HStack(spacing: 8) {
+            BreathingDot(color: theme.colors.glowOrange)
+            Text("Reconnecting", bundle: .module).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
+        }
+        .padding(.leading, 12).padding(.trailing, 14).controlHeight(34)
+        .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("terminal.reconnecting")
+    }
+}
+
 public struct ErrorNote: View {
     @Environment(\.theme) private var theme
     public let message: String
