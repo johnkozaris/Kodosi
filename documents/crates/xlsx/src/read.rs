@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use document::Unreadable;
 use package::{Package, Relation, escape, relation_id};
@@ -7,7 +7,7 @@ use roxmltree::{Document, Node as Xml};
 use crate::{
     formats,
     formula::{parse_cell, parse_range, translate_shared},
-    model::{Anchor, Cell, DefinedName, Link, Look, Model, Sheet, Value},
+    model::{Anchor, Cell, DefinedName, Frozen, Link, Look, Model, Sheet, Value},
 };
 
 pub(crate) const WORKBOOK_PART: &str = "xl/workbook.xml";
@@ -19,8 +19,8 @@ pub(crate) const ANCHORS: [(&str, &str); 4] = [
     ("dataValidation", "sqref"),
     ("hyperlink", "ref"),
 ];
-const ROW_FACTS: [&str; 4] = ["r", "spans", "ht", "customHeight"];
-const COLUMN_FACTS: [&str; 4] = ["min", "max", "width", "customWidth"];
+const ROW_FACTS: [&str; 5] = ["r", "spans", "ht", "customHeight", "hidden"];
+const COLUMN_FACTS: [&str; 5] = ["min", "max", "width", "customWidth", "hidden"];
 const MOST_COLUMNS_PER_ENTRY: u32 = 1024;
 
 fn broken(error: impl std::fmt::Display) -> Unreadable {
@@ -161,29 +161,60 @@ fn kept_attributes(element: Xml<'_, '_>, read_here: &[&str]) -> String {
         .join(" ")
 }
 
+pub(crate) fn is_on(value: Option<&str>) -> bool {
+    matches!(value, Some("1" | "true"))
+}
+
 fn column_entries<'a, 'input: 'a>(
     root: Xml<'a, 'input>,
-) -> impl Iterator<Item = (u32, u32, f64, Xml<'a, 'input>)> {
+) -> impl Iterator<Item = (std::ops::RangeInclusive<u32>, Xml<'a, 'input>)> {
     local(root, "cols").into_iter().flat_map(|columns| {
         locals(columns, "col").filter_map(|column| {
             let number = |name: &str| column.attribute(name)?.parse::<u32>().ok();
             let first = number("min")?.checked_sub(1)?;
             let last = number("max")?.checked_sub(1)?;
-            let width = column.attribute("width")?.parse::<f64>().ok()?;
-            Some((
-                first,
-                last.min(first + MOST_COLUMNS_PER_ENTRY),
-                width,
-                column,
-            ))
+            Some((first..=last.min(first + MOST_COLUMNS_PER_ENTRY), column))
         })
     })
 }
 
 pub(crate) fn widths_of(root: Xml<'_, '_>) -> BTreeMap<u32, f64> {
     column_entries(root)
-        .flat_map(|(first, last, width, _)| (first..=last).map(move |index| (index, width)))
+        .filter_map(|(lines, column)| {
+            let width = column.attribute("width")?.parse::<f64>().ok()?;
+            Some(lines.map(move |index| (index, width)))
+        })
+        .flatten()
         .collect()
+}
+
+pub(crate) fn hidden_columns_of(root: Xml<'_, '_>) -> BTreeSet<u32> {
+    column_entries(root)
+        .filter(|(_, column)| is_on(column.attribute("hidden")))
+        .flat_map(|(lines, _)| lines)
+        .collect()
+}
+
+/// A sheet view holds where its frozen panes start, and its pane how many lines they hold.
+pub(crate) fn frozen_of(root: Xml<'_, '_>) -> Frozen {
+    let Some(view) = local(root, "sheetViews").and_then(|views| local(views, "sheetView")) else {
+        return Frozen::default();
+    };
+    let Some(pane) = local(view, "pane")
+        .filter(|pane| matches!(pane.attribute("state"), Some("frozen" | "frozenSplit")))
+    else {
+        return Frozen::default();
+    };
+    let lines = |name: &str| {
+        pane.attribute(name)
+            .and_then(|lines| lines.parse::<u32>().ok())
+            .unwrap_or(0)
+    };
+    let (top, left) = view
+        .attribute("topLeftCell")
+        .and_then(parse_cell)
+        .unwrap_or((0, 0));
+    Frozen::new(top, left, lines("ySplit"), lines("xSplit"))
 }
 
 pub(crate) fn merges_of(root: Xml<'_, '_>) -> Vec<[u32; 4]> {
@@ -217,6 +248,9 @@ fn read_sheet(
                 if let Some(height) = row.attribute("ht").and_then(|height| height.parse().ok()) {
                     sheet.heights.insert(line, height);
                 }
+                if is_on(row.attribute("hidden")) {
+                    sheet.hidden_rows.insert(line);
+                }
                 let look = kept_attributes(row, &ROW_FACTS);
                 if !look.is_empty() {
                     sheet.row_looks.insert(line, look);
@@ -239,12 +273,14 @@ fn read_sheet(
     }
     sheet.merges = merges_of(root);
     sheet.widths = widths_of(root);
-    for (first, last, _, column) in column_entries(root) {
+    sheet.hidden_columns = hidden_columns_of(root);
+    sheet.frozen = frozen_of(root);
+    for (lines, column) in column_entries(root) {
         let look = kept_attributes(column, &COLUMN_FACTS);
         if !look.is_empty() {
             sheet
                 .column_looks
-                .extend((first..=last).map(|index| (index, look.clone())));
+                .extend(lines.map(|index| (index, look.clone())));
         }
     }
     sheet.anchors = root

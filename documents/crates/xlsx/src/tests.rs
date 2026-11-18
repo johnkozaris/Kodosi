@@ -1,4 +1,4 @@
-use std::{io::Write as _, time::Duration};
+use std::{collections::BTreeMap, io::Write as _, time::Duration};
 
 use document::{Assets, Format, Ordered, Refused};
 use package::Package;
@@ -575,7 +575,7 @@ fn sizes_and_merges_reach_the_file() {
     apply(Change::Size {
         sheet: "1".to_owned(),
         widths: [(1, 30.0)].into(),
-        heights: [(1, 44.0), (9, 12.0)].into(),
+        heights: [(1, Some(44.0)), (9, Some(12.0))].into(),
     })
     .unwrap();
     apply(Change::Merges {
@@ -1021,5 +1021,281 @@ fn a_link_of_a_cell_says_where_it_goes_and_moves_with_its_row() {
     assert_eq!(
         (&links[0]["ranges"], &links[1]["ranges"]),
         (&json!("A2"), &json!("B3"))
+    );
+}
+
+fn change(model: &mut Model, change: Change) {
+    Xlsx::apply(model, change, &[], &mut Assets::default()).unwrap();
+}
+
+fn freeze(top: u32, left: u32, rows: u32, columns: u32) -> Change {
+    Change::Freeze {
+        sheet: "1".to_owned(),
+        top,
+        left,
+        rows,
+        columns,
+    }
+}
+
+fn hide(rows: &[(u32, bool)], columns: &[(u32, bool)]) -> Change {
+    Change::Hidden {
+        sheet: "1".to_owned(),
+        rows: rows.iter().copied().collect(),
+        columns: columns.iter().copied().collect(),
+    }
+}
+
+#[test]
+fn hidden_lines_and_frozen_panes_reach_the_file() {
+    let file = xlsx_file();
+    let mut model = read(&file);
+    change(&mut model, hide(&[(1, true), (11, true)], &[(2, true)]));
+    change(&mut model, freeze(0, 0, 1, 2));
+    let hidden = saved(&model, &file);
+    let xml = part(&hidden, "xl/worksheets/sheet1.xml");
+    assert!(xml.contains(r#"<sheetViews><sheetView workbookViewId="0"><pane xSplit="2" ySplit="1" topLeftCell="C2" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><cols><col min="3" max="3" hidden="1"/></cols><sheetData>"#));
+    assert!(xml.contains(r#"<row r="2" hidden="1">"#));
+    assert!(xml.contains(r#"<row r="12" hidden="1"></row>"#));
+    let again = read(&hidden);
+    assert_eq!(saved(&again, &hidden), hidden);
+    let sheet = &Xlsx::snapshot(&again).0["sheets"][0];
+    assert_eq!(sheet["hiddenRows"], json!([1, 11]));
+    assert_eq!(sheet["hiddenColumns"], json!([2]));
+    assert_eq!(
+        sheet["frozen"],
+        json!({ "top": 0, "left": 0, "rows": 1, "columns": 2 })
+    );
+    assert_eq!(
+        Xlsx::compare(&read(&file), &again),
+        vec![
+            hide(&[(1, true), (11, true)], &[(2, true)]),
+            freeze(0, 0, 1, 2)
+        ]
+    );
+
+    change(&mut model, hide(&[(1, false), (11, false)], &[(2, false)]));
+    change(&mut model, freeze(0, 0, 0, 0));
+    let xml = part(&saved(&model, &hidden), "xl/worksheets/sheet1.xml");
+    assert!(!xml.contains("hidden") && !xml.contains("<cols") && !xml.contains("<pane"));
+}
+
+#[test]
+fn a_file_keeps_its_hidden_lines_and_frozen_panes_and_they_move_with_its_rows() {
+    let sheet = SHEET
+        .replace(" x14ac:custom=\"kept\"", "")
+        .replace(r#"<row r="2">"#, r#"<row r="2" hidden="1">"#)
+        .replace(
+            "<sheetData>",
+            r#"<sheetViews><sheetView tabSelected="1" topLeftCell="A3" workbookViewId="0"><pane ySplit="1" topLeftCell="A4" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="B5" sqref="B5"/></sheetView></sheetViews><cols><col min="2" max="2" width="12" hidden="1" customWidth="1"/><col min="4" max="5" style="1" hidden="1"/></cols><sheetData>"#,
+        );
+    let file = xlsx_file_with(&sheet, WORKBOOK, STYLES);
+    let mut model = read(&file);
+    let snapshot = Xlsx::snapshot(&model).0;
+    assert_eq!(snapshot["sheets"][0]["hiddenRows"], json!([1]));
+    assert_eq!(snapshot["sheets"][0]["hiddenColumns"], json!([1, 3, 4]));
+    assert_eq!(
+        snapshot["sheets"][0]["frozen"],
+        json!({ "top": 2, "left": 0, "rows": 1, "columns": 0 })
+    );
+    ops(&mut model, vec![set("A1", Value::Number(1.0))]).unwrap();
+    let edited = part(&saved(&model, &file), "xl/worksheets/sheet1.xml");
+    assert!(edited.contains(r#"<row r="2" hidden="1">"#));
+    assert!(edited.contains(r#"<pane ySplit="1" topLeftCell="A4" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="B5" sqref="B5"/>"#));
+
+    ops(
+        &mut model,
+        vec![
+            Op::InsertRows {
+                sheet: "Data".to_owned(),
+                at: 0,
+                count: 2,
+            },
+            Op::DeleteColumns {
+                sheet: "Data".to_owned(),
+                at: 2,
+                count: 1,
+            },
+        ],
+    )
+    .unwrap();
+    let moved = saved(&model, &file);
+    let xml = part(&moved, "xl/worksheets/sheet1.xml");
+    assert!(xml.contains(r#"<sheetView tabSelected="1" workbookViewId="0" topLeftCell="A3"><pane ySplit="3" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView>"#));
+    assert!(xml.contains(r#"<row r="4" hidden="1">"#));
+    assert!(xml.contains(r#"<col min="2" max="2" width="12" customWidth="1" hidden="1"/><col min="3" max="3" style="1" hidden="1"/><col min="4" max="4" style="1" hidden="1"/>"#));
+    let sheet = &Xlsx::snapshot(&read(&moved)).0["sheets"][0];
+    assert_eq!(sheet["hiddenRows"], json!([3]));
+    assert_eq!(sheet["hiddenColumns"], json!([1, 2, 3]));
+}
+
+#[test]
+fn lines_that_come_or_go_before_frozen_panes_move_them() {
+    let mut model = read(&xlsx_file());
+    let frozen = |model: &Model| Xlsx::snapshot(model).0["sheets"][0]["frozen"].clone();
+    let rows = |at, count| Change::Rows {
+        sheet: "1".to_owned(),
+        at,
+        count,
+    };
+    change(&mut model, freeze(3, 1, 2, 1));
+    change(&mut model, rows(5, 4));
+    assert_eq!(
+        frozen(&model),
+        json!({ "top": 3, "left": 1, "rows": 2, "columns": 1 })
+    );
+    change(&mut model, rows(4, 2));
+    assert_eq!(
+        frozen(&model),
+        json!({ "top": 3, "left": 1, "rows": 4, "columns": 1 })
+    );
+    change(&mut model, rows(0, -2));
+    assert_eq!(
+        frozen(&model),
+        json!({ "top": 3, "left": 1, "rows": 2, "columns": 1 })
+    );
+    change(&mut model, rows(2, -10));
+    assert_eq!(
+        frozen(&model),
+        json!({ "top": 1, "left": 1, "rows": 1, "columns": 1 })
+    );
+    change(
+        &mut model,
+        Change::Columns {
+            sheet: "1".to_owned(),
+            at: 0,
+            count: 3,
+        },
+    );
+    assert_eq!(
+        frozen(&model),
+        json!({ "top": 1, "left": 1, "rows": 1, "columns": 4 })
+    );
+}
+
+#[test]
+fn a_new_sheet_saves_its_panes_and_columns_at_once() {
+    let file = xlsx_file();
+    let mut model = read(&file);
+    change(
+        &mut model,
+        Change::AddSheet {
+            id: "plan".to_owned(),
+            name: "Plan".to_owned(),
+        },
+    );
+    for change_of_plan in [
+        Change::Size {
+            sheet: "plan".to_owned(),
+            widths: [(0, 20.0)].into(),
+            heights: BTreeMap::new(),
+        },
+        Change::Hidden {
+            sheet: "plan".to_owned(),
+            rows: [(4, true)].into(),
+            columns: [(1, true)].into(),
+        },
+        Change::Freeze {
+            sheet: "plan".to_owned(),
+            top: 0,
+            left: 0,
+            rows: 1,
+            columns: 0,
+        },
+    ] {
+        change(&mut model, change_of_plan);
+    }
+    let xml = part(&saved(&model, &file), "xl/worksheets/sheetN2.xml");
+    assert!(
+        xml.contains(
+            r#"<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>"#
+        )
+    );
+    assert!(xml.contains(r#"<cols><col min="1" max="1" width="20" customWidth="1"/><col min="2" max="2" hidden="1"/></cols>"#));
+    assert!(xml.contains(r#"<row r="5" hidden="1">"#));
+}
+
+#[test]
+fn lines_and_panes_past_the_last_line_are_refused() {
+    let mut model = read(&xlsx_file());
+    for refused in [
+        hide(&[(1_048_576, true)], &[]),
+        hide(&[], &[(16_384, true)]),
+        freeze(1_048_575, 0, 1, 0),
+        freeze(0, 16_380, 0, 4),
+    ] {
+        assert!(matches!(
+            Xlsx::apply(&mut model, refused, &[], &mut Assets::default()),
+            Err(Refused::Invalid(_))
+        ));
+    }
+    change(&mut model, hide(&[(1_048_575, true)], &[(16_383, true)]));
+}
+
+#[test]
+fn a_view_names_lines_by_their_number_as_text() {
+    let mut model = read(&xlsx_file());
+    let batch = serde_json::from_value(json!({
+        "kind": "group",
+        "changes": [
+            { "kind": "size", "sheet": "1", "widths": { "1": 30 }, "heights": { "0": null, "4": 22.5 } },
+            { "kind": "hidden", "sheet": "1", "rows": { "4": true }, "columns": { "2": true } },
+        ],
+    }))
+    .unwrap();
+    change(&mut model, batch);
+    let sheet = &Xlsx::snapshot(&model).0["sheets"][0];
+    assert_eq!(
+        (&sheet["widths"], &sheet["heights"]),
+        (&json!({ "1": 30.0 }), &json!({ "4": 22.5 }))
+    );
+    assert_eq!(
+        (&sheet["hiddenRows"], &sheet["hiddenColumns"]),
+        (&json!([4]), &json!([2]))
+    );
+}
+
+#[test]
+fn a_row_that_fits_what_it_holds_loses_its_height_in_the_file() {
+    let file = xlsx_file();
+    let mut model = read(&file);
+    change(
+        &mut model,
+        Change::Size {
+            sheet: "1".to_owned(),
+            widths: BTreeMap::new(),
+            heights: [(0, None)].into(),
+        },
+    );
+    let fitted = saved(&model, &file);
+    assert!(part(&fitted, "xl/worksheets/sheet1.xml").contains(r#"<row r="1" spans="1:2">"#));
+    assert_eq!(
+        Xlsx::compare(&read(&file), &read(&fitted)),
+        vec![Change::Size {
+            sheet: "1".to_owned(),
+            widths: BTreeMap::new(),
+            heights: [(0, None)].into(),
+        }]
+    );
+}
+
+#[test]
+fn a_cell_that_a_view_empties_goes_from_the_file_and_from_the_others() {
+    let file = xlsx_file();
+    let mut model = read(&file);
+    let cleared = serde_json::from_value(json!({
+        "kind": "cells",
+        "sheet": "1",
+        "cells": [{ "row": 1, "column": 0, "value": null, "formula": null, "style": null }],
+    }))
+    .unwrap();
+    let sent = Xlsx::apply(&mut model, cleared, &[], &mut Assets::default()).unwrap();
+    assert_eq!(
+        serde_json::to_value(&sent).unwrap()["cells"][0],
+        json!({ "row": 1, "column": 0, "value": null, "formula": null, "style": null })
+    );
+    assert_eq!(
+        cell_value(&read(&saved(&model, &file)), "A2"),
+        serde_json::Value::Null
     );
 }
