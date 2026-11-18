@@ -829,8 +829,8 @@ impl Live {
         });
     }
 
-    /// A viewer that only looks keeps its size here, so that it never changes the page under the
-    /// viewer who uses it.
+    /// A viewer that only looks keeps its size here, so that it never changes the shape of the
+    /// page under the viewer who uses it, only the pixels that the page gets.
     fn keep_size(&mut self, viewer: &str, size: Size) {
         if let Some(seat) = self.seats.get_mut(viewer) {
             seat.size = Some(size);
@@ -857,7 +857,8 @@ impl Live {
             .is_some_and(|control| control.viewer == viewer)
     }
 
-    /// The control goes to the viewer that came first of those that stay.
+    /// The control goes to the viewer that came first of those that stay, and the page loses the
+    /// pixels that only the viewer that went showed.
     fn gone(&mut self, viewer: &str) {
         if self.in_control(viewer) {
             self.control = self
@@ -865,8 +866,8 @@ impl Live {
                 .values()
                 .min_by_key(|seat| seat.number)
                 .map(|seat| Control::of(&seat.viewer.id));
-            self.follow();
         }
+        self.follow();
     }
 
     /// The page takes the size of the view in control, but never under a held button, and only
@@ -883,7 +884,7 @@ impl Live {
             .filter(|control| !control.held)
             .and_then(|control| self.seats.get(&control.viewer))
             .and_then(|seat| seat.size)
-            .and_then(fitted)
+            .and_then(|size| fitted(size, self.seats.values().filter_map(|seat| seat.size)))
         else {
             return;
         };
@@ -904,9 +905,9 @@ impl Live {
         self.resize(size);
     }
 
-    /// The engine draws the pages of this window at the size and the scale of the viewer, so
-    /// that the picture has the pixels that the viewer shows. The new size goes to the viewers
-    /// at once, because they place each point by it.
+    /// The engine draws the pages of this window at the size of the viewer in control and with
+    /// the pixels of the sharpest view, so that each picture has the pixels that its viewers show.
+    /// The new size goes to the viewers at once, because they place each point by it.
     fn resize(&mut self, size: Size) {
         self.size = size;
         self.state.width = size.width;
@@ -1305,24 +1306,48 @@ fn keep_latest(
 }
 
 /// A view that is narrower than Chrome's window gets a wider page of its own shape, drawn with
-/// fewer pixels for each point, so that the picture fills the view and still has its pixels.
-fn fitted(size: Size) -> Option<Size> {
-    if !(SIZES.contains(&size.width) && SIZES.contains(&size.height) && size.scale > 0.0) {
+/// fewer pixels for each point, so that the picture fills the view and still has its pixels. Each
+/// of the `views` fits the page into itself, and the page gets the pixels of the sharpest.
+fn fitted(size: Size, views: impl IntoIterator<Item = Size>) -> Option<Size> {
+    if !usable(size) {
         return None;
     }
     let width = size.width.max(NARROWEST);
     let height = (u64::from(size.height) * u64::from(width) + u64::from(size.width) / 2)
         / u64::from(size.width);
+    let height = u32::try_from(height).map_or(*SIZES.end(), |height| height.min(*SIZES.end()));
     let scale = size.scale * f32::from(u16::try_from(size.width).ok()?)
         / f32::from(u16::try_from(width).ok()?);
+    let scale = views
+        .into_iter()
+        .filter_map(|view| shown(view, width, height))
+        .fold(scale.clamp(1.0, 4.0), f32::max)
+        .min(4.0);
     encodable(
         Size {
             width,
-            height: u32::try_from(height).map_or(*SIZES.end(), |height| height.min(*SIZES.end())),
-            scale: scale.clamp(1.0, 4.0),
+            height,
+            scale,
         },
         MOST_PICTURE,
     )
+}
+
+fn usable(size: Size) -> bool {
+    SIZES.contains(&size.width) && SIZES.contains(&size.height) && size.scale > 0.0
+}
+
+/// The pixels for each point of a page that a view shows when it fits the page into itself.
+fn shown(view: Size, width: u32, height: u32) -> Option<f32> {
+    if !usable(view) {
+        return None;
+    }
+    let side = |points: u32| u16::try_from(points).ok().map(f32::from);
+    let fit = f32::min(
+        side(view.width)? / side(width)?,
+        side(view.height)? / side(height)?,
+    );
+    Some(fit * view.scale)
 }
 
 /// A page whose picture the encoder would refuse gets fewer pixels for each point, and one that is
@@ -1516,6 +1541,28 @@ mod tests {
         look(&mut live, "bob", view(600, 1000)).await;
         reshape(&mut live, "bob", view(620, 1000)).await;
         assert_eq!(live.size, view(900, 700));
+    }
+
+    #[tokio::test]
+    async fn a_sharper_view_that_only_looks_gets_its_pixels_until_it_goes() {
+        let mut live = live();
+        let _ana = join(&mut live, "ana").await;
+        let small = Size {
+            width: 600,
+            height: 571,
+            scale: 1.0,
+        };
+        look(&mut live, "ana", small).await;
+        let bob = join(&mut live, "bob").await;
+        look(&mut live, "bob", view(1134, 1172)).await;
+        assert_eq!((live.size.width, live.size.height), (600, 571));
+        assert!((live.size.scale - 3.78).abs() < 0.01);
+        live.handle(Event::Leave {
+            viewer: "bob".to_owned(),
+            seat: bob.seat,
+        })
+        .await;
+        assert_eq!(live.size, small);
     }
 
     #[tokio::test]
@@ -1780,11 +1827,14 @@ mod tests {
     #[test]
     fn a_narrow_view_gets_a_wider_page_of_its_own_shape_with_its_own_pixels() {
         assert_eq!(
-            fitted(Size {
-                width: 440,
-                height: 717,
-                scale: 3.0,
-            }),
+            fitted(
+                Size {
+                    width: 440,
+                    height: 717,
+                    scale: 3.0,
+                },
+                [],
+            ),
             Some(Size {
                 width: NARROWEST,
                 height: 815,
@@ -1792,11 +1842,14 @@ mod tests {
             })
         );
         assert_eq!(
-            fitted(Size {
-                width: 1280,
-                height: 800,
-                scale: 2.0,
-            }),
+            fitted(
+                Size {
+                    width: 1280,
+                    height: 800,
+                    scale: 2.0,
+                },
+                [],
+            ),
             Some(Size {
                 width: 1280,
                 height: 800,
@@ -1808,27 +1861,36 @@ mod tests {
     #[test]
     fn a_broken_size_is_ignored() {
         assert_eq!(
-            fitted(Size {
-                width: 0,
-                height: 400,
-                scale: 1.0
-            }),
+            fitted(
+                Size {
+                    width: 0,
+                    height: 400,
+                    scale: 1.0
+                },
+                [],
+            ),
             None
         );
         assert_eq!(
-            fitted(Size {
-                width: 800,
-                height: 9000,
-                scale: 1.0
-            }),
+            fitted(
+                Size {
+                    width: 800,
+                    height: 9000,
+                    scale: 1.0
+                },
+                [],
+            ),
             None
         );
         assert_eq!(
-            fitted(Size {
-                width: 800,
-                height: 400,
-                scale: 0.0
-            }),
+            fitted(
+                Size {
+                    width: 800,
+                    height: 400,
+                    scale: 0.0
+                },
+                [],
+            ),
             None
         );
     }
