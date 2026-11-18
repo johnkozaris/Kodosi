@@ -6,7 +6,6 @@ import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
-import android.os.SystemClock
 import android.util.Base64
 import android.view.Surface
 import androidx.compose.ui.graphics.ImageBitmap
@@ -61,8 +60,6 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private var sent: JsonObject? = null
     private var settling: Job? = null
     private var holding = false
-    private var keyFrameRequested = 0L
-    private var keyFrameRequest: Job? = null
     private var awaitingFrames: Job? = null
 
     init {
@@ -220,24 +217,13 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         stopAwaitingFrames()
     }
 
-    /** A key frame costs the host and the link many times the bits of the frames between. */
+    /**
+     * A view that waits for a key frame decodes no frame until it comes, so it asks once for each
+     * break, and the host sends key frames at most once a second, as each costs every viewer.
+     */
     private fun restart() {
         behind = true
-        if (decoder == null || keyFrameRequest?.isActive == true) return
-        val wait = keyFrameRequested + KEY_FRAME_REQUEST_GAP_MS - SystemClock.elapsedRealtime()
-        if (wait <= 0) {
-            requestKeyFrame()
-        } else {
-            keyFrameRequest = scope.launch {
-                delay(wait)
-                if (behind && decoder != null) requestKeyFrame()
-            }
-        }
-    }
-
-    private fun requestKeyFrame() {
-        keyFrameRequested = SystemClock.elapsedRealtime()
-        post(fields("type" to "keyframe"))
+        if (decoder != null) post(fields("type" to "keyframe"))
     }
 
     private fun post(value: JsonObject) {
@@ -247,7 +233,6 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     override fun close() {
         active = false
         joining?.cancel()
-        keyFrameRequest?.cancel()
         awaitingFrames?.cancel()
         link.close()
         decoder?.close()
@@ -255,10 +240,9 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     }
 
     private companion object {
-        const val HEADER = 14
+        const val HEADER = 6
         const val KEY = 1
         const val SETTLE_MS = 250L
-        const val KEY_FRAME_REQUEST_GAP_MS = 500L
         const val RECONNECTING_AFTER_MS = 1500L
     }
 }

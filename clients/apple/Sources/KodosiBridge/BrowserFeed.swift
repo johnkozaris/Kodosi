@@ -17,7 +17,7 @@ public final class BrowserFeed {
         case kept
     }
 
-    private static let frameHeader = 14
+    private static let frameHeader = 6
     private static let messageTag: UInt8 = 0
     private static let frameTag: UInt8 = 1
     private static let keyFlag: UInt8 = 1

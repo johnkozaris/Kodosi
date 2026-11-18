@@ -21,11 +21,10 @@ namespace kodosi {
 namespace {
 constexpr char messageTag = 0;
 constexpr char frameTag = 1;
-constexpr qsizetype frameHeader = 14;
+constexpr qsizetype frameHeader = 6;
 constexpr char keyFlag = 1;
 constexpr int longestWait = 30000;
 constexpr int settleWait = 250;
-constexpr int keyframeFloor = 500;
 constexpr int staleWait = 1500;
 constexpr qsizetype mostTyped = 16 * 1024;
 
@@ -108,12 +107,6 @@ BrowserVideo::BrowserVideo(QQuickItem* parent)
     m_settle.setSingleShot(true);
     m_settle.setInterval(settleWait);
     connect(&m_settle, &QTimer::timeout, this, &BrowserVideo::sendSize);
-    m_keyframeFloor.setSingleShot(true);
-    m_keyframeFloor.setInterval(keyframeFloor);
-    connect(&m_keyframeFloor, &QTimer::timeout, this, [this] {
-        if (std::exchange(m_keyframeOwed, false))
-            askKeyframe();
-    });
     m_stale.setSingleShot(true);
     m_stale.setInterval(staleWait);
     connect(&m_stale, &QTimer::timeout, this, [this] { setReconnecting(true); });
@@ -222,8 +215,6 @@ void BrowserVideo::opened(const QString& pipe)
     m_wait = 1000;
     m_behind = true;
     m_holding = false;
-    m_keyframeFloor.stop();
-    m_keyframeOwed = false;
     m_sentSize = sizeMessage();
     post({ { QStringLiteral("type"), QStringLiteral("watch") },
         { QStringLiteral("size"), m_sentSize },
@@ -295,6 +286,8 @@ void BrowserVideo::frame(const QByteArray& message)
         return;
     }
     m_behind = false;
+    if (key)
+        m_keyFrame = id;
     emit decodeRequested(m_pipe, id, key, message.mid(frameHeader));
 }
 
@@ -315,23 +308,23 @@ void BrowserVideo::decoded(const QString& pipe, quint32 frame, const QImage& ima
     ack(frame);
 }
 
+// The decoder fails each frame after a broken one, so the view waits for a key frame after the
+// first failure. A frame that the decoder had from before the newest key frame broke nothing that
+// the key frame does not mend, and an ask for it would make the host send another.
 void BrowserVideo::decodeFailed(const QString& pipe, quint32 frame)
 {
     if (pipe != m_pipe)
         return;
     ack(frame);
+    if (m_behind || static_cast<qint32>(frame - m_keyFrame) < 0)
+        return;
+    m_behind = true;
     askKeyframe();
 }
 
-// A key frame costs every viewer of the page, so this asks at most once per floor and keeps an
-// ask within the floor for its end.
+// The host sends key frames at most once a second, as each costs every viewer.
 void BrowserVideo::askKeyframe()
 {
-    if (m_keyframeFloor.isActive()) {
-        m_keyframeOwed = true;
-        return;
-    }
-    m_keyframeFloor.start();
     post({ { QStringLiteral("type"), QStringLiteral("keyframe") } });
 }
 

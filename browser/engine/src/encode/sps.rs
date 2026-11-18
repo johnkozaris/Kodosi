@@ -1,6 +1,7 @@
 /// The sequence parameter set with `gaps_in_frame_num_value_allowed_flag` set. A viewer that
-/// missed frames goes on at an anchor, and a decoder such as `OpenH264`'s refuses each frame
-/// after a gap that the set does not allow.
+/// missed frames goes on at an anchor, so its stream skips frame numbers, and a decoder may
+/// take such a gap for frames lost on the way unless the set allows it. Only the Mac, iPhone
+/// and iPad apps take anchors.
 pub(super) fn allowing_gaps(nal: &[u8]) -> Option<Vec<u8>> {
     let (&header, payload) = nal.split_first()?;
     let mut bits = Bits {

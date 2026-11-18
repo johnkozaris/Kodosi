@@ -142,7 +142,6 @@ unsafe extern "C" {
     fn CMSampleBufferGetDataBuffer(sample: *mut c_void) -> *mut c_void;
     fn CMSampleBufferGetFormatDescription(sample: *mut c_void) -> *mut c_void;
     fn CMSampleBufferGetSampleAttachmentsArray(sample: *mut c_void, create: u8) -> Ref;
-    fn CMSampleBufferGetPresentationTimeStamp(sample: *mut c_void) -> CMTime;
     fn CMBlockBufferGetDataLength(buffer: *mut c_void) -> usize;
     fn CMBlockBufferCopyDataBytes(
         buffer: *mut c_void,
@@ -689,7 +688,9 @@ fn set_bitrate(session: *mut c_void, bitrate: u32) {
 }
 
 /// The encoder's callback, on a thread of `VideoToolbox`. When the newest picture did not go
-/// out, the page draws again, as a still page would never send it.
+/// out, the page draws again, as a still page would never send it. The page draws rather than
+/// the last picture being coded again: this thread cannot reach the encoder, and a picture that
+/// the busy encoder skipped was never copied, as CEF's surface lives only during its paint.
 unsafe extern "C" fn encoded(
     refcon: *mut c_void,
     marker: *mut c_void,
@@ -722,8 +723,6 @@ unsafe extern "C" fn encoded(
     let Some(coded) = (unsafe { annex_b(sample) }) else {
         return;
     };
-    // SAFETY: as above.
-    let time = unsafe { CMSampleBufferGetPresentationTimeStamp(sample) };
     let size = coded.data.len();
     let lost = output.link.send_frame(&EncodedFrame {
         window: output.window,
@@ -734,7 +733,6 @@ unsafe extern "C" fn encoded(
         } else {
             FrameKind::Delta
         },
-        timestamp: u64::try_from(time.value).unwrap_or(0),
         mark: coded.mark,
         data: Bytes::from(coded.data),
     });

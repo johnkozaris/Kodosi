@@ -551,7 +551,7 @@ impl Live {
         }
         let seats = &self.seats;
         if self.capturing.is_some()
-            && let Some(ask) = self.flow.due(now, |viewer| queued(seats, viewer))
+            && let Some(ask) = self.flow.ask(now, |viewer| queued(seats, viewer))
         {
             self.ask(ask);
         }
@@ -776,7 +776,6 @@ impl Live {
             let message = ToViewer::Frame(Frame {
                 id,
                 kind: frame.kind,
-                timestamp: frame.timestamp,
                 data: frame.data,
             })
             .encode();

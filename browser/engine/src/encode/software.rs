@@ -27,7 +27,6 @@ struct Picture {
     pixels: Vec<u8>,
     width: usize,
     height: usize,
-    time: u64,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -55,7 +54,6 @@ type Shared = Arc<(Mutex<Slot>, Condvar)>;
 /// picture replaces one that still waits, and the two picture buffers go round.
 pub(crate) struct Encoder {
     shared: Shared,
-    started: Instant,
     worker: Option<JoinHandle<()>>,
 }
 
@@ -63,16 +61,11 @@ impl Encoder {
     pub(crate) fn new(window: i64, bitrate: u32, link: Link) -> Self {
         let shared: Shared = Arc::default();
         let working = Arc::clone(&shared);
-        let started = Instant::now();
         let worker = std::thread::Builder::new()
             .name("kodosi-encoder".to_owned())
-            .spawn(move || work(window, bitrate, started, &link, &working))
+            .spawn(move || work(window, bitrate, &link, &working))
             .ok();
-        Self {
-            shared,
-            started,
-            worker,
-        }
+        Self { shared, worker }
     }
 
     fn change<R>(&self, change: impl FnOnce(&mut Slot) -> R) -> R {
@@ -117,7 +110,6 @@ impl Encoder {
         if even_width < 2 || even_height < 2 || pixels.len() < width * height * 4 {
             return;
         }
-        let time = micros_since(self.started);
         let (slot, _) = &*self.shared;
         let mut kept = {
             let mut slot = slot.lock().unwrap_or_else(PoisonError::into_inner);
@@ -135,7 +127,6 @@ impl Encoder {
                 pixels: kept,
                 width: even_width,
                 height: even_height,
-                time,
             });
             slot.refinement = Refinement::Idle;
         });
@@ -203,18 +194,13 @@ fn set_option(encoder: &mut H264, option: ENCODER_OPTION, layer: LAYER_NUM, bitr
     unsafe { encoder.raw_api().set_option(option, (&raw mut info).cast()) == cmResultSuccess }
 }
 
-fn micros_since(started: Instant) -> u64 {
-    u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX)
-}
-
 fn lock(shared: &Shared) -> MutexGuard<'_, Slot> {
     shared.0.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-fn work(window: i64, bitrate: u32, started: Instant, link: &Link, shared: &Shared) {
+fn work(window: i64, bitrate: u32, link: &Link, shared: &Shared) {
     let mut worker = Worker {
         window,
-        started,
         link,
         shared,
         bitrate,
@@ -240,7 +226,6 @@ struct Work {
 
 struct Worker<'a> {
     window: i64,
-    started: Instant,
     link: &'a Link,
     shared: &'a Shared,
     bitrate: u32,
@@ -298,18 +283,17 @@ impl Worker<'_> {
             self.bitrate = bitrate;
         }
         let mut key = work.asked || self.lost;
-        let time = match work.picture {
+        let repeated = match work.picture {
             Some(picture) => {
-                let time = picture.time;
                 let Some(started) = self.take(picture, previous) else {
                     return false;
                 };
                 key |= started;
-                Some(time)
+                false
             }
             None if work.refine => {
                 self.keep_bitrate(previous);
-                None
+                true
             }
             None => return true,
         };
@@ -331,7 +315,7 @@ impl Worker<'_> {
         };
         let data = stream.to_vec();
         let key_frame = matches!(stream.frame_type(), FrameType::IDR | FrameType::I);
-        self.send(data, key_frame, key, time);
+        self.send(data, key_frame, key, repeated);
         true
     }
 
@@ -384,7 +368,7 @@ impl Worker<'_> {
 
     /// A picture that the viewers miss goes again from here, not from a page that draws again,
     /// which would look changed and earn a clean-up.
-    fn send(&mut self, data: Vec<u8>, key_frame: bool, key: bool, time: Option<u64>) {
+    fn send(&mut self, data: Vec<u8>, key_frame: bool, key: bool, repeated: bool) {
         let retry = Instant::now() + Duration::from_millis(REDRAW_AFTER_MS.unsigned_abs());
         if data.is_empty() {
             self.lost = key;
@@ -401,7 +385,6 @@ impl Worker<'_> {
             } else {
                 FrameKind::Delta
             },
-            timestamp: time.unwrap_or_else(|| micros_since(self.started)),
             mark: None,
             data: Bytes::from(data),
         });
@@ -410,7 +393,7 @@ impl Worker<'_> {
         } else {
             self.missing = false;
         }
-        if time.is_none() && self.sharpening.refined(size, frame_budget(self.bitrate)) {
+        if repeated && self.sharpening.refined(size, frame_budget(self.bitrate)) {
             let mut slot = lock(self.shared);
             if slot.picture.is_none() {
                 slot.refinement = Refinement::Clean;

@@ -94,12 +94,11 @@ private:
     QImage m_image;
     bool m_fresh = false;
     quint32 m_lastFrame = 0;
+    quint32 m_keyFrame = 0;
     bool m_behind = true;
     int m_wait = 1000;
     QTimer m_again;
     QTimer m_settle;
-    QTimer m_keyframeFloor;
-    bool m_keyframeOwed = false;
     QTimer m_stale;
     bool m_reconnecting = false;
     QJsonObject m_sentSize;

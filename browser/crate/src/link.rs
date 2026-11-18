@@ -16,8 +16,8 @@ pub const AS_ROOT: i32 = 73;
 /// The host bounds what a page says, so a bigger icon shows as none.
 pub const MOST_ICON: usize = 12 * 1024;
 
-/// The bytes before a picture's data: its window, its kind, its time and its mark.
-const FRAME_HEADER: usize = 8 + 1 + 8 + 8;
+/// The bytes before a picture's data: its window, its kind and its mark.
+const FRAME_HEADER: usize = 8 + 1 + 8;
 const KEY: u8 = 1;
 const ANCHOR: u8 = 2;
 const MARKED: u8 = 4;
@@ -211,8 +211,6 @@ pub enum FrameKind {
 pub struct EncodedFrame {
     pub window: i64,
     pub kind: FrameKind,
-    /// Microseconds.
-    pub timestamp: u64,
     pub mark: Option<u64>,
     pub data: Bytes,
 }
@@ -230,7 +228,6 @@ impl EncodedFrame {
         let mut message = Vec::with_capacity(FRAME_HEADER + self.data.len());
         message.extend_from_slice(&self.window.to_be_bytes());
         message.push(flags);
-        message.extend_from_slice(&self.timestamp.to_be_bytes());
         message.extend_from_slice(&self.mark.unwrap_or_default().to_be_bytes());
         message.extend_from_slice(&self.data);
         message
@@ -249,9 +246,8 @@ impl EncodedFrame {
         Some(Self {
             window: i64::from_be_bytes(header[..8].try_into().ok()?),
             kind,
-            timestamp: u64::from_be_bytes(header[9..17].try_into().ok()?),
             mark: (flags & MARKED != 0)
-                .then(|| header[17..].try_into().ok().map(u64::from_be_bytes))
+                .then(|| header[9..].try_into().ok().map(u64::from_be_bytes))
                 .flatten(),
             data: message.slice(FRAME_HEADER..),
         })
@@ -263,7 +259,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_frame_keeps_its_window_kind_time_mark_and_data() {
+    fn a_frame_keeps_its_window_kind_mark_and_data() {
         for (kind, mark) in [
             (FrameKind::Key, None),
             (FrameKind::Anchor, Some(0)),
@@ -272,7 +268,6 @@ mod tests {
             let frame = EncodedFrame {
                 window: -7,
                 kind,
-                timestamp: 1_234_567,
                 mark,
                 data: Bytes::from_static(b"\0\0\0\x01picture"),
             };
