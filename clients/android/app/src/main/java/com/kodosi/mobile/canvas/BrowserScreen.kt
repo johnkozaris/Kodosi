@@ -12,6 +12,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.TextureView
+import android.view.ViewConfiguration
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -62,6 +63,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -71,7 +73,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.PopupProperties
@@ -99,11 +103,14 @@ import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.fade
+import com.kodosi.mobile.ui.raised
 import com.kodosi.mobile.ui.well
+import java.text.NumberFormat
+import kotlin.math.hypot
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
-private enum class BrowserCover { ASLEEP, LOADING }
+private enum class BrowserCover { ASLEEP, LOADING, RECONNECTING }
 
 @Composable
 fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask: ((String?) -> Unit)? = null) {
@@ -116,6 +123,9 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
     val window by feed.window.collectAsStateWithLifecycle()
     val icons by feed.icons.collectAsStateWithLifecycle()
     val picture by feed.picture.collectAsStateWithLifecycle()
+    val pictureSize by feed.pictureSize.collectAsStateWithLifecycle()
+    val reconnecting by feed.reconnecting.collectAsStateWithLifecycle()
+    val failure by feed.failure.collectAsStateWithLifecycle()
     val address = remember { BrowserAddress(browser.tabs.firstOrNull { it.active }?.url.orEmpty()) }
     var addressFocused by remember { mutableStateOf(false) }
     var view by remember { mutableStateOf<BrowserSurface?>(null) }
@@ -327,7 +337,10 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
         Box(Modifier.weight(1f).fillMaxWidth().background(DarkColors.terminal)) {
             AndroidView(
                 factory = { BrowserSurface(it, feed).also { created -> view = created } },
-                update = { it.window = window },
+                update = {
+                    it.window = window
+                    it.pictureSize = pictureSize
+                },
                 modifier = Modifier.fillMaxSize()
             )
             BrowserPointers(window, browser, feed)
@@ -336,6 +349,7 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                 val cover = when {
                     browser.state == "asleep" -> BrowserCover.ASLEEP
                     !picture -> BrowserCover.LOADING
+                    reconnecting -> BrowserCover.RECONNECTING
                     else -> null
                 }
                 AnimatedContent(
@@ -355,8 +369,39 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                             }) { Text(stringResource(R.string.wake_browser)) }
                         }
 
-                        BrowserCover.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        BrowserCover.LOADING -> Column(
+                            Modifier.fillMaxSize().padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             ProgressCaption(stringResource(R.string.loading))
+                            browser.getting?.let { getting ->
+                                val locale = LocalConfiguration.current.locales[0]
+                                val percent = remember(getting, locale) {
+                                    NumberFormat.getPercentInstance(locale).format(getting / 100.0)
+                                }
+                                Text(percent, style = KodosiType.footnote, color = KodosiTheme.colors.inkMuted)
+                            }
+                            failure?.let {
+                                Text(
+                                    it,
+                                    Modifier.widthIn(max = 320.dp),
+                                    style = KodosiType.footnote,
+                                    color = KodosiTheme.colors.inkMuted,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+
+                        BrowserCover.RECONNECTING -> Box(
+                            Modifier.fillMaxSize().padding(12.dp),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            ProgressCaption(
+                                stringResource(R.string.reconnecting),
+                                Modifier.raised(KodosiTheme.colors, CircleShape)
+                                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
                         }
 
                         null -> Unit
@@ -479,8 +524,19 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
     }
     private var surface: Surface? = null
     private var pressed = "left"
+    private var clickCount = 0
+    private var clickButton = ""
+    private var clickX = 0f
+    private var clickY = 0f
+    private var releasedAt = 0L
+    private val doubleTapSlop = ViewConfiguration.get(context).scaledDoubleTapSlop
     private var accent = 0
     var window = fields()
+        set(value) {
+            field = value
+            fit()
+        }
+    var pictureSize: IntSize? = null
         set(value) {
             field = value
             fit()
@@ -490,21 +546,26 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(event: MotionEvent) = true
             override fun onSingleTapUp(event: MotionEvent): Boolean {
-                mouse("press", event.x, event.y, "left")
-                mouse("release", event.x, event.y, "left")
+                countClick("left", event.x, event.y, event.downTime)
+                mouse("press", event.x, event.y, "left", clickCount)
+                mouse("release", event.x, event.y, "left", clickCount)
+                releasedAt = event.eventTime
                 requestFocus()
                 return true
             }
             override fun onLongPress(event: MotionEvent) {
-                mouse("press", event.x, event.y, "right")
-                mouse("release", event.x, event.y, "right")
+                mouse("press", event.x, event.y, "right", 1)
+                mouse("release", event.x, event.y, "right", 1)
             }
             override fun onScroll(first: MotionEvent?, event: MotionEvent, dx: Float, dy: Float): Boolean {
                 mouse("wheel", event.x, event.y, dx = dx, dy = dy)
                 return true
             }
         }
-    )
+    ).apply {
+        // While the detector listens for double taps, it gives the second tap of one to no other callback.
+        setOnDoubleTapListener(null)
+    }
 
     init {
         isFocusable = true
@@ -512,12 +573,12 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
     }
 
     private fun fit() {
-        val bw = window.number("width")?.toInt() ?: width
-        val bh = window.number("height")?.toInt() ?: height
-        if (bw <= 0 || bh <= 0 || width <= 0 || height <= 0) return
-        val fit = minOf(width.toFloat() / bw, height.toFloat() / bh)
-        val w = (bw * fit).toInt()
-        val h = (bh * fit).toInt()
+        val shown = pictureSize
+            ?: IntSize(window.number("width")?.toInt() ?: width, window.number("height")?.toInt() ?: height)
+        if (shown.width <= 0 || shown.height <= 0 || width <= 0 || height <= 0) return
+        val fit = minOf(width.toFloat() / shown.width, height.toFloat() / shown.height)
+        val w = (shown.width * fit).toInt()
+        val h = (shown.height * fit).toInt()
         if (texture.layoutParams.width != w || texture.layoutParams.height != h) {
             texture.layoutParams = LayoutParams(w, h, android.view.Gravity.CENTER)
         }
@@ -540,11 +601,21 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         return true
     }
 
+    private fun countClick(button: String, x: Float, y: Float, pressedAt: Long) {
+        val again = button == clickButton && pressedAt - releasedAt <= ViewConfiguration.getDoubleTapTimeout() &&
+            hypot(x - clickX, y - clickY) <= doubleTapSlop
+        clickCount = if (again) clickCount + 1 else 1
+        clickButton = button
+        clickX = x
+        clickY = y
+    }
+
     private fun mouse(
         action: String,
         x: Float,
         y: Float,
         button: String = "none",
+        clicks: Int = 0,
         dx: Float = 0f,
         dy: Float = 0f,
         modifiers: Int = 0
@@ -569,7 +640,7 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
                 "x" to px,
                 "y" to py,
                 "button" to button,
-                "clicks" to 1,
+                "clicks" to clicks,
                 "deltaX" to (dx / fit),
                 "deltaY" to (dy / fit), "modifiers" to modifiers
             )
@@ -586,6 +657,7 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
                 event.buttonState and MotionEvent.BUTTON_TERTIARY != 0 -> "middle"
                 else -> "left"
             }
+            countClick(pressed, event.x, event.y, event.eventTime)
         }
         val action = when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> "press"
@@ -593,7 +665,9 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
             MotionEvent.ACTION_MOVE -> "move"
             else -> return true
         }
-        mouse(action, event.x, event.y, pressed, modifiers = modifiers(event.metaState))
+        if (action == "release") releasedAt = event.eventTime
+        val clicks = if (action == "move") 0 else clickCount
+        mouse(action, event.x, event.y, pressed, clicks, modifiers = modifiers(event.metaState))
         return true
     }
     override fun onHoverEvent(event: MotionEvent): Boolean {

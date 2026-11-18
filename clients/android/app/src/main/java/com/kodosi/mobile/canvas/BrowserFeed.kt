@@ -2,16 +2,18 @@ package com.kodosi.mobile.canvas
 
 import android.graphics.BitmapFactory
 import android.media.MediaCodec
+import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import android.util.Base64
 import android.view.Surface
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.unit.IntSize
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.fields
-import com.kodosi.mobile.runtime.number
 import com.kodosi.mobile.runtime.objects
 import com.kodosi.mobile.runtime.string
 import java.nio.ByteBuffer
@@ -38,6 +40,12 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         field = MutableStateFlow(emptyMap<String, ImageBitmap>())
     val picture: StateFlow<Boolean>
         field = MutableStateFlow(false)
+    val pictureSize: StateFlow<IntSize?>
+        field = MutableStateFlow<IntSize?>(null)
+    val reconnecting: StateFlow<Boolean>
+        field = MutableStateFlow(false)
+    val failure: StateFlow<String?>
+        field = MutableStateFlow<String?>(null)
     val touches: StateFlow<Long>
         field = MutableStateFlow(0L)
     val copies: SharedFlow<String>
@@ -52,23 +60,22 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private var sent: JsonObject? = null
     private var settling: Job? = null
     private var holding = false
+    private var keyFrameRequested = 0L
+    private var keyFrameRequest: Job? = null
+    private var awaitingFrames: Job? = null
 
     init {
         link.onFrame = ::receive
         link.onLost = { join() }
     }
 
+    /** A TextureView keeps its last frame after its decoder stops, so only a new surface is without a picture. */
     fun surface(surface: Surface?, width: Int, height: Int, density: Float) {
         decoder?.close()
         picture.value = false
         decoder = surface?.let {
-            BrowserDecoder(it) { failed ->
-                scope.launch {
-                    if (decoder === failed) {
-                        picture.value = false
-                        restart()
-                    }
-                }
+            BrowserDecoder(it, { shown -> pictureSize.value = shown }) { failed ->
+                scope.launch { if (decoder === failed) restart() }
             }
         }
         resize(width, height, density)
@@ -76,7 +83,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     }
 
     fun rendered() {
-        if (active) picture.value = true
+        picture.value = true
     }
 
     /**
@@ -106,7 +113,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         } else {
             joining?.cancel()
             link.detach()
-            picture.value = false
+            stopAwaitingFrames()
         }
     }
 
@@ -132,12 +139,13 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private fun join() {
         joining?.cancel()
         if (!active) return
-        picture.value = false
+        awaitFrames()
         joining = scope.launch {
             var wait = 1000L
             while (active) {
                 try {
                     link.open()
+                    failure.value = null
                     behind = true
                     last = null
                     sent = size
@@ -145,12 +153,27 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
                     return@launch
                 } catch (cancelled: CancellationException) {
                     throw cancelled
-                } catch (_: Exception) {
+                } catch (error: Exception) {
+                    failure.value = error.message
                     delay(wait)
                     wait = minOf(wait * 2, 30_000)
                 }
             }
         }
+    }
+
+    private fun awaitFrames() {
+        if (awaitingFrames != null) return
+        awaitingFrames = scope.launch {
+            delay(RECONNECTING_AFTER_MS)
+            reconnecting.value = true
+        }
+    }
+
+    private fun stopAwaitingFrames() {
+        awaitingFrames?.cancel()
+        awaitingFrames = null
+        reconnecting.value = false
     }
 
     private fun keepIcons(state: JsonObject) {
@@ -185,17 +208,31 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         if (!key && !behind && id != (last?.plus(1)?.and(0xffffffffL))) restart()
         last = id
         if (behind && !key) return
-        val width = (window.value.number("width") ?: 640).toInt().coerceIn(1, 8192)
-        val height = (window.value.number("height") ?: 480).toInt().coerceIn(1, 8192)
-        if (decoder?.frame(bytes.copyOfRange(HEADER, bytes.size), width, height, key) != true) {
+        if (decoder?.frame(bytes.copyOfRange(HEADER, bytes.size), key) != true) {
             restart()
             return
         }
         behind = false
+        stopAwaitingFrames()
     }
 
+    /** A key frame costs the host and the link many times the bits of the frames between. */
     private fun restart() {
         behind = true
+        if (decoder == null || keyFrameRequest?.isActive == true) return
+        val wait = keyFrameRequested + KEY_FRAME_REQUEST_GAP_MS - SystemClock.elapsedRealtime()
+        if (wait <= 0) {
+            requestKeyFrame()
+        } else {
+            keyFrameRequest = scope.launch {
+                delay(wait)
+                if (behind && decoder != null) requestKeyFrame()
+            }
+        }
+    }
+
+    private fun requestKeyFrame() {
+        keyFrameRequested = SystemClock.elapsedRealtime()
         post(fields("type" to "keyframe"))
     }
 
@@ -206,6 +243,8 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     override fun close() {
         active = false
         joining?.cancel()
+        keyFrameRequest?.cancel()
+        awaitingFrames?.cancel()
         link.close()
         decoder?.close()
         decoder = null
@@ -214,21 +253,27 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private companion object {
         const val HEADER = 14
         const val SETTLE_MS = 250L
+        const val KEY_FRAME_REQUEST_GAP_MS = 500L
+        const val RECONNECTING_AFTER_MS = 1500L
     }
 }
 
-internal class BrowserDecoder(private val surface: Surface, private val lost: (BrowserDecoder) -> Unit) :
-    AutoCloseable {
+internal class BrowserDecoder(
+    private val surface: Surface,
+    private val sized: (IntSize) -> Unit,
+    private val lost: (BrowserDecoder) -> Unit
+) : AutoCloseable {
     private val thread = HandlerThread("Kodosi browser decoder").apply { start() }
     private val handler = Handler(thread.looper)
     private val queued = AtomicInteger()
     private var codec: MediaCodec? = null
+    private var configured: IntSize? = null
     private var closed = false
     private var waiting = true
     private val buffers = ArrayDeque<Int>()
     private val frames = ArrayDeque<ByteArray>()
 
-    fun frame(bytes: ByteArray, width: Int, height: Int, key: Boolean): Boolean {
+    fun frame(bytes: ByteArray, key: Boolean): Boolean {
         if (bytes.size > MAX_FRAME) return false
         if (queued.incrementAndGet() > 2) {
             queued.decrementAndGet()
@@ -240,7 +285,12 @@ internal class BrowserDecoder(private val surface: Surface, private val lost: (B
                 return@post
             }
             try {
-                if (codec == null) create(width, height)
+                val size = if (key) H264.pictureSize(bytes) else null
+                if (size != null && size != configured) {
+                    reset()
+                    create(size)
+                }
+                checkNotNull(codec)
                 waiting = false
                 frames.addLast(bytes)
                 feed()
@@ -252,9 +302,14 @@ internal class BrowserDecoder(private val surface: Surface, private val lost: (B
         }.also { if (!it) queued.decrementAndGet() }
     }
 
-    private fun create(width: Int, height: Int) {
-        val next = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+    /** The first decoder of the type may refuse the stream's size, and another may take it. */
+    private fun create(size: IntSize) {
+        val type = MediaFormat.MIMETYPE_VIDEO_AVC
+        val next = MediaCodecList(MediaCodecList.REGULAR_CODECS)
+            .findDecoderForFormat(MediaFormat.createVideoFormat(type, size.width, size.height))
+            ?.let(MediaCodec::createByCodecName) ?: MediaCodec.createDecoderByType(type)
         codec = next
+        configured = size
         next.setCallback(
             object : MediaCodec.Callback() {
                 override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
@@ -268,7 +323,10 @@ internal class BrowserDecoder(private val surface: Surface, private val lost: (B
                     runCatching { codec.releaseOutputBuffer(index, info.size > 0) }
                 }
 
-                override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) = Unit
+                override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
+                    if (closed || this@BrowserDecoder.codec != codec) return
+                    format.shownSize()?.let(sized)
+                }
 
                 override fun onError(codec: MediaCodec, error: MediaCodec.CodecException) {
                     if (closed || this@BrowserDecoder.codec != codec) return
@@ -278,13 +336,11 @@ internal class BrowserDecoder(private val surface: Surface, private val lost: (B
             },
             handler
         )
-        val video =
-            requireNotNull(next.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities)
-        // The window supplies CSS dimensions; the stream supplies its coded size.
-        val initialWidth = (width + video.widthAlignment - 1) / video.widthAlignment * video.widthAlignment
-        val initialHeight = (height + video.heightAlignment - 1) / video.heightAlignment * video.heightAlignment
+        val video = requireNotNull(next.codecInfo.getCapabilitiesForType(type).videoCapabilities)
+        val width = (size.width + video.widthAlignment - 1) / video.widthAlignment * video.widthAlignment
+        val height = (size.height + video.heightAlignment - 1) / video.heightAlignment * video.heightAlignment
         next.configure(
-            MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, initialWidth, initialHeight).apply {
+            MediaFormat.createVideoFormat(type, width, height).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_FRAME)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
             },
@@ -317,6 +373,7 @@ internal class BrowserDecoder(private val surface: Surface, private val lost: (B
     private fun reset() {
         val current = codec
         codec = null
+        configured = null
         runCatching { current?.stop() }
         runCatching { current?.release() }
         queued.addAndGet(-frames.size)
@@ -331,6 +388,18 @@ internal class BrowserDecoder(private val surface: Surface, private val lost: (B
             reset()
             thread.quitSafely()
         }
+    }
+
+    /** A decoder gives the visible part of its pictures as a crop with inclusive edges. */
+    private fun MediaFormat.shownSize(): IntSize? {
+        fun side(whole: String, start: String, end: String) = if (containsKey(start) && containsKey(end)) {
+            getInteger(end) - getInteger(start) + 1
+        } else {
+            getInteger(whole, 0)
+        }
+        val width = side(MediaFormat.KEY_WIDTH, MediaFormat.KEY_CROP_LEFT, MediaFormat.KEY_CROP_RIGHT)
+        val height = side(MediaFormat.KEY_HEIGHT, MediaFormat.KEY_CROP_TOP, MediaFormat.KEY_CROP_BOTTOM)
+        return IntSize(width, height).takeIf { width > 0 && height > 0 }
     }
 
     private companion object {
