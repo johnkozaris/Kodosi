@@ -337,7 +337,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                         model,
                         sessionId,
                         canvas.browser,
-                        ask = if (session?.canControl == true && session.agent.isAgent) {
+                        ask = if (session.canControl && session.agent.isAgent) {
                             { words -> askAbout(null) { words } }
                         } else {
                             null
