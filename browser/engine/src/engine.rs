@@ -121,11 +121,13 @@ wrap_task! {
 
 /// A still page draws nothing by itself, so a picture that never reached the viewers would stay
 /// missing.
+#[cfg(target_os = "macos")]
 pub(crate) fn redraw(window: i64, delay_ms: i64) {
     let mut task = RedrawTaskBuilder::new(window);
     post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
 }
 
+#[cfg(target_os = "macos")]
 wrap_task! {
     struct RedrawTaskBuilder {
         window: i64,
