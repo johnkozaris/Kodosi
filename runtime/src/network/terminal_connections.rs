@@ -159,7 +159,6 @@ pub(super) fn open_pipe(
     crate::canvas::PipeEnds { sender, receiver }
 }
 
-/// A pipe of the canvas goes in the terminal's channel, in parts that fit a frame.
 async fn carry_pipe(
     commands: mpsc::Sender<RemoteRequest>,
     (pipe, key, name): (Uuid, String, String),

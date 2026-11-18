@@ -86,8 +86,8 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let isOwner: Bool
     public let status: Status
     public let connectionState: Connection
-    /// The other computer has not confirmed this device's typing for a while. The connection
-    /// stays open, and the typing arrives in order once the connection answers again.
+    /// This device's typing waits, and the connection to the other computer has not answered
+    /// for a while. The connection stays open, and the typing arrives in order once it answers.
     public let stalled: Bool?
     public let message: String?
     public let projectId: String?

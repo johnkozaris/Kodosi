@@ -124,7 +124,6 @@ impl Drop for Use {
     }
 }
 
-/// One route's own stream on a direct connection: whole messages in order, until it ends.
 pub(super) struct Lane {
     writer: Writer,
     pub(super) reader: mpsc::UnboundedReceiver<Vec<u8>>,
@@ -204,6 +203,19 @@ impl Drop for Lane {
     }
 }
 
+async fn open_lane(joined: &Arc<Joined>, pipe: Uuid) -> Option<Lane> {
+    let used = Use::new(joined);
+    let opened = async {
+        let (mut send, mut receive) = joined.connection.open_bi().await.ok()?;
+        send.write_all(pipe.as_bytes()).await.ok()?;
+        let mut taken = [0];
+        receive.read_exact(&mut taken).await.ok()?;
+        (taken == [TAKEN]).then_some((send, receive))
+    };
+    let (send, receive) = tokio::time::timeout(ARRIVAL, opened).await.ok()??;
+    Some(Lane::quic(send, receive, joined.lan, used))
+}
+
 async fn read_lane(mut receive: quinn::RecvStream, messages: mpsc::UnboundedSender<Vec<u8>>) {
     loop {
         let message = tokio::select! {
@@ -239,7 +251,6 @@ impl Peers {
         Self::with(keys, own_networks, Some(STUN_SERVER))
     }
 
-    /// Peers whose only network is this computer itself, and which ask no STUN server.
     #[cfg(all(test, feature = "host"))]
     pub(super) fn on_loopback(keys: Arc<ChannelKeys>) -> Arc<Self> {
         let loopback = || {
@@ -275,8 +286,6 @@ impl Peers {
         Arc::ptr_eq(&self.keys, keys)
     }
 
-    /// The addresses where the other device can try this one: those of its networks and the
-    /// public one that a STUN server sees.
     pub(super) async fn addresses(self: &Arc<Self>) -> Vec<SocketAddr> {
         let Ok(bound) = self.bind().await else {
             return Vec::new();
@@ -311,9 +320,6 @@ impl Peers {
         addresses
     }
 
-    /// Connects to the hosting device at one of its addresses, or uses the connection that is
-    /// there, and opens the route's own stream on it. The lane is ready when the host confirms
-    /// that a route of its own takes the stream.
     pub(super) async fn reach(
         self: &Arc<Self>,
         host_key: &[u8],
@@ -343,20 +349,15 @@ impl Peers {
             .get(host_key)
             .filter(|joined| joined.open())
             .map(Arc::clone);
-        let joined = match kept {
-            Some(joined) => joined,
-            None => self.dial(host_key, candidates).await?,
-        };
-        let used = Use::new(&joined);
-        let opened = async {
-            let (mut send, mut receive) = joined.connection.open_bi().await.ok()?;
-            send.write_all(pipe.as_bytes()).await.ok()?;
-            let mut taken = [0];
-            receive.read_exact(&mut taken).await.ok()?;
-            (taken == [TAKEN]).then_some((send, receive))
-        };
-        let (send, receive) = tokio::time::timeout(ARRIVAL, opened).await.ok()??;
-        Some(Lane::quic(send, receive, joined.lan, used))
+        if let Some(joined) = kept {
+            if let Some(lane) = open_lane(&joined, pipe).await {
+                return Some(lane);
+            }
+            // QUIC holds a connection whose path went silent open until its idle timeout.
+            joined.connection.close(VarInt::from_u32(0), b"");
+        }
+        let joined = self.dial(host_key, candidates).await?;
+        open_lane(&joined, pipe).await
     }
 
     async fn dial(
@@ -514,8 +515,6 @@ impl Peers {
         addresses
     }
 
-    /// Ends the connections that no route used for a while. Returns whether a connection or a
-    /// route that waits for one is left.
     fn trim(&self) -> bool {
         let now = tokio::time::Instant::now();
         let keep = |_: &Vec<u8>, joined: &mut Arc<Joined>| {
@@ -771,7 +770,6 @@ struct Network {
     mask: IpAddr,
 }
 
-/// The addresses of this computer's networks that are up, without loopback and link-local ones.
 fn own_networks() -> Vec<Network> {
     if_addrs::get_if_addrs()
         .unwrap_or_default()
@@ -845,8 +843,6 @@ fn usable(theirs: &[SocketAddr], networks: &[Network], dual: bool) -> Vec<(Socke
     usable
 }
 
-/// The runtime's UDP socket for QUIC, which also carries the STUN questions that tell this
-/// computer its public address, and the packets that open a router for the other device.
 #[derive(Debug)]
 struct Demux {
     inner: Arc<dyn AsyncUdpSocket>,
@@ -887,8 +883,6 @@ impl Demux {
         None
     }
 
-    /// Takes a datagram that is not QUIC: a STUN answer goes to its question, and the packets
-    /// that open routers end here.
     fn absorbed(&self, datagram: &[u8]) -> bool {
         if datagram.first().is_none_or(|first| first & 0x40 != 0) {
             return false;

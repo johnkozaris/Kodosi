@@ -16,11 +16,12 @@ const RECEIVING_BYTES: usize = 16 * 1024 * 1024;
 const ACK_AFTER: Duration = Duration::from_millis(200);
 const ACK_COUNT: u64 = 32;
 const STALL: Duration = Duration::from_secs(3);
+/// About when a person notices that the keys they typed do not appear.
+const LATE: Duration = Duration::from_secs(1);
 const RESUME_WAIT: Duration = Duration::from_secs(10);
 const TICK: Duration = Duration::from_millis(100);
 const ANSWER_WAIT: Duration = Duration::from_secs(10);
 
-/// Where the messages of a route go now.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Path {
     Relay,
@@ -61,11 +62,11 @@ pub(super) struct Route {
     waiting: Arc<AtomicUsize>,
 }
 
-/// The other side of a route: it hands the route a direct lane and tells where its messages go.
 #[derive(Clone)]
 pub(super) struct Paths {
     lanes: mpsc::Sender<Lane>,
     path: watch::Receiver<Path>,
+    late: watch::Receiver<bool>,
 }
 
 impl Route {
@@ -74,6 +75,7 @@ impl Route {
         let (delivered, incoming) = mpsc::unbounded_channel();
         let (lanes, attached) = mpsc::channel(1);
         let (moved, path) = watch::channel(Path::Relay);
+        let (lateness, late) = watch::channel(false);
         let waiting = Arc::new(AtomicUsize::new(0));
         let now = tokio::time::Instant::now();
         tokio::spawn(
@@ -87,6 +89,7 @@ impl Route {
                 proposed: None,
                 proposed_at: now,
                 held: false,
+                closing: None,
                 next: 1,
                 unacknowledged: VecDeque::new(),
                 unacknowledged_bytes: 0,
@@ -98,6 +101,7 @@ impl Route {
                 incoming: delivered,
                 waiting: Arc::clone(&waiting),
                 path: moved,
+                late: lateness,
             }
             .run(),
         );
@@ -107,7 +111,7 @@ impl Route {
                 incoming,
                 waiting,
             },
-            Paths { lanes, path },
+            Paths { lanes, path, late },
         )
     }
 }
@@ -138,14 +142,16 @@ impl Paths {
         *self.path.borrow()
     }
 
-    /// Waits until the route goes straight, and says whether it did in time.
+    pub(super) fn late(&self) -> watch::Receiver<bool> {
+        self.late.clone()
+    }
+
     async fn went_direct(&mut self) -> bool {
         tokio::time::timeout(STALL * 2, self.path.wait_for(|path| *path != Path::Relay))
             .await
             .is_ok_and(|seen| seen.is_ok())
     }
 
-    /// Waits until the route is back on the relay; returns `false` when the route ended.
     async fn back_on_relay(&mut self) -> bool {
         self.path
             .wait_for(|path| *path == Path::Relay)
@@ -164,6 +170,7 @@ struct Actor<R> {
     proposed: Option<Carrier>,
     proposed_at: tokio::time::Instant,
     held: bool,
+    closing: Option<tokio::time::Instant>,
     next: u64,
     unacknowledged: VecDeque<(u64, Vec<u8>)>,
     unacknowledged_bytes: usize,
@@ -175,6 +182,7 @@ struct Actor<R> {
     incoming: mpsc::UnboundedSender<Incoming>,
     waiting: Arc<AtomicUsize>,
     path: watch::Sender<Path>,
+    late: watch::Sender<bool>,
 }
 
 impl<R: Transport> Actor<R> {
@@ -198,14 +206,21 @@ impl<R: Transport> Actor<R> {
                     Some(message) => self.heard(Carrier::Lane, &message).await?,
                     None => self.lane_lost = true,
                 },
-                payload = self.outgoing.recv(), if !self.held => match payload {
+                payload = self.outgoing.recv(), if !self.held && self.closing.is_none() => match payload {
                     Some(payload) => self.send(payload).await?,
-                    None => return Ok(()),
+                    None if self.delivers_on_lane() => self.closing = Some(tokio::time::Instant::now()),
+                    None => {
+                        self.ack().await?;
+                        return Ok(());
+                    }
                 },
                 _ = tick.tick() => self.timers().await?,
             }
             if std::mem::take(&mut self.lane_lost) {
                 self.lost().await?;
+            }
+            if self.closing.is_some() && self.unacknowledged.is_empty() {
+                return Ok(());
             }
         }
     }
@@ -280,8 +295,10 @@ impl<R: Transport> Actor<R> {
         self.proposed = None;
         self.held = false;
         self.progress = tokio::time::Instant::now();
-        if from == Carrier::Relay {
-            self.lane = None;
+        if from == Carrier::Relay
+            && let Some(lane) = self.lane.take()
+        {
+            lane.abandon();
         }
         self.publish();
         Ok(())
@@ -359,7 +376,17 @@ impl<R: Transport> Actor<R> {
         }
     }
 
+    /// The relay pipe carries its messages before its close, and a lane does not, so an ending
+    /// route waits until what it sent on a lane is acknowledged.
+    fn delivers_on_lane(&self) -> bool {
+        !self.unacknowledged.is_empty()
+            && (self.held || self.sending == Carrier::Lane || self.proposed == Some(Carrier::Lane))
+    }
+
     fn deliver(&self, payload: Vec<u8>) -> Result<()> {
+        if self.closing.is_some() {
+            return Ok(());
+        }
         if self.waiting.fetch_add(payload.len(), Ordering::AcqRel) + payload.len() > RECEIVING_BYTES
         {
             return Err(Error::Closed);
@@ -385,6 +412,12 @@ impl<R: Transport> Actor<R> {
 
     async fn timers(&mut self) -> Result<()> {
         let now = tokio::time::Instant::now();
+        if self.closing.is_some_and(|since| now >= since + RESUME_WAIT) {
+            return Err(Error::Closed);
+        }
+        let late = !self.unacknowledged.is_empty() && now >= self.progress + LATE;
+        self.late
+            .send_if_modified(|current| std::mem::replace(current, late) != late);
         if self.held && now >= self.proposed_at + RESUME_WAIT {
             return Err(Error::Closed);
         }
@@ -515,7 +548,6 @@ impl Finder {
         }
     }
 
-    /// A finder that keeps its route on the relay and declines each offer.
     pub(super) fn relay() -> Self {
         let (frames, outgoing) = mpsc::channel(4);
         Self {
@@ -552,12 +584,10 @@ impl Finder {
         }
     }
 
-    /// The next path frame for the channel.
     pub(super) async fn next(&mut self) -> Option<Frame> {
         self.frames.recv().await
     }
 
-    /// A path frame from the other side.
     pub(super) fn heard(&mut self, frame: Frame) {
         match (&mut self.side, frame) {
             (Side::Viewer { answers }, Frame::PathAnswer { addresses }) => {
@@ -626,6 +656,8 @@ async fn look(
     let mut failures = 0_u32;
     loop {
         let addresses = peers.addresses().await;
+        // An answer that came after its wait belongs to the offer before.
+        while answers.try_recv().is_ok() {}
         if addresses.is_empty() || frames.send(Frame::PathOffer { addresses }).await.is_err() {
             return;
         }

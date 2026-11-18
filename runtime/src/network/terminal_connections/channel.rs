@@ -120,7 +120,6 @@ fn client_config(
     Ok(client)
 }
 
-/// The device key at the end of a raw public key, which a channel or a direct connection proved.
 pub(super) fn device_key(presented: Option<&CertificateDer<'_>>) -> Result<Vec<u8>> {
     let info = presented
         .ok_or_else(|| Error::Trust(text!("The other device did not prove its key.")))?

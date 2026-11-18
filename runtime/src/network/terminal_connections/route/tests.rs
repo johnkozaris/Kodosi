@@ -43,15 +43,20 @@ fn routes() -> ((Route, Paths), (Route, Paths), Service) {
 }
 
 /// The wire under two lanes: it can go silent, so that what is sent there is lost, or be cut.
+/// Each lane tells when it ended its connection.
 struct Wire {
     cut: CancellationToken,
     silent: Arc<AtomicBool>,
+    near_abandoned: CancellationToken,
+    far_abandoned: CancellationToken,
 }
 
 fn lanes(lan: bool) -> (Lane, Lane, Wire) {
     let wire = Wire {
         cut: CancellationToken::new(),
         silent: Arc::new(AtomicBool::new(false)),
+        near_abandoned: CancellationToken::new(),
+        far_abandoned: CancellationToken::new(),
     };
     let (near_out, near_sent) = mpsc::unbounded_channel();
     let (far_out, far_sent) = mpsc::unbounded_channel();
@@ -66,8 +71,8 @@ fn lanes(lan: bool) -> (Lane, Lane, Wire) {
         ));
     }
     (
-        Lane::memory(near_out, near_heard, lan, wire.cut.clone()),
-        Lane::memory(far_out, far_heard, lan, wire.cut.clone()),
+        Lane::memory(near_out, near_heard, lan, wire.near_abandoned.clone()),
+        Lane::memory(far_out, far_heard, lan, wire.far_abandoned.clone()),
         wire,
     )
 }
@@ -84,6 +89,9 @@ async fn carry(
             message = sent.recv() => message,
         };
         let Some(message) = message else {
+            if silent.load(Ordering::Acquire) {
+                cut.cancelled().await;
+            }
             return;
         };
         if !silent.load(Ordering::Acquire) && heard.send(message).is_err() {
@@ -190,7 +198,92 @@ async fn a_silent_lane_ends_its_connection_and_what_it_swallowed_arrives_over_th
     let heard = tokio::time::timeout(Duration::from_secs(30), viewer.receive()).await;
     assert_eq!(heard.unwrap().unwrap().unwrap(), b"echoed");
     assert_eq!(viewer_paths.path(), Path::Relay);
-    assert!(wire.cut.is_cancelled());
+    assert!(wire.near_abandoned.is_cancelled() && wire.far_abandoned.is_cancelled());
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_view_ends_the_connection_of_a_lane_that_its_host_found_silent() {
+    let ((mut viewer, mut viewer_paths), (mut host, host_paths), _service) = routes();
+    let (near, far, wire) = lanes(false);
+    host_paths.attach(far);
+    viewer_paths.attach(near);
+    assert!(viewer_paths.went_direct().await);
+
+    wire.silent.store(true, Ordering::Release);
+    host.send(b"output".to_vec()).await.unwrap();
+    let heard = tokio::time::timeout(Duration::from_secs(30), viewer.receive()).await;
+    assert_eq!(heard.unwrap().unwrap().unwrap(), b"output");
+    assert!(wire.far_abandoned.is_cancelled());
+    assert!(wire.near_abandoned.is_cancelled());
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_route_is_late_only_while_its_messages_wait_for_an_answer() {
+    let ((mut viewer, mut viewer_paths), (mut host, host_paths), _service) = routes();
+    let (near, far, wire) = lanes(false);
+    host_paths.attach(far);
+    viewer_paths.attach(near);
+    assert!(viewer_paths.went_direct().await);
+    let mut late = viewer_paths.late();
+
+    wire.silent.store(true, Ordering::Release);
+    viewer.send(b"typed".to_vec()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(!*late.borrow());
+    tokio::time::timeout(Duration::from_secs(2), late.wait_for(|late| *late))
+        .await
+        .unwrap()
+        .unwrap();
+    let heard = tokio::time::timeout(Duration::from_secs(30), host.receive()).await;
+    assert_eq!(heard.unwrap().unwrap().unwrap(), b"typed");
+    tokio::time::timeout(Duration::from_secs(5), late.wait_for(|late| !*late))
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a_route_that_ends_on_a_lane_delivers_its_last_messages_first() {
+    let ((mut viewer, mut viewer_paths), (mut host, host_paths), service) = routes();
+    drop(service);
+    let (near, far, _wire) = lanes(false);
+    host_paths.attach(far);
+    viewer_paths.attach(near);
+    assert!(viewer_paths.went_direct().await);
+
+    host.send(b"last".to_vec()).await.unwrap();
+    drop(host);
+    let heard = tokio::time::timeout(Duration::from_secs(10), viewer.receive()).await;
+    assert_eq!(heard.unwrap().unwrap().unwrap(), b"last");
+    let ended = tokio::time::timeout(Duration::from_secs(10), viewer.receive()).await;
+    assert!(!matches!(ended.unwrap(), Ok(Some(_))));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_route_that_ends_on_a_lane_stops_when_nothing_answers_its_last_messages() {
+    let (to_host, mut host_hears) = mpsc::unbounded_channel();
+    let (_host_says, from_host) = mpsc::unbounded_channel();
+    let (mut viewer, mut paths) = Route::new(
+        Relay {
+            to_peer: to_host,
+            from_peer: from_host,
+        },
+        Role::Viewer,
+    );
+    let (near, mut far, wire) = lanes(false);
+    paths.attach(near);
+    far.reader.recv().await.unwrap();
+    far.write(&numbered(RESUME, 0)).await.unwrap();
+    assert!(paths.went_direct().await);
+
+    wire.silent.store(true, Ordering::Release);
+    viewer.send(b"last".to_vec()).await.unwrap();
+    drop(viewer);
+    let stopped = tokio::time::timeout(Duration::from_secs(60), async {
+        while host_hears.recv().await.is_some() {}
+    })
+    .await;
+    assert!(stopped.is_ok());
 }
 
 #[tokio::test]
