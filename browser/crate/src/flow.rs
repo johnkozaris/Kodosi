@@ -9,28 +9,33 @@ use crate::link::FrameKind;
 const WAITING_MOST: usize = 2 * 1024 * 1024;
 /// A viewer that is behind can go on when this much still waits.
 const WAITING_DRAINED: usize = 256 * 1024;
-/// A frame that waits this much longer than the link's own round trip shows a queue.
+/// A frame is late when it comes this much later than the link's own round trip and the
+/// stream's bitrate allow.
 const LATE: Duration = Duration::from_millis(250);
-/// A viewer that stays late this long cannot take the stream. The frames that queued behind a
-/// key frame catch up sooner.
+/// A viewer that stays late this long cannot take the stream. A link that stalls for a moment
+/// catches up sooner.
 const LATE_FOR: Duration = Duration::from_millis(500);
 /// Frames for one viewer that its pipe has not taken.
 const QUEUED_MOST: usize = 3;
 const KEYFRAME_FLOOR: Duration = Duration::from_secs(1);
 const ANCHOR_FLOOR: Duration = Duration::from_millis(250);
 /// A viewer that falls behind again within this time after it went on waits longer for each next
-/// key frame: one, three, then seven seconds more than the floor.
+/// key frame while another viewer takes the stream: one, three, then seven seconds more than the
+/// floor.
 const STEADY: Duration = Duration::from_secs(10);
 const MOST_FALLS: u32 = 3;
 /// A viewer that takes no frame for this long is gone.
 const HOPELESS: Duration = Duration::from_secs(15);
-/// More round trip than the link's own shows that a queue forms.
+/// A frame that comes this much later than the link's own round trip and the stream's bitrate
+/// allow shows that the link is slower than the stream.
 const QUEUE_LIMIT: Duration = Duration::from_millis(40);
 const STEER_EVERY: Duration = Duration::from_millis(250);
 const RISE_AFTER: Duration = Duration::from_secs(2);
 const ROUND_WINDOW: Duration = Duration::from_secs(10);
+/// What a link that is slower than the stream carried in this time is what it can take.
+const CARRIED_FOR: Duration = Duration::from_secs(1);
 pub(crate) const FIRST_BITRATE: u32 = 8_000_000;
-const LOWEST_BITRATE: u32 = 1_000_000;
+const LOWEST_BITRATE: u32 = 250_000;
 const HIGHEST_BITRATE: u32 = 40_000_000;
 
 /// What a viewer's decoder holds.
@@ -57,6 +62,11 @@ struct Sent {
     bytes: usize,
     at: Instant,
     kind: FrameKind,
+    /// When a link at the stream's bitrate would have brought the frame, after those before it.
+    due: Instant,
+    /// The bytes that the viewer had taken when the frame went, and its seat's `heard_at` then.
+    taken: u64,
+    heard_at: Instant,
 }
 
 struct Seat {
@@ -69,10 +79,17 @@ struct Seat {
     key_after: Option<Instant>,
     sent: VecDeque<Sent>,
     waiting: usize,
+    /// When a link at the stream's bitrate would have brought the last frame that went.
+    due_at: Instant,
+    taken: u64,
+    /// What the link carried to the viewer while it was slower than the stream, in bits per
+    /// second.
+    carried: VecDeque<(Instant, u64)>,
     late_since: Option<Instant>,
     /// When the viewer last took a frame, or when a frame went to it while none waited.
     heard_at: Instant,
-    round: Option<Duration>,
+    /// How late the newest frame came that went after the last cut, until the next steer.
+    queue: Option<Duration>,
     least_round: Option<Duration>,
     window_least: Option<Duration>,
     window_at: Instant,
@@ -88,40 +105,27 @@ impl Seat {
             key_after: None,
             sent: VecDeque::new(),
             waiting: 0,
+            due_at: now,
+            taken: 0,
+            carried: VecDeque::new(),
             late_since: None,
             heard_at: now,
-            round: None,
+            queue: None,
             least_round: None,
             window_least: None,
             window_at: now,
         }
     }
 
-    fn queue(&self) -> Duration {
-        match (self.round, self.least_round) {
-            (Some(round), Some(least)) => round.saturating_sub(least),
-            _ => Duration::ZERO,
-        }
+    fn lateness(&self, sent: &Sent, now: Instant) -> Duration {
+        now.saturating_duration_since(sent.due)
+            .saturating_sub(self.least_round.unwrap_or_default())
     }
 
-    fn measure(&mut self, round: Duration, now: Instant) {
-        self.round = Some(round);
-        self.window_least = Some(self.window_least.map_or(round, |least| least.min(round)));
-        self.least_round = Some(self.least_round.map_or(round, |least| least.min(round)));
-        if now.duration_since(self.window_at) >= ROUND_WINDOW {
-            self.least_round = self.window_least.take();
-            self.window_at = now;
-        }
-    }
-
-    /// A key frame or an anchor takes longer to cross than the frames behind it, so nothing is
-    /// late while one crosses.
     fn late(&self, now: Instant) -> bool {
-        let Some(oldest) = self.sent.front() else {
-            return false;
-        };
-        self.sent.iter().all(|sent| sent.kind == FrameKind::Delta)
-            && now.duration_since(oldest.at) > self.least_round.unwrap_or_default() + LATE
+        self.sent
+            .front()
+            .is_some_and(|oldest| self.lateness(oldest, now) > LATE)
     }
 
     fn behind(&mut self, queued: usize, now: Instant) -> bool {
@@ -154,18 +158,93 @@ impl Seat {
         self.going_since = None;
     }
 
-    fn wants_key(&self, anchors: bool, queued: usize, now: Instant) -> bool {
+    fn wants_key(&self, anchors: bool, costs_others: bool, queued: usize, now: Instant) -> bool {
         let waits = self.holds == Holds::Nothing || (!anchors && self.holds == Holds::Gap);
-        waits && self.key_after.is_none_or(|after| now >= after) && self.caught_up(queued, now)
+        let backs_off = costs_others && self.key_after.is_some_and(|after| now < after);
+        waits && !backs_off && self.caught_up(queued, now)
     }
 
-    fn send(&mut self, sent: Sent) {
+    fn send(&mut self, id: u32, kind: FrameKind, bytes: usize, bitrate: u32, now: Instant) {
         if self.sent.is_empty() {
-            self.heard_at = sent.at;
+            self.heard_at = now;
         }
-        self.waiting += sent.bytes;
-        self.sent.push_back(sent);
+        self.due_at = self.due_at.max(now) + crossing(bytes, bitrate);
+        self.waiting += bytes;
+        self.sent.push_back(Sent {
+            id,
+            bytes,
+            at: now,
+            kind,
+            due: self.due_at,
+            taken: self.taken,
+            heard_at: self.heard_at,
+        });
     }
+
+    /// Frame ids wrap, so a frame is older than the ack when it lies less than half the range
+    /// before it. Returns the newest frame that the ack took.
+    fn take(&mut self, frame: u32, now: Instant) -> Option<Sent> {
+        let mut newest = None;
+        while let Some(sent) = self
+            .sent
+            .pop_front_if(|sent| frame.wrapping_sub(sent.id) < u32::MAX / 2)
+        {
+            self.waiting -= sent.bytes;
+            self.taken += u64::try_from(sent.bytes).unwrap_or(u64::MAX);
+            self.heard_at = now;
+            newest = Some(sent);
+        }
+        newest
+    }
+
+    fn measure(&mut self, sent: &Sent, steers: bool, now: Instant) {
+        // A key frame or an anchor takes longer to cross than the link's round trip.
+        if sent.kind == FrameKind::Delta {
+            let round = now.duration_since(sent.at);
+            self.window_least = Some(self.window_least.map_or(round, |least| least.min(round)));
+            self.least_round = Some(self.least_round.map_or(round, |least| least.min(round)));
+            if now.duration_since(self.window_at) >= ROUND_WINDOW {
+                self.least_round = self.window_least.take();
+                self.window_at = now;
+            }
+        }
+        let lateness = self.lateness(sent, now);
+        if steers {
+            self.queue = Some(lateness);
+        }
+        // A link that keeps up with the stream carries only what the stream gives it.
+        if lateness > QUEUE_LIMIT {
+            let micros = now.duration_since(sent.heard_at).as_micros();
+            let bits = u128::from(self.taken - sent.taken) * 8;
+            if let Some(rate) = (bits * 1_000_000).checked_div(micros) {
+                self.carried
+                    .push_back((now, u64::try_from(rate).unwrap_or(u64::MAX)));
+            }
+        }
+        self.forget_carried(now);
+    }
+
+    fn forget_carried(&mut self, now: Instant) {
+        while self
+            .carried
+            .front()
+            .is_some_and(|(at, _)| now.duration_since(*at) > CARRIED_FOR)
+        {
+            self.carried.pop_front();
+        }
+    }
+
+    /// The most that the link carried while it was slower than the stream.
+    fn carried(&mut self, now: Instant) -> Option<u64> {
+        self.forget_carried(now);
+        self.carried.iter().map(|(_, rate)| *rate).max()
+    }
+}
+
+/// The time that a frame takes at the stream's bitrate.
+fn crossing(bytes: usize, bitrate: u32) -> Duration {
+    let bits = u64::try_from(bytes).unwrap_or(u64::MAX).saturating_mul(8);
+    Duration::from_micros(bits.saturating_mul(1_000_000) / u64::from(bitrate.max(1)))
 }
 
 /// A frame's mark, until each viewer that took the frame said so.
@@ -188,9 +267,10 @@ pub(crate) struct Delivery {
     pub ask: Option<Ask>,
 }
 
-/// One encoder serves all viewers of a window. Viewers report each frame, the bitrate follows
-/// the round trip, and a viewer that falls behind misses frames until a key frame or an anchor,
-/// so it never sees an old page and never slows the others.
+/// One encoder serves all viewers of a window. Viewers report each frame, and a viewer that
+/// falls behind misses frames until a key frame or an anchor, so it never sees an old page. The
+/// bitrate follows the link of the viewer in control, so one that only looks never lowers it for
+/// the others.
 pub(crate) struct Flow {
     seats: HashMap<String, Seat>,
     marks: VecDeque<MarkedFrame>,
@@ -262,12 +342,7 @@ impl Flow {
                     seat.going_since = Some(now);
                 }
                 seat.holds = Holds::Stream;
-                seat.send(Sent {
-                    id,
-                    bytes,
-                    at: now,
-                    kind,
-                });
+                seat.send(id, kind, bytes, self.bitrate, now);
                 delivery.to.push(viewer.clone());
             } else if kind == FrameKind::Key {
                 seat.holds = Holds::Nothing;
@@ -334,10 +409,11 @@ impl Flow {
     /// missed frames an anchor. Each key frame costs every viewer.
     fn ask(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
         let anchors = self.anchors;
+        let costs_others = self.seats.values().any(|seat| seat.holds == Holds::Stream);
         let wants_key = self
             .seats
             .iter()
-            .any(|(viewer, seat)| seat.wants_key(anchors, queued(viewer), now));
+            .any(|(viewer, seat)| seat.wants_key(anchors, costs_others, queued(viewer), now));
         if wants_key {
             let allowed = self
                 .keyframe_at
@@ -361,24 +437,13 @@ impl Flow {
         allowed.then_some(Ask::Recover)
     }
 
-    /// Frame ids wrap, so a frame is older than the ack when it lies less than half the range
-    /// before it.
     pub(crate) fn ack(&mut self, viewer: &str, frame: u32, now: Instant) {
         let Some(seat) = self.seats.get_mut(viewer) else {
             return;
         };
-        let mut newest = None;
-        while let Some(sent) = seat
-            .sent
-            .pop_front_if(|sent| frame.wrapping_sub(sent.id) < u32::MAX / 2)
-        {
-            seat.waiting -= sent.bytes;
-            seat.heard_at = now;
-            newest = Some(sent);
-        }
-        // A key frame or an anchor takes longer to cross than the link's round trip.
-        if let Some(sent) = newest.filter(|sent| sent.kind == FrameKind::Delta) {
-            seat.measure(now.duration_since(sent.at), now);
+        if let Some(sent) = seat.take(frame, now) {
+            let steers = self.cut_at.is_none_or(|cut| sent.at > cut);
+            seat.measure(&sent, steers, now);
         }
         for marked in &mut self.marks {
             if frame.wrapping_sub(marked.id) < u32::MAX / 2 && marked.waiting.remove(viewer) {
@@ -429,7 +494,10 @@ impl Flow {
         });
     }
 
-    pub(crate) fn steer(&mut self, now: Instant) -> Option<u32> {
+    /// The bitrate follows the viewer in control, or every viewer while none is, and stays within
+    /// what its link carried while it was slower than the stream. A cut shows only in the frames
+    /// that go after it.
+    pub(crate) fn steer(&mut self, control: Option<&str>, now: Instant) -> Option<u32> {
         if self
             .steered_at
             .is_some_and(|at| now.duration_since(at) < STEER_EVERY)
@@ -437,16 +505,24 @@ impl Flow {
             return None;
         }
         self.steered_at = Some(now);
-        let queue = self
-            .seats
-            .values()
-            .filter(|seat| seat.holds == Holds::Stream)
-            .map(Seat::queue)
-            .max()?;
-        let bitrate = if queue > QUEUE_LIMIT {
-            self.cut_at = Some(now);
+        let followed = control.filter(|viewer| self.seats.contains_key(*viewer));
+        let mut queue = None;
+        let mut carried: Option<u64> = None;
+        for (viewer, seat) in &mut self.seats {
+            let fresh = seat.queue.take();
+            if followed.is_some_and(|followed| viewer.as_str() != followed) {
+                continue;
+            }
+            if seat.holds == Holds::Stream {
+                queue = queue.max(fresh);
+            }
+            if let Some(rate) = seat.carried(now) {
+                carried = Some(carried.map_or(rate, |least| least.min(rate)));
+            }
+        }
+        let mut bitrate = if queue.is_some_and(|queue| queue > QUEUE_LIMIT) {
             self.bitrate / 5 * 4
-        } else if queue < QUEUE_LIMIT / 2
+        } else if queue.is_some_and(|queue| queue < QUEUE_LIMIT / 2)
             && self
                 .cut_at
                 .is_none_or(|at| now.duration_since(at) >= RISE_AFTER)
@@ -454,8 +530,14 @@ impl Flow {
             self.bitrate.saturating_add(self.bitrate / 16)
         } else {
             self.bitrate
+        };
+        if let Some(carried) = carried {
+            bitrate = bitrate.min(u32::try_from(carried / 20 * 17).unwrap_or(u32::MAX));
         }
-        .clamp(LOWEST_BITRATE, HIGHEST_BITRATE);
+        let bitrate = bitrate.clamp(LOWEST_BITRATE, HIGHEST_BITRATE);
+        if bitrate < self.bitrate {
+            self.cut_at = Some(now);
+        }
         (bitrate != self.bitrate).then(|| {
             self.bitrate = bitrate;
             bitrate
@@ -489,6 +571,60 @@ mod tests {
         let mut delivery = flow.frame(id, kind, None, 100, now, none);
         delivery.to.sort();
         delivery
+    }
+
+    /// A viewer's link, which brings each frame at its rate in bits per second, one after
+    /// another, and the ack after the round trip.
+    struct Link {
+        viewer: &'static str,
+        rate: u64,
+        round: Duration,
+    }
+
+    /// Sends a frame of `bytes` every `every` from `start`, takes the acks that come meanwhile,
+    /// and returns those still on their way.
+    fn stream(
+        flow: &mut Flow,
+        links: &[Link],
+        ids: std::ops::RangeInclusive<u32>,
+        bytes: usize,
+        every: Duration,
+        start: Instant,
+    ) -> Vec<(Instant, &'static str, u32)> {
+        let mut free_at = vec![start; links.len()];
+        let mut acks = Vec::new();
+        for (frame, id) in ids.enumerate() {
+            let at = start + every * u32::try_from(frame).unwrap();
+            ack_until(flow, &mut acks, Some(at));
+            let delivery = flow.frame(id, FrameKind::Delta, None, bytes, at, none);
+            for (link, free_at) in links.iter().zip(&mut free_at) {
+                if delivery.to.iter().any(|viewer| viewer == link.viewer) {
+                    let bits = u64::try_from(bytes).unwrap() * 8;
+                    *free_at =
+                        (*free_at).max(at) + Duration::from_micros(bits * 1_000_000 / link.rate);
+                    acks.push((*free_at + link.round, link.viewer, id));
+                }
+            }
+        }
+        acks
+    }
+
+    fn ack_until(
+        flow: &mut Flow,
+        acks: &mut Vec<(Instant, &'static str, u32)>,
+        until: Option<Instant>,
+    ) -> Option<Instant> {
+        acks.sort_by_key(|(at, ..)| *at);
+        let due = acks
+            .iter()
+            .take_while(|(at, ..)| until.is_none_or(|until| *at <= until))
+            .count();
+        let mut last = None;
+        for (at, viewer, id) in acks.drain(..due) {
+            flow.ack(viewer, id, at);
+            last = Some(at);
+        }
+        last
     }
 
     /// The slow viewer takes frames 1 to 4 and then stays late.
@@ -575,6 +711,9 @@ mod tests {
         let mut key_at = 0;
         for (id, extra) in [(1, 0), (3, 1000), (5, 3000)] {
             send(&mut flow, id, FrameKind::Key, after(now, key_at));
+            for viewer in ["slow", "fast"] {
+                flow.ack(viewer, id, after(now, key_at + 10));
+            }
             let behind_at = key_at + 100;
             flow.frame(
                 id + 1,
@@ -584,7 +723,32 @@ mod tests {
                 after(now, behind_at),
                 full,
             );
+            flow.ack("fast", id + 1, after(now, behind_at + 10));
             let due = (behind_at + extra).max(key_at + 1000);
+            assert_eq!(flow.due(after(now, due - 1), none), None);
+            assert_eq!(flow.due(after(now, due), none), Some(Ask::Keyframe));
+            key_at = due + 100;
+        }
+    }
+
+    #[test]
+    fn a_viewer_alone_that_keeps_falling_behind_gets_each_key_frame_after_the_floor() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["slow"], now);
+        let full = |_: &str| QUEUED_MOST;
+        let mut key_at = 0;
+        for id in [1, 3, 5] {
+            send(&mut flow, id, FrameKind::Key, after(now, key_at));
+            flow.ack("slow", id, after(now, key_at + 10));
+            flow.frame(
+                id + 1,
+                FrameKind::Delta,
+                None,
+                100,
+                after(now, key_at + 100),
+                full,
+            );
+            let due = key_at + 1000;
             assert_eq!(flow.due(after(now, due - 1), none), None);
             assert_eq!(flow.due(after(now, due), none), Some(Ask::Keyframe));
             key_at = due + 100;
@@ -615,23 +779,33 @@ mod tests {
     }
 
     #[test]
-    fn the_frames_behind_a_slow_key_frame_are_not_late() {
+    fn the_frames_behind_a_key_frame_are_late_only_once_it_crosses_slower_than_the_bitrate() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
-        flow.frame(1, FrameKind::Key, None, 500_000, now, none);
-        for id in 2..=50 {
+        let half_a_second = usize::try_from(FIRST_BITRATE / 16).unwrap();
+        flow.frame(1, FrameKind::Key, None, half_a_second, now, none);
+        for id in 2..=40 {
             let at = after(now, u64::from(id) * 16);
             assert_eq!(send(&mut flow, id, FrameKind::Delta, at).to, ["a"]);
         }
-        flow.ack("a", 1, after(now, 800));
-        assert_eq!(
-            send(&mut flow, 51, FrameKind::Delta, after(now, 816)).to,
-            ["a"]
+        flow.ack("a", 40, after(now, 700));
+        flow.frame(
+            41,
+            FrameKind::Key,
+            None,
+            half_a_second,
+            after(now, 700),
+            none,
         );
-        flow.ack("a", 51, after(now, 830));
+        for (id, at) in (42..).zip((800..=2000).step_by(100)) {
+            assert_eq!(
+                send(&mut flow, id, FrameKind::Delta, after(now, at)).to,
+                ["a"]
+            );
+        }
         assert_eq!(
-            send(&mut flow, 52, FrameKind::Delta, after(now, 1400)).to,
-            ["a"]
+            send(&mut flow, 60, FrameKind::Delta, after(now, 2100)).to,
+            Vec::<String>::new()
         );
     }
 
@@ -732,28 +906,81 @@ mod tests {
     }
 
     #[test]
-    fn a_rising_round_trip_cuts_the_bitrate_and_a_calm_one_raises_it() {
+    fn a_link_slower_than_the_stream_cuts_the_bitrate_once_and_a_faster_one_raises_it() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
         send(&mut flow, 1, FrameKind::Key, now);
-        send(&mut flow, 2, FrameKind::Delta, now);
-        flow.ack("a", 2, after(now, 10));
-        send(&mut flow, 3, FrameKind::Delta, now);
-        flow.ack("a", 3, after(now, 100));
-        assert_eq!(flow.steer(now), Some(FIRST_BITRATE / 5 * 4));
-        let after_cut = now + STEER_EVERY;
-        send(&mut flow, 4, FrameKind::Delta, after_cut);
-        flow.ack("a", 4, after_cut + Duration::from_millis(10));
-        assert_eq!(flow.steer(after_cut), None);
-        let later = now + RISE_AFTER + STEER_EVERY;
-        let lower = FIRST_BITRATE / 5 * 4;
-        assert_eq!(flow.steer(later), Some(lower + lower / 16));
+        flow.ack("a", 1, after(now, 20));
+        let every = Duration::from_millis(33);
+        let round = Duration::from_millis(20);
+        let slower = Link {
+            viewer: "a",
+            rate: 7_600_000,
+            round,
+        };
+        let start = after(now, 33);
+        let mut acks = stream(&mut flow, &[slower], 2..=61, 33_000, every, start);
+        let sent = start + every * 59;
+        let cut = FIRST_BITRATE / 5 * 4;
+        assert_eq!(flow.steer(Some("a"), sent), Some(cut));
+        let end = ack_until(&mut flow, &mut acks, None).unwrap();
+        assert_eq!(flow.steer(Some("a"), end.max(sent + STEER_EVERY)), None);
+        let faster = Link {
+            viewer: "a",
+            rate: 50_000_000,
+            round,
+        };
+        let mut acks = stream(
+            &mut flow,
+            &[faster],
+            62..=63,
+            33_000,
+            every,
+            end + RISE_AFTER,
+        );
+        let calm = ack_until(&mut flow, &mut acks, None).unwrap();
+        assert_eq!(flow.steer(Some("a"), calm), Some(cut + cut / 16));
+    }
+
+    #[test]
+    fn the_bitrate_fits_what_the_link_of_the_viewer_in_control_carried() {
+        let now = Instant::now();
+        let mut flow = flow_with(&["mac", "phone"], now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        for viewer in ["mac", "phone"] {
+            flow.ack(viewer, 1, after(now, 20));
+        }
+        let round = Duration::from_millis(20);
+        let links = [
+            Link {
+                viewer: "mac",
+                rate: 50_000_000,
+                round,
+            },
+            Link {
+                viewer: "phone",
+                rate: 600_000,
+                round,
+            },
+        ];
+        let every = Duration::from_millis(25);
+        let start = after(now, 25);
+        let mut acks = stream(&mut flow, &links, 2..=13, 25_000, every, start);
+        let looked = start + every * 12;
+        ack_until(&mut flow, &mut acks, Some(looked));
+        assert_eq!(
+            flow.steer(Some("mac"), looked),
+            Some(FIRST_BITRATE + FIRST_BITRATE / 16)
+        );
+        let end = ack_until(&mut flow, &mut acks, None).unwrap();
+        let fitted = flow.steer(Some("phone"), end).unwrap();
+        assert!((450_000..=510_000).contains(&fitted), "{fitted}");
     }
 
     #[test]
     fn nobody_steers_a_still_page() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
-        assert_eq!(flow.steer(now), None);
+        assert_eq!(flow.steer(None, now), None);
     }
 }

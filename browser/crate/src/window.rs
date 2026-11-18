@@ -535,7 +535,8 @@ impl Live {
             self.capture_failed_at = None;
             self.update_capture();
         }
-        if let Some(bitrate) = self.flow.steer(now) {
+        let control = self.control.as_ref().map(|control| control.viewer.as_str());
+        if let Some(bitrate) = self.flow.steer(control, now) {
             self.engine.command(ToEngine::Bitrate {
                 window: self.id,
                 bitrate,
