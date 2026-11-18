@@ -513,13 +513,13 @@ impl Engine {
         ))
     }
 
-    /// A window that is behind loses a frame and goes on at a key frame or an anchor, so one
-    /// slow window never holds up the others or the browser's answers.
+    /// A window that is behind loses a frame and starts again at a key frame, so one slow
+    /// window never holds up the others or the browser's answers.
     fn deliver_frame(&self, frame: EncodedFrame) {
         let window = frame.window;
         let sender = {
             let mut routes = self.routes();
-            if frame.kind != FrameKind::Delta {
+            if frame.kind == FrameKind::Key {
                 routes.behind.remove(&window);
             } else if routes.behind.contains(&window) {
                 return;
@@ -530,11 +530,8 @@ impl Engine {
             return;
         };
         if sender.try_send(Event::Frame(frame)).is_err() && self.routes().behind.insert(window) {
-            tracing::debug!(
-                window,
-                "a window is behind, so it waits for a key frame or an anchor"
-            );
-            self.command(ToEngine::Recover { window });
+            tracing::debug!(window, "a window is behind, so it waits for a key frame");
+            self.command(ToEngine::Keyframe { window });
         }
     }
 

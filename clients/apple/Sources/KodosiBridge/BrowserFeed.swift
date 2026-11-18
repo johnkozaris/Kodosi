@@ -306,6 +306,7 @@ private enum ToBrowserWindow: Encodable {
         case let .watch(size):
             try container.encode("watch", forKey: .type)
             try container.encode(size, forKey: .size)
+            try container.encode(true, forKey: .anchors)
         case let .size(size):
             try container.encode("size", forKey: .type)
             try container.encode(size, forKey: .size)
@@ -320,7 +321,7 @@ private enum ToBrowserWindow: Encodable {
         }
     }
 
-    private enum Field: String, CodingKey { case type, size, frame, input }
+    private enum Field: String, CodingKey { case type, size, frame, input, anchors }
 }
 
 private struct BrowserSize: Encodable, Equatable {

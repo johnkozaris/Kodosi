@@ -40,6 +40,14 @@ enum Holds {
     Gap,
 }
 
+impl Holds {
+    /// A decoder other than `VideoToolbox`'s can lose its references some frames after an
+    /// anchor, so a viewer that takes no anchor holds nothing once it misses a frame.
+    const fn after_a_miss(anchors: bool) -> Self {
+        if anchors { Self::Gap } else { Self::Nothing }
+    }
+}
+
 struct Sent {
     id: u32,
     bytes: usize,
@@ -49,6 +57,7 @@ struct Sent {
 
 struct Seat {
     holds: Holds,
+    anchors: bool,
     sent: VecDeque<Sent>,
     waiting: usize,
     late_since: Option<Instant>,
@@ -61,9 +70,10 @@ struct Seat {
 }
 
 impl Seat {
-    fn new(now: Instant) -> Self {
+    fn new(anchors: bool, now: Instant) -> Self {
         Self {
             holds: Holds::Nothing,
+            anchors,
             sent: VecDeque::new(),
             waiting: 0,
             late_since: None,
@@ -112,8 +122,8 @@ impl Seat {
             || late && now.duration_since(*self.late_since.get_or_insert(now)) >= LATE_FOR
     }
 
-    fn caught_up(&self, now: Instant) -> bool {
-        self.waiting <= WAITING_DRAINED && !self.late(now)
+    fn caught_up(&self, queued: usize, now: Instant) -> bool {
+        self.waiting <= WAITING_DRAINED && queued < QUEUED_MOST && !self.late(now)
     }
 
     fn send(&mut self, sent: Sent) {
@@ -180,9 +190,10 @@ impl Flow {
         self.seats.is_empty()
     }
 
-    pub(crate) fn seat(&mut self, viewer: &str, now: Instant) {
+    pub(crate) fn seat(&mut self, viewer: &str, anchors: bool, now: Instant) {
         self.forget(viewer);
-        self.seats.insert(viewer.to_owned(), Seat::new(now));
+        self.seats
+            .insert(viewer.to_owned(), Seat::new(anchors, now));
     }
 
     pub(crate) fn leave(&mut self, viewer: &str) {
@@ -225,7 +236,7 @@ impl Flow {
             } else if kind == FrameKind::Key {
                 seat.holds = Holds::Nothing;
             } else if seat.holds == Holds::Stream {
-                seat.holds = Holds::Gap;
+                seat.holds = Holds::after_a_miss(seat.anchors);
             }
         }
         if let Some(mark) = mark {
@@ -240,7 +251,7 @@ impl Flow {
                 });
             }
         }
-        delivery.ask = self.ask(now);
+        delivery.ask = self.ask(now, queued);
         delivery
     }
 
@@ -255,7 +266,7 @@ impl Flow {
             seat.holds = if sent.kind == FrameKind::Key {
                 Holds::Nothing
             } else {
-                Holds::Gap
+                Holds::after_a_miss(seat.anchors)
             };
         }
         self.marks
@@ -263,10 +274,15 @@ impl Flow {
     }
 
     /// A viewer whose decoder starts again holds nothing, so it gets no frame before a key frame.
-    pub(crate) fn reset(&mut self, viewer: &str, now: Instant) -> Option<Ask> {
+    pub(crate) fn reset(
+        &mut self,
+        viewer: &str,
+        now: Instant,
+        queued: impl Fn(&str) -> usize,
+    ) -> Option<Ask> {
         self.seats.get_mut(viewer)?.holds = Holds::Nothing;
         self.forget(viewer);
-        self.ask(now)
+        self.ask(now, queued)
     }
 
     /// The window asked for a key frame itself.
@@ -275,17 +291,17 @@ impl Flow {
     }
 
     /// What a viewer that waits needs while no frame comes, as on a still page.
-    pub(crate) fn due(&mut self, now: Instant) -> Option<Ask> {
-        self.ask(now)
+    pub(crate) fn due(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
+        self.ask(now, queued)
     }
 
     /// A viewer that holds nothing gets a key frame once it takes frames again, and one that
     /// missed frames an anchor. Each key frame costs every viewer.
-    fn ask(&mut self, now: Instant) -> Option<Ask> {
+    fn ask(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
         let ready = |holds| {
             self.seats
-                .values()
-                .any(|seat| seat.holds == holds && seat.caught_up(now))
+                .iter()
+                .any(|(viewer, seat)| seat.holds == holds && seat.caught_up(queued(viewer), now))
         };
         if ready(Holds::Nothing) || (!self.anchors && ready(Holds::Gap)) {
             let allowed = self
@@ -417,7 +433,7 @@ mod tests {
     fn flow_with(viewers: &[&str], now: Instant) -> Flow {
         let mut flow = Flow::new();
         for viewer in viewers {
-            flow.seat(viewer, now);
+            flow.seat(viewer, true, now);
         }
         flow
     }
@@ -437,9 +453,11 @@ mod tests {
     }
 
     /// The slow viewer takes frames 1 to 4 and then stays late.
-    fn slow_and_fast(mark: Option<u64>) -> (Flow, Instant) {
+    fn slow_and_fast(mark: Option<u64>, anchors: bool) -> (Flow, Instant) {
         let now = Instant::now();
-        let mut flow = flow_with(&["slow", "fast"], now);
+        let mut flow = Flow::new();
+        flow.seat("slow", anchors, now);
+        flow.seat("fast", true, now);
         flow.frame(1, FrameKind::Key, mark, 100, now, none);
         flow.frame(2, FrameKind::Delta, None, 100, after(now, 10), none);
         for viewer in ["slow", "fast"] {
@@ -477,9 +495,9 @@ mod tests {
 
     #[test]
     fn a_late_viewer_misses_frames_and_goes_on_at_an_anchor_while_the_other_takes_each() {
-        let (mut flow, now) = slow_and_fast(Some(1));
-        assert_eq!(flow.due(after(now, 950)), Some(Ask::Recover));
-        assert_eq!(flow.due(after(now, 960)), None);
+        let (mut flow, now) = slow_and_fast(Some(1), true);
+        assert_eq!(flow.due(after(now, 950), none), Some(Ask::Recover));
+        assert_eq!(flow.due(after(now, 960), none), None);
         assert_eq!(
             send(&mut flow, 7, FrameKind::Delta, after(now, 960)).to,
             ["fast"]
@@ -495,10 +513,32 @@ mod tests {
     }
 
     #[test]
+    fn a_late_viewer_that_takes_no_anchor_goes_on_at_a_key_frame_and_holds_up_no_mark() {
+        let (mut flow, now) = slow_and_fast(Some(1), false);
+        flow.frame(7, FrameKind::Delta, Some(70), 100, after(now, 960), none);
+        flow.ack("fast", 7, after(now, 960));
+        assert_eq!(flow.held(), [1, 70]);
+        assert_eq!(
+            send(&mut flow, 8, FrameKind::Anchor, after(now, 970)).to,
+            ["fast"]
+        );
+        assert_eq!(flow.due(after(now, 999), none), None);
+        assert_eq!(flow.due(after(now, 1000), none), Some(Ask::Keyframe));
+    }
+
+    #[test]
+    fn a_late_viewer_goes_on_only_once_its_pipe_took_the_frames_that_wait() {
+        let (mut flow, now) = slow_and_fast(Some(1), true);
+        let full = |viewer: &str| if viewer == "slow" { QUEUED_MOST } else { 0 };
+        assert_eq!(flow.due(after(now, 950), full), None);
+        assert_eq!(flow.due(after(now, 960), none), Some(Ask::Recover));
+    }
+
+    #[test]
     fn without_marks_a_late_viewer_goes_on_at_a_key_frame_after_the_floor() {
-        let (mut flow, now) = slow_and_fast(None);
-        assert_eq!(flow.due(after(now, 950)), None);
-        assert_eq!(flow.due(after(now, 1000)), Some(Ask::Keyframe));
+        let (mut flow, now) = slow_and_fast(None, true);
+        assert_eq!(flow.due(after(now, 950), none), None);
+        assert_eq!(flow.due(after(now, 1000), none), Some(Ask::Keyframe));
         assert_eq!(
             send(&mut flow, 7, FrameKind::Key, after(now, 1010)).to,
             ["fast", "slow"]
@@ -581,14 +621,14 @@ mod tests {
         let mut flow = flow_with(&["a"], now);
         send(&mut flow, 1, FrameKind::Key, now);
         flow.ack("a", 1, now);
-        assert_eq!(flow.reset("a", now), None);
+        assert_eq!(flow.reset("a", now, none), None);
         assert_eq!(
             send(&mut flow, 2, FrameKind::Anchor, now).to,
             Vec::<String>::new()
         );
-        assert_eq!(flow.due(after(now, 999)), None);
-        assert_eq!(flow.due(after(now, 1000)), Some(Ask::Keyframe));
-        assert_eq!(flow.due(after(now, 1000)), None);
+        assert_eq!(flow.due(after(now, 999), none), None);
+        assert_eq!(flow.due(after(now, 1000), none), Some(Ask::Keyframe));
+        assert_eq!(flow.due(after(now, 1000), none), None);
     }
 
     #[test]

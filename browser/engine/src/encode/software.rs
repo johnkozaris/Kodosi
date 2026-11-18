@@ -87,13 +87,11 @@ impl Encoder {
     }
 
     /// `OpenH264` takes acknowledged references only in its camera mode, which codes a scrolled
-    /// page at half the quality of its screen mode, so a viewer that missed frames gets a key
-    /// frame.
+    /// page at half the quality of its screen mode, so it marks no frame and a viewer that missed
+    /// frames gets a key frame.
     pub(crate) fn recover(&mut self) {
         self.want_key();
     }
-
-    pub(crate) const fn held(&mut self, _marks: &[u64]) {}
 
     pub(crate) fn set_bitrate(&mut self, bitrate: u32) {
         self.change(|slot| slot.bitrate = Some(bitrate));

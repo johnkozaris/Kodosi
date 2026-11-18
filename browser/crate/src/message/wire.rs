@@ -17,11 +17,22 @@ const ANCHOR: u8 = 2;
     rename_all_fields = "camelCase"
 )]
 pub(crate) enum ToWindow {
-    Watch { size: Size },
-    Ack { frame: u32 },
+    /// A viewer whose decoder takes an anchor after frames that it missed says so.
+    Watch {
+        size: Size,
+        #[serde(default)]
+        anchors: bool,
+    },
+    Ack {
+        frame: u32,
+    },
     Keyframe,
-    Size { size: Size },
-    Input { input: Input },
+    Size {
+        size: Size,
+    },
+    Input {
+        input: Input,
+    },
 }
 
 /// Positions are in the CSS pixels of the page.
@@ -200,6 +211,20 @@ mod tests {
                 ][..]
             );
         }
+    }
+
+    #[test]
+    fn a_viewer_takes_anchors_only_when_its_watch_says_so() {
+        let watch = |body: &str| ToWindow::decode(&[&[JSON], body.as_bytes()].concat());
+        let size = r#""size":{"width":800,"height":600,"scale":2}"#;
+        assert!(matches!(
+            watch(&format!(r#"{{"type":"watch",{size},"anchors":true}}"#)),
+            Ok(ToWindow::Watch { anchors: true, .. })
+        ));
+        assert!(matches!(
+            watch(&format!(r#"{{"type":"watch",{size}}}"#)),
+            Ok(ToWindow::Watch { anchors: false, .. })
+        ));
     }
 
     #[test]

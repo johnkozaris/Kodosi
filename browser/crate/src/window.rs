@@ -333,6 +333,13 @@ struct Seat {
     size: Option<Size>,
 }
 
+/// The frames that wait in a viewer's pipe.
+fn queued(seats: &HashMap<String, Seat>, viewer: &str) -> usize {
+    seats.get(viewer).map_or(0, |seat| {
+        seat.outgoing.max_capacity() - seat.outgoing.capacity()
+    })
+}
+
 /// Frees a viewer's seat only for the join that took it. A viewer that joined again on a new
 /// pipe keeps its new seat when the earlier pipe goes.
 fn free(seats: &mut HashMap<String, Seat>, viewer: &str, number: u64) -> bool {
@@ -543,8 +550,9 @@ impl Live {
             self.update_capture();
             self.dirty = true;
         }
+        let seats = &self.seats;
         if self.capturing.is_some()
-            && let Some(ask) = self.flow.due(now)
+            && let Some(ask) = self.flow.due(now, |viewer| queued(seats, viewer))
         {
             self.ask(ask);
         }
@@ -713,8 +721,8 @@ impl Live {
     fn message(&mut self, viewer: &str, message: ToWindow) {
         let now = Instant::now();
         match message {
-            ToWindow::Watch { size } => {
-                self.flow.seat(viewer, now);
+            ToWindow::Watch { size, anchors } => {
+                self.flow.seat(viewer, anchors, now);
                 self.used_at = now;
                 self.control.get_or_insert_with(|| Control::of(viewer));
                 self.keep_size(viewer, size);
@@ -724,7 +732,8 @@ impl Live {
             }
             ToWindow::Ack { frame } => self.flow.ack(viewer, frame, now),
             ToWindow::Keyframe => {
-                if let Some(ask) = self.flow.reset(viewer, now) {
+                let seats = &self.seats;
+                if let Some(ask) = self.flow.reset(viewer, now, |viewer| queued(seats, viewer)) {
                     self.ask(ask);
                 }
             }
@@ -746,14 +755,14 @@ impl Live {
         self.next_frame = self.next_frame.wrapping_add(1);
         let id = self.next_frame;
         let seats = &self.seats;
-        let queued = |viewer: &str| {
-            seats.get(viewer).map_or(0, |seat| {
-                seat.outgoing.max_capacity() - seat.outgoing.capacity()
-            })
-        };
-        let delivery = self
-            .flow
-            .frame(id, frame.kind, frame.mark, frame.data.len(), now, queued);
+        let delivery = self.flow.frame(
+            id,
+            frame.kind,
+            frame.mark,
+            frame.data.len(),
+            now,
+            |viewer| queued(seats, viewer),
+        );
         if !delivery.to.is_empty() {
             let message = ToViewer::Frame(Frame {
                 id,
@@ -1538,7 +1547,10 @@ mod tests {
     async fn look(live: &mut Live, viewer: &str, size: Size) {
         live.handle(Event::Message {
             viewer: viewer.to_owned(),
-            message: ToWindow::Watch { size },
+            message: ToWindow::Watch {
+                size,
+                anchors: false,
+            },
         })
         .await;
     }

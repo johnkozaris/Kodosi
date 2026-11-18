@@ -59,10 +59,6 @@ protected:
     void itemChange(ItemChange change, const ItemChangeData& value) override;
 
 private:
-    // What the decoder holds: a new or broken one takes only a key frame, and one that the host
-    // skipped goes on at a key frame or an anchor.
-    enum class Holds { Nothing, Stream, Gap };
-
     void join();
     void leave();
     void forgetTerminal();
@@ -95,7 +91,7 @@ private:
     QImage m_image;
     bool m_fresh = false;
     quint32 m_lastFrame = 0;
-    Holds m_holds = Holds::Nothing;
+    bool m_behind = true;
     int m_wait = 1000;
     QTimer m_again;
     QTimer m_settle;

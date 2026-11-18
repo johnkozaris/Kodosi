@@ -843,6 +843,7 @@ fn capture(command: &ToEngine) {
             capture.encoder.recover();
             engine.browser_of(capture.tab)
         }
+        #[cfg(target_os = "macos")]
         ToEngine::Held { window, ref marks } => {
             let shared = engine.shared_of(window)?;
             if let Some(capture) = shared.capture.borrow_mut().as_mut() {

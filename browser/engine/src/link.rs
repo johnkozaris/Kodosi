@@ -19,7 +19,7 @@ pub(crate) struct Link {
     reports: mpsc::Sender<Message>,
     frames: mpsc::Sender<Message>,
     /// The windows that lost a picture. The pictures after it need it, so a window sends
-    /// nothing more until its next key frame or anchor.
+    /// nothing more until its next key frame.
     broken: Arc<Mutex<HashSet<i64>>>,
 }
 
@@ -32,7 +32,7 @@ impl Link {
 
     pub(crate) fn send_frame(&self, frame: &EncodedFrame) -> bool {
         let mut broken = self.broken.lock().unwrap_or_else(PoisonError::into_inner);
-        if frame.kind == FrameKind::Delta && broken.contains(&frame.window) {
+        if frame.kind != FrameKind::Key && broken.contains(&frame.window) {
             return true;
         }
         let Ok(room) = self.frames.try_reserve() else {

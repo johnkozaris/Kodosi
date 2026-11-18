@@ -255,7 +255,9 @@ struct Output {
     link: Link,
     waiting: AtomicUsize,
     failed: AtomicBool,
-    /// The link lost a picture or the encoder an anchor, so the next picture is an anchor.
+    /// The link lost a picture, which every viewer needs, so the next one is a key frame.
+    want_key: AtomicBool,
+    /// The encoder dropped an anchor, so the next picture is one.
     want_anchor: AtomicBool,
     /// A picture found the encoder full, so the page draws again when there is room.
     missed: AtomicBool,
@@ -436,7 +438,10 @@ impl Encoder {
             return;
         };
         let output = &session.output;
-        let wanted = self.want_key || self.recover || output.want_anchor.load(Ordering::Acquire);
+        let wanted = self.want_key
+            || self.recover
+            || output.want_key.load(Ordering::Acquire)
+            || output.want_anchor.load(Ordering::Acquire);
         if output.waiting.load(Ordering::Acquire) >= MOST_WAITING && !wanted {
             output.missed.store(true, Ordering::Release);
             if output.waiting.load(Ordering::Acquire) < MOST_WAITING
@@ -484,7 +489,8 @@ impl Encoder {
             return false;
         };
         let output = &session.output;
-        let key = std::mem::take(&mut self.want_key);
+        let key =
+            std::mem::take(&mut self.want_key) | output.want_key.swap(false, Ordering::AcqRel);
         let recovery = !key
             && (std::mem::take(&mut self.recover)
                 | output.want_anchor.swap(false, Ordering::AcqRel));
@@ -579,6 +585,7 @@ impl Encoder {
             link: self.link.clone(),
             waiting: AtomicUsize::new(0),
             failed: AtomicBool::new(false),
+            want_key: AtomicBool::new(false),
             want_anchor: AtomicBool::new(false),
             missed: AtomicBool::new(false),
             clean: AtomicBool::new(false),
@@ -741,7 +748,7 @@ unsafe extern "C" fn encoded(
         output.clean.store(true, Ordering::Release);
     }
     if lost {
-        output.want_anchor.store(true, Ordering::Release);
+        output.want_key.store(true, Ordering::Release);
         engine::redraw(output.window, REDRAW_AFTER_MS);
     }
 }
