@@ -35,6 +35,13 @@ const ANSWER_LIMIT: Duration = Duration::from_secs(1);
 const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
 /// Chrome keeps its window at least this wide.
 const NARROWEST: u32 = 500;
+/// The longer and the shorter side of the largest picture that the encoder takes: `VideoToolbox`
+/// refuses one larger than 4096 by 2304, and `OpenH264` one larger than 3840 by 2160.
+const MOST_PICTURE: (u16, u16) = if cfg!(target_os = "macos") {
+    (4096, 2304)
+} else {
+    (3840, 2160)
+};
 const MOST_DOWNLOADS: usize = 16;
 const MOST_TEXT: usize = 1024 * 1024;
 /// What a page says goes to every viewer with each change of the window, so it has bounds.
@@ -1308,11 +1315,51 @@ fn fitted(size: Size) -> Option<Size> {
         / u64::from(size.width);
     let scale = size.scale * f32::from(u16::try_from(size.width).ok()?)
         / f32::from(u16::try_from(width).ok()?);
-    Some(Size {
-        width,
-        height: u32::try_from(height).map_or(*SIZES.end(), |height| height.min(*SIZES.end())),
-        scale: scale.clamp(1.0, 4.0),
-    })
+    encodable(
+        Size {
+            width,
+            height: u32::try_from(height).map_or(*SIZES.end(), |height| height.min(*SIZES.end())),
+            scale: scale.clamp(1.0, 4.0),
+        },
+        MOST_PICTURE,
+    )
+}
+
+/// A page whose picture the encoder would refuse gets fewer pixels for each point, and one that is
+/// too large for it even at one pixel for each point gets smaller in its own shape. Chrome rounds
+/// the pixels of each side up.
+fn encodable(size: Size, (most_long, most_short): (u16, u16)) -> Option<Size> {
+    let tall = size.height > size.width;
+    let (long, short) = if tall {
+        (size.height, size.width)
+    } else {
+        (size.width, size.height)
+    };
+    let (longest, shortest) = (u32::from(most_long), u32::from(most_short));
+    if long > longest || short > shortest {
+        let (long, short) = if long * shortest >= short * longest {
+            (longest, short * longest / long)
+        } else {
+            (long * shortest / short, shortest)
+        };
+        let (width, height) = if tall { (short, long) } else { (long, short) };
+        return Some(Size {
+            width: width.max(NARROWEST),
+            height,
+            scale: 1.0,
+        });
+    }
+    let (long, short) = (
+        f32::from(u16::try_from(long).ok()?),
+        f32::from(u16::try_from(short).ok()?),
+    );
+    let (longest, shortest) = (f32::from(most_long), f32::from(most_short));
+    let fits = |scale: f32| (long * scale).ceil() <= longest && (short * scale).ceil() <= shortest;
+    let mut scale = size.scale.min(longest / long).min(shortest / short);
+    while !fits(scale) {
+        scale = scale.next_down();
+    }
+    Some(Size { scale, ..size })
 }
 
 fn cut(text: &str, most: usize) -> String {
@@ -1783,6 +1830,37 @@ mod tests {
                 scale: 0.0
             }),
             None
+        );
+    }
+
+    #[test]
+    fn a_picture_that_the_encoder_would_refuse_gets_fewer_pixels_or_a_smaller_page() {
+        let openh264 = (3840, 2160);
+        let retina = encodable(
+            Size {
+                width: 1134,
+                height: 1172,
+                scale: 2.0,
+            },
+            openh264,
+        )
+        .unwrap();
+        assert_eq!((retina.width, retina.height), (1134, 1172));
+        assert!((1134.0 * retina.scale).ceil() <= 2160.0 && retina.scale > 1.9);
+        assert_eq!(
+            encodable(
+                Size {
+                    width: 4096,
+                    height: 2400,
+                    scale: 1.0,
+                },
+                openh264,
+            ),
+            Some(Size {
+                width: 3686,
+                height: 2160,
+                scale: 1.0,
+            })
         );
     }
 

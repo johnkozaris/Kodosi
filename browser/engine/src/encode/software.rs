@@ -219,10 +219,15 @@ fn work(window: i64, mut bitrate: u32, link: &Link, shared: &Shared) {
         if key {
             running.encoder.force_intra_frame();
         }
-        let Ok(stream) = running.encoder.encode(&running.picture) else {
-            lost = key;
-            engine::redraw(window, REDRAW_AFTER_MS);
-            continue;
+        let stream = match running.encoder.encode(&running.picture) {
+            Ok(stream) => stream,
+            Err(problem) => {
+                link.send(&FromEngine::Failed {
+                    window,
+                    problem: format!("the encoder refused a picture: {problem}"),
+                });
+                return;
+            }
         };
         let data = stream.to_vec();
         if data.is_empty() {
