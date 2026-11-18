@@ -15,7 +15,12 @@ import {
   settled,
 } from "@documents/client";
 import type { Changed, ClosedReason, Peer } from "@documents/contract";
-import { SheetInterceptorService, UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
+import {
+  HeaderMoveRenderController,
+  IRenderManagerService,
+  SheetInterceptorService,
+  UniverSheetsCorePreset,
+} from "@univerjs/preset-sheets-core";
 import sheetsCoreEnUS from "@univerjs/preset-sheets-core/locales/en-US";
 import {
   createUniver,
@@ -258,6 +263,18 @@ function lineData(
   return data;
 }
 
+/** The document has no change that moves rows or columns, so dragging them is not offered. */
+function keepLinesInPlace(renders: IRenderManagerService): void {
+  const moves = renders.getRenderUnitById(WORKBOOK)?.with(HeaderMoveRenderController);
+  moves?.interceptor.intercept(
+    moves.interceptor.getInterceptPoints().HEADER_MOVE_PERMISSION_CHECK,
+    {
+      priority: 1,
+      handler: () => false,
+    },
+  );
+}
+
 function lineRange(kind: "rows" | "columns", line: number): Range {
   return kind === "rows"
     ? { startRow: line, endRow: line, startColumn: 0, endColumn: 0 }
@@ -497,7 +514,9 @@ class XlsxEditor implements Editor, Pictures {
       this.bar.update();
     });
     made.univerAPI.addEvent(made.univerAPI.Event.LifeCycleChanged, ({ stage }) => {
-      if (stage === LifecycleStages.Rendered) this.drawMarks();
+      if (stage !== LifecycleStages.Rendered) return;
+      keepLinesInPlace(injector.get(IRenderManagerService));
+      this.drawMarks();
     });
     made.univerAPI.addEvent(made.univerAPI.Event.CellClicked, ({ worksheet, row, column }) => {
       const link = linkAt(this.links, worksheet.getSheetId(), row, column);
