@@ -166,6 +166,8 @@ const SET_SELECTIONS = "sheet.operation.set-selections";
 const SET_SCROLL = "sheet.operation.set-scroll";
 const SET_ACTIVE_SHEET = "sheet.operation.set-worksheet-active";
 
+/** Everyone in a shared file may edit all of it, so Univer's protection of ranges is not offered. */
+const MENU = { "sheet.contextMenu.permission": { hidden: true } };
 const HIDDEN = 1;
 const CUSTOM_HEIGHT = 0;
 const AUTO_HEIGHT = 1;
@@ -461,6 +463,7 @@ class XlsxEditor implements Editor, Pictures {
           workerURL: this.worker,
           toolbar: false,
           footer: false,
+          menu: MENU,
           sheets: { enableFillHandle: person.canEdit },
         }),
       ],
