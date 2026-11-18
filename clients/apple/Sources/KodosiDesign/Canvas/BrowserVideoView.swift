@@ -33,7 +33,7 @@ import SwiftUI
 
         func show(_ feed: BrowserFeed) {
             let video = video
-            feed.show = { [weak feed] sample in
+            feed.show(on: self) { [weak feed] sample in
                 Self.enqueue(sample, on: video, feed: feed)
             }
         }
@@ -75,7 +75,7 @@ import SwiftUI
 
         func show(_ feed: BrowserFeed) {
             let video = video
-            feed.show = { [weak feed] sample in
+            feed.show(on: self) { [weak feed] sample in
                 Self.enqueue(sample, on: video, feed: feed)
             }
         }

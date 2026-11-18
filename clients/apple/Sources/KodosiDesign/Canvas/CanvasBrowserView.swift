@@ -46,23 +46,29 @@ public struct CanvasBrowserView: View {
             ZStack {
                 theme.colors.terminal
                 BrowserVideoView(feed: feed)
-                    .opacity(feed.hasPicture && !blank ? 1 : 0)
+                    .opacity(feed.picture != .waiting && !blank ? 1 : 0)
                     .grayscale(browser.state == .awake ? 0 : 1)
                     .animation(theme.motion.fade, value: browser.state)
                 if blank, browser.state == .awake {
                     Image(systemName: "globe").font(.system(size: 34, weight: .light))
                         .foregroundStyle(theme.colors.inkFaint.opacity(0.6))
                         .transition(.opacity)
+                } else if feed.picture == .waiting, browser.state == .awake {
+                    BrowserWaiting().transition(.opacity)
                 }
                 if browser.state == .awake {
                     BrowserInputArea(feed: feed, typing: typing, ask: ask)
                     BrowserPointersLayer(feed: feed)
                     AgentPointerLayer(browser: browser, feed: feed)
+                    if feed.picture == .kept {
+                        BrowserReconnecting()
+                    }
                     BrowserPartsLayer(feed: feed, ask: ask)
                 } else {
                     sleeping.transition(.opacity)
                 }
             }
+            .animation(theme.motion.fade, value: feed.picture)
             .clipped()
             .onGeometryChange(for: CGSize.self) { $0.size } action: { feed.viewSize = $0 }
             .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
@@ -232,9 +238,7 @@ public struct CanvasBrowserView: View {
                 SharedBrowserKey(height: control - 6)
             }
             if let failure = feed.failure ?? browser.problem {
-                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(theme.colors.caution).help(failure)
-                    .accessibilityLabel(Text(failure))
+                BrowserProblemKey(problem: failure, size: control - 6)
             }
             Spacer(minLength: 0)
         }
@@ -433,37 +437,49 @@ public struct CanvasBrowserView: View {
     }
 }
 
-private struct SharedBrowserKey: View {
+private struct BrowserWaiting: View {
     @Environment(\.theme) private var theme
-    let height: CGFloat
-    @State private var explaining = false
-
-    private var explanation: String {
-        String(localized: "This terminal is shared, so its browser has its own sign-ins, apart from yours. Everyone in the terminal uses them.",
-               bundle: .module)
-    }
 
     var body: some View {
-        Button { explaining.toggle() } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "person.2.fill").font(.system(size: 9, weight: .semibold))
-                Text("Shared", bundle: .module)
+        VStack(spacing: 10) {
+            Spinner(size: 18)
+            Text("Waiting for the page", bundle: .module).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("canvas.browser.waiting")
+    }
+}
+
+/// The page keeps its last picture, so a short break of the link shows no sign.
+private struct BrowserReconnecting: View {
+    private static let patience = Duration.milliseconds(1500)
+
+    @Environment(\.theme) private var theme
+    @State private var late = false
+
+    var body: some View {
+        VStack {
+            if late {
+                HStack(spacing: 7) {
+                    Spinner(size: 11)
+                    Text("Reconnecting", bundle: .module).appTextStyle(.footnote).fontWeight(.medium)
+                        .foregroundStyle(theme.colors.caution)
+                }
+                .padding(.horizontal, 12).controlHeight(28)
+                .raisedCapsule(fill: theme.colors.lifted, elevation: .lifted)
+                .transition(.opacity)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("canvas.browser.reconnecting")
             }
-            .appTextStyle(.footnote).fontWeight(.medium).foregroundStyle(theme.colors.inkMuted)
-            .padding(.horizontal, 9).frame(height: height)
-            .background(Capsule().fill(theme.colors.ink.opacity(0.06)))
-            .contentShape(Capsule())
         }
-        .buttonStyle(PressScaleStyle())
-        .help(explanation)
-        .popover(isPresented: $explaining) {
-            Text(explanation).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
-                .fixedSize(horizontal: false, vertical: true).frame(width: 260).padding(14)
-                .presentationCompactAdaptation(.popover)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 10)
+        .allowsHitTesting(false)
+        .task {
+            try? await Task.sleep(for: Self.patience)
+            guard !Task.isCancelled else { return }
+            withAnimation(theme.motion.fade) { late = true }
         }
-        .accessibilityLabel(Text("Shared", bundle: .module))
-        .accessibilityHint(Text(explanation))
-        .accessibilityIdentifier("canvas.browser.shared")
     }
 }
 

@@ -9,6 +9,14 @@ import Observation
 @MainActor
 @Observable
 public final class BrowserFeed {
+    public enum Picture: Sendable {
+        case waiting
+        case live
+        /// The surface keeps the last picture while the feed joins again, until a new frame
+        /// replaces it.
+        case kept
+    }
+
     private static let frameHeader = 14
     private static let messageTag: UInt8 = 0
     private static let frameTag: UInt8 = 1
@@ -17,11 +25,10 @@ public final class BrowserFeed {
 
     public private(set) var window = BrowserWindow()
     public private(set) var icons: [String: CGImage] = [:]
-    public private(set) var hasPicture = false
+    public private(set) var picture = Picture.waiting
     public private(set) var failure: String?
     /// Counts each press, key and scroll of a person on this device.
     public private(set) var touches = 0
-    @ObservationIgnored public var show: (CMSampleBuffer) -> Void = { _ in }
     @ObservationIgnored public var copied: (String) -> Void = { _ in }
     /// The page takes the shape of the view of the person who acted last, so a new size goes to
     /// the host once the view settles, never while a button is held, and one that waits goes
@@ -45,6 +52,8 @@ public final class BrowserFeed {
     @ObservationIgnored private let store: CanvasStore
     @ObservationIgnored private let session: String
     @ObservationIgnored private var link: DocumentLink?
+    @ObservationIgnored private var display: (CMSampleBuffer) -> Void = { _ in }
+    @ObservationIgnored private weak var surface: AnyObject?
     @ObservationIgnored private var samples = H264Samples()
     @ObservationIgnored private var lastFrame: UInt32 = 0
     @ObservationIgnored private var behind = true
@@ -71,9 +80,17 @@ public final class BrowserFeed {
         }
         await join(link)
         for await _ in losses {
-            hasPicture = false
             await join(link)
         }
+    }
+
+    /// A surface that is new to the feed has no picture, so the host sends a key frame at once.
+    public func show(on surface: AnyObject, _ display: @escaping (CMSampleBuffer) -> Void) {
+        self.display = display
+        guard surface !== self.surface else { return }
+        self.surface = surface
+        picture = .waiting
+        restart()
     }
 
     public func wake() async {
@@ -159,6 +176,9 @@ public final class BrowserFeed {
 
     /// The computer of the terminal can be away for a time, so this goes on until the view ends.
     private func join(_ link: DocumentLink) async {
+        if picture == .live {
+            picture = .kept
+        }
         var wait = Duration.seconds(1)
         while !Task.isCancelled {
             do {
@@ -244,8 +264,8 @@ public final class BrowserFeed {
         lastFrame = id
         guard key || !behind, let sample = samples.sample(of: message.dropFirst(Self.frameHeader)) else { return }
         behind = false
-        hasPicture = true
-        show(sample)
+        picture = .live
+        display(sample)
     }
 }
 
