@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -296,8 +297,14 @@ internal fun RuntimeSession.cardLines(online: Boolean, summaryFirst: Boolean): P
 
 @Composable
 fun TerminalCaption(session: RuntimeSession, online: Boolean, detail: String? = session.activity) {
+    val (words, color) = captionOf(session, online, detail)
+    Text(words, style = KodosiType.footnote, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+@Composable
+fun captionOf(session: RuntimeSession, online: Boolean, detail: String? = session.activity): Pair<String, Color> {
     val colors = KodosiTheme.colors
-    val (words, color) = when (session.captionState(online)) {
+    return when (session.captionState(online)) {
         CaptionState.OFFLINE -> stringResource(R.string.offline) to colors.caution
 
         CaptionState.TROUBLED -> statusLabel(session) to if (session.isTroubled) colors.caution else colors.inkFaint
@@ -311,7 +318,6 @@ fun TerminalCaption(session: RuntimeSession, online: Boolean, detail: String? = 
         null -> (detail ?: session.folderName ?: agentLabel(session.agent)) to
             if (detail == null) colors.inkFaint else colors.inkMuted
     }
-    Text(words, style = KodosiType.footnote, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable

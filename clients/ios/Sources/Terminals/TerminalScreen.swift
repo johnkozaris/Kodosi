@@ -291,39 +291,42 @@ private struct TerminalScreenContent: View {
     @ContentBuilder
     private func stageContent(_ session: RuntimeSession?) -> some View {
         if let session {
-            if session.isConnected, let surface = controller.surface {
-                TerminalRowsFrame(renderer: surface.renderer) {
-                    TerminalRendererView(
-                        session: surface.renderer,
-                        sessionName: session.name,
-                        accessibilityIdentifier: "terminal.surface",
-                        shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType && keyboardAllowed,
-                        allowsFocus: keyboardAllowed,
-                        allowsInput: controller.canType,
-                        asksBeforeClipboardRead: !session.isOwner,
-                        otherComputer: session.otherComputer,
-                        isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
-                        onFocusChange: { focused in
-                            keyboard.terminalFocused(focused, allowed: keyboardAllowed)
-                            if focused {
-                                controller.focusTerminal()
-                            }
-                        },
-                    )
+            let surface = session.isConnected ? controller.surface : nil
+            let cover = TerminalCover.of(session, unreachable: model.unreachable(session), opening: controller.opening,
+                                         failure: controller.openFailure, render: surface.map { _ in controller.renderState })
+            ZStack {
+                if let surface {
+                    TerminalRowsFrame(renderer: surface.renderer) {
+                        TerminalRendererView(
+                            session: surface.renderer,
+                            sessionName: session.name,
+                            accessibilityIdentifier: "terminal.surface",
+                            shouldFocus: keyboard.focusesTerminal(composing: composing) && controller.canType && keyboardAllowed,
+                            allowsFocus: keyboardAllowed,
+                            allowsInput: controller.canType,
+                            asksBeforeClipboardRead: !session.isOwner,
+                            otherComputer: session.otherComputer,
+                            isSurfaceVisible: controller.presence.watching && controller.renderState == .rendered,
+                            onFocusChange: { focused in
+                                keyboard.terminalFocused(focused, allowed: keyboardAllowed)
+                                if focused {
+                                    controller.focusTerminal()
+                                }
+                            },
+                        )
+                    }
+                    .onDisappear { keyboard.terminalGone() }
+                    .padding(5)
+                    .id(surface.token.subscriptionId)
+                    .transition(.identity)
                 }
-                .onDisappear { keyboard.terminalGone() }
-                .padding(5)
-                .overlay {
-                    TerminalRenderOverlay(state: controller.renderState, retry: controller.retry)
+                if let cover {
+                    TerminalCoverCard(cover: cover, connect: controller.open, reconnect: model.account.retryConnection, retry: controller.retry)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous))
+                        .transition(.opacity)
                 }
-                .id(surface.token.subscriptionId)
-            } else {
-                TerminalSessionState(
-                    session: session, unreachable: model.unreachable(session), opening: controller.opening, failure: controller.openFailure,
-                    connect: controller.open, reconnect: model.account.retryConnection,
-                )
             }
+            .animation(theme.motion.fade, value: cover)
         } else {
             TerminalEnded { dismiss() }
         }

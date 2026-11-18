@@ -50,13 +50,18 @@ struct TerminalTitle: View {
                         StatusSign(form: sign).transition(AnyTransition.pop)
                     }
                 }
-                caption
-                    .appTextStyle(.caption)
-                    .lineLimit(1)
+                ZStack(alignment: .leading) {
+                    caption(of: captionKind)
+                        .id(captionKind)
+                        .transition(.opacity)
+                }
+                .appTextStyle(.caption)
+                .lineLimit(1)
             }
         }
         .animation(theme.motion.soft, value: session.name)
         .animation(theme.motion.snappy, value: sign)
+        .animation(theme.motion.fade, value: captionKind)
     }
 
     private var name: some View {
@@ -67,27 +72,50 @@ struct TerminalTitle: View {
             .contentTransition(.interpolate)
     }
 
-    @ContentBuilder
-    private var caption: some View {
+    private enum Caption: Hashable {
+        case offline, away, notice(String), state(String), activity, place(String?)
+    }
+
+    private var captionKind: Caption {
         if unreachable {
+            .offline
+        } else if session.isConnected, session.status == .offline {
+            .away
+        } else if session.isConnected, let notice = session.message {
+            .notice(notice)
+        } else if !session.isConnected {
+            .state(session.statusLabel)
+        } else if session.activity != nil || session.progress != nil {
+            .activity
+        } else {
+            .place(session.place?.name ?? session.folderName)
+        }
+    }
+
+    @ContentBuilder
+    private func caption(of kind: Caption) -> some View {
+        switch kind {
+        case .offline:
             Text("Offline")
                 .foregroundStyle(theme.colors.caution)
-        } else if session.isConnected, session.status == .offline {
+        case .away:
             Text(session.statusLabel)
                 .foregroundStyle(theme.colors.caution)
-        } else if session.isConnected, let notice = session.message {
+        case let .notice(notice):
             Text(notice)
                 .foregroundStyle(theme.colors.caution)
-        } else if !session.isConnected {
-            Text(session.statusLabel)
+        case let .state(label):
+            Text(label)
                 .foregroundStyle(session.isTroubled ? theme.colors.caution : theme.colors.inkFaint)
-        } else if session.activity != nil || session.progress != nil {
+        case .activity:
             SessionActivityText(session: session)
                 .foregroundStyle(theme.colors.inkMuted)
-        } else if let place = session.place {
-            TerminalLocation(host: session.kind == .remote ? session.hostLabel : nil, glyph: PlaceGlyph.symbol(for: place.kind), name: place.name)
-        } else {
-            TerminalLocation(host: session.hostLabel, glyph: "folder", name: session.folderName)
+        case .place:
+            if let place = session.place {
+                TerminalLocation(host: session.kind == .remote ? session.hostLabel : nil, glyph: PlaceGlyph.symbol(for: place.kind), name: place.name)
+            } else {
+                TerminalLocation(host: session.hostLabel, glyph: "folder", name: session.folderName)
+            }
         }
     }
 }

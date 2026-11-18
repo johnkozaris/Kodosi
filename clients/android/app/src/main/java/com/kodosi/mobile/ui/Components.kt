@@ -1,11 +1,14 @@
 package com.kodosi.mobile.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -57,6 +60,12 @@ import com.kodosi.mobile.terminals.StatusForm
 
 @Composable
 fun reducedMotion(): Boolean = LocalReducedMotion.current
+
+private val FadeEasing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+
+/** A state that changes in place fades as in the other apps, and at once with reduced motion. */
+@Composable
+fun <T> fade(): FiniteAnimationSpec<T> = if (reducedMotion()) snap() else tween(200, easing = FadeEasing)
 
 @Composable
 fun KodosiSpinner(modifier: Modifier = Modifier) {
