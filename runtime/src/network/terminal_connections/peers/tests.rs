@@ -83,6 +83,52 @@ async fn a_viewer_leaves_a_device_that_proves_another_key() {
     assert!(viewer.dialed.lock().unwrap().is_empty());
 }
 
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn two_devices_of_one_person_go_straight_at_once_and_one_that_leaves_spares_the_other() {
+    let (host_keys, laptop_keys, phone_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (host, laptop, phone) = (
+        peers_of(&host_keys),
+        peers_of(&laptop_keys),
+        peers_of(&phone_keys),
+    );
+    let address = on_this_computer(&host).await;
+    let (laptop_pipe, phone_pipe) = (Uuid::now_v7(), Uuid::now_v7());
+    let (laptop_arrived, laptop_reached) = tokio::join!(
+        host.expect(laptop_keys.signing_public(), laptop_pipe)
+            .meet(&[]),
+        laptop.reach_at(host_keys.signing_public(), address.clone(), laptop_pipe),
+    );
+    let (mut laptop_arrived, mut laptop_reached) =
+        (laptop_arrived.unwrap(), laptop_reached.unwrap());
+    let (phone_arrived, phone_reached) = tokio::join!(
+        host.expect(phone_keys.signing_public(), phone_pipe)
+            .meet(&[]),
+        phone.reach_at(host_keys.signing_public(), address, phone_pipe),
+    );
+    let (mut phone_arrived, mut phone_reached) = (phone_arrived.unwrap(), phone_reached.unwrap());
+    for (reached, arrived) in [
+        (&mut laptop_reached, &mut laptop_arrived),
+        (&mut phone_reached, &mut phone_arrived),
+    ] {
+        reached.write(b"typed").await.unwrap();
+        assert_eq!(arrived.reader.recv().await.unwrap(), b"typed");
+    }
+
+    drop(laptop_reached);
+    drop(laptop);
+    let ended = tokio::time::timeout(Duration::from_secs(5), laptop_arrived.reader.recv()).await;
+    assert_eq!(ended.unwrap(), None);
+    phone_reached.write(b"more").await.unwrap();
+    assert_eq!(phone_arrived.reader.recv().await.unwrap(), b"more");
+    phone_arrived.write(b"echoed").await.unwrap();
+    assert_eq!(phone_reached.reader.recv().await.unwrap(), b"echoed");
+}
+
 fn stun_answer_for(id: [u8; 12], seen: SocketAddr) -> Vec<u8> {
     let SocketAddr::V4(seen) = seen else {
         panic!("the test server listens on IPv4");
