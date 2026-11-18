@@ -6,7 +6,7 @@ use crate::link::FrameKind;
 
 const JSON: u8 = 0;
 const FRAME: u8 = 1;
-const FRAME_HEADER: usize = 1 + 4 + 1 + 8;
+const FRAME_HEADER: usize = 1 + 4 + 1;
 const KEY: u8 = 1;
 const ANCHOR: u8 = 2;
 
@@ -136,7 +136,6 @@ pub(crate) enum KeyAction {
 pub(crate) struct Frame {
     pub(crate) id: u32,
     pub(crate) kind: FrameKind,
-    pub(crate) timestamp: u64,
     pub(crate) data: Bytes,
 }
 
@@ -177,7 +176,6 @@ impl Frame {
             FrameKind::Key => KEY,
             FrameKind::Anchor => ANCHOR,
         });
-        message.put_u64(self.timestamp);
         message.put_slice(&self.data);
         message.freeze()
     }
@@ -205,14 +203,11 @@ mod tests {
             let frame = Frame {
                 id: 7,
                 kind,
-                timestamp: 90_000,
                 data: Bytes::from_static(&[0, 0, 0, 1, 0x65]),
             };
             assert_eq!(
                 &ToViewer::Frame(frame).encode()[..],
-                &[
-                    FRAME, 0, 0, 0, 7, flags, 0, 0, 0, 0, 0, 1, 0x5f, 0x90, 0, 0, 0, 1, 0x65
-                ][..]
+                &[FRAME, 0, 0, 0, 7, flags, 0, 0, 0, 1, 0x65][..]
             );
         }
     }

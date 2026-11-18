@@ -178,7 +178,6 @@ mod tests {
         let frame = EncodedFrame {
             window: 4,
             kind: FrameKind::Key,
-            timestamp: 9,
             mark: None,
             data: Bytes::from_static(b"\0\0\0\x01x"),
         };

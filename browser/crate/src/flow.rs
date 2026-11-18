@@ -408,14 +408,10 @@ impl Flow {
         self.keyframe_at = Some(now);
     }
 
-    /// What a viewer that waits needs while no frame comes, as on a still page.
-    pub(crate) fn due(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
-        self.ask(now, queued)
-    }
-
     /// A viewer that holds nothing gets a key frame once it takes frames again, and one that
-    /// missed frames an anchor. Each key frame costs every viewer.
-    fn ask(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
+    /// missed frames an anchor, also while no frame comes, as on a still page. Each key frame
+    /// costs every viewer.
+    pub(crate) fn ask(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
         let anchors = self.anchors;
         let costs_others = self.seats.values().any(|seat| seat.holds == Holds::Stream);
         let wants_key = self
@@ -679,8 +675,8 @@ mod tests {
     #[test]
     fn a_late_viewer_misses_frames_and_goes_on_at_an_anchor_while_the_other_takes_each() {
         let (mut flow, now) = slow_and_fast(Some(1), true);
-        assert_eq!(flow.due(after(now, 950), none), Some(Ask::Recover));
-        assert_eq!(flow.due(after(now, 960), none), None);
+        assert_eq!(flow.ask(after(now, 950), none), Some(Ask::Recover));
+        assert_eq!(flow.ask(after(now, 960), none), None);
         assert_eq!(
             send(&mut flow, 7, FrameKind::Delta, after(now, 960)).to,
             ["fast"]
@@ -705,8 +701,8 @@ mod tests {
             send(&mut flow, 8, FrameKind::Anchor, after(now, 970)).to,
             ["fast"]
         );
-        assert_eq!(flow.due(after(now, 999), none), None);
-        assert_eq!(flow.due(after(now, 1000), none), Some(Ask::Keyframe));
+        assert_eq!(flow.ask(after(now, 999), none), None);
+        assert_eq!(flow.ask(after(now, 1000), none), Some(Ask::Keyframe));
     }
 
     #[test]
@@ -733,8 +729,8 @@ mod tests {
             );
             flow.ack("fast", id + 1, after(now, behind_at + 10));
             let due = (behind_at + extra).max(key_at + 1000);
-            assert_eq!(flow.due(after(now, due - 1), none), None);
-            assert_eq!(flow.due(after(now, due), none), Some(Ask::Keyframe));
+            assert_eq!(flow.ask(after(now, due - 1), none), None);
+            assert_eq!(flow.ask(after(now, due), none), Some(Ask::Keyframe));
             key_at = due + 100;
         }
     }
@@ -757,8 +753,8 @@ mod tests {
                 full,
             );
             let due = key_at + 1000;
-            assert_eq!(flow.due(after(now, due - 1), none), None);
-            assert_eq!(flow.due(after(now, due), none), Some(Ask::Keyframe));
+            assert_eq!(flow.ask(after(now, due - 1), none), None);
+            assert_eq!(flow.ask(after(now, due), none), Some(Ask::Keyframe));
             key_at = due + 100;
         }
     }
@@ -767,15 +763,15 @@ mod tests {
     fn a_late_viewer_goes_on_only_once_its_pipe_took_the_frames_that_wait() {
         let (mut flow, now) = slow_and_fast(Some(1), true);
         let full = |viewer: &str| if viewer == "slow" { QUEUED_MOST } else { 0 };
-        assert_eq!(flow.due(after(now, 950), full), None);
-        assert_eq!(flow.due(after(now, 960), none), Some(Ask::Recover));
+        assert_eq!(flow.ask(after(now, 950), full), None);
+        assert_eq!(flow.ask(after(now, 960), none), Some(Ask::Recover));
     }
 
     #[test]
     fn without_marks_a_late_viewer_goes_on_at_a_key_frame_after_the_floor() {
         let (mut flow, now) = slow_and_fast(None, true);
-        assert_eq!(flow.due(after(now, 950), none), None);
-        assert_eq!(flow.due(after(now, 1000), none), Some(Ask::Keyframe));
+        assert_eq!(flow.ask(after(now, 950), none), None);
+        assert_eq!(flow.ask(after(now, 1000), none), Some(Ask::Keyframe));
         assert_eq!(
             send(&mut flow, 7, FrameKind::Key, after(now, 1010)).to,
             ["fast", "slow"]
@@ -873,9 +869,9 @@ mod tests {
             send(&mut flow, 2, FrameKind::Anchor, now).to,
             Vec::<String>::new()
         );
-        assert_eq!(flow.due(after(now, 999), none), None);
-        assert_eq!(flow.due(after(now, 1000), none), Some(Ask::Keyframe));
-        assert_eq!(flow.due(after(now, 1000), none), None);
+        assert_eq!(flow.ask(after(now, 999), none), None);
+        assert_eq!(flow.ask(after(now, 1000), none), Some(Ask::Keyframe));
+        assert_eq!(flow.ask(after(now, 1000), none), None);
     }
 
     #[test]

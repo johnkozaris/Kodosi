@@ -87,7 +87,7 @@ import Testing
 private final class BrowserRuntime {
     static let keyFrame: Data = {
         let start: [UInt8] = [0, 0, 0, 1]
-        let header: [UInt8] = [1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+        let header: [UInt8] = [1, 0, 0, 0, 1, 1]
         let sequenceParameters: [UInt8] = [0x27, 0x42, 0x00, 0x0B, 0xAB, 0x41, 0x86, 0xF0, 0x2C, 0xC1, 0x4A]
         let pictureParameters: [UInt8] = [0x28, 0xCE, 0x3C, 0x80]
         let keyPicture: [UInt8] = [0x25, 0x88, 0x84]
@@ -97,7 +97,7 @@ private final class BrowserRuntime {
     static func frame(_ id: UInt32, anchor: Bool = false) -> Data {
         let start: [UInt8] = [0, 0, 0, 1]
         let number = withUnsafeBytes(of: id.bigEndian, Array.init)
-        let header: [UInt8] = [1] + number + [anchor ? 2 : 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        let header: [UInt8] = [1] + number + [anchor ? 2 : 0]
         let picture: [UInt8] = [0x21, 0xE0, 0x84]
         return Data(header + start + picture)
     }
