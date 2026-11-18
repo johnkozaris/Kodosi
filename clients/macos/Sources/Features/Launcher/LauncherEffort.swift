@@ -85,6 +85,41 @@ struct EffortMeter: View {
     }
 }
 
+struct LauncherModelMenu: View {
+    @Environment(\.theme) private var theme
+    let plan: LaunchPlan
+    let fast: Bool
+    let directory: String?
+    let loading: Bool
+    let pick: (String) -> Void
+    let choose: ((inout AgentPick) -> Void) -> Void
+    let close: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            PickerList(
+                rows: LauncherMenu.model.rows(plan, recents: [], directory: directory, loading: loading),
+                identifier: "launcher.list.model", width: 290, pick: pick, close: close,
+            )
+            if !plan.efforts.isEmpty {
+                Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
+                EffortMeter(levels: plan.efforts, current: plan.effortId) { effort in
+                    choose { $0.effort = effort }
+                    close()
+                }
+            }
+            if fast {
+                Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
+                FastSwitch(isOn: plan.fast) { isOn in
+                    choose { $0.fast = isOn }
+                    close()
+                }
+            }
+        }
+        .frame(width: 290)
+    }
+}
+
 struct FastSwitch: View {
     @Environment(\.theme) private var theme
     let isOn: Bool

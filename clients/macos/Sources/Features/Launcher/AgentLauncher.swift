@@ -484,27 +484,10 @@ private extension AgentLauncher {
             toggle(.model)
         }
         .kodosiPopover(isPresented: presented(.model), alignment: .leading) {
-            VStack(spacing: 0) {
-                PickerList(
-                    rows: LauncherMenu.model.rows(plan, recents: [], directory: directory, loading: launcher.loadingModels.contains(info.agent)),
-                    identifier: "launcher.list.model", width: 290, pick: pick, close: closeMenu,
-                )
-                if !plan.efforts.isEmpty {
-                    Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
-                    EffortMeter(levels: plan.efforts, current: plan.effortId) { effort in
-                        choosePick { $0.effort = effort }
-                        closeMenu()
-                    }
-                }
-                if info.fast {
-                    Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
-                    FastSwitch(isOn: plan.fast) { fast in
-                        choosePick { $0.fast = fast }
-                        closeMenu()
-                    }
-                }
-            }
-            .frame(width: 290)
+            LauncherModelMenu(
+                plan: plan, fast: info.fast, directory: directory, loading: launcher.loadingModels.contains(info.agent),
+                pick: pick, choose: choosePick, close: closeMenu,
+            )
         }
     }
 }
