@@ -3277,6 +3277,13 @@
     </message>
 </context>
 <context>
+    <name>ReconnectingNotice</name>
+    <message>
+        <source>Reconnecting</source>
+        <translation>다시 연결 중</translation>
+    </message>
+</context>
+<context>
     <name>RedoAction</name>
     <message>
         <source>Redo</source>
@@ -4036,10 +4043,6 @@
     <message>
         <source>Offline</source>
         <translation>오프라인</translation>
-    </message>
-    <message>
-        <source>Reconnecting</source>
-        <translation>다시 연결 중</translation>
     </message>
     <message>
         <source>This terminal is not available now.</source>

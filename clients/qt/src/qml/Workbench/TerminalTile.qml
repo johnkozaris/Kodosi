@@ -653,43 +653,12 @@ Item {
                 onTerminalClosed: root.terminalError = qsTr("The terminal closed.")
                 onTerminalError: message => root.terminalError = message
             }
-            Item {
-                id: reconnectingCard
-                readonly property bool shown: root.waitsForConnection && terminal.terminalReady
+            ReconnectingNotice {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                anchors.topMargin: shown ? 10 : 2
-                width: reconnectingRow.implicitWidth + 26
-                height: 34
-                opacity: shown ? 1 : 0
-                visible: opacity > 0
+                anchors.topMargin: 10
+                shown: root.waitsForConnection && terminal.terminalReady
                 objectName: root.objectName + ".reconnecting"
-                Accessible.role: Accessible.StaticText
-                Accessible.name: reconnectingLabel.text
-
-                Behavior on anchors.topMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
-                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
-
-                Raised {
-                    anchors.fill: parent
-                    radius: height / 2
-                    fill: KodosiTheme.terminalLifted
-                    dark: true
-                    elevation: 2
-                }
-                RowLayout {
-                    id: reconnectingRow
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: 12
-                    spacing: 8
-
-                    BreathingDot { color: KodosiTheme.glowOrange }
-                    PlainLabel {
-                        id: reconnectingLabel
-                        text: qsTr("Reconnecting")
-                        color: KodosiTheme.terminalInk
-                    }
-                }
             }
             Item {
                 id: pictureCard

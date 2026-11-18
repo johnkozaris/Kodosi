@@ -249,9 +249,7 @@ private struct TerminalScreenContent: View {
             .overlay(alignment: .top) {
                 VStack(spacing: 8) {
                     if waitsForConnection(session) {
-                        ReconnectingNotice()
-                            .transition(.opacity.combined(with: .offset(y: -8)))
-                            .allowsHitTesting(false)
+                        ReconnectingNotice(identifier: "terminal.reconnecting")
                     }
                     if let note = controller.sizeNote, session?.isConnected == true {
                         TerminalSizeNote(note: note, resize: controller.resizeHere)

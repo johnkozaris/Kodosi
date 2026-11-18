@@ -246,7 +246,7 @@ Item {
             Spinner {
                 anchors.centerIn: parent
                 size: 18
-                visible: root.browserState === "awake" && (!video.shows || video.reconnecting)
+                visible: root.browserState === "awake" && !video.shows
             }
             MouseArea {
                 anchors.fill: parent
@@ -400,6 +400,13 @@ Item {
                         font.pixelSize: KodosiTheme.fontCaption
                     }
                 }
+            }
+            ReconnectingNotice {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: 10
+                shown: root.browserState === "awake" && video.shows && video.reconnecting
+                objectName: "canvas.browser.reconnecting"
             }
             KMenu {
                 id: pageMenu

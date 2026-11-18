@@ -72,18 +72,42 @@ public struct PictureNotice: View {
 
 public struct ReconnectingNotice: View {
     @Environment(\.theme) private var theme
+    @State private var due: Bool
+    private let identifier: String
+    private let patience: Duration
 
-    public init() {}
+    public init(identifier: String, patience: Duration = .zero) {
+        self.identifier = identifier
+        self.patience = patience
+        _due = State(initialValue: patience == .zero)
+    }
 
     public var body: some View {
-        HStack(spacing: 8) {
-            BreathingDot(color: theme.colors.glowOrange)
-            Text("Reconnecting", bundle: .module).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
+        ZStack {
+            if due {
+                HStack(spacing: 8) {
+                    BreathingDot(color: theme.colors.glowOrange)
+                    Text("Reconnecting", bundle: .module).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
+                }
+                .padding(.leading, 12).padding(.trailing, 14).controlHeight(34)
+                .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier(identifier)
+                .transition(Self.arrival)
+            }
         }
-        .padding(.leading, 12).padding(.trailing, 14).controlHeight(34)
-        .raisedCapsule(fill: theme.colors.lifted, elevation: .floating)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("terminal.reconnecting")
+        .allowsHitTesting(false)
+        .transition(Self.arrival)
+        .task {
+            guard !due else { return }
+            try? await Task.sleep(for: patience)
+            guard !Task.isCancelled else { return }
+            withAnimation(theme.motion.spring) { due = true }
+        }
+    }
+
+    private static var arrival: AnyTransition {
+        .opacity.combined(with: .offset(y: -8))
     }
 }
 
