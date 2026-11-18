@@ -49,7 +49,7 @@ struct TerminalsHome: View {
             }
             .sharedBackgroundVisibility(.hidden)
         }
-        .searchable(text: $query, prompt: Text("Search terminals"))
+        .pageSearch($query, prompt: Text("Search terminals"))
         .refreshable { await store.refresh() }
         .navigationDestination(for: TerminalRoute.self) { route in
             TerminalScreen(sessionId: route.sessionId)

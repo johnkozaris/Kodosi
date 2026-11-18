@@ -10,20 +10,19 @@ extension View {
         modifier(ReadableWidth(width: width))
     }
 
-    /// The line stays in the bar while it is empty: the bar must have its height from the start,
-    /// or the page opens scrolled under it.
     func pageFacts(_ facts: String?) -> some View {
-        toolbar {
-            if let facts {
-                ToolbarItem(placement: .largeSubtitle) { PageFacts(text: facts) }
-            }
-        }
+        navigationSubtitle(facts ?? "")
     }
 
     /// On an iPad, the tab bar at the top names the first page of a tab, and the page's own title
     /// would stand at the edge of the screen, out of line with the page's column.
     func tabPage(_ title: LocalizedStringKey, inline: Bool = false, facts: String? = nil) -> some View {
         modifier(TabPage(title: title, inline: inline, facts: facts))
+    }
+
+    /// The field stays in view so that the bar keeps one height, for the reason in `TabPage`.
+    func pageSearch(_ text: Binding<String>, prompt: Text) -> some View {
+        searchable(text: text, placement: .navigationBarDrawer(displayMode: .always), prompt: prompt)
     }
 }
 
@@ -40,24 +39,12 @@ private struct TabPage: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationTitle(title)
-            .navigationBarTitleDisplayMode(inline || namedByTabBar ? .inline : .automatic)
+            // A title or search field that folds as the list scrolls makes the bar's height follow
+            // the list's offset. When going back changes the insets of a list scrolled to its end,
+            // the bar and the list then adjust each other without end, and the app hangs.
+            .toolbarTitleDisplayMode(inline || namedByTabBar ? .inline : .inlineLarge)
             .toolbar(removing: namedByTabBar ? .title : nil)
             .pageFacts(namedByTabBar ? nil : facts)
-    }
-}
-
-private struct PageFacts: View {
-    @Environment(\.theme) private var theme
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .appTextStyle(.footnote)
-            .foregroundStyle(theme.colors.inkMuted)
-            .lineLimit(1)
-            .contentTransition(.numericText())
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityHidden(text.isEmpty)
     }
 }
 
