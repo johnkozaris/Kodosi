@@ -23,9 +23,9 @@ const REFINEMENTS: u32 = 60;
 /// A caret or a typed letter gets fine bits in its own frame, so only changes that add up to this
 /// much of the page earn a clean-up.
 const LARGE_CHANGE: f64 = 1.0 / 16.0;
-/// A clean picture comes out of each refinement the same, or as good as empty, as the encoder
-/// codes noise or nothing.
-const CLEAN_AFTER: u32 = 3;
+/// The refinements of a clean picture come out within a twentieth of each other, or as good as
+/// empty, as the encoder codes noise or nothing; `VideoToolbox` alternates between two sizes.
+const CLEAN_AFTER: usize = 3;
 const EMPTY_BYTES: usize = 64;
 
 #[derive(Default)]
@@ -61,17 +61,18 @@ impl Cleanup {
 
 #[derive(Default)]
 pub(crate) struct Convergence {
-    last: usize,
-    alike: u32,
+    sizes: [usize; CLEAN_AFTER],
+    refined: usize,
 }
 
 impl Convergence {
     /// Takes the size of a coded refinement and returns whether the picture is clean.
-    pub(crate) const fn refined(&mut self, bytes: usize) -> bool {
-        let alike = bytes <= EMPTY_BYTES || bytes.abs_diff(self.last) * 50 <= self.last;
-        self.alike = if alike { self.alike + 1 } else { 0 };
-        self.last = bytes;
-        self.alike >= CLEAN_AFTER
+    pub(crate) fn refined(&mut self, bytes: usize) -> bool {
+        self.sizes[self.refined % CLEAN_AFTER] = bytes;
+        self.refined += 1;
+        let least = self.sizes.iter().min().copied().unwrap_or_default();
+        let most = self.sizes.iter().max().copied().unwrap_or_default();
+        self.refined >= CLEAN_AFTER && (most <= EMPTY_BYTES || (most - least) * 20 <= least)
     }
 }
 
@@ -101,12 +102,13 @@ mod tests {
     #[test]
     fn a_picture_is_clean_once_its_refinements_come_out_alike_or_empty() {
         let mut sharpening = Convergence::default();
-        let sizes = [70_874, 31_974, 6_676, 5_345, 5_157, 5_154, 5_154, 5_154];
+        let sizes = [70_874, 31_974, 6_676, 5_345, 5_157, 5_154];
         let clean = sizes.map(|bytes| sharpening.refined(bytes));
-        assert_eq!(
-            clean,
-            [false, false, false, false, false, false, false, true]
-        );
+        assert_eq!(clean, [false, false, false, false, false, true]);
+        let mut alternating = Convergence::default();
+        let sizes = [90_029, 3_627, 750, 725, 751];
+        let clean = sizes.map(|bytes| alternating.refined(bytes));
+        assert_eq!(clean, [false, false, false, false, true]);
         let mut still = Convergence::default();
         assert_eq!(
             [28, 28, 28].map(|bytes| still.refined(bytes)),
