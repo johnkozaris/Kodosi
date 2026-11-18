@@ -134,10 +134,13 @@ in `documents/app/` is a second host of the same crates and a separate build.
 Browser for each terminal: Chromium on a ready-built CEF that draws off screen and shows
 nothing on the computer. The host gets it from a signed feed and keeps it up to date.
 
-While a device looks, the engine encodes the page as video. The frames, and the clicks
-and keys that come back, travel on the terminal's encrypted channel. The agent drives its
-window with agent-browser through a port that the host serves, where it sees only the
-tabs of its own terminal.
+While a device looks, the engine encodes the page as video. One picture serves every
+device that looks: the page takes the size of the person who used it last and the pixels
+of the sharpest view, as far as the host's encoder takes them, and a page that stays
+still is coded again until it is sharp. The frames, and the clicks and keys that come
+back, travel on the terminal's encrypted channel. The agent drives its window with
+agent-browser through a port that the host serves, where it sees only the tabs of its own
+terminal.
 
 A person's private terminals share one kept browser profile. A shared terminal has a
 profile of its own, which goes with the terminal.
