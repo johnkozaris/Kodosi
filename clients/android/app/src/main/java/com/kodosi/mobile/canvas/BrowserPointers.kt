@@ -50,6 +50,7 @@ import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
 import com.kodosi.mobile.ui.personTint
 import com.kodosi.mobile.ui.reducedMotion
+import com.kodosi.mobile.ui.snappy
 import com.kodosi.mobile.ui.tint
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonObject
@@ -85,7 +86,7 @@ internal fun BrowserPointers(window: JsonObject, browser: CanvasBrowser, feed: B
 private fun HumanPointer(target: Offset, name: String, tint: Color) {
     val at by animateOffsetAsState(
         target,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "person pointer"
     )
     Box(Modifier.offset { IntOffset(at.x.dp.roundToPx(), at.y.dp.roundToPx()) }) {

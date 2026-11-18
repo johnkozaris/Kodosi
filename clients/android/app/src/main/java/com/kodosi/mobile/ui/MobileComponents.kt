@@ -2,8 +2,6 @@ package com.kodosi.mobile.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -522,7 +520,7 @@ fun ActionIcon(
     val focused by interaction.collectIsFocusedAsState()
     val scale by animateFloatAsState(
         if (pressed) 0.9f else 1f,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "icon press"
     )
     Box(
@@ -631,12 +629,12 @@ fun PageHeader(
 }
 
 @Composable
-fun SectionTitle(text: String) {
+fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
         style = KodosiType.headline,
         color = KodosiTheme.colors.ink,
-        modifier = Modifier.padding(top = 22.dp, bottom = 10.dp).semantics { heading() }
+        modifier = modifier.padding(top = 22.dp, bottom = 10.dp).semantics { heading() }
     )
 }
 

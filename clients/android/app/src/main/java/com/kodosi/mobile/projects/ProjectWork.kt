@@ -53,11 +53,13 @@ import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.SectionTitle
 import com.kodosi.mobile.ui.SelectableWords
 import com.kodosi.mobile.ui.TextEntryDialog
+import com.kodosi.mobile.ui.fade
+import com.kodosi.mobile.ui.snappy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
-fun ProjectTasks(model: AppModel, projectId: String, snapshot: ProjectSnapshot?) {
+fun ProjectTasks(model: AppModel, projectId: String, snapshot: ProjectSnapshot?, loading: Boolean) {
     val scope = rememberCoroutineScope()
     var creating by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<String?>(null) }
@@ -65,11 +67,32 @@ fun ProjectTasks(model: AppModel, projectId: String, snapshot: ProjectSnapshot?)
     val tasks = snapshot?.tasks.orEmpty()
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { KodosiTextButton(onClick = { creating = true }) { Text(stringResource(R.string.new_task)) } }
-        if (tasks.isEmpty()) item { EmptyState(stringResource(R.string.no_tasks), symbol = AppSymbol.TASKS) }
+        if (loading && snapshot == null) {
+            item(key = "loading") {
+                ProgressCaption(
+                    stringResource(R.string.loading),
+                    Modifier.animateItem(fade(), snappy(), fade()).padding(24.dp)
+                )
+            }
+        }
+        if (snapshot != null && tasks.isEmpty()) {
+            item(key = "empty") {
+                Box(Modifier.animateItem(fade(), snappy(), fade())) {
+                    EmptyState(stringResource(R.string.no_tasks), symbol = AppSymbol.TASKS)
+                }
+            }
+        }
         for (closed in listOf(false, true)) {
-            if (closed && tasks.any { it.closed }) item { SectionTitle(stringResource(R.string.closed_tasks)) }
+            if (closed && tasks.any { it.closed }) {
+                item(key = "closed") {
+                    SectionTitle(stringResource(R.string.closed_tasks), Modifier.animateItem(fade(), snappy(), fade()))
+                }
+            }
             items(tasks.filter { it.closed == closed }, key = { it.id }) { task ->
-                KodosiCard(Modifier.fillMaxWidth(), onClick = { selected = task.id }) {
+                KodosiCard(
+                    Modifier.animateItem(fade(), snappy(), fade()).fillMaxWidth(),
+                    onClick = { selected = task.id }
+                ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(task.title, style = KodosiType.headline)
                         task.assignedName?.let {
@@ -240,21 +263,37 @@ private fun NewTaskDialog(
 }
 
 @Composable
-fun ProjectRepositories(model: AppModel, projectId: String, snapshot: ProjectSnapshot?) {
+fun ProjectRepositories(model: AppModel, projectId: String, snapshot: ProjectSnapshot?, loading: Boolean) {
     var adding by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<ProjectRepository?>(null) }
     val links = com.kodosi.mobile.ui.LocalLinkOpener.current
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         item { KodosiTextButton(onClick = { adding = true }) { Text(stringResource(R.string.add_repository)) } }
-        if (snapshot?.repositories.isNullOrEmpty()) {
-            item {
-                EmptyState(stringResource(R.string.no_repositories), symbol = AppSymbol.REPOSITORY)
+        if (loading && snapshot == null) {
+            item(key = "loading") {
+                ProgressCaption(
+                    stringResource(R.string.loading),
+                    Modifier.animateItem(fade(), snappy(), fade()).padding(24.dp)
+                )
+            }
+        }
+        if (snapshot != null && snapshot.repositories.isEmpty()) {
+            item(key = "empty") {
+                Box(Modifier.animateItem(fade(), snappy(), fade())) {
+                    EmptyState(stringResource(R.string.no_repositories), symbol = AppSymbol.REPOSITORY)
+                }
             }
         }
         items(snapshot?.repositories.orEmpty(), key = { it.id }) { repository ->
-            ListLine(repository.name, subtitle = repository.url) {
-                KodosiTextButton(onClick = { selected = repository }) { Text(stringResource(R.string.import_issue)) }
-                KodosiTextButton(onClick = { links.open(repository.url) }) { Text(stringResource(R.string.open_page)) }
+            Box(Modifier.animateItem(fade(), snappy(), fade())) {
+                ListLine(repository.name, subtitle = repository.url) {
+                    KodosiTextButton(onClick = { selected = repository }) {
+                        Text(stringResource(R.string.import_issue))
+                    }
+                    KodosiTextButton(onClick = { links.open(repository.url) }) {
+                        Text(stringResource(R.string.open_page))
+                    }
+                }
             }
         }
     }

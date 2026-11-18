@@ -1,8 +1,10 @@
 package com.kodosi.mobile.terminals
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -93,8 +96,9 @@ import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.SwitchRow
 import com.kodosi.mobile.ui.TileTint
+import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
-import com.kodosi.mobile.ui.reducedMotion
+import com.kodosi.mobile.ui.snappy
 import com.kodosi.mobile.ui.terminalTile
 import com.kodosi.mobile.ui.tint
 import com.kodosi.mobile.ui.well
@@ -104,6 +108,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
 data class NewTerminalRequest(val computer: String? = null, val folder: String? = null, val project: String? = null)
+
+private enum class LaunchStep { OFFLINE, NO_COMPUTER, FOLDERS, PROGRAMS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,6 +134,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
     var attempt by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val unnamed = stringResource(R.string.new_terminal)
+    val fading = fade<Float>()
     LaunchedEffect(launcher, attempt, account.online) {
         if (launcher == null || !account.online) return@LaunchedEffect
         failure = null
@@ -158,129 +165,166 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (browsing) ActionIcon(AppSymbol.BACK, R.string.back, { browsing = false })
-                Text(
-                    stringResource(if (browsing) R.string.folder else R.string.new_terminal),
+                AnimatedContent(
+                    browsing,
                     Modifier.weight(1f),
-                    style = KodosiType.title,
-                    color = colors.ink
-                )
+                    transitionSpec = { (fadeIn(fading) togetherWith fadeOut(fading)).using(null) },
+                    contentAlignment = Alignment.CenterStart,
+                    label = "title"
+                ) { folders ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        if (folders) ActionIcon(AppSymbol.BACK, R.string.back, { browsing = false })
+                        Text(
+                            stringResource(if (folders) R.string.folder else R.string.new_terminal),
+                            style = KodosiType.title,
+                            color = colors.ink
+                        )
+                    }
+                }
                 KodosiTextButton(onClick = dismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) }
             }
-            if (!account.online) {
-                EmptyState(
-                    stringResource(R.string.offline),
-                    stringResource(R.string.terminal_opens_when_connection_back),
-                    AppSymbol.COMPUTER
-                ) {
-                    KodosiButton(stringResource(R.string.try_again), onClick = model.account::retryConnection)
-                }
-            } else if (chosen == null || launcher == null || state == null) {
-                EmptyState(
-                    stringResource(R.string.no_computer),
-                    stringResource(R.string.no_computer_message),
-                    AppSymbol.COMPUTER
-                )
-            } else if (browsing) {
-                FolderChoices(launcher, model, folder, Modifier.weight(1f)) {
-                    folder = it
-                    browsing = false
-                }
-            } else {
-                val agent = state.agents.firstOrNull { it.agent == state.agent }
-                LazyColumn(
-                    Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    item {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+            val step = when {
+                !account.online -> LaunchStep.OFFLINE
+                chosen == null || launcher == null || state == null -> LaunchStep.NO_COMPUTER
+                browsing -> LaunchStep.FOLDERS
+                else -> LaunchStep.PROGRAMS
+            }
+            AnimatedContent(
+                step,
+                Modifier.weight(1f),
+                transitionSpec = { (fadeIn(fading) togetherWith fadeOut(fading)).using(null) },
+                label = "step"
+            ) { shown ->
+                when {
+                    shown == LaunchStep.OFFLINE -> EmptyState(
+                        stringResource(R.string.offline),
+                        stringResource(R.string.terminal_opens_when_connection_back),
+                        AppSymbol.COMPUTER
+                    ) {
+                        KodosiButton(stringResource(R.string.try_again), onClick = model.account::retryConnection)
+                    }
+
+                    shown == LaunchStep.NO_COMPUTER || chosen == null || launcher == null || state == null ->
+                        EmptyState(
+                            stringResource(R.string.no_computer),
+                            stringResource(R.string.no_computer_message),
+                            AppSymbol.COMPUTER
+                        )
+
+                    shown == LaunchStep.FOLDERS -> FolderChoices(launcher, model, folder, Modifier.fillMaxSize()) {
+                        folder = it
+                        browsing = false
+                    }
+
+                    else -> Column(Modifier.fillMaxSize()) {
+                        val agent = state.agents.firstOrNull { it.agent == state.agent }
+                        LazyColumn(
+                            Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
+                            verticalArrangement = Arrangement.spacedBy(18.dp)
                         ) {
-                            ProgramChoice(AgentKind.SHELL, state.agent == null, enabled = state.loaded && !busy) {
-                                scope.launch { model.runAction { launcher.chooseAgent(null) } }
-                            }
-                            state.agents.forEach { entry ->
-                                ProgramChoice(
-                                    AgentKind.of(entry.agent),
-                                    entry.agent == state.agent,
-                                    enabled = !busy
+                            item {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    scope.launch { model.runAction { launcher.chooseAgent(entry.agent) } }
+                                    ProgramChoice(
+                                        AgentKind.SHELL,
+                                        state.agent == null,
+                                        enabled = state.loaded && !busy
+                                    ) {
+                                        scope.launch { model.runAction { launcher.chooseAgent(null) } }
+                                    }
+                                    state.agents.forEach { entry ->
+                                        ProgramChoice(
+                                            AgentKind.of(entry.agent),
+                                            entry.agent == state.agent,
+                                            enabled = !busy
+                                        ) {
+                                            scope.launch { model.runAction { launcher.chooseAgent(entry.agent) } }
+                                        }
+                                    }
+                                }
+                            }
+                            if ((!state.loaded || (agent != null && !state.modelsLoaded)) && failure == null) {
+                                item { ProgressCaption(stringResource(R.string.loading)) }
+                            }
+                            item {
+                                ListGroup {
+                                    MenuPicker(
+                                        stringResource(R.string.computer),
+                                        chosen.label,
+                                        account.computers.map { it.deviceId to it.label },
+                                        leading = { IconTile(AppSymbol.COMPUTER, TileTint.graphite) },
+                                        enabled = !busy
+                                    ) { computer = it }
+                                    ListButton(onClick = { browsing = true }, enabled = !busy) {
+                                        ListLine(
+                                            stringResource(R.string.folder),
+                                            subtitle = folder ?: state.folders?.home ?: "~",
+                                            leading = { IconTile(AppSymbol.FOLDER, TileTint.teal) }
+                                        ) {
+                                            AppIcon(AppSymbol.FORWARD, Modifier.size(11.dp), tint = colors.inkFaint)
+                                        }
+                                    }
+                                    LauncherOptions(launcher, state, model, !busy)
+                                }
+                            }
+                            if (agent != null) {
+                                item {
+                                    FirstPrompt(agent, prompt, !busy)
+                                }
+                            }
+                            failure?.let { error ->
+                                item {
+                                    Column {
+                                        ErrorNote(error)
+                                        KodosiTextButton(onClick = { attempt++ }) {
+                                            Text(stringResource(R.string.try_again))
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                    if ((!state.loaded || (agent != null && !state.modelsLoaded)) && failure == null) {
-                        item { ProgressCaption(stringResource(R.string.loading)) }
-                    }
-                    item {
-                        ListGroup {
-                            MenuPicker(
-                                stringResource(R.string.computer),
-                                chosen.label,
-                                account.computers.map { it.deviceId to it.label },
-                                leading = { IconTile(AppSymbol.COMPUTER, TileTint.graphite) },
-                                enabled = !busy
-                            ) { computer = it }
-                            ListButton(onClick = { browsing = true }, enabled = !busy) {
-                                ListLine(
-                                    stringResource(R.string.folder),
-                                    subtitle = folder ?: state.folders?.home ?: "~",
-                                    leading = { IconTile(AppSymbol.FOLDER, TileTint.teal) }
-                                ) {
-                                    AppIcon(AppSymbol.FORWARD, Modifier.size(11.dp), tint = colors.inkFaint)
+                        val startTitle = if (agent == null) {
+                            stringResource(R.string.open_terminal)
+                        } else {
+                            stringResource(R.string.start_agent, agentLabel(AgentKind.of(agent.agent)))
+                        }
+                        KodosiButton(
+                            if (busy) stringResource(R.string.working) else startTitle,
+                            onClick = {
+                                busy = true
+                                failure = null
+                                scope.launch {
+                                    try {
+                                        launcher.start(
+                                            unnamed,
+                                            folder,
+                                            prompt.text.toString(),
+                                            request.project
+                                        )?.let { id ->
+                                            model.preferences.launched(launcher.computer, folder)
+                                            dismiss()
+                                            started(id)
+                                        }
+                                    } catch (cancelled: CancellationException) {
+                                        throw cancelled
+                                    } catch (error: Exception) {
+                                        failure = error.localizedMessage
+                                    } finally {
+                                        busy = false
+                                    }
                                 }
-                            }
-                            LauncherOptions(launcher, state, model, !busy)
-                        }
-                    }
-                    if (agent != null) {
-                        item {
-                            FirstPrompt(agent, prompt, !busy)
-                        }
-                    }
-                    failure?.let { error ->
-                        item {
-                            Column {
-                                ErrorNote(error)
-                                KodosiTextButton(onClick = { attempt++ }) {
-                                    Text(stringResource(R.string.try_again))
-                                }
-                            }
-                        }
+                            },
+                            enabled = !busy && state.loaded && (agent == null || state.modelsLoaded),
+                            size = ButtonSize.LARGE,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
+                        )
                     }
                 }
-                val startTitle = if (agent == null) {
-                    stringResource(R.string.open_terminal)
-                } else {
-                    stringResource(R.string.start_agent, agentLabel(AgentKind.of(agent.agent)))
-                }
-                KodosiButton(
-                    if (busy) stringResource(R.string.working) else startTitle,
-                    onClick = {
-                        busy = true
-                        failure = null
-                        scope.launch {
-                            try {
-                                launcher.start(unnamed, folder, prompt.text.toString(), request.project)?.let { id ->
-                                    model.preferences.launched(launcher.computer, folder)
-                                    dismiss()
-                                    started(id)
-                                }
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (error: Exception) {
-                                failure = error.localizedMessage
-                            } finally {
-                                busy = false
-                            }
-                        }
-                    },
-                    enabled = !busy && state.loaded && (agent == null || state.modelsLoaded),
-                    size = ButtonSize.LARGE,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
-                )
             }
         }
     }
@@ -294,7 +338,7 @@ private fun ProgramChoice(kind: AgentKind, selected: Boolean, enabled: Boolean, 
     val focused by interaction.collectIsFocusedAsState()
     val scale by animateFloatAsState(
         if (pressed) 0.97f else 1f,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "program press"
     )
     Row(

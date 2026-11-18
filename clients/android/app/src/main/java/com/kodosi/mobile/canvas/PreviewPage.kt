@@ -116,7 +116,8 @@ fun PreviewPage(content: ByteArray, modifier: Modifier, selection: (suspend () -
                 return true
             }
         }
-        web.loadUrl(PREVIEW)
+        // A reload keeps the reader's scroll position, which a fresh load of the same address would lose.
+        if (web.url?.substringBefore('#') == PREVIEW) web.reload() else web.loadUrl(PREVIEW)
     }
     if (failed === web) {
         EmptyState(stringResource(R.string.file_unavailable)) {
@@ -130,7 +131,7 @@ fun PreviewPage(content: ByteArray, modifier: Modifier, selection: (suspend () -
 @Composable
 fun NativeFile(content: ByteArray, name: String, kind: String, modifier: Modifier) {
     val context = LocalContext.current
-    var file by remember(content) { mutableStateOf<File?>(null) }
+    var file by remember { mutableStateOf<File?>(null) }
     LaunchedEffect(content) {
         file = withContext(Dispatchers.IO) {
             File.createTempFile(
@@ -175,12 +176,11 @@ fun NativeFile(content: ByteArray, name: String, kind: String, modifier: Modifie
 
 @Composable
 private fun PdfPages(file: File, modifier: Modifier) {
-    var page by remember(file) { mutableIntStateOf(0) }
-    var count by remember(file) { mutableIntStateOf(0) }
-    var bitmap by remember(file) { mutableStateOf<Bitmap?>(null) }
-    var failed by remember(file) { mutableStateOf(false) }
+    var page by remember { mutableIntStateOf(0) }
+    var count by remember { mutableIntStateOf(0) }
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var failed by remember { mutableStateOf(false) }
     LaunchedEffect(file, page) {
-        failed = false
         val rendered = withContext(Dispatchers.IO) {
             runCatching {
                 PdfRenderer(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)).use { renderer ->
@@ -200,6 +200,7 @@ private fun PdfPages(file: File, modifier: Modifier) {
         bitmap = rendered?.first
         count = rendered?.second ?: 0
         failed = rendered == null
+        page = page.coerceIn(0, maxOf(0, count - 1))
     }
     Column(modifier) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {

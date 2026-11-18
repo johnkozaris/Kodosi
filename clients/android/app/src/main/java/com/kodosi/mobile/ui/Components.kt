@@ -1,6 +1,7 @@
 package com.kodosi.mobile.ui
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
@@ -9,7 +10,12 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -28,7 +34,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +62,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentKind
@@ -66,6 +76,31 @@ private val FadeEasing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 /** A state that changes in place fades as in the other apps, and at once with reduced motion. */
 @Composable
 fun <T> fade(): FiniteAnimationSpec<T> = if (reducedMotion()) snap() else tween(200, easing = FadeEasing)
+
+@Composable
+fun <T> snappy(): FiniteAnimationSpec<T> =
+    if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f)
+
+/** A note that comes and goes opens and closes its own room, so that what is around it moves instead of jumping. */
+@Composable
+fun Unfolding(visible: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val fading = fade<Float>()
+    val sizing = fade<IntSize>()
+    AnimatedVisibility(
+        visible,
+        modifier,
+        enter = fadeIn(fading) + expandVertically(sizing),
+        exit = fadeOut(fading) + shrinkVertically(sizing),
+        label = "unfolding"
+    ) { content() }
+}
+
+@Composable
+fun Unfolding(message: String?, modifier: Modifier = Modifier, content: @Composable (String) -> Unit) {
+    val last = remember { mutableStateOf(message) }
+    SideEffect { if (message != null) last.value = message }
+    Unfolding(message != null, modifier) { (message ?: last.value)?.let { content(it) } }
+}
 
 @Composable
 fun KodosiSpinner(modifier: Modifier = Modifier) {

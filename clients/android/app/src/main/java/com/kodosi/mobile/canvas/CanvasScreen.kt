@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -60,6 +61,8 @@ import com.kodosi.mobile.ui.LocalLinkOpener
 import com.kodosi.mobile.ui.PageHeader
 import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.SectionDock
+import com.kodosi.mobile.ui.Unfolding
+import com.kodosi.mobile.ui.fade
 import java.nio.ByteBuffer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -298,8 +301,8 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                 scope.launch { model.runAction { model.canvas.remove(sessionId, file.key) } }
             }, actions = actions)
         }
-        if (working) ProgressCaption(stringResource(R.string.uploading))
-        if (browserStarting) ProgressCaption(stringResource(R.string.loading))
+        Unfolding(working) { ProgressCaption(stringResource(R.string.uploading)) }
+        Unfolding(browserStarting) { ProgressCaption(stringResource(R.string.loading)) }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             CompositionLocalProvider(
                 LocalLinkOpener provides LinkOpener { address, computer ->
@@ -329,9 +332,11 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                             })
                         }
 
-                    item != null -> CanvasFile(model, sessionId, item, Modifier.fillMaxSize(), selection = {
-                        selection = it
-                    })
+                    item != null -> key(item.key) {
+                        CanvasFile(model, sessionId, item, Modifier.fillMaxSize(), selection = {
+                            selection = it
+                        })
+                    }
 
                     part == "browser" && canvas?.browser != null -> BrowserScreen(
                         model,
@@ -357,6 +362,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
     }
 }
 
+/** A new revision replaces the shown content only when its bytes arrive, so an agent's edits keep the reader's place. */
 @Composable
 private fun CanvasFile(
     model: AppModel,
@@ -365,18 +371,18 @@ private fun CanvasFile(
     modifier: Modifier,
     selection: (suspend () -> String?) -> Unit
 ) {
-    var content by remember(item.key) { mutableStateOf<ByteArray?>(null) }
-    var failure by remember(item.key) { mutableStateOf<String?>(null) }
+    var content by remember { mutableStateOf<ByteArray?>(null) }
+    var failure by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
-    LaunchedEffect(item.key, item.revision, retry) {
-        content = null
-        failure = null
+    LaunchedEffect(item.revision, retry) {
         try {
             content = model.canvas.content(session, item)
+            failure = null
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
-            failure = error.localizedMessage
+            content = null
+            failure = error.localizedMessage ?: model.words.didNotWork
         }
     }
     val bytes = content
@@ -389,7 +395,10 @@ private fun CanvasFile(
 
         failure != null -> Column(Modifier.padding(24.dp)) {
             ErrorNote(failure.orEmpty())
-            KodosiTextButton(onClick = { retry++ }) { Text(stringResource(R.string.try_again)) }
+            KodosiTextButton(onClick = {
+                failure = null
+                retry++
+            }) { Text(stringResource(R.string.try_again)) }
         }
 
         else -> Box(modifier, contentAlignment = Alignment.Center) { ProgressCaption(stringResource(R.string.loading)) }
@@ -398,42 +407,44 @@ private fun CanvasFile(
 
 @Composable
 private fun Picture(bytes: ByteArray, name: String, modifier: Modifier) {
-    var bitmap by remember(bytes) { mutableStateOf<Bitmap?>(null) }
+    var decoded by remember { mutableStateOf<Result<Bitmap>?>(null) }
     var zoom by rememberSaveable { mutableFloatStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
     LaunchedEffect(bytes) {
-        bitmap = withContext(Dispatchers.Default) {
+        decoded = withContext(Dispatchers.Default) {
             runCatching {
                 ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
                     val sample = maxOf(1, maxOf(info.size.width, info.size.height) / 4096)
                     decoder.setTargetSampleSize(sample)
                 }
-            }.getOrNull()
+            }
         }
     }
-    val picture = bitmap
-    if (picture == null) {
-        EmptyState(name, stringResource(R.string.file_unavailable), AppSymbol.FILE)
-    } else {
-        Box(
-            modifier.pointerInput(bytes) {
-                detectTransformGestures { _, move, scale, _ ->
-                    zoom =
-                        (zoom * scale).coerceIn(1f, 6f)
-                    pan = if (zoom == 1f) Offset.Zero else pan + move
+    Crossfade(decoded, modifier, fade(), label = "picture") { result ->
+        val picture = result?.getOrNull()
+        if (picture != null) {
+            Box(
+                Modifier.fillMaxSize().pointerInput(Unit) {
+                    detectTransformGestures { _, move, scale, _ ->
+                        zoom =
+                            (zoom * scale).coerceIn(1f, 6f)
+                        pan = if (zoom == 1f) Offset.Zero else pan + move
+                    }
                 }
-            }
-        ) {
-            Image(
-                picture.asImageBitmap(),
-                name,
-                Modifier.fillMaxSize().graphicsLayer(
-                    scaleX = zoom,
-                    scaleY = zoom,
-                    translationX = pan.x,
-                    translationY = pan.y
+            ) {
+                Image(
+                    picture.asImageBitmap(),
+                    name,
+                    Modifier.fillMaxSize().graphicsLayer(
+                        scaleX = zoom,
+                        scaleY = zoom,
+                        translationX = pan.x,
+                        translationY = pan.y
+                    )
                 )
-            )
+            }
+        } else if (result != null) {
+            EmptyState(name, stringResource(R.string.file_unavailable), AppSymbol.FILE)
         }
     }
 }

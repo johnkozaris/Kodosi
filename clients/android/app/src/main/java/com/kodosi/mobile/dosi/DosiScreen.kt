@@ -64,7 +64,10 @@ import com.kodosi.mobile.ui.PageHeader
 import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.SelectableWords
+import com.kodosi.mobile.ui.Unfolding
+import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
+import com.kodosi.mobile.ui.snappy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
@@ -125,36 +128,40 @@ fun DosiScreen(model: AppModel, target: (String, String) -> Unit) {
                     }
                 }
             }
-            if (state.items.isEmpty()) {
-                item {
-                    EmptyState(
-                        stringResource(if (computer == null) R.string.no_computer else R.string.ask_dosi),
-                        stringResource(
-                            if (computer ==
-                                null
-                            ) {
-                                R.string.no_computer_message
-                            } else {
-                                R.string.dosi_empty_message
-                            }
-                        ),
-                        AppSymbol.DOSI
-                    )
+            if (state.snapshot != null && state.items.isEmpty()) {
+                item(key = "empty") {
+                    Box(Modifier.animateItem(fade(), snappy(), fade())) {
+                        EmptyState(
+                            stringResource(if (computer == null) R.string.no_computer else R.string.ask_dosi),
+                            stringResource(
+                                if (computer ==
+                                    null
+                                ) {
+                                    R.string.no_computer_message
+                                } else {
+                                    R.string.dosi_empty_message
+                                }
+                            ),
+                            AppSymbol.DOSI
+                        )
+                    }
                 }
             }
             items(rows, key = { it.key }) { row ->
-                if (row.steps) DosiSteps(row, target) else DosiItemView(model, row.items.first(), target)
-                row.items.forEach { item ->
-                    state.snapshot?.asks?.firstOrNull { it.string("item") == item.id }?.let {
-                        Row {
-                            Text(
-                                stringResource(R.string.queued_message),
-                                style = KodosiType.footnote,
-                                modifier = Modifier.weight(1f)
-                            )
-                            KodosiTextButton(onClick = {
-                                model.dosi.takeBack(item.id)
-                            }) { Text(stringResource(R.string.take_back)) }
+                Column(Modifier.animateItem(fade(), snappy(), fade())) {
+                    if (row.steps) DosiSteps(row, target) else DosiItemView(model, row.items.first(), target)
+                    row.items.forEach { item ->
+                        state.snapshot?.asks?.firstOrNull { it.string("item") == item.id }?.let {
+                            Row {
+                                Text(
+                                    stringResource(R.string.queued_message),
+                                    style = KodosiType.footnote,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                KodosiTextButton(onClick = {
+                                    model.dosi.takeBack(item.id)
+                                }) { Text(stringResource(R.string.take_back)) }
+                            }
                         }
                     }
                 }
@@ -162,10 +169,12 @@ fun DosiScreen(model: AppModel, target: (String, String) -> Unit) {
             if (state.busy &&
                 state.items.lastOrNull()?.body?.flag("live") != true
             ) {
-                item { ProgressCaption(stringResource(R.string.thinking)) }
+                item(key = "thinking") {
+                    ProgressCaption(stringResource(R.string.thinking), Modifier.animateItem(fade(), snappy(), fade()))
+                }
             }
             items(state.snapshot?.queued.orEmpty(), key = { it.string("id").orEmpty() }) { queued ->
-                Row {
+                Row(Modifier.animateItem(fade(), snappy(), fade())) {
                     Text(queued.string("text").orEmpty(), modifier = Modifier.weight(1f))
                     KodosiTextButton(onClick = {
                         queued.string("id")?.let(model.dosi::takeBack)
@@ -197,7 +206,7 @@ fun DosiScreen(model: AppModel, target: (String, String) -> Unit) {
                 }
             }
         }
-        failure?.let { ErrorNote(it, Modifier.padding(horizontal = 12.dp)) }
+        Unfolding(failure) { ErrorNote(it, Modifier.padding(horizontal = 12.dp)) }
         MessageComposer(draft, sending, enabled = computer != null && state.connected, send = {
             val chosen = computer ?: return@MessageComposer
             val sent = draft.text.toString()

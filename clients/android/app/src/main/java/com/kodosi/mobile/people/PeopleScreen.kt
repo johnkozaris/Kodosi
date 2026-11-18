@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -72,6 +73,8 @@ import com.kodosi.mobile.ui.SectionTitle
 import com.kodosi.mobile.ui.TextEntryDialog
 import com.kodosi.mobile.ui.Utf8Limit
 import com.kodosi.mobile.ui.canScanCodes
+import com.kodosi.mobile.ui.fade
+import com.kodosi.mobile.ui.snappy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -100,10 +103,24 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
             ActionIcon(AppSymbol.ADD, R.string.add_friend, { adding = true })
         })
         LazyColumn(Modifier.weight(1f).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (!state.loaded) item { ProgressCaption(stringResource(R.string.loading), Modifier.padding(24.dp)) }
-            if (state.incoming.isNotEmpty()) item { SectionTitle(stringResource(R.string.incoming_requests)) }
+            if (!state.loaded) {
+                item(key = "loading") {
+                    ProgressCaption(
+                        stringResource(R.string.loading),
+                        Modifier.animateItem(fade(), snappy(), fade()).padding(24.dp)
+                    )
+                }
+            }
+            if (state.incoming.isNotEmpty()) {
+                item(key = "incoming") {
+                    SectionTitle(
+                        stringResource(R.string.incoming_requests),
+                        Modifier.animateItem(fade(), snappy(), fade())
+                    )
+                }
+            }
             items(state.incoming, key = { "incoming-${it.userId}" }) { person ->
-                KodosiCard(radius = Radius.xl) {
+                KodosiCard(Modifier.animateItem(fade(), snappy(), fade()), radius = Radius.xl) {
                     ListLine(person.name, subtitle = "@${person.handle}", leading = {
                         PersonAvatar(person.name, person.userId, 40.dp)
                     }) {
@@ -122,45 +139,75 @@ fun PeopleScreen(model: AppModel, back: () -> Unit, open: (String) -> Unit) {
                     }
                 }
             }
-            if (state.friends.isNotEmpty()) item { SectionTitle(stringResource(R.string.friends)) }
+            if (state.friends.isNotEmpty()) {
+                item(key = "friends") {
+                    SectionTitle(stringResource(R.string.friends), Modifier.animateItem(fade(), snappy(), fade()))
+                }
+            }
             items(state.friends, key = { it.userId }) { person ->
-                FriendCard(person, terminals.sessions.filter { it.ownerUserId == person.userId && !it.hidden }) {
+                FriendCard(
+                    person,
+                    terminals.sessions.filter { it.ownerUserId == person.userId && !it.hidden },
+                    Modifier.animateItem(fade(), snappy(), fade())
+                ) {
                     open(person.userId)
                 }
             }
-            if (state.outgoing.isNotEmpty()) item { SectionTitle(stringResource(R.string.outgoing_requests)) }
+            if (state.outgoing.isNotEmpty()) {
+                item(key = "outgoing") {
+                    SectionTitle(
+                        stringResource(R.string.outgoing_requests),
+                        Modifier.animateItem(fade(), snappy(), fade())
+                    )
+                }
+            }
             items(state.outgoing, key = { "outgoing-${it.userId}" }) { person ->
-                ListLine(person.name, subtitle = "@${person.handle}") {
-                    KodosiTextButton(onClick = {
-                        scope.launch { model.runAction { model.people.act("friends.request.cancel", person.handle) } }
-                    }) {
-                        Text(stringResource(R.string.cancel_request))
+                Box(Modifier.animateItem(fade(), snappy(), fade())) {
+                    ListLine(person.name, subtitle = "@${person.handle}") {
+                        KodosiTextButton(onClick = {
+                            scope.launch {
+                                model.runAction { model.people.act("friends.request.cancel", person.handle) }
+                            }
+                        }) {
+                            Text(stringResource(R.string.cancel_request))
+                        }
                     }
                 }
             }
-            if (state.blocked.isNotEmpty()) item { SectionTitle(stringResource(R.string.blocked_people)) }
+            if (state.blocked.isNotEmpty()) {
+                item(key = "blocked") {
+                    SectionTitle(
+                        stringResource(R.string.blocked_people),
+                        Modifier.animateItem(fade(), snappy(), fade())
+                    )
+                }
+            }
             items(state.blocked, key = { "blocked-${it.userId}" }) { person ->
-                ListLine(person.name, subtitle = "@${person.handle}") {
-                    KodosiTextButton(onClick = {
-                        scope.launch { model.runAction { model.people.act("friends.unblock", person.handle) } }
-                    }) {
-                        Text(stringResource(R.string.unblock))
+                Box(Modifier.animateItem(fade(), snappy(), fade())) {
+                    ListLine(person.name, subtitle = "@${person.handle}") {
+                        KodosiTextButton(onClick = {
+                            scope.launch { model.runAction { model.people.act("friends.unblock", person.handle) } }
+                        }) {
+                            Text(stringResource(R.string.unblock))
+                        }
                     }
                 }
             }
             if (state.loaded && state.friends.isEmpty() && state.incoming.isEmpty() && state.outgoing.isEmpty()) {
-                item {
-                    EmptyState(
-                        stringResource(R.string.friends_empty_title),
-                        stringResource(R.string.friends_empty_message),
-                        AppSymbol.FRIENDS
-                    ) {
-                        KodosiButton(stringResource(R.string.add_friend), { adding = true })
-                        KodosiButton(
-                            stringResource(R.string.show_invite),
-                            { showingInvite = true },
-                            kind = ButtonKind.SECONDARY
-                        )
+                item(key = "empty") {
+                    Box(Modifier.animateItem(fade(), snappy(), fade())) {
+                        EmptyState(
+                            stringResource(R.string.friends_empty_title),
+                            stringResource(R.string.friends_empty_message),
+                            AppSymbol.FRIENDS
+                        ) {
+                            KodosiButton(stringResource(R.string.add_friend), { adding = true })
+                            KodosiButton(
+                                stringResource(R.string.show_invite),
+                                { showingInvite = true },
+                                kind = ButtonKind.SECONDARY
+                            )
+                        }
                     }
                 }
             }
@@ -390,9 +437,14 @@ private fun InviteCode(rows: List<String>?, failed: Boolean, retry: () -> Unit) 
 }
 
 @Composable
-private fun FriendCard(person: Person, shared: List<RuntimeSession>, open: (() -> Unit)? = null) {
+private fun FriendCard(
+    person: Person,
+    shared: List<RuntimeSession>,
+    modifier: Modifier = Modifier,
+    open: (() -> Unit)? = null
+) {
     val colors = KodosiTheme.colors
-    KodosiCard(Modifier.fillMaxWidth(), onClick = open, radius = Radius.xl) {
+    KodosiCard(modifier.fillMaxWidth(), onClick = open, radius = Radius.xl) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
                 PersonAvatar(person.name, person.userId, 46.dp)

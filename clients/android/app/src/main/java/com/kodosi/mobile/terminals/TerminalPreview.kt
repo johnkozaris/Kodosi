@@ -1,8 +1,6 @@
 package com.kodosi.mobile.terminals
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
 import com.kodosi.mobile.ui.DarkColors
 import com.kodosi.mobile.ui.Radius
-import com.kodosi.mobile.ui.reducedMotion
+import com.kodosi.mobile.ui.snappy
 import com.kodosi.mobile.ui.terminalTile
 
 @Composable
@@ -37,7 +35,7 @@ fun TerminalPreview(adjustment: Int) {
     val base = if (LocalConfiguration.current.smallestScreenWidthDp >= 600) 14f else 12f
     val points by animateFloatAsState(
         base + adjustment,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "terminal preview size"
     )
     val style = TextStyle(

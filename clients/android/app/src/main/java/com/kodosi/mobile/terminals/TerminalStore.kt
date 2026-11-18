@@ -3,6 +3,7 @@ package com.kodosi.mobile.terminals
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.InvalidEvent
 import com.kodosi.mobile.runtime.RuntimeEvent
+import com.kodosi.mobile.runtime.RuntimeFailure
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.UuidV7
 import com.kodosi.mobile.runtime.fields
@@ -19,9 +20,15 @@ data class TerminalsState(
     val listed: Boolean = false
 )
 
+data class OpenResult(val failure: String?)
+
 class TerminalStore(private val commands: CommandSink) {
     val state: StateFlow<TerminalsState>
         field = MutableStateFlow(TerminalsState())
+
+    val openResults: StateFlow<Map<String, OpenResult>>
+        field = MutableStateFlow(emptyMap())
+    private val opening = HashMap<String, Any>()
     private var listing: String? = null
     private var watching: String? = null
 
@@ -34,6 +41,8 @@ class TerminalStore(private val commands: CommandSink) {
 
     fun reset() {
         state.value = TerminalsState()
+        openResults.value = emptyMap()
+        opening.clear()
         listing = null
         watching = null
     }
@@ -69,11 +78,31 @@ class TerminalStore(private val commands: CommandSink) {
         )
     }
 
-    suspend fun open(sessionId: String) {
-        commands.request("session.openRemote", mapOf("sessionId" to JsonPrimitive(sessionId)))
+    /**
+     * A request that stops waiting still ends the terminal's opening, so that its screen offers Connect instead of
+     * waiting for an answer that nobody reads.
+     */
+    suspend fun open(sessionId: String): OpenResult {
+        val attempt = Any()
+        opening[sessionId] = attempt
+        openResults.update { it - sessionId }
+        var result = OpenResult(failure = null)
+        try {
+            commands.request("session.openRemote", mapOf("sessionId" to JsonPrimitive(sessionId)))
+        } catch (failure: RuntimeFailure) {
+            result = OpenResult(failure.message.orEmpty())
+        } finally {
+            if (opening[sessionId] === attempt) {
+                opening.remove(sessionId)
+                openResults.update { it + (sessionId to result) }
+            }
+        }
+        return result
     }
 
     fun disconnect(sessionId: String) {
+        opening.remove(sessionId)
+        openResults.update { it - sessionId }
         commands.perform("session.disconnect", mapOf("sessionId" to JsonPrimitive(sessionId)))
     }
 

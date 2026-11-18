@@ -3,11 +3,9 @@ package com.kodosi.mobile.terminals
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -78,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
 import com.kodosi.mobile.canvas.readPickedFile
@@ -107,7 +106,7 @@ import com.kodosi.mobile.ui.TextEntryDialog
 import com.kodosi.mobile.ui.bezel
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
-import com.kodosi.mobile.ui.reducedMotion
+import com.kodosi.mobile.ui.snappy
 import com.kodosi.mobile.ui.terminalTile
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -124,6 +123,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     val connection = remember(sessionId) { model.connection(sessionId, scope) } ?: return
     val catalog by model.terminals.state.collectAsStateWithLifecycle()
     val state by connection.state.collectAsStateWithLifecycle()
+    val openResults by model.terminals.openResults.collectAsStateWithLifecycle()
     val session = catalog.sessions.firstOrNull { it.id == sessionId }
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var control by remember { mutableStateOf(false) }
@@ -171,11 +171,6 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
             terminal?.isFocusableInTouchMode = false
             terminal?.clearFocus()
         }
-    }
-
-    var starting by remember(sessionId) { mutableStateOf(true) }
-    LaunchedEffect(session?.connectionState) {
-        if (session?.connectionState != RuntimeSession.Connection.OFFLINE) starting = false
     }
 
     val typing = WindowInsets.isImeVisible
@@ -258,8 +253,12 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         )
                     }
                 } else {
+                    val cover = coverOf(session, online, state, openResults[sessionId])
+                    // The app lets a terminal go as soon as its screen starts to leave; the card stays as it was.
+                    val leaving = LocalNavAnimatedContentScope.current.transition.targetState == EnterExitState.PostExit
+                    val kept = remember(leaving) { cover }
                     CoverLayer(
-                        coverOf(session, online, state, starting),
+                        if (leaving) kept else cover,
                         connect = connection::retry,
                         reconnect = model.account::retryConnection
                     )
@@ -537,8 +536,7 @@ private fun Header(
                         )
                     }
                     val fading = fade<Float>()
-                    val pop: FiniteAnimationSpec<Float> =
-                        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f)
+                    val pop = snappy<Float>()
                     AnimatedContent(
                         session.sign(),
                         transitionSpec = {
@@ -617,13 +615,13 @@ private data class TerminalCover(
 
 private enum class CoverAction { CONNECT, RECONNECT, RETRY }
 
-/** While the screen [starts], an offline terminal without a message is one whose opening has not begun yet. */
+/** Until the request to open the terminal is answered, an offline terminal without a message is still opening. */
 @Composable
 private fun coverOf(
     session: RuntimeSession,
     online: Boolean,
     state: TerminalConnection.State,
-    starts: Boolean
+    opened: OpenResult?
 ): TerminalCover? {
     val connecting = TerminalCover(stringResource(R.string.connecting), null, working = true, action = null)
     val unavailable = stringResource(R.string.terminal_not_available)
@@ -643,9 +641,9 @@ private fun coverOf(
                 TerminalCover(statusLabel(session), stringResource(R.string.terminal_opens_when_back), false, null)
 
             session.connectionState == RuntimeSession.Connection.OFFLINE &&
-                !(starts && session.message == null && session.canOpen) -> TerminalCover(
+                (opened != null || session.message != null || !session.canOpen) -> TerminalCover(
                 statusLabel(session),
-                session.message,
+                opened?.failure ?: session.message,
                 working = false,
                 action = if (session.canOpen) CoverAction.CONNECT else null
             )
@@ -700,7 +698,7 @@ private fun ReconnectingNotice(shown: Boolean, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
     val presence by animateFloatAsState(
         if (shown) 1f else 0f,
-        if (reducedMotion()) snap() else spring(dampingRatio = 0.8f, stiffness = 620f),
+        snappy(),
         label = "reconnecting"
     )
     if (presence <= 0f) return
