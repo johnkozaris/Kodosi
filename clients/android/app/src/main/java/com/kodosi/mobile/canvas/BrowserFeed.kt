@@ -53,6 +53,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private val link = store.link(session, "browser")
     private var joining: Job? = null
     private var active = false
+    private var opening = false
     private var behind = true
     private var last: Long? = null
     private var decoder: BrowserDecoder? = null
@@ -105,10 +106,12 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         }
     }
 
+    /** The page takes the shape of the person's device that comes on the screen, but never of one that only joins again. */
     fun show(on: Boolean) {
         if (active == on) return
         active = on
         if (on) {
+            opening = true
             join()
         } else {
             joining?.cancel()
@@ -149,7 +152,8 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
                     behind = true
                     last = null
                     sent = size
-                    post(fields("type" to "watch", "size" to size))
+                    post(fields("type" to "watch", "size" to size, "opened" to opening))
+                    opening = false
                     return@launch
                 } catch (cancelled: CancellationException) {
                     throw cancelled

@@ -19,6 +19,7 @@ public struct CanvasBrowserView: View {
     var typing = false
     var ask: CanvasAsk?
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.scenePhase) private var scenePhase
     @State private var address = ""
     @State private var choice = 0
     @State private var picking = false
@@ -70,8 +71,10 @@ public struct CanvasBrowserView: View {
             .clipped()
             .onGeometryChange(for: CGSize.self) { $0.size } action: { feed.viewSize = $0 }
             .onChange(of: displayScale, initial: true) { _, scale in feed.viewScale = scale }
-            .task(id: browser.problem == nil) {
-                if browser.problem == nil {
+            // A device in the background would keep the host coding a page that nobody sees
+            // there, and the page in its shape, so it watches again once it comes back.
+            .task(id: browser.problem == nil && scenePhase != .background) {
+                if browser.problem == nil, scenePhase != .background {
                     feed.copied = Pasteboard.copy
                     await feed.watch()
                 }

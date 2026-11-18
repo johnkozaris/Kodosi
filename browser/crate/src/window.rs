@@ -590,24 +590,27 @@ impl Live {
         self.published.send_replace(self.state.clone());
         let icons = std::mem::take(&mut self.new_icons);
         for seat in self.seats.values() {
-            let mut state = self.state_for(&seat.viewer.id);
+            let mut state = self.state_for(&seat.viewer);
             state.icons.clone_from(&icons);
             seat.mailbox.put(state);
         }
         self.copied = None;
     }
 
-    /// A list, a copy and a file picker belong to the viewer in control, and a viewer's own
-    /// pointer is on its own screen.
-    fn state_for(&self, viewer: &str) -> State {
-        let pressed = self.in_control(viewer);
+    /// A list, a copy and a file picker belong to the viewer in control. A person's own pointer
+    /// is on the screen that they use, so no view of theirs shows it again; an agent's pointer
+    /// comes from the canvas and stays.
+    fn state_for(&self, viewer: &Viewer) -> State {
+        let pressed = self.in_control(&viewer.id);
         let mut state = self.state.clone();
-        state.pointers.retain(|pointer| pointer.viewer != viewer);
-        state.menu.take_if(|menu| menu.viewer != viewer);
+        state
+            .pointers
+            .retain(|pointer| pointer.person != viewer.person);
+        state.menu.take_if(|menu| menu.viewer != viewer.id);
         state.copied = self
             .copied
             .as_ref()
-            .filter(|copied| copied.viewer == viewer)
+            .filter(|copied| copied.viewer == viewer.id)
             .map(|copied| copied.text.clone());
         if !pressed {
             state.chooser = None;
@@ -624,7 +627,7 @@ impl Live {
                 outgoing,
                 mailbox,
             } => {
-                let mut state = self.state_for(&viewer.id);
+                let mut state = self.state_for(&viewer);
                 state.icons.clone_from(&self.icons);
                 mailbox.put(state);
                 self.seats.insert(
@@ -722,9 +725,16 @@ impl Live {
     fn message(&mut self, viewer: &str, message: ToWindow) {
         let now = Instant::now();
         match message {
-            ToWindow::Watch { size, anchors } => {
+            ToWindow::Watch {
+                size,
+                anchors,
+                opened,
+            } => {
                 self.flow.seat(viewer, anchors, now);
                 self.used_at = now;
+                if opened {
+                    self.opened(viewer);
+                }
                 self.control.get_or_insert_with(|| Control::of(viewer));
                 self.keep_size(viewer, size);
                 self.update_capture();
@@ -876,6 +886,22 @@ impl Live {
     fn acted(&mut self, viewer: &str) {
         self.actor = Actor::Person;
         if !self.in_control(viewer) {
+            self.control = Some(Control::of(viewer));
+        }
+    }
+
+    /// A person who opens the browser on another of their devices uses that one now. Another
+    /// person's view takes the page only when it acts, so that nobody reshapes it under the one
+    /// who uses it.
+    fn opened(&mut self, viewer: &str) {
+        let person = |view: &str| self.seats.get(view).map(|seat| &seat.viewer.person);
+        let own = self.control.as_ref().is_some_and(|control| {
+            !control.held
+                && control.viewer != viewer
+                && person(viewer).is_some()
+                && person(&control.viewer) == person(viewer)
+        });
+        if own {
             self.control = Some(Control::of(viewer));
         }
     }
@@ -1486,12 +1512,16 @@ mod tests {
     }
 
     async fn join(live: &mut Live, id: &str) -> Pipe {
+        join_of(live, id, id).await
+    }
+
+    async fn join_of(live: &mut Live, id: &str, person: &str) -> Pipe {
         let (outgoing, incoming) = mpsc::channel(VIEWER_QUEUE);
         let mailbox = Arc::new(Mailbox::default());
         let viewer = Viewer {
             id: id.to_owned(),
-            person: id.to_owned(),
-            name: id.to_owned(),
+            person: person.to_owned(),
+            name: person.to_owned(),
         };
         let seat = SEATS.fetch_add(1, Ordering::Relaxed);
         live.handle(Event::Join {
@@ -1546,11 +1576,20 @@ mod tests {
     }
 
     async fn look(live: &mut Live, viewer: &str, size: Size) {
+        watch(live, viewer, size, true).await;
+    }
+
+    async fn rejoin(live: &mut Live, viewer: &str, size: Size) {
+        watch(live, viewer, size, false).await;
+    }
+
+    async fn watch(live: &mut Live, viewer: &str, size: Size, opened: bool) {
         live.handle(Event::Message {
             viewer: viewer.to_owned(),
             message: ToWindow::Watch {
                 size,
                 anchors: false,
+                opened,
             },
         })
         .await;
@@ -1573,6 +1612,22 @@ mod tests {
         look(&mut live, "bob", view(600, 1000)).await;
         reshape(&mut live, "bob", view(620, 1000)).await;
         assert_eq!(live.size, view(900, 700));
+    }
+
+    #[tokio::test]
+    async fn the_page_takes_the_shape_of_the_device_that_its_person_opened_it_on_but_not_on_a_rejoin()
+     {
+        let mut live = live();
+        let _mac = join_of(&mut live, "mac", "ana").await;
+        look(&mut live, "mac", view(900, 700)).await;
+        let _phone = join_of(&mut live, "phone", "ana").await;
+        look(&mut live, "phone", view(600, 1000)).await;
+        let shape = |live: &Live| (live.size.width, live.size.height);
+        assert_eq!(shape(&live), (600, 1000));
+        rejoin(&mut live, "mac", view(900, 700)).await;
+        assert_eq!(shape(&live), (600, 1000));
+        look(&mut live, "mac", view(900, 700)).await;
+        assert_eq!(shape(&live), (900, 700));
     }
 
     #[tokio::test]
@@ -1776,13 +1831,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn each_viewer_sees_where_the_others_point_but_not_its_own_pointer() {
+    async fn each_viewer_sees_where_other_people_point_but_not_where_its_own_person_points() {
         let mut live = live();
-        let ana = join(&mut live, "ana").await;
+        let mac = join_of(&mut live, "mac", "ana").await;
+        let phone = join_of(&mut live, "phone", "ana").await;
         let bob = join(&mut live, "bob").await;
         say(
             &mut live,
-            "ana",
+            "mac",
             json!({ "kind": "mouse", "action": "move", "x": 40, "y": 30 }),
         )
         .await;
@@ -1796,8 +1852,9 @@ mod tests {
                     .collect::<Vec<_>>()
             })
         };
-        assert_eq!(pointers(&bob), Some(vec![("ana".to_owned(), 40.0, 30.0)]));
-        assert_eq!(pointers(&ana), Some(Vec::new()));
+        assert_eq!(pointers(&bob), Some(vec![("mac".to_owned(), 40.0, 30.0)]));
+        assert_eq!(pointers(&phone), Some(Vec::new()));
+        assert_eq!(pointers(&mac), Some(Vec::new()));
     }
 
     #[tokio::test]

@@ -17,11 +17,15 @@ const ANCHOR: u8 = 2;
     rename_all_fields = "camelCase"
 )]
 pub(crate) enum ToWindow {
-    /// A viewer whose decoder takes an anchor after frames that it missed says so.
+    /// A viewer whose decoder takes an anchor after frames that it missed says so. A view that
+    /// a person opened, or brought back to the screen, says so too; one that joins again after a
+    /// lost link does not.
     Watch {
         size: Size,
         #[serde(default)]
         anchors: bool,
+        #[serde(default)]
+        opened: bool,
     },
     Ack {
         frame: u32,
@@ -214,16 +218,26 @@ mod tests {
     }
 
     #[test]
-    fn a_viewer_takes_anchors_only_when_its_watch_says_so() {
+    fn a_watch_says_whether_its_viewer_takes_anchors_and_whether_a_person_opened_it() {
         let watch = |body: &str| ToWindow::decode(&[&[JSON], body.as_bytes()].concat());
         let size = r#""size":{"width":800,"height":600,"scale":2}"#;
         assert!(matches!(
-            watch(&format!(r#"{{"type":"watch",{size},"anchors":true}}"#)),
-            Ok(ToWindow::Watch { anchors: true, .. })
+            watch(&format!(
+                r#"{{"type":"watch",{size},"anchors":true,"opened":true}}"#
+            )),
+            Ok(ToWindow::Watch {
+                anchors: true,
+                opened: true,
+                ..
+            })
         ));
         assert!(matches!(
             watch(&format!(r#"{{"type":"watch",{size}}}"#)),
-            Ok(ToWindow::Watch { anchors: false, .. })
+            Ok(ToWindow::Watch {
+                anchors: false,
+                opened: false,
+                ..
+            })
         ));
     }
 

@@ -149,6 +149,7 @@ void BrowserVideo::setSessionId(const QString& sessionId)
         return;
     leave();
     m_sessionId = sessionId;
+    m_opening = true;
     forgetTerminal();
     join();
 }
@@ -178,10 +179,12 @@ void BrowserVideo::setActive(bool active)
     if (active == m_active)
         return;
     m_active = active;
-    if (active)
+    if (active) {
+        m_opening = true;
         join();
-    else
+    } else {
         leave();
+    }
 }
 
 void BrowserVideo::join()
@@ -222,7 +225,9 @@ void BrowserVideo::opened(const QString& pipe)
     m_keyframeFloor.stop();
     m_keyframeOwed = false;
     m_sentSize = sizeMessage();
-    post({ { QStringLiteral("type"), QStringLiteral("watch") }, { QStringLiteral("size"), m_sentSize } });
+    post({ { QStringLiteral("type"), QStringLiteral("watch") },
+        { QStringLiteral("size"), m_sentSize },
+        { QStringLiteral("opened"), std::exchange(m_opening, false) } });
 }
 
 void BrowserVideo::received(const QString& pipe, const QByteArray& message)
