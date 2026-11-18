@@ -400,6 +400,9 @@ class XlsxEditor implements Editor, Pictures {
       else if (info.id === SET_SCROLL || info.id === SET_ACTIVE_SHEET) this.drawMarks();
       this.bar.update();
     });
+    made.univerAPI.addEvent(made.univerAPI.Event.LifeCycleChanged, ({ stage }) => {
+      if (stage === LifecycleStages.Rendered) this.drawMarks();
+    });
     made.univerAPI.addEvent(made.univerAPI.Event.CellClicked, ({ worksheet, row, column }) => {
       const link = linkAt(this.links, worksheet.getSheetId(), row, column);
       if (link && opensLink(this.pressed, this.canEdit)) this.followCell(link.to);
@@ -892,13 +895,18 @@ class XlsxEditor implements Editor, Pictures {
     this.drawMarks();
   }
 
-  /** Univer has no layer for people's places, so the marks lie over its canvas. */
+  /**
+   * Univer has no layer for people's places, so the marks lie over its canvas. Univer measures
+   * the grid only once it has rendered it.
+   */
   private drawMarks(): void {
-    const sheet = this.univer?.univerAPI.getActiveWorkbook()?.getActiveSheet();
+    this.marks.replaceChildren();
+    const api = this.univer?.univerAPI;
+    if (!api || api.getCurrentLifecycleStage() < LifecycleStages.Rendered) return;
+    const sheet = api.getActiveWorkbook()?.getActiveSheet();
     const grid = [...this.canvas.querySelectorAll("canvas")]
       .map((canvas) => canvas.getBoundingClientRect())
       .sort((left, right) => right.height - left.height)[0];
-    this.marks.replaceChildren();
     if (!sheet || !grid) return;
     const frame = this.marks.getBoundingClientRect();
     const scroll = sheet.getScrollState();
