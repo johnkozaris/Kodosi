@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 use serde_json::{Map, json};
 
-use crate::Op;
+use crate::{Op, formula::Shift};
 
 pub struct Xlsx;
 
@@ -59,6 +59,9 @@ pub(crate) struct Sheet {
     pub(crate) merges: Vec<[u32; 4]>,
     pub(crate) widths: BTreeMap<u32, f64>,
     pub(crate) heights: BTreeMap<u32, f64>,
+    pub(crate) hidden_rows: BTreeSet<u32>,
+    pub(crate) hidden_columns: BTreeSet<u32>,
+    pub(crate) frozen: Frozen,
     /// The attributes of rows and columns that this crate only keeps.
     pub(crate) row_looks: BTreeMap<u32, String>,
     pub(crate) column_looks: BTreeMap<u32, String>,
@@ -68,6 +71,63 @@ pub(crate) struct Sheet {
     /// A chart sheet, like any sheet without sheet data, has no cells: a save keeps it as it is,
     /// and a change to its cells, rows or columns is refused.
     pub(crate) chart: bool,
+}
+
+/// The rows and the columns that stay in sight while the rest of a sheet scrolls: `rows` rows from
+/// `top` and `columns` columns from `left`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+pub(crate) struct Frozen {
+    pub(crate) top: u32,
+    pub(crate) left: u32,
+    pub(crate) rows: u32,
+    pub(crate) columns: u32,
+}
+
+impl Frozen {
+    /// A side with nothing frozen starts at 0, so that equal panes compare equal.
+    pub(crate) fn new(top: u32, left: u32, rows: u32, columns: u32) -> Self {
+        Self {
+            top: if rows == 0 { 0 } else { top },
+            left: if columns == 0 { 0 } else { left },
+            rows,
+            columns,
+        }
+    }
+
+    pub(crate) fn is_frozen(self) -> bool {
+        self.rows > 0 || self.columns > 0
+    }
+
+    /// Lines that come in before the first line that scrolls join the frozen ones, and lines that
+    /// go before it leave them, though one stays. Univer moves the panes this way for a person's
+    /// own change, so every copy moves them alike.
+    pub(crate) fn moved(self, shift: Shift, rows: bool) -> Self {
+        let split = |first: u32, count: u32| -> (u32, u32) {
+            let end = first + count;
+            if count == 0 || shift.at >= end {
+                return (first, count);
+            }
+            let lines = shift.count.unsigned_abs();
+            if shift.count > 0 {
+                return (first, count.saturating_add(lines));
+            }
+            let gone = end.min(shift.at.saturating_add(lines)) - shift.at;
+            let end = (end - gone).max(1);
+            let count = count.saturating_sub(gone).max(1);
+            (end - count, count)
+        };
+        if rows {
+            let (top, rows) = split(self.top, self.rows);
+            Self { top, rows, ..self }
+        } else {
+            let (left, columns) = split(self.left, self.columns);
+            Self {
+                left,
+                columns,
+                ..self
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -213,8 +273,9 @@ pub enum Change {
         sheet: String,
         #[serde(default, deserialize_with = "line_keys")]
         widths: BTreeMap<u32, f64>,
+        /// `null` makes a row fit what it holds.
         #[serde(default, deserialize_with = "line_keys")]
-        heights: BTreeMap<u32, f64>,
+        heights: BTreeMap<u32, Option<f64>>,
     },
     Merges {
         sheet: String,
@@ -222,6 +283,22 @@ pub enum Change {
         add: Vec<[u32; 4]>,
         #[serde(default)]
         remove: Vec<[u32; 4]>,
+    },
+    /// `true` hides a line and `false` shows it.
+    Hidden {
+        sheet: String,
+        #[serde(default, deserialize_with = "line_keys")]
+        rows: BTreeMap<u32, bool>,
+        #[serde(default, deserialize_with = "line_keys")]
+        columns: BTreeMap<u32, bool>,
+    },
+    /// No rows and no columns unfreeze the sheet.
+    Freeze {
+        sheet: String,
+        top: u32,
+        left: u32,
+        rows: u32,
+        columns: u32,
     },
     Ops {
         ops: Vec<Op>,
@@ -280,6 +357,9 @@ impl Sheet {
             "merges": self.merges,
             "widths": self.widths,
             "heights": self.heights,
+            "hiddenRows": self.hidden_rows,
+            "hiddenColumns": self.hidden_columns,
+            "frozen": self.frozen,
             "links": self
                 .anchors
                 .iter()

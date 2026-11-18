@@ -12,10 +12,10 @@ use crate::{
     calculate::{calculated, without_results},
     formats,
     formula::{cell_name, column_name, parse_cell, parse_range, range_name},
-    model::{Cell, Look, Model, Sheet, Value},
+    model::{Cell, Frozen, Look, Model, Sheet, Value},
     read::{
-        self, ANCHORS, STYLES_PART, WORKBOOK_PART, cell_of, formula_of, local, locals, merges_of,
-        widths_of,
+        self, ANCHORS, STYLES_PART, WORKBOOK_PART, cell_of, formula_of, frozen_of,
+        hidden_columns_of, is_on, local, locals, merges_of, widths_of,
     },
 };
 
@@ -51,6 +51,9 @@ const AFTER_MERGES: [&str; 22] = [
     "tableParts",
     "extLst",
 ];
+
+/// What the file format puts after `sheetViews`, the first of which a new one stands before.
+const AFTER_VIEWS: [&str; 3] = ["sheetFormatPr", "cols", "sheetData"];
 
 /// What the file format puts after `calcPr`, the first of which a new one stands before.
 const AFTER_CALCULATION: [&str; 9] = [
@@ -411,6 +414,9 @@ fn row_tag(sheet: &Sheet, row: u32) -> String {
     if let Some(look) = sheet.row_looks.get(&row) {
         let _ = write!(tag, " {look}");
     }
+    if sheet.hidden_rows.contains(&row) {
+        tag.push_str(r#" hidden="1""#);
+    }
     if let Some(height) = sheet.heights.get(&row) {
         let _ = write!(tag, r#" ht="{height}" customHeight="1""#);
     }
@@ -422,6 +428,7 @@ fn rows_xml(sheet: &Sheet) -> String {
         .heights
         .keys()
         .chain(sheet.row_looks.keys())
+        .chain(&sheet.hidden_rows)
         .map(|row| (*row, String::new()))
         .collect();
     for ((row, column), cell) in &sheet.cells {
@@ -442,10 +449,16 @@ fn rows_xml(sheet: &Sheet) -> String {
 }
 
 fn columns_edit(root: Xml<'_, '_>, data_start: usize, sheet: &Sheet) -> Option<Edit> {
-    if widths_of(root) == sheet.widths {
+    if widths_of(root) == sheet.widths && hidden_columns_of(root) == sheet.hidden_columns {
         return None;
     }
-    let lines: BTreeSet<u32> = sheet.widths.keys().copied().collect();
+    let lines: BTreeSet<u32> = sheet
+        .widths
+        .keys()
+        .chain(sheet.column_looks.keys())
+        .chain(&sheet.hidden_columns)
+        .copied()
+        .collect();
     let mut text = String::new();
     for line in lines {
         let number = line + 1;
@@ -456,13 +469,109 @@ fn columns_edit(root: Xml<'_, '_>, data_start: usize, sheet: &Sheet) -> Option<E
         if let Some(look) = sheet.column_looks.get(&line) {
             let _ = write!(text, " {look}");
         }
+        if sheet.hidden_columns.contains(&line) {
+            text.push_str(r#" hidden="1""#);
+        }
         text.push_str("/>");
     }
+    let columns = local(root, "cols");
+    if text.is_empty() {
+        return columns.map(|columns| (columns.range(), String::new()));
+    }
     let text = format!("<cols>{text}</cols>");
-    Some(local(root, "cols").map_or_else(
+    Some(columns.map_or_else(
         || (data_start..data_start, text.clone()),
         |columns| (columns.range(), text.clone()),
     ))
+}
+
+fn pane_xml(frozen: Frozen, prefix: &str) -> String {
+    if !frozen.is_frozen() {
+        return String::new();
+    }
+    let mut text = format!("<{prefix}pane");
+    if frozen.columns > 0 {
+        let _ = write!(text, r#" xSplit="{}""#, frozen.columns);
+    }
+    if frozen.rows > 0 {
+        let _ = write!(text, r#" ySplit="{}""#, frozen.rows);
+    }
+    let active = match (frozen.rows > 0, frozen.columns > 0) {
+        (true, true) => "bottomRight",
+        (true, false) => "bottomLeft",
+        _ => "topRight",
+    };
+    let _ = write!(
+        text,
+        r#" topLeftCell="{}" activePane="{active}" state="frozen"/>"#,
+        cell_name(frozen.top + frozen.rows, frozen.left + frozen.columns)
+    );
+    text
+}
+
+/// A selection names the pane that it is in, so the selections go with the old panes.
+fn sheet_view_xml(xml: &str, view: Xml<'_, '_>, frozen: Frozen) -> String {
+    let name = tag_name(xml, view);
+    let prefix = name
+        .rsplit_once(':')
+        .map_or_else(String::new, |(prefix, _)| format!("{prefix}:"));
+    let mut text = format!("<{name}");
+    for attribute in view.attributes() {
+        let place = attribute.namespace().is_none() && attribute.name() == "topLeftCell";
+        if place && frozen.is_frozen() {
+            continue;
+        }
+        let own = attribute
+            .namespace()
+            .and_then(|space| view.lookup_prefix(space))
+            .map_or_else(String::new, |prefix| format!("{prefix}:"));
+        let _ = write!(
+            text,
+            r#" {own}{}="{}""#,
+            attribute.name(),
+            escape(attribute.value())
+        );
+    }
+    if frozen.is_frozen() && (frozen.top, frozen.left) != (0, 0) {
+        let _ = write!(
+            text,
+            r#" topLeftCell="{}""#,
+            cell_name(frozen.top, frozen.left)
+        );
+    }
+    text.push('>');
+    text.push_str(&pane_xml(frozen, &prefix));
+    for child in view.children().filter(|child| {
+        child.is_element() && !matches!(child.tag_name().name(), "pane" | "selection")
+    }) {
+        text.push_str(&xml[child.range()]);
+    }
+    let _ = write!(text, "</{name}>");
+    text
+}
+
+fn panes_edit(xml: &str, root: Xml<'_, '_>, sheet: &Sheet) -> Option<Edit> {
+    if frozen_of(root) == sheet.frozen {
+        return None;
+    }
+    let views = local(root, "sheetViews");
+    if let Some(view) = views.and_then(|views| local(views, "sheetView")) {
+        return Some((view.range(), sheet_view_xml(xml, view, sheet.frozen)));
+    }
+    let text = format!(
+        r#"<sheetViews><sheetView workbookViewId="0">{}</sheetView></sheetViews>"#,
+        pane_xml(sheet.frozen, "")
+    );
+    if let Some(views) = views {
+        return Some((views.range(), text));
+    }
+    let at = root
+        .children()
+        .filter(Xml::is_element)
+        .find(|element| AFTER_VIEWS.contains(&element.tag_name().name()))?
+        .range()
+        .start;
+    Some((at..at, text))
 }
 
 fn merges_edit(root: Xml<'_, '_>, xml: &str, sheet: &Sheet) -> Option<Edit> {
@@ -495,10 +604,11 @@ fn merges_edit(root: Xml<'_, '_>, xml: &str, sheet: &Sheet) -> Option<Edit> {
     Some((at..at, text))
 }
 
-fn height_edit(xml: &str, row: Xml<'_, '_>, sheet: &Sheet, line: u32) -> Option<Edit> {
+fn row_edit(xml: &str, row: Xml<'_, '_>, sheet: &Sheet, line: u32) -> Option<Edit> {
     let wanted = sheet.heights.get(&line).copied();
     let stated = row.attribute("ht").and_then(|height| height.parse().ok());
-    if wanted == stated {
+    let hidden = sheet.hidden_rows.contains(&line);
+    if wanted == stated && hidden == is_on(row.attribute("hidden")) {
         return None;
     }
     let start = row.range().start;
@@ -507,7 +617,7 @@ fn height_edit(xml: &str, row: Xml<'_, '_>, sheet: &Sheet, line: u32) -> Option<
     let mut tag = format!("<{} ", tag_name(xml, row));
     let kept: Vec<String> = row
         .attributes()
-        .filter(|attribute| !matches!(attribute.name(), "ht" | "customHeight"))
+        .filter(|attribute| !matches!(attribute.name(), "ht" | "customHeight" | "hidden"))
         .map(|attribute| {
             let prefix = attribute
                 .namespace()
@@ -521,6 +631,9 @@ fn height_edit(xml: &str, row: Xml<'_, '_>, sheet: &Sheet, line: u32) -> Option<
         })
         .collect();
     tag.push_str(&kept.join(" "));
+    if hidden {
+        tag.push_str(r#" hidden="1""#);
+    }
     if let Some(height) = wanted {
         let _ = write!(tag, r#" ht="{height}" customHeight="1""#);
     }
@@ -539,6 +652,7 @@ fn layout_edits(xml: &str, sheet: &Sheet) -> Result<Vec<Edit>, String> {
     let root = parsed.root_element();
     let data = local(root, "sheetData").ok_or("the sheet has no data")?;
     let mut edits: Vec<Edit> = Vec::new();
+    edits.extend(panes_edit(xml, root, sheet));
     edits.extend(columns_edit(root, data.range().start, sheet));
     edits.extend(merges_edit(root, xml, sheet));
     let mut known = BTreeSet::new();
@@ -551,11 +665,12 @@ fn layout_edits(xml: &str, sheet: &Sheet) -> Result<Vec<Edit>, String> {
             continue;
         };
         known.insert(line);
-        edits.extend(height_edit(xml, row, sheet, line));
+        edits.extend(row_edit(xml, row, sheet, line));
     }
     let missing: BTreeMap<u32, BTreeMap<u32, &Cell>> = sheet
         .heights
         .keys()
+        .chain(&sheet.hidden_rows)
         .filter(|line| !known.contains(line))
         .map(|line| (*line, BTreeMap::new()))
         .collect();
@@ -579,11 +694,11 @@ fn write_sheet(xml: &str, sheet: &Sheet, strings: &[String]) -> Result<Option<St
     Ok(Some(spliced(current, edits)))
 }
 
-fn new_sheet_xml(sheet: &Sheet) -> String {
-    format!(
-        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="{SHEET_MAIN}"><sheetData>{}</sheetData></worksheet>"#,
-        rows_xml(sheet)
-    )
+fn new_sheet_xml(sheet: &Sheet) -> Result<String, String> {
+    let blank = format!(
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="{SHEET_MAIN}"><sheetData/></worksheet>"#
+    );
+    Ok(write_sheet(&blank, sheet, &[])?.unwrap_or(blank))
 }
 
 fn without(xml: &str, gone: impl Fn(Xml<'_, '_>) -> bool) -> Result<String, String> {
@@ -696,7 +811,7 @@ fn workbook_edits(
         let number = sheet.number;
         let part = sheet.part_name();
         let relation = format!("rIdSheet{number}");
-        parts.insert(part.clone(), Some(new_sheet_xml(sheet).into_bytes()));
+        parts.insert(part.clone(), Some(new_sheet_xml(sheet)?.into_bytes()));
         let _ = write!(
             relations_added,
             r#"<Relationship Id="{relation}" Type="{SHEET_KIND}" Target="worksheets/sheetN{number}.xml"/>"#
