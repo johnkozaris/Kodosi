@@ -1207,12 +1207,9 @@ mod tests {
 
     #[test]
     fn a_program_that_cannot_start_fails_its_spawn() {
-        use std::os::unix::fs::PermissionsExt as _;
-
         let directory = tempfile::tempdir().unwrap();
         let program = directory.path().join("program");
-        std::fs::write(&program, "#!/nonexistent/interpreter\n").unwrap();
-        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700)).unwrap();
+        kodosi_os::process::write_program(&program, "#!/nonexistent/interpreter\n").unwrap();
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()

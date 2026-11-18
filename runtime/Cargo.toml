@@ -114,6 +114,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 document = { path = "../documents/crates/document" }
+kodosi-os = { workspace = true, features = ["test-programs"] }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
 

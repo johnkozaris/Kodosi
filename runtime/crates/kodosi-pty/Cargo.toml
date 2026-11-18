@@ -27,6 +27,7 @@ windows-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+kodosi-os = { workspace = true, features = ["test-programs"] }
 tempfile = { workspace = true }
 
 [lints]

@@ -49,5 +49,8 @@ windows-sys = { workspace = true, features = [
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
 
+[features]
+test-programs = []
+
 [lints]
 workspace = true

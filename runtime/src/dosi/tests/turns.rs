@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeSet,
-    os::unix::fs::PermissionsExt as _,
     path::PathBuf,
     sync::{Arc, Mutex},
     time::Duration,
@@ -194,8 +193,7 @@ impl Rig {
     fn engine(base: &std::path::Path) -> (Engine, mpsc::Receiver<Message>) {
         let program = base.join("claude");
         if !program.exists() {
-            std::fs::write(&program, STUB).unwrap();
-            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+            kodosi_os::process::write_program(&program, STUB).unwrap();
         }
         Engine::load(
             &base.join("data"),

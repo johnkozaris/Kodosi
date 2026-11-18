@@ -131,11 +131,8 @@ fn scope_names_are_short_plain_text() {
 
 #[cfg(unix)]
 fn program(folder: &Path, name: &str, script: &str) -> Runner {
-    use std::os::unix::fs::PermissionsExt as _;
-
     let path = folder.join(name);
-    std::fs::write(&path, format!("#!/bin/sh\n{script}")).unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    kodosi_os::process::write_program(&path, &format!("#!/bin/sh\n{script}")).unwrap();
     Runner {
         program: path,
         path: None,

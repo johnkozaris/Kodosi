@@ -3344,7 +3344,6 @@ fn an_agent_whose_conversation_is_not_known_yet_comes_back_with_its_account_and_
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_its_choices() {
-    use std::os::unix::fs::PermissionsExt as _;
     let root = tempfile::tempdir().unwrap();
     let home = kodosi_os::fs::canonicalize(root.path()).unwrap();
     let id = "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
@@ -3360,12 +3359,11 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
     let stopping = async |program: &str, start: String, arguments: &str| {
         let agent = home.join("bin").join(program);
         std::fs::create_dir_all(agent.parent().unwrap()).unwrap();
-        std::fs::write(
+        kodosi_os::process::write_program(
             &agent,
-            format!("#!/bin/sh\n{start}\necho agent-ready\nsleep 30\n"),
+            &format!("#!/bin/sh\n{start}\necho agent-ready\nsleep 30\n"),
         )
         .unwrap();
-        std::fs::set_permissions(&agent, std::fs::Permissions::from_mode(0o700)).unwrap();
         let terminal = TerminalSession::spawn(
             Uuid::now_v7(),
             Uuid::now_v7(),
@@ -4663,7 +4661,6 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
 )]
 async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_choices() {
     use crate::agents::{AgentChoiceChange, AgentPick, AgentSettings, Launcher, Permissions};
-    use std::os::unix::fs::PermissionsExt as _;
 
     async fn answer(
         runtime: &mut Runtime,
@@ -4725,8 +4722,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
     std::fs::create_dir_all(home.join(".claude-work")).unwrap();
     let executable = |path: PathBuf, text: String| {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(&path, text).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        kodosi_os::process::write_program(&path, &text).unwrap();
         path
     };
     let bin = root.join("bin");
