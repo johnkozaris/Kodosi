@@ -20,7 +20,7 @@ use openh264_sys2::{
 };
 use shared_browser::link::{EncodedFrame, FromEngine};
 
-use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS};
+use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS, frame_budget};
 use crate::link::Link;
 
 struct Picture {
@@ -398,7 +398,7 @@ impl Worker<'_> {
         } else {
             self.missing = false;
         }
-        if time.is_none() && self.sharpening.refined(size) {
+        if time.is_none() && self.sharpening.refined(size, frame_budget(self.bitrate)) {
             let mut slot = lock(self.shared);
             if slot.picture.is_none() {
                 slot.refinement = Refinement::Clean;

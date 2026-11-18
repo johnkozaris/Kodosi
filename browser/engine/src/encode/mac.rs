@@ -11,7 +11,7 @@ use std::{
 use bytes::Bytes;
 use shared_browser::link::{EncodedFrame, FromEngine};
 
-use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS};
+use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS, frame_budget};
 use crate::{engine, link::Link};
 
 /// The most pictures that wait in the encoder. A picture that finds no room is dropped, and the
@@ -240,6 +240,8 @@ struct Output {
     missed: AtomicBool,
     clean: AtomicBool,
     sharpening: Mutex<Convergence>,
+    /// The bytes that one frame may have at the session's bitrate.
+    budget: AtomicUsize,
 }
 
 struct Session {
@@ -299,6 +301,10 @@ impl Encoder {
         self.bitrate = bitrate;
         if let Some(session) = &self.session {
             set_bitrate(session.raw, bitrate);
+            session
+                .output
+                .budget
+                .store(frame_budget(bitrate), Ordering::Release);
         }
     }
 
@@ -516,6 +522,7 @@ impl Encoder {
             missed: AtomicBool::new(false),
             clean: AtomicBool::new(false),
             sharpening: Mutex::default(),
+            budget: AtomicUsize::new(frame_budget(self.bitrate)),
         });
         let refcon = Arc::into_raw(Arc::clone(&output))
             .cast_mut()
@@ -666,7 +673,7 @@ unsafe extern "C" fn encoded(
             .sharpening
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .refined(size)
+            .refined(size, output.budget.load(Ordering::Acquire))
     {
         output.clean.store(true, Ordering::Release);
     }

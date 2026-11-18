@@ -23,10 +23,11 @@ const REFINEMENTS: u32 = 60;
 /// A caret or a typed letter gets fine bits in its own frame, so only changes that add up to this
 /// much of the page earn a clean-up.
 const LARGE_CHANGE: f64 = 1.0 / 16.0;
-/// The refinements of a clean picture come out within a twentieth of each other, or as good as
-/// empty, as the encoder codes noise or nothing; `VideoToolbox` alternates between two sizes.
+/// A refinement of a clean picture takes a third of a frame's bits at most, as the encoder has
+/// little left to code. Right after a key frame the rate control gives refinements next to
+/// nothing for a while, and a refinement that spends all its bits is still at work.
 const CLEAN_AFTER: usize = 3;
-const EMPTY_BYTES: usize = 64;
+const FIRST_REFINEMENTS: usize = 6;
 
 #[derive(Default)]
 pub(crate) struct Cleanup {
@@ -66,14 +67,17 @@ pub(crate) struct Convergence {
 }
 
 impl Convergence {
-    /// Takes the size of a coded refinement and returns whether the picture is clean.
-    pub(crate) fn refined(&mut self, bytes: usize) -> bool {
+    /// Takes the size of a coded refinement and the bytes that one frame may have, and returns
+    /// whether the picture is clean.
+    pub(crate) fn refined(&mut self, bytes: usize, budget: usize) -> bool {
         self.sizes[self.refined % CLEAN_AFTER] = bytes;
         self.refined += 1;
-        let least = self.sizes.iter().min().copied().unwrap_or_default();
-        let most = self.sizes.iter().max().copied().unwrap_or_default();
-        self.refined >= CLEAN_AFTER && (most <= EMPTY_BYTES || (most - least) * 20 <= least)
+        self.refined >= FIRST_REFINEMENTS && self.sizes.iter().all(|size| size * 3 <= budget)
     }
+}
+
+pub(crate) fn frame_budget(bitrate: u32) -> usize {
+    usize::try_from(bitrate / 8 / FRAME_RATE).unwrap_or(usize::MAX)
 }
 
 #[cfg(test)]
@@ -100,19 +104,25 @@ mod tests {
     }
 
     #[test]
-    fn a_picture_is_clean_once_its_refinements_come_out_alike_or_empty() {
+    fn a_picture_is_clean_once_its_refinements_take_a_third_of_a_frame_at_most() {
+        let budget = frame_budget(8_000_000);
         let mut sharpening = Convergence::default();
         let sizes = [70_874, 31_974, 6_676, 5_345, 5_157, 5_154];
-        let clean = sizes.map(|bytes| sharpening.refined(bytes));
+        let clean = sizes.map(|bytes| sharpening.refined(bytes, budget));
         assert_eq!(clean, [false, false, false, false, false, true]);
-        let mut alternating = Convergence::default();
-        let sizes = [90_029, 3_627, 750, 725, 751];
-        let clean = sizes.map(|bytes| alternating.refined(bytes));
-        assert_eq!(clean, [false, false, false, false, true]);
-        let mut still = Convergence::default();
+        let mut spending = Convergence::default();
+        let sizes = [9_659, 27_355, 27_504, 28_981, 29_726, 29_195, 29_000];
+        assert!(
+            !sizes
+                .map(|bytes| spending.refined(bytes, budget))
+                .contains(&true)
+        );
+        let mut after_key = Convergence::default();
+        let sizes = [28, 28, 45_585, 55_967, 11_353, 28, 28, 28];
+        let clean = sizes.map(|bytes| after_key.refined(bytes, budget));
         assert_eq!(
-            [28, 28, 28].map(|bytes| still.refined(bytes)),
-            [false, false, true]
+            clean,
+            [false, false, false, false, false, false, false, true]
         );
     }
 }
