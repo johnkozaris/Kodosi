@@ -647,13 +647,11 @@ fn cursor_and_opencode_get_the_note_only_in_the_line_that_kodosi_types_where_the
     let bin = root.join("bin");
     fs::create_dir(&bin).unwrap();
     for program in ["cursor-agent", "opencode"] {
-        let stub = bin.join(program);
-        fs::write(
-            &stub,
+        kodosi_os::process::write_program(
+            &bin.join(program),
             "#!/bin/sh\nprintf '%s\\0' \"$OPENCODE_CONFIG_CONTENT\" \"$@\"\n",
         )
         .unwrap();
-        fs::set_permissions(&stub, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
     }
     let run = |line: &str| {
         let printed = std::process::Command::new("/bin/sh")
@@ -1333,13 +1331,10 @@ async fn the_launch_choice_survives_a_restart() {
 
 #[cfg(unix)]
 fn shell_finding(folder: &Path, programs: &[&str]) -> std::path::PathBuf {
-    use std::os::unix::fs::PermissionsExt as _;
-
     let bin = folder.join("bin");
     fs::create_dir_all(&bin).unwrap();
     let executable = |path: std::path::PathBuf, text: String| {
-        fs::write(&path, text).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        kodosi_os::process::write_program(&path, &text).unwrap();
         path
     };
     for program in programs {

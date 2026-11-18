@@ -12,6 +12,27 @@ mod windows;
 #[cfg(windows)]
 use windows as imp;
 
+// Linux refuses to run a file that any process holds open for writing, even a child that
+// another thread forked and that has not started its own program yet, so a shell that ends
+// before the test runs the script is the only process that opens it for writing.
+#[cfg(all(unix, feature = "test-programs"))]
+pub fn write_program(path: &std::path::Path, text: &str) -> std::io::Result<()> {
+    use std::io::Write as _;
+
+    let mut shell = std::process::Command::new("/bin/sh")
+        .args(["-c", r#"cat > "$1" && chmod 700 "$1""#, "sh"])
+        .arg(path)
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+    if let Some(mut input) = shell.stdin.take() {
+        input.write_all(text.as_bytes())?;
+    }
+    shell
+        .wait()?
+        .success()
+        .ok_or_else(|| std::io::Error::other("the shell did not write the program"))
+}
+
 pub fn find_executable(name: &str) -> Option<PathBuf> {
     find_executable_in(name, &std::env::var_os("PATH")?)
 }
