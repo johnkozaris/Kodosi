@@ -654,6 +654,7 @@ struct Stream<'a, T> {
     heartbeat: u32,
     input_offset: u64,
     input_confirmed: u64,
+    typed_at: Option<tokio::time::Instant>,
     inputs: Inputs,
     controls: Controls,
     pipes: HashMap<Uuid, PipeIn>,
@@ -700,6 +701,7 @@ impl<'a, T: Transport> Stream<'a, T> {
             heartbeat: 0,
             input_offset: 0,
             input_confirmed: 0,
+            typed_at: None,
             inputs: Inputs::new(),
             controls: Controls::new(),
             pipes: HashMap::new(),
@@ -813,10 +815,17 @@ impl<'a, T: Transport> Stream<'a, T> {
 
     /// Terminal output goes first. Documents use the project that it leaves.
     async fn send_pipe_parts(&mut self) -> Result<()> {
+        let typing = self
+            .typed_at
+            .is_some_and(|at| at.elapsed() < crate::terminal::TYPING);
         while !self.pipe_parts.is_empty()
             && self.parts.is_empty()
             && (!self.live || self.waiting.is_empty())
-            && self.pacer.project()
+            && if typing {
+                self.pacer.beside_typing()
+            } else {
+                self.pacer.project()
+            }
         {
             let Some(frame) = self.pipe_parts.pop_front() else {
                 break;
@@ -1184,6 +1193,7 @@ impl<'a, T: Transport> Stream<'a, T> {
                     )));
                 }
                 self.input_offset += bytes.len() as u64;
+                self.typed_at = Some(tokio::time::Instant::now());
                 let end = self.input_offset;
                 let response = self
                     .submit(TerminalControl::Input {

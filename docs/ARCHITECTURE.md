@@ -41,7 +41,9 @@ view's typing or another of its requests waits and its channel has not answered 
 moment, the viewing device reports the terminal as stalled, and its apps say that it
 reconnects while the typing goes on. The host does not replay input whose delivery is
 uncertain, and a stale view cannot control a replacement terminal. Work that a short drop
-of the channel holds back goes out once on the next channel.
+of the channel holds back goes out once on the next channel. The terminal comes first on its
+channel: its output goes before the frames of a document or the browser, and while a person
+types, those frames fill only a moment of the link.
 
 Each app tells its host which terminals are on its screen. The channel to a terminal of
 another computer is open only while a client shows the terminal or has work for it. A

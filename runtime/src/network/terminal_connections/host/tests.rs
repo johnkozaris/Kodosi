@@ -56,6 +56,16 @@ impl Terminal {
         self.viewer.send(&Frame::Ack { received }).await.unwrap();
     }
 
+    /// Takes the next frame over a link of `LINK` bytes a second.
+    async fn carry(&mut self) -> Frame {
+        let before = self.received;
+        let frame = self.next().await;
+        let bytes = self.received - before;
+        tokio::time::sleep(Duration::from_micros(bytes * 1_000_000 / LINK)).await;
+        self.acknowledge().await;
+        frame
+    }
+
     async fn keyframe(&mut self) -> (u64, usize) {
         let mut size = 0;
         loop {
@@ -87,6 +97,8 @@ impl Terminal {
 }
 
 const VISIBLE: usize = 300;
+/// The bytes a second that the link of the test's viewer carries.
+const LINK: u64 = 1024 * 1024;
 
 fn echo_pipe() -> crate::canvas::PipeEnds {
     let (sender, mut sent) = mpsc::channel(8);
@@ -100,6 +112,17 @@ fn echo_pipe() -> crate::canvas::PipeEnds {
         sender,
         receiver: answered,
     }
+}
+
+/// A document that sends frames as fast as the host takes them, as a page that scrolls.
+fn busy_pipe() -> crate::canvas::PipeEnds {
+    let (sender, heard) = mpsc::channel(8);
+    let (frames, receiver) = mpsc::channel(8);
+    tokio::spawn(async move {
+        let _heard = heard;
+        while frames.send(vec![7; 64 * 1024]).await.is_ok() {}
+    });
+    crate::canvas::PipeEnds { sender, receiver }
 }
 
 async fn terminal(snapshot_bytes: usize) -> Terminal {
@@ -145,7 +168,14 @@ async fn terminal(snapshot_bytes: usize) -> Terminal {
                 HostRequest::Control { reply, .. } => {
                     drop(reply.send(Err(Text::plain("The terminal refused the size."))));
                 }
-                HostRequest::Document { reply, .. } => drop(reply.send(Ok(echo_pipe()))),
+                HostRequest::Document { key, reply, .. } => {
+                    let pipe = if key == "busy" {
+                        busy_pipe()
+                    } else {
+                        echo_pipe()
+                    };
+                    drop(reply.send(Ok(pipe)));
+                }
                 HostRequest::Picture { picture, reply, .. } => {
                     let answer = match picture {
                         HostPicture::Known { digest, .. } if !saved.contains(&digest) => {
@@ -259,6 +289,47 @@ async fn terminal_output_goes_before_the_frames_of_a_document() {
         }
     }
     assert_eq!(seen, lines);
+}
+
+#[tokio::test(start_paused = true)]
+async fn while_a_person_types_the_echo_waits_behind_only_a_moment_of_a_busy_document() {
+    let mut terminal = terminal(100).await;
+    terminal.keyframe().await;
+    let pipe = Uuid::now_v7();
+    let opening = Frame::PipeOpen {
+        pipe,
+        key: "busy".to_owned(),
+        name: "Ana".to_owned(),
+    };
+    terminal.viewer.send(&opening).await.unwrap();
+    let mut carried = 0;
+    while carried < 2 * LINK {
+        if let Frame::PipeData { part, .. } = terminal.carry().await {
+            carried += part.len() as u64;
+        }
+    }
+    let mut ahead = Vec::new();
+    for (offset, key) in [(0, b"l"), (1, b"s")] {
+        let typed = Frame::Input {
+            offset,
+            heartbeat: terminal.heartbeat,
+            bytes: Bytes::from_static(key),
+        };
+        terminal.viewer.send(&typed).await.unwrap();
+        assert_eq!(terminal.input.recv().await.unwrap(), key);
+        terminal.write(key);
+        let mut bytes = 0;
+        loop {
+            match terminal.carry().await {
+                Frame::Output { .. } => break,
+                Frame::PipeData { part, .. } => bytes += part.len(),
+                _ => {}
+            }
+        }
+        ahead.push(bytes);
+    }
+    let moment = LINK / 20 + wire::PIPE_PART as u64;
+    assert!(ahead[1] as u64 <= moment, "{ahead:?}");
 }
 
 #[tokio::test]
