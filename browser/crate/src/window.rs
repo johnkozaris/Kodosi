@@ -777,7 +777,7 @@ impl Live {
                     .get(viewer)
                     .is_some_and(|seat| seat.outgoing.try_send(message.clone()).is_ok());
                 if !sent {
-                    self.flow.lost(viewer, id);
+                    self.flow.lost(viewer, id, now);
                 }
             }
         }
