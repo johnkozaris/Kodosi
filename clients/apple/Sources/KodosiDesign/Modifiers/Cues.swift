@@ -1,3 +1,4 @@
+import QuartzCore
 import SwiftUI
 
 private struct Glint<Value: Equatable>: ViewModifier {
@@ -99,17 +100,44 @@ public struct Spinner: View {
     }
 
     public var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 60, paused: theme.motion.reduced)) { context in
-            let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 0.8) / 0.8
-            ZStack {
-                Circle().stroke(theme.colors.hairline, lineWidth: 1.5)
-                Circle().trim(from: 0, to: 0.28)
-                    .stroke(theme.colors.accent, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
-                    .rotationEffect(.degrees(turn * 360))
-            }
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        LayerArt(setup: Spin(track: theme.colors.hairline, arc: theme.colors.accent, turns: !theme.motion.reduced), draw: Spin.draw)
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+struct Spin: Hashable {
+    static let period: TimeInterval = 0.8
+    static let lineWidth: CGFloat = 1.5
+
+    let track: Color
+    let arc: Color
+    let turns: Bool
+
+    @MainActor
+    static func draw(_ spin: Spin, _ canvas: LayerCanvas) {
+        let bounds = CGRect(origin: .zero, size: canvas.size)
+        let circle = CGPath(ellipseIn: bounds, transform: nil)
+        let track = CAShapeLayer()
+        track.path = circle
+        track.fillColor = nil
+        track.strokeColor = canvas.color(spin.track)
+        track.lineWidth = lineWidth
+        canvas.place(track, bounds)
+        let arc = CAShapeLayer()
+        arc.path = circle
+        arc.fillColor = nil
+        arc.strokeColor = canvas.color(spin.arc)
+        arc.lineWidth = lineWidth
+        arc.lineCap = .round
+        arc.strokeEnd = 0.28
+        canvas.place(arc, bounds)
+        guard spin.turns else { return }
+        let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+        turn.fromValue = 0
+        turn.toValue = 2 * Double.pi
+        turn.timingFunction = CAMediaTimingFunction(name: .linear)
+        arc.add(turn.looping(period: period), forKey: "turn")
     }
 }
 
