@@ -156,8 +156,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
                     throw cancelled
                 } catch (error: Exception) {
                     failure.value = error.message
-                    delay(wait)
-                    wait = minOf(wait * 2, 30_000)
+                    wait = if (link.pause(wait)) 1000 else minOf(wait * 2, 30_000)
                 }
             }
         }

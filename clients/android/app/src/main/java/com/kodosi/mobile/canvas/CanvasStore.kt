@@ -22,6 +22,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
     private val cache = LinkedHashMap<Cached, ByteArray>(16, 0.75f, true)
     private val links = mutableSetOf<DocumentLink>()
     private val opened = mutableMapOf<String, Long>()
+    private var running = emptySet<String>()
     private val started = System.currentTimeMillis()
     val news: StateFlow<Map<String, String>>
         field = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -43,6 +44,9 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
             val show = session.canvas?.latestNotice ?: return@mapNotNull null
             if (show.at > (opened[session.id] ?: started)) session.id to show.key else null
         }.toMap()
+        val runs = sessions.filter { it.status == RuntimeSession.Status.RUNNING }.map { it.id }.toSet()
+        links.filter { it.session in runs && it.session !in running }.forEach(DocumentLink::reachable)
+        running = runs
     }
 
     fun saw(session: RuntimeSession) {

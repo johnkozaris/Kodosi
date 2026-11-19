@@ -8,16 +8,19 @@ import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.runtime.number
 import java.io.ByteArrayOutputStream
 import java.util.Base64
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 
 class DocumentLink(
     private val commands: CommandSink,
-    private val session: String,
+    val session: String,
     private val key: String,
     private val onClose: (DocumentLink) -> Unit
 ) {
     private var pipe: String? = null
     private var next = 0L
     private var filling = ByteArrayOutputStream()
+    private val reached = Channel<Unit>(Channel.CONFLATED)
     var onFrame: (ByteArray) -> Unit = {}
     var onLost: () -> Unit = {}
 
@@ -29,10 +32,18 @@ class DocumentLink(
         filling.reset()
         try {
             commands.request("document.open", fields("sessionId" to session, "pipe" to opening, "key" to key))
+            reached.tryReceive()
         } catch (failure: Exception) {
             if (pipe == opening) detach()
             throw failure
         }
+    }
+
+    /** Tells whether the terminal ran again before the wait ended. */
+    suspend fun pause(wait: Long): Boolean = withTimeoutOrNull(wait) { reached.receive() } != null
+
+    fun reachable() {
+        reached.trySend(Unit)
     }
 
     fun send(bytes: ByteArray) {

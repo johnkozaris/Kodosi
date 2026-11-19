@@ -9,10 +9,12 @@ import java.util.Base64
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -21,6 +23,10 @@ class CanvasStoreTest {
     private val sent = SentCommands()
     private val store = CanvasStore(sent.sink, TestWords)
     private val item = CanvasItem("file", "report.txt", "text", revision = 1, bytes = 3, changed = 0)
+    private val session = RuntimeJson.decodeFromString<RuntimeSession>(
+        """{"id":"terminal","incarnationId":"current","kind":"remote","name":"Build",
+            "status":"running","connectionState":"connected","working":false}"""
+    )
 
     @Test
     fun restartsAStaleReadWithoutMixingRevisionsAndCachesTheResult() = runTest {
@@ -62,10 +68,7 @@ class CanvasStoreTest {
 
     @Test
     fun aChangedFileCreatesNewsOnceWithoutAnExplicitShow() {
-        val terminal = RuntimeJson.decodeFromString<RuntimeSession>(
-            """{"id":"terminal","incarnationId":"current","kind":"remote","name":"Build",
-                "status":"running","connectionState":"connected","working":false}"""
-        ).copy(canvas = Canvas(1, listOf(item), change = CanvasOpen(item.key, Long.MAX_VALUE - 1)))
+        val terminal = session.copy(canvas = Canvas(1, listOf(item), change = CanvasOpen(item.key, Long.MAX_VALUE - 1)))
 
         store.observe(listOf(terminal))
         assertEquals(mapOf("terminal" to item.key), store.news.value)
@@ -78,6 +81,21 @@ class CanvasStoreTest {
         )
         store.observe(listOf(browser))
         assertEquals(mapOf("terminal" to "browser"), store.news.value)
+    }
+
+    @Test
+    fun aTerminalThatRunsAgainEndsThePauseOfItsPipes() = runTest {
+        val link = store.link("terminal", "browser")
+        val away = session.copy(status = RuntimeSession.Status.RECONNECTING)
+        store.observe(listOf(away))
+        val pause = async(start = CoroutineStart.UNDISPATCHED) { link.pause(30_000) }
+        store.observe(listOf(away))
+        runCurrent()
+        assertFalse(pause.isCompleted)
+
+        store.observe(listOf(session))
+        assertTrue(pause.await())
+        assertEquals(0, currentTime)
     }
 
     @Test

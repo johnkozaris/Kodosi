@@ -368,8 +368,7 @@ internal class DocumentPage(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
-                    delay(wait)
-                    wait = minOf(wait * 2, 30_000)
+                    wait = if (link.pause(wait)) 1000 else minOf(wait * 2, 30_000)
                 }
             }
         }
