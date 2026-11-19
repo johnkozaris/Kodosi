@@ -21,6 +21,7 @@ from pathlib import Path
 REPOSITORY = "johnkozaris/Kodosi"
 APT_KEY = Path(__file__).resolve().parents[1] / "clients/qt/packaging/linux/kodosi-archive-keyring.pgp"
 WINDOWS_CERTIFICATE = Path(__file__).resolve().parents[1] / "clients/qt/packaging/windows/Kodosi.cer"
+APP_INSTALLER_WORKER = Path(__file__).resolve().parent / "appinstaller-worker.js"
 
 
 def file_sha256(path: Path) -> str:
@@ -188,6 +189,12 @@ def main() -> None:
         shutil.copyfile(WINDOWS_CERTIFICATE, site / "windows/Kodosi.cer")
         (site / "_headers").write_text(
             "/windows/Kodosi.appinstaller\n  Content-Type: application/appinstaller\n", encoding="utf-8"
+        )
+        worker = APP_INSTALLER_WORKER.read_text(encoding="utf-8")
+        (site / "_worker.js").write_text(worker.replace("__MODIFIED__", formatdate(usegmt=True)), encoding="utf-8")
+        (site / "_routes.json").write_text(
+            json.dumps({"version": 1, "include": ["/windows/Kodosi.appinstaller"], "exclude": []}) + "\n",
+            encoding="utf-8",
         )
         downloads.append("windows")
     (site / "release.json").write_text(
