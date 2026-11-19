@@ -26,16 +26,16 @@ Everyone who can open a terminal also sees the files on its canvas and uses its 
 sign in there only where all of them may act. The shared browser of a shared terminal never uses
 your kept sign-ins. The files on a canvas are normal files, and everyone who can open the terminal
 can edit them. A page on the canvas and a live document run in a closed frame with no network, no
-files and no storage that stays. While a shared browser is awake, its debug port and the driver
-port of each window listen on `127.0.0.1` or `::1`, where other accounts of that computer can reach
-them. A site in the shared browser saves one download into the terminal's folder for each action of
-a person or an agent, and it reaches your clipboard only when you copy. The Linux app shows pages only where Chromium can sandbox them; on Ubuntu its AppArmor
-profile lets the app, its page process and Kodosi Browser make the user namespaces that the sandbox
-needs. For the same reason the shared browser does not run as root on Linux. The apps do not
-contain Kodosi Browser. When a computer opens its first shared browser, Kodosi gets the browser
-from the feed on `updates.kodosi.com`, and it looks there for a new version each day. Kodosi uses a
-download only when the feed has the signature of the key of Kodosi's updates and the download has
-the SHA-256 that the feed gives.
+files and no storage that stays. While a shared browser is awake, its debug port and the driver port
+of each window listen on `127.0.0.1` or `::1`, where other accounts of that computer can reach them.
+A site in the shared browser saves one download into the terminal's folder for each action of a
+person or an agent, and it reaches your clipboard only when you copy. The Linux app shows pages only
+where Chromium can sandbox them; on Ubuntu its AppArmor profile lets the app, its page process and
+Kodosi Browser make the user namespaces that the sandbox needs. For the same reason the shared
+browser does not run as root on Linux. The apps do not contain Kodosi Browser. When a computer opens
+its first shared browser, Kodosi gets the browser from the feed on `updates.kodosi.com`, and it
+looks there for a new version each day. Kodosi uses a download only when the feed has the signature
+of the key of Kodosi's updates and the download has the SHA-256 that the feed gives.
 
 ## Straight connections
 
@@ -44,23 +44,23 @@ terminal's traffic goes straight between them instead of through the service, wi
 encryption. Each of the two devices then sees the other's IP addresses. To learn the public address
 of a device, Kodosi asks a STUN server of Cloudflare, which sees that address. While a device looks
 for or has such a connection, and for a minute after, it keeps one UDP port open, and it takes a
-connection there only from your own devices. Terminals of other people always go through the service, so they
-never see your addresses.
+connection there only from your own devices. Terminals of other people always go through the
+service, so they never see your addresses.
 
 ## What the service sees
 
-The service sees account and device records, project membership, project and terminal
-metadata, each terminal's agent and state (such as working or waiting for an approval,
-never its text) and whether you saw that state yet, routing fields, timing and ciphertext
-sizes, except for traffic that goes straight between your devices. It also sees, for each of your devices, whether you use Kodosi on it, use another
-app on that computer, or do not use it, so that a notification goes only to a device that
-you use. Push notifications to your iPhone, iPad or Android device go through Apple's or
-Google's push service, which sees the IDs of your terminals that wait, finished or failed,
-their agents and their states, never names or text. Encryption does not hide this metadata
-or prevent an outage. A device that you remove loses access from then on. After you remove
-a lost or stolen device, make a new recovery key to keep that device out. When someone
-starts fresh on your account while you have devices, it waits a day and your devices show
-it, so that you can stop it. GitHub and Gitea credentials stay on your computer.
+The service sees account and device records, project membership, project and terminal metadata, each
+terminal's agent and state (such as working or waiting for an approval, never its text) and whether
+you saw that state yet, routing fields, timing and ciphertext sizes, except for traffic that goes
+straight between your devices. It also sees, for each of your devices, whether you use Kodosi on it,
+use another app on that computer, or do not use it, so that a notification goes only to a device
+that you use. Push notifications to your iPhone, iPad or Android device go through Apple's or
+Google's push service, which sees the IDs of your terminals that wait, finished or failed, their
+agents and their states, never names or text. Encryption does not hide this metadata or prevent an
+outage. A device that you remove loses access from then on. After you remove a lost or stolen
+device, make a new recovery key to keep that device out. When someone starts fresh on your account
+while you have devices, it waits a day and your devices show it, so that you can stop it. GitHub and
+Gitea credentials stay on your computer.
 
 Deleting an account removes its devices, recovery data, friends, sharing and owned
 projects; messages in other people's projects stay without an account. For 30 days the service
