@@ -8,8 +8,9 @@ private struct KodosiThemeModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(ThemePreference.storageKey) private var preference: String = ThemePreference.system.rawValue
     @AppStorage(MotionPreference.storageKey) private var reducesMotion = false
-    @State private var windowVisible = true
-    #if !os(macOS)
+    #if os(macOS)
+        @State private var windowVisible = true
+    #else
         @Environment(\.scenePhase) private var scenePhase
     #endif
 
@@ -24,7 +25,7 @@ private struct KodosiThemeModifier: ViewModifier {
 
     private var resolved: AppTheme {
         let pref = ThemePreference(rawValue: preference) ?? .system
-        return pref.resolve(systemColorScheme: systemColorScheme).reducingMotion(reduceMotion || reducesMotion || !windowVisible)
+        return pref.resolve(systemColorScheme: systemColorScheme).reducingMotion(reduceMotion || reducesMotion || !onScreen)
     }
 
     private var colorSchemeOverride: ColorScheme? {
