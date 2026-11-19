@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import GhosttyTerminal
 import KodosiKit
+import Observation
 import Synchronization
 #if os(iOS)
     import UIKit
@@ -128,8 +129,9 @@ final class TerminalAccessibilityUpdateRelay: Sendable {
 
 #if os(iOS)
     @MainActor
-    public final class TerminalCursor: ObservableObject {
-        @Published public internal(set) var row: ClosedRange<CGFloat>?
+    @Observable
+    public final class TerminalCursor {
+        public internal(set) var row: ClosedRange<CGFloat>?
     }
 #endif
 

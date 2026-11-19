@@ -132,6 +132,7 @@ extension UITerminalView {
         updateSurfaceLayers()
         updateColorScheme()
         core.fitToSize()
+        core.requestImmediateTick()
     }
 
     func updateSurfaceLayers() {

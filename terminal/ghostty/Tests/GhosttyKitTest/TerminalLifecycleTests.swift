@@ -595,6 +595,52 @@ struct TerminalLifecycleTests {
     }
 
     @Test
+    func `a surface that does not show gives up its focus until it shows again`() throws {
+        let session = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
+        let coordinator = TerminalSurfaceCoordinator()
+        let hostView = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        hostView.wantsLayer = true
+        let window = NSWindow(
+            contentRect: hostView.frame,
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostView
+        var focus: [Bool] = []
+
+        coordinator.isAttached = { hostView.window != nil }
+        coordinator.scaleFactor = { 1 }
+        coordinator.viewSize = { (hostView.bounds.width, hostView.bounds.height) }
+        coordinator.platformSetup = { config in
+            config.platform_tag = GHOSTTY_PLATFORM_MACOS
+            config.platform = ghostty_platform_u(
+                macos: ghostty_platform_macos_s(
+                    nsview: Unmanaged.passUnretained(hostView).toOpaque()
+                )
+            )
+        }
+        coordinator.applyFocus = { _, focused in
+            focus.append(focused)
+        }
+        coordinator.configuration = .init(session: session)
+        coordinator.controller = TerminalController()
+        defer {
+            coordinator.freeSurface()
+            window.contentView = nil
+        }
+        _ = try #require(coordinator.surface)
+
+        coordinator.setFocus(true)
+        coordinator.setDisplayVisible(false)
+        coordinator.setFocus(true)
+        coordinator.setDisplayVisible(true)
+        coordinator.setApplicationActive(false)
+        coordinator.setApplicationActive(true)
+        #expect(focus == [false, true, false, false, true, false, true])
+    }
+
+    @Test
     func `zero size defers configuration rebuild until layout recovers`() {
         let firstSession = InMemoryTerminalSession(write: { _ in }, resize: { _ in })
         let replacementSession = InMemoryTerminalSession(write: { _ in }, resize: { _ in })

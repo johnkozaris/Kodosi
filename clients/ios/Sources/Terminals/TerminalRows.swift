@@ -19,23 +19,23 @@ enum TerminalRows {
 
 struct TerminalRowsFrame<Content: View>: View {
     @ObservedObject private var renderer: TerminalRendererSession
-    @ObservedObject private var cursor: TerminalCursor
     @Environment(\.displayScale) private var scale
     private let content: Content
 
     init(renderer: TerminalRendererSession, @ContentBuilder content: () -> Content) {
         _renderer = ObservedObject(wrappedValue: renderer)
-        _cursor = ObservedObject(wrappedValue: renderer.cursor)
         self.content = content()
     }
 
     var body: some View {
         GeometryReader { proxy in
-            let height = TerminalRows.height(room: proxy.size.height, metrics: renderer.rowMetrics, scale: scale)
+            let room = proxy.size.height
+            let height = TerminalRows.height(room: room, metrics: renderer.rowMetrics, scale: scale)
+            let cursor = height > room ? renderer.cursor.row : nil
             content
                 .frame(width: proxy.size.width, height: height)
-                .offset(y: -TerminalRows.top(room: proxy.size.height, height: height, cursor: cursor.row))
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+                .offset(y: -TerminalRows.top(room: room, height: height, cursor: cursor))
+                .frame(width: proxy.size.width, height: room, alignment: .top)
         }
         .clipped()
     }
