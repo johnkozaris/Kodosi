@@ -2213,6 +2213,19 @@ async fn a_phone_closes_its_connections_only_when_it_stays_in_the_background() {
     assert_eq!(answered, 2);
 }
 
+#[test]
+fn every_command_can_fail_with_an_answer_that_its_app_can_read() {
+    for sample in crate::protocol::tests::commands() {
+        let envelope: CommandEnvelope =
+            serde_json::from_value(crate::protocol::tests::envelope(sample)).unwrap();
+        let failed = answer(&envelope.command, Err(&Error::Busy));
+        assert!(
+            crate::protocol::EventBody::new(failed.clone()).is_ok(),
+            "{failed}"
+        );
+    }
+}
+
 async fn complete_next_job(runtime: &mut Runtime) {
     let job = runtime.jobs.join_next().await.unwrap().unwrap();
     runtime.complete(job);

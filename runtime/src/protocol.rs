@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 96;
+pub const VERSION: u32 = 97;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -441,7 +441,7 @@ pub enum Command {
         state: AppLifecycle,
     },
     /// A phone app sends it when the phone moves to another network.
-    #[serde(rename = "network.changed")]
+    #[serde(rename = "app.network")]
     NetworkChanged {
         #[serde(rename = "requestId")]
         request_id: String,
@@ -1978,7 +1978,7 @@ impl Command {
             Self::Visible { .. } => "session.visible",
             Self::Presence { .. } => "app.presence",
             Self::Lifecycle { .. } => "app.lifecycle",
-            Self::NetworkChanged { .. } => "network.changed",
+            Self::NetworkChanged { .. } => "app.network",
             Self::Read { .. } => "session.read",
             Self::Show { .. } => "session.show",
             Self::OpenRemote { .. } => "session.openRemote",
@@ -2999,7 +2999,7 @@ pub fn referred<'a>(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use serde_json::json;
 
@@ -3039,14 +3039,14 @@ mod tests {
     #[cfg(windows)]
     const DIRECTORY: &str = r"C:\project";
 
-    fn envelope(mut value: Value) -> Value {
+    pub(crate) fn envelope(mut value: Value) -> Value {
         value["accountUserId"] = Value::Null;
         value["accountEpoch"] = json!(0);
         value
     }
 
     #[expect(clippy::too_many_lines, reason = "one sample of every command")]
-    fn commands() -> Vec<Value> {
+    pub(crate) fn commands() -> Vec<Value> {
         let mut values = [
             "auth.login.start",
             "auth.login.cancel",
@@ -3097,7 +3097,7 @@ mod tests {
             json!({"type":"session.visible","requestId":ID,"sessionIds":[ID],"watching":true}),
             json!({"type":"app.presence","requestId":ID,"state":"here"}),
             json!({"type":"app.lifecycle","requestId":ID,"state":"background"}),
-            json!({"type":"network.changed","requestId":ID}),
+            json!({"type":"app.network","requestId":ID}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachProject","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"projectId":null}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),

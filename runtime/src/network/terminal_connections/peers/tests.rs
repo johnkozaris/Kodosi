@@ -188,6 +188,7 @@ async fn a_paused_viewer_ends_its_straight_lanes_and_a_new_network_gives_it_a_ne
     );
     let (mut arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
     viewer.forget_bound().await;
+    assert!(viewer.dialed.lock().unwrap().is_empty());
     let ended = tokio::time::timeout(Duration::from_secs(5), reached.reader.recv()).await;
     assert_eq!(ended.unwrap(), None);
     let ended = tokio::time::timeout(Duration::from_secs(5), arrived.reader.recv()).await;

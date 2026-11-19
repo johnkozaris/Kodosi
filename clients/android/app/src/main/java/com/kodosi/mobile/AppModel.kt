@@ -169,7 +169,7 @@ class AppModel(
 
     private fun networkChanged() {
         if (phase.value != Phase.Ready || !inFront) return
-        commands.perform("network.changed")
+        commands.perform("app.network")
     }
 
     fun languageChanged() {

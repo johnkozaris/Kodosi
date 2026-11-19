@@ -2934,7 +2934,7 @@
             "type": "string"
           },
           "type": {
-            "const": "network.changed"
+            "const": "app.network"
           }
         },
         "required": [
@@ -14404,7 +14404,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 96,
+  "protocolVersion": 97,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

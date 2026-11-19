@@ -81,7 +81,9 @@ const ENTER_PAUSE: Duration = Duration::from_millis(500);
 const STARTING: Duration = Duration::from_secs(20);
 /// Views connect again a few at a time, so a link that comes back does not open them all at once.
 const RECONNECT_PACE: Duration = Duration::from_millis(100);
-const BACKGROUND_GRACE: Duration = Duration::from_secs(5);
+/// Android takes the network away from an app five seconds after it leaves the screen, so the
+/// runtime closes its connections while it can still say so.
+const BACKGROUND_GRACE: Duration = Duration::from_secs(3);
 /// The frames of documents and of the browser go to their client alone, so a busy picture never
 /// pushes the other events of each client out.
 const DIRECT_QUEUE: usize = 256;
