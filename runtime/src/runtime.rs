@@ -903,10 +903,13 @@ impl TerminalTarget {
         Box::pin(async move {
             typed.await?;
             tokio::time::sleep(ENTER_PAUSE).await;
-            if let Err(error) = target.write(Bytes::from_static(b"\r"), message).await {
-                tracing::debug!(%error, "the typed text waits for Enter");
+            match target.write(Bytes::from_static(b"\r"), message).await {
+                Err(error) if waits_for_a_person(&error) => {
+                    tracing::debug!(%error, "the typed text waits for Enter");
+                    Ok(())
+                }
+                result => result,
             }
-            Ok(())
         })
     }
 
@@ -1026,6 +1029,18 @@ fn calls(entry: &SessionEntry) -> bool {
 /// The host of one of the person's terminals on another computer keeps its mark.
 fn reported_by_host(entry: &SessionEntry) -> bool {
     entry.kind == SessionKind::Remote && entry.is_owner
+}
+
+/// The terminal refuses the Enter of a line on purpose while a person types there or while its
+/// agent waits for a person's answer: the line then waits for that person.
+fn waits_for_a_person(error: &Error) -> bool {
+    let words = error.text();
+    [
+        crate::terminal::someone_typing(),
+        crate::terminal::agent_asks(),
+    ]
+    .iter()
+    .any(|refusal| refusal.words() == words.words())
 }
 
 fn reachable(entry: &SessionEntry) -> bool {

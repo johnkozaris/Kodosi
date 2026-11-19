@@ -545,6 +545,33 @@ impl RemoteControl {
         ))
     }
 
+    /// The terminal's computer confirms input once the terminal has it, so a view that closes
+    /// after this answer loses none of the input that it sent before.
+    pub fn delivered(&self) -> impl Future<Output = Result<()>> + Send + use<> {
+        let (reply, response) = oneshot::channel();
+        let admission = if self.cancellation.is_cancelled() {
+            Err(unconfirmed())
+        } else {
+            self.commands
+                .try_send(terminal_connections::RemoteRequest::Delivered { reply })
+                .map_err(|error| match error {
+                    mpsc::error::TrySendError::Full(_) => Error::Busy,
+                    mpsc::error::TrySendError::Closed(_) => unconfirmed(),
+                })
+        };
+        let cancellation = self.cancellation.clone();
+        async move {
+            admission?;
+            tokio::select! {
+                biased;
+                result = tokio::time::timeout(CONTROL_TIMEOUT, response) => result
+                    .map_err(|_| Error::Text(text!("The terminal's computer did not confirm the operation, and Kodosi did not send it again.")))?
+                    .map_err(|_| unconfirmed()),
+                () = cancellation.cancelled() => Err(unconfirmed()),
+            }
+        }
+    }
+
     pub fn send_picture(
         &self,
         picture: crate::terminal::Picture,

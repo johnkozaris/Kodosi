@@ -4653,6 +4653,92 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
     drop(terminal);
 }
 
+async fn remote_line_terminal() -> (
+    RemoteTerminal,
+    Subscription,
+    mpsc::Receiver<crate::network::TestRemoteRequest>,
+    mpsc::Sender<crate::network::RemoteUpdate>,
+    mpsc::Receiver<SessionChange>,
+) {
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (connection, mut requests, updates) = crate::network::test_remote_connection(remote);
+    let (changes, receiver) = mpsc::channel(16);
+    let terminal = RemoteTerminal::spawn(connection, changes);
+    let view = terminal.subscribe();
+    assert!(matches!(
+        timeout(Duration::from_secs(2), requests.recv())
+            .await
+            .unwrap(),
+        Some(crate::network::TestRemoteRequest::Checkpoint)
+    ));
+    updates.send(first_snapshot()).await.unwrap();
+    (terminal, view.await.unwrap(), requests, updates, receiver)
+}
+
+async fn admit_input(
+    requests: &mut mpsc::Receiver<crate::network::TestRemoteRequest>,
+) -> (Vec<u8>, oneshot::Sender<()>) {
+    let Some(crate::network::TestRemoteRequest::Control {
+        control: TerminalControl::Input { bytes },
+        reply,
+    }) = timeout(Duration::from_secs(2), requests.recv())
+        .await
+        .unwrap()
+    else {
+        panic!("input expected");
+    };
+    reply.send(Ok(Value::Null)).unwrap();
+    let Some(crate::network::TestRemoteRequest::Delivered { reply }) =
+        timeout(Duration::from_secs(2), requests.recv())
+            .await
+            .unwrap()
+    else {
+        panic!("a question whether the terminal has the input expected");
+    };
+    (bytes, reply)
+}
+
+#[tokio::test]
+async fn a_line_whose_enter_does_not_reach_the_other_computer_fails() {
+    let (terminal, _view, mut requests, _updates, _changes) = remote_line_terminal().await;
+    let line =
+        tokio::spawn(TerminalTarget::Remote(terminal.clone()).type_line("hello".to_owned(), false));
+    let (text, delivered) = admit_input(&mut requests).await;
+    assert_eq!(text, b"hello");
+    delivered.send(()).unwrap();
+    let (enter, lost) = admit_input(&mut requests).await;
+    assert_eq!(enter, b"\r");
+    drop(lost);
+    assert!(line.await.unwrap().is_err());
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn a_line_waits_for_enter_while_a_person_types_in_the_pause() {
+    let (terminal, view, mut requests, _updates, _changes) = remote_line_terminal().await;
+    let line =
+        tokio::spawn(TerminalTarget::Remote(terminal.clone()).type_line("hello".to_owned(), false));
+    let (_, delivered) = admit_input(&mut requests).await;
+    delivered.send(()).unwrap();
+    terminal
+        .input(view.connection_id, Bytes::from_static(b"x"))
+        .unwrap();
+    let Some(crate::network::TestRemoteRequest::Control {
+        control: TerminalControl::Input { bytes },
+        reply,
+    }) = timeout(Duration::from_secs(2), requests.recv())
+        .await
+        .unwrap()
+    else {
+        panic!("the person's input expected");
+    };
+    assert_eq!(bytes, b"x");
+    reply.send(Ok(Value::Null)).unwrap();
+    line.await.unwrap().unwrap();
+    assert!(requests.try_recv().is_err());
+    terminal.disconnect();
+}
+
 fn show(runtime: &mut Runtime, consumer: Uuid, lifetime: &CancellationToken, ids: &[Uuid]) {
     runtime.see(
         consumer,

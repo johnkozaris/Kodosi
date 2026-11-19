@@ -353,6 +353,7 @@ struct Viewer<T> {
     heard: tokio::time::Instant,
     input_sent: u64,
     input_confirmed: u64,
+    deliveries: VecDeque<(u64, oneshot::Sender<()>)>,
     late: Option<watch::Receiver<bool>>,
     stalled: bool,
     path: Option<watch::Receiver<Path>>,
@@ -387,6 +388,7 @@ impl<T: Transport> Viewer<T> {
             heard: tokio::time::Instant::now(),
             input_sent: 0,
             input_confirmed: 0,
+            deliveries: VecDeque::new(),
             late: Some(late),
             stalled: false,
             path: Some(path),
@@ -582,6 +584,10 @@ impl<T: Transport> Viewer<T> {
                 drop(reply.send(Ok(Value::Null)));
             }
             RemoteRequest::Picture { picture, reply } => self.offer(picture, reply).await?,
+            RemoteRequest::Delivered { reply } => {
+                self.deliveries.push_back((self.input_sent, reply));
+                self.confirm_deliveries();
+            }
             RemoteRequest::Control { control, reply } => {
                 if !self.started {
                     drop(reply.send(Err(Error::Text(text!(
@@ -651,6 +657,7 @@ impl<T: Transport> Viewer<T> {
             }
             RemoteRequest::Control { .. }
             | RemoteRequest::Picture { .. }
+            | RemoteRequest::Delivered { .. }
             | RemoteRequest::Checkpoint => {}
         }
         Ok(())
@@ -753,6 +760,7 @@ impl<T: Transport> Viewer<T> {
             Frame::End(_) => {
                 self.ended = true;
                 self.input_confirmed = self.input_sent;
+                self.confirm_deliveries();
                 self.update(RemoteUpdate::Ended).await?;
                 return Err(Error::Closed);
             }
@@ -761,6 +769,7 @@ impl<T: Transport> Viewer<T> {
                     return Err(invalid("The host confirmed input that was not sent."));
                 }
                 self.input_confirmed = offset;
+                self.confirm_deliveries();
                 self.tell_stalled().await?;
             }
             Frame::ControlResult(ControlResult {
@@ -866,6 +875,15 @@ impl<T: Transport> Viewer<T> {
             }
         }
         Ok(())
+    }
+
+    fn confirm_deliveries(&mut self) {
+        while let Some((_, reply)) = self
+            .deliveries
+            .pop_front_if(|(end, _)| *end <= self.input_confirmed)
+        {
+            let _told = reply.send(());
+        }
     }
 
     async fn tell_stalled(&mut self) -> Result<()> {

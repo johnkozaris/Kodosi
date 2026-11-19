@@ -19,7 +19,6 @@ pub(crate) const TYPING: Duration = Duration::from_secs(3);
 pub(crate) fn someone_typing() -> crate::text::Text {
     text!("Someone is typing in this terminal. Try again in a moment.")
 }
-#[cfg(feature = "host")]
 pub(crate) fn agent_asks() -> crate::text::Text {
     text!("The agent in this terminal waits for a person's answer. Try again later.")
 }

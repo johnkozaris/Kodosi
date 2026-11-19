@@ -477,6 +477,10 @@ async fn command_input_goes_out_without_a_view_but_waits_while_a_person_types() 
         }
         _ => panic!("command input expected"),
     }
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Delivered { reply } => reply.send(()).expect("delivered"),
+        _ => panic!("a question whether the terminal has the input expected"),
+    }
     sent.await.expect("command input");
     terminal
         .input(view.connection_id, Bytes::from_static(b"x"))
@@ -492,6 +496,31 @@ async fn command_input_goes_out_without_a_view_but_waits_while_a_person_types() 
         refused.expect_err("typing").to_string(),
         crate::terminal::someone_typing().to_string()
     );
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn command_input_is_answered_only_once_the_terminal_has_it() {
+    let (terminal, _view, mut requests, _updates, _changes) = start().await;
+    let sent = terminal.send_input(Bytes::from_static(b"ls\r"));
+    tokio::pin!(sent);
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control: TerminalControl::Input { .. },
+            reply,
+        } => reply.send(Ok(Value::Null)).expect("input admitted"),
+        _ => panic!("command input expected"),
+    }
+    let TestRemoteRequest::Delivered { reply } = next_request(&mut requests).await else {
+        panic!("a question whether the terminal has the input expected");
+    };
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), &mut sent)
+            .await
+            .is_err()
+    );
+    reply.send(()).expect("delivered");
+    sent.await.expect("command input");
     terminal.disconnect();
 }
 
