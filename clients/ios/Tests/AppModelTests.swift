@@ -29,6 +29,25 @@ struct AppModelTests {
         try model.receive(JSONDecoder().decode(RuntimeEvent.self, from: data))
     }
 
+    @MainActor
+    @Test func `the browser of a terminal hears when its pipe opens and when it stays lost`() async throws {
+        try deliver("system.ready", ["protocolVersion": RuntimeHandle.expectedProtocolVersion, "awaySeconds": 180])
+        let feed = model.terminals.canvas.feed("terminal")
+        let watching = Task { await feed.watch() }
+        defer { watching.cancel() }
+        while sent.last("document.open") == nil {
+            await Task.yield()
+        }
+        let open = try #require(sent.last("document.open"))
+        let pipe = try #require(open["pipe"] as? String)
+        try deliver("document.result", ["requestId": open["requestId"] ?? "", "operation": "document.open"])
+        try deliver("document.opened", ["pipe": pipe])
+        let watch = try #require((sent.last("document.send")?["data"] as? String).flatMap { Data(base64Encoded: $0) })
+        #expect(String(decoding: watch.dropFirst(), as: UTF8.self).contains(#""type":"watch""#))
+        try deliver("document.lost", ["pipe": pipe, "message": "Studio is offline."])
+        #expect(feed.failure == "Studio is offline.")
+    }
+
     @Test func `an empty terminal list counts once the server answered`() throws {
         try deliver("system.ready", ["protocolVersion": RuntimeHandle.expectedProtocolVersion, "awaySeconds": 180])
         try deliver("sessions.snapshot", ["sessions": [Any]()])

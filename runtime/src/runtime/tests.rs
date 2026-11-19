@@ -1369,6 +1369,28 @@ async fn a_document_opens_again_as_soon_as_its_terminal_runs_again() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn a_document_that_waits_for_its_terminal_to_connect_tells_no_loss() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![remote.clone()]);
+    let mut document = open_document(&mut runtime, remote.id);
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    runtime.keep_pipes();
+    assert!(document.events.try_recv().is_err());
+
+    let mut offline = remote.clone();
+    offline.online = false;
+    runtime.replace_remotes(vec![offline]);
+    runtime.keep_pipes();
+    let lost = heard(&mut document).await;
+    assert_eq!(lost.event.kind(), "document.lost");
+    assert_eq!(
+        serde_json::to_value(&lost).unwrap()["message"],
+        serde_json::to_value(runtime.offline(remote.id).text()).unwrap()
+    );
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_short_break_of_a_document_shows_no_sign_and_drops_the_rest_of_a_cut_frame() {
     let (mut runtime, _root) = registry_fixture();
     let mut changes = changes_of(&mut runtime);

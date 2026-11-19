@@ -99,7 +99,7 @@ final class TerminalStore {
             try receiveSnapshot(event)
         case "session.result":
             settleList(event, fresh: true)
-        case "document.frame", "document.closed":
+        case "document.opened", "document.lost", "document.frame", "document.closed":
             canvas.receive(event)
         case "session.picture":
             live.receivePicture(event)

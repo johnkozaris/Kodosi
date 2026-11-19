@@ -34,6 +34,7 @@ pub(super) struct Kept {
     failures: u32,
     /// The last part from the client did not end its frame.
     within_frame: bool,
+    opened: bool,
     told: Told,
 }
 
@@ -91,7 +92,11 @@ impl Kept {
         };
     }
 
+    /// A pipe that never opened has no loss to tell, only a reason why it does not open.
     fn fall(&mut self, reason: Option<Text>, scope: &Scope) {
+        if reason.is_none() && !self.opened {
+            return;
+        }
         let told = Told::Down(reason.clone());
         if self.told != told {
             self.told = told;
@@ -192,6 +197,7 @@ impl Runtime {
                 },
                 failures: 0,
                 within_frame: false,
+                opened: false,
                 told: Told::Nothing,
             },
         );
@@ -377,6 +383,7 @@ impl Runtime {
                     filling: Vec::new(),
                     skipping: kept.within_frame,
                 };
+                kept.opened = true;
                 kept.told = Told::Nothing;
                 kept.tell(News::Open {
                     attempt,
