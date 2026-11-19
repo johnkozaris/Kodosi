@@ -347,7 +347,7 @@
     <string name="close_part">Close this part</string>
     <string name="document_stopped">The document view stopped. Try again.</string>
     <string name="local_network">Local network</string>
-    <string name="local_network_message">Allow direct connections to computers on your local network.</string>
+    <string name="local_network_message">Allow straight connections to computers on your local network.</string>
     <string name="open_settings">Open settings</string>
     <string name="size">Size</string>
     <string name="title">Title</string>
