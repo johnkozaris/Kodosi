@@ -330,6 +330,14 @@ def plain_parts(target: Path, cef: Path, stage: Path, program: str) -> Path:
     return folder / program
 
 
+def link_version() -> int:
+    """The version of the link between a host and the engine. A host takes only an engine of its own version."""
+    found = re.search(r"^pub const VERSION: u32 = (\d+);$", (ROOT / "browser/crate/src/link.rs").read_text("utf-8"), re.M)
+    if not found:
+        raise SystemExit("browser/crate/src/link.rs does not give the version of the link")
+    return int(found.group(1))
+
+
 def package(stage: Path, output: Path, version: str, program: str) -> Path:
     name = platform_name()
     archive = output / f"kodosi-browser-{version}-{name}.tar.gz"
@@ -338,7 +346,10 @@ def package(stage: Path, output: Path, version: str, program: str) -> Path:
             tar.add(path, arcname=path.name)
     with archive.open("rb") as file:
         digest = hashlib.file_digest(file, "sha256").hexdigest()
-    entry = {"version": version, "platform": name, "file": archive.name, "program": program, "sha256": digest}
+    entry = {
+        "version": version, "link": link_version(), "platform": name, "file": archive.name, "program": program,
+        "sha256": digest,
+    }
     (output / f"{archive.name}.json").write_text(json.dumps(entry, indent=2) + "\n", "utf-8")
     return archive
 

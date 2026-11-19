@@ -132,7 +132,9 @@ in `documents/app/` is a second host of the same crates and a separate build.
 
 [browser/](../browser/) is a separate system too. The host runs one window of Kodosi
 Browser for each terminal: Chromium on a ready-built CEF that draws off screen and shows
-nothing on the computer. The host gets it from a signed feed and keeps it up to date.
+nothing on the computer. The host gets it from a signed feed and keeps it up to date. The
+host and the browser speak over a link with a version, and a host takes only a browser of
+its own version of that link.
 
 A device looks at the browser only while it is on its screen, and while one looks, the
 engine encodes the page as video. One picture serves every device that looks. The page

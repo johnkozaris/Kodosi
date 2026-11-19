@@ -18,7 +18,9 @@ use super::browser::KEPT_PROFILE;
 use crate::text::Text;
 
 const ENGINE_PROGRAM_VARIABLE: &str = "KODOSI_BROWSER_ENGINE";
-const FEED: &str = "https://updates.kodosi.com/browser/engine.json";
+const LINK: u32 = shared_browser::link::VERSION;
+/// Each version of the link has its own feed, so no host ever reads the feed of another one.
+const FEEDS: &str = "https://updates.kodosi.com/browser";
 /// The key of Kodosi's updates, which also signs this feed.
 const FEED_KEY: &str = "6eh21KvaRNcq4kfPMxINLLm+OsMXLgIT6VWfYlU3fow=";
 const MOST_FEED: usize = 64 * 1024;
@@ -40,6 +42,7 @@ const READING: &str = "sign-in-copy";
 #[derive(Debug, Deserialize)]
 struct Feed {
     version: String,
+    link: u32,
     engines: HashMap<String, Engine>,
 }
 
@@ -54,6 +57,7 @@ struct Engine {
 struct Current {
     version: String,
     program: String,
+    link: u32,
 }
 
 pub(crate) struct BrowserStatus {
@@ -313,7 +317,7 @@ async fn installed(engines: &Path) -> Option<(String, PathBuf)> {
     let program = engines
         .join(folder_of(&current.version))
         .join(&current.program);
-    program.exists().then_some((current.version, program))
+    (current.link == LINK && program.exists()).then_some((current.version, program))
 }
 
 async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf, Text> {
@@ -346,6 +350,7 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
     let current = Current {
         version: feed.version.clone(),
         program: engine.program.clone(),
+        link: LINK,
     };
     let text = serde_json::to_vec(&current).map_err(|_| no_engine())?;
     tokio::fs::write(engines.join(CURRENT), text)
@@ -355,11 +360,22 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
 }
 
 async fn feed(client: &reqwest::Client) -> Result<Feed, Text> {
-    let bytes = get(client, FEED).await?;
-    let signature = get(client, &format!("{FEED}.sig")).await?;
+    let address = format!("{FEEDS}/{LINK}/engine.json");
+    let bytes = get(client, &address).await?;
+    let signature = get(client, &format!("{address}.sig")).await?;
     let text = std::str::from_utf8(&signature).map_err(|_| no_engine())?;
     check_signature(&bytes, text.trim())?;
-    serde_json::from_slice(&bytes).map_err(|_| no_engine())
+    read_feed(&bytes)
+}
+
+/// The signature covers the feed and not its address, so the feed says its version of the link too.
+fn read_feed(bytes: &[u8]) -> Result<Feed, Text> {
+    let feed: Feed = serde_json::from_slice(bytes).map_err(|_| no_engine())?;
+    if feed.link == LINK {
+        Ok(feed)
+    } else {
+        Err(not_for_this_computer())
+    }
 }
 
 /// A feed that is not there means that no browser is out yet, which no network can change.
@@ -499,8 +515,11 @@ mod tests {
     async fn an_engine_counts_only_when_its_program_is_there() {
         let folder = tempfile::tempdir().unwrap();
         assert_eq!(installed(folder.path()).await, None);
-        let current = serde_json::json!({ "version": "1.2", "program": "bin/chrome" });
-        std::fs::write(folder.path().join(CURRENT), current.to_string()).unwrap();
+        let current = |link: u32| {
+            serde_json::json!({ "version": "1.2", "program": "bin/chrome", "link": link })
+                .to_string()
+        };
+        std::fs::write(folder.path().join(CURRENT), current(LINK)).unwrap();
         assert_eq!(installed(folder.path()).await, None);
         std::fs::create_dir_all(folder.path().join("1.2/bin")).unwrap();
         std::fs::write(folder.path().join("1.2/bin/chrome"), "").unwrap();
@@ -513,6 +532,23 @@ mod tests {
                 "1.2".to_owned(),
                 folder.path().join("1.2.noindex/bin/chrome")
             ))
+        );
+        std::fs::write(folder.path().join(CURRENT), current(LINK + 1)).unwrap();
+        assert_eq!(installed(folder.path()).await, None);
+    }
+
+    #[test]
+    fn a_feed_of_another_version_of_the_link_gives_no_browser() {
+        let feed = |link: u32| {
+            serde_json::json!({ "version": "1.2", "link": link, "engines": {} }).to_string()
+        };
+        assert_eq!(
+            read_feed(feed(LINK).as_bytes()).map(|feed| feed.version),
+            Ok("1.2".to_owned())
+        );
+        assert_eq!(
+            read_feed(feed(LINK + 1).as_bytes()).map(|feed| feed.version),
+            Err(not_for_this_computer())
         );
     }
 

@@ -16,6 +16,12 @@ pub const AS_ROOT: i32 = 73;
 /// The host bounds what a page says, so a bigger icon shows as none.
 pub const MOST_ICON: usize = 12 * 1024;
 
+/// A host runs only an engine with the same version of this link.
+///
+/// Raise it with each change of a command, a report or the bytes before a picture that the
+/// version before cannot take.
+pub const VERSION: u32 = 1;
+
 /// The bytes before a picture's data: its window, its kind and its mark.
 const FRAME_HEADER: usize = 8 + 1 + 8;
 const KEY: u8 = 1;

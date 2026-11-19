@@ -17,7 +17,7 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parents[1] / "generate-update-site.py"
 WINDOWS_CERTIFICATE = Path(__file__).resolve().parents[2] / "clients/qt/packaging/windows/Kodosi.cer"
 VERSION = "1.2.3"
-ENGINE_FEED = '{"version": "156.0.1-0.1.0", "engines": {"linux-x64": {"url": "https://example.org/e.tar.gz", "sha256": "00", "program": "kodosi-browser/kodosi-browser"}}}\n'
+ENGINE_FEED = '{"version": "156.0.1-0.1.0", "link": 7, "engines": {"linux-x64": {"url": "https://example.org/e.tar.gz", "sha256": "00", "program": "kodosi-browser/kodosi-browser"}}}\n'
 RELEASE_FILES = {
     f"Kodosi-{VERSION}.dmg",
     f"kodosi_{VERSION}_amd64.deb",
@@ -139,8 +139,8 @@ class UpdateSiteTest(unittest.TestCase):
             self.assertIn("-----BEGIN PGP SIGNED MESSAGE-----", (site / "apt/dists/stable/InRelease").read_text(encoding="utf-8"))
             self.assertEqual((site / "macos/appcast.xml").read_text(encoding="utf-8"), "<rss/>")
             self.assertEqual((site / "robots.txt").read_text(encoding="utf-8"), "User-agent: *\nDisallow: /\n")
-            self.assertEqual((site / "browser/engine.json").read_text(encoding="utf-8"), ENGINE_FEED)
-            self.assertTrue((site / "browser/engine.json.sig").is_file())
+            self.assertEqual((site / "browser/7/engine.json").read_text(encoding="utf-8"), ENGINE_FEED)
+            self.assertTrue((site / "browser/7/engine.json.sig").is_file())
 
     def test_a_second_run_signs_only_the_release_files(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

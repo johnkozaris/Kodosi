@@ -122,6 +122,12 @@ computers and signs it with the updates key from standard input; each update sit
 that feed. A development build of Kodosi uses the engine whose program
 `KODOSI_BROWSER_ENGINE` names, and no feed.
 
+A host and an engine work together only with the same version of their link, `VERSION` in
+`browser/crate/src/link.rs`. Each engine and each feed names its version, the feed has its
+address by it, and a host takes only the feed and the engine of its own version. So an
+engine and an app release in any order. Raise the version in the change that makes the
+link different.
+
 ## Texts and languages
 
 Write each new text in English in the code, then give it its words in German, Greek,
