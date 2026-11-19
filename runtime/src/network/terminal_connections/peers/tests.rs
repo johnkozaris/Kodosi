@@ -172,6 +172,42 @@ async fn a_viewer_whose_socket_fails_goes_straight_again_with_a_new_socket() {
     assert_eq!(arrived.reader.recv().await.unwrap(), b"typed");
 }
 
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn a_paused_viewer_ends_its_straight_lanes_and_a_new_network_gives_it_a_new_socket() {
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (host, viewer) = (peers_of(&host_keys), peers_of(&viewer_keys));
+    let address = on_this_computer(&host).await;
+    let (first, second) = (Uuid::now_v7(), Uuid::now_v7());
+    let (arrived, reached) = tokio::join!(
+        host.expect(viewer_keys.signing_public(), first).meet(&[]),
+        viewer.reach_at(host_keys.signing_public(), address.clone(), first),
+    );
+    let (mut arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
+    viewer.forget_bound().await;
+    let ended = tokio::time::timeout(Duration::from_secs(5), reached.reader.recv()).await;
+    assert_eq!(ended.unwrap(), None);
+    let ended = tokio::time::timeout(Duration::from_secs(5), arrived.reader.recv()).await;
+    assert_eq!(ended.unwrap(), None);
+
+    let old = viewer.bind().await.unwrap();
+    let mut changes = viewer.changes();
+    viewer.network_changed();
+    changes.changed().await.unwrap();
+    assert!(!Arc::ptr_eq(&old, &viewer.bind().await.unwrap()));
+    drop(old);
+    let (arrived, reached) = tokio::join!(
+        host.expect(viewer_keys.signing_public(), second).meet(&[]),
+        viewer.reach_at(host_keys.signing_public(), address, second),
+    );
+    let (mut arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
+    reached.write(b"typed").await.unwrap();
+    assert_eq!(arrived.reader.recv().await.unwrap(), b"typed");
+}
+
 fn stun_answer_for(id: [u8; 12], seen: SocketAddr) -> Vec<u8> {
     let SocketAddr::V4(seen) = seen else {
         panic!("the test server listens on IPv4");

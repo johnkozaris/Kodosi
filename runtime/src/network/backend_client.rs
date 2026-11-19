@@ -86,6 +86,7 @@ struct AppLogin {
 }
 
 pub(crate) const SIGN_IN_LIFE: Duration = Duration::from_mins(15);
+const PAUSE_WAIT: Duration = Duration::from_secs(1);
 
 pub(crate) struct State {
     tokens: Option<Tokens>,
@@ -189,6 +190,34 @@ impl BackendClient {
         self.inner.link.retry_now();
     }
 
+    pub(crate) fn pause(&self) -> impl Future<Output = ()> + Send + use<> {
+        self.inner.link.set_background(true);
+        let link = Arc::clone(&self.inner.link);
+        let peers = self.kept_peers();
+        async move {
+            if let Some(peers) = peers {
+                peers.forget_bound().await;
+            }
+            drop(tokio::time::timeout(PAUSE_WAIT, link.until_down()).await);
+        }
+    }
+
+    pub(crate) fn resume(&self) {
+        self.inner.link.set_background(false);
+    }
+
+    pub(crate) fn network_changed(&self) {
+        self.retry_now();
+        self.inner.link.probe();
+        if let Some(peers) = self.kept_peers() {
+            peers.network_changed();
+        }
+    }
+
+    fn kept_peers(&self) -> Option<Arc<terminal_connections::Peers>> {
+        self.inner.peers.lock().ok()?.clone()
+    }
+
     pub(crate) fn ready_event(&self, user_id: &str, enrolled: bool) -> Value {
         let display_name = self.inner.credentials.read().ok().and_then(|credentials| {
             credentials
@@ -242,6 +271,12 @@ impl BackendClient {
                     ()=this.inner.shutdown.cancelled()=>break,
                     _=tick.tick()=>{}
                     ()=this.inner.retry.notified()=>{}
+                }
+                if this.inner.link.in_background() {
+                    tokio::select! {
+                        ()=this.inner.shutdown.cancelled()=>break,
+                        ()=this.inner.link.until_background(false)=>{}
+                    }
                 }
                 let Ok(_operation) = this.inner.operations.try_lock() else {
                     continue;

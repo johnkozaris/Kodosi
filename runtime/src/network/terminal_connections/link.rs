@@ -103,6 +103,8 @@ pub(crate) struct Link {
     reconnected: Notify,
     wanted: Notify,
     asked: Notify,
+    probed: Notify,
+    background: watch::Sender<bool>,
     connects: AtomicU64,
     ups_and_downs: watch::Sender<()>,
 }
@@ -316,6 +318,41 @@ impl Link {
 
     pub(crate) fn retry_now(&self) {
         self.asked.notify_one();
+    }
+
+    pub(crate) fn probe(&self) {
+        self.probed.notify_one();
+    }
+
+    pub(crate) fn set_background(&self, background: bool) {
+        self.background
+            .send_if_modified(|kept| std::mem::replace(kept, background) != background);
+    }
+
+    pub(crate) fn in_background(&self) -> bool {
+        *self.background.borrow()
+    }
+
+    pub(crate) async fn until_background(&self, background: bool) {
+        drop(
+            self.background
+                .subscribe()
+                .wait_for(|kept| *kept == background)
+                .await,
+        );
+    }
+
+    pub(crate) async fn until_down(&self) {
+        let mut changes = self.ups_and_downs.subscribe();
+        while self
+            .shared
+            .lock()
+            .is_ok_and(|shared| shared.outgoing.is_some())
+        {
+            if changes.changed().await.is_err() {
+                return;
+            }
+        }
     }
 
     pub(crate) fn present(&self, presence: Presence) {
@@ -663,6 +700,10 @@ impl Hearing {
         self.sent.get_or_insert(now);
     }
 
+    fn expect(&mut self, now: tokio::time::Instant) {
+        self.answer_by.get_or_insert(now + WAKE_ANSWER);
+    }
+
     fn silent(&self, now: tokio::time::Instant) -> bool {
         now.saturating_duration_since(self.heard) > SILENCE
             || self.answer_by.is_some_and(|by| now >= by)
@@ -744,6 +785,10 @@ pub(crate) async fn run(
                     }
                 }
                 () = sent.notified() => hearing.sent(tokio::time::Instant::now()),
+                () = link.probed.notified() => {
+                    drop(control.send(text(&json!({"type":"ping"}))));
+                    hearing.expect(tokio::time::Instant::now());
+                }
                 () = link.changed.notified() => link.announce(),
                 () = network.inner.friends_changed.notified() => drop(notices.send(wire::Notice::Changed(wire::Change::of("friends")))),
                 incoming = stream.next() => {

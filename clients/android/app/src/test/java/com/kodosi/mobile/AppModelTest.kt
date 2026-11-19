@@ -111,26 +111,30 @@ class AppModelTest {
     }
 
     @Test
-    fun theRuntimeHearsWhereThePersonIsAfterEachReadyAndOnEachChange() {
+    fun theRuntimeHearsWhereThePersonIsAndWhereTheAppIsAfterEachReadyAndOnEachChange() {
         val sent = SentCommands()
         val model = AppModel(RuntimeEnvironment.getApplication())
         model.commands.transport = sent.sink.transport
-        fun presence() = sent.commands.filter { it.string("type") == "app.presence" }.map { it.string("state") }
+        fun states(type: String) = sent.commands.filter { it.string("type") == type }.map { it.string("state") }
 
         model.present(true)
-        assertEquals(emptyList<String>(), presence())
+        assertEquals(emptyList<String>(), states("app.presence"))
         model.receive(event("system.ready", """"awaySeconds":180"""))
-        assertEquals(listOf("app.presence", "session.list"), sent.types)
-        assertEquals(listOf("kodosi"), presence())
+        assertEquals(listOf("app.presence", "app.lifecycle", "session.list"), sent.types)
+        assertEquals(listOf("kodosi"), states("app.presence"))
+        assertEquals(listOf("foreground"), states("app.lifecycle"))
 
         model.present(true)
         model.present(false)
         model.present(false)
-        assertEquals(listOf("kodosi", "away"), presence())
+        assertEquals(listOf("kodosi", "away"), states("app.presence"))
+        assertEquals(listOf("foreground", "background"), states("app.lifecycle"))
         model.receive(event("system.ready", """"awaySeconds":180"""))
-        assertEquals(listOf("kodosi", "away", "away"), presence())
+        assertEquals(listOf("kodosi", "away", "away"), states("app.presence"))
+        assertEquals(listOf("foreground", "background", "background"), states("app.lifecycle"))
         model.present(true)
-        assertEquals(listOf("kodosi", "away", "away", "kodosi"), presence())
+        assertEquals(listOf("kodosi", "away", "away", "kodosi"), states("app.presence"))
+        assertEquals(listOf("foreground", "background", "background", "foreground"), states("app.lifecycle"))
     }
 
     @Test

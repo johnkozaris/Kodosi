@@ -80,6 +80,7 @@ const ENTER_PAUSE: Duration = Duration::from_millis(500);
 const STARTING: Duration = Duration::from_secs(20);
 /// Views connect again a few at a time, so a link that comes back does not open them all at once.
 const RECONNECT_PACE: Duration = Duration::from_millis(100);
+const BACKGROUND_GRACE: Duration = Duration::from_secs(5);
 /// The frames of documents and of the browser go to their client alone, so a busy picture never
 /// pushes the other events of each client out.
 const DIRECT_QUEUE: usize = 256;
@@ -691,6 +692,13 @@ enum Completion {
         command: Command,
         result: Result<()>,
     },
+    BackgroundDue {
+        command: Command,
+        pausing: CancellationToken,
+    },
+    Paused {
+        command: Command,
+    },
     Read {
         command: Command,
         result: Result<String>,
@@ -1168,6 +1176,7 @@ struct Runtime {
     folder_asks: HashMap<String, terminal_folders::FolderAsk>,
     link_connects: u64,
     next_reconnects: tokio::time::Instant,
+    pausing: Option<CancellationToken>,
     online: bool,
     consumers: HashMap<Uuid, CancellationToken>,
     leaving: FuturesUnordered<WaitForCancellationFutureOwned>,
@@ -1318,6 +1327,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         folder_asks: HashMap::new(),
         link_connects: 0,
         next_reconnects: tokio::time::Instant::now(),
+        pausing: None,
         online: true,
         consumers: HashMap::new(),
         leaving: FuturesUnordered::new(),
@@ -1392,14 +1402,20 @@ impl Runtime {
         }
         let stale = envelope.account_epoch != self.scope.epoch
             || envelope.account_user_id != self.scope.user;
-        let outcome =
-            if stale && !matches!(command, Command::Visible { .. } | Command::Presence { .. }) {
-                Err(Error::Stale)
-            } else if let Some(computer) = elsewhere {
-                self.ask_computer(command, computer)
-            } else {
-                self.apply_for_consumer(command, consumer, lifetime)
-            };
+        let outcome = if stale
+            && !matches!(
+                command,
+                Command::Visible { .. }
+                    | Command::Presence { .. }
+                    | Command::Lifecycle { .. }
+                    | Command::NetworkChanged { .. }
+            ) {
+            Err(Error::Stale)
+        } else if let Some(computer) = elsewhere {
+            self.ask_computer(command, computer)
+        } else {
+            self.apply_for_consumer(command, consumer, lifetime)
+        };
         if let Err(error) = outcome {
             if answered {
                 self.error(command, &error);
@@ -3897,6 +3913,14 @@ impl Runtime {
         }
     }
 
+    fn retry_views_now(&mut self) {
+        let now = tokio::time::Instant::now();
+        for retry in self.reconnect.values_mut() {
+            retry.failures = 0;
+            retry.next = now;
+        }
+    }
+
     fn reconnect_views(&mut self) {
         let connects = self.network.inner.link.connects();
         if connects != self.link_connects {
@@ -3937,6 +3961,7 @@ impl Runtime {
                         .get(id)
                         .is_none_or(RemoteTerminal::is_interrupted)
                     && !self.opening.contains_key(id)
+                    && !self.network.inner.link.in_background()
             })
             .map(|(id, retry)| (*id, retry.next))
     }

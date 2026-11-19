@@ -14,6 +14,7 @@ import com.kodosi.mobile.people.PeopleStore
 import com.kodosi.mobile.projects.ProjectStore
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.InvalidEvent
+import com.kodosi.mobile.runtime.NetworkWatch
 import com.kodosi.mobile.runtime.RuntimeEnvironment
 import com.kodosi.mobile.runtime.RuntimeEvent
 import com.kodosi.mobile.runtime.RuntimeFailure
@@ -85,6 +86,7 @@ class AppModel(
     private var accountKnown = false
     private var accountEpoch = 0L
     private var inFront = false
+    private val network = NetworkWatch(application) { networkChanged() }
 
     init {
         commands.onFailure = ::notify
@@ -147,12 +149,24 @@ class AppModel(
         notifications.foreground = inFront
         if (this.inFront == inFront) return
         this.inFront = inFront
+        network.watch(inFront)
         reportPresence()
+        reportLifecycle()
     }
 
     private fun reportPresence() {
         if (phase.value != Phase.Ready) return
         commands.perform("app.presence", fields("state" to if (inFront) "kodosi" else "away"))
+    }
+
+    private fun reportLifecycle() {
+        if (phase.value != Phase.Ready) return
+        commands.perform("app.lifecycle", fields("state" to if (inFront) "foreground" else "background"))
+    }
+
+    private fun networkChanged() {
+        if (phase.value != Phase.Ready || !inFront) return
+        commands.perform("network.changed")
     }
 
     fun languageChanged() {
@@ -272,6 +286,7 @@ class AppModel(
             "system" -> if (event.type == "system.ready") {
                 phase.value = Phase.Ready
                 reportPresence()
+                reportLifecycle()
                 refresh()
             }
 

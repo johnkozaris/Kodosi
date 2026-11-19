@@ -1,5 +1,5 @@
 use super::*;
-use crate::protocol::Presence;
+use crate::protocol::{AppLifecycle, Presence};
 use std::sync::Arc;
 use tokio::time::{Instant, timeout};
 
@@ -694,6 +694,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             folder_asks: HashMap::new(),
             link_connects: 0,
             next_reconnects: Instant::now(),
+            pausing: None,
             online: true,
             consumers: HashMap::new(),
             leaving: FuturesUnordered::new(),
@@ -2143,6 +2144,53 @@ async fn trying_again_reaches_for_the_server_and_the_terminals_at_once() {
             .await,
         crate::network::Wait::Asked
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_phone_closes_its_connections_only_when_it_stays_in_the_background() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let client = Uuid::now_v7();
+    let tell = |runtime: &mut Runtime, state| {
+        let command = Command::Lifecycle {
+            request_id: Uuid::now_v7().to_string(),
+            state,
+        };
+        runtime
+            .expect_answer(&command, client, CancellationToken::new())
+            .unwrap();
+        runtime.apply(&command).unwrap();
+    };
+    let link = Arc::clone(&runtime.network.inner.link);
+
+    tell(&mut runtime, AppLifecycle::Background);
+    tokio::time::sleep(BACKGROUND_GRACE / 2).await;
+    tell(&mut runtime, AppLifecycle::Foreground);
+    complete_next_job(&mut runtime).await;
+    assert!(!link.in_background());
+    assert!(runtime.jobs.is_empty());
+
+    let away = Instant::now();
+    tell(&mut runtime, AppLifecycle::Background);
+    complete_next_job(&mut runtime).await;
+    assert!(away.elapsed() >= BACKGROUND_GRACE);
+    assert!(link.in_background());
+    let answered = std::iter::from_fn(|| events.try_recv().ok())
+        .filter(|answer| answer.event.kind() == "app.result")
+        .count();
+    complete_next_job(&mut runtime).await;
+    assert_eq!(
+        std::iter::from_fn(|| events.try_recv().ok())
+            .filter(|answer| answer.event.kind() == "app.result")
+            .count(),
+        1
+    );
+    assert_eq!(answered, 2);
+}
+
+async fn complete_next_job(runtime: &mut Runtime) {
+    let job = runtime.jobs.join_next().await.unwrap().unwrap();
+    runtime.complete(job);
 }
 
 fn host_notice(runtime: &mut Runtime, remote: &RemoteSession, online: bool) {

@@ -20,7 +20,10 @@ projects, so what one client does, the others show. The host keeps terminal stat
 Ghostty's terminal library, and the apps draw it with Ghostty.
 
 The iPhone, iPad and Android apps embed the viewer build of the runtime, which hosts no
-terminals.
+terminals. A phone app tells its runtime when it leaves the screen, when it comes back and
+when the phone moves to another network. A moment after the app leaves the screen, the
+runtime closes its connections, and it opens them again when the app comes back, so a
+phone in the background keeps no connection and no timer, and gets push notifications.
 
 The host saves its terminals while they change. After Quit, a new host starts them again
 when an app asks, each with its earlier screen and the command that continues its

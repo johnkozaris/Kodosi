@@ -2,6 +2,7 @@ import Foundation
 import KodosiBridge
 import Observation
 import SwiftUI
+import UIKit
 
 @Observable
 final class AppModel {
@@ -36,6 +37,10 @@ final class AppModel {
     @ObservationIgnored private var projectScreens: [String: ProjectScreenState] = [:]
     @ObservationIgnored private var scene = ScenePhase.active
     @ObservationIgnored private var reportedPresence: String?
+    @ObservationIgnored private var reportedLifecycle: String?
+    @ObservationIgnored private var pausing: Task<Void, Never>?
+    @ObservationIgnored private var backgroundTask = UIBackgroundTaskIdentifier.invalid
+    @ObservationIgnored private let network = NetworkWatch()
 
     init() {
         let commands = CommandSink()
@@ -54,6 +59,7 @@ final class AppModel {
         account.notify = { [notices] message in notices.show(message) }
         projects.notify = { [notices] message in notices.show(message) }
         projects.isFront = { [weak self] in self?.inFront == true }
+        network.start { [weak self] in self?.networkChanged() }
     }
 
     func start() {
@@ -113,6 +119,7 @@ final class AppModel {
             terminals.stale()
         }
         reportPresence()
+        reportLifecycle()
         projects.markShownRead()
         guard scenePhase == .active, phase == .ready else { return }
         refresh()
@@ -126,6 +133,42 @@ final class AppModel {
               CommandSink.didAcceptSynchronously(commands.send("app.presence", ["state": .string(state)]))
         else { return }
         reportedPresence = state
+    }
+
+    /// iOS suspends an app a few seconds after it leaves the screen and makes its sockets
+    /// defunct, so the app keeps running until the runtime has closed its connections.
+    private func reportLifecycle() {
+        let state = scene == .background ? "background" : "foreground"
+        guard phase == .ready, state != reportedLifecycle else { return }
+        reportedLifecycle = state
+        pausing?.cancel()
+        pausing = nil
+        guard scene == .background else {
+            endBackgroundTask()
+            commands.send("app.lifecycle", ["state": .string(state)])
+            return
+        }
+        if backgroundTask == .invalid {
+            backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Kodosi connections") { [weak self] in
+                self?.endBackgroundTask()
+            }
+        }
+        pausing = Task { [weak self, commands] in
+            _ = try? await commands.request("app.lifecycle", ["state": .string(state)])
+            guard !Task.isCancelled else { return }
+            self?.endBackgroundTask()
+        }
+    }
+
+    private func endBackgroundTask() {
+        guard backgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = .invalid
+    }
+
+    private func networkChanged() {
+        guard phase == .ready, scene != .background else { return }
+        commands.send("network.changed")
     }
 
     func projectScreen(_ projectId: String) -> ProjectScreenState {
@@ -175,6 +218,10 @@ final class AppModel {
 
     private func shutdown(completion: @escaping @MainActor () -> Void = {}) {
         reportedPresence = nil
+        reportedLifecycle = nil
+        pausing?.cancel()
+        pausing = nil
+        endBackgroundTask()
         terminals.releaseAll()
         commands.cancelPending()
         commands.transport = nil
@@ -262,6 +309,8 @@ final class AppModel {
         phase = .ready
         reportedPresence = nil
         reportPresence()
+        reportedLifecycle = nil
+        reportLifecycle()
         refresh()
     }
 

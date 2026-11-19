@@ -189,12 +189,24 @@ impl BackendClient {
                 {
                     break;
                 }
+                if network.inner.link.in_background() {
+                    network.inner.link.stop_wanting();
+                    tokio::select! {
+                        biased;
+                        ()=cancel.cancelled()=>break,
+                        ()=network.inner.shutdown.cancelled()=>break,
+                        ()=network.inner.link.until_background(false)=>{},
+                    }
+                    retry = Retry::default();
+                    continue;
+                }
                 network.inner.link.start_wanting();
                 let started = crate::network::Moment::now();
                 let result = tokio::select! {
                     biased;
                     ()=cancel.cancelled()=>break,
                     ()=network.inner.shutdown.cancelled()=>break,
+                    ()=network.inner.link.until_background(true)=>continue,
                     result=network.notification_connection(&credentials,&cancel)=>result,
                 };
                 if started.monotonic.elapsed() >= terminal_connections::STABLE_CONNECTION
@@ -218,6 +230,7 @@ impl BackendClient {
                 let ended = tokio::select! {
                     ()=cancel.cancelled()=>break,
                     ()=network.inner.shutdown.cancelled()=>break,
+                    ()=network.inner.link.until_background(true)=>continue,
                     ended=network.inner.link.wait_to_reconnect(crate::network::stagger(Duration::from_secs(retry.delay)), retry.hurries())=>ended,
                 };
                 retry.waited(ended);
