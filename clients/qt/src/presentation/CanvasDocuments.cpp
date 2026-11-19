@@ -47,7 +47,8 @@ QString CanvasDocuments::openBytes(const QString& sessionId, const QString& key)
 QString CanvasDocuments::openPipe(const QString& sessionId, const QString& key, bool bytes)
 {
     const auto pipe = newId();
-    auto& open = *m_pipes.insert(pipe, { .sessionId = sessionId, .key = key, .bytes = bytes });
+    auto& open = *m_pipes.insert(pipe,
+        { .sessionId = sessionId, .key = key, .filling = {}, .next = -1, .bytes = bytes, .registered = false });
     registerPipe(pipe, open);
     if (open.registered)
         return pipe;
