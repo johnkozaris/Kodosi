@@ -555,7 +555,11 @@ private fun Header(
                 val line = if (session.unreachable(online)) {
                     captionOf(session, online).let { (words, color) -> HeaderLine.Caption(words, color) }
                 } else {
-                    HeaderLine.Place(session.hostName ?: stringResource(R.string.remote_computer), session.folderName)
+                    val host = session.hostName ?: stringResource(R.string.remote_computer)
+                    HeaderLine.Place(
+                        if (session.direct) "$host · ${stringResource(R.string.straight_connection)}" else host,
+                        session.folderName
+                    )
                 }
                 Crossfade(line, animationSpec = fade(), label = "line") { shown ->
                     when (shown) {

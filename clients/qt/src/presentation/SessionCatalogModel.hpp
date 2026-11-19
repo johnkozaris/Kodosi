@@ -56,6 +56,7 @@ public:
         QString status;
         QString connectionState;
         bool stalled = false;
+        bool direct = false;
         QString message;
         QStringList sharedWith;
         QString restoredFrom;

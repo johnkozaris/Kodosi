@@ -68,6 +68,7 @@
     <string name="start_fresh_title">¿Empezar de cero en este teléfono?</string>
     <string name="starting_fresh">Empezando de cero</string>
     <string name="storage_failed">Kodosi no ha podido preparar su almacenamiento.</string>
+    <string name="straight_connection">Conexión directa</string>
     <string name="terminal_closed">El terminal se ha cerrado.</string>
     <string name="terminal_could_not_connect">El terminal no se ha podido conectar.</string>
     <string name="terminal_ended">Este terminal ha terminado.</string>

@@ -8407,6 +8407,9 @@
                     }
                   ]
                 },
+                "direct": {
+                  "type": "boolean"
+                },
                 "hidden": {
                   "type": "boolean"
                 },
@@ -14232,7 +14235,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 93,
+  "protocolVersion": 94,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

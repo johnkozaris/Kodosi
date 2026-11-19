@@ -3407,6 +3407,14 @@ impl Runtime {
                 .is_some_and(RemoteTerminal::is_stalled)
     }
 
+    fn goes_direct(&self, id: Uuid) -> bool {
+        self.streams(id)
+            && self
+                .connections
+                .get(&id)
+                .is_some_and(RemoteTerminal::is_direct)
+    }
+
     fn keeps_screen(&self, id: Uuid) -> bool {
         self.connections
             .get(&id)
@@ -3496,6 +3504,7 @@ impl Runtime {
             status: self.remote_status(remote.id, remote.online),
             connection_state,
             stalled: self.stalls(remote.id),
+            direct: self.goes_direct(remote.id),
             hidden: remote.hidden && !remote.online,
             message: self
                 .remotes
@@ -3756,19 +3765,19 @@ impl Runtime {
             // The loop catches up after each change, and a terminal that streams again can then
             // hear what its person saw.
             SessionChange::RemoteResumed => {}
-            SessionChange::RemoteStalled {
+            SessionChange::RemoteRoute {
                 id,
                 incarnation,
                 instance_id,
             } => {
-                let stalled = self.stalls(id);
+                let route = (self.stalls(id), self.goes_direct(id));
                 if self.current(id, incarnation, instance_id)
                     && let Some(entry) = self
                         .remotes
                         .get_mut(&id)
-                        .filter(|entry| entry.stalled != stalled)
+                        .filter(|entry| (entry.stalled, entry.direct) != route)
                 {
-                    entry.stalled = stalled;
+                    (entry.stalled, entry.direct) = route;
                     self.publish_catalog();
                 }
             }
@@ -3847,6 +3856,7 @@ impl Runtime {
         let status = self.remote_status(id, online);
         if let Some(entry) = self.remotes.get_mut(&id) {
             entry.connected_users.clear();
+            entry.direct = false;
             if kept {
                 entry.status = status;
                 let lost = crate::network::input_not_sent();

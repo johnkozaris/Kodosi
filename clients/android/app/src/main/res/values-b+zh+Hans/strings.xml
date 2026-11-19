@@ -68,6 +68,7 @@
     <string name="start_fresh_title">在这部手机上重新开始？</string>
     <string name="starting_fresh">正在重新开始</string>
     <string name="storage_failed">Kodosi 无法准备其存储空间。</string>
+    <string name="straight_connection">直接连接</string>
     <string name="terminal_closed">终端已关闭。</string>
     <string name="terminal_could_not_connect">终端无法连接。</string>
     <string name="terminal_ended">此终端已结束。</string>

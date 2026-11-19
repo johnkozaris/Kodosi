@@ -3400,6 +3400,10 @@
         <translation>关闭</translation>
     </message>
     <message>
+        <source>Straight connection</source>
+        <translation>直接连接</translation>
+    </message>
+    <message>
         <source>Runs as root</source>
         <translation>以 root 身份运行</translation>
     </message>

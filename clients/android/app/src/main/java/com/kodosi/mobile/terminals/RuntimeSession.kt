@@ -58,6 +58,7 @@ data class RuntimeSession(
     val status: Status,
     val connectionState: Connection,
     val stalled: Boolean = false,
+    val direct: Boolean = false,
     @SerialName("working")
     val isWorking: Boolean,
     @SerialName("waiting")

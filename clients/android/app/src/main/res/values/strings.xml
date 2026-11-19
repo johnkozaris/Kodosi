@@ -76,6 +76,7 @@
     <string name="start_fresh_title">Start fresh on this phone?</string>
     <string name="starting_fresh">Starting fresh</string>
     <string name="storage_failed">Kodosi could not prepare its storage.</string>
+    <string name="straight_connection">Straight connection</string>
     <string name="terminal_closed">The terminal closed.</string>
     <string name="terminal_could_not_connect">The terminal could not connect.</string>
     <string name="terminal_ended">This terminal has ended.</string>

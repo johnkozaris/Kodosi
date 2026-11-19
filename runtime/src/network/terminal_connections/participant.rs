@@ -4,7 +4,7 @@ use tokio::sync::watch;
 
 use super::{
     channel::{Channel, Transport},
-    route::{Finder, Paths, Role, Route},
+    route::{Finder, Path, Paths, Role, Route},
     wire::{ControlResult, Frame, PICTURE_PART, PictureOffer, PictureState, PictureStep},
     *,
 };
@@ -180,10 +180,10 @@ pub(super) async fn connect(
     let peers = (dto.owner_user_id == credentials.user_id)
         .then(|| network.peers(&credentials).ok())
         .flatten();
-    let late = paths.late();
+    let (late, path) = (paths.late(), paths.path());
     let finder = Finder::viewer(peers, paths, public.clone(), pipe);
     tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), finder, late);
+        let mut viewer = Viewer::new(channel, commands_rx, updates_tx.clone(), finder, late, path);
         let result = tokio::select! {
             () = cancel.cancelled() => Ok(()),
             () = network.inner.shutdown.cancelled() => Ok(()),
@@ -355,6 +355,8 @@ struct Viewer<T> {
     input_confirmed: u64,
     late: Option<watch::Receiver<bool>>,
     stalled: bool,
+    path: Option<watch::Receiver<Path>>,
+    told_path: Path,
     pipes: BTreeMap<Uuid, PipeOut>,
     finder: Finder,
     upload: Option<Upload>,
@@ -367,6 +369,7 @@ impl<T: Transport> Viewer<T> {
         updates: mpsc::Sender<RemoteUpdate>,
         finder: Finder,
         late: watch::Receiver<bool>,
+        path: watch::Receiver<Path>,
     ) -> Self {
         Self {
             channel,
@@ -386,6 +389,8 @@ impl<T: Transport> Viewer<T> {
             input_confirmed: 0,
             late: Some(late),
             stalled: false,
+            path: Some(path),
+            told_path: Path::Relay,
             pipes: BTreeMap::new(),
             finder,
             upload: None,
@@ -465,6 +470,11 @@ impl<T: Transport> Viewer<T> {
                     self.late = None;
                 }
             }
+            alive = changed(&mut self.path) => {
+                if !alive {
+                    self.path = None;
+                }
+            }
             () = std::future::ready(()), if self.upload.as_ref().is_some_and(Upload::wants_part) => self.send_part().await?,
             () = async { tokio::time::sleep_until(acknowledge.unwrap_or_else(tokio::time::Instant::now)).await }, if acknowledge.is_some() => {
                 self.acknowledge().await?;
@@ -482,6 +492,7 @@ impl<T: Transport> Viewer<T> {
             }
         }
         self.tell_stalled().await?;
+        self.tell_path().await?;
         Ok(false)
     }
 
@@ -868,6 +879,19 @@ impl<T: Transport> Viewer<T> {
         self.update(RemoteUpdate::Stalled(stalled)).await
     }
 
+    async fn tell_path(&mut self) -> Result<()> {
+        let path = self
+            .path
+            .as_ref()
+            .map_or(Path::Relay, |path| *path.borrow());
+        if path == self.told_path {
+            return Ok(());
+        }
+        self.told_path = path;
+        self.update(RemoteUpdate::Direct(path == Path::Direct))
+            .await
+    }
+
     #[expect(
         clippy::needless_pass_by_ref_mut,
         reason = "exclusive borrow keeps the viewer future Send across the await"
@@ -877,9 +901,9 @@ impl<T: Transport> Viewer<T> {
     }
 }
 
-async fn changed(late: &mut Option<watch::Receiver<bool>>) -> bool {
-    match late {
-        Some(late) => late.changed().await.is_ok(),
+async fn changed<T: Send + Sync>(watched: &mut Option<watch::Receiver<T>>) -> bool {
+    match watched {
+        Some(watched) => watched.changed().await.is_ok(),
         None => std::future::pending().await,
     }
 }

@@ -1441,11 +1441,11 @@ async fn a_stall_that_ends_while_the_runtime_is_busy_reaches_it_a_moment_later()
     }
     assert!(matches!(
         told.try_recv(),
-        Ok(SessionChange::RemoteStalled { .. })
+        Ok(SessionChange::RemoteRoute { .. })
     ));
     assert!(matches!(
         tokio::time::timeout(Duration::from_secs(1), told.recv()).await,
-        Ok(Some(SessionChange::RemoteStalled { .. }))
+        Ok(Some(SessionChange::RemoteRoute { .. }))
     ));
     terminal.disconnect();
 }
