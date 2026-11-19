@@ -33,7 +33,7 @@ pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
 pub(crate) use session::TerminalSession;
 pub use status::{BlockedKind, ProgramState, ProgramStatus, Waiting};
-pub use subscribers::{ControlFrame, DataFrame, Frame, Subscription};
+pub use subscribers::{ControlFrame, DataFrame, Frame, RefreshRetry, Subscription};
 pub(crate) use title::{title_spins, title_words};
 pub use types::{
     CellPixels, Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES,

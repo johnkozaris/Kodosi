@@ -297,3 +297,43 @@ async fn a_view_fails_on_lost_output_and_reports_a_close_before_its_last_output(
     subscribers.remove(view.connection_id);
     assert_eq!(next(&mut view).await, "ended");
 }
+
+#[tokio::test(start_paused = true)]
+async fn the_wait_for_a_view_that_fell_behind_ends_at_once_when_it_read_up_before_the_wait() {
+    let mut subscribers = Subscribers::default();
+    let mut view = subscribers
+        .subscribe(Uuid::now_v7(), checkpoint(), 0)
+        .expect("view");
+    for sequence in 0..=DATA_CAPACITY as u64 {
+        output(&mut subscribers, sequence);
+    }
+    assert!(subscribers.reading_behind());
+    while view.data.try_recv().is_ok() {}
+    assert!(
+        tokio::time::timeout(Duration::from_secs(1), subscribers.read_up())
+            .await
+            .is_ok()
+    );
+}
+
+#[test]
+fn a_refresh_that_keeps_failing_is_asked_less_and_less_often_and_never_for_a_gone_view() {
+    let session = Uuid::now_v7();
+    let mut retry = RefreshRetry::default();
+    let waits = (0..8)
+        .map(|_| retry.failed(session, &Error::Busy).expect("asked again"))
+        .collect::<Vec<_>>();
+    let longest = waits[7];
+    assert!(waits[0] < longest && longest <= Duration::from_secs(60));
+    assert!(
+        waits
+            .windows(2)
+            .all(|pair| pair[0] < pair[1] || pair[1] == longest)
+    );
+    assert_eq!(waits[6], longest);
+    for gone in [Error::NotFound, Error::Stale, Error::Stopped] {
+        assert_eq!(retry.failed(session, &gone), None);
+    }
+    retry.worked();
+    assert_eq!(retry.failed(session, &Error::Busy), Some(waits[0]));
+}

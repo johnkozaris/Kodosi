@@ -55,6 +55,7 @@ pub fn client(level: Level, message: &[u8]) {
     }
 }
 
+#[derive(Default)]
 pub(crate) struct Repeats {
     last: Option<String>,
 }

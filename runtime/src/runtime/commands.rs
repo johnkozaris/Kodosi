@@ -127,7 +127,7 @@ impl Runtime {
     pub(super) fn apply(&mut self, command: &Command) -> Result<()> {
         match command {
             Command::ListSessions { .. } => {
-                self.publish_catalog();
+                self.publish_asked_catalog();
                 if self.scope.user.is_some() {
                     self.job_capacity()?;
                     self.network_command(command.clone());

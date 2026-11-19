@@ -310,6 +310,7 @@ async fn serve_terminal(
     > = None;
     let mut refresh_wanted = false;
     let mut retry: Option<tokio::time::Instant> = None;
+    let mut refreshes = terminal::RefreshRetry::default();
     loop {
         if refresh_wanted && refreshing.is_none() && retry.is_none() && subscription.can_refresh() {
             refresh_wanted = false;
@@ -334,11 +335,13 @@ async fn serve_terminal(
             cut=async { match refreshing.as_mut() { Some(refresh)=>refresh.await, None=>std::future::pending().await } },if refreshing.is_some()=>{
                 refreshing=None;
                 match cut {
-                    Ok(cut)=>subscription.refresh(cut),
+                    Ok(cut)=>{
+                        refreshes.worked();
+                        subscription.refresh(cut);
+                    }
                     Err(error)=>{
-                        tracing::warn!(%session,%error,"terminal view refresh failed; it will be tried again");
-                        refresh_wanted=true;
-                        retry=Some(tokio::time::Instant::now()+REFRESH_RETRY);
+                        retry=refreshes.failed(session,&error).map(|wait|tokio::time::Instant::now()+wait);
+                        refresh_wanted=retry.is_some();
                     }
                 }
             }
@@ -377,6 +380,7 @@ async fn serve_terminal(
                 Some(terminal::Frame::Control(terminal::ControlFrame::Snapshot{checkpoint,next_sequence}))=>{
                     retry=None;
                     refresh_wanted=false;
+                    refreshes.worked();
                     write_frame(&mut writer,&checkpoint_frame(&checkpoint,next_sequence)).await?;
                 }
                 Some(terminal::Frame::Control(terminal::ControlFrame::Closed{reason,final_sequence}))=>{

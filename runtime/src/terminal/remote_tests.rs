@@ -875,8 +875,9 @@ async fn output_keeps_flowing_while_the_host_has_not_acknowledged_input() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_view_that_fell_behind_gets_a_new_screen_once_it_has_read_what_waited() {
+async fn a_view_that_fell_behind_gets_a_new_screen_as_soon_as_it_has_read_what_waited() {
     let (terminal, mut view, mut requests, updates, _changes) = start().await;
+    tokio::time::sleep(LOOK_AGAIN).await;
     let behind = DATA_CAPACITY as u64 + 1;
     for sequence in 0..behind {
         updates
@@ -891,10 +892,12 @@ async fn a_view_that_fell_behind_gets_a_new_screen_once_it_has_read_what_waited(
         tokio::time::sleep(Duration::from_millis(1)).await;
     }
     while view.data.try_recv().is_ok() {}
+    let read = tokio::time::Instant::now();
     assert!(matches!(
         next_request(&mut requests).await,
         TestRemoteRequest::Checkpoint
     ));
+    assert_eq!(read.elapsed(), Duration::ZERO);
     let unanswered = tokio::time::timeout(BOOTSTRAP_TIMEOUT * 2, requests.recv()).await;
     assert!(matches!(
         unanswered,
@@ -1455,7 +1458,7 @@ async fn a_hidden_terminal_pauses_as_soon_as_nobody_waits_for_its_screen() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_stall_that_ends_while_the_runtime_is_busy_reaches_it_a_moment_later() {
+async fn a_stall_that_ends_while_the_runtime_is_busy_reaches_it_as_soon_as_it_has_room() {
     let (connection, _requests, updates) = test_remote_connection(session());
     let (changes, mut told) = mpsc::channel(1);
     let terminal = RemoteTerminal::spawn(connection, changes);
@@ -1472,9 +1475,11 @@ async fn a_stall_that_ends_while_the_runtime_is_busy_reaches_it_a_moment_later()
         told.try_recv(),
         Ok(SessionChange::RemoteRoute { .. })
     ));
+    let room = tokio::time::Instant::now();
     assert!(matches!(
         tokio::time::timeout(Duration::from_secs(1), told.recv()).await,
         Ok(Some(SessionChange::RemoteRoute { .. }))
     ));
+    assert_eq!(room.elapsed(), Duration::ZERO);
     terminal.disconnect();
 }
