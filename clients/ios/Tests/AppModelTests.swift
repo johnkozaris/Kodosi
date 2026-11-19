@@ -29,25 +29,6 @@ struct AppModelTests {
         try model.receive(JSONDecoder().decode(RuntimeEvent.self, from: data))
     }
 
-    @MainActor
-    @Test func `the browser of a terminal hears when its pipe opens and when it stays lost`() async throws {
-        try deliver("system.ready", ["protocolVersion": RuntimeHandle.expectedProtocolVersion, "awaySeconds": 180])
-        let feed = model.terminals.canvas.feed("terminal")
-        let watching = Task { await feed.watch() }
-        defer { watching.cancel() }
-        while sent.last("document.open") == nil {
-            await Task.yield()
-        }
-        let open = try #require(sent.last("document.open"))
-        let pipe = try #require(open["pipe"] as? String)
-        try deliver("document.result", ["requestId": open["requestId"] ?? "", "operation": "document.open"])
-        try deliver("document.opened", ["pipe": pipe])
-        let watch = try #require((sent.last("document.send")?["data"] as? String).flatMap { Data(base64Encoded: $0) })
-        #expect(String(decoding: watch.dropFirst(), as: UTF8.self).contains(#""type":"watch""#))
-        try deliver("document.lost", ["pipe": pipe, "message": "Studio is offline."])
-        #expect(feed.failure == "Studio is offline.")
-    }
-
     @Test func `an empty terminal list counts once the server answered`() throws {
         try deliver("system.ready", ["protocolVersion": RuntimeHandle.expectedProtocolVersion, "awaySeconds": 180])
         try deliver("sessions.snapshot", ["sessions": [Any]()])
@@ -167,13 +148,15 @@ struct AppModelTests {
         #expect(model.terminals.needsYou.map(\.id) == ["s1", "s2"])
     }
 
-    @Test func `the frames of a live document reach its view`() async throws {
+    @Test func `the frames and the news of a live document reach its view`() async throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "working")]])
         let item = CanvasItem(key: "notes", name: "Notes.docx", kind: .document, view: .docx, revision: 1, bytes: 1, changed: 1)
         let link = model.terminals.canvas.document(item, in: "s1")
         var frames: [Data] = []
+        var news: [DocumentLink.News] = []
         link.onFrame = { frames.append($0) }
+        link.onNews = { news.append($0) }
         let opening = Task { try await link.open() }
         for _ in 0 ..< 100 where sent.last("document.open") == nil {
             await Task.yield()
@@ -182,9 +165,12 @@ struct AppModelTests {
         try deliver("document.result", ["requestId": #require(open["requestId"] as? String), "operation": "document.open"])
         try await opening.value
         let pipe = try #require(link.pipe)
+        try deliver("document.opened", ["pipe": pipe])
         try deliver("document.frame", ["pipe": pipe, "sequence": 0, "more": true, "data": Data("he".utf8).base64EncodedString()])
         try deliver("document.frame", ["pipe": pipe, "sequence": 1, "more": false, "data": Data("llo".utf8).base64EncodedString()])
+        try deliver("document.lost", ["pipe": pipe, "message": "Studio is offline."])
         #expect(frames == [Data("hello".utf8)])
+        #expect(news == [.open, .lost("Studio is offline.")])
     }
 
     @Test func `a picture sent to another computer shows how much arrived`() throws {
