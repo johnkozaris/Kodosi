@@ -35,6 +35,9 @@ def feed(folder: Path) -> dict:
     if len(versions) != 1:
         fail(f"the packages have more than one version: {', '.join(versions)}")
     version = versions[0]
+    links = sorted({entry["link"] for entry in entries})
+    if len(links) != 1:
+        fail(f"the packages have more than one version of the link: {links}")
     engines = {}
     for entry in entries:
         platform, archive = entry["platform"], folder / entry["file"]
@@ -49,7 +52,7 @@ def feed(folder: Path) -> dict:
             "sha256": entry["sha256"],
             "program": entry["program"],
         }
-    return {"version": version, "engines": engines}
+    return {"version": version, "link": links[0], "engines": engines}
 
 
 def sign_update() -> Path:

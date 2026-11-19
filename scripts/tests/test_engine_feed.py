@@ -18,10 +18,12 @@ def load():
     return module
 
 
-def package(folder: Path, platform: str, program: str, version: str = VERSION, data: bytes = b"engine") -> Path:
+def package(
+    folder: Path, platform: str, program: str, version: str = VERSION, data: bytes = b"engine", link: int = 3
+) -> Path:
     archive = folder / f"kodosi-browser-{version}-{platform}.tar.gz"
     archive.write_bytes(data)
-    entry = {"version": version, "platform": platform, "file": archive.name, "program": program,
+    entry = {"version": version, "link": link, "platform": platform, "file": archive.name, "program": program,
              "sha256": hashlib.sha256(data).hexdigest()}
     (folder / f"{archive.name}.json").write_text(json.dumps(entry), encoding="utf-8")
     return archive
@@ -39,6 +41,7 @@ class EngineFeedTest(unittest.TestCase):
             package(folder, "windows-x64", "kodosi-browser/kodosi-browser.exe", data=b"windows")
             feed = self.script.feed(folder)
             self.assertEqual(feed["version"], VERSION)
+            self.assertEqual(feed["link"], 3)
             self.assertEqual(sorted(feed["engines"]), ["linux-x64", "mac-arm64", "windows-x64"])
             linux = feed["engines"]["linux-x64"]
             self.assertEqual(
@@ -53,6 +56,14 @@ class EngineFeedTest(unittest.TestCase):
             folder = Path(temporary)
             package(folder, "mac-arm64", "Kodosi Browser.app")
             package(folder, "linux-x64", "kodosi-browser/kodosi-browser", version="156.0.1-0.1.0")
+            with self.assertRaises(SystemExit):
+                self.script.feed(folder)
+
+    def test_packages_of_two_versions_of_the_link_are_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            package(folder, "mac-arm64", "Kodosi Browser.app")
+            package(folder, "linux-x64", "kodosi-browser/kodosi-browser", link=4)
             with self.assertRaises(SystemExit):
                 self.script.feed(folder)
 

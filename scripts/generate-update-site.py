@@ -114,19 +114,21 @@ def sign(fingerprint: str, source: Path, output: Path, *mode: str) -> None:
         fail(f"gpg could not sign {source.name} with the key {fingerprint}")
 
 
-def browser_feed(folder: Path) -> list[Path]:
-    """The feed of Kodosi Browser, which each site carries because a deploy replaces the site."""
+def browser_feed(folder: Path) -> tuple[int, list[Path]]:
+    """The feed of Kodosi Browser, which each site carries because a deploy replaces the site, and
+    the version of the link of its engines. A host reads the feed at the address of its version."""
     feed, signature = folder / "engine.json", folder / "engine.json.sig"
     if not feed.is_file() or not signature.is_file():
         fail(f"{folder} has no engine.json and engine.json.sig")
     try:
-        engines = json.loads(feed.read_text("utf-8"))["engines"]
+        content = json.loads(feed.read_text("utf-8"))
+        engines, link = content["engines"], content["link"]
         signed = base64.b64decode(signature.read_text("utf-8").strip(), validate=True)
     except (ValueError, KeyError) as error:
         fail(f"the feed of Kodosi Browser cannot be read: {error}")
-    if not engines or len(signed) != 64:
-        fail("the feed of Kodosi Browser has no engine or no signature")
-    return [feed, signature]
+    if not engines or len(signed) != 64 or type(link) is not int:
+        fail("the feed of Kodosi Browser has no engine, no signature or no version of the link")
+    return link, [feed, signature]
 
 
 def main() -> None:
@@ -160,7 +162,7 @@ def main() -> None:
         files["windows"] = bundle
     if site.exists():
         fail(f"{site} exists; give a new folder")
-    engine_feed = browser_feed(arguments.browser)
+    link, engine_feed = browser_feed(arguments.browser)
     sums, signature = release / "SHA256SUMS", release / "SHA256SUMS.asc"
     sums.unlink(missing_ok=True)
     signature.unlink(missing_ok=True)
@@ -172,9 +174,9 @@ def main() -> None:
     download = f"https://github.com/{REPOSITORY}/releases/download/v{version}"
     (site / "macos").mkdir(parents=True)
     shutil.copyfile(arguments.appcast, site / "macos/appcast.xml")
-    (site / "browser").mkdir()
+    (site / "browser" / str(link)).mkdir(parents=True)
     for path in engine_feed:
-        shutil.copyfile(path, site / "browser" / path.name)
+        shutil.copyfile(path, site / "browser" / str(link) / path.name)
     apt = site / "apt"
     apt_repository(files["linux"], version, apt)
     shutil.copyfile(APT_KEY, apt / "kodosi-archive-keyring.pgp")
