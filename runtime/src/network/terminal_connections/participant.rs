@@ -760,6 +760,11 @@ impl<T: Transport> Viewer<T> {
             Frame::End(_) => {
                 self.ended = true;
                 self.input_confirmed = self.input_sent;
+                while let Ok(request) = self.commands.try_recv() {
+                    if let RemoteRequest::Delivered { reply } = request {
+                        self.deliveries.push_back((self.input_sent, reply));
+                    }
+                }
                 self.confirm_deliveries();
                 self.update(RemoteUpdate::Ended).await?;
                 return Err(Error::Closed);
