@@ -238,7 +238,6 @@ private fun Home(model: AppModel) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
-    var networkAsked by rememberSaveable { mutableStateOf(false) }
     var opening by rememberSaveable { mutableStateOf<String?>(null) }
     var openingTab by rememberSaveable { mutableIntStateOf(0) }
     fun showTerminal(id: String, at: Int) {
@@ -260,13 +259,16 @@ private fun Home(model: AppModel) {
         opening = null
     }
     fun openTerminal(id: String, at: Int) {
+        // Only a terminal of the person's own computer can go straight on the local network.
+        val own = model.terminals.state.value.sessions.any { it.id == id && it.isOwner }
         if (opening != null) {
             opening = id
             openingTab = at
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN && !networkAsked &&
+        } else if (own && Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN &&
+            !model.preferences.localNetworkAsked &&
             context.checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) != PackageManager.PERMISSION_GRANTED
         ) {
-            networkAsked = true
+            model.preferences.localNetworkAsked()
             opening = id
             openingTab = at
             network.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)

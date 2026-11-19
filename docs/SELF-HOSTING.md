@@ -53,6 +53,11 @@ The apps and the `kodosi` command use `https://api.kodosi.com` and
 `KODOSI__BACKEND__API` to your backend URL and `KODOSI__AUTH__ISSUER` to your issuer
 URL, each HTTPS (or loopback HTTP) without a query.
 
+Two things do not come from your backend. The apps get their updates and Kodosi Browser
+from `updates.kodosi.com`. And when two devices of one person look for a
+[straight connection](SECURITY.md#straight-connections), each asks a STUN server of
+Cloudflare for its public address.
+
 ## Account deletion
 
 With Keycloak, the backend follows account deletions in Keycloak's events. Give it a

@@ -113,6 +113,9 @@ Rust tests check it. After a change of the C API, copy the header that the
 ships next to the `kodosi` program, by its version and Git commit. Each app build makes
 it from that commit with its own `Cargo.lock`, in `.tools/agent-browser/`. To move the
 pin, check the release and its tag first, change both lines and build each app.
+`just rust-cli-build` does not build it: after the pin moves, run
+`just agent-browser-build` again, or the development CLI keeps the agent-browser of the
+pin before.
 
 Kodosi Browser builds on the ready-built CEF that its `cef-dll-sys` crate pins, which the
 build downloads and checks, so nothing compiles Chromium. `browser/build/build-engine.py

@@ -371,14 +371,14 @@ impl Browser {
         let driver = window.driver().clone();
         let acting =
             !(LOOKS.contains(&command.as_str()) || (command == "tab" && arguments.len() == 1));
-        let (used, introduced) = self.activity(|activity| {
+        let used = self.activity(|activity| {
             let used = window
                 .used_at()
                 .map(Instant::from_std)
                 .filter(|used| activity.command_at.is_none_or(|command| *used > command))
                 .map(|used| used.elapsed().as_secs());
             activity.command_at = Some(Instant::now());
-            (used, std::mem::replace(&mut activity.introduced, true))
+            used
         });
         let agent = agent.unwrap_or_else(|| "The agent".to_owned());
         if let Some((kind, target)) = doing(&arguments) {
@@ -411,7 +411,9 @@ impl Browser {
         if cfg!(windows) && text.starts_with(MISSING_WORD) {
             push_line(&mut text, POWERSHELL_WORDS);
         }
-        if !introduced {
+        let introduces = run.code == 0
+            && self.activity(|activity| !std::mem::replace(&mut activity.introduced, true));
+        if introduces {
             push_line(
                 &mut text,
                 &format!(
