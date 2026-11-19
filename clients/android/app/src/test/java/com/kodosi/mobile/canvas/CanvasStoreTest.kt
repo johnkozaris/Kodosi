@@ -9,12 +9,10 @@ import java.util.Base64
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
-import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -81,21 +79,6 @@ class CanvasStoreTest {
         )
         store.observe(listOf(browser))
         assertEquals(mapOf("terminal" to "browser"), store.news.value)
-    }
-
-    @Test
-    fun aTerminalThatRunsAgainEndsThePauseOfItsPipes() = runTest {
-        val link = store.link("terminal", "browser")
-        val away = session.copy(status = RuntimeSession.Status.RECONNECTING)
-        store.observe(listOf(away))
-        val pause = async(start = CoroutineStart.UNDISPATCHED) { link.pause(30_000) }
-        store.observe(listOf(away))
-        runCurrent()
-        assertFalse(pause.isCompleted)
-
-        store.observe(listOf(session))
-        assertTrue(pause.await())
-        assertEquals(0, currentTime)
     }
 
     @Test

@@ -149,6 +149,11 @@ pub(crate) enum SessionChange {
         instance_id: Uuid,
     },
     RemoteResumed,
+    PipeEnded {
+        pipe: Uuid,
+        attempt: Uuid,
+        carried: bool,
+    },
     RemoteRoute {
         id: Uuid,
         incarnation: Uuid,

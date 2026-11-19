@@ -15,43 +15,54 @@ class DocumentLinkTest {
     private val link = DocumentLink(sent.sink, "terminal", "file") {}
 
     @Test
-    fun deliversACompleteFrameAndIgnoresTheOldPipeAfterReopening() = runTest {
+    fun deliversACompleteFrameOnceThePipeOpensAndIgnoresTheOldPipeAfterAnotherOpen() = runTest {
         val frames = mutableListOf<String>()
         link.onFrame = { frames += it.decodeToString() }
-        val first = async(start = CoroutineStart.UNDISPATCHED) { link.open() }
-        val old = sent.last("document.open").string("pipe")
-        sent.reply("document.open")
-        first.await()
+        val old = open()
+        frame(old, 0, false, "early")
+        opened(old)
         frame(old, 0, true, "a")
         assertEquals(emptyList<String>(), frames)
         frame(old, 1, false, "b")
         assertEquals(listOf("ab"), frames)
 
-        val reopening = async(start = CoroutineStart.UNDISPATCHED) { link.open() }
-        val current = sent.last("document.open").string("pipe")
-        sent.reply("document.open")
-        reopening.await()
+        val current = open()
+        opened(current)
         frame(old, 2, false, "old")
         frame(current, 0, false, "new")
         assertEquals(listOf("ab", "new"), frames)
     }
 
     @Test
-    fun aSequenceGapClosesThePipeAndDiscardsItsPartialFrame() = runTest {
-        var lost = 0
-        val frames = mutableListOf<ByteArray>()
-        link.onLost = { lost++ }
-        link.onFrame = { frames += it }
+    fun aSequenceGapOpensThePipeAgainAndThePartsOnTheirWayGoNowhere() = runTest {
+        val news = mutableListOf<DocumentLink.News>()
+        val frames = mutableListOf<String>()
+        link.onNews = { news += it }
+        link.onFrame = { frames += it.decodeToString() }
+        val pipe = open()
+        opened(pipe)
+        frame(pipe, 0, true, "a")
+        frame(pipe, 2, false, "b")
+        assertEquals(listOf("document.close", "document.open"), sent.types.takeLast(2))
+        assertEquals(pipe, sent.last("document.close").string("pipe"))
+        assertEquals(pipe, sent.last("document.open").string("pipe"))
+        frame(pipe, 3, false, "late")
+        opened(pipe)
+        frame(pipe, 0, false, "again")
+        assertEquals(listOf("again"), frames)
+        assertEquals(listOf(DocumentLink.News.Open, DocumentLink.News.Open), news)
+    }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.open(): String {
         val opening = async(start = CoroutineStart.UNDISPATCHED) { link.open() }
         val pipe = sent.last("document.open").string("pipe")
         sent.reply("document.open")
         opening.await()
-        frame(pipe, 0, true, "a")
-        frame(pipe, 2, false, "b")
-        frame(pipe, 1, false, "late")
-        assertEquals(1, lost)
-        assertEquals(0, frames.size)
-        assertEquals(pipe, sent.last("document.close").string("pipe"))
+        return pipe
+    }
+
+    private fun opened(pipe: String) {
+        link.receive(event("document.opened", """"pipe":"$pipe""""))
     }
 
     private fun frame(pipe: String, sequence: Int, more: Boolean, text: String) {

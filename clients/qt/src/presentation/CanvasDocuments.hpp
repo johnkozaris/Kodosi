@@ -4,13 +4,14 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QObject>
-#include <QSet>
 #include <QString>
 
 namespace kodosi {
 class CommandDispatcher;
 class SessionCatalogModel;
 
+// The runtime keeps the pipe of a view and opens it again after each loss, until the view closes
+// it.
 class CanvasDocuments final : public QObject {
     Q_OBJECT
 
@@ -28,25 +29,29 @@ signals:
     void opened(const QString& pipe);
     void received(const QString& pipe, const QString& frame);
     void receivedBytes(const QString& pipe, const QByteArray& frame);
-    void lost(const QString& pipe);
-    void reachable(const QString& sessionId);
+    void lost(const QString& pipe, const QString& reason);
+    void closed(const QString& pipe);
 
 private:
     struct Pipe {
+        QString sessionId;
+        QString key;
         QByteArray filling;
-        qint64 next = 0;
+        // The next part, or -1 while the pipe has not opened.
+        qint64 next = -1;
         bool bytes = false;
+        bool registered = false;
     };
 
     QString openPipe(const QString& sessionId, const QString& key, bool bytes);
     bool command(const QString& type, QJsonObject fields, const QString& requestId = {});
-    void lose(const QString& pipe);
+    void registerPipe(const QString& pipe, Pipe& open);
+    void renew(const QString& pipe);
     void observe();
 
     CommandDispatcher& m_commands;
     SessionCatalogModel& m_sessions;
     QHash<QString, Pipe> m_pipes;
     QHash<QString, QString> m_opening;
-    QSet<QString> m_running;
 };
 }

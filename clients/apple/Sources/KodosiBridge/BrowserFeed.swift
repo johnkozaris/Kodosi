@@ -22,7 +22,6 @@ public final class BrowserFeed {
     private static let frameTag: UInt8 = 1
     private static let keyFlag: UInt8 = 1
     private static let anchorFlag: UInt8 = 2
-    private static let longestWait = Duration.seconds(30)
     private static let settle = Duration.milliseconds(250)
 
     public private(set) var window = BrowserWindow()
@@ -68,21 +67,41 @@ public final class BrowserFeed {
         self.session = session
     }
 
-    /// Only one view at a time watches.
+    /// Only one view at a time watches, until it ends.
     public func watch() async {
         guard link == nil else { return }
         let link = store.browser(of: session)
         self.link = link
-        let (losses, loser) = AsyncStream.makeStream(of: Void.self)
+        let (news, teller) = AsyncStream.makeStream(of: DocumentLink.News.self)
         link.onFrame = { [weak self] in self?.receive($0) }
-        link.onLost = { loser.yield() }
+        link.onNews = { teller.yield($0) }
         defer {
             link.close()
             self.link = nil
         }
-        await join(link, opened: true)
-        for await _ in losses {
-            await join(link, opened: false)
+        do {
+            try await link.open()
+        } catch {
+            // The view ends on each trip off the screen, which is no problem of the browser.
+            if !Task.isCancelled {
+                failure = error.localizedDescription
+            }
+            return
+        }
+        var opened = true
+        for await item in news {
+            switch item {
+            case .open:
+                join(opened: opened)
+                opened = false
+            case let .lost(reason):
+                if picture == .live {
+                    picture = .kept
+                }
+                failure = reason
+            case .closed:
+                return
+            }
         }
     }
 
@@ -176,28 +195,12 @@ public final class BrowserFeed {
         return BrowserInput.Point(x: Double(x), y: Double(y))
     }
 
-    /// The computer of the terminal can be away for a time, so this goes on until the view ends.
-    private func join(_ link: DocumentLink, opened: Bool) async {
-        if picture == .live {
-            picture = .kept
-        }
-        var wait = Duration.seconds(1)
-        while !Task.isCancelled {
-            do {
-                try await link.open()
-                failure = nil
-                holds = .nothing
-                let size = currentSize
-                sentSize = size
-                post(.watch(size, opened: opened))
-                return
-            } catch {
-                // The view ends on each trip off the screen, which is no problem of the browser.
-                guard !Task.isCancelled else { return }
-                failure = error.localizedDescription
-                wait = await link.pause(wait) ? .seconds(1) : min(wait * 2, Self.longestWait)
-            }
-        }
+    private func join(opened: Bool) {
+        failure = nil
+        holds = .nothing
+        let size = currentSize
+        sentSize = size
+        post(.watch(size, opened: opened))
     }
 
     private var currentSize: BrowserSize {

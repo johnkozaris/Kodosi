@@ -180,9 +180,15 @@ internal class DocumentPage(
                 web.evaluateJavascript("documentHost.deliver($encoded)", null)
             }
         }
-        link.onLost = {
-            if (ready) web.evaluateJavascript("documentHost.detach()", null)
-            join()
+        link.onNews = { news ->
+            if (ready && !closed) {
+                when (news) {
+                    DocumentLink.News.Open -> if (live) web.evaluateJavascript("documentHost.attach()", null)
+
+                    is DocumentLink.News.Lost, DocumentLink.News.Closed ->
+                        web.evaluateJavascript("documentHost.detach()", null)
+                }
+            }
         }
         web.loadUrl(START)
     }
@@ -359,17 +365,11 @@ internal class DocumentPage(
         if (!live || !ready || closed) return
         joining?.cancel()
         joining = scope.launch {
-            var wait = 1000L
-            while (live && !closed) {
-                try {
-                    link.open()
-                    if (live && !closed) web.evaluateJavascript("documentHost.attach()", null)
-                    return@launch
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    wait = if (link.pause(wait)) 1000 else minOf(wait * 2, 30_000)
-                }
+            try {
+                link.open()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
             }
         }
     }

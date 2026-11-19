@@ -568,6 +568,8 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
     },
+    /// The runtime keeps the pipe for the client until it closes it, and opens it again after
+    /// each loss.
     #[serde(rename = "document.open")]
     DocumentOpen {
         #[serde(rename = "requestId")]
@@ -1361,6 +1363,17 @@ pub enum EventBody {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_id: Option<String>,
     },
+    /// The pipe is open, again after each loss: the view sends its first message, and the frames
+    /// count from zero.
+    #[serde(rename = "document.opened")]
+    DocumentOpened { pipe: String },
+    /// The pipe stayed lost for a while. The runtime opens it again by itself.
+    #[serde(rename = "document.lost")]
+    DocumentLost {
+        pipe: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<Text>,
+    },
     #[serde(rename = "document.frame")]
     DocumentFrame {
         pipe: String,
@@ -1368,6 +1381,7 @@ pub enum EventBody {
         more: bool,
         data: String,
     },
+    /// The terminal of the pipe is gone, so the pipe never opens again.
     #[serde(rename = "document.closed")]
     DocumentClosed { pipe: String },
     #[serde(rename = "provider.result")]
@@ -1836,6 +1850,8 @@ impl EventBody {
             Self::BrowserError { .. } => "browser.error",
             Self::DocumentResult { .. } => "document.result",
             Self::DocumentError { .. } => "document.error",
+            Self::DocumentOpened { .. } => "document.opened",
+            Self::DocumentLost { .. } => "document.lost",
             Self::DocumentFrame { .. } => "document.frame",
             Self::DocumentClosed { .. } => "document.closed",
             Self::TerminalBell { .. } => "term.bell",

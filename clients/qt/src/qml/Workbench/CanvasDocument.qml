@@ -14,7 +14,6 @@ WebEngineView {
     required property string view
     property string pipe: ""
     property bool shown: false
-    property int wait: 1000
 
     readonly property string host: `
         new QWebChannel(qt.webChannelTransport, ({ objects: { page } }) => {
@@ -36,8 +35,6 @@ WebEngineView {
     }
     function join(): void {
         root.pipe = Models.CanvasDocuments.open(root.sessionId, root.key);
-        if (root.pipe.length === 0)
-            again.restart();
     }
 
     url: "kodosi-document://view/index.html"
@@ -140,42 +137,25 @@ WebEngineView {
     }
     Connections {
         function onOpened(pipe) {
-            if (pipe === root.pipe) {
-                root.wait = 1000;
+            if (pipe === root.pipe)
                 bridge.attached();
-            }
         }
         function onReceived(pipe, frame) {
             if (pipe === root.pipe)
                 bridge.received(frame);
         }
         function onLost(pipe) {
+            if (pipe === root.pipe)
+                bridge.detached();
+        }
+        function onClosed(pipe) {
             if (pipe === root.pipe) {
                 root.pipe = "";
                 bridge.detached();
-                again.restart();
-            }
-        }
-        function onReachable(sessionId) {
-            if (sessionId !== root.sessionId)
-                return;
-            root.wait = 1000;
-            if (again.running) {
-                again.stop();
-                root.join();
             }
         }
 
         target: Models.CanvasDocuments
-    }
-    Timer {
-        id: again
-
-        interval: root.wait
-        onTriggered: {
-            root.wait = Math.min(root.wait * 2, 30000);
-            root.join();
-        }
     }
     Spinner {
         anchors.centerIn: parent
