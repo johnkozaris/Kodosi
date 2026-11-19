@@ -168,7 +168,7 @@ final class AppModel {
 
     private func networkChanged() {
         guard phase == .ready, scene != .background else { return }
-        commands.send("network.changed")
+        commands.send("app.network")
     }
 
     func projectScreen(_ projectId: String) -> ProjectScreenState {

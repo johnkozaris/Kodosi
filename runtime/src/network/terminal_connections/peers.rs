@@ -481,6 +481,13 @@ impl Peers {
 
     pub(crate) async fn forget_bound(&self) {
         *self.bound.lock().await = None;
+        if let Ok(mut dialed) = self.dialed.lock() {
+            dialed.clear();
+        }
+        #[cfg(feature = "host")]
+        if let Ok(mut arrived) = self.arrived.lock() {
+            arrived.clear();
+        }
         self.forget_reflexive();
     }
 
