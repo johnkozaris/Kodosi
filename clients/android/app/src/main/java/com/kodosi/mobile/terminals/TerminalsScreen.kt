@@ -61,6 +61,7 @@ import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
 import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.StatusSign
+import com.kodosi.mobile.ui.Still
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
 import com.kodosi.mobile.ui.snappy
@@ -402,11 +403,13 @@ private fun TerminalsArt() {
                 CornerRadius(1.dp.toPx())
             )
         }
-        AgentMark(
-            AgentKind.CLAUDE,
-            34.dp,
-            activity = MarkActivity.WORKING,
-            modifier = Modifier.align(Alignment.BottomEnd)
-        )
+        Still {
+            AgentMark(
+                AgentKind.CLAUDE,
+                34.dp,
+                activity = MarkActivity.WORKING,
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
+        }
     }
 }

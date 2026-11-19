@@ -71,6 +71,7 @@ import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.ScanCode
 import com.kodosi.mobile.ui.ScanCodeCard
 import com.kodosi.mobile.ui.StatusSign
+import com.kodosi.mobile.ui.Still
 import com.kodosi.mobile.ui.Unfolding
 import com.kodosi.mobile.ui.Wordmark
 import com.kodosi.mobile.ui.canScanCodes
@@ -168,7 +169,7 @@ private fun Welcome(account: AccountStore, failure: String?, starting: Boolean) 
             modifier = Modifier.fillMaxWidth().raised(colors, RoundedCornerShape(Radius.xl)).padding(20.dp)
         ) {
             Feature(stringResource(R.string.feature_follow_title), stringResource(R.string.feature_follow_detail)) {
-                AgentMark(AgentKind.CLAUDE, 34.dp, activity = MarkActivity.WORKING)
+                Still { AgentMark(AgentKind.CLAUDE, 34.dp, activity = MarkActivity.WORKING) }
             }
             Feature(stringResource(R.string.feature_answer_title), stringResource(R.string.feature_answer_detail)) {
                 Box {
