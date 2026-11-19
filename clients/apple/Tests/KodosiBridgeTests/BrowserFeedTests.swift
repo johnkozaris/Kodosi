@@ -104,6 +104,7 @@ private final class BrowserRuntime {
 
     let feed: BrowserFeed
     private(set) var opened: Bool?
+    private var pipe: String?
     private let commands = CommandSink()
     private let store: CanvasStore
     private let log = ProjectCommandLog()
@@ -121,15 +122,22 @@ private final class BrowserRuntime {
         feed = store.feed("terminal")
     }
 
+    /// The view opens the pipe once, and the runtime opens it again after each loss.
     func open() async throws -> String {
-        let opening = try await log.next("document.open")
-        try deliver("document.result", ["requestId": opening["requestId"] ?? "", "operation": "document.open"])
+        if pipe == nil {
+            let opening = try await log.next("document.open")
+            try deliver("document.result", ["requestId": opening["requestId"] ?? "", "operation": "document.open"])
+            pipe = try #require(opening["pipe"] as? String)
+        }
+        let pipe = try #require(pipe)
+        sequences[pipe] = 0
+        try deliver("document.opened", ["pipe": pipe])
         var sent = try await Self.body(log.next("document.send"))
         while sent?["type"] as? String != "watch" {
             sent = try await Self.body(log.next("document.send"))
         }
         opened = sent?["opened"] as? Bool
-        return try #require(opening["pipe"] as? String)
+        return pipe
     }
 
     func send(_ frame: Data, on pipe: String) throws {
@@ -139,7 +147,7 @@ private final class BrowserRuntime {
     }
 
     func lose(_ pipe: String) throws {
-        try deliver("document.closed", ["pipe": pipe])
+        try deliver("document.lost", ["pipe": pipe])
     }
 
     func messages() -> [String?] {

@@ -645,8 +645,6 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
     (
         Runtime {
             pipes: HashMap::new(),
-            pipes_opening: HashSet::new(),
-            pipes_closed_early: HashSet::new(),
             direct: HashMap::new(),
             #[cfg(feature = "host")]
             services: crate::canvas::CanvasServices::new(&config.data_root, true),
@@ -1155,34 +1153,6 @@ async fn a_close_counts_as_done_when_the_list_no_longer_has_the_terminal() {
     assert!(runtime.closed_and_gone(&close(gone)));
 }
 
-#[tokio::test]
-async fn a_client_that_goes_leaves_its_documents() {
-    let (mut runtime, _root) = registry_fixture();
-    let (gone, kept) = (CancellationToken::new(), CancellationToken::new());
-    let mut documents = Vec::new();
-    for lifetime in [&gone, &kept] {
-        let (sender, document) = mpsc::channel(1);
-        runtime.pipes.insert(
-            Uuid::now_v7(),
-            OpenPipe {
-                sender,
-                filling: Vec::new(),
-                lifetime: lifetime.clone(),
-            },
-        );
-        documents.push(document);
-    }
-    gone.cancel();
-    runtime.prune_pipes();
-    assert_eq!(runtime.pipes.len(), 1);
-    assert!(documents[0].recv().await.is_none());
-    assert!(
-        documents[1]
-            .try_recv()
-            .is_err_and(|error| error == mpsc::error::TryRecvError::Empty)
-    );
-}
-
 #[tokio::test(start_paused = true)]
 async fn a_client_that_goes_lets_go_of_the_terminals_that_it_opened_at_once() {
     let (mut runtime, _root, changes) = loop_fixture().await;
@@ -1223,24 +1193,6 @@ async fn a_client_that_goes_lets_go_of_the_terminals_that_it_opened_at_once() {
     looping.abort();
 }
 
-fn opened(runtime: &Runtime, pipe: Uuid, consumer: Uuid, ends: crate::canvas::PipeEnds) -> Job {
-    Job {
-        scope: runtime.scope.clone(),
-        completion: Completion::Document {
-            command: Command::DocumentOpen {
-                request_id: Uuid::now_v7().to_string(),
-                session_id: Uuid::now_v7().to_string(),
-                pipe: pipe.to_string(),
-                key: "browser".to_owned(),
-            },
-            pipe,
-            consumer,
-            lifetime: CancellationToken::new(),
-            result: Ok(ends),
-        },
-    }
-}
-
 #[tokio::test]
 async fn a_stream_of_document_parts_leaves_room_for_the_requests_of_its_client() {
     let (mut runtime, _root) = registry_fixture();
@@ -1276,56 +1228,286 @@ async fn a_stream_of_document_parts_leaves_room_for_the_requests_of_its_client()
     assert!(runtime.answers().is_empty());
 }
 
-#[tokio::test]
+struct OpenDocument {
+    pipe: Uuid,
+    consumer: Uuid,
+    lifetime: CancellationToken,
+    events: mpsc::Receiver<Event>,
+}
+
+fn as_client(runtime: &Runtime, command: Command) -> CommandEnvelope {
+    CommandEnvelope {
+        account_user_id: runtime.scope.user.clone(),
+        account_epoch: runtime.scope.epoch,
+        computer: None,
+        command,
+    }
+}
+
+fn open_document(runtime: &mut Runtime, session: Uuid) -> OpenDocument {
+    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let (own, events) = mpsc::channel(64);
+    runtime.direct.insert(consumer, own);
+    let pipe = Uuid::now_v7();
+    let open = Command::DocumentOpen {
+        request_id: Uuid::now_v7().to_string(),
+        session_id: session.to_string(),
+        pipe: pipe.to_string(),
+        key: "browser".to_owned(),
+    };
+    runtime.command(&as_client(runtime, open), consumer, lifetime.clone());
+    OpenDocument {
+        pipe,
+        consumer,
+        lifetime,
+        events,
+    }
+}
+
+fn send_part(runtime: &mut Runtime, document: &OpenDocument, more: bool, part: &[u8]) {
+    let send = Command::DocumentSend {
+        request_id: Uuid::now_v7().to_string(),
+        pipe: document.pipe.to_string(),
+        more,
+        data: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, part),
+    };
+    runtime.command(
+        &as_client(runtime, send),
+        document.consumer,
+        document.lifetime.clone(),
+    );
+}
+
+async fn attempt_finished(runtime: &mut Runtime) {
+    while !opens_pipe(runtime).await {}
+}
+
+async fn opens_pipe(runtime: &mut Runtime) -> bool {
+    let job = runtime.jobs.join_next().await.unwrap().unwrap();
+    let document = matches!(job.completion, Completion::Document { .. });
+    runtime.complete(job);
+    document
+}
+
+async fn pipe_opened(
+    requests: &mut mpsc::Receiver<crate::network::TestRemoteRequest>,
+) -> mpsc::Sender<Vec<u8>> {
+    loop {
+        if let crate::network::TestRemoteRequest::PipeOpen { frames, .. } =
+            requests.recv().await.unwrap()
+        {
+            return frames;
+        }
+    }
+}
+
+async fn pipe_part(requests: &mut mpsc::Receiver<crate::network::TestRemoteRequest>) -> Bytes {
+    loop {
+        if let crate::network::TestRemoteRequest::PipeData { part, .. } =
+            requests.recv().await.unwrap()
+        {
+            return part;
+        }
+    }
+}
+
+async fn pipe_ended(runtime: &mut Runtime, changes: &mut mpsc::Receiver<SessionChange>) {
+    loop {
+        let change = changes.recv().await.unwrap();
+        if matches!(change, SessionChange::PipeEnded { .. }) {
+            runtime.change(change);
+            return;
+        }
+    }
+}
+
+async fn heard(document: &mut OpenDocument) -> Event {
+    document.events.recv().await.unwrap()
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_document_opens_again_as_soon_as_its_terminal_runs_again() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut changes = changes_of(&mut runtime);
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, updates) = open_view(&mut runtime, &remote).await;
+    let mut document = open_document(&mut runtime, remote.id);
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
+    assert_eq!(heard(&mut document).await.event.kind(), "document.opened");
+    frames.send(b"page".to_vec()).await.unwrap();
+    assert_eq!(heard(&mut document).await.event.kind(), "document.frame");
+
+    lose_link(
+        &mut runtime,
+        &remote,
+        &updates,
+        "The connection has closed.",
+    )
+    .await;
+    drop(frames);
+    pipe_ended(&mut runtime, &mut changes).await;
+    runtime.keep_pipes();
+    let lost_at = Instant::now();
+    assert_eq!(heard(&mut document).await.event.kind(), "document.lost");
+    assert!(lost_at.elapsed() >= Duration::from_millis(1500));
+    assert!(runtime.jobs.is_empty(), "the pipe waits for its terminal");
+
+    runtime.reconnect.get_mut(&remote.id).unwrap().next = Instant::now();
+    runtime.reconnect_views();
+    let (again, mut requests, _updates) = crate::network::test_remote_connection(remote.clone());
+    connected(&mut runtime, remote.id, Ok(again));
+    while runtime.connections[&remote.id].is_interrupted() {
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+    let back = Instant::now();
+    runtime.keep_pipes();
+    attempt_finished(&mut runtime).await;
+    pipe_opened(&mut requests).await;
+    assert_eq!(heard(&mut document).await.event.kind(), "document.opened");
+    assert!(back.elapsed() < Duration::from_millis(100));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_document_that_waits_for_its_terminal_to_connect_tells_no_loss() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![remote.clone()]);
+    let mut document = open_document(&mut runtime, remote.id);
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    runtime.keep_pipes();
+    assert!(document.events.try_recv().is_err());
+
+    let mut offline = remote.clone();
+    offline.online = false;
+    runtime.replace_remotes(vec![offline]);
+    runtime.keep_pipes();
+    let lost = heard(&mut document).await;
+    assert_eq!(lost.event.kind(), "document.lost");
+    assert_eq!(
+        serde_json::to_value(&lost).unwrap()["message"],
+        serde_json::to_value(runtime.offline(remote.id).text()).unwrap()
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_short_break_of_a_document_shows_no_sign_and_drops_the_rest_of_a_cut_frame() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut changes = changes_of(&mut runtime);
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let mut document = open_document(&mut runtime, remote.id);
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
+    frames.send(b"page".to_vec()).await.unwrap();
+    send_part(&mut runtime, &document, true, b"head");
+
+    drop(frames);
+    pipe_ended(&mut runtime, &mut changes).await;
+    runtime.keep_pipes();
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
+    send_part(&mut runtime, &document, false, b"tail");
+    send_part(&mut runtime, &document, false, b"whole");
+    assert_eq!(pipe_part(&mut requests).await.as_ref(), b"whole");
+    frames.send(b"page again".to_vec()).await.unwrap();
+
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let heard = std::iter::from_fn(|| document.events.try_recv().ok())
+        .map(|event| event.event.kind())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        heard,
+        [
+            "document.opened",
+            "document.frame",
+            "document.opened",
+            "document.frame"
+        ]
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_terminal_that_refuses_a_document_is_asked_again_later_each_time() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut changes = changes_of(&mut runtime);
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let mut document = open_document(&mut runtime, remote.id);
+    for wait in [1, 2, 4] {
+        attempt_finished(&mut runtime).await;
+        drop(pipe_opened(&mut requests).await);
+        pipe_ended(&mut runtime, &mut changes).await;
+        runtime.keep_pipes();
+        assert!(runtime.jobs.is_empty());
+        let due = runtime.pipes_due().unwrap();
+        assert_eq!(due - Instant::now(), Duration::from_secs(wait));
+        tokio::time::sleep_until(due).await;
+        runtime.keep_pipes();
+    }
+    let heard = std::iter::from_fn(|| document.events.try_recv().ok())
+        .map(|event| event.event.kind())
+        .filter(|kind| *kind == "document.lost")
+        .count();
+    assert_eq!(heard, 1);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_client_that_goes_closes_its_documents() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let document = open_document(&mut runtime, remote.id);
+    attempt_finished(&mut runtime).await;
+    let _frames = pipe_opened(&mut requests).await;
+    document.lifetime.cancel();
+    runtime.keep_pipes();
+    assert!(runtime.pipes.is_empty());
+    assert!(matches!(
+        requests.recv().await.unwrap(),
+        crate::network::TestRemoteRequest::PipeClose { .. }
+    ));
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_document_that_its_client_closed_while_it_opened_closes_when_it_opens() {
     let (mut runtime, _root) = registry_fixture();
-    let pipe = Uuid::now_v7();
-    runtime.pipes_opening.insert(pipe);
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
+    let mut document = open_document(&mut runtime, remote.id);
     runtime
         .apply(&Command::DocumentClose {
             request_id: Uuid::now_v7().to_string(),
-            pipe: pipe.to_string(),
+            pipe: document.pipe.to_string(),
         })
         .unwrap();
-    let (sender, mut document) = mpsc::channel(1);
-    let (_frames, receiver) = mpsc::channel(1);
-    runtime.complete(opened(
-        &runtime,
-        pipe,
-        Uuid::now_v7(),
-        crate::canvas::PipeEnds { sender, receiver },
+    attempt_finished(&mut runtime).await;
+    let _frames = pipe_opened(&mut requests).await;
+    assert!(matches!(
+        requests.recv().await.unwrap(),
+        crate::network::TestRemoteRequest::PipeClose { .. }
     ));
     assert!(runtime.pipes.is_empty());
-    assert!(runtime.pipes_opening.is_empty() && runtime.pipes_closed_early.is_empty());
-    assert!(document.recv().await.is_none());
+    assert!(document.events.try_recv().is_err());
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_client_that_reads_its_own_events_gets_the_frames_of_its_documents_there() {
     let (mut runtime, _root) = registry_fixture();
-    let consumer = Uuid::now_v7();
-    let (own, mut direct) = mpsc::channel(4);
-    runtime.direct.insert(consumer, own);
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
     let mut everyone = runtime.events.subscribe();
-    let (sender, _document) = mpsc::channel(1);
-    let (frames, receiver) = mpsc::channel(1);
-    let pipe = Uuid::now_v7();
-    runtime.pipes_opening.insert(pipe);
-    runtime.complete(opened(
-        &runtime,
-        pipe,
-        consumer,
-        crate::canvas::PipeEnds { sender, receiver },
-    ));
-    assert!(runtime.pipes.contains_key(&pipe));
+    let mut document = open_document(&mut runtime, remote.id);
+    attempt_finished(&mut runtime).await;
+    let frames = pipe_opened(&mut requests).await;
     frames.send(b"frame".to_vec()).await.unwrap();
-    let frame = direct.recv().await.unwrap();
-    assert_eq!(
-        (frame.event.kind(), frame.recipient),
-        ("document.frame", Some(consumer))
-    );
-    drop(frames);
-    assert_eq!(direct.recv().await.unwrap().event.kind(), "document.closed");
+    for kind in ["document.opened", "document.frame"] {
+        let event = heard(&mut document).await;
+        assert_eq!(
+            (event.event.kind(), event.recipient),
+            (kind, Some(document.consumer))
+        );
+    }
     assert!(
         std::iter::from_fn(|| everyone.try_recv().ok())
             .all(|event| !event.event.kind().starts_with("document.frame"))

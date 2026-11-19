@@ -60,11 +60,10 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private var sent: JsonObject? = null
     private var settling: Job? = null
     private var holding = false
-    private var awaitingFrames: Job? = null
 
     init {
         link.onFrame = ::receive
-        link.onLost = { join() }
+        link.onNews = ::heard
     }
 
     /** A TextureView keeps its last frame after its decoder stops, so only a new surface is without a picture. */
@@ -113,7 +112,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         } else {
             joining?.cancel()
             link.detach()
-            stopAwaitingFrames()
+            reconnecting.value = false
         }
     }
 
@@ -139,41 +138,36 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private fun join() {
         joining?.cancel()
         if (!active) return
-        awaitFrames()
         joining = scope.launch {
-            var wait = 1000L
-            while (active) {
-                try {
-                    link.open()
-                    failure.value = null
-                    behind = true
-                    last = null
-                    sent = size
-                    post(fields("type" to "watch", "size" to size, "opened" to opening))
-                    opening = false
-                    return@launch
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (error: Exception) {
-                    failure.value = error.message
-                    wait = if (link.pause(wait)) 1000 else minOf(wait * 2, 30_000)
-                }
+            try {
+                link.open()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                failure.value = error.message
             }
         }
     }
 
-    private fun awaitFrames() {
-        if (awaitingFrames != null) return
-        awaitingFrames = scope.launch {
-            delay(RECONNECTING_AFTER_MS)
-            reconnecting.value = true
-        }
-    }
+    private fun heard(news: DocumentLink.News) {
+        if (!active) return
+        when (news) {
+            DocumentLink.News.Open -> {
+                failure.value = null
+                behind = true
+                last = null
+                sent = size
+                post(fields("type" to "watch", "size" to size, "opened" to opening))
+                opening = false
+            }
 
-    private fun stopAwaitingFrames() {
-        awaitingFrames?.cancel()
-        awaitingFrames = null
-        reconnecting.value = false
+            is DocumentLink.News.Lost -> {
+                failure.value = news.reason
+                reconnecting.value = true
+            }
+
+            DocumentLink.News.Closed -> {}
+        }
     }
 
     private fun keepIcons(state: JsonObject) {
@@ -213,7 +207,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
             return
         }
         behind = false
-        stopAwaitingFrames()
+        reconnecting.value = false
     }
 
     /**
@@ -232,7 +226,6 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     override fun close() {
         active = false
         joining?.cancel()
-        awaitingFrames?.cancel()
         link.close()
         decoder?.close()
         decoder = null
@@ -242,7 +235,6 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         const val HEADER = 6
         const val KEY = 1
         const val SETTLE_MS = 250L
-        const val RECONNECTING_AFTER_MS = 1500L
     }
 }
 

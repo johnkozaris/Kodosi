@@ -1,7 +1,9 @@
 #[cfg(feature = "host")]
+use std::collections::HashSet;
+#[cfg(feature = "host")]
 use std::path::{Path, PathBuf};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     pin::Pin,
     sync::Arc,
     time::Duration,
@@ -39,6 +41,7 @@ mod commands;
 mod dosi;
 #[cfg(feature = "host")]
 mod messages;
+mod pipes;
 mod project_seen;
 #[cfg(feature = "host")]
 mod restore;
@@ -702,10 +705,8 @@ enum Completion {
         result: std::result::Result<Value, crate::text::Text>,
     },
     Document {
-        command: Command,
         pipe: Uuid,
-        consumer: Uuid,
-        lifetime: CancellationToken,
+        attempt: Uuid,
         result: Result<crate::canvas::PipeEnds>,
     },
     #[cfg(feature = "host")]
@@ -1105,12 +1106,6 @@ struct TerminalNotice {
     status: Option<TerminalStatus>,
 }
 
-struct OpenPipe {
-    sender: mpsc::Sender<Vec<u8>>,
-    filling: Vec<u8>,
-    lifetime: CancellationToken,
-}
-
 struct Runtime {
     host: Option<crate::HostKind>,
     #[cfg(feature = "host")]
@@ -1140,9 +1135,7 @@ struct Runtime {
     #[cfg(feature = "host")]
     creating: HashMap<Uuid, Command>,
     listed: HashMap<Uuid, RemoteSession>,
-    pipes: HashMap<Uuid, OpenPipe>,
-    pipes_opening: HashSet<Uuid>,
-    pipes_closed_early: HashSet<Uuid>,
+    pipes: HashMap<Uuid, pipes::Kept>,
     direct: HashMap<Uuid, mpsc::Sender<Event>>,
     remotes: HashMap<Uuid, SessionEntry>,
     starting: HashMap<Uuid, Starting>,
@@ -1269,8 +1262,6 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     let runtime = Runtime {
         host: cfg!(feature = "host").then_some(config.host),
         pipes: HashMap::new(),
-        pipes_opening: HashSet::new(),
-        pipes_closed_early: HashSet::new(),
         direct: HashMap::new(),
         #[cfg(feature = "host")]
         services: crate::canvas::CanvasServices::new(&config.data_root, config.isolated),
@@ -1451,11 +1442,6 @@ impl Runtime {
             .retain(|_, answer| !answer.lifetime.is_cancelled());
         self.visible
             .retain(|_, shown| !shown.lifetime.is_cancelled());
-    }
-
-    fn prune_pipes(&mut self) {
-        self.pipes
-            .retain(|_, open| !open.lifetime.is_cancelled() && !open.sender.is_closed());
     }
 
     fn entries(&self) -> Vec<SessionEntry> {
@@ -1839,7 +1825,7 @@ impl Runtime {
     fn catch_up(&mut self) {
         self.prune_views();
         self.prune_answers();
-        self.prune_pipes();
+        self.keep_pipes();
         if tokio::time::Instant::now() >= self.next_reconnects {
             self.reconnect_views();
         }
@@ -1865,6 +1851,7 @@ impl Runtime {
             reconnects.map(|at| at.max(self.next_reconnects)),
             offline,
             attention,
+            self.pipes_due(),
         ]
         .into_iter()
         .flatten()
@@ -2883,6 +2870,7 @@ impl Runtime {
         self.folder_asks.clear();
         self.listed.clear();
         self.remotes.clear();
+        self.reopen_pipes();
         self.starting.clear();
         self.cached_events.clear();
         self.project_latest.clear();
@@ -3765,6 +3753,11 @@ impl Runtime {
             // The loop catches up after each change, and a terminal that streams again can then
             // hear what its person saw.
             SessionChange::RemoteResumed => {}
+            SessionChange::PipeEnded {
+                pipe,
+                attempt,
+                carried,
+            } => self.document_ended(pipe, attempt, carried),
             SessionChange::RemoteRoute {
                 id,
                 incarnation,

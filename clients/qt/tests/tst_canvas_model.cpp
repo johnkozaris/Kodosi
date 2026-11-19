@@ -506,35 +506,37 @@ private slots:
         QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
     }
 
-    void aDocumentFrameComesBackWholeAndAGapBreaksThePipe()
+    void aDocumentFrameComesBackWholeAndAGapOpensThePipeAgain()
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
         kodosi::CanvasDocuments documents(commands, sessions);
         QSignalSpy opened(&documents, &kodosi::CanvasDocuments::opened);
         QSignalSpy received(&documents, &kodosi::CanvasDocuments::received);
-        QSignalSpy lost(&documents, &kodosi::CanvasDocuments::lost);
         const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
-        const auto request = commands.values.last().value(QStringLiteral("requestId"));
-        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.result") }, { QStringLiteral("requestId"), request } });
-        QCOMPARE(opened.size(), 1);
         const auto part = [&pipe](int sequence, bool more, const QByteArray& data) {
             return QJsonObject { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
                 { QStringLiteral("sequence"), sequence }, { QStringLiteral("more"), more },
                 { QStringLiteral("data"), QString::fromLatin1(data.toBase64()) } };
         };
+        const QJsonObject open { { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } };
+        documents.apply(open);
+        QCOMPARE(opened.size(), 1);
         documents.apply(part(0, true, "Hel"));
         QCOMPARE(received.size(), 0);
         documents.apply(part(1, false, "lo"));
         QCOMPARE(received.size(), 1);
         QCOMPARE(received.first().at(1).toString(), QString::fromLatin1(QByteArray("Hello").toBase64()));
         documents.apply(part(3, false, "x"));
-        QCOMPARE(lost.size(), 1);
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
         const auto sent = commands.values.size();
-        documents.send(pipe, QStringLiteral("AAAA"));
-        QCOMPARE(commands.values.size(), sent);
+        QCOMPARE(commands.values.at(sent - 2).value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
+        documents.apply(part(4, false, "on its way"));
+        documents.apply(open);
+        documents.apply(part(0, false, "again"));
+        QCOMPARE(received.size(), 2);
+        QCOMPARE(received.last().at(1).toString(), QString::fromLatin1(QByteArray("again").toBase64()));
     }
 
     void aNativeViewTakesItsFrameAsBytes()
@@ -551,6 +553,7 @@ private slots:
                 { QStringLiteral("sequence"), sequence }, { QStringLiteral("more"), more },
                 { QStringLiteral("data"), QString::fromLatin1(data.toBase64()) } };
         };
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } });
         documents.apply(part(0, true, "\x01Hel"));
         documents.apply(part(1, false, "lo\xff"));
         QCOMPARE(bytes.size(), 1);
@@ -558,22 +561,24 @@ private slots:
         QVERIFY(text.isEmpty());
     }
 
-    void aDocumentHearsWhenItsTerminalRunsAgain()
+    void aDocumentGoesToAHostThatComesBackOnceItListsTheTerminal()
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
         kodosi::CanvasDocuments documents(commands, sessions);
-        QSignalSpy reachable(&documents, &kodosi::CanvasDocuments::reachable);
-        auto remote = test::session(1, true);
-        remote.insert(QStringLiteral("status"), QStringLiteral("reconnecting"));
-        sessions.apply(test::snapshot({ remote }));
-        QCOMPARE(reachable.size(), 0);
-        remote.insert(QStringLiteral("status"), QStringLiteral("running"));
-        sessions.apply(test::snapshot({ remote }));
-        QCOMPARE(reachable.size(), 1);
-        QCOMPARE(reachable.first().first().toString(), test::id(1));
-        sessions.apply(test::snapshot({ remote }));
-        QCOMPARE(reachable.size(), 1);
+        QSignalSpy lost(&documents, &kodosi::CanvasDocuments::lost);
+        const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
+        documents.reset();
+        QCOMPARE(lost.size(), 1);
+        const auto sent = commands.values.size();
+        sessions.apply(test::snapshot({ test::session(2, true) }));
+        QCOMPARE(commands.values.size(), sent);
+        sessions.apply(test::snapshot({ test::session(1, true) }));
+        QCOMPARE(commands.values.size(), sent + 1);
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
+        sessions.apply(test::snapshot({ test::session(1, true) }));
+        QCOMPARE(commands.values.size(), sent + 1);
     }
 
     void aLargeFrameGoesInPartsOfWholeLetterGroups()

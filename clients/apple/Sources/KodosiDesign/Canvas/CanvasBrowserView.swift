@@ -451,17 +451,14 @@ private struct BrowserWaiting: View {
     }
 }
 
-/// The page keeps its last picture, so a short break of the link shows no sign.
 private struct BrowserReconnecting: View {
-    private static let patience = Duration.milliseconds(1500)
-
     @Environment(\.theme) private var theme
     let kept: Bool
 
     var body: some View {
         ZStack {
             if kept {
-                ReconnectingNotice(identifier: "canvas.browser.reconnecting", patience: Self.patience)
+                ReconnectingNotice(identifier: "canvas.browser.reconnecting")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

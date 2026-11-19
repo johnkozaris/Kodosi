@@ -65,7 +65,7 @@ private:
     void opened(const QString& pipe);
     void received(const QString& pipe, const QByteArray& message);
     void lost(const QString& pipe);
-    void reachable(const QString& sessionId);
+    void closed(const QString& pipe);
     void frame(const QByteArray& message);
     void keepIcons(const QJsonObject& changed, const QJsonArray& tabs);
     void decoded(const QString& pipe, quint32 frame, const QImage& image);
@@ -96,10 +96,7 @@ private:
     quint32 m_lastFrame = 0;
     quint32 m_keyFrame = 0;
     bool m_behind = true;
-    int m_wait = 1000;
-    QTimer m_again;
     QTimer m_settle;
-    QTimer m_stale;
     bool m_reconnecting = false;
     QJsonObject m_sentSize;
     bool m_holding = false;

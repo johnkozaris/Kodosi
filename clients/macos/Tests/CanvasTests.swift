@@ -266,7 +266,7 @@ private func marked(_ name: String?, _ at: UInt64) -> JSONValue? {
     #expect(BrowserFeed.viewPoint(CGPoint(x: 1, y: 1), in: .zero, browser: browser) == nil)
 }
 
-@Test func `a document that loses its pipe closes it in the runtime`() async throws {
+@Test func `a document whose frames break takes its pipe again, and the parts on their way go nowhere`() async throws {
     let commands = CommandSink()
     var sent: [[String: JSONValue]] = []
     commands.transport = { data in
@@ -277,21 +277,34 @@ private func marked(_ name: String?, _ at: UInt64) -> JSONValue? {
     }
     let store = CanvasStore(commands: commands)
     let link = store.browser(of: "01992e43-53db-7040-8e02-f6ebf4149b28")
-    var lost = 0
-    link.onLost = { lost += 1 }
+    var news: [DocumentLink.News] = []
+    var frames = 0
+    link.onNews = { news.append($0) }
+    link.onFrame = { _ in frames += 1 }
     let opening = Task { try await link.open() }
     while link.pipe == nil {
         await Task.yield()
     }
     let pipe = try #require(link.pipe)
-    try store.receive(runtimeEvent("document.frame", fields: [
-        "pipe": .string(pipe), "sequence": .uint(3), "more": .bool(false), "data": .string("AAAA"),
-    ]))
-    #expect(lost == 1 && link.pipe == nil)
-    #expect(sent.last?["type"] == .string("document.close") && sent.last?["pipe"] == .string(pipe))
+    let frame = { (sequence: UInt64) in
+        try store.receive(runtimeEvent("document.frame", fields: [
+            "pipe": .string(pipe), "sequence": .uint(sequence), "more": .bool(false), "data": .string("AAAA"),
+        ]))
+    }
+    try store.receive(runtimeEvent("document.opened", fields: ["pipe": .string(pipe)]))
+    try frame(0)
+    try frame(3)
+    try frame(4)
+    while sent.last?["type"] != .string("document.open") {
+        await Task.yield()
+    }
+    #expect(sent.suffix(2).map { $0["type"] } == [.string("document.close"), .string("document.open")])
+    #expect(sent.suffix(2).allSatisfy { $0["pipe"] == .string(pipe) })
+    try store.receive(runtimeEvent("document.opened", fields: ["pipe": .string(pipe)]))
+    try frame(0)
+    #expect(news == [.open, .open] && frames == 2)
     opening.cancel()
     _ = await opening.result
-    #expect(sent.count(where: { $0["type"] == .string("document.close") }) == 1)
 }
 
 @Test func `a frame of the browser splits at its start codes`() {

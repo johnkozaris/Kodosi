@@ -8,42 +8,45 @@ import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.runtime.number
 import java.io.ByteArrayOutputStream
 import java.util.Base64
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.withTimeoutOrNull
 
+/** The runtime keeps the pipe of a view and opens it again after each loss, until the view closes it. */
 class DocumentLink(
     private val commands: CommandSink,
     val session: String,
     private val key: String,
     private val onClose: (DocumentLink) -> Unit
 ) {
+    sealed interface News {
+        /** The pipe is open, again after each loss: the view sends its first message. */
+        data object Open : News
+
+        /** The pipe stayed lost for a while, for the reason that the runtime gives. */
+        data class Lost(val reason: String?) : News
+
+        /** The terminal of the pipe is gone. */
+        data object Closed : News
+    }
+
     private var pipe: String? = null
-    private var next = 0L
+
+    /** The next part, or none while the pipe has not opened. */
+    private var next: Long? = null
     private var filling = ByteArrayOutputStream()
-    private val reached = Channel<Unit>(Channel.CONFLATED)
     var onFrame: (ByteArray) -> Unit = {}
-    var onLost: () -> Unit = {}
+    var onNews: (News) -> Unit = {}
 
     suspend fun open() {
         detach()
         val opening = UuidV7.generate()
         pipe = opening
-        next = 0
+        next = null
         filling.reset()
         try {
             commands.request("document.open", fields("sessionId" to session, "pipe" to opening, "key" to key))
-            reached.tryReceive()
         } catch (failure: Exception) {
-            if (pipe == opening) detach()
+            if (pipe == opening) pipe = null
             throw failure
         }
-    }
-
-    /** Tells whether the terminal ran again before the wait ended. */
-    suspend fun pause(wait: Long): Boolean = withTimeoutOrNull(wait) { reached.receive() } != null
-
-    fun reachable() {
-        reached.trySend(Unit)
     }
 
     fun send(bytes: ByteArray) {
@@ -60,7 +63,7 @@ class DocumentLink(
                 )
             )
             if (result != Ffi.OK) {
-                lost()
+                renew(pipe)
                 return
             }
             offset = end
@@ -70,25 +73,56 @@ class DocumentLink(
     fun receive(event: RuntimeEvent) {
         val pipe = pipe ?: return
         if (event.string("pipe") != pipe) return
+        when (event.type) {
+            "document.opened" -> {
+                filling.reset()
+                next = 0
+                onNews(News.Open)
+            }
+
+            "document.lost" -> {
+                filling.reset()
+                onNews(News.Lost(event.string("message")))
+            }
+
+            "document.closed" -> {
+                this.pipe = null
+                filling.reset()
+                onNews(News.Closed)
+            }
+
+            "document.frame" -> frame(pipe, event)
+        }
+    }
+
+    private fun frame(pipe: String, event: RuntimeEvent) {
+        val expected = next ?: return
         val data = event.string("data")?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
-        if (event.type != "document.frame" || event.payload.number("sequence") != next ||
-            event.bool("more") == null || data == null || filling.size().toLong() + data.size > MAX_FRAME_BYTES
+        val more = event.bool("more")
+        if (event.payload.number("sequence") != expected || more == null || data == null ||
+            filling.size().toLong() + data.size > MAX_FRAME_BYTES
         ) {
-            lost()
+            renew(pipe)
             return
         }
-        next++
+        next = expected + 1
         filling.write(data)
-        if (event.bool("more") == false) {
+        if (!more) {
             val frame = filling.toByteArray()
             filling = ByteArrayOutputStream()
             onFrame(frame)
         }
     }
 
-    private fun lost() {
-        detach()
-        onLost()
+    /** A part that went missing breaks the frames, so the pipe starts again, and the parts on their way go nowhere. */
+    private fun renew(pipe: String) {
+        filling.reset()
+        next = null
+        commands.send("document.close", fields("pipe" to pipe))
+        if (commands.send("document.open", fields("sessionId" to session, "pipe" to pipe, "key" to key)) != Ffi.OK) {
+            this.pipe = null
+            onNews(News.Closed)
+        }
     }
 
     fun detach() {
@@ -101,7 +135,7 @@ class DocumentLink(
     fun close() {
         detach()
         onFrame = {}
-        onLost = {}
+        onNews = {}
         onClose(this)
     }
 

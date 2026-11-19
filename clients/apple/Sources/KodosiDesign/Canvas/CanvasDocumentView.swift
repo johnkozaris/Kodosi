@@ -127,7 +127,7 @@ final class CanvasDocumentPage {
     @ObservationIgnored private let view: CanvasItem.View
     @ObservationIgnored private var look: [String: String]
     @ObservationIgnored private var preferences: [String: Bool]
-    @ObservationIgnored private var frames: AsyncStream<Data>.Continuation?
+    @ObservationIgnored private var inbound: AsyncStream<Inbound>.Continuation?
     @ObservationIgnored private var tasks: [Task<Void, Never>] = []
     private(set) var shown = false
 
@@ -144,16 +144,16 @@ final class CanvasDocumentPage {
         configuration.userContentController.add(messages, contentWorld: .page, name: "ready")
         links.watch(configuration.userContentController)
         page = WebPage(configuration: configuration, navigationDecider: DocumentNavigation(links: links))
-        let (stream, frames) = AsyncStream.makeStream(of: Data.self)
-        self.frames = frames
-        link.onFrame = { frames.yield($0) }
-        link.onLost = { [weak self] in self?.tasks.append(Task { await self?.lost() }) }
+        let (stream, inbound) = AsyncStream.makeStream(of: Inbound.self)
+        self.inbound = inbound
+        link.onFrame = { inbound.yield(.frame($0)) }
+        link.onNews = { inbound.yield(.news($0)) }
         messages.frame = { link.send($0) }
         messages.ready = { [weak self] in self?.shown = true }
         tasks = [
             Task { [weak self] in
-                for await frame in stream {
-                    await self?.deliver(frame)
+                for await item in stream {
+                    await self?.take(item)
                 }
             },
             Task { [weak self] in await self?.stayOpen() },
@@ -182,8 +182,8 @@ final class CanvasDocumentPage {
     func close() {
         tasks.forEach { $0.cancel() }
         tasks = []
-        frames?.finish()
-        frames = nil
+        inbound?.finish()
+        inbound = nil
         link.close()
     }
 
@@ -206,40 +206,42 @@ final class CanvasDocumentPage {
                     ],
                     contentWorld: .page,
                 )
-                await join()
-                for try await _ in page.navigations {}
             } catch {
                 shown = false
-                link.close()
+                try? await Task.sleep(for: .seconds(1))
+                continue
             }
+            do {
+                try await link.open()
+            } catch {
+                return
+            }
+            do {
+                for try await _ in page.navigations {}
+            } catch {}
+            shown = false
+            link.close()
             try? await Task.sleep(for: .seconds(1))
         }
     }
 
-    private func lost() async {
-        _ = try? await page.callJavaScript("documentHost.detach()", contentWorld: .page)
-        await join()
-    }
-
-    /// The computer of the terminal can be away for a time, so this goes on for as long as the
-    /// page is open.
-    private func join() async {
-        var wait = Duration.seconds(1)
-        while frames != nil {
-            do {
-                try await link.open()
-                _ = try await page.callJavaScript("documentHost.attach()", contentWorld: .page)
-                return
-            } catch {
-                wait = await link.pause(wait) ? .seconds(1) : min(wait * 2, .seconds(30))
-            }
+    /// The frames and the news of the pipe reach the page in their order.
+    private func take(_ item: Inbound) async {
+        switch item {
+        case let .frame(frame):
+            let data = frame.base64EncodedString()
+            _ = try? await page.callJavaScript("documentHost.deliver(data)", arguments: ["data": data], contentWorld: .page)
+        case .news(.open):
+            _ = try? await page.callJavaScript("documentHost.attach()", contentWorld: .page)
+        case .news(.lost), .news(.closed):
+            _ = try? await page.callJavaScript("documentHost.detach()", contentWorld: .page)
         }
     }
+}
 
-    private func deliver(_ frame: Data) async {
-        let data = frame.base64EncodedString()
-        _ = try? await page.callJavaScript("documentHost.deliver(data)", arguments: ["data": data], contentWorld: .page)
-    }
+private enum Inbound {
+    case frame(Data)
+    case news(DocumentLink.News)
 }
 
 @MainActor

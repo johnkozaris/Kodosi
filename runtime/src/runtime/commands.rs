@@ -6,7 +6,9 @@ use std::collections::BTreeSet;
 #[cfg(feature = "host")]
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tokio::sync::{broadcast, mpsc, oneshot};
+#[cfg(feature = "host")]
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -30,9 +32,6 @@ use crate::{
 #[cfg(feature = "host")]
 use std::sync::Arc;
 
-use base64::Engine as _;
-
-const MOST_PIPES: usize = 32;
 fn run_on_host() -> crate::text::Text {
     text!("Start a program on the computer that hosts this terminal.")
 }
@@ -185,12 +184,7 @@ impl Runtime {
                 )));
             }
             Command::DocumentSend { .. } => self.send_to_document(command)?,
-            Command::DocumentClose { pipe, .. } => {
-                let pipe = parse_id(pipe)?;
-                if self.pipes.remove(&pipe).is_none() && self.pipes_opening.contains(&pipe) {
-                    self.pipes_closed_early.insert(pipe);
-                }
-            }
+            Command::DocumentClose { .. } => self.close_document(command)?,
             #[cfg(feature = "host")]
             Command::CanvasShow { .. }
             | Command::CanvasBrowse { .. }
@@ -486,142 +480,6 @@ impl Runtime {
                 result: answer.await,
             }
         });
-        Ok(())
-    }
-
-    fn open_document(
-        &mut self,
-        command: &Command,
-        consumer: Uuid,
-        lifetime: CancellationToken,
-    ) -> Result<()> {
-        let Command::DocumentOpen {
-            session_id,
-            pipe,
-            key,
-            ..
-        } = command
-        else {
-            return Err(Error::Invalid("expected a document".to_owned()));
-        };
-        let id = parse_id(session_id)?;
-        let pipe = parse_id(pipe)?;
-        self.reachable(id)?;
-        self.job_capacity()?;
-        self.prune_pipes();
-        if self.pipes.len() + self.pipes_opening.len() >= MOST_PIPES {
-            tracing::warn!(
-                pipes = MOST_PIPES,
-                "the host keeps the most documents open, so a view waits"
-            );
-            return Err(Error::Busy);
-        }
-        let name = self.person.clone().unwrap_or_else(|| "Someone".to_owned());
-        let person = self.scope.user.clone();
-        let ends = self
-            .target(id)?
-            .document(pipe, key.clone(), name, person, consumer);
-        let command = command.clone();
-        self.pipes_opening.insert(pipe);
-        self.spawn(async move {
-            Completion::Document {
-                command,
-                pipe,
-                consumer,
-                lifetime,
-                result: ends.await,
-            }
-        });
-        Ok(())
-    }
-
-    fn carry_document(
-        &mut self,
-        pipe: Uuid,
-        ends: crate::canvas::PipeEnds,
-        consumer: Uuid,
-        lifetime: CancellationToken,
-    ) {
-        let crate::canvas::PipeEnds {
-            sender,
-            mut receiver,
-        } = ends;
-        self.pipes.insert(
-            pipe,
-            super::OpenPipe {
-                sender,
-                filling: Vec::new(),
-                lifetime: lifetime.clone(),
-            },
-        );
-        let carrier = Carrier {
-            events: self.events.clone(),
-            direct: self
-                .direct
-                .get(&consumer)
-                .filter(|direct| !direct.is_closed())
-                .cloned(),
-            user: self.scope.user.clone(),
-            epoch: self.scope.epoch,
-            consumer,
-        };
-        tokio::spawn(async move {
-            let mut sequence = 0_u64;
-            'frames: loop {
-                let Some(frame) = lifetime
-                    .run_until_cancelled(receiver.recv())
-                    .await
-                    .flatten()
-                else {
-                    break;
-                };
-                let parts = frame.len().div_ceil(crate::canvas::PART_BYTES);
-                for (index, part) in frame.chunks(crate::canvas::PART_BYTES).enumerate() {
-                    let sent = carrier
-                        .send(json!({
-                            "type": "document.frame",
-                            "pipe": pipe,
-                            "sequence": sequence,
-                            "more": index + 1 < parts,
-                            "data": base64::engine::general_purpose::STANDARD.encode(part),
-                        }))
-                        .await;
-                    if !sent {
-                        break 'frames;
-                    }
-                    sequence += 1;
-                }
-            }
-            carrier
-                .send(json!({ "type": "document.closed", "pipe": pipe }))
-                .await;
-        });
-    }
-
-    fn send_to_document(&mut self, command: &Command) -> Result<()> {
-        let Command::DocumentSend {
-            pipe, more, data, ..
-        } = command
-        else {
-            return Err(Error::Invalid("expected a document frame".to_owned()));
-        };
-        let id = parse_id(pipe)?;
-        let open = self.pipes.get_mut(&id).ok_or(Error::NotFound)?;
-        let part = base64::engine::general_purpose::STANDARD
-            .decode(data)
-            .map_err(|_| Error::Invalid("The document part is not valid.".to_owned()))?;
-        if open.filling.len() + part.len() > crate::canvas::MOST_PIPE_FRAME {
-            self.pipes.remove(&id);
-            return Err(Error::Invalid("The document frame is too long.".to_owned()));
-        }
-        open.filling.extend_from_slice(&part);
-        if !more {
-            let frame = std::mem::take(&mut open.filling);
-            if open.sender.try_send(frame).is_err() {
-                self.pipes.remove(&id);
-                return Err(Error::Busy);
-            }
-        }
         Ok(())
     }
 
@@ -1286,7 +1144,7 @@ impl Runtime {
         self.host_online(id).ok_or_else(|| self.offline(id))
     }
 
-    fn offline(&self, id: Uuid) -> Error {
+    pub(super) fn offline(&self, id: Uuid) -> Error {
         Error::Text(self.computer_is(id, false))
     }
 
@@ -1701,31 +1559,10 @@ impl Runtime {
                 Err(message) => self.error(&command, &Error::Text(message)),
             },
             Completion::Document {
-                command,
                 pipe,
-                consumer,
-                lifetime,
+                attempt,
                 result,
-            } if current => {
-                self.pipes_opening.remove(&pipe);
-                let closed = self.pipes_closed_early.remove(&pipe);
-                match result {
-                    Ok(_) if closed => self.error(
-                        &command,
-                        &Error::Invalid("The view closed before its document opened.".to_owned()),
-                    ),
-                    Ok(ends) => {
-                        self.carry_document(pipe, ends, consumer, lifetime);
-                        self.result(&command);
-                    }
-                    Err(error) => self.error(&command, &error),
-                }
-            }
-            Completion::Document { command, pipe, .. } => {
-                self.pipes_opening.remove(&pipe);
-                self.pipes_closed_early.remove(&pipe);
-                self.error(&command, &Error::Stale);
-            }
+            } => self.document_opened(pipe, attempt, result, current),
             #[cfg(feature = "host")]
             Completion::Provider { command, .. }
             | Completion::Folders { command, .. }
@@ -2456,26 +2293,4 @@ async fn provider_reply(
         _ => return Err(Error::Invalid("expected provider request".to_owned())),
     };
     Ok(result)
-}
-
-struct Carrier {
-    events: broadcast::Sender<crate::Event>,
-    direct: Option<mpsc::Sender<crate::Event>>,
-    user: Option<String>,
-    epoch: u64,
-    consumer: Uuid,
-}
-
-impl Carrier {
-    async fn send(&self, value: Value) -> bool {
-        let Ok(mut event) = crate::Event::new(self.user.clone(), self.epoch, value) else {
-            return true;
-        };
-        event.recipient = Some(self.consumer);
-        if let Some(direct) = &self.direct {
-            return direct.send(event).await.is_ok();
-        }
-        drop(self.events.send(event));
-        true
-    }
 }
