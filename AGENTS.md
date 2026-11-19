@@ -34,9 +34,9 @@ decisions. Before you change a client's interface, read that client's `PRODUCT.m
 
 ## Working rules
 
-- Kodosi is released but has no users yet. Until it has users, make clean changes: don't
-  keep support for earlier builds, their saved data or their protocol. Each change of
-  the live database is still a new migration.
+- Kodosi has a few users, and they update all their devices with each release. Make clean
+  changes: don't keep support for earlier builds, their saved data or their protocol.
+  Each change of the live database is still a new migration.
 - Never reset live databases or touch real provider data, credentials, conversations,
   memory or working files.
 - Keep dependencies project-local. Run checks through the root `justfile`.
