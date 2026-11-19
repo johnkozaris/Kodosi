@@ -129,6 +129,49 @@ async fn two_devices_of_one_person_go_straight_at_once_and_one_that_leaves_spare
     assert_eq!(phone_reached.reader.recv().await.unwrap(), b"echoed");
 }
 
+/// An Apple socket gives a refused datagram as a failed read, as it gives a socket that iOS
+/// closed in the background.
+#[cfg(all(target_vendor = "apple", feature = "host"))]
+#[tokio::test]
+async fn a_viewer_whose_socket_fails_goes_straight_again_with_a_new_socket() {
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let (host, viewer) = (peers_of(&host_keys), peers_of(&viewer_keys));
+    let address = on_this_computer(&host).await;
+    let (first, second) = (Uuid::now_v7(), Uuid::now_v7());
+    let (arrived, reached) = tokio::join!(
+        host.expect(viewer_keys.signing_public(), first).meet(&[]),
+        viewer.reach_at(host_keys.signing_public(), address.clone(), first),
+    );
+    let (_arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
+
+    let socket = Arc::clone(&viewer.bind().await.unwrap().socket);
+    let free = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let refusing = if socket.dual {
+        SocketAddr::new(IpAddr::V6(Ipv4Addr::LOCALHOST.to_ipv6_mapped()), free)
+    } else {
+        SocketAddr::from((Ipv4Addr::LOCALHOST, free))
+    };
+    socket.inner.io.connect(refusing).await.unwrap();
+    socket.inner.io.send(&[0]).await.unwrap();
+    let ended = tokio::time::timeout(Duration::from_secs(5), reached.reader.recv()).await;
+    assert_eq!(ended.unwrap(), None);
+
+    let (arrived, reached) = tokio::join!(
+        host.expect(viewer_keys.signing_public(), second).meet(&[]),
+        viewer.reach_at(host_keys.signing_public(), address, second),
+    );
+    let (mut arrived, mut reached) = (arrived.unwrap(), reached.unwrap());
+    reached.write(b"typed").await.unwrap();
+    assert_eq!(arrived.reader.recv().await.unwrap(), b"typed");
+}
+
 fn stun_answer_for(id: [u8; 12], seen: SocketAddr) -> Vec<u8> {
     let SocketAddr::V4(seen) = seen else {
         panic!("the test server listens on IPv4");
