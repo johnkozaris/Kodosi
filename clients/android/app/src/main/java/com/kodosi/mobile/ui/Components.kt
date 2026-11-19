@@ -1,9 +1,12 @@
 package com.kodosi.mobile.ui
 
+import android.os.SystemClock
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -11,9 +14,11 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.repeatable
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -36,13 +41,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.FloatState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -52,6 +63,7 @@ import androidx.compose.ui.geometry.toRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -72,9 +84,44 @@ import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
+import kotlinx.coroutines.delay
 
 @Composable
 fun reducedMotion(): Boolean = LocalReducedMotion.current
+
+@Composable
+private fun powerSaving(): Boolean = LocalPowerSaving.current
+
+/** Art can stay on screen for a long time, so a moving sign in it stands still, as with reduced motion. */
+@Composable
+fun Still(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalReducedMotion provides true, content = content)
+}
+
+/** All moving signs step on one clock, so that a step of all of them is one frame and nothing draws between steps. */
+@Composable
+private fun signPhase(): FloatState? {
+    if (reducedMotion() || powerSaving()) return null
+    val phase = remember { mutableFloatStateOf(signPhaseAt(SystemClock.uptimeMillis(), SIGN_STEP_MILLIS)) }
+    LaunchedEffect(phase) {
+        val scale = coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
+        val step = (SIGN_STEP_MILLIS * scale).toLong().coerceAtLeast(1)
+        while (true) {
+            delay(step - SystemClock.uptimeMillis() % step)
+            withInfiniteAnimationFrameMillis { phase.floatValue = signPhaseAt(SystemClock.uptimeMillis(), step) }
+        }
+    }
+    return phase
+}
+
+private fun signPhaseAt(now: Long, step: Long): Float = (now / step % SIGN_STEPS) / SIGN_STEPS.toFloat()
+
+private fun breathAlpha(phase: Float): Float =
+    0.45f + 0.55f * FastOutSlowInEasing.transform(if (phase < 0.5f) phase * 2 else (1 - phase) * 2)
+
+private const val SIGN_STEPS = 32
+private const val SIGN_STEP_MILLIS = 2400L / SIGN_STEPS
+private const val BREATHS = 3
 
 private val FadeEasing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 
@@ -129,22 +176,20 @@ fun KodosiSpinner(modifier: Modifier = Modifier) {
     }
 }
 
+/** It rests after a few breaths, because its notice can stay for a whole outage. */
 @Composable
 fun BreathingDot(color: Color, modifier: Modifier = Modifier) {
-    val breath = if (reducedMotion()) {
-        null
-    } else {
-        rememberInfiniteTransition(label = "breathing dot").animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1600, easing = EaseOut), RepeatMode.Restart),
-            label = "breath"
-        )
+    val still = reducedMotion() || powerSaving()
+    val breath = remember { Animatable(1f) }
+    LaunchedEffect(still) {
+        breath.snapTo(if (still) 1f else 0f)
+        if (!still) breath.animateTo(1f, repeatable(BREATHS, tween(1600, easing = EaseOut)))
     }
     Canvas(modifier.size(7.dp)) {
         val radius = size.minDimension / 2
         drawCircle(color, radius)
-        breath?.value?.let { phase ->
+        val phase = breath.value
+        if (phase < 1f) {
             val scale = 1f + 1.4f * phase
             drawCircle(
                 color.copy(alpha = 0.55f * (1f - phase)),
@@ -310,31 +355,28 @@ fun AgentMark(
 
 @Composable
 private fun WorkingLight(colors: KodosiColors, size: Dp, modifier: Modifier) {
-    val reduced = reducedMotion()
-    val turn = if (reduced) {
-        0f
-    } else {
-        rememberInfiniteTransition(label = "working").animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart),
-            label = "working turn"
-        ).value
-    }
-    Canvas(modifier) {
-        val width = (size * 0.07f).toPx().coerceAtLeast(1.5.dp.toPx())
-        val brush = if (reduced) {
-            Brush.linearGradient(listOf(colors.glowOrange, colors.glowOrange))
-        } else {
-            Brush.sweepGradient(
-                listOf(Color.Transparent, colors.glowOrange.copy(alpha = 0.2f), colors.glowOrange, Color.Transparent)
-            )
+    val turn = signPhase()
+    Spacer(
+        modifier.drawWithCache {
+            val width = (size * 0.07f).toPx().coerceAtLeast(1.5.dp.toPx())
+            val light = if (turn == null) {
+                SolidColor(colors.glowOrange)
+            } else {
+                val glow = colors.glowOrange
+                Brush.sweepGradient(listOf(Color.Transparent, glow.copy(alpha = 0.2f), glow, Color.Transparent))
+            }
+            val corner = CornerRadius((size * 0.3f).toPx())
+            val outline = Path().apply { addRoundRect(RoundRect(this@drawWithCache.size.toRect(), corner)) }
+            val ring = Stroke(width * 2)
+            onDrawBehind {
+                clipPath(outline) {
+                    rotate(360f * (turn?.floatValue ?: 0f)) {
+                        drawRoundRect(light, cornerRadius = corner, style = ring)
+                    }
+                }
+            }
         }
-        val corner = CornerRadius((size * 0.3f).toPx())
-        clipPath(Path().apply { addRoundRect(RoundRect(this@Canvas.size.toRect(), corner)) }) {
-            rotate(turn) { drawRoundRect(brush, cornerRadius = corner, style = Stroke(width * 2)) }
-        }
-    }
+    )
 }
 
 @Composable
@@ -350,23 +392,14 @@ fun StatusSign(form: StatusForm, size: Dp, modifier: Modifier = Modifier) {
             StatusForm.FAILED -> R.string.sign_failed
         }
     )
-    val breath = if (form == StatusForm.CHANGED && !reducedMotion()) {
-        rememberInfiniteTransition(label = "breath").animateFloat(
-            initialValue = 0.45f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
-            label = "breath alpha"
-        ).value
-    } else {
-        1f
-    }
+    val breath = if (form == StatusForm.CHANGED) signPhase() else null
     Canvas(modifier.size(size + 5.dp).semantics { contentDescription = label }) {
         val unit = size.toPx()
         val origin = Offset((this.size.width - unit) / 2, (this.size.height - unit) / 2)
         fun at(x: Float, y: Float) = Offset(origin.x + x * unit, origin.y + y * unit)
         when (form) {
             StatusForm.CHANGED -> drawCircle(
-                colors.accent.copy(alpha = breath),
+                colors.accent.copy(alpha = breath?.let { breathAlpha(it.floatValue) } ?: 1f),
                 radius = unit * 0.31f,
                 center = at(0.5f, 0.5f)
             )

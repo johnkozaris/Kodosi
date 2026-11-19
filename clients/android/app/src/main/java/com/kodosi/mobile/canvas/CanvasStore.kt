@@ -23,6 +23,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
     private val links = mutableSetOf<DocumentLink>()
     private val opened = mutableMapOf<String, Long>()
     private val started = System.currentTimeMillis()
+    private var observed: List<RuntimeSession>? = null
     val news: StateFlow<Map<String, String>>
         field = MutableStateFlow<Map<String, String>>(emptyMap())
     private var generation = 0
@@ -32,10 +33,13 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         links.toList().forEach(DocumentLink::close)
         cache.clear()
         opened.clear()
+        observed = null
         news.value = emptyMap()
     }
 
     fun observe(sessions: List<RuntimeSession>) {
+        if (sessions == observed) return
+        observed = sessions
         val present = sessions.map { it.id }.toSet()
         cache.keys.removeAll { it.session !in present }
         opened.keys.retainAll(present)

@@ -83,6 +83,23 @@ class TerminalKernelTest {
         }
     }
 
+    @Test
+    fun theNextFrameShowsAScrollAndASelection() {
+        TerminalKernel().use { kernel ->
+            install(kernel)
+            val lines = "\u001b[?1049l\u001b[2J\u001b[3J\u001b[Hone\r\ntwo\r\nthree"
+            assertEquals(TerminalKernel.OK, kernel.write(direct(lines.encodeToByteArray()), 7))
+            assertEquals("three", line(requireNotNull(kernel.frame()), 1))
+            assertTrue(kernel.scroll(-1))
+            assertEquals("two", line(requireNotNull(kernel.frame()), 1))
+            kernel.select(0, 1, word = true)
+            assertNotEquals(0, requireNotNull(kernel.frame()).style(0, 1) and TerminalFrame.Style.SELECTED)
+        }
+    }
+
+    private fun line(frame: TerminalFrame, row: Int): String =
+        (0 until frame.cols).joinToString("") { frame.text(it, row).orEmpty() }.trimEnd()
+
     private fun install(
         kernel: TerminalKernel,
         name: String = "visual-checkpoint.snapshot",

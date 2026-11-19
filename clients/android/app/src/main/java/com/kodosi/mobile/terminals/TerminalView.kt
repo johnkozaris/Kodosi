@@ -385,11 +385,7 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
             pictures(2)
             drawCursor(this, frame)
         }
-        if (connection.kernel.animationDelay >=
-            0
-        ) {
-            postInvalidateDelayed(connection.kernel.animationDelay.coerceAtLeast(8))
-        }
+        connection.kernel.animationDelay?.let { postInvalidateDelayed(it.coerceAtLeast(8)) }
     }
 
     /** With less room than the terminal's rows, the bottom rows show, or the rows down to the cursor. */

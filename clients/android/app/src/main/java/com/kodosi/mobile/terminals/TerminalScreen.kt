@@ -109,6 +109,7 @@ import com.kodosi.mobile.ui.terminalTile
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonNull
@@ -119,10 +120,11 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     val colors = KodosiTheme.colors
     val scope = rememberCoroutineScope()
     val connection = remember(sessionId) { model.connection(sessionId, scope) } ?: return
-    val catalog by model.terminals.state.collectAsStateWithLifecycle()
     val state by connection.state.collectAsStateWithLifecycle()
     val openResults by model.terminals.openResults.collectAsStateWithLifecycle()
-    val session = catalog.sessions.firstOrNull { it.id == sessionId }
+    val session = remember(sessionId) {
+        model.terminals.state.map { catalog -> catalog.sessions.firstOrNull { it.id == sessionId } }
+    }.collectAsStateWithLifecycle(model.terminals.session(sessionId)).value
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var control by remember { mutableStateOf(false) }
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
@@ -146,7 +148,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
             connection.show(false)
         }
     }
-    LaunchedEffect(catalog) { connection.refresh() }
+    LaunchedEffect(session) { connection.refresh() }
     DisposableEffect(view, preferences.keepScreenOn) {
         view?.keepScreenOn = preferences.keepScreenOn
         onDispose { view?.keepScreenOn = false }

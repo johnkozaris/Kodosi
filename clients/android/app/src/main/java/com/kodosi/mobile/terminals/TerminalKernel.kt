@@ -36,39 +36,58 @@ class TerminalKernel : AutoCloseable {
     private var output = ByteBuffer.allocateDirect(INITIAL_FRAME_BYTES).order(ByteOrder.LITTLE_ENDIAN)
     private val images = LinkedHashMap<Long, Bitmap>()
     private var imageScale = 1.0
-    var animationDelay: Long = -1
-        private set
+    private var shown: TerminalFrame? = null
+    private var placed: List<TerminalImage>? = null
+    private var changed = false
+    private var animationDue = NO_ANIMATION
+
+    val animationDelay: Long?
+        get() = synchronized(this) {
+            animationDue.takeIf { it != NO_ANIMATION }?.let { (it - SystemClock.uptimeMillis()).coerceAtLeast(0) }
+        }
 
     fun install(snapshot: ByteBuffer, nextSequence: Long, rows: Int, cols: Int, console: Boolean): Int =
         synchronized(this) {
+            changed = true
             if (handle == 0L) CLOSED else nativeInstall(handle, snapshot, nextSequence, rows, cols, console)
         }
 
     fun write(bytes: ByteBuffer, sequence: Long): Int = synchronized(this) {
+        changed = true
         if (handle == 0L) CLOSED else nativeWrite(handle, bytes, sequence)
     }
 
     fun resize(atSequence: Long, rows: Int, cols: Int, cellWidth: Int, cellHeight: Int): Int = synchronized(this) {
+        changed = true
         if (handle == 0L) CLOSED else nativeResize(handle, atSequence, rows, cols, cellWidth, cellHeight)
     }
 
     /** Null before the first checkpoint. */
     fun frame(): TerminalFrame? = synchronized(this) {
         if (handle == 0L) return null
-        animationDelay = nativeTick(handle, SystemClock.uptimeMillis())
+        val now = SystemClock.uptimeMillis()
+        if (!changed && now < animationDue) return shown
+        changed = false
+        placed = null
+        animationDue = nativeTick(handle, now).let { if (it < 0) NO_ANIMATION else now + it }
         var written = nativeFrame(handle, output)
         if (written < -FAILURE_CODES) {
             output = ByteBuffer.allocateDirect(-written * 2).order(ByteOrder.LITTLE_ENDIAN)
             written = nativeFrame(handle, output)
         }
-        if (written <= 0) return null
-        output.position(0)
-        output.limit(written)
-        TerminalFrame.read(output)
+        shown = if (written > 0) {
+            output.position(0)
+            output.limit(written)
+            TerminalFrame.read(output)
+        } else {
+            null
+        }
+        shown
     }
 
     fun images(): List<TerminalImage> = synchronized(this) {
         if (handle == 0L) return emptyList()
+        placed?.let { return it }
         val placements = nativeImages(handle) ?: return emptyList()
         val unique = placements.indices.step(16).associateBy { placements[it + 1] }
         val visible = unique.keys
@@ -104,7 +123,7 @@ class TerminalKernel : AutoCloseable {
                 )
             )
         }
-        result.sortedWith(compareBy(TerminalImage::layer, TerminalImage::z))
+        result.sortedWith(compareBy(TerminalImage::layer, TerminalImage::z)).also { placed = it }
     }
 
     fun clipboard(): ByteArray? = synchronized(this) {
@@ -124,7 +143,10 @@ class TerminalKernel : AutoCloseable {
     }
 
     fun select(column: Int, row: Int, word: Boolean) = synchronized(this) {
-        if (handle != 0L) nativeSelect(handle, column, row, word)
+        if (handle != 0L) {
+            nativeSelect(handle, column, row, word)
+            changed = true
+        }
     }
 
     fun clearSelection() = select(-2, -2, word = false)
@@ -154,17 +176,24 @@ class TerminalKernel : AutoCloseable {
     }
 
     /** Zero returns to the bottom. Tells whether the view moved. */
-    fun scroll(rows: Int): Boolean = synchronized(this) { handle != 0L && nativeScroll(handle, rows) }
+    fun scroll(rows: Int): Boolean = synchronized(this) {
+        val moved = handle != 0L && nativeScroll(handle, rows)
+        if (moved) changed = true
+        moved
+    }
 
     override fun close() = synchronized(this) {
         if (handle != 0L) nativeDestroy(handle)
         handle = 0
         images.clear()
+        shown = null
+        placed = null
     }
 
     companion object {
         const val OK = 0
         private const val CLOSED = 1
+        private const val NO_ANIMATION = Long.MAX_VALUE
 
         init {
             System.loadLibrary("kodosi_android")

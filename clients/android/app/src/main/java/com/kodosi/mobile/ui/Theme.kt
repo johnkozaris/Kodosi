@@ -1,5 +1,10 @@
 package com.kodosi.mobile.ui
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.PowerManager
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
@@ -10,13 +15,17 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -148,6 +157,7 @@ object KodosiType {
 
 private val LocalColors = staticCompositionLocalOf { DarkColors }
 internal val LocalReducedMotion = staticCompositionLocalOf { false }
+internal val LocalPowerSaving = staticCompositionLocalOf { false }
 
 object KodosiTheme {
     val colors: KodosiColors
@@ -163,6 +173,7 @@ fun KodosiTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -
         minActiveState = Lifecycle.State.CREATED
     )
     val reduced = motion?.scaleFactor == 0f || !lifecycle.isAtLeast(Lifecycle.State.STARTED)
+    val powerSaving = powerSaveMode()
     val scheme = remember(colors) {
         ColorScheme(
             primary = colors.accent,
@@ -246,8 +257,31 @@ fun KodosiTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -
             LocalColors provides colors,
             LocalContentColor provides colors.ink,
             LocalReducedMotion provides reduced,
+            LocalPowerSaving provides powerSaving,
             LocalTonalElevationEnabled provides false,
             content = content
         )
     }
+}
+
+@Composable
+private fun powerSaveMode(): Boolean {
+    val application = LocalContext.current.applicationContext
+    val power = remember(application) { application.getSystemService(PowerManager::class.java) }
+    var saving by remember(power) { mutableStateOf(power.isPowerSaveMode) }
+    DisposableEffect(application, power) {
+        val changes = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                saving = power.isPowerSaveMode
+            }
+        }
+        application.registerReceiver(
+            changes,
+            IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
+            Context.RECEIVER_NOT_EXPORTED
+        )
+        saving = power.isPowerSaveMode
+        onDispose { application.unregisterReceiver(changes) }
+    }
+    return saving
 }

@@ -25,8 +25,9 @@ navigation:
   Projects hide the bottom navigation on compact windows. It becomes a rail on wide windows;
   projects put the conversation beside the selected work on wide screens. Navigation3
   supplies the back stack and predictive back. Motion follows the system animation
-  setting. Section docks have a well and a raised thumb, with only the chosen
-  section's name. Composers lift while focused and keep their send key within the field.
+  setting. A sign that loops stands still in art and while Android saves power. Section
+  docks have a well and a raised thumb, with only the chosen section's name. Composers
+  lift while focused and keep their send key within the field.
 - Sign-in, file picking and saving, notification settings and device authentication
   use Android's own surfaces. Error states keep their explanation and recovery action
   on the screen that needs them.
