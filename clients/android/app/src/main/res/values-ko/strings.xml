@@ -68,6 +68,7 @@
     <string name="start_fresh_title">이 휴대폰에서 새로 시작할까요?</string>
     <string name="starting_fresh">새로 시작하는 중</string>
     <string name="storage_failed">Kodosi가 저장 공간을 준비하지 못했어요.</string>
+    <string name="straight_connection">직접 연결</string>
     <string name="terminal_closed">터미널이 닫혔어요.</string>
     <string name="terminal_could_not_connect">터미널에 연결하지 못했어요.</string>
     <string name="terminal_ended">이 터미널은 종료됐어요.</string>

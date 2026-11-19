@@ -3400,6 +3400,10 @@
         <translation>닫기</translation>
     </message>
     <message>
+        <source>Straight connection</source>
+        <translation>직접 연결</translation>
+    </message>
+    <message>
         <source>Runs as root</source>
         <translation>root로 실행 중</translation>
     </message>

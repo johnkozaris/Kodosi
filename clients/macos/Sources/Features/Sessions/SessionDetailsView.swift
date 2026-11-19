@@ -94,7 +94,7 @@ struct SessionDetailsView: View {
         if current.status == .offline || deps.unreachable(current) {
             return deps.statusLabel(of: current)
         }
-        return current.isConnected ? nil : current.message ?? current.statusLabel
+        return current.isConnected ? current.pathLabel : current.message ?? current.statusLabel
     }
 
     @ContentBuilder

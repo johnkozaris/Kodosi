@@ -5,7 +5,7 @@ use tokio::sync::watch;
 use super::{channel::Transport, peers::Lane, wire::Frame, *};
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
 const DATA: u8 = 0;
 const ACK: u8 = 1;
@@ -138,6 +138,10 @@ impl Paths {
 
     pub(super) fn late(&self) -> watch::Receiver<bool> {
         self.late.clone()
+    }
+
+    pub(super) fn path(&self) -> watch::Receiver<Path> {
+        self.path.clone()
     }
 
     async fn went_direct(&mut self) -> bool {

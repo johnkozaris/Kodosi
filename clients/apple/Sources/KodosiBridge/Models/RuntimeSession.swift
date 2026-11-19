@@ -89,6 +89,9 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     /// This device's typing waits, and the connection to the other computer has not answered
     /// for a while. The connection stays open, and the typing arrives in order once it answers.
     public let stalled: Bool?
+    /// This device's connection to the terminal's computer goes straight between the two devices,
+    /// not through the service.
+    public let direct: Bool?
     public let message: String?
     public let projectId: String?
     public let projectName: String?
@@ -167,6 +170,10 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var otherComputer: String? {
         kind == .local ? nil : hostLabel
+    }
+
+    public var pathLabel: String? {
+        direct == true ? String(localized: "Straight connection", bundle: .module) : nil
     }
 
     public var statusLabel: String {

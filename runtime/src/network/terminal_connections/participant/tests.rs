@@ -1,5 +1,8 @@
 use super::{
-    super::channel::tests::{Pipe, pair, stand_in_snapshot},
+    super::{
+        channel::tests::{Pipe, channel_keys, pair, stand_in_snapshot},
+        route::tests::{lanes, routes},
+    },
     *,
 };
 use crate::{identity::keys::DeviceKeys, terminal::Checkpoint};
@@ -21,8 +24,27 @@ async fn view() -> View {
     let (commands, requests) = mpsc::channel(128);
     let (updates_tx, updates) = mpsc::channel(128);
     let (late, lateness) = watch::channel(false);
-    let ended = tokio::spawn(async move {
-        let mut viewer = Viewer::new(channel, requests, updates_tx, Finder::relay(), lateness);
+    let ended = drive(Viewer::new(
+        channel,
+        requests,
+        updates_tx,
+        Finder::relay(),
+        lateness,
+        watch::channel(Path::Relay).1,
+    ));
+    View {
+        host,
+        commands,
+        updates,
+        late,
+        ended,
+    }
+}
+
+fn drive<T: Transport + 'static>(
+    mut viewer: Viewer<T>,
+) -> tokio::task::JoinHandle<(Result<()>, Text)> {
+    tokio::spawn(async move {
         let timer = tokio::time::sleep_until(tokio::time::Instant::now());
         tokio::pin!(timer);
         let mut trust = tokio::time::interval(Duration::from_hours(1));
@@ -33,14 +55,7 @@ async fn view() -> View {
                 return (Err(error), reason);
             }
         }
-    });
-    View {
-        host,
-        commands,
-        updates,
-        late,
-        ended,
-    }
+    })
 }
 
 impl View {
@@ -179,6 +194,7 @@ async fn a_view_refuses_a_snapshot_that_does_not_end() {
         updates,
         Finder::relay(),
         watch::channel(false).1,
+        watch::channel(Path::Relay).1,
     );
     viewer.snapshot_sequence = Some(1);
     viewer.snapshot = vec![0; wire::PACKED_SNAPSHOT_LIMIT - wire::KEYFRAME_PART / 2];
@@ -343,6 +359,45 @@ async fn a_control_that_waits_stalls_the_view_while_its_connection_does_not_answ
         view.updates.recv().await,
         Some(RemoteUpdate::Stalled(false))
     ));
+}
+
+#[tokio::test]
+async fn a_view_says_while_its_route_goes_straight_to_the_host() {
+    let (host_keys, viewer_keys) = (
+        DeviceKeys::generate().unwrap(),
+        DeviceKeys::generate().unwrap(),
+    );
+    let ((viewer_route, viewer_paths), (host_route, host_paths), _service) = routes();
+    let (hosting, viewing) = (channel_keys(&host_keys), channel_keys(&viewer_keys));
+    let (accepted, connected) = tokio::join!(
+        Channel::accept(host_route, &hosting),
+        Channel::connect(
+            viewer_route,
+            &viewing,
+            "host-device",
+            host_keys.signing_public()
+        ),
+    );
+    let _hosted = accepted.unwrap();
+    let (_commands, requests) = mpsc::channel(1);
+    let (updates_tx, mut updates) = mpsc::channel(8);
+    let _ended = drive(Viewer::new(
+        connected.unwrap(),
+        requests,
+        updates_tx,
+        Finder::relay(),
+        viewer_paths.late(),
+        viewer_paths.path(),
+    ));
+
+    let (near, far, wire) = lanes();
+    host_paths.attach(far);
+    viewer_paths.attach(near);
+    let told = tokio::time::timeout(Duration::from_secs(10), updates.recv()).await;
+    assert!(matches!(told, Ok(Some(RemoteUpdate::Direct(true)))));
+    wire.cut.cancel();
+    let told = tokio::time::timeout(Duration::from_secs(10), updates.recv()).await;
+    assert!(matches!(told, Ok(Some(RemoteUpdate::Direct(false)))));
 }
 
 #[tokio::test]

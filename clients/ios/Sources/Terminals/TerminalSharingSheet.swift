@@ -133,7 +133,7 @@ struct TerminalSharingSheet: View {
         if session.status == .offline || model.unreachable(session) {
             return model.statusLabel(of: session)
         }
-        return session.isConnected ? nil : session.message ?? session.statusLabel
+        return session.isConnected ? session.pathLabel : session.message ?? session.statusLabel
     }
 
     private func access(_ session: RuntimeSession) -> String {

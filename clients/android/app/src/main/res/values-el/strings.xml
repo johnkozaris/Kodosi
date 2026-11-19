@@ -68,6 +68,7 @@
     <string name="start_fresh_title">Νέα αρχή σε αυτό το τηλέφωνο;</string>
     <string name="starting_fresh">Νέα αρχή</string>
     <string name="storage_failed">Το Kodosi δεν μπόρεσε να προετοιμάσει τον χώρο αποθήκευσής του.</string>
+    <string name="straight_connection">Απευθείας σύνδεση</string>
     <string name="terminal_closed">Το τερματικό έκλεισε.</string>
     <string name="terminal_could_not_connect">Το τερματικό δεν μπόρεσε να συνδεθεί.</string>
     <string name="terminal_ended">Αυτό το τερματικό τερματίστηκε.</string>

@@ -3412,6 +3412,10 @@
         <translation>Κλείσιμο</translation>
     </message>
     <message>
+        <source>Straight connection</source>
+        <translation>Απευθείας σύνδεση</translation>
+    </message>
+    <message>
         <source>Runs as root</source>
         <translation>Τρέχει ως root</translation>
     </message>

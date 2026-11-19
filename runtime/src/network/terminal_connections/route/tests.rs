@@ -21,7 +21,8 @@ impl Transport for Relay {
 type Service = mpsc::UnboundedSender<Result<Vec<u8>>>;
 
 /// A viewer's and a host's route over one relay pipe, and the service's end of the viewer's pipe.
-fn routes() -> ((Route, Paths), (Route, Paths), Service) {
+pub(in crate::network::terminal_connections) fn routes() -> ((Route, Paths), (Route, Paths), Service)
+{
     let (to_host, from_viewer) = mpsc::unbounded_channel();
     let (to_viewer, from_host) = mpsc::unbounded_channel();
     let service = to_viewer.clone();
@@ -44,14 +45,14 @@ fn routes() -> ((Route, Paths), (Route, Paths), Service) {
 
 /// The wire under two lanes: it can go silent, so that what is sent there is lost, or be cut.
 /// Each lane tells when it ended its connection.
-struct Wire {
-    cut: CancellationToken,
+pub(in crate::network::terminal_connections) struct Wire {
+    pub(in crate::network::terminal_connections) cut: CancellationToken,
     silent: Arc<AtomicBool>,
     near_abandoned: CancellationToken,
     far_abandoned: CancellationToken,
 }
 
-fn lanes() -> (Lane, Lane, Wire) {
+pub(in crate::network::terminal_connections) fn lanes() -> (Lane, Lane, Wire) {
     let wire = Wire {
         cut: CancellationToken::new(),
         silent: Arc::new(AtomicBool::new(false)),

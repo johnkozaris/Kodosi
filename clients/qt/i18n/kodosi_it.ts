@@ -3412,6 +3412,10 @@
         <translation>Chiudi</translation>
     </message>
     <message>
+        <source>Straight connection</source>
+        <translation>Connessione diretta</translation>
+    </message>
+    <message>
         <source>Runs as root</source>
         <translation>Gira come root</translation>
     </message>

@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 93;
+pub const VERSION: u32 = 94;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -987,6 +987,10 @@ pub struct SessionEntry {
     /// in order once it answers.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub stalled: bool,
+    /// This device's connection to the terminal's computer goes straight between the two devices,
+    /// not through the service.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub direct: bool,
     pub hidden: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<Text>,

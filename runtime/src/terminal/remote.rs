@@ -51,6 +51,7 @@ pub(crate) struct RemoteTerminal {
     link: Arc<AtomicU8>,
     hidden: watch::Sender<bool>,
     stalled: Arc<AtomicBool>,
+    direct: Arc<AtomicBool>,
     pub incarnation_id: Uuid,
     pub instance_id: Uuid,
 }
@@ -100,6 +101,7 @@ impl RemoteTerminal {
         let link = Arc::new(AtomicU8::new(Link::Open as u8));
         let (hidden, hidden_seen) = watch::channel(false);
         let stalled = Arc::new(AtomicBool::new(false));
+        let direct = Arc::new(AtomicBool::new(false));
         let terminal = Self {
             requests,
             cancellation: cancellation.clone(),
@@ -107,6 +109,7 @@ impl RemoteTerminal {
             link: Arc::clone(&link),
             hidden,
             stalled: Arc::clone(&stalled),
+            direct: Arc::clone(&direct),
             incarnation_id,
             instance_id,
         };
@@ -120,6 +123,7 @@ impl RemoteTerminal {
         );
         actor.shared_link = link;
         actor.stalled = stalled;
+        actor.direct = direct;
         tokio::spawn(actor.run());
         terminal
     }
@@ -134,6 +138,10 @@ impl RemoteTerminal {
 
     pub(crate) fn is_stalled(&self) -> bool {
         self.stalled.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn is_direct(&self) -> bool {
+        self.direct.load(Ordering::Acquire)
     }
 
     pub(crate) fn is_paused(&self) -> bool {
@@ -479,10 +487,6 @@ enum Link {
     Waking,
 }
 
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "each flag is a separate fact about one remote terminal"
-)]
 struct RemoteActor {
     connection: RemoteConnection,
     controls: RemoteControl,
@@ -505,7 +509,8 @@ struct RemoteActor {
     shared_link: Arc<AtomicU8>,
     hidden: watch::Receiver<bool>,
     stalled: Arc<AtomicBool>,
-    told_stalled: bool,
+    direct: Arc<AtomicBool>,
+    told_route: (bool, bool),
     link: Link,
     held: VecDeque<Request>,
     carrying: FuturesUnordered<JoinHandle<()>>,
@@ -554,7 +559,8 @@ impl RemoteActor {
             shared_link: Arc::new(AtomicU8::new(Link::Open as u8)),
             hidden,
             stalled: Arc::new(AtomicBool::new(false)),
-            told_stalled: false,
+            direct: Arc::new(AtomicBool::new(false)),
+            told_route: (false, false),
             link: Link::Open,
             held: VecDeque::new(),
             carrying: FuturesUnordered::new(),
@@ -590,8 +596,7 @@ impl RemoteActor {
         self.set_link(Link::Lost);
         self.lost_at.get_or_insert_with(tokio::time::Instant::now);
         self.connection.disconnect();
-        self.stalled.store(false, Ordering::Release);
-        self.tell_stalled();
+        self.leave_route();
         let refuse = || Error::Text(reason.clone());
         for reply in self
             .in_flight
@@ -730,6 +735,7 @@ impl RemoteActor {
     async fn pause(&mut self) {
         self.set_link(Link::Paused);
         self.connection.disconnect();
+        self.leave_route();
         self.reset();
         self.capture_requested = false;
         self.confirmed_focus = false;
@@ -958,28 +964,45 @@ impl RemoteActor {
             RemoteUpdate::Picture { sent, total } => self.picture_progress(sent, total),
             RemoteUpdate::Stalled(stalled) => {
                 self.stalled.store(stalled, Ordering::Release);
-                self.tell_stalled();
+                self.tell_route();
+            }
+            RemoteUpdate::Direct(direct) => {
+                self.direct.store(direct, Ordering::Release);
+                self.tell_route();
             }
             RemoteUpdate::Ended | RemoteUpdate::Closed { .. } => return Err(Error::Stopped),
         }
         Ok(())
     }
 
+    fn route(&self) -> (bool, bool) {
+        (
+            self.stalled.load(Ordering::Acquire),
+            self.direct.load(Ordering::Acquire),
+        )
+    }
+
+    fn leave_route(&mut self) {
+        self.stalled.store(false, Ordering::Release);
+        self.direct.store(false, Ordering::Release);
+        self.tell_route();
+    }
+
     /// A change that does not fit the queue goes again a moment later, so the runtime never keeps a
-    /// stall that ended.
-    fn tell_stalled(&mut self) {
-        let stalled = self.stalled.load(Ordering::Acquire);
-        if stalled != self.told_stalled
+    /// stall that ended or a path that changed.
+    fn tell_route(&mut self) {
+        let route = self.route();
+        if route != self.told_route
             && self
                 .changes
-                .try_send(SessionChange::RemoteStalled {
+                .try_send(SessionChange::RemoteRoute {
                     id: self.connection.session.id,
                     incarnation: self.connection.session.incarnation_id,
                     instance_id: self.instance_id,
                 })
                 .is_ok()
         {
-            self.told_stalled = stalled;
+            self.told_route = route;
         }
     }
 
@@ -1323,7 +1346,7 @@ impl RemoteActor {
             self.metadata = Some(metadata);
         }
         self.subscribers.prune();
-        self.tell_stalled();
+        self.tell_route();
         if self.lost_too_long() {
             for reply in self.queued.drain(..).filter_map(|queued| queued.reply) {
                 drop(reply.send(Err(Error::Text(reconnecting()))));
@@ -1363,8 +1386,7 @@ impl RemoteActor {
     /// Nothing tells when a view that fell behind has read what waits for it, so the terminal
     /// looks again while such a view still has to get a new screen.
     fn due(&self) -> Option<tokio::time::Instant> {
-        let unsent = (self.metadata.is_some()
-            || self.stalled.load(Ordering::Acquire) != self.told_stalled)
+        let unsent = (self.metadata.is_some() || self.route() != self.told_route)
             && !self.changes.is_closed();
         let behind = self.link == Link::Open
             && !self.capture_requested

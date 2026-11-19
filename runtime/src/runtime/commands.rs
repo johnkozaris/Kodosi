@@ -1808,6 +1808,7 @@ impl Runtime {
                     status: SessionStatus::Running,
                     connection_state: ConnectionState::Local,
                     stalled: false,
+                    direct: false,
                     hidden: false,
                     message: None,
                     project_id: project_id.clone(),
@@ -1964,6 +1965,7 @@ impl Runtime {
                 entry.connection_state = ConnectionState::Connected;
                 entry.status = SessionStatus::Running;
                 entry.stalled = false;
+                entry.direct = false;
                 entry.message = notice;
                 let resumed = self.connections.get(&id).is_some_and(|existing| {
                     existing.is_interrupted()

@@ -114,7 +114,8 @@ KPopover {
                 iconName: "laptop"
                 tint: "#4f9bb0"
                 title: root.session.hostLabel || ""
-                subtitle: root.session.isOwner === false && root.session.ownerName ? root.session.ownerName : ""
+                subtitle: root.session.isOwner === false && root.session.ownerName ? root.session.ownerName
+                    : root.session.direct === true ? qsTr("Straight connection") : ""
             }
             ListRow {
                 visible: !!root.session.placeKind || root.session.root === true
