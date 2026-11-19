@@ -54,6 +54,12 @@ class AppPreferences(context: Context) {
         saved.edit { putBoolean("notifications/asked", true) }
     }
 
+    val localNetworkAsked: Boolean get() = saved.getBoolean("localNetwork/asked", false)
+
+    fun localNetworkAsked() {
+        saved.edit { putBoolean("localNetwork/asked", true) }
+    }
+
     val launchComputer: String? get() = saved.getString("launch/computer", null)
     fun launchFolder(computer: String): String? = saved.getString("launch/folder/$computer", null)
 
