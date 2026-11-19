@@ -7,6 +7,7 @@ struct CanvasDocumentView: View {
     @Environment(\.theme) private var theme
     @Environment(\.self) private var environment
     @Environment(\.openURL) private var openURL
+    @Environment(\.onScreen) private var onScreen
     @AppStorage(DocumentViewers.storageKey) private var viewers = DocumentViewers()
     let session: String
     let item: CanvasItem
@@ -41,13 +42,16 @@ struct CanvasDocumentView: View {
             page?.links.otherComputer = otherComputer
             page?.restyle(look)
             page?.prefer(viewers.preferences(for: view))
+            page?.watch(onScreen)
         }
         .onDisappear {
             if let page {
+                page.watch(false)
                 pages.leave(page, key: item.key, in: session)
             }
             page = nil
         }
+        .onChange(of: onScreen) { _, onScreen in page?.watch(onScreen) }
         .onChange(of: look) { _, look in page?.restyle(look) }
         .onChange(of: viewers.preferences(for: view)) { _, preferences in page?.prefer(preferences) }
     }
@@ -129,6 +133,9 @@ final class CanvasDocumentPage {
     @ObservationIgnored private var preferences: [String: Bool]
     @ObservationIgnored private var inbound: AsyncStream<Inbound>.Continuation?
     @ObservationIgnored private var tasks: [Task<Void, Never>] = []
+    @ObservationIgnored private var watched = false
+    @ObservationIgnored private var seenAgain = false
+    @ObservationIgnored private var waking: AsyncStream<Void>.Continuation?
     private(set) var shown = false
 
     init(link: DocumentLink, view: CanvasItem.View, look: [String: String], preferences: [String: Bool]) {
@@ -187,9 +194,21 @@ final class CanvasDocumentPage {
         link.close()
     }
 
-    /// The system can end a web process, mostly on an iPhone. The view then starts again.
+    func watch(_ watched: Bool) {
+        let again = watched && !self.watched
+        self.watched = watched
+        if again {
+            seenAgain = true
+            waking?.finish()
+        }
+    }
+
+    private static let longestRest = Duration.seconds(60)
+
+    /// The system can end a web process, mostly on an iPhone.
     private func stayOpen() async {
         let start = URL(string: "\(Self.scheme)://view/index.html")!
+        var failures = 0
         while !Task.isCancelled {
             do {
                 for try await _ in page.load(URLRequest(url: start)) {}
@@ -208,7 +227,8 @@ final class CanvasDocumentPage {
                 )
             } catch {
                 shown = false
-                try? await Task.sleep(for: .seconds(1))
+                failures += 1
+                await rest(after: failures)
                 continue
             }
             do {
@@ -216,13 +236,39 @@ final class CanvasDocumentPage {
             } catch {
                 return
             }
+            let opened = ContinuousClock.now
             do {
                 for try await _ in page.navigations {}
             } catch {}
             shown = false
             link.close()
-            try? await Task.sleep(for: .seconds(1))
+            failures = opened.duration(to: .now) < Self.longestRest ? failures + 1 : 1
+            await rest(after: failures)
         }
+    }
+
+    private func rest(after failures: Int) async {
+        if !seenAgain {
+            await sleep(atMost: min(Self.longestRest, .seconds(1 << min(failures - 1, 6))))
+        }
+        while !watched, !Task.isCancelled {
+            await sleep(atMost: nil)
+        }
+        seenAgain = false
+    }
+
+    private func sleep(atMost pause: Duration?) async {
+        let (wakes, waking) = AsyncStream.makeStream(of: Void.self)
+        self.waking = waking
+        let alarm = pause.map { pause in
+            Task {
+                try? await Task.sleep(for: pause)
+                waking.finish()
+            }
+        }
+        for await _ in wakes {}
+        alarm?.cancel()
+        self.waking = nil
     }
 
     /// The frames and the news of the pipe reach the page in their order.
