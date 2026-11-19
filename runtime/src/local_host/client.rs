@@ -121,9 +121,9 @@ async fn connect(
 ) -> Result<(kodosi_os::ipc::Stream, Welcome)> {
     let (stream, welcome) = handshake(root, session_id).await?;
     if welcome.version < VERSION {
-        let host = welcome.host.ok_or_else(|| {
-            Error::Refused(text!("An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again."))
-        })?;
+        let host = welcome
+            .host
+            .ok_or_else(|| Error::Invalid("the host did not describe itself".into()))?;
         return Err(Error::HostOutdated {
             kind: host.kind,
             pid: host.pid,

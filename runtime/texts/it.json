@@ -3,7 +3,6 @@
 "A project member's identity changed.": "L'identità di un membro del progetto è cambiata.",
 "A user name has 3 to 64 letters, digits, hyphens or underscores.": "Un nome utente ha da 3 a 64 lettere, numeri, trattini o trattini bassi.",
 "An answer cannot be empty.": "Una risposta non può essere vuota.",
-"An earlier version of Kodosi still runs. Quit it, or end its `internal-host` process, and try again.": "È ancora in esecuzione una versione precedente di Kodosi. Chiudila o termina il suo processo `internal-host` e riprova.",
 "An existing trusted device must approve this device.": "Un dispositivo attendibile esistente deve approvare questo dispositivo.",
 "Another Kodosi account has this user name.": "Un altro account Kodosi ha questo nome utente.",
 "Another member has this task. Take another task, or ask them to release it.": "Un altro membro ha questa attività. Prendine un'altra o chiedigli di rilasciarla.",
