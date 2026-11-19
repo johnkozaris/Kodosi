@@ -9,8 +9,6 @@ use super::{
     start_failure, terminal,
 };
 
-const REFRESH_RETRY: std::time::Duration = std::time::Duration::from_secs(1);
-
 pub(super) struct Link {
     runtime: RuntimeHandle,
 }
@@ -217,6 +215,7 @@ async fn stream_terminal(
     mut subscriber: terminal::Subscription,
 ) {
     let mut retry: Option<tokio::time::Instant> = None;
+    let mut refreshes = terminal::RefreshRetry::default();
     loop {
         tokio::select! {
             biased;
@@ -228,10 +227,14 @@ async fn stream_terminal(
                     result = runtime.terminal_checkpoint(session, subscriber.connection_id) => result,
                 };
                 match fresh {
-                    Ok(cut) => subscriber.refresh(cut),
+                    Ok(cut) => {
+                        refreshes.worked();
+                        subscriber.refresh(cut);
+                    }
                     Err(error) => {
-                        tracing::warn!(%session, %error, "terminal view refresh failed; it will be tried again");
-                        retry = Some(tokio::time::Instant::now() + REFRESH_RETRY);
+                        retry = refreshes
+                            .failed(session, &error)
+                            .map(|wait| tokio::time::Instant::now() + wait);
                     }
                 }
             }
@@ -253,6 +256,7 @@ async fn stream_terminal(
                     Ok(Some(terminal::Frame::Control(terminal::ControlFrame::Snapshot { checkpoint, next_sequence }))) => {
                         if state.checkpoint(token, &checkpoint, next_sequence) {
                             retry = None;
+                            refreshes.worked();
                             continue;
                         }
                         (kodosi_runtime::text::Text::plain("the terminal snapshot could not be restored"), subscriber.next_sequence)

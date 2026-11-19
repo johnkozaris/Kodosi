@@ -710,6 +710,7 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             auth_pending: false,
             latest_auth: None,
             cached_events: BTreeMap::new(),
+            catalog: std::sync::Mutex::default(),
             answers: std::sync::Mutex::new(HashMap::new()),
             host: Some(crate::HostKind::Background),
             visible: HashMap::new(),
@@ -1732,6 +1733,29 @@ async fn a_failed_reconnect_waits_longer_each_time_and_only_a_final_answer_ends_
     assert!(!runtime.reconnect.contains_key(&id));
 }
 
+#[tokio::test(start_paused = true)]
+async fn a_view_that_cannot_start_to_connect_again_waits_like_one_that_failed() {
+    let (mut runtime, _root) = registry_fixture();
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    let (_view, _requests, updates) = open_view(&mut runtime, &remote).await;
+    lose_link(
+        &mut runtime,
+        &remote,
+        &updates,
+        "The connection has closed.",
+    )
+    .await;
+    for _ in runtime.jobs.len()..MAX_JOBS {
+        runtime.spawn(std::future::pending());
+    }
+    let failures = runtime.reconnect[&remote.id].failures;
+    runtime.reconnect.get_mut(&remote.id).unwrap().next = Instant::now();
+    runtime.reconnect_views();
+    assert!(!runtime.opening.contains_key(&remote.id));
+    assert_eq!(runtime.reconnect[&remote.id].failures, failures + 1);
+    assert!(runtime.reconnect[&remote.id].next > Instant::now());
+}
+
 fn first_snapshot() -> crate::network::RemoteUpdate {
     let mut terminal =
         ghostty_vt::Terminal::new(20, 4, ghostty_vt::TerminalPolicy::default()).unwrap();
@@ -1939,6 +1963,7 @@ async fn typing_that_another_computer_did_not_get_shows_on_its_terminal_and_not_
         remote_state(&runtime, id).2,
         Some(crate::network::input_not_sent())
     );
+    runtime.send_waiting_list();
     let mut published = Vec::new();
     while let Ok(event) = events.try_recv() {
         published.push(serde_json::to_value(event).unwrap()["type"].clone());
@@ -2552,15 +2577,16 @@ fn reports(runtime: &mut Runtime, remote: &RemoteSession, online: bool, status: 
     });
 }
 
+/// An app keeps the list that it got last.
 fn calls(
     events: &mut broadcast::Receiver<Event>,
+    listed: &mut Option<SessionEntry>,
 ) -> Vec<(Option<crate::terminal::Waiting>, crate::protocol::Cue)> {
-    let mut listed = None;
     let mut calls = Vec::new();
     while let Ok(event) = events.try_recv() {
         match event.event {
             crate::protocol::EventBody::SessionsSnapshot { mut sessions } => {
-                listed = sessions.pop();
+                *listed = sessions.pop();
             }
             crate::protocol::EventBody::TerminalAttention { cue, .. } => {
                 let entry = listed.as_ref().expect("the list comes before the call");
@@ -2618,7 +2644,7 @@ async fn a_friends_open_terminal_calls_once_a_new_state_lasts_unseen_and_not_whe
     tokio::time::advance(Duration::from_secs(3)).await;
     assert!(!marked(&mut runtime));
     assert_eq!(
-        calls(&mut events),
+        calls(&mut events, &mut None),
         [
             (Some(Waiting::Done), crate::protocol::Cue::List),
             (Some(Waiting::Error), crate::protocol::Cue::List)
@@ -2646,6 +2672,80 @@ async fn a_new_state_of_a_friends_open_terminal_calls_when_it_lasts_with_nothing
     ) {}
     let lasted = reported.elapsed();
     assert!(lasted >= Duration::from_secs(2) && lasted < Duration::from_millis(2100));
+    looping.abort();
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_app_that_asks_for_the_list_gets_it_also_when_nothing_changed() {
+    let (mut runtime, _root) = registry_fixture();
+    runtime.replace_remotes(vec![remote_session(Uuid::now_v7(), Uuid::now_v7())]);
+    let mut events = runtime.events.subscribe();
+    for wait in [catalog::PACE, Duration::ZERO] {
+        tokio::time::sleep(wait).await;
+        let list = Command::ListSessions {
+            request_id: Uuid::now_v7().to_string(),
+        };
+        runtime
+            .expect_answer(&list, Uuid::now_v7(), CancellationToken::new())
+            .unwrap();
+        runtime.apply(&list).unwrap();
+        let heard = std::iter::from_fn(|| events.try_recv().ok())
+            .map(|event| event.event.kind())
+            .collect::<Vec<_>>();
+        assert_eq!(heard, ["sessions.snapshot", "session.result"]);
+    }
+}
+
+async fn next_list(events: &mut broadcast::Receiver<Event>) -> Option<Vec<SessionEntry>> {
+    timeout(Duration::from_secs(1), async {
+        loop {
+            if let crate::protocol::EventBody::SessionsSnapshot { sessions } =
+                events.recv().await.unwrap().event
+            {
+                return sessions;
+            }
+        }
+    })
+    .await
+    .ok()
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_title_that_changes_often_reaches_the_apps_once_a_moment_and_only_when_it_changed() {
+    let (mut runtime, _root, changes) = loop_fixture().await;
+    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let (_view, updates) = open_shown(&mut runtime, &remote, client, &lifetime).await;
+    let mut events = runtime.events.subscribe();
+    let (_requests, looping) = start_loop(runtime, changes).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    while events.try_recv().is_ok() {}
+    let titled = |title: &str| {
+        crate::network::RemoteUpdate::Metadata(crate::terminal::TerminalMetadata {
+            title: Some(title.to_owned()),
+            ..Default::default()
+        })
+    };
+
+    updates.send(titled("one")).await.unwrap();
+    let first = Instant::now();
+    let listed = next_list(&mut events).await.expect("a list at once");
+    assert_eq!(listed[0].title.as_deref(), Some("one"));
+    assert_eq!(first.elapsed(), Duration::ZERO);
+    for title in ["two", "three"] {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        updates.send(titled(title)).await.unwrap();
+    }
+    let listed = next_list(&mut events)
+        .await
+        .expect("a list within the moment");
+    assert_eq!(listed[0].title.as_deref(), Some("three"));
+    assert!(first.elapsed() <= catalog::PACE);
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    updates.send(titled("three")).await.unwrap();
+    assert!(next_list(&mut events).await.is_none());
     looping.abort();
 }
 
@@ -2701,7 +2801,7 @@ async fn a_terminal_of_the_person_on_another_computer_has_the_mark_that_its_host
     reports(&mut runtime, &remote, true, &json!({"state":"blocked"}));
     assert!(!marked(&runtime));
     assert_eq!(
-        calls(&mut events),
+        calls(&mut events, &mut None),
         [(Some(Waiting::Blocked), crate::protocol::Cue::List)]
     );
 }
@@ -2984,7 +3084,7 @@ async fn a_wait_seen_on_its_computer_gets_its_mark_again_and_calls_once_when_its
     runtime.attend();
     reports_presence(&mut runtime, app, Presence::Idle);
     assert_eq!(
-        calls(&mut events),
+        calls(&mut events, &mut None),
         [(Some(Waiting::Blocked), crate::protocol::Cue::Sound)]
     );
     reports_presence(&mut runtime, app, Presence::Kodosi);
@@ -3001,6 +3101,7 @@ async fn a_bell_marks_its_terminal_for_the_apps_of_this_computer_and_nowhere_els
     let mark = runtime.local[&id].publication(id).3;
     let mut events = runtime.events.subscribe();
     runtime.change(SessionChange::Bell { id });
+    runtime.send_waiting_list();
     let told = std::iter::from_fn(|| events.try_recv().ok())
         .map(|event| event.event.kind())
         .collect::<Vec<_>>();
@@ -3055,6 +3156,7 @@ async fn a_wait_that_its_person_leaves_at_another_computer_calls_once_on_this_de
     remote.owner_user_id = "me".to_owned();
     runtime.replace_remotes(vec![remote.clone()]);
     let mut events = runtime.events.subscribe();
+    let mut listed = None;
     let elsewhere = |runtime: &mut Runtime, here: bool| {
         let (generation, user_id) = (runtime.network.generation(), runtime.scope.user.clone());
         runtime.network_event(BackendEvent {
@@ -3067,23 +3169,23 @@ async fn a_wait_that_its_person_leaves_at_another_computer_calls_once_on_this_de
 
     elsewhere(&mut runtime, true);
     reports(&mut runtime, &remote, true, &waits);
-    assert_eq!(calls(&mut events), Vec::new());
+    assert_eq!(calls(&mut events, &mut listed), Vec::new());
     elsewhere(&mut runtime, false);
     reports(&mut runtime, &remote, true, &waits);
     runtime.attend();
     assert_eq!(
-        calls(&mut events),
+        calls(&mut events, &mut listed),
         [(Some(Waiting::Blocked), crate::protocol::Cue::List)]
     );
 
     elsewhere(&mut runtime, true);
     reports(&mut runtime, &remote, true, &json!({"state":"blocked"}));
     elsewhere(&mut runtime, false);
-    assert_eq!(calls(&mut events), Vec::new());
+    assert_eq!(calls(&mut events, &mut listed), Vec::new());
     reports(&mut runtime, &remote, true, &waits);
     runtime.attend();
     assert_eq!(
-        calls(&mut events),
+        calls(&mut events, &mut listed),
         [(Some(Waiting::Blocked), crate::protocol::Cue::List)]
     );
 }
@@ -3606,7 +3708,10 @@ async fn folders_from_another_computer_fill_only_its_terminals_and_an_open_view_
         .unwrap();
     let mut events = runtime.events.subscribe();
     runtime.apply(&list).unwrap();
-    let answer = serde_json::to_value(events.try_recv().unwrap()).unwrap();
+    let answer = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| serde_json::to_value(event).unwrap())
+        .find(|event| event["requestId"] == list.request_id())
+        .unwrap();
     assert_eq!(
         answer["folders"],
         json!([]),

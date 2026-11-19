@@ -30,7 +30,6 @@ const HELLO_TIMEOUT: Duration = Duration::from_secs(3);
 const STOPPING_HOST_WAIT: Duration = Duration::from_secs(1);
 const STOPPING_HOST_RETRY: Duration = Duration::from_millis(20);
 const ACCOUNT_TIMEOUT: Duration = Duration::from_secs(30);
-const REFRESH_RETRY: Duration = Duration::from_secs(1);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Serialize, Deserialize)]

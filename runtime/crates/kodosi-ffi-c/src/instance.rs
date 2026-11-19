@@ -189,6 +189,21 @@ pub unsafe extern "C" fn kodosi_start(
 type Started = (Arc<Instance>, Runner);
 type Setup = (Executor, Arc<Instance>, Runner);
 
+#[cfg(feature = "host")]
+fn executor() -> std::io::Result<Executor> {
+    Executor::new()
+}
+
+/// Tokio starts a worker for each core and wakes idle ones to look for work. A phone pays for
+/// each wake, and its few terminal views need two.
+#[cfg(not(feature = "host"))]
+fn executor() -> std::io::Result<Executor> {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+}
+
 fn run_executor(
     key: usize,
     callbacks: KodosiCallbacks,
@@ -198,7 +213,7 @@ fn run_executor(
 ) {
     let setup = std::panic::catch_unwind(AssertUnwindSafe(
         || -> std::result::Result<Setup, Box<KodosiStartFailure>> {
-            let executor = Executor::new()
+            let executor = executor()
                 .map_err(|error| start_failure(KODOSI_START_FAILED, &error.to_string()))?;
             let config = crate::app::start_config()?;
             kodosi_runtime::diagnostics::install(

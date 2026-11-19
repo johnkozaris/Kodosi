@@ -989,20 +989,11 @@ impl RemoteActor {
         self.tell_route();
     }
 
-    /// A change that does not fit the queue goes again a moment later, so the runtime never keeps a
-    /// stall that ended or a path that changed.
+    /// A change that does not fit the queue goes once the runtime has room for it, so the runtime
+    /// never keeps a stall that ended or a path that changed.
     fn tell_route(&mut self) {
         let route = self.route();
-        if route != self.told_route
-            && self
-                .changes
-                .try_send(SessionChange::RemoteRoute {
-                    id: self.connection.session.id,
-                    incarnation: self.connection.session.incarnation_id,
-                    instance_id: self.instance_id,
-                })
-                .is_ok()
-        {
+        if route != self.told_route && self.changes.try_send(self.route_change()).is_ok() {
             self.told_route = route;
         }
     }
@@ -1365,12 +1356,7 @@ impl RemoteActor {
         if let Some(metadata) = self.metadata.take()
             && let Err(mpsc::error::TrySendError::Full(SessionChange::Metadata {
                 metadata, ..
-            })) = self.changes.try_send(SessionChange::Metadata {
-                id: self.connection.session.id,
-                incarnation: self.connection.session.incarnation_id,
-                instance_id: self.instance_id,
-                metadata,
-            })
+            })) = self.changes.try_send(self.metadata_change(metadata))
         {
             self.metadata = Some(metadata);
         }
@@ -1412,15 +1398,7 @@ impl RemoteActor {
         self.request_capture().await
     }
 
-    /// Nothing tells when a view that fell behind has read what waits for it, so the terminal
-    /// looks again while such a view still has to get a new screen.
     fn due(&self) -> Option<tokio::time::Instant> {
-        let unsent = (self.metadata.is_some() || self.route() != self.told_route)
-            && !self.changes.is_closed();
-        let behind = self.link == Link::Open
-            && !self.capture_requested
-            && self.future_checkpoint.is_none()
-            && self.subscribers.behind();
         let lost = self
             .lost_at
             .filter(|_| {
@@ -1439,8 +1417,44 @@ impl RemoteActor {
                     .then_some(self.capture_asked + LOOK_AGAIN),
             )
             .chain(lost)
-            .chain((unsent || behind).then(|| tokio::time::Instant::now() + LOOK_AGAIN))
             .min()
+    }
+
+    fn awaits_reading(&self) -> bool {
+        self.link == Link::Open
+            && !self.capture_requested
+            && self.future_checkpoint.is_none()
+            && self.subscribers.reading_behind()
+    }
+
+    fn unsent(&self) -> bool {
+        (self.metadata.is_some() || self.route() != self.told_route) && !self.changes.is_closed()
+    }
+
+    fn tell_unsent(&mut self, room: mpsc::OwnedPermit<SessionChange>) {
+        if let Some(metadata) = self.metadata.take() {
+            drop(room.send(self.metadata_change(metadata)));
+        } else if self.route() != self.told_route {
+            self.told_route = self.route();
+            drop(room.send(self.route_change()));
+        }
+    }
+
+    fn metadata_change(&self, metadata: super::TerminalMetadata) -> SessionChange {
+        SessionChange::Metadata {
+            id: self.connection.session.id,
+            incarnation: self.connection.session.incarnation_id,
+            instance_id: self.instance_id,
+            metadata,
+        }
+    }
+
+    fn route_change(&self) -> SessionChange {
+        SessionChange::RemoteRoute {
+            id: self.connection.session.id,
+            incarnation: self.connection.session.incarnation_id,
+            instance_id: self.instance_id,
+        }
     }
 
     fn connection_update(&mut self, update: Option<RemoteUpdate>) -> Step {
@@ -1544,8 +1558,6 @@ impl RemoteActor {
         );
     }
 
-    /// A look again moves later with each step, so the timer is set again only for an earlier
-    /// deadline, and one that goes off early finds nothing due.
     async fn step(&mut self, mut timer: Pin<&mut tokio::time::Sleep>) -> Step {
         let interrupted = self.link != Link::Open;
         if !interrupted && *self.hidden.borrow() && self.idle() {
@@ -1559,9 +1571,12 @@ impl RemoteActor {
             self.next_control();
             self.next_picture().await;
         }
+        // A view reads its queue on another thread. One that reads up after this look gets a
+        // deadline from `due` or ends `read_up` at once.
+        let (reading, unsent) = (self.awaits_reading(), self.unsent());
         let due = self.due();
         if let Some(at) = due
-            && (at < timer.deadline() || timer.is_elapsed())
+            && timer.deadline() != at
         {
             timer.as_mut().reset(at);
         }
@@ -1621,6 +1636,13 @@ impl RemoteActor {
             Some(_) = self.carrying.next() => Ok(()),
             Ok(()) = self.hidden.changed() => Ok(()),
             () = std::future::poll_fn(|context| abandoned(&mut self.pending, context)), if !self.pending.is_empty() => Ok(()),
+            () = self.subscribers.read_up(), if reading => Ok(()),
+            room = async { self.changes.clone().reserve_owned().await }, if unsent => {
+                if let Ok(room) = room {
+                    self.tell_unsent(room);
+                }
+                Ok(())
+            }
             () = timer, if due.is_some() => Ok(()),
         };
         if let Err(error) = outcome {

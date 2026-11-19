@@ -35,6 +35,7 @@ use crate::{
 use crate::{network::LocalPublication, terminal::TerminalSession};
 
 mod attention;
+mod catalog;
 #[cfg(feature = "host")]
 mod changes;
 mod commands;
@@ -1192,6 +1193,7 @@ struct Runtime {
     auth_pending: bool,
     latest_auth: Option<Value>,
     cached_events: BTreeMap<String, Value>,
+    catalog: std::sync::Mutex<catalog::Catalog>,
     answers: std::sync::Mutex<HashMap<String, Answer>>,
 }
 
@@ -1343,6 +1345,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         auth_pending: false,
         latest_auth: None,
         cached_events: BTreeMap::new(),
+        catalog: std::sync::Mutex::default(),
         answers: std::sync::Mutex::new(HashMap::new()),
     };
     tokio::spawn(async move {
@@ -1376,10 +1379,37 @@ impl Runtime {
                         answers.remove(request);
                     }
                 }
-                drop(self.events.send(event));
+                self.send_event(event);
             }
             Err(error) => tracing::error!(%error, "invalid runtime event"),
         }
+    }
+
+    /// A list of terminals that waits for its moment goes out before any later event, so that an
+    /// app has the terminals that the event is about.
+    fn send_event(&self, event: Event) {
+        self.send_waiting_list();
+        drop(self.events.send(event));
+    }
+
+    fn send_waiting_list(&self) {
+        self.send_list(catalog::Catalog::take);
+    }
+
+    fn send_list(
+        &self,
+        list: impl FnOnce(&mut catalog::Catalog, tokio::time::Instant) -> Option<Event>,
+    ) {
+        let list = list(&mut self.catalog(), tokio::time::Instant::now());
+        if let Some(list) = list {
+            drop(self.events.send(list));
+        }
+    }
+
+    fn catalog(&self) -> std::sync::MutexGuard<'_, catalog::Catalog> {
+        self.catalog
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     fn answers(&self) -> std::sync::MutexGuard<'_, HashMap<String, Answer>> {
@@ -1455,7 +1485,7 @@ impl Runtime {
         match self.event(answer(command, Err(error))) {
             Ok(mut event) => {
                 event.recipient = Some(consumer);
-                drop(self.events.send(event));
+                self.send_event(event);
             }
             Err(error) => tracing::error!(%error, "invalid runtime event"),
         }
@@ -1529,8 +1559,22 @@ impl Runtime {
         }
         #[cfg(feature = "host")]
         self.share_marks();
-        self.emit(json!({"type":"sessions.snapshot", "sessions":entries}));
+        let listing = self.listing(entries);
+        self.send_list(|catalog, now| catalog.changed(listing, now));
         self.call_started();
+    }
+
+    fn publish_asked_catalog(&mut self) {
+        self.catalog().ask();
+        self.publish_catalog();
+    }
+
+    fn listing(&self, sessions: Vec<SessionEntry>) -> catalog::Listing {
+        catalog::Listing {
+            user: self.scope.user.clone(),
+            epoch: self.scope.epoch,
+            sessions,
+        }
     }
 
     /// The terminal list goes first, so that an app has the state that the call is about.
@@ -1682,10 +1726,18 @@ impl Runtime {
             request_id: Uuid::now_v7().to_string(),
             session_id: id.to_string(),
         };
-        if self.open_remote(id, command).is_ok()
-            && let Some(opening) = self.opening.get_mut(&id)
-        {
-            opening.commands.clear();
+        match self.open_remote(id, command) {
+            Ok(()) => {
+                if let Some(opening) = self.opening.get_mut(&id) {
+                    opening.commands.clear();
+                }
+            }
+            Err(_) => {
+                if let Some(retry) = self.reconnect.get_mut(&id) {
+                    retry.failures = retry.failures.saturating_add(1);
+                    retry.next = tokio::time::Instant::now() + Reconnect::delay(retry.failures);
+                }
+            }
         }
     }
 
@@ -1738,15 +1790,20 @@ impl Runtime {
     }
 
     fn snapshot_events(&self) -> Result<Vec<Event>> {
-        let mut values = vec![
+        let mut events = Vec::new();
+        for value in [
             self.ready_event(),
             self.auth_event(),
             self.connection_event(),
-            json!({"type":"sessions.snapshot", "sessions":self.entries()}),
-        ];
-        values.push(self.dosi.snapshot());
-        values.extend(self.cached_events.values().cloned());
-        values.into_iter().map(|value| self.event(value)).collect()
+        ] {
+            events.push(self.event(value)?);
+        }
+        events.push(self.listing(self.entries()).event());
+        events.push(self.event(self.dosi.snapshot())?);
+        for value in self.cached_events.values() {
+            events.push(self.event(value.clone())?);
+        }
+        Ok(events)
     }
 
     fn connection_event(&self) -> Value {
@@ -1862,6 +1919,7 @@ impl Runtime {
         }
         self.publish_connection();
         self.attend();
+        self.send_list(catalog::Catalog::take_due);
     }
 
     fn next_deadline(&self) -> Option<tokio::time::Instant> {
@@ -1883,6 +1941,7 @@ impl Runtime {
             offline,
             attention,
             self.pipes_due(),
+            self.catalog().due(),
         ]
         .into_iter()
         .flatten()
@@ -1975,6 +2034,7 @@ impl Runtime {
                 _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); }
             }
         }
+        self.send_waiting_list();
         requests.close();
         self.stop().await;
     }
@@ -2717,9 +2777,11 @@ impl Runtime {
     fn request(&mut self, request: Request) {
         match request {
             Request::Snapshot(reply) => {
+                self.send_waiting_list();
                 drop(reply.send(self.snapshot_events()));
             }
             Request::Observe(reply) => {
+                self.send_waiting_list();
                 let receiver = self.events.subscribe();
                 drop(reply.send(self.snapshot_events().map(|events| (events, receiver))));
             }

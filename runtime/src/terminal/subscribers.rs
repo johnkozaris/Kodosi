@@ -1,6 +1,10 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    time::Duration,
+};
 
 use bytes::Bytes;
+use futures_util::{StreamExt as _, stream::FuturesUnordered};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -13,6 +17,8 @@ const CONTROL_CAPACITY: usize = 16;
 const MAX_SUBSCRIBERS: usize = 32;
 const MAX_PENDING_RESIZES: usize = 32;
 pub(super) const MAX_RAW_BYTES: usize = 64 * 1024;
+const REFRESH_RETRY: Duration = Duration::from_secs(1);
+const LONGEST_REFRESH_RETRY: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone)]
 pub struct DataFrame {
@@ -165,6 +171,36 @@ impl Drop for Subscription {
     }
 }
 
+/// When a view asks its terminal again for a new screen that it did not get.
+#[derive(Default)]
+pub struct RefreshRetry {
+    failures: u32,
+    failure: crate::diagnostics::Repeats,
+}
+
+impl RefreshRetry {
+    /// The wait before the next ask, or none when the terminal or the view is gone.
+    pub fn failed(&mut self, session: Uuid, error: &Error) -> Option<Duration> {
+        let gone = matches!(error, Error::NotFound | Error::Stale | Error::Stopped);
+        if self.failure.new_failure(error) {
+            tracing::warn!(%session, %error, again = !gone, "terminal view refresh failed");
+        }
+        if gone {
+            return None;
+        }
+        let wait = REFRESH_RETRY
+            .saturating_mul(2_u32.saturating_pow(self.failures))
+            .min(LONGEST_REFRESH_RETRY);
+        self.failures = self.failures.saturating_add(1);
+        Some(wait)
+    }
+
+    pub fn worked(&mut self) {
+        self.failures = 0;
+        self.failure.worked();
+    }
+}
+
 struct Subscriber {
     data: mpsc::Sender<DataFrame>,
     control: mpsc::Sender<ControlFrame>,
@@ -179,6 +215,10 @@ impl Subscriber {
 
     fn caught_up(&self) -> bool {
         self.behind && self.is_active() && self.data.capacity() == self.data.max_capacity()
+    }
+
+    fn reading_behind(&self) -> bool {
+        self.behind && self.is_active() && self.data.capacity() < self.data.max_capacity()
     }
 
     fn deliver(&mut self, frame: ControlFrame) -> bool {
@@ -322,10 +362,28 @@ impl Subscribers {
         self.entries.values().any(Subscriber::caught_up)
     }
 
+    #[cfg(feature = "host")]
     pub(crate) fn behind(&self) -> bool {
         self.entries
             .values()
             .any(|entry| entry.behind && entry.is_active())
+    }
+
+    pub(crate) fn reading_behind(&self) -> bool {
+        self.entries.values().any(Subscriber::reading_behind)
+    }
+
+    /// Ends when a view that fell behind has read all that waited for it: only then does its
+    /// queue have room for all that it holds. A view can read up on another thread before the
+    /// wait starts, so the wait then ends at once.
+    pub(crate) async fn read_up(&self) {
+        let mut reading = self
+            .entries
+            .values()
+            .filter(|entry| entry.reading_behind())
+            .map(|entry| entry.data.reserve_many(entry.data.max_capacity()))
+            .collect::<FuturesUnordered<_>>();
+        drop(reading.next().await);
     }
 
     pub(crate) fn refresh(&mut self, checkpoint: &Checkpoint, next_sequence: u64) {
