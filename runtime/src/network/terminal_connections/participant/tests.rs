@@ -103,6 +103,15 @@ impl View {
             .unwrap()
             .unwrap()
     }
+
+    async fn delivery(&self) -> oneshot::Receiver<()> {
+        let (reply, delivered) = oneshot::channel();
+        self.commands
+            .send(RemoteRequest::Delivered { reply })
+            .await
+            .unwrap();
+        delivered
+    }
 }
 
 #[tokio::test]
@@ -406,6 +415,7 @@ async fn a_lost_connection_says_that_input_was_not_sent_when_the_host_did_not_co
     view.keyframe(0, 200).await;
     view.updates.recv().await.unwrap();
     view.input(b"12345").await.unwrap();
+    let delivered = view.delivery().await;
     view.host
         .send(&Frame::InputAck { offset: 2 })
         .await
@@ -418,6 +428,34 @@ async fn a_lost_connection_says_that_input_was_not_sent_when_the_host_did_not_co
         reason.to_string(),
         "Lost. Kodosi did not send some of your last input."
     );
+    assert!(delivered.await.is_err());
+}
+
+#[tokio::test]
+async fn a_delivery_is_told_once_the_host_has_all_input_that_went_before_it() {
+    let mut view = view().await;
+    view.keyframe(0, 200).await;
+    view.updates.recv().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(5), view.delivery().await)
+        .await
+        .unwrap()
+        .unwrap();
+    view.input(b"ls\r").await.unwrap();
+    let mut delivered = view.delivery().await;
+    view.host
+        .send(&Frame::InputAck { offset: 2 })
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(delivered.try_recv().is_err());
+    view.host
+        .send(&Frame::InputAck { offset: 3 })
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), delivered)
+        .await
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]
@@ -426,6 +464,7 @@ async fn the_end_from_the_host_ends_the_view_with_all_input_confirmed() {
     view.keyframe(0, 200).await;
     view.updates.recv().await.unwrap();
     view.input(b"exit\r").await.unwrap();
+    let delivered = view.delivery().await;
     view.host
         .send(&Frame::End(wire::End {
             final_sequence: 3,
@@ -439,6 +478,7 @@ async fn the_end_from_the_host_ends_the_view_with_all_input_confirmed() {
     ));
     let (_, reason) = view.ended.await.unwrap();
     assert_eq!(reason.to_string(), "Lost.");
+    delivered.await.unwrap();
 }
 
 #[tokio::test]

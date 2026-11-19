@@ -141,6 +141,9 @@ pub(crate) enum RemoteRequest {
         picture: crate::terminal::Picture,
         reply: oneshot::Sender<Result<()>>,
     },
+    Delivered {
+        reply: oneshot::Sender<()>,
+    },
 }
 
 pub(super) fn open_pipe(

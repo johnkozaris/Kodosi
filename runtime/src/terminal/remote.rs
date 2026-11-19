@@ -433,6 +433,7 @@ struct InFlight {
     result: Pin<Box<dyn Future<Output = crate::network::Result<Value>> + Send>>,
     replies: Vec<oneshot::Sender<Result<Value>>>,
     input: bool,
+    delivers: bool,
     focus: Option<bool>,
     resize_owner: Option<(Uuid, CancellationToken)>,
     _budgets: Vec<OwnedSemaphorePermit>,
@@ -1070,6 +1071,7 @@ impl RemoteActor {
                 Vec::new(),
                 None,
                 Vec::new(),
+                false,
             );
             return;
         }
@@ -1144,7 +1146,9 @@ impl RemoteActor {
                 replies.insert(0, reply);
             }
             budgets.extend(queued.budget);
-            self.begin(control, replies, resize_owner, budgets);
+            let delivers =
+                queued.connection.is_none() && matches!(control, TerminalControl::Input { .. });
+            self.begin(control, replies, resize_owner, budgets, delivers);
             break;
         }
     }
@@ -1263,6 +1267,7 @@ impl RemoteActor {
         replies: Vec<oneshot::Sender<Result<Value>>>,
         resize_owner: Option<(Uuid, CancellationToken)>,
         budgets: Vec<OwnedSemaphorePermit>,
+        delivers: bool,
     ) {
         let focus = match &control {
             TerminalControl::Focus { focused } => Some(*focused),
@@ -1274,16 +1279,40 @@ impl RemoteActor {
             result: Box::pin(async move { controls.send_control(control).await }),
             replies,
             input,
+            delivers,
             focus,
             resize_owner,
             _budgets: budgets,
         });
     }
 
+    /// A command ends when it has its answer, and its connection closes with it. So a command
+    /// hears about its input once the terminal has it, while the input of a view, which stays
+    /// open, goes on at once.
+    fn deliver(&self, replies: Vec<oneshot::Sender<Result<Value>>>) {
+        let delivered = self.controls.delivered();
+        self.carrying.push(tokio::spawn(async move {
+            let failure = delivered.await.err().map(|error| error.text());
+            for reply in replies {
+                drop(
+                    reply.send(
+                        failure
+                            .clone()
+                            .map_or(Ok(Value::Null), |text| Err(Error::Text(text))),
+                    ),
+                );
+            }
+        }));
+    }
+
     fn finish_control(&mut self, result: crate::network::Result<Value>) -> Result<()> {
         let Some(active) = self.in_flight.take() else {
             return Err(Error::Stopped);
         };
+        if active.delivers && result.is_ok() {
+            self.deliver(active.replies);
+            return Ok(());
+        }
         let mut fatal = None;
         if result.is_ok() {
             if let Some(focus) = active.focus {
