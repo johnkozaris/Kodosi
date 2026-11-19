@@ -132,10 +132,10 @@ final class AppDependencies {
                 try? await Task.sleep(for: .milliseconds(10))
             }
             while !Task.isCancelled {
-                guard let data = await currentInbox.next() else { break }
+                guard let event = await currentInbox.nextEvent() else { break }
                 guard !Task.isCancelled, let self else { return }
                 do {
-                    try receive(JSONDecoder().decode(RuntimeEvent.self, from: data))
+                    try receive(event.get())
 
                 } catch {
                     failRuntime(String(localized: "Kodosi got an update it cannot read: \(error.localizedDescription)")); return
