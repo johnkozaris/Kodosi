@@ -7,6 +7,16 @@ struct BrowserInputArea {
     let ask: CanvasAsk?
 }
 
+extension View {
+    func browserPageMenu(feed: BrowserFeed, ask: CanvasAsk?) -> some View {
+        #if os(macOS)
+            self
+        #else
+            modifier(BrowserPageMenu(feed: feed, ask: ask))
+        #endif
+    }
+}
+
 private extension BrowserFeed {
     func type(_ text: String) {
         for character in text {
@@ -361,17 +371,76 @@ extension BrowserKeys {
 
         func updateUIView(_ view: BrowserInputView, context _: Context) {
             view.feed = feed
-            if typing, !view.isFirstResponder {
-                view.becomeFirstResponder()
-            } else if !typing, view.isFirstResponder {
-                view.resignFirstResponder()
+            view.wantsKeyboard(typing)
+        }
+    }
+
+    struct BrowserPageMenu: ViewModifier {
+        let feed: BrowserFeed
+        let ask: CanvasAsk?
+        @State private var answered: Int?
+
+        func body(content: Content) -> some View {
+            let menu = feed.window.menu.flatMap { $0.id == answered ? nil : $0 }
+            content.confirmationDialog(
+                Text(verbatim: ""),
+                isPresented: Binding(get: { menu != nil }, set: { shown in
+                    if !shown, let menu {
+                        answer(menu, nil)
+                    }
+                }),
+                titleVisibility: .hidden,
+                presenting: menu,
+            ) { menu in
+                if let context = menu.context {
+                    Button(String(localized: "Copy", bundle: .module)) {
+                        answer(menu, BrowserWindow.MenuContext.copySelection)
+                    }
+                    .disabled(context.selection.isEmpty)
+                    if context.link != nil {
+                        Button(String(localized: "Copy Link", bundle: .module)) {
+                            answer(menu, BrowserWindow.MenuContext.copyLink)
+                        }
+                    }
+                    Button(String(localized: "Paste", bundle: .module)) {
+                        answer(menu, nil)
+                        if let text = UIPasteboard.general.string, !text.isEmpty {
+                            feed.send(.text(text))
+                        }
+                    }
+                    if let ask {
+                        Button(ask.title) {
+                            answer(menu, nil)
+                            ask.send(context.words)
+                        }
+                    }
+                } else {
+                    ForEach(Array(menu.items.enumerated()), id: \.offset) { index, item in
+                        Button {
+                            answer(menu, index)
+                        } label: {
+                            Text(verbatim: item.chosen ? "✓ \(item.label)" : item.label)
+                        }
+                        .disabled(!item.enabled)
+                    }
+                }
+                Button(String(localized: "Cancel", bundle: .module), role: .cancel) {
+                    answer(menu, nil)
+                }
             }
+        }
+
+        private func answer(_ menu: BrowserWindow.Menu, _ choice: Int?) {
+            guard answered != menu.id else { return }
+            answered = menu.id
+            feed.send(.choose(menu: menu.id, choice: choice))
         }
     }
 
     final class BrowserInputView: UIView, UIKeyInput {
         var feed: BrowserFeed
         private var panned = CGPoint.zero
+        private var keyboard = false
 
         init(feed: BrowserFeed) {
             self.feed = feed
@@ -382,9 +451,12 @@ extension BrowserKeys {
             tap.require(toFail: hold)
             let secondary = UITapGestureRecognizer(target: self, action: #selector(held))
             secondary.buttonMaskRequired = .secondary
+            let pair = UITapGestureRecognizer(target: self, action: #selector(held))
+            pair.numberOfTouchesRequired = 2
             addGestureRecognizer(hold)
             addGestureRecognizer(tap)
             addGestureRecognizer(secondary)
+            addGestureRecognizer(pair)
             let pan = UIPanGestureRecognizer(target: self, action: #selector(panning))
             pan.allowedScrollTypesMask = .all
             addGestureRecognizer(pan)
@@ -393,6 +465,33 @@ extension BrowserKeys {
         @available(*, unavailable)
         required init?(coder _: NSCoder) {
             nil
+        }
+
+        /// SwiftUI updates its views while UIKit changes the first responder, so a view that takes
+        /// the keyboard in an update starts the next update, and takes the keyboard from the
+        /// address field. The view takes or gives back the keyboard only when the person switches
+        /// it, after the update.
+        func wantsKeyboard(_ wanted: Bool) {
+            guard wanted != keyboard else { return }
+            keyboard = wanted
+            followKeyboard()
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            followKeyboard()
+        }
+
+        private func followKeyboard() {
+            Task { [weak self] in
+                await Task.yield()
+                guard let self, window != nil else { return }
+                if keyboard, !isFirstResponder {
+                    becomeFirstResponder()
+                } else if !keyboard, isFirstResponder {
+                    resignFirstResponder()
+                }
+            }
         }
 
         override var canBecomeFirstResponder: Bool {
