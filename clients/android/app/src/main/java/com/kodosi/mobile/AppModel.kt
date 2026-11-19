@@ -35,6 +35,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -215,19 +218,20 @@ class AppModel(
     }
 
     private suspend fun consume(handle: RuntimeHandle) {
-        for (bytes in handle.events) {
-            try {
-                receive(RuntimeEvent.parse(bytes))
-            } catch (failure: InvalidEvent) {
-                fail(words.unreadable(failure.message.orEmpty()))
-                return
-            } catch (failure: SerializationException) {
-                fail(words.unreadable(failure.message.orEmpty()))
-                return
-            } catch (failure: IllegalArgumentException) {
-                fail(words.unreadable(failure.message.orEmpty()))
-                return
-            }
+        try {
+            handle.events.receiveAsFlow()
+                .map { RuntimeEvent.parse(it) }
+                .flowOn(Dispatchers.Default)
+                .collect { receive(it) }
+        } catch (failure: InvalidEvent) {
+            fail(words.unreadable(failure.message.orEmpty()))
+            return
+        } catch (failure: SerializationException) {
+            fail(words.unreadable(failure.message.orEmpty()))
+            return
+        } catch (failure: IllegalArgumentException) {
+            fail(words.unreadable(failure.message.orEmpty()))
+            return
         }
         if (handle.overflowed) fail(words.fellBehind)
     }

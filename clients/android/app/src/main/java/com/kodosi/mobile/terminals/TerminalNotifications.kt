@@ -41,6 +41,7 @@ class TerminalNotifications(private val application: Context, private val prefer
     private var cache = read<Cache>("cache") ?: Cache()
     private var posted = read<Map<String, ProgramStatus>>("posted") ?: emptyMap()
     private var attention: Map<String, Boolean>? = null
+    private var observed: List<RuntimeSession>? = null
 
     @Volatile
     var foreground: Boolean = false
@@ -77,6 +78,8 @@ class TerminalNotifications(private val application: Context, private val prefer
     @Synchronized
     fun observe(sessions: List<RuntimeSession>, user: String?) {
         account(user)
+        if (sessions == observed && attention != null) return
+        observed = sessions
         if (user != null) {
             remember(
                 Cache(
