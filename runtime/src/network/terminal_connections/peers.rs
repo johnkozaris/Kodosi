@@ -5,7 +5,7 @@ use std::{
     pin::Pin,
     sync::{
         Mutex as Locked, Weak,
-        atomic::{AtomicBool, AtomicUsize},
+        atomic::{AtomicBool, AtomicU32, AtomicUsize},
     },
     task::{Context, Poll, ready},
 };
@@ -48,6 +48,7 @@ const LANE_MESSAGE: usize = 1024 * 1024;
 const SERVER_NAME: &str = "kodosi.invalid";
 const PORTS: std::ops::RangeInclusive<u16> = 47360..=47379;
 const TAKEN: u8 = 1;
+const MOST_RESETS: u32 = 64;
 
 /// Direct connections to other devices of this person: one UDP socket and one QUIC endpoint for
 /// the runtime, bound only while a terminal uses or looks for a direct path.
@@ -431,6 +432,7 @@ impl Peers {
             inner: Arc::new(Socket::new(socket).map_err(|_| Error::Closed)?),
             asked: Locked::new(HashMap::new()),
             broken: AtomicBool::new(false),
+            resets: AtomicU32::new(0),
         });
         let mut config = quinn::EndpointConfig::default();
         config.grease_quic_bit(false);
@@ -856,6 +858,7 @@ struct Demux {
     dual: bool,
     asked: Locked<HashMap<[u8; 12], oneshot::Sender<SocketAddr>>>,
     broken: AtomicBool,
+    resets: AtomicU32,
 }
 
 impl Demux {
@@ -934,17 +937,26 @@ impl AsyncUdpSocket for Demux {
             ) {
                 Poll::Ready(Ok(0)) => return Poll::Ready(Ok(0)),
                 Poll::Ready(Ok(_)) => {
+                    self.resets.store(0, Ordering::Relaxed);
                     if details.len == details.stride && self.absorbed(&buffer[..details.len]) {
                         continue;
                     }
                     return Poll::Ready(Ok(1));
                 }
-                // quinn ends the endpoint on each failed read but a reset.
-                Poll::Ready(Err(error)) if error.kind() != io::ErrorKind::ConnectionReset => {
+                // quinn reads again at once after a reset, and ends the endpoint on each other
+                // failed read, so a socket that only gives resets ends as a broken one.
+                Poll::Ready(Err(error)) if error.kind() == io::ErrorKind::ConnectionReset => {
+                    if self.resets.fetch_add(1, Ordering::Relaxed) < MOST_RESETS {
+                        return Poll::Ready(Err(error));
+                    }
+                    self.broken.store(true, Ordering::Release);
+                    return Poll::Ready(Err(io::Error::new(io::ErrorKind::NotConnected, error)));
+                }
+                Poll::Ready(Err(error)) => {
                     self.broken.store(true, Ordering::Release);
                     return Poll::Ready(Err(error));
                 }
-                other => return other,
+                Poll::Pending => return Poll::Pending,
             }
         }
     }
