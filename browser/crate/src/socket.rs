@@ -196,6 +196,24 @@ mod tests {
         assert!(accepted.await.unwrap().is_ok());
     }
 
+    #[tokio::test]
+    async fn an_engine_of_another_version_of_the_link_does_not_connect() {
+        let socket = Socket::open().await.unwrap();
+        let address = socket.address.clone();
+        let (_commands, waiting) = mpsc::channel(1);
+        let (reports, _incoming) = mpsc::channel(1);
+        let accepted = tokio::spawn(socket.accept(waiting, reports));
+
+        for path in [
+            format!("/{}", address.token),
+            format!("/{}/{}", address.token, crate::link::VERSION + 1),
+        ] {
+            let other = format!("ws://127.0.0.1:{}{path}", address.port);
+            assert!(tokio_tungstenite::connect_async(other).await.is_err());
+        }
+        accepted.abort();
+    }
+
     #[test]
     fn only_a_request_with_the_token_and_no_origin_passes() {
         let request = |path: &str, authorization: Option<&str>, origin: Option<&str>| {

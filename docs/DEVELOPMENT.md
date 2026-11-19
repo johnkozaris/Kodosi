@@ -123,13 +123,15 @@ build downloads and checks, so nothing compiles Chromium. `browser/build/build-e
 in the feed. `scripts/generate-engine-feed.py <folder>` writes the feed of the archives of all
 computers and signs it with the updates key from standard input; each update site carries
 that feed. A development build of Kodosi uses the engine whose program
-`KODOSI_BROWSER_ENGINE` names, and no feed.
+`KODOSI_BROWSER_ENGINE` names, and no feed. No other build makes that engine again: after a
+change in `browser/`, run `just browser-engine-build`, or the host keeps the engine of the
+source before.
 
 A host and an engine work together only with the same version of their link, `VERSION` in
 `browser/crate/src/link.rs`. Each engine and each feed names its version, the feed has its
-address by it, and a host takes only the feed and the engine of its own version. So an
-engine and an app release in any order. Raise the version in the change that makes the
-link different.
+address by it, a host takes only the feed and the engine of its own version, and an engine
+of another version cannot connect to a host. So an engine and an app release in any order.
+Raise the version in the change that makes the link different.
 
 ## Texts and languages
 

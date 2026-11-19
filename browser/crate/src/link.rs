@@ -36,8 +36,9 @@ pub struct Address {
 }
 
 impl Address {
+    /// The path names the version of the link, so an engine of another version cannot connect.
     pub fn path(&self) -> String {
-        format!("/{}", self.token)
+        format!("/{}/{VERSION}", self.token)
     }
 }
 
