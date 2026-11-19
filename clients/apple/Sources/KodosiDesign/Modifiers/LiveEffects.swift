@@ -8,21 +8,35 @@ private struct Shimmer: ViewModifier {
     func body(content: Content) -> some View {
         if active, !theme.motion.reduced {
             content.overlay {
-                TimelineView(.animation(minimumInterval: 1 / 30)) { context in
-                    GeometryReader { geometry in
-                        let band = max(geometry.size.width * 0.5, 40)
-                        let pass = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.9) / 1.9
-                        LinearGradient(colors: [.clear, theme.colors.ink, .clear], startPoint: .leading, endPoint: .trailing)
-                            .frame(width: band)
-                            .offset(x: -band + (geometry.size.width + band) * pass * pass * (3 - 2 * pass))
-                    }
-                }
-                .mask(content)
-                .allowsHitTesting(false)
+                LayerArt(setup: Sheen(light: theme.colors.ink), draw: Sheen.draw)
+                    .mask(content)
             }
         } else {
             content
         }
+    }
+}
+
+struct Sheen: Hashable {
+    static let period: TimeInterval = 1.9
+
+    let light: Color
+
+    @MainActor
+    static func draw(_ sheen: Sheen, _ canvas: LayerCanvas) {
+        let light = canvas.color(sheen.light)
+        let clear = light.copy(alpha: 0) ?? light
+        let band = CAGradientLayer()
+        band.colors = [clear, light, clear]
+        band.startPoint = CGPoint(x: 0, y: 0.5)
+        band.endPoint = CGPoint(x: 1, y: 0.5)
+        let width = max(canvas.size.width * 0.5, 40)
+        canvas.place(band, CGRect(x: -width, y: 0, width: width, height: canvas.size.height))
+        let pass = CABasicAnimation(keyPath: "position.x")
+        pass.fromValue = -width / 2
+        pass.toValue = canvas.size.width + width / 2
+        pass.timingFunction = CAMediaTimingFunction(controlPoints: 1 / 3, 0, 2 / 3, 1)
+        band.add(pass.looping(period: period), forKey: "sheen")
     }
 }
 
@@ -348,6 +362,7 @@ struct Cursor: Hashable {
             blink.duration = 1
             blink.repeatCount = .infinity
             blink.isRemovedOnCompletion = false
+            blink.preferredFrameRateRange = .loop
             block.add(blink, forKey: "blink")
         }
     }

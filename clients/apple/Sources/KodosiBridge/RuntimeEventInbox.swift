@@ -13,6 +13,7 @@ public final class RuntimeEventInbox: Sendable {
     private let state = Mutex(State())
     private let maximumBytes: Int
     private let maximumCount: Int
+    private let decoder = JSONDecoder()
 
     public init(maximumBytes: Int = 16 * 1024 * 1024, maximumCount: Int = 256) {
         self.maximumBytes = maximumBytes
@@ -70,6 +71,12 @@ public final class RuntimeEventInbox: Sendable {
                 continuation.resume(returning: nil)
             }
         }
+    }
+
+    @concurrent
+    public func nextEvent() async -> Result<RuntimeEvent, any Error>? {
+        guard let data = await next() else { return nil }
+        return Result { try decoder.decode(RuntimeEvent.self, from: data) }
     }
 
     public func close(overflowed: Bool = false) {

@@ -47,8 +47,14 @@ extension CAAnimation {
         repeatCount = .infinity
         isRemovedOnCompletion = false
         timeOffset = loopPhase(period)
+        preferredFrameRateRange = .loop
         return self
     }
+}
+
+extension CAFrameRateRange {
+    /// A loop moves calmly enough that more frames would only cost the battery.
+    static let loop = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
 }
 
 #if os(macOS)

@@ -77,10 +77,10 @@ final class AppModel {
                 try? await Task.sleep(for: .milliseconds(10))
             }
             while !Task.isCancelled {
-                guard let data = await inbox.next() else { break }
+                guard let event = await inbox.nextEvent() else { break }
                 guard !Task.isCancelled, let self else { return }
                 do {
-                    try receive(JSONDecoder().decode(RuntimeEvent.self, from: data))
+                    try receive(event.get())
                 } catch {
                     fail(String(localized: "Kodosi got an update it cannot read: \(error.localizedDescription)"))
                     return

@@ -148,7 +148,7 @@ final class TerminalSurfaceCoordinator {
         surface = newSurface
         synchronizeDisplayID(on: newSurface)
         newSurface.setOcclusion(effectiveSurfaceVisible)
-        applyFocus(newSurface, isSurfaceFocused)
+        applyFocus(newSurface, effectiveSurfaceFocused)
         TerminalDebugLog.log(.lifecycle, "surface rebuild succeeded")
         synchronizeMetrics()
         attachInMemorySession(to: rawSurface)
@@ -184,16 +184,17 @@ final class TerminalSurfaceCoordinator {
         applyDisplayID(target, displayID)
     }
 
-    func synchronizeMetrics() {
+    @discardableResult
+    func synchronizeMetrics() -> Bool {
         if pendingRebuild, hasValidViewSize {
             pendingRebuild = false
             rebuildIfReady()
-            return
+            return true
         }
 
         guard let surface else {
             TerminalDebugLog.log(.metrics, "synchronizeMetrics skipped: missing surface")
-            return
+            return false
         }
 
         let scale = scaleFactor()
@@ -203,7 +204,7 @@ final class TerminalSurfaceCoordinator {
                 .metrics,
                 "synchronizeMetrics skipped: invalid view size=\(String(format: "%.2f", size.width))x\(String(format: "%.2f", size.height))"
             )
-            return
+            return false
         }
 
         let pixelWidth = UInt32((size.width * scale).rounded(.down))
@@ -213,7 +214,7 @@ final class TerminalSurfaceCoordinator {
                 .metrics,
                 "synchronizeMetrics skipped: invalid pixel size=\(pixelWidth)x\(pixelHeight)"
             )
-            return
+            return false
         }
 
         TerminalDebugLog.log(
@@ -229,7 +230,7 @@ final class TerminalSurfaceCoordinator {
         else {
             TerminalDebugLog.log(.metrics, "sync missing grid metrics after resize")
             onMetricsUpdate?()
-            return
+            return false
         }
 
         // A host-managed surface reports the host's grid after a host resize, so only the cell
@@ -248,13 +249,14 @@ final class TerminalSurfaceCoordinator {
                 "sync unchanged \(metrics.debugSummary)"
             )
             onMetricsUpdate?()
-            return
+            return false
         }
 
         lastMetrics = metrics
         TerminalDebugLog.log(.metrics, "sync updated \(metrics.debugSummary)")
         reportViewport()
         onMetricsUpdate?()
+        return true
     }
 
     private func reportViewport() {
@@ -273,10 +275,7 @@ final class TerminalSurfaceCoordinator {
     func fitToSize() {
         if surface == nil {
             rebuildIfReady()
-        } else {
-            synchronizeMetrics()
-        }
-        if surface != nil {
+        } else if synchronizeMetrics() {
             requestImmediateTick()
         }
     }
@@ -289,6 +288,7 @@ final class TerminalSurfaceCoordinator {
 
         isDisplayVisible = visible
         surface?.setOcclusion(effectiveSurfaceVisible)
+        applyEffectiveFocus()
 
         if canRenderFrame {
             requestImmediateTick()
@@ -309,6 +309,7 @@ final class TerminalSurfaceCoordinator {
 
         isApplicationActive = active
         surface?.setOcclusion(effectiveSurfaceVisible)
+        applyEffectiveFocus()
 
         if active {
             synchronizeMetrics()
@@ -335,8 +336,12 @@ final class TerminalSurfaceCoordinator {
         bridge.hasFocus = focused
         requestImmediateTick()
         TerminalDebugLog.log(.lifecycle, "focus=\(focused)")
+        applyEffectiveFocus()
+    }
+
+    private func applyEffectiveFocus() {
         if let surface {
-            applyFocus(surface, focused)
+            applyFocus(surface, effectiveSurfaceFocused)
         }
     }
 
@@ -427,6 +432,11 @@ final class TerminalSurfaceCoordinator {
 
     private var effectiveSurfaceVisible: Bool {
         isDisplayVisible && isApplicationActive
+    }
+
+    /// Ghostty blinks the cursor of a focused surface even while it draws nothing.
+    private var effectiveSurfaceFocused: Bool {
+        isSurfaceFocused && effectiveSurfaceVisible
     }
 
     private var canRenderFrame: Bool {

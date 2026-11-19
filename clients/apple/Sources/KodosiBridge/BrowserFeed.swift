@@ -346,7 +346,7 @@ struct H264Samples {
     mutating func sample(of data: Data) -> CMSampleBuffer? {
         var sequence: Data?
         var picture: Data?
-        var body = Data()
+        var slices: [Data] = []
         for unit in Self.units(of: data) {
             guard let type = unit.first.map({ $0 & 0x1F }) else { continue }
             if type == Self.sequenceParameters {
@@ -354,36 +354,42 @@ struct H264Samples {
             } else if type == Self.pictureParameters {
                 picture = unit
             } else if Self.pictures.contains(type) {
-                withUnsafeBytes(of: UInt32(unit.count).bigEndian) { body.append(contentsOf: $0) }
-                body.append(unit)
+                slices.append(unit)
             }
         }
         if let sequence, let picture {
             format = Self.format(sequence, picture) ?? format
         }
-        guard let format, !body.isEmpty else { return nil }
-        return Self.sample(body, format)
+        guard let format, !slices.isEmpty else { return nil }
+        return Self.sample(slices, format)
     }
 
     static func units(of data: Data) -> [Data] {
-        let bytes = [UInt8](data)
-        var starts: [Int] = []
-        var at = 0
-        while at + 2 < bytes.count {
-            if bytes[at] == 0, bytes[at + 1] == 0, bytes[at + 2] == 1 {
-                starts.append(at + 3)
-                at += 3
-            } else {
-                at += 1
+        let ranges = data.withUnsafeBytes { bytes in
+            var starts: [Int] = []
+            var at = 0
+            while at + 2 < bytes.count {
+                let third = bytes[at + 2]
+                if third > 1 {
+                    at += 3
+                } else if third == 1 {
+                    if bytes[at] == 0, bytes[at + 1] == 0 {
+                        starts.append(at + 3)
+                    }
+                    at += 3
+                } else {
+                    at += 1
+                }
+            }
+            return starts.enumerated().map { index, start in
+                var end = index + 1 < starts.count ? starts[index + 1] - 3 : bytes.count
+                while end > start, index + 1 < starts.count, bytes[end - 1] == 0 {
+                    end -= 1
+                }
+                return start ..< end
             }
         }
-        return starts.enumerated().map { index, start in
-            var end = index + 1 < starts.count ? starts[index + 1] - 3 : bytes.count
-            while end > start, index + 1 < starts.count, bytes[end - 1] == 0 {
-                end -= 1
-            }
-            return Data(bytes[start ..< end])
-        }
+        return ranges.map { data[data.startIndex + $0.lowerBound ..< data.startIndex + $0.upperBound] }
     }
 
     private static func format(_ sequence: Data, _ picture: Data) -> CMVideoFormatDescription? {
@@ -403,20 +409,28 @@ struct H264Samples {
         }
     }
 
-    private static func sample(_ body: Data, _ format: CMVideoFormatDescription) -> CMSampleBuffer? {
+    private static func sample(_ slices: [Data], _ format: CMVideoFormatDescription) -> CMSampleBuffer? {
+        var size = slices.reduce(0) { $0 + 4 + $1.count }
         var block: CMBlockBuffer?
         var status = CMBlockBufferCreateWithMemoryBlock(
-            allocator: kCFAllocatorDefault, memoryBlock: nil, blockLength: body.count, blockAllocator: kCFAllocatorDefault,
-            customBlockSource: nil, offsetToData: 0, dataLength: body.count, flags: kCMBlockBufferAssureMemoryNowFlag,
+            allocator: kCFAllocatorDefault, memoryBlock: nil, blockLength: size, blockAllocator: kCFAllocatorDefault,
+            customBlockSource: nil, offsetToData: 0, dataLength: size, flags: kCMBlockBufferAssureMemoryNowFlag,
             blockBufferOut: &block,
         )
         guard status == noErr, let block else { return nil }
-        status = body.withUnsafeBytes { bytes in
-            CMBlockBufferReplaceDataBytes(with: bytes.baseAddress!, blockBuffer: block, offsetIntoDestination: 0, dataLength: body.count)
+        var offset = 0
+        for slice in slices {
+            status = withUnsafeBytes(of: UInt32(slice.count).bigEndian) { length in
+                CMBlockBufferReplaceDataBytes(with: length.baseAddress!, blockBuffer: block, offsetIntoDestination: offset, dataLength: 4)
+            }
+            guard status == noErr else { return nil }
+            status = slice.withUnsafeBytes { bytes in
+                CMBlockBufferReplaceDataBytes(with: bytes.baseAddress!, blockBuffer: block, offsetIntoDestination: offset + 4, dataLength: slice.count)
+            }
+            guard status == noErr else { return nil }
+            offset += 4 + slice.count
         }
-        guard status == noErr else { return nil }
         var sample: CMSampleBuffer?
-        var size = body.count
         status = CMSampleBufferCreateReady(
             allocator: kCFAllocatorDefault, dataBuffer: block, formatDescription: format, sampleCount: 1, sampleTimingEntryCount: 0,
             sampleTimingArray: nil, sampleSizeEntryCount: 1, sampleSizeArray: &size, sampleBufferOut: &sample,

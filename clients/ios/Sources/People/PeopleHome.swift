@@ -31,6 +31,7 @@ struct PeopleHome: View {
         .background(theme.colors.surface)
         .readableWidth()
         .navigationTitle("Friends")
+        .toolbarTitleDisplayMode(.inline)
         .pageFacts(people.facts)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {

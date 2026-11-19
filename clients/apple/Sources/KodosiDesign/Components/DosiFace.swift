@@ -296,6 +296,7 @@ private final class FaceRig {
         animation.duration = period
         animation.repeatCount = .infinity
         animation.isRemovedOnCompletion = false
+        animation.preferredFrameRateRange = .loop
         return animation
     }
 }
