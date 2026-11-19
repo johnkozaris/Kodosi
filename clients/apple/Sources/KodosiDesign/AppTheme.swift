@@ -197,4 +197,7 @@ public extension EnvironmentValues {
     @Entry var theme: AppTheme = .dark
     @Entry var chromeTheme: AppTheme?
     @Entry var bezelPressed = false
+    /// Whether the person can see the window of the view: on a Mac it is not minimized, hidden or
+    /// fully covered, and on an iPhone or iPad the app is not in the background.
+    @Entry var onScreen = true
 }

@@ -9,6 +9,18 @@ private struct KodosiThemeModifier: ViewModifier {
     @AppStorage(ThemePreference.storageKey) private var preference: String = ThemePreference.system.rawValue
     @AppStorage(MotionPreference.storageKey) private var reducesMotion = false
     @State private var windowVisible = true
+    #if !os(macOS)
+        @Environment(\.scenePhase) private var scenePhase
+    #endif
+
+    private var onScreen: Bool {
+        #if os(macOS)
+            windowVisible
+        #else
+            // iOS makes a scene inactive for a moment, as for Notification Center.
+            scenePhase != .background
+        #endif
+    }
 
     private var resolved: AppTheme {
         let pref = ThemePreference(rawValue: preference) ?? .system
@@ -30,6 +42,7 @@ private struct KodosiThemeModifier: ViewModifier {
                 }
             }
             .environment(\.theme, theme)
+            .environment(\.onScreen, onScreen)
             .tint(theme.colors.accent)
             .background(theme.colors.ground.ignoresSafeArea())
         #if os(macOS)
