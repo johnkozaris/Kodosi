@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import androidx.core.graphics.createBitmap
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.kodosi.mobile.R
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.ui.EmptyState
@@ -84,6 +85,10 @@ fun PreviewPage(content: ByteArray, modifier: Modifier, selection: (suspend () -
             selection { null }
             if (failed !== web) web.destroy()
         }
+    }
+    LifecycleResumeEffect(web) {
+        if (failed !== web) web.onResume()
+        onPauseOrDispose { if (failed !== web) web.onPause() }
     }
     LaunchedEffect(content, web) {
         failed = null
