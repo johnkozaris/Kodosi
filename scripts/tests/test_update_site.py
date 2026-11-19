@@ -180,6 +180,10 @@ class UpdateSiteTest(unittest.TestCase):
             appinstaller = (site / "windows/Kodosi.appinstaller").read_text(encoding="utf-8")
             self.assertIn(f'Version="{VERSION}.0"', appinstaller)
             self.assertIn("Content-Type: application/appinstaller", (site / "_headers").read_text(encoding="utf-8"))
+            routes = json.loads((site / "_routes.json").read_text(encoding="utf-8"))
+            self.assertEqual(routes["include"], ["/windows/Kodosi.appinstaller"])
+            worker = (site / "_worker.js").read_text(encoding="utf-8")
+            self.assertRegex(worker, r'const MODIFIED = "\w{3}, \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT";')
             self.assertEqual((site / "windows/Kodosi.cer").read_bytes(), WINDOWS_CERTIFICATE.read_bytes())
             download = f"https://github.com/johnkozaris/Kodosi/releases/download/v{VERSION}"
             redirects = (site / "_redirects").read_text(encoding="utf-8")
