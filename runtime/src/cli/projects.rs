@@ -275,15 +275,12 @@ pub(super) async fn run(
     let initial = call(client, context, &project, Action::Read { before }).await?;
     let mut snapshot: Snapshot = serde_json::from_value(initial["content"].clone())?;
     match args.action {
-        ProjectAction::Read { since, .. } => {
+        ProjectAction::Read { since, before } => {
             if let Some(after) = since {
                 snapshot.messages.retain(|message| message.position > after);
             }
-            output(
-                &serde_json::to_value(&snapshot)?,
-                json_output,
-                &conversation(&snapshot),
-            )
+            let text = read_text(&snapshot, since, before);
+            output(&serde_json::to_value(&snapshot)?, json_output, &text)
         }
         ProjectAction::Wait { timeout, after } => {
             wait(client, context, &project, &snapshot, after, timeout).await
@@ -737,10 +734,18 @@ fn message_id(snapshot: &Snapshot, reference: &str) -> Result<String> {
     let messages = snapshot
         .messages
         .iter()
-        .filter(|message| !message.deleted)
         .map(|message| (message.id.as_str(), ""));
     let matching = crate::protocol::referred(reference, messages);
     only(&matching, "message", reference, "kodosi project read").map(str::to_owned)
+}
+
+fn read_text(snapshot: &Snapshot, since: Option<u64>, before: Option<u64>) -> String {
+    match (snapshot.messages.is_empty(), since, before) {
+        (false, ..) => conversation(snapshot),
+        (true, Some(_), _) => "No newer messages.".to_owned(),
+        (true, None, Some(_)) => "No older messages.".to_owned(),
+        (true, None, None) => "No messages. Post one: kodosi project post <text>".to_owned(),
+    }
 }
 
 fn conversation(snapshot: &Snapshot) -> String {
@@ -970,7 +975,10 @@ mod tests {
             message_id(&project, "000012").unwrap(),
             project.messages[1].id
         );
-        assert!(message_id(&project, "000013").is_err());
+        assert_eq!(
+            message_id(&project, "000013").unwrap(),
+            project.messages[2].id
+        );
     }
 
     #[test]

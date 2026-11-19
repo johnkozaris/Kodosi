@@ -483,9 +483,16 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
                     kind: HostKind::Background,
                     terminals,
                     ..
-                } => format!(
-                    "{error} Run `kodosi host stop --force` to stop it and its {terminals} terminal(s). The next command starts the new host."
-                ),
+                } => {
+                    let stopped = match terminals {
+                        0 => "it".to_owned(),
+                        1 => "it and its terminal".to_owned(),
+                        count => format!("it and its {count} terminals"),
+                    };
+                    format!(
+                        "{error} Run `kodosi host stop --force` to stop {stopped}. The next command starts the new host."
+                    )
+                }
                 Error::HostOutdated { .. } => {
                     format!("{error} Stop `kodosi host` in its terminal and start it again.")
                 }
