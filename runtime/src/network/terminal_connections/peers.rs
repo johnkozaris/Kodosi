@@ -1,22 +1,25 @@
 use std::{
     collections::HashMap,
-    io,
+    fmt, io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
-    sync::{Mutex as Locked, Weak, atomic::AtomicUsize},
-    task::{Context, Poll},
+    sync::{
+        Mutex as Locked, Weak,
+        atomic::{AtomicBool, AtomicUsize},
+    },
+    task::{Context, Poll, ready},
 };
 
 use futures_util::stream::FuturesUnordered;
 #[cfg(feature = "host")]
 use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{
-    AsyncUdpSocket, Runtime as _, TokioRuntime, UdpPoller, VarInt,
+    AsyncUdpSocket, TokioRuntime, UdpPoller, VarInt,
     crypto::rustls::QuicClientConfig,
-    udp::{RecvMeta, Transmit},
+    udp::{RecvMeta, Transmit, UdpSocketState},
 };
 use rustls::{crypto::aws_lc_rs::cipher_suite, pki_types::CertificateDer};
-use tokio::sync::Mutex;
+use tokio::{io::Interest, sync::Mutex};
 
 use super::{
     channel::{ChannelKeys, device_key},
@@ -416,16 +419,18 @@ impl Peers {
 
     async fn bind(self: &Arc<Self>) -> Result<Arc<Bound>> {
         let mut bound = self.bound.lock().await;
-        if let Some(bound) = bound.as_ref() {
+        if let Some(bound) = bound
+            .as_ref()
+            .filter(|bound| !bound.socket.broken.load(Ordering::Acquire))
+        {
             return Ok(Arc::clone(bound));
         }
         let socket = udp_socket().map_err(|_| Error::Closed)?;
         let socket = Arc::new(Demux {
             dual: socket.local_addr().map_err(|_| Error::Closed)?.is_ipv6(),
-            inner: TokioRuntime
-                .wrap_udp_socket(socket)
-                .map_err(|_| Error::Closed)?,
+            inner: Arc::new(Socket::new(socket).map_err(|_| Error::Closed)?),
             asked: Locked::new(HashMap::new()),
+            broken: AtomicBool::new(false),
         });
         let mut config = quinn::EndpointConfig::default();
         config.grease_quic_bit(false);
@@ -443,7 +448,12 @@ impl Peers {
         let client = self.client()?;
         #[cfg(feature = "host")]
         tokio::spawn(accept(Arc::downgrade(self), endpoint.clone()));
-        tokio::spawn(sweep(Arc::downgrade(self)));
+        if bound.is_none() {
+            tokio::spawn(sweep(Arc::downgrade(self)));
+        }
+        if let Ok(mut kept) = self.reflexive.lock() {
+            *kept = None;
+        }
         let fresh = Arc::new(Bound {
             endpoint,
             socket,
@@ -842,9 +852,10 @@ fn usable(theirs: &[SocketAddr], networks: &[Network], dual: bool) -> Vec<(Socke
 
 #[derive(Debug)]
 struct Demux {
-    inner: Arc<dyn AsyncUdpSocket>,
+    inner: Arc<Socket>,
     dual: bool,
     asked: Locked<HashMap<[u8; 12], oneshot::Sender<SocketAddr>>>,
+    broken: AtomicBool,
 }
 
 impl Demux {
@@ -928,6 +939,11 @@ impl AsyncUdpSocket for Demux {
                     }
                     return Poll::Ready(Ok(1));
                 }
+                // quinn ends the endpoint on each failed read but a reset.
+                Poll::Ready(Err(error)) if error.kind() != io::ErrorKind::ConnectionReset => {
+                    self.broken.store(true, Ordering::Release);
+                    return Poll::Ready(Err(error));
+                }
                 other => return other,
             }
         }
@@ -947,6 +963,100 @@ impl AsyncUdpSocket for Demux {
 
     fn may_fragment(&self) -> bool {
         self.inner.may_fragment()
+    }
+}
+
+/// quinn's own Tokio socket (0.11.12) tries a failed read again at once, so a socket that fails
+/// each read, as iOS leaves the socket of an app that was in the background, holds a CPU core
+/// for good. This socket gives quinn the error, as quinn does after quinn-rs/quinn#2721.
+#[derive(Debug)]
+struct Socket {
+    io: tokio::net::UdpSocket,
+    state: UdpSocketState,
+}
+
+impl Socket {
+    fn new(socket: std::net::UdpSocket) -> io::Result<Self> {
+        Ok(Self {
+            state: UdpSocketState::new((&socket).into())?,
+            io: tokio::net::UdpSocket::from_std(socket)?,
+        })
+    }
+}
+
+impl AsyncUdpSocket for Socket {
+    fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
+        Box::pin(Writable {
+            socket: self,
+            waiting: None,
+        })
+    }
+
+    fn try_send(&self, transmit: &Transmit<'_>) -> io::Result<()> {
+        self.io.try_io(Interest::WRITABLE, || {
+            self.state.send((&self.io).into(), transmit)
+        })
+    }
+
+    fn poll_recv(
+        &self,
+        cx: &mut Context<'_>,
+        bufs: &mut [io::IoSliceMut<'_>],
+        meta: &mut [RecvMeta],
+    ) -> Poll<io::Result<usize>> {
+        loop {
+            ready!(self.io.poll_recv_ready(cx))?;
+            match self.io.try_io(Interest::READABLE, || {
+                self.state.recv((&self.io).into(), bufs, meta)
+            }) {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                read => return Poll::Ready(read),
+            }
+        }
+    }
+
+    fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.io.local_addr()
+    }
+
+    fn max_transmit_segments(&self) -> usize {
+        self.state.max_gso_segments()
+    }
+
+    fn max_receive_segments(&self) -> usize {
+        self.state.gro_segments()
+    }
+
+    fn may_fragment(&self) -> bool {
+        self.state.may_fragment()
+    }
+}
+
+/// Each connection waits with its own future, because Tokio wakes only the last task that polled
+/// a socket's readiness.
+struct Writable {
+    socket: Arc<Socket>,
+    waiting: Option<Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>>>,
+}
+
+impl fmt::Debug for Writable {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("Writable").finish_non_exhaustive()
+    }
+}
+
+impl UdpPoller for Writable {
+    fn poll_writable(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let this = &mut *self;
+        let waiting = this.waiting.get_or_insert_with(|| {
+            let socket = Arc::clone(&this.socket);
+            Box::pin(async move { socket.io.writable().await })
+        });
+        let writable = waiting.as_mut().poll(cx);
+        if writable.is_ready() {
+            this.waiting = None;
+        }
+        writable
     }
 }
 
