@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 95;
+pub const VERSION: u32 = 96;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -431,6 +431,20 @@ pub enum Command {
         #[serde(rename = "requestId")]
         request_id: String,
         state: Presence,
+    },
+    /// A phone app sends it when it goes to the background and when it comes back to the front.
+    /// The answer to the background comes once the runtime has closed its connections.
+    #[serde(rename = "app.lifecycle")]
+    Lifecycle {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        state: AppLifecycle,
+    },
+    /// A phone app sends it when the phone moves to another network.
+    #[serde(rename = "network.changed")]
+    NetworkChanged {
+        #[serde(rename = "requestId")]
+        request_id: String,
     },
     #[serde(rename = "session.openRemote")]
     OpenRemote {
@@ -1028,6 +1042,13 @@ pub enum Presence {
     Idle,
     Here,
     Kodosi,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum AppLifecycle {
+    Foreground,
+    Background,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
@@ -1956,6 +1977,8 @@ impl Command {
             Self::ChangeAgent { .. } => "session.agent",
             Self::Visible { .. } => "session.visible",
             Self::Presence { .. } => "app.presence",
+            Self::Lifecycle { .. } => "app.lifecycle",
+            Self::NetworkChanged { .. } => "network.changed",
             Self::Read { .. } => "session.read",
             Self::Show { .. } => "session.show",
             Self::OpenRemote { .. } => "session.openRemote",
@@ -2098,6 +2121,8 @@ impl Command {
             | Self::ChangeAgent { request_id, .. }
             | Self::Visible { request_id, .. }
             | Self::Presence { request_id, .. }
+            | Self::Lifecycle { request_id, .. }
+            | Self::NetworkChanged { request_id }
             | Self::Read { request_id, .. }
             | Self::Show { request_id, .. }
             | Self::OpenRemote { request_id, .. }
@@ -3071,6 +3096,8 @@ mod tests {
             json!({"type":"session.disconnect","requestId":ID,"sessionId":ID}),
             json!({"type":"session.visible","requestId":ID,"sessionIds":[ID],"watching":true}),
             json!({"type":"app.presence","requestId":ID,"state":"here"}),
+            json!({"type":"app.lifecycle","requestId":ID,"state":"background"}),
+            json!({"type":"network.changed","requestId":ID}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachProject","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"projectId":null}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),
@@ -3153,7 +3180,7 @@ mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 77);
+        assert_eq!(kinds.len(), 79);
     }
 
     #[test]

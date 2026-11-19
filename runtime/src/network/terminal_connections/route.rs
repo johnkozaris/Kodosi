@@ -676,11 +676,19 @@ async fn look(
     mut answers: mpsc::Receiver<Vec<SocketAddr>>,
 ) {
     let mut failures = 0_u32;
+    let mut changes = peers.changes();
     loop {
         let addresses = peers.addresses().await;
         // An answer that came after its wait belongs to the offer before.
         while answers.try_recv().is_ok() {}
-        if addresses.is_empty() || frames.send(Frame::PathOffer { addresses }).await.is_err() {
+        if addresses.is_empty() {
+            if changes.changed().await.is_err() {
+                return;
+            }
+            failures = 0;
+            continue;
+        }
+        if frames.send(Frame::PathOffer { addresses }).await.is_err() {
             return;
         }
         let theirs = match tokio::time::timeout(ANSWER_WAIT, answers.recv()).await {
@@ -693,22 +701,30 @@ async fn look(
             None => false,
         };
         if reached {
-            failures = 0;
             tracing::info!("a terminal connection went straight to its computer");
+            let straight = tokio::time::Instant::now();
             if !paths.back_on_relay().await {
                 return;
             }
             tracing::info!("a terminal connection went back to the relay");
+            failures = if straight.elapsed() >= STABLE_CONNECTION {
+                0
+            } else {
+                failures.saturating_add(1)
+            };
         } else {
             failures = failures.saturating_add(1);
         }
-        tokio::time::sleep(match failures {
+        let pause = match failures {
             0 => Duration::from_secs(5),
             1 => Duration::from_secs(30),
             2 => Duration::from_mins(2),
             _ => Duration::from_mins(10),
-        })
-        .await;
+        };
+        tokio::select! {
+            () = tokio::time::sleep(pause) => {}
+            Ok(()) = changes.changed() => failures = 0,
+        }
     }
 }
 

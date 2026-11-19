@@ -19,7 +19,10 @@ use quinn::{
     udp::{RecvMeta, Transmit, UdpSocketState},
 };
 use rustls::{crypto::aws_lc_rs::cipher_suite, pki_types::CertificateDer};
-use tokio::{io::Interest, sync::Mutex};
+use tokio::{
+    io::Interest,
+    sync::{Mutex, watch},
+};
 
 use super::{
     channel::{ChannelKeys, device_key},
@@ -64,6 +67,7 @@ pub(crate) struct Peers {
     #[cfg(feature = "host")]
     expected: Locked<HashMap<(Vec<u8>, Uuid), oneshot::Sender<Lane>>>,
     reflexive: Locked<Option<(tokio::time::Instant, Vec<SocketAddr>)>>,
+    changes: watch::Sender<u64>,
 }
 
 struct Bound {
@@ -277,6 +281,7 @@ impl Peers {
             #[cfg(feature = "host")]
             expected: Locked::new(HashMap::new()),
             reflexive: Locked::new(None),
+            changes: watch::Sender::new(0),
         })
     }
 
@@ -450,20 +455,39 @@ impl Peers {
         let client = self.client()?;
         #[cfg(feature = "host")]
         tokio::spawn(accept(Arc::downgrade(self), endpoint.clone()));
-        if bound.is_none() {
-            tokio::spawn(sweep(Arc::downgrade(self)));
-        }
-        if let Ok(mut kept) = self.reflexive.lock() {
-            *kept = None;
-        }
+        self.forget_reflexive();
         let fresh = Arc::new(Bound {
             endpoint,
             socket,
             client,
         });
+        tokio::spawn(sweep(Arc::downgrade(self), Arc::downgrade(&fresh)));
         *bound = Some(Arc::clone(&fresh));
         drop(bound);
         Ok(fresh)
+    }
+
+    pub(crate) fn network_changed(self: &Arc<Self>) {
+        let peers = Arc::clone(self);
+        tokio::spawn(async move {
+            peers.forget_bound().await;
+            peers.changes.send_modify(|changes| *changes += 1);
+        });
+    }
+
+    pub(super) fn changes(&self) -> watch::Receiver<u64> {
+        self.changes.subscribe()
+    }
+
+    pub(crate) async fn forget_bound(&self) {
+        *self.bound.lock().await = None;
+        self.forget_reflexive();
+    }
+
+    fn forget_reflexive(&self) {
+        if let Ok(mut kept) = self.reflexive.lock() {
+            *kept = None;
+        }
     }
 
     fn client(&self) -> Result<quinn::ClientConfig> {
@@ -560,13 +584,16 @@ impl Peers {
 }
 
 /// Closes the socket a while after the last connection ended, so no port stays open for nothing.
-async fn sweep(peers: Weak<Peers>) {
+async fn sweep(peers: Weak<Peers>, own: Weak<Bound>) {
     let mut idle_since = None;
     loop {
         tokio::time::sleep(SWEEP).await;
         let Some(peers) = peers.upgrade() else {
             return;
         };
+        if !holds(peers.bound.lock().await.as_ref(), &own) {
+            return;
+        }
         if peers.trim() {
             idle_since = None;
             continue;
@@ -574,6 +601,9 @@ async fn sweep(peers: Weak<Peers>) {
         let since = *idle_since.get_or_insert_with(tokio::time::Instant::now);
         if since.elapsed() >= UNUSED {
             let mut bound = peers.bound.lock().await;
+            if !holds(bound.as_ref(), &own) {
+                return;
+            }
             if !peers.trim() {
                 *bound = None;
                 return;
@@ -582,6 +612,10 @@ async fn sweep(peers: Weak<Peers>) {
             idle_since = None;
         }
     }
+}
+
+fn holds(bound: Option<&Arc<Bound>>, own: &Weak<Bound>) -> bool {
+    bound.is_some_and(|bound| std::ptr::eq(Arc::as_ptr(bound), own.as_ptr()))
 }
 
 #[cfg(feature = "host")]

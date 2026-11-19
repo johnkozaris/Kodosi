@@ -18,7 +18,7 @@ use super::{Local, StartedSession};
 use crate::{
     Command, Error, Result,
     network::{BackendReply, RemoteConnection, input_not_sent},
-    protocol::{ConnectionState, SessionStatus, parse_id},
+    protocol::{AppLifecycle, ConnectionState, SessionStatus, parse_id},
     terminal::RemoteTerminal,
 };
 #[cfg(feature = "host")]
@@ -212,10 +212,27 @@ impl Runtime {
             }
             Command::RetryConnection { .. } => {
                 self.network.retry_now();
-                for retry in self.reconnect.values_mut() {
-                    retry.failures = 0;
-                    retry.next = tokio::time::Instant::now();
+                self.retry_views_now();
+                self.result(command);
+            }
+            Command::Lifecycle {
+                state: AppLifecycle::Background,
+                ..
+            } => self.go_to_background(command),
+            Command::Lifecycle {
+                state: AppLifecycle::Foreground,
+                ..
+            } => {
+                if let Some(pausing) = self.pausing.take() {
+                    pausing.cancel();
                 }
+                self.network.resume();
+                self.retry_views_now();
+                self.result(command);
+            }
+            Command::NetworkChanged { .. } => {
+                self.network.network_changed();
+                self.retry_views_now();
                 self.result(command);
             }
             command if command.is_dosi() => self.dosi_command(command)?,
@@ -322,6 +339,21 @@ impl Runtime {
             }
         }
         Ok(())
+    }
+
+    fn go_to_background(&mut self, command: &Command) {
+        let pausing = CancellationToken::new();
+        if let Some(earlier) = self.pausing.replace(pausing.clone()) {
+            earlier.cancel();
+        }
+        let command = command.clone();
+        self.spawn(async move {
+            tokio::select! {
+                () = pausing.cancelled() => {}
+                () = tokio::time::sleep(super::BACKGROUND_GRACE) => {}
+            }
+            Completion::BackgroundDue { command, pausing }
+        });
     }
 
     #[cfg(feature = "host")]
@@ -1452,6 +1484,19 @@ impl Runtime {
                     Err(error) => tracing::debug!(%id, %error, "session retirement deferred"),
                 }
             }
+            Completion::BackgroundDue { command, pausing } => {
+                if pausing.is_cancelled() {
+                    self.result(&command);
+                } else {
+                    self.pausing = None;
+                    let paused = self.network.pause();
+                    self.spawn(async move {
+                        paused.await;
+                        Completion::Paused { command }
+                    });
+                }
+            }
+            Completion::Paused { command } => self.result(&command),
             Completion::Terminal { command, result } if current => {
                 match result {
                     Ok(()) => self.result(&command),
