@@ -327,6 +327,9 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
         .build()
         .map_err(|_| no_engine())?;
     let feed = feed(&client).await?;
+    if let Some(program) = kept(engines, &feed.version).await {
+        return Ok(program);
+    }
     let engine = feed
         .engines
         .get(&platform())
@@ -357,6 +360,29 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
         .await
         .map_err(|_| no_engine())?;
     Ok(program)
+}
+
+/// The signature proves who made a feed and not that it is the newest, so whoever controls the
+/// update site could give an earlier feed and move hosts back to a browser with known faults.
+async fn kept(engines: &Path, offered: &str) -> Option<PathBuf> {
+    let (version, program) = installed(engines).await?;
+    (!newer(offered, &version)).then_some(program)
+}
+
+fn newer(offered: &str, installed: &str) -> bool {
+    order(offered) > order(installed)
+}
+
+/// A version is `<Chromium>-<Kodosi Browser>`. Kodosi Browser comes first, so a browser that is
+/// published again with a higher number of its own is newer, also on an earlier Chromium.
+fn order(version: &str) -> Option<(Vec<u64>, Vec<u64>)> {
+    let (chromium, browser) = version.split_once('-')?;
+    let fields = |part: &str| {
+        part.split('.')
+            .map(|field| field.parse().ok())
+            .collect::<Option<Vec<u64>>>()
+    };
+    Some((fields(browser)?, fields(chromium)?))
 }
 
 async fn feed(client: &reqwest::Client) -> Result<Feed, Text> {
@@ -535,6 +561,46 @@ mod tests {
         );
         std::fs::write(folder.path().join(CURRENT), current(LINK + 1)).unwrap();
         assert_eq!(installed(folder.path()).await, None);
+    }
+
+    #[test]
+    fn a_browser_with_a_higher_number_of_its_own_is_newer_on_any_chromium() {
+        let installed = "156.0.8078.96-0.1.3";
+        assert!(newer("156.0.8078.80-0.1.4", installed));
+        assert!(newer("157.0.7000.1-0.1.3", installed));
+        assert!(newer("156.0.8078.96-0.1.10", "156.0.8078.96-0.1.9"));
+        assert!(!newer(installed, installed));
+        assert!(!newer("157.0.7000.1-0.1.2", installed));
+        assert!(!newer("156.0.8078.80-0.1.3", installed));
+        assert!(!newer("157.0.7000.1", installed));
+        assert!(!newer("157.0.x.1-0.1.4", installed));
+        assert!(newer(installed, "1.2"));
+    }
+
+    #[tokio::test]
+    async fn an_earlier_or_equal_feed_keeps_the_installed_engine() {
+        let folder = tempfile::tempdir().unwrap();
+        let version = "156.0.8078.96-0.1.3";
+        let earlier = "156.0.8078.80-0.1.2";
+        assert_eq!(kept(folder.path(), earlier).await, None);
+        let program = folder.path().join(folder_of(version)).join("bin/chrome");
+        std::fs::create_dir_all(program.parent().unwrap()).unwrap();
+        std::fs::write(&program, "").unwrap();
+        let current = |link: u32| {
+            serde_json::json!({ "version": version, "program": "bin/chrome", "link": link })
+                .to_string()
+        };
+        std::fs::write(folder.path().join(CURRENT), current(LINK)).unwrap();
+        for offered in [earlier, "157.0.7000.1-0.1.2", version] {
+            assert_eq!(
+                kept(folder.path(), offered).await,
+                Some(program.clone()),
+                "{offered}"
+            );
+        }
+        assert_eq!(kept(folder.path(), "156.0.8078.80-0.1.4").await, None);
+        std::fs::write(folder.path().join(CURRENT), current(LINK + 1)).unwrap();
+        assert_eq!(kept(folder.path(), earlier).await, None);
     }
 
     #[test]
