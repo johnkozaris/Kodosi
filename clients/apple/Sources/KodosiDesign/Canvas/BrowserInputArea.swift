@@ -7,16 +7,6 @@ struct BrowserInputArea {
     let ask: CanvasAsk?
 }
 
-extension View {
-    func browserPageMenu(feed: BrowserFeed, ask: CanvasAsk?) -> some View {
-        #if os(macOS)
-            self
-        #else
-            modifier(BrowserPageMenu(feed: feed, ask: ask))
-        #endif
-    }
-}
-
 private extension BrowserFeed {
     func type(_ text: String) {
         for character in text {
@@ -375,72 +365,20 @@ extension BrowserKeys {
         }
     }
 
-    struct BrowserPageMenu: ViewModifier {
-        let feed: BrowserFeed
-        let ask: CanvasAsk?
-        @State private var answered: Int?
-
-        func body(content: Content) -> some View {
-            let menu = feed.window.menu.flatMap { $0.id == answered ? nil : $0 }
-            content.confirmationDialog(
-                Text(verbatim: ""),
-                isPresented: Binding(get: { menu != nil }, set: { shown in
-                    if !shown, let menu {
-                        answer(menu, nil)
-                    }
-                }),
-                titleVisibility: .hidden,
-                presenting: menu,
-            ) { menu in
-                if let context = menu.context {
-                    Button(String(localized: "Copy", bundle: .module)) {
-                        answer(menu, BrowserWindow.MenuContext.copySelection)
-                    }
-                    .disabled(context.selection.isEmpty)
-                    if context.link != nil {
-                        Button(String(localized: "Copy Link", bundle: .module)) {
-                            answer(menu, BrowserWindow.MenuContext.copyLink)
-                        }
-                    }
-                    Button(String(localized: "Paste", bundle: .module)) {
-                        answer(menu, nil)
-                        if let text = UIPasteboard.general.string, !text.isEmpty {
-                            feed.send(.text(text))
-                        }
-                    }
-                    if let ask {
-                        Button(ask.title) {
-                            answer(menu, nil)
-                            ask.send(context.words)
-                        }
-                    }
-                } else {
-                    ForEach(Array(menu.items.enumerated()), id: \.offset) { index, item in
-                        Button {
-                            answer(menu, index)
-                        } label: {
-                            Text(verbatim: item.chosen ? "✓ \(item.label)" : item.label)
-                        }
-                        .disabled(!item.enabled)
-                    }
-                }
-                Button(String(localized: "Cancel", bundle: .module), role: .cancel) {
-                    answer(menu, nil)
-                }
-            }
-        }
-
-        private func answer(_ menu: BrowserWindow.Menu, _ choice: Int?) {
-            guard answered != menu.id else { return }
-            answered = menu.id
-            feed.send(.choose(menu: menu.id, choice: choice))
-        }
-    }
-
     final class BrowserInputView: UIView, UIKeyInput {
+        private static let dragDistance: CGFloat = 10
+        private static let slowestMomentum: CGFloat = 20
+
         var feed: BrowserFeed
-        private var panned = CGPoint.zero
         private var keyboard = false
+        private var taps = BrowserTaps()
+        private var holdStart: CGPoint?
+        private var dragging = false
+        private var pointerButton: BrowserInput.MouseButton?
+        private var momentum: CADisplayLink?
+        private var momentumVelocity = CGPoint.zero
+        private var momentumPoint = CGPoint.zero
+        private var touchStoppedMomentum = false
 
         init(feed: BrowserFeed) {
             self.feed = feed
@@ -449,17 +387,18 @@ extension BrowserKeys {
             let hold = UILongPressGestureRecognizer(target: self, action: #selector(held))
             let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
             tap.require(toFail: hold)
-            let secondary = UITapGestureRecognizer(target: self, action: #selector(held))
-            secondary.buttonMaskRequired = .secondary
-            let pair = UITapGestureRecognizer(target: self, action: #selector(held))
+            let pair = UITapGestureRecognizer(target: self, action: #selector(pairTapped))
             pair.numberOfTouchesRequired = 2
-            addGestureRecognizer(hold)
-            addGestureRecognizer(tap)
-            addGestureRecognizer(secondary)
-            addGestureRecognizer(pair)
-            let pan = UIPanGestureRecognizer(target: self, action: #selector(panning))
-            pan.allowedScrollTypesMask = .all
-            addGestureRecognizer(pan)
+            let scroll = UIPanGestureRecognizer(target: self, action: #selector(scrolled))
+            for touch in [hold, tap, pair, scroll] {
+                touch.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+                addGestureRecognizer(touch)
+            }
+            let pointerScroll = UIPanGestureRecognizer(target: self, action: #selector(pointerScrolled))
+            pointerScroll.allowedTouchTypes = []
+            pointerScroll.allowedScrollTypesMask = .all
+            addGestureRecognizer(pointerScroll)
+            addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(hovered)))
         }
 
         @available(*, unavailable)
@@ -479,6 +418,9 @@ extension BrowserKeys {
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
+            if window == nil {
+                stopMomentum()
+            }
             followKeyboard()
         }
 
@@ -544,28 +486,160 @@ extension BrowserKeys {
             return handled
         }
 
-        @objc private func tapped(_ gesture: UITapGestureRecognizer) {
-            guard let point = feed.browserPoint(gesture.location(in: self), in: bounds.size) else { return }
-            feed.send(.mouse(.mousePressed, x: point.x, y: point.y, button: .left, clicks: 1))
-            feed.send(.mouse(.mouseReleased, x: point.x, y: point.y, button: .left, clicks: 1))
-        }
-
-        @objc private func held(_ gesture: UIGestureRecognizer) {
-            guard gesture.state == (gesture is UILongPressGestureRecognizer ? .began : .ended),
-                  let point = feed.browserPoint(gesture.location(in: self), in: bounds.size) else { return }
-            feed.send(.mouse(.mousePressed, x: point.x, y: point.y, button: .right, clicks: 1))
-            feed.send(.mouse(.mouseReleased, x: point.x, y: point.y, button: .right, clicks: 1))
-        }
-
-        @objc private func panning(_ gesture: UIPanGestureRecognizer) {
-            if gesture.state == .began {
-                panned = .zero
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+            touchStoppedMomentum = momentum != nil
+            stopMomentum()
+            if !pointer(touches, .mousePressed, event) {
+                super.touchesBegan(touches, with: event)
             }
-            let moved = gesture.translation(in: self)
-            let delta = CGPoint(x: moved.x - panned.x, y: moved.y - panned.y)
-            panned = moved
-            guard let point = feed.browserPoint(gesture.location(in: self), in: bounds.size) else { return }
-            feed.send(.mouse(.mouseWheel, x: point.x, y: point.y, deltaX: Double(-delta.x), deltaY: Double(-delta.y)))
+        }
+
+        override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+            if !pointer(touches, .mouseMoved, event) {
+                super.touchesMoved(touches, with: event)
+            }
+        }
+
+        override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+            if !pointer(touches, .mouseReleased, event) {
+                super.touchesEnded(touches, with: event)
+            }
+        }
+
+        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+            if !pointer(touches, .mouseReleased, event) {
+                super.touchesCancelled(touches, with: event)
+            }
+        }
+
+        /// A mouse or a trackpad presses, drags and clicks as on a computer.
+        private func pointer(_ touches: Set<UITouch>, _ type: BrowserInput.MouseEvent, _ event: UIEvent?) -> Bool {
+            guard let touch = touches.first(where: { $0.type == .indirectPointer }) else { return false }
+            if type == .mousePressed {
+                pointerButton = event?.buttonMask.contains(.secondary) == true ? .right : .left
+            }
+            guard let button = pointerButton else { return true }
+            if type == .mouseReleased {
+                pointerButton = nil
+            }
+            mouse(type, at: touch.location(in: self), button: button, clicks: type == .mouseMoved ? 0 : touch.tapCount,
+                  modifiers: Self.modifiers(event?.modifierFlags ?? []))
+            return true
+        }
+
+        @objc private func tapped(_ gesture: UITapGestureRecognizer) {
+            guard !touchStoppedMomentum else { return }
+            let location = gesture.location(in: self)
+            click(at: location, button: .left, clicks: taps.click(at: location, time: CACurrentMediaTime()))
+        }
+
+        @objc private func pairTapped(_ gesture: UITapGestureRecognizer) {
+            taps.forget()
+            click(at: gesture.location(in: self), button: .right)
+        }
+
+        /// A press that rests and then moves drags with the left button, which selects text as a
+        /// mouse does; a press that rests and lets go opens the menu of the page.
+        @objc private func held(_ gesture: UILongPressGestureRecognizer) {
+            let location = gesture.location(in: self)
+            switch gesture.state {
+            case .began:
+                taps.forget()
+                holdStart = location
+                UISelectionFeedbackGenerator().selectionChanged()
+            case .changed:
+                guard let start = holdStart else { return }
+                if !dragging {
+                    guard hypot(location.x - start.x, location.y - start.y) > Self.dragDistance else { return }
+                    guard mouse(.mousePressed, at: start, button: .left, clicks: 1) else {
+                        holdStart = nil
+                        return
+                    }
+                    dragging = true
+                }
+                mouse(.mouseMoved, at: location, button: .left)
+            case .ended, .cancelled:
+                if dragging {
+                    mouse(.mouseReleased, at: location, button: .left, clicks: 1)
+                } else if gesture.state == .ended, let start = holdStart {
+                    click(at: start, button: .right)
+                }
+                holdStart = nil
+                dragging = false
+            default:
+                break
+            }
+        }
+
+        @objc private func scrolled(_ gesture: UIPanGestureRecognizer) {
+            guard [.began, .changed, .ended].contains(gesture.state) else { return }
+            let location = gesture.location(in: self)
+            scroll(by: gesture.translation(in: self), at: location)
+            gesture.setTranslation(.zero, in: self)
+            if gesture.state == .ended {
+                startMomentum(velocity: gesture.velocity(in: self), at: location)
+            }
+        }
+
+        @objc private func pointerScrolled(_ gesture: UIPanGestureRecognizer) {
+            guard gesture.state == .began || gesture.state == .changed else { return }
+            stopMomentum()
+            scroll(by: gesture.translation(in: self), at: gesture.location(in: self))
+            gesture.setTranslation(.zero, in: self)
+        }
+
+        @objc private func hovered(_ gesture: UIHoverGestureRecognizer) {
+            guard gesture.state == .began || gesture.state == .changed else { return }
+            mouse(.mouseMoved, at: gesture.location(in: self), button: .none, modifiers: Self.modifiers(gesture.modifierFlags))
+        }
+
+        /// The page moves as far as the finger, so the place under the finger stays under it.
+        private func scroll(by moved: CGPoint, at location: CGPoint) {
+            let page = feed.window.size
+            guard moved != .zero, page.width > 0, page.height > 0, bounds.width > 0, bounds.height > 0,
+                  let point = feed.browserPoint(location, in: bounds.size) else { return }
+            let fit = min(bounds.width / page.width, bounds.height / page.height)
+            feed.send(.mouse(.mouseWheel, x: point.x, y: point.y, deltaX: Double(-moved.x / fit), deltaY: Double(-moved.y / fit)))
+        }
+
+        private func startMomentum(velocity: CGPoint, at location: CGPoint) {
+            guard hypot(velocity.x, velocity.y) > Self.slowestMomentum else { return }
+            momentumVelocity = velocity
+            momentumPoint = location
+            let link = CADisplayLink(target: self, selector: #selector(momentumFrame))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+            link.add(to: .main, forMode: .common)
+            momentum = link
+        }
+
+        @objc private func momentumFrame(_ link: CADisplayLink) {
+            let elapsed = CGFloat(max(link.targetTimestamp - link.timestamp, 0))
+            let decay = pow(UIScrollView.DecelerationRate.normal.rawValue, elapsed * 1000)
+            momentumVelocity = CGPoint(x: momentumVelocity.x * decay, y: momentumVelocity.y * decay)
+            guard hypot(momentumVelocity.x, momentumVelocity.y) > Self.slowestMomentum else {
+                stopMomentum()
+                return
+            }
+            scroll(by: CGPoint(x: momentumVelocity.x * elapsed, y: momentumVelocity.y * elapsed), at: momentumPoint)
+        }
+
+        private func stopMomentum() {
+            momentum?.invalidate()
+            momentum = nil
+        }
+
+        private func click(at location: CGPoint, button: BrowserInput.MouseButton, clicks: Int = 1) {
+            guard mouse(.mousePressed, at: location, button: button, clicks: clicks) else { return }
+            mouse(.mouseReleased, at: location, button: button, clicks: clicks)
+        }
+
+        @discardableResult
+        private func mouse(_ type: BrowserInput.MouseEvent, at location: CGPoint, button: BrowserInput.MouseButton,
+                           clicks: Int = 0, modifiers: BrowserInput.Modifiers = []) -> Bool
+        {
+            guard let point = feed.browserPoint(location, in: bounds.size) else { return false }
+            feed.send(.mouse(type, x: point.x, y: point.y, button: button, clicks: clicks, modifiers: modifiers))
+            return true
         }
 
         static func modifiers(_ flags: UIKeyModifierFlags) -> BrowserInput.Modifiers {

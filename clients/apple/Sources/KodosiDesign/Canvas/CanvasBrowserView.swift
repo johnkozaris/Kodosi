@@ -59,7 +59,6 @@ public struct CanvasBrowserView: View {
                 }
                 if browser.state == .awake {
                     BrowserInputArea(feed: feed, typing: typing, ask: ask)
-                        .browserPageMenu(feed: feed, ask: ask)
                     BrowserPointersLayer(feed: feed)
                     AgentPointerLayer(browser: browser, feed: feed)
                     BrowserReconnecting(kept: feed.picture == .kept)

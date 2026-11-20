@@ -7,6 +7,7 @@ import android.content.Context
 import android.graphics.SurfaceTexture
 import android.text.InputType
 import android.view.GestureDetector
+import android.view.HapticFeedbackConstants
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -18,6 +19,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
+import android.widget.OverScroller
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -522,6 +524,21 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
     private var clickY = 0f
     private var releasedAt = 0L
     private val doubleTapSlop = ViewConfiguration.get(context).scaledDoubleTapSlop
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private var held = false
+    private var dragging = false
+    private var holdX = 0f
+    private var holdY = 0f
+    private var pairAt = -1L
+    private var pairX = 0f
+    private var pairY = 0f
+    private val fling = OverScroller(context)
+    private var flungX = 0
+    private var flungY = 0
+    private var flingAtX = 0f
+    private var flingAtY = 0f
+    private var touchStoppedFling = false
+    private val flingStep = Runnable { flingFrame() }
     private var accent = 0
     var window = fields()
         set(value) {
@@ -538,6 +555,7 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(event: MotionEvent) = true
             override fun onSingleTapUp(event: MotionEvent): Boolean {
+                if (touchStoppedFling) return true
                 countClick("left", event.x, event.y, event.downTime)
                 mouse("press", event.x, event.y, "left", clickCount)
                 mouse("release", event.x, event.y, "left", clickCount)
@@ -546,11 +564,33 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
                 return true
             }
             override fun onLongPress(event: MotionEvent) {
-                mouse("press", event.x, event.y, "right", 1)
-                mouse("release", event.x, event.y, "right", 1)
+                held = true
+                dragging = false
+                holdX = event.x
+                holdY = event.y
+                clickButton = ""
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             }
             override fun onScroll(first: MotionEvent?, event: MotionEvent, dx: Float, dy: Float): Boolean {
                 mouse("wheel", event.x, event.y, dx = dx, dy = dy)
+                return true
+            }
+            override fun onFling(first: MotionEvent?, event: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                flingAtX = event.x
+                flingAtY = event.y
+                flungX = 0
+                flungY = 0
+                fling.fling(
+                    0,
+                    0,
+                    -velocityX.toInt(),
+                    -velocityY.toInt(),
+                    Int.MIN_VALUE,
+                    Int.MAX_VALUE,
+                    Int.MIN_VALUE,
+                    Int.MAX_VALUE
+                )
+                postOnAnimation(flingStep)
                 return true
             }
         }
@@ -611,17 +651,17 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         dx: Float = 0f,
         dy: Float = 0f,
         modifiers: Int = 0
-    ) {
-        val bw = window.number("width")?.toFloat() ?: return
-        val bh = window.number("height")?.toFloat() ?: return
-        if (bw <= 0 || bh <= 0) return
+    ): Boolean {
+        val bw = window.number("width")?.toFloat() ?: return false
+        val bh = window.number("height")?.toFloat() ?: return false
+        if (bw <= 0 || bh <= 0) return false
         val fit = minOf(width / bw, height / bh)
         val rawX = (x - (width - bw * fit) / 2) / fit
         val rawY = (y - (height - bh * fit) / 2) / fit
         if ((rawX !in 0f..bw || rawY !in 0f..bh) &&
             action != "release" && !(action == "move" && button != "none")
         ) {
-            return
+            return false
         }
         val px = rawX.coerceIn(0f, (bw - 1).coerceAtLeast(0f))
         val py = rawY.coerceIn(0f, (bh - 1).coerceAtLeast(0f))
@@ -637,11 +677,92 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
                 "deltaY" to (dy / fit), "modifiers" to modifiers
             )
         )
+        return true
+    }
+
+    private fun click(x: Float, y: Float, button: String) {
+        if (mouse("press", x, y, button, 1)) mouse("release", x, y, button, 1)
+    }
+
+    /**
+     * A press that rests and then moves drags with the left button, which selects text as a mouse
+     * does; a press that rests and lets go opens the menu of the page, as a tap with two fingers does.
+     */
+    private fun touch(event: MotionEvent) {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                touchStoppedFling = !fling.isFinished
+                stopFling()
+            }
+
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (dragging) mouse("release", event.x, event.y, "left", 1)
+                pairAt = if (event.pointerCount == 2 && !held) event.eventTime else -1L
+                pairX = (event.getX(0) + event.getX(1)) / 2
+                pairY = (event.getY(0) + event.getY(1)) / 2
+                held = false
+                dragging = false
+            }
+
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (pairAt >= 0 && event.eventTime - pairAt <= ViewConfiguration.getLongPressTimeout()) {
+                    click(pairX, pairY, "right")
+                }
+                pairAt = -1L
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                if (pairAt >= 0 && event.pointerCount >= 2) {
+                    val x = (event.getX(0) + event.getX(1)) / 2
+                    val y = (event.getY(0) + event.getY(1)) / 2
+                    if (hypot(x - pairX, y - pairY) > touchSlop) pairAt = -1L
+                }
+                if (held && !dragging && hypot(event.x - holdX, event.y - holdY) > touchSlop) {
+                    dragging = mouse("press", holdX, holdY, "left", 1)
+                    held = dragging
+                }
+                if (dragging) mouse("move", event.x, event.y, "left")
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (dragging) {
+                    mouse("release", event.x, event.y, "left", 1)
+                } else if (held && event.actionMasked == MotionEvent.ACTION_UP) {
+                    click(holdX, holdY, "right")
+                }
+                held = false
+                dragging = false
+                pairAt = -1L
+            }
+        }
+    }
+
+    private fun flingFrame() {
+        if (!fling.computeScrollOffset()) return
+        val dx = fling.currX - flungX
+        val dy = fling.currY - flungY
+        flungX = fling.currX
+        flungY = fling.currY
+        if (dx != 0 || dy != 0) mouse("wheel", flingAtX, flingAtY, dx = dx.toFloat(), dy = dy.toFloat())
+        postOnAnimation(flingStep)
+    }
+
+    private fun stopFling() {
+        fling.forceFinished(true)
+        removeCallbacks(flingStep)
+    }
+
+    override fun onDetachedFromWindow() {
+        stopFling()
+        super.onDetachedFromWindow()
     }
 
     @android.annotation.SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.getToolType(0) != MotionEvent.TOOL_TYPE_MOUSE) return gestures.onTouchEvent(event)
+        if (event.getToolType(0) != MotionEvent.TOOL_TYPE_MOUSE) {
+            touch(event)
+            return gestures.onTouchEvent(event)
+        }
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             requestFocus()
             pressed = when {

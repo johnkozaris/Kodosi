@@ -83,6 +83,19 @@ import Testing
     #expect(runtime.opened == false)
 }
 
+@Test func `taps in about one place count up as clicks, so two select a word, and a later or farther tap is one click again`() {
+    var taps = BrowserTaps()
+    let word = CGPoint(x: 100, y: 200)
+
+    #expect(taps.click(at: word, time: 10) == 1)
+    #expect(taps.click(at: CGPoint(x: 112, y: 206), time: 10.3) == 2)
+    #expect(taps.click(at: word, time: 10.6) == 3)
+    #expect(taps.click(at: word, time: 12) == 1)
+    #expect(taps.click(at: CGPoint(x: 300, y: 200), time: 12.2) == 1)
+    taps.forget()
+    #expect(taps.click(at: CGPoint(x: 300, y: 200), time: 12.3) == 1)
+}
+
 @MainActor
 private final class BrowserRuntime {
     static let keyFrame: Data = {
