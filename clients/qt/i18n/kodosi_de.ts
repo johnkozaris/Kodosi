@@ -500,12 +500,12 @@
         <translation>Geteilt</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 Tabs</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>Neuer Tab</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Tabs</translation>
     </message>
     <message>
         <source>Close tab</source>

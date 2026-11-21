@@ -500,12 +500,12 @@
         <translation>Κοινόχρηστο</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 καρτέλες</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>Νέα καρτέλα</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Καρτέλες</translation>
     </message>
     <message>
         <source>Close tab</source>

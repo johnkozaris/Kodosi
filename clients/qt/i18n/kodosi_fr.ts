@@ -500,12 +500,12 @@
         <translation>Partagé</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 onglets</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>Nouvel onglet</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Onglets</translation>
     </message>
     <message>
         <source>Close tab</source>
