@@ -18,6 +18,9 @@ use super::{
 pub(crate) const MODULE: &str = include_str!("../../links/claude.js");
 pub(super) const VERSION: u64 = 1;
 const NAME: &str = "claude";
+const REFUSED_WITH_WORDS: &str = "The user doesn't want to proceed with this tool use. The tool \
+    use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To \
+    tell you how to proceed, the user said:\n";
 const MOST_ROWS: usize = 4096;
 const MOST_CALLS: usize = 2048;
 const MOST_SAID: usize = 400;
@@ -1002,9 +1005,12 @@ impl Claude {
                 "behavior": "allow",
                 "updatedPermissions": [asked.suggestions.first()?],
             }),
-            (_, ChatAnswer::Deny { text: Some(words) }) if !words.trim().is_empty() => {
-                json!({"behavior": "deny", "message": words})
-            }
+            // Claude Code gives the model these words as the result of the call as they are, so
+            // they start as Claude Code's own refusal with words does in its terminal.
+            (_, ChatAnswer::Deny { text: Some(words) }) if !words.trim().is_empty() => json!({
+                "behavior": "deny",
+                "message": format!("{REFUSED_WITH_WORDS}{}", words.trim()),
+            }),
             (_, ChatAnswer::Deny { .. }) => refusal("The person did not allow this."),
             (AskKind::Question, ChatAnswer::Answers { answers }) => {
                 let questions = list(&asked.input, "questions").collect::<Vec<_>>();

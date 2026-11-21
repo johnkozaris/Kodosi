@@ -254,16 +254,16 @@ fn a_command_waits_for_its_answer_then_runs_and_shows_its_output() {
 }
 
 #[test]
-fn the_words_of_a_refusal_go_to_the_agent_and_the_change_shows_as_refused() {
+fn the_words_of_a_refusal_go_to_the_agent_as_the_persons_and_the_change_shows_as_refused() {
     let refusal = ChatAnswer::Deny {
         text: Some(
             "Do not change the file. Say in one short sentence what you would change.".to_owned(),
         ),
     };
-    let play = Play::of(record!("edit-deny"), &[refusal, ChatAnswer::Allow]);
+    let play = Play::of(record!("edit-deny"), &[refusal]);
 
-    let [edit, command] = play.tools()[..] else {
-        panic!("two calls");
+    let [edit] = play.tools()[..] else {
+        panic!("one call");
     };
     assert_eq!((edit.kind, edit.state), (ToolKind::Edit, ToolState::Denied));
     assert_eq!(edit.target, "app.py");
@@ -286,8 +286,11 @@ fn the_words_of_a_refusal_go_to_the_agent_and_the_change_shows_as_refused() {
             ],
         })
     );
-    assert_eq!(command.state, ToolState::Done);
     assert_eq!(play.ends(), [TurnEnd::Done]);
+    assert!(
+        play.answers()[0].starts_with("I would remove the `* TAX`"),
+        "the agent followed the person's words"
+    );
 }
 
 #[test]
