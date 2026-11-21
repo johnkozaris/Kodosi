@@ -207,6 +207,7 @@ impl CanvasHandle {
         view: String,
         person: String,
         name: String,
+        local: bool,
     ) -> Result<PipeEnds, Text> {
         if key == BROWSER_PIPE {
             let (reply, answer) = oneshot::channel();
@@ -214,6 +215,7 @@ impl CanvasHandle {
                 id: view,
                 person,
                 name,
+                local,
             };
             self.jobs
                 .try_send(Job::Watch { viewer, reply })

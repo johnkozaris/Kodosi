@@ -15,6 +15,8 @@ pub struct Viewer {
     pub id: String,
     pub person: String,
     pub name: String,
+    /// The view runs on the computer of the browser, with no link between them.
+    pub local: bool,
 }
 
 /// In CSS pixels, with the scale of the viewer's screen.

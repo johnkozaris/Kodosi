@@ -728,7 +728,8 @@ impl Live {
                 anchors,
                 opened,
             } => {
-                self.flow.seat(viewer, anchors, now);
+                let local = self.seats.get(viewer).is_some_and(|seat| seat.viewer.local);
+                self.flow.seat(viewer, anchors, local, now);
                 self.used_at = now;
                 if opened {
                     self.opened(viewer);
@@ -1489,6 +1490,7 @@ mod tests {
                 id: "app".to_owned(),
                 person: "ana".to_owned(),
                 name: "Ana".to_owned(),
+                local: false,
             },
             number,
             outgoing: mpsc::channel(1).0,
@@ -1520,6 +1522,7 @@ mod tests {
             id: id.to_owned(),
             person: person.to_owned(),
             name: person.to_owned(),
+            local: false,
         };
         let seat = SEATS.fetch_add(1, Ordering::Relaxed);
         live.handle(Event::Join {
