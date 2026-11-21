@@ -384,6 +384,13 @@ impl Agent {
             )),
             Self::Cursor if notes.installed.cursor_plugins => cursor_plugin(&notes.folder)
                 .map(|plugin| format!("{command} --plugin-dir {}", as_shell_word(shell, &plugin))),
+            // Copilot loads the extension of Kodosi's plugin only with its experimental features.
+            Self::Copilot => copilot_plugin(&notes.folder).map(|plugin| {
+                format!(
+                    "{command} --plugin-dir {} --experimental",
+                    as_shell_word(shell, &plugin)
+                )
+            }),
             Self::Opencode if !cfg!(windows) => {
                 let standalone = match notes.installed.opencode_version {
                     Some(version) if version >= 2 => " --standalone",
@@ -395,7 +402,7 @@ impl Agent {
                     format!("env {config} {command}{standalone}")
                 })
             }
-            Self::Claude | Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
+            Self::Claude | Self::Cursor | Self::Gemini | Self::Opencode => None,
         };
         words.unwrap_or_else(|| command.to_owned())
     }
@@ -516,6 +523,11 @@ const PLUGIN: &str = "plugin";
 #[cfg(feature = "host")]
 const CURSOR_PLUGIN: &str = "cursor";
 #[cfg(feature = "host")]
+const COPILOT_PLUGIN: &str = "copilot";
+/// Copilot names an extension of a plugin by the plugin's name and the extension's folder.
+#[cfg(feature = "host")]
+const COPILOT_EXTENSION: &str = "plugin:kodosi:kodosi";
+#[cfg(feature = "host")]
 const NOTE: &str = "kodosi.md";
 
 /// What the start line of an agent needs to give it Kodosi's note.
@@ -612,7 +624,19 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
             plugin.join("hooks").join("link.js"),
             crate::chat::CLAUDE_MODULE.to_owned(),
         ),
-        (cursor.join(".cursor-plugin").join("plugin.json"), manifest),
+        (
+            cursor.join(".cursor-plugin").join("plugin.json"),
+            manifest.clone(),
+        ),
+        (folder.join(COPILOT_PLUGIN).join("plugin.json"), manifest),
+        (
+            folder
+                .join(COPILOT_PLUGIN)
+                .join("extensions")
+                .join("kodosi")
+                .join("extension.mjs"),
+            crate::chat::COPILOT_EXTENSION.to_owned(),
+        ),
         (
             cursor.join("rules").join("kodosi.mdc"),
             format!("---\nalwaysApply: true\n---\n\n{}\n", CONTEXT.trim()),
@@ -669,6 +693,80 @@ pub(crate) fn plugin_dir(notes: &Path) -> Option<String> {
         .is_file()
         .then(|| plugin.to_str().map(str::to_owned))
         .flatten()
+}
+
+#[cfg(feature = "host")]
+fn copilot_plugin(notes: &Path) -> Option<String> {
+    let plugin = notes.join(COPILOT_PLUGIN);
+    if !plugin.join("plugin.json").is_file() {
+        return None;
+    }
+    plugin.to_str().map(str::to_owned)
+}
+
+/// Copilot lets an extension answer its questions only after a person allowed it, for a folder or
+/// for its repository. Kodosi gives that answer in Copilot's own file for the folder where it
+/// starts Copilot, so that the chat can answer from the start.
+#[cfg(feature = "host")]
+pub(crate) fn allow_copilot_link(home: &Path, folder: &Path) -> std::io::Result<()> {
+    use std::io::Read as _;
+    const APPROVALS: &str = "permissions-config.json";
+    const APPROVALS_LOCK: &str = "permissions-config.json.transaction.lock";
+    const MOST_BYTES: u64 = 1024 * 1024;
+    let invalid = |message: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, message);
+    let folder = kodosi_os::fs::canonicalize(folder)?;
+    let location = folder
+        .ancestors()
+        .find(|folder| folder.join(".git").exists())
+        .unwrap_or(&folder)
+        .to_str()
+        .ok_or_else(|| invalid("the folder's name is not UTF-8"))?
+        .to_owned();
+    std::fs::create_dir_all(home)?;
+    let file = home.join(APPROVALS);
+    let _lock = quiet::lock_beside(&file, APPROVALS_LOCK)?;
+    let mut approvals = match std::fs::symlink_metadata(&file) {
+        Ok(metadata) if metadata.is_file() => {
+            let mut bytes = Vec::new();
+            std::fs::File::open(&file)?
+                .take(MOST_BYTES + 1)
+                .read_to_end(&mut bytes)?;
+            if bytes.len() as u64 > MOST_BYTES {
+                return Err(invalid("Copilot's approvals are too long"));
+            }
+            serde_json::from_slice::<serde_json::Value>(&bytes)
+                .map_err(|_| invalid("Copilot's approvals are not JSON"))?
+        }
+        Ok(_) => return Err(invalid("Copilot's approvals are not a file")),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => serde_json::json!({}),
+        Err(error) => return Err(error),
+    };
+    let approval = serde_json::json!({
+        "kind": "extension-permission-access",
+        "extensionName": COPILOT_EXTENSION,
+    });
+    let listed = approvals
+        .as_object_mut()
+        .ok_or_else(|| invalid("Copilot's approvals are not an object"))?
+        .entry("locations")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or_else(|| invalid("Copilot's locations are not an object"))?
+        .entry(location)
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or_else(|| invalid("a location of Copilot is not an object"))?
+        .entry("tool_approvals")
+        .or_insert_with(|| serde_json::json!([]))
+        .as_array_mut()
+        .ok_or_else(|| invalid("Copilot's tool approvals are not a list"))?;
+    if listed.contains(&approval) {
+        return Ok(());
+    }
+    listed.push(approval);
+    let mut text = serde_json::to_vec_pretty(&approvals)?;
+    text.push(b'\n');
+    kodosi_os::fs::replace_keeping_permissions(&file, &text)
 }
 
 #[cfg(feature = "host")]

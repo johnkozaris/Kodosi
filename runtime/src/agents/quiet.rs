@@ -227,11 +227,16 @@ fn restore(settings: &Path, record: &Record) -> io::Result<()> {
 }
 
 fn lock_settings(settings: &Path) -> io::Result<File> {
+    lock_beside(settings, SETTINGS_LOCK)
+}
+
+/// Copilot CLI changes its files under a lock of the file beside them.
+pub(super) fn lock_beside(file: &Path, name: &str) -> io::Result<File> {
     let lock = OpenOptions::new()
         .create(true)
         .truncate(false)
         .write(true)
-        .open(settings.with_file_name(SETTINGS_LOCK))?;
+        .open(file.with_file_name(name))?;
     let asked = Instant::now();
     loop {
         match lock.try_lock() {

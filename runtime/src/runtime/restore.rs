@@ -220,6 +220,11 @@ pub(super) async fn agent_line(
         &changed,
         &notes,
     );
+    if agent == Agent::Copilot
+        && let Some(folder) = &folder
+    {
+        super::commands::allow_copilot_link(account.clone(), folder.clone()).await;
+    }
     let conversation = match foreground.group {
         Some(group) => crate::provider::shown_conversation(agent, account, group, folder).await,
         None => None,

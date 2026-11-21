@@ -10,6 +10,7 @@ use super::{
     ChatAnswer, ChatBody, ChatPerson, MOST_TARGET, MOST_TEXT,
     claude::Claude,
     codex::Codex,
+    copilot::Copilot,
     state::{Chat, ends_of, start_of},
 };
 
@@ -69,6 +70,7 @@ pub(super) fn named(name: &str) -> Option<Box<dyn Agent>> {
     match name {
         Claude::NAME => Some(Box::new(Claude::default())),
         Codex::NAME => Some(Box::new(Codex::default())),
+        Copilot::NAME => Some(Box::new(Copilot::default())),
         _ => None,
     }
 }

@@ -14,6 +14,8 @@ mod codex;
 #[cfg(all(feature = "host", unix))]
 mod codex_link;
 #[cfg(feature = "host")]
+mod copilot;
+#[cfg(feature = "host")]
 mod diff;
 #[cfg(feature = "host")]
 mod http;
@@ -28,6 +30,8 @@ mod tests;
 
 #[cfg(feature = "host")]
 pub(crate) use claude::MODULE as CLAUDE_MODULE;
+#[cfg(feature = "host")]
+pub(crate) use copilot::EXTENSION as COPILOT_EXTENSION;
 #[cfg(feature = "host")]
 pub(crate) use link::{Links, TerminalChat};
 #[cfg(feature = "host")]

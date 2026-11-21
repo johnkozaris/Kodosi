@@ -38,6 +38,8 @@ pub struct Launcher {
 pub(crate) struct Launch {
     pub(crate) line: String,
     pub(crate) quiet_settings: Option<PathBuf>,
+    /// The account folder of a Copilot that Kodosi starts, where Kodosi allows its extension.
+    pub(crate) copilot_home: Option<PathBuf>,
 }
 
 pub(crate) struct RunningAgent {
@@ -285,13 +287,17 @@ impl Launcher {
             None
         };
         let (line, pick) = plan(info, models.as_ref(), &saved, start, &self.shell)?;
-        let quiet_settings = info
+        let account = info
             .accounts
             .iter()
             .find(|account| pick.account.as_ref() == Some(&account.name))
-            .and_then(|account| account.folder_in(&self.home))
+            .and_then(|account| account.folder_in(&self.home));
+        let quiet_settings = account
+            .clone()
             .zip(pick.output)
             .and_then(|(folder, output)| quiet::settings_file(start.agent, output, &folder));
+        let copilot_home = (start.agent == Agent::Copilot)
+            .then(|| account.unwrap_or_else(|| self.home.join(".copilot")));
         {
             let mut state = self.state();
             state.saved.apply(&AgentChoiceChange::Tab {
@@ -303,6 +309,7 @@ impl Launcher {
         Ok(Launch {
             line: start.agent.with_context(&line, &self.notes()),
             quiet_settings,
+            copilot_home,
         })
     }
 

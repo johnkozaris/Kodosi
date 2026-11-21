@@ -666,6 +666,68 @@ fn only_a_codex_that_a_person_started_by_hand_misses_kodosi_s_note() {
 
 #[cfg(unix)]
 #[test]
+fn copilot_starts_with_kodosi_s_extension_and_kodosi_allows_it_for_the_folder() {
+    let root = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let folder = root.join("data root").join("agents");
+    write_notes(&folder).unwrap();
+    let bin = root.join("bin");
+    fs::create_dir(&bin).unwrap();
+    kodosi_os::process::write_program(&bin.join("copilot"), "#!/bin/sh\nprintf '%s\\0' \"$@\"\n")
+        .unwrap();
+    let notes = Notes {
+        shell: "/bin/sh".into(),
+        folder: folder.clone(),
+        ..Notes::default()
+    };
+    let printed = std::process::Command::new("/bin/sh")
+        .arg("-c")
+        .arg(Agent::Copilot.with_context("copilot", &notes))
+        .env_clear()
+        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
+        .output()
+        .unwrap();
+    let words = String::from_utf8(printed.stdout).unwrap();
+    let plugin = folder.join("copilot");
+    assert_eq!(
+        words.split_terminator('\0').collect::<Vec<_>>(),
+        ["--plugin-dir", plugin.to_str().unwrap(), "--experimental"]
+    );
+    assert!(
+        plugin
+            .join("extensions")
+            .join("kodosi")
+            .join("extension.mjs")
+            .is_file()
+    );
+
+    let home = root.join("home").join(".copilot");
+    let repository = root.join("shop");
+    fs::create_dir_all(repository.join(".git")).unwrap();
+    fs::create_dir_all(repository.join("src")).unwrap();
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        home.join("permissions-config.json"),
+        r#"{"locations": {"/elsewhere": {"tool_approvals": [{"kind": "write"}]}}}"#,
+    )
+    .unwrap();
+    allow_copilot_link(&home, &repository.join("src")).unwrap();
+    allow_copilot_link(&home, &repository.join("src")).unwrap();
+    let saved: serde_json::Value =
+        serde_json::from_slice(&fs::read(home.join("permissions-config.json")).unwrap()).unwrap();
+    assert_eq!(
+        saved["locations"][repository.to_str().unwrap()]["tool_approvals"],
+        serde_json::json!([{"kind": "extension-permission-access", "extensionName": "plugin:kodosi:kodosi"}]),
+        "once, for the repository of the folder"
+    );
+    assert_eq!(
+        saved["locations"]["/elsewhere"]["tool_approvals"],
+        serde_json::json!([{"kind": "write"}])
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn cursor_and_opencode_get_the_note_only_in_the_line_that_kodosi_types_where_they_take_it() {
     let root = tempfile::tempdir().unwrap();
     let root = kodosi_os::fs::canonicalize(root.path()).unwrap();

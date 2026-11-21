@@ -49,9 +49,11 @@ ends what the two share.
 prompts, permissions, settings, memory and conversations stay with the provider. Kodosi
 starts an agent by typing its command into a shell, tells it in a short note that it runs
 in Kodosi, and gives it the `kodosi` command and skills. The agent decides when to use
-them. Kodosi reads no provider credentials. The one exception to settings is a quiet
-Copilot CLI, which takes its display only from its saved settings: Kodosi changes those
-while it runs and puts them back after.
+them. Kodosi reads no provider credentials. Copilot CLI is the one exception to settings.
+A quiet Copilot takes its display only from its saved settings, so Kodosi changes those
+while it runs and puts them back after. Copilot loads Kodosi's extension for the chat
+only with its experimental features, which Copilot then keeps on, and only after a person
+allowed the extension, which Kodosi does for each folder where it starts Copilot.
 
 **The chat is a view of the terminal.** The agent runs in its terminal as before, and the
 chat shows that session. The agent reports its work through the interface that its

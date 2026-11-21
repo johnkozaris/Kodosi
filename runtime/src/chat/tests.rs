@@ -1,6 +1,7 @@
 //! The records in `fixtures/claude` are what the link module sent from real sessions of Claude Code.
 //! Those in `fixtures/codex` are the messages of Codex's app-server in real sessions, as the link
-//! gives them to the chat, without the messages that the chat does not read.
+//! gives them to the chat, without the messages that the chat does not read. Those in
+//! `fixtures/copilot` are what the extension sent from real sessions of Copilot CLI 1.0.115.
 //!
 //! The names of private places are replaced. A line with `answer` holds the decision that the
 //! recording gave the agent for a question, which the agent then took.
@@ -11,6 +12,7 @@ use super::{
     agent::{Agent, Stop},
     claude::Claude,
     codex::Codex,
+    copilot::Copilot,
     room::{Asked, ChatHandle, Job},
     state::Chat,
     *,
@@ -25,6 +27,12 @@ macro_rules! record {
 macro_rules! codex {
     ($name:literal) => {
         include_str!(concat!("fixtures/codex/", $name, ".jsonl"))
+    };
+}
+
+macro_rules! copilot {
+    ($name:literal) => {
+        include_str!(concat!("fixtures/copilot/", $name, ".jsonl"))
     };
 }
 
@@ -68,6 +76,14 @@ impl Play {
         play.more(codex!("start"), &[]);
         let records = records.join("");
         play.more(&records, answers);
+        play
+    }
+
+    /// Plays records of Copilot after the start of its extension.
+    fn copilot(records: &[&str], answers: &[ChatAnswer]) -> Self {
+        let mut play = Self::new(Box::new(Copilot::default()));
+        play.more(copilot!("start"), &[]);
+        play.more(&records.join(""), answers);
         play
     }
 
@@ -1577,4 +1593,181 @@ async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_person
         .then_some(())
     })
     .await;
+}
+
+#[test]
+fn copilot_shows_a_message_and_the_answer_as_copilot_writes_it() {
+    let play = Play::copilot(&[copilot!("text")], &[]);
+
+    assert_eq!(play.people(), ["Say hello in five words."]);
+    assert_eq!(play.answers(), ["Hello, it’s wonderful to meet you."]);
+    assert_eq!(play.ends(), [TurnEnd::Done]);
+    assert_eq!(play.view.state, ChatState::Idle);
+    let facts = &play.view.facts;
+    assert_eq!(facts.agent.as_deref(), Some("copilot"));
+    assert_eq!(facts.version.as_deref(), Some("1.0.115-3"));
+    assert_eq!(facts.model.as_deref(), Some("mai-code-2-flash"));
+    assert_eq!(facts.folder.as_deref(), Some("/home/sam/shop"));
+    assert!(facts.models.iter().any(|model| model == "gpt-6-luna"));
+    assert!(
+        facts
+            .context
+            .is_some_and(|context| context.window == 922_000)
+    );
+}
+
+#[test]
+fn a_person_allows_a_command_of_copilot_in_the_chat() {
+    let play = Play::copilot(&[copilot!("command")], &[ChatAnswer::Allow]);
+
+    let [command] = play.tools()[..] else {
+        panic!("one call");
+    };
+    assert_eq!(
+        (command.kind, command.state, command.target.as_str()),
+        (ToolKind::Command, ToolState::Done, "python3 app.py")
+    );
+    let Some(ToolDetail::Command { output, .. }) = &command.detail else {
+        panic!("a command");
+    };
+    assert!(output.contains("Total       33.83"), "{output}");
+    assert_eq!(play.answers(), ["The total is 33.83."]);
+    assert_eq!(play.view.asks, [] as [ChatAsk; 0]);
+}
+
+#[test]
+fn the_words_of_a_refusal_go_to_copilot_and_the_command_shows_as_refused() {
+    let refusal = ChatAnswer::Deny {
+        text: Some("Do not run it. Say in one short sentence what it would print.".to_owned()),
+    };
+    let play = Play::copilot(&[copilot!("refuse")], &[refusal]);
+
+    let [command] = play.tools()[..] else {
+        panic!("one call");
+    };
+    assert_eq!(command.state, ToolState::Denied);
+    assert_eq!(
+        play.answers(),
+        ["It prints the Mug, Notebook, Pen, and total of 33.83."],
+        "the agent followed the person's words"
+    );
+    assert_eq!(play.ends(), [TurnEnd::Done]);
+}
+
+#[test]
+fn a_change_of_a_file_by_copilot_shows_its_lines() {
+    let play = Play::copilot(&[copilot!("edit")], &[ChatAnswer::Allow]);
+
+    let [read, edit] = play.tools()[..] else {
+        panic!("two calls");
+    };
+    assert_eq!((read.kind, read.state), (ToolKind::Read, ToolState::Done));
+    assert_eq!(
+        (edit.kind, edit.state, edit.target.as_str()),
+        (ToolKind::Edit, ToolState::Done, "app.py")
+    );
+    let Some(ToolDetail::Change {
+        path,
+        added,
+        removed,
+        lines,
+    }) = &edit.detail
+    else {
+        panic!("a change");
+    };
+    assert_eq!(
+        (path.as_str(), *added, *removed),
+        ("/home/sam/shop/app.py", 1, 1)
+    );
+    assert!(lines.contains(&line(ChangeSign::Removed, "    return subtotal * TAX")));
+    assert!(lines.contains(&line(ChangeSign::Added, "    return subtotal")));
+}
+
+#[test]
+fn a_stop_of_the_chat_ends_the_turn_of_copilot_and_its_command() {
+    let play = Play::copilot(&[copilot!("stop")], &[ChatAnswer::Allow]);
+
+    let [command] = play.tools()[..] else {
+        panic!("one call");
+    };
+    assert_eq!(command.state, ToolState::Stopped);
+    assert_eq!(play.ends(), [TurnEnd::Stopped]);
+    assert_eq!(play.view.state, ChatState::Idle);
+}
+
+#[test]
+fn an_answer_in_the_terminal_closes_the_question_of_copilot_in_the_chat() {
+    let play = Play::copilot(&[copilot!("terminal")], &[]);
+
+    assert_eq!(play.closed.len(), 1, "the question closed without the chat");
+    assert_eq!(play.view.asks, [] as [ChatAsk; 0]);
+    let [command] = play.tools()[..] else {
+        panic!("one call");
+    };
+    assert_eq!(command.state, ToolState::Done);
+}
+
+#[test]
+fn always_allows_the_commands_of_copilot_for_the_session_and_the_next_one_asks_nothing() {
+    let play = Play::copilot(&[copilot!("always")], &[ChatAnswer::Always]);
+
+    let asked = play
+        .changes
+        .iter()
+        .filter(|change| matches!(change, ChatChange::Asks { asks } if !asks.is_empty()))
+        .count();
+    assert_eq!(asked, 1, "only the first call asked");
+    assert_eq!(
+        play.tools()
+            .iter()
+            .map(|tool| tool.state)
+            .collect::<Vec<_>>(),
+        [ToolState::Done, ToolState::Done]
+    );
+}
+
+#[test]
+fn a_resumed_conversation_of_copilot_shows_its_earlier_turns() {
+    let mut play = Play::new(Box::new(Copilot::default()));
+    play.more(copilot!("history"), &[]);
+
+    assert_eq!(play.people().len(), 7);
+    assert_eq!(play.people()[0], "Say hello in five words.");
+    assert_eq!(
+        play.ends(),
+        [
+            TurnEnd::Done,
+            TurnEnd::Done,
+            TurnEnd::Done,
+            TurnEnd::Done,
+            TurnEnd::Stopped,
+            TurnEnd::Done,
+            TurnEnd::Done
+        ]
+    );
+    let refused = play
+        .tools()
+        .iter()
+        .filter(|tool| tool.state == ToolState::Denied)
+        .count();
+    assert_eq!(refused, 1, "the refusal of the third turn");
+    assert_eq!(play.view.state, ChatState::Idle);
+}
+
+#[test]
+fn a_message_of_the_chat_goes_to_copilot_only_when_copilot_is_idle() {
+    let mut play = Play::copilot(&[], &[]);
+    play.chat.queue("Say hello.".to_owned(), Some(sam()));
+    assert_eq!(
+        play.agent.commands(&play.chat),
+        [json!({"do": "prompt", "n": 1, "text": "Say hello."})]
+    );
+    assert_eq!(
+        play.agent.commands(&play.chat),
+        Vec::<Value>::new(),
+        "Copilot has it"
+    );
+
+    play.more(copilot!("text"), &[]);
+    assert_eq!(play.people(), ["Say hello in five words."]);
 }
