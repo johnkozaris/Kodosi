@@ -6,7 +6,11 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "host")]
+mod agent;
+#[cfg(feature = "host")]
 mod claude;
+#[cfg(feature = "host")]
+mod codex;
 #[cfg(feature = "host")]
 mod diff;
 #[cfg(feature = "host")]

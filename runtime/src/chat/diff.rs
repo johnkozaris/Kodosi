@@ -62,6 +62,26 @@ pub(super) fn written(text: &str) -> Change {
     between("", text)
 }
 
+/// The lines of a change that is given as the hunks of a unified diff, with no lines that name
+/// the file.
+pub(super) fn hunks(diff: &str) -> Change {
+    let mut change = Change {
+        added: 0,
+        removed: 0,
+        lines: Vec::new(),
+    };
+    for line in diff.lines() {
+        let sign = match line.as_bytes().first() {
+            Some(b'+') => ChangeSign::Added,
+            Some(b'-') => ChangeSign::Removed,
+            Some(b' ') => ChangeSign::Same,
+            _ => continue,
+        };
+        change.push(sign, &line[1..]);
+    }
+    change
+}
+
 impl Change {
     fn push(&mut self, sign: ChangeSign, line: &str) {
         match sign {

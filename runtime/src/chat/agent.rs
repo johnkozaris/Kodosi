@@ -1,0 +1,105 @@
+//! What a chat needs from one kind of agent.
+//!
+//! Each agent has its own interface for programs that work with it, and its own words for what it
+//! does. An adapter turns the reports of one agent's link into changes of the chat, and a person's
+//! answer, message or stop into what that agent takes.
+
+use serde_json::Value;
+
+use super::{
+    ChatAnswer, ChatBody, ChatPerson, MOST_TARGET, MOST_TEXT,
+    claude::Claude,
+    codex::Codex,
+    state::{Chat, ends_of, start_of},
+};
+
+pub(super) trait Agent: Send {
+    /// The name that the agent's link gives when it starts to report.
+    fn name(&self) -> &'static str;
+
+    /// Takes one report of the link. It gives the questions that closed with no decision from the
+    /// chat: a person answered them in the terminal, or their turn ended.
+    fn apply(&mut self, chat: &mut Chat, event: &Value) -> Vec<String>;
+
+    /// The agent ended, or its link does not report.
+    fn lost(&mut self, chat: &mut Chat) -> Vec<String>;
+
+    /// The link reports again after a silence.
+    fn back(&mut self, chat: &mut Chat);
+
+    fn is_linked(&self) -> bool;
+
+    /// A person sent a new message, so the chat tries the queue again.
+    fn retry(&mut self);
+
+    /// True for a queued message that the agent has, which a person can no longer take back.
+    fn has(&self, queued: &str) -> bool;
+
+    /// The decision that the agent takes for an answer, or nothing when the answer does not fit
+    /// the question.
+    fn decision(&mut self, ask: &str, answer: &ChatAnswer) -> Option<Value>;
+
+    /// A person of the chat decided a question. The chat shows the decision at once, and the
+    /// agent's own record of it follows.
+    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value);
+
+    /// What the link does next for the chat: the next message of the queue when the agent can
+    /// start it, and the calls that the adapter makes.
+    fn commands(&mut self, chat: &Chat) -> Vec<Value>;
+
+    /// How the turn stops for a person in the chat.
+    fn stop(&mut self, chat: &Chat) -> Stop;
+}
+
+pub(super) enum Stop {
+    /// The open questions get these decisions, which end the turn.
+    Decisions(Vec<(String, Value)>),
+    /// The link ends the turn and the commands of the turn.
+    Command(Value),
+    Nothing,
+}
+
+/// The adapter of the agent that a link names.
+pub(super) fn named(name: &str) -> Option<Box<dyn Agent>> {
+    match name {
+        Claude::NAME => Some(Box::new(Claude::default())),
+        Codex::NAME => Some(Box::new(Codex::default())),
+        _ => None,
+    }
+}
+
+pub(super) fn text<'a>(value: &'a Value, key: &str) -> &'a str {
+    value.get(key).and_then(Value::as_str).unwrap_or_default()
+}
+
+pub(super) fn words(value: &Value, key: &str) -> Option<String> {
+    Some(text(value, key))
+        .filter(|words| !words.is_empty())
+        .map(|words| start_of(words, MOST_TARGET).to_owned())
+}
+
+pub(super) fn list<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a Value> + use<'a> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+}
+
+pub(super) fn person(words: &str, by: Option<ChatPerson>) -> ChatBody {
+    ChatBody::Person {
+        text: ends_of(words, MOST_TEXT),
+        by,
+    }
+}
+
+pub(super) fn answer(words: &str, live: bool) -> ChatBody {
+    ChatBody::Text {
+        text: start_of(words, MOST_TEXT).to_owned(),
+        live,
+    }
+}
+
+pub(super) fn file_name(path: &str) -> &str {
+    path.rsplit(['/', '\\']).next().unwrap_or(path)
+}

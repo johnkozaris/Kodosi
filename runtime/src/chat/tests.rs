@@ -1,12 +1,16 @@
 //! The records in `fixtures/claude` are what the link module sent from real sessions of Claude Code.
+//! Those in `fixtures/codex` are the messages of Codex's app-server in real sessions, as the link
+//! gives them to the chat, without the messages that the chat does not read.
 //!
 //! The names of private places are replaced. A line with `answer` holds the decision that the
-//! recording gave Claude Code for a question, which Claude Code then took.
+//! recording gave the agent for a question, which the agent then took.
 
 use serde_json::{Value, json};
 
 use super::{
-    claude::{Claude, Stop},
+    agent::{Agent, Stop},
+    claude::Claude,
+    codex::Codex,
     room::{Asked, ChatHandle, Job},
     state::Chat,
     *,
@@ -18,19 +22,53 @@ macro_rules! record {
     };
 }
 
+macro_rules! codex {
+    ($name:literal) => {
+        include_str!(concat!("fixtures/codex/", $name, ".jsonl"))
+    };
+}
+
 /// A chat that takes a record, and a viewer that follows the chat's changes as an app does.
-#[derive(Default)]
 struct Play {
     chat: Chat,
-    claude: Claude,
+    agent: Box<dyn Agent>,
     view: ChatSnapshot,
     closed: Vec<String>,
     changes: Vec<ChatChange>,
+    /// What Codex's adapter gave its link to do.
+    calls: Vec<Value>,
+}
+
+impl Default for Play {
+    fn default() -> Self {
+        Self::new(Box::new(Claude::default()))
+    }
 }
 
 impl Play {
-    /// Plays the record. Each question gets the next of `answers`, and the decision that the
-    /// answer makes must be the one that Claude Code took in the recording.
+    fn new(agent: Box<dyn Agent>) -> Self {
+        Self {
+            chat: Chat::default(),
+            agent,
+            view: ChatSnapshot::default(),
+            closed: Vec::new(),
+            changes: Vec::new(),
+            calls: Vec::new(),
+        }
+    }
+
+    /// Plays records of Codex after the start of its link. As the chat's room does after each
+    /// message, the play takes what the adapter gives the link to do.
+    fn codex(records: &[&str], answers: &[ChatAnswer]) -> Self {
+        let mut play = Self::new(Box::new(Codex::default()));
+        play.more(codex!("start"), &[]);
+        let records = records.join("");
+        play.more(&records, answers);
+        play
+    }
+
+    /// Plays a record of Claude Code. Each question gets the next of `answers`, and the decision
+    /// that the answer makes must be the one that the agent took in the recording.
     fn of(record: &str, answers: &[ChatAnswer]) -> Self {
         let mut play = Self::default();
         play.more(record, answers);
@@ -40,7 +78,7 @@ impl Play {
     /// As the chat's room does for each request of the module that it follows, the play first
     /// counts the module as present.
     fn more(&mut self, record: &str, answers: &[ChatAnswer]) {
-        self.claude.back(&mut self.chat);
+        self.agent.back(&mut self.chat);
         let mut answers = answers.iter();
         for line in record.lines() {
             let line: Value = serde_json::from_str(line).expect("a line of the record");
@@ -48,11 +86,15 @@ impl Play {
                 Some(recorded) => {
                     let ask = recorded["ask"].as_str().expect("the question");
                     let answer = answers.next().expect("an answer for each question");
-                    let decision = self.claude.decision(ask, answer).expect("a decision");
+                    let decision = self.agent.decision(ask, answer).expect("a decision");
                     assert_eq!(decision, recorded["decision"]);
-                    self.claude.answered(&mut self.chat, ask, &decision);
+                    self.agent.answered(&mut self.chat, ask, &decision);
                 }
                 None => self.take(&line),
+            }
+            if self.agent.name() == Codex::NAME {
+                let calls = self.agent.commands(&self.chat);
+                self.calls.extend(calls);
             }
             self.follow();
         }
@@ -60,7 +102,7 @@ impl Play {
     }
 
     fn take(&mut self, event: &Value) {
-        let closed = self.claude.apply(&mut self.chat, event);
+        let closed = self.agent.apply(&mut self.chat, event);
         self.closed.extend(closed);
         self.follow();
     }
@@ -574,11 +616,8 @@ fn a_stop_of_the_chat_ends_the_turn_and_the_command_that_the_end_moved_to_the_ba
 fn a_message_that_the_agent_refuses_stays_in_the_queue_until_the_agent_takes_messages_again() {
     let mut play = Play::of(record!("text"), &[]);
     play.chat.queue("Say the word third.".to_owned(), None);
-    let first = play
-        .claude
-        .next_prompt(&play.chat)
-        .expect("the agent is idle");
-    assert_eq!(first["n"], 1);
+    let first = play.agent.commands(&play.chat);
+    assert_eq!(first[0]["n"], 1, "the agent is idle");
     let (refusal, typed) = record!("refused")
         .split_once('\n')
         .expect("a refusal, then a message in the terminal");
@@ -590,8 +629,8 @@ fn a_message_that_the_agent_refuses_stays_in_the_queue_until_the_agent_takes_mes
         Some("the session was stopped and nobody has sent input since")
     );
     assert_eq!(
-        play.claude.next_prompt(&play.chat),
-        None,
+        play.agent.commands(&play.chat),
+        Vec::<Value>::new(),
         "the agent takes the next message only in its terminal"
     );
 
@@ -599,8 +638,8 @@ fn a_message_that_the_agent_refuses_stays_in_the_queue_until_the_agent_takes_mes
 
     assert_eq!(play.people().last(), Some(&"Say ok."));
     assert_eq!(
-        play.claude.next_prompt(&play.chat),
-        Some(json!({"do": "prompt", "n": 2, "text": "Say the word third."}))
+        play.agent.commands(&play.chat),
+        [json!({"do": "prompt", "n": 2, "text": "Say the word third."})]
     );
 }
 
@@ -677,16 +716,20 @@ fn a_message_of_the_chat_waits_for_the_end_of_the_turn_and_shows_who_sent_it() {
     play.chat
         .queue("And in French?".to_owned(), Some(sam.clone()));
 
-    assert_eq!(play.claude.next_prompt(&play.chat), None, "a turn runs");
+    assert_eq!(
+        play.agent.commands(&play.chat),
+        Vec::<Value>::new(),
+        "a turn runs"
+    );
 
     play.more(&format!("{{\"k\":\"turnEnd\"{ending}"), &[]);
     assert_eq!(
-        play.claude.next_prompt(&play.chat),
-        Some(json!({"do": "prompt", "n": 1, "text": "And in French?"}))
+        play.agent.commands(&play.chat),
+        [json!({"do": "prompt", "n": 1, "text": "And in French?"})]
     );
     assert_eq!(
-        play.claude.next_prompt(&play.chat),
-        None,
+        play.agent.commands(&play.chat),
+        Vec::<Value>::new(),
         "Claude Code has the message"
     );
     assert_eq!(play.view.queued.len(), 1);
@@ -716,7 +759,7 @@ fn a_stop_refuses_the_open_question_and_else_ends_the_turn_through_the_module() 
         .split_once("{\"answer\"")
         .expect("the record has a question");
     play.more(asking, &[]);
-    let Stop::Decisions(decisions) = play.claude.stop(&play.chat) else {
+    let Stop::Decisions(decisions) = play.agent.stop(&play.chat) else {
         panic!("the question takes the stop");
     };
     assert_eq!(decisions.len(), 1);
@@ -730,13 +773,13 @@ fn a_stop_refuses_the_open_question_and_else_ends_the_turn_through_the_module() 
         .expect("the turn ends");
     play.more(running, &[]);
     assert!(matches!(
-        play.claude.stop(&play.chat),
+        play.agent.stop(&play.chat),
         Stop::Command(command) if command == json!({"do": "stop"})
     ));
 
-    let play = Play::of(record!("text"), &[]);
+    let mut play = Play::of(record!("text"), &[]);
     assert!(
-        matches!(play.claude.stop(&play.chat), Stop::Nothing),
+        matches!(play.agent.stop(&play.chat), Stop::Nothing),
         "no turn runs"
     );
 }
@@ -912,4 +955,336 @@ async fn reports_of_a_module_that_the_chat_does_not_follow_are_refused() {
         3,
         "only the rows of the followed module"
     );
+}
+
+/// The calls of the play to one method of Codex's app-server.
+fn calls<'a>(play: &'a Play, method: &str) -> Vec<&'a Value> {
+    play.calls
+        .iter()
+        .filter(|call| call["m"] == method)
+        .collect()
+}
+
+#[test]
+fn codex_shows_its_first_turn_from_the_moment_its_server_lets_the_chat_follow() {
+    let play = Play::codex(&[codex!("first")], &[]);
+
+    assert_eq!(play.people(), ["Say hello in five words."]);
+    assert_eq!(play.answers(), ["Hello there, friend. Hope you're well."]);
+    assert_eq!(play.ends(), [TurnEnd::Done]);
+    assert_eq!(play.view.state, ChatState::Idle);
+    let facts = &play.view.facts;
+    assert_eq!(facts.agent.as_deref(), Some("codex"));
+    assert_eq!(facts.version.as_deref(), Some("0.171.0"));
+    assert_eq!(facts.model.as_deref(), Some("gpt-6-luna"));
+    assert_eq!(facts.effort.as_deref(), Some("low"));
+    assert_eq!(facts.folder.as_deref(), Some("/home/sam/shop"));
+    assert_eq!(
+        facts.models,
+        ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"]
+    );
+    assert_eq!(
+        facts.context,
+        Some(ChatContext {
+            tokens: 17172,
+            window: 760_000
+        })
+    );
+    assert_eq!(
+        facts
+            .limits
+            .iter()
+            .map(|limit| (limit.hours, limit.used))
+            .collect::<Vec<_>>(),
+        [(Some(720), 12)]
+    );
+    // The server refuses the first request to follow: the conversation has no turn yet. The
+    // conversation that Codex makes to name this one is not followed.
+    let followed = calls(&play, "thread/resume");
+    assert_eq!(followed.len(), 2);
+    assert!(
+        followed
+            .iter()
+            .all(|call| call["p"]["threadId"] == "00000001-0000-7000-8000-000000000000")
+    );
+}
+
+#[test]
+fn a_command_of_codex_shows_as_the_agent_asked_for_it_with_what_it_printed() {
+    let play = Play::codex(&[codex!("first"), codex!("read")], &[]);
+
+    let tools = play.tools();
+    assert_eq!(
+        tools
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "pwd && rg --files -g 'app.py' -g 'notes.md'",
+            "cat app.py notes.md"
+        ]
+    );
+    assert!(tools.iter().all(|tool| tool.state == ToolState::Done));
+    let Some(ToolDetail::Command { output, .. }) = &tools[1].detail else {
+        panic!("a command");
+    };
+    assert!(output.contains("TAX = 1.24"), "{output}");
+    assert_eq!(play.answers().last(), Some(&"The tax rate is 24%."));
+}
+
+#[test]
+fn a_person_allows_a_command_of_codex_in_the_chat() {
+    let record = codex!("allow");
+    let asks = record
+        .lines()
+        .position(|line| line.contains("\"k\":\"request\""))
+        .expect("the request");
+    let before = record.lines().take(asks + 1).collect::<Vec<_>>().join("\n");
+    let mut play = Play::codex(&[codex!("first"), &before], &[]);
+
+    assert_eq!(play.view.state, ChatState::Asking);
+    let [ask] = play.view.asks.as_slice() else {
+        panic!("one question");
+    };
+    let AskBody::Permission { tool, always, .. } = &ask.body else {
+        panic!("a permission");
+    };
+    assert_eq!(tool.target, "printf 'hi\\n' > hello.txt");
+    assert_eq!(tool.state, ToolState::Asking);
+    assert_eq!(
+        *always,
+        Some(AskAlways::Rule {
+            tool: "shell".to_owned(),
+            text: "printf 'hi\\n' > hello.txt".to_owned()
+        })
+    );
+
+    let after = record.lines().skip(asks + 1).collect::<Vec<_>>().join("\n");
+    play.more(&after, &[ChatAnswer::Allow]);
+
+    assert_eq!(play.view.asks, []);
+    assert_eq!(play.closed, Vec::<String>::new(), "the chat decided");
+    assert_eq!(
+        play.tools().last().map(|tool| tool.state),
+        Some(ToolState::Done)
+    );
+    assert_eq!(play.answers().last(), Some(&"Done."));
+}
+
+#[test]
+fn a_refusal_with_words_ends_the_turn_of_codex_and_the_words_are_its_next_message() {
+    let words = "Do not write the file. Say only the word: skipped";
+    let play = Play::codex(
+        &[codex!("first"), codex!("refuse")],
+        &[ChatAnswer::Deny {
+            text: Some(words.to_owned()),
+        }],
+    );
+
+    assert_eq!(
+        play.tools().last().map(|tool| tool.state),
+        Some(ToolState::Denied)
+    );
+    assert_eq!(
+        play.ends(),
+        [TurnEnd::Done, TurnEnd::Stopped, TurnEnd::Done]
+    );
+    let sent = calls(&play, "turn/start");
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert_eq!(sent[0]["p"]["input"][0]["text"], words);
+    assert_eq!(play.people().last(), Some(&words));
+    assert_eq!(play.answers().last(), Some(&"skipped"));
+}
+
+#[test]
+fn an_answer_in_the_terminal_closes_the_question_of_codex_in_the_chat() {
+    let play = Play::codex(&[codex!("first"), codex!("terminal")], &[]);
+
+    assert_eq!(play.closed, ["r2"]);
+    assert_eq!(play.view.asks, []);
+    assert_eq!(
+        play.tools().last().map(|tool| tool.state),
+        Some(ToolState::Done)
+    );
+}
+
+#[test]
+fn a_change_of_a_file_by_codex_shows_its_lines_and_is_allowed_once_or_for_the_session() {
+    let play = Play::codex(&[codex!("first"), codex!("edit")], &[ChatAnswer::Allow]);
+
+    let tools = play.tools();
+    let tool = tools.last().expect("the change");
+    assert_eq!((tool.kind, tool.state), (ToolKind::Edit, ToolState::Done));
+    assert_eq!(tool.target, "notes.md");
+    assert_eq!(
+        tool.detail,
+        Some(ToolDetail::Change {
+            path: "/home/sam/shop/notes.md".to_owned(),
+            added: 1,
+            removed: 1,
+            lines: vec![
+                line(ChangeSign::Same, "- The tax is 24 percent."),
+                line(ChangeSign::Removed, "- The totl must show two decimals."),
+                line(ChangeSign::Added, "- The total must show two decimals."),
+            ],
+        })
+    );
+
+    // The record holds Codex's own word for "from now on" for these files.
+    Play::codex(&[codex!("first"), codex!("session")], &[ChatAnswer::Always]);
+}
+
+/// The record of a turn that ended while its command ran, cut after the command's first output.
+fn stopped_turn() -> (String, String) {
+    let record = codex!("stop");
+    let runs = record
+        .lines()
+        .position(|line| line.contains("item/commandExecution/outputDelta"))
+        .expect("the command prints");
+    (
+        record.lines().take(runs + 1).collect::<Vec<_>>().join("\n"),
+        record.lines().skip(runs + 1).collect::<Vec<_>>().join("\n"),
+    )
+}
+
+#[test]
+fn a_stop_of_the_chat_ends_the_turn_of_codex_and_the_command_that_codex_lets_run() {
+    let (before, after) = stopped_turn();
+    let mut play = Play::codex(&[codex!("first"), &before], &[]);
+    assert_eq!(play.view.state, ChatState::Working);
+
+    let Stop::Command(stop) = play.agent.stop(&play.chat) else {
+        panic!("a turn runs");
+    };
+    assert_eq!(stop["m"], "turn/interrupt");
+    assert_eq!(stop["p"]["turnId"], "turn10");
+
+    play.more(&after, &[]);
+
+    let ended = calls(&play, "thread/backgroundTerminals/terminate");
+    assert_eq!(ended.len(), 1, "{:?}", play.calls);
+    assert_eq!(ended[0]["p"]["processId"], "process6");
+    let tools = play.tools();
+    let tool = tools.last().expect("the command");
+    assert_eq!(tool.state, ToolState::Stopped);
+    assert_eq!(
+        tool.detail,
+        Some(ToolDetail::Command {
+            command:
+                "python3 -u -c \"import time; [print(i) or time.sleep(1) for i in range(25)]\""
+                    .to_owned(),
+            output: "0\n1\n2\n3\n".to_owned(),
+            background: false,
+        })
+    );
+    assert_eq!(play.ends().last(), Some(&TurnEnd::Stopped));
+}
+
+#[test]
+fn a_stop_in_the_terminal_leaves_the_command_of_codex_to_the_person() {
+    let (before, after) = stopped_turn();
+    let ended = after
+        .lines()
+        .position(|line| line.contains("turn/completed"))
+        .expect("the end of the turn");
+    let until = after.lines().take(ended + 1).collect::<Vec<_>>().join("\n");
+    let play = Play::codex(&[codex!("first"), &before, "\n", &until], &[]);
+
+    assert_eq!(
+        calls(&play, "thread/backgroundTerminals/list"),
+        Vec::<&Value>::new()
+    );
+    let tools = play.tools();
+    let tool = tools.last().expect("the command");
+    assert_eq!(tool.state, ToolState::Running);
+    assert!(matches!(
+        tool.detail,
+        Some(ToolDetail::Command {
+            background: true,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn the_model_and_the_mode_of_codex_show_as_its_server_reports_them() {
+    let mut play = Play::codex(&[codex!("first"), codex!("model")], &[]);
+    assert_eq!(play.view.facts.model.as_deref(), Some("gpt-5.6-luna"));
+    assert_eq!(play.view.facts.mode, Some(ChatMode::Ask));
+
+    play.more(codex!("settings"), &[]);
+    assert_eq!(play.view.facts.model.as_deref(), Some("gpt-6-luna"));
+}
+
+#[test]
+fn a_new_conversation_of_codex_in_the_terminal_starts_the_chat_again() {
+    let play = Play::codex(&[codex!("first"), codex!("new")], &[]);
+
+    assert_eq!(play.view.items, []);
+    assert_eq!(
+        calls(&play, "thread/unsubscribe")
+            .iter()
+            .map(|call| &call["p"]["threadId"])
+            .collect::<Vec<_>>(),
+        ["00000001-0000-7000-8000-000000000000"]
+    );
+    assert_eq!(
+        calls(&play, "thread/resume")
+            .last()
+            .map(|call| &call["p"]["threadId"]),
+        Some(&json!("00000003-0000-7000-8000-000000000000"))
+    );
+}
+
+#[test]
+fn a_conversation_of_codex_that_a_person_resumes_shows_its_last_turns_in_order() {
+    let play = Play::codex(&[codex!("history")], &[]);
+
+    assert_eq!(
+        play.people(),
+        [
+            "Run this exact shell command and nothing else: python3 -c \"import time; time.sleep(43); print('finished')\"",
+            "Run this exact shell command and nothing else. It is safe and takes 25 seconds: python3 -u -c \"import time; [print(i) or time.sleep(1) for i in range(25)]\"",
+            "Say only the word: fourth",
+            "I want to pick a currency. Ask me with the request_user_input tool which currency to use: EUR or USD. After my answer, say only the chosen currency.",
+        ]
+    );
+    assert_eq!(
+        play.ends(),
+        [
+            TurnEnd::Done,
+            TurnEnd::Stopped,
+            TurnEnd::Done,
+            TurnEnd::Done
+        ]
+    );
+    assert_eq!(play.view.state, ChatState::Idle);
+}
+
+#[test]
+fn a_message_of_the_chat_goes_to_codex_when_no_turn_runs_and_shows_with_its_person() {
+    let mut play = Play::codex(&[], &[]);
+    let sam = ChatPerson {
+        id: "sam".to_owned(),
+        name: "Sam".to_owned(),
+    };
+    let queued = play
+        .chat
+        .queue("Say hello in five words.".to_owned(), Some(sam.clone()))
+        .expect("room in the queue");
+
+    let sent = play.agent.commands(&play.chat);
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert_eq!(sent[0]["m"], "turn/start");
+    assert_eq!(sent[0]["p"]["input"][0]["text"], "Say hello in five words.");
+    assert!(play.agent.has(&queued), "Codex has the message");
+    assert_eq!(play.agent.commands(&play.chat), Vec::<Value>::new());
+
+    play.more(codex!("first"), &[]);
+
+    assert_eq!(play.view.queued, []);
+    assert!(play.view.items.iter().any(|item| matches!(
+        &item.body,
+        ChatBody::Person { text, by } if text == "Say hello in five words." && by.as_ref() == Some(&sam)
+    )));
 }

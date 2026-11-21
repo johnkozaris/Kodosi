@@ -427,6 +427,11 @@ pub(crate) fn claude_session(windows: &Value) -> Vec<UsageLimit> {
     headlined(limits)
 }
 
+/// The windows that Codex's app-server reports for its account while a session runs.
+pub(crate) fn codex_session(result: &Value) -> Vec<UsageLimit> {
+    headlined(codex(result))
+}
+
 pub(super) fn codex(result: &Value) -> Vec<UsageLimit> {
     let Some(snapshot) = result.get("rateLimits") else {
         return Vec::new();

@@ -13,7 +13,7 @@ use tokio::{
 
 use super::{
     ChatFrame, ChatPerson, ChatRequest, MOST_MESSAGE,
-    claude::{Claude, Stop},
+    agent::{self, Agent, Stop},
     state::Chat,
 };
 use crate::{
@@ -84,7 +84,7 @@ impl ChatHandle {
             own: jobs.downgrade(),
             linked,
             chat: Chat::default(),
-            claude: Claude::default(),
+            agent: None,
             link: None,
             heard: 0,
             seen: Instant::now(),
@@ -135,8 +135,9 @@ struct Room {
     own: mpsc::WeakSender<Job>,
     linked: watch::Sender<bool>,
     chat: Chat,
-    claude: Claude,
-    /// The module that the chat follows: the last that started in the terminal.
+    /// The adapter of the agent whose link the chat follows.
+    agent: Option<Box<dyn Agent>>,
+    /// The link that the chat follows: the last that started in the terminal.
     link: Option<String>,
     /// The last batch of the followed module that the chat took.
     heard: u64,
@@ -172,7 +173,7 @@ impl Room {
     }
 
     fn check_at(&self) -> Option<Instant> {
-        if self.link.is_none() || !self.claude.is_linked() {
+        if self.link.is_none() || !self.is_linked() {
             return None;
         }
         let silent = self.seen + SILENCE;
@@ -192,13 +193,13 @@ impl Room {
                 events,
                 reply,
             } => {
-                let greets = events
+                let greeting = events
                     .iter()
-                    .any(|event| event.get("k").and_then(Value::as_str) == Some("hello"));
-                if greets && self.link.as_deref() != Some(&link) {
-                    self.link = Some(link.clone());
-                    self.heard = 0;
-                    self.poll = None;
+                    .find(|event| event.get("k").and_then(Value::as_str) == Some("hello"));
+                if let Some(greeting) = greeting
+                    && self.link.as_deref() != Some(&link)
+                {
+                    self.follow(link.clone(), greeting);
                 }
                 let ours = self.hears(&link);
                 let _ = reply.send(ours);
@@ -207,10 +208,13 @@ impl Room {
                 }
                 self.heard = batch;
                 for event in &events {
-                    let closed = self.claude.apply(&mut self.chat, event);
+                    let closed = self
+                        .agent
+                        .as_mut()
+                        .map_or_default(|agent| agent.apply(&mut self.chat, event));
                     self.close(closed);
                 }
-                if !self.claude.is_linked() {
+                if !self.is_linked() {
                     self.link = None;
                     self.poll = None;
                 }
@@ -240,6 +244,29 @@ impl Room {
         }
     }
 
+    /// The chat follows a link that starts to report. A link of another kind of agent ends what
+    /// the chat had from the agent before it.
+    fn follow(&mut self, link: String, greeting: &Value) {
+        let name = greeting
+            .get("agent")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if self.agent.as_ref().is_none_or(|agent| agent.name() != name) {
+            let Some(agent) = agent::named(name) else {
+                return;
+            };
+            self.lose();
+            self.agent = Some(agent);
+        }
+        self.link = Some(link);
+        self.heard = 0;
+        self.poll = None;
+    }
+
+    fn is_linked(&self) -> bool {
+        self.agent.as_ref().is_some_and(|agent| agent.is_linked())
+    }
+
     /// True for a request of the link that the chat follows. A link that was silent is back: its
     /// agent was stopped for a time, not ended.
     fn hears(&mut self, link: &str) -> bool {
@@ -248,13 +275,18 @@ impl Room {
         }
         self.seen = Instant::now();
         self.gone = None;
-        self.claude.back(&mut self.chat);
+        if let Some(agent) = &mut self.agent {
+            agent.back(&mut self.chat);
+        }
         true
     }
 
     fn lose(&mut self) {
         self.poll = None;
-        let closed = self.claude.lost(&mut self.chat);
+        let closed = self
+            .agent
+            .as_mut()
+            .map_or_default(|agent| agent.lost(&mut self.chat));
         self.close(closed);
     }
 
@@ -269,10 +301,13 @@ impl Room {
     }
 
     fn request(&mut self, viewer: u64, request: ChatRequest) {
+        let Some(agent) = &mut self.agent else {
+            return;
+        };
         match request {
             ChatRequest::Send { text } => {
                 let text = text.trim();
-                if text.is_empty() || text.len() > MOST_MESSAGE || !self.claude.is_linked() {
+                if text.is_empty() || text.len() > MOST_MESSAGE || !agent.is_linked() {
                     return;
                 }
                 let by = self
@@ -280,20 +315,20 @@ impl Room {
                     .get(&viewer)
                     .map(|viewer| viewer.person.clone());
                 if self.chat.queue(text.to_owned(), by).is_some() {
-                    self.claude.retry();
+                    agent.retry();
                 }
             }
             ChatRequest::Unqueue { id } => {
-                if !self.claude.has(&id) {
+                if !agent.has(&id) {
                     self.chat.unqueue(&id);
                 }
             }
             ChatRequest::Answer { ask, answer } => {
-                if let Some(decision) = self.claude.decision(&ask, &answer) {
+                if let Some(decision) = agent.decision(&ask, &answer) {
                     self.decide(ask, decision);
                 }
             }
-            ChatRequest::Stop => match self.claude.stop(&self.chat) {
+            ChatRequest::Stop => match agent.stop(&self.chat) {
                 Stop::Decisions(decisions) => {
                     for (ask, decision) in decisions {
                         self.decide(ask, decision);
@@ -308,7 +343,9 @@ impl Room {
     /// The first decision of a question counts. It goes to the request that waits for it, or to
     /// the next one.
     fn decide(&mut self, ask: String, decision: Value) {
-        self.claude.answered(&mut self.chat, &ask, &decision);
+        if let Some(agent) = &mut self.agent {
+            agent.answered(&mut self.chat, &ask, &decision);
+        }
         match self.waits.remove(&ask) {
             Some(wait) => {
                 if let Err(Asked::Decision(decision)) = wait.send(Asked::Decision(decision)) {
@@ -370,8 +407,8 @@ impl Room {
     }
 
     fn tell(&mut self) {
-        if let Some(command) = self.claude.next_prompt(&self.chat) {
-            self.commands.push(command);
+        if let Some(agent) = &mut self.agent {
+            self.commands.extend(agent.commands(&self.chat));
         }
         if !self.commands.is_empty()
             && let Some(poll) = self.poll.take()
@@ -379,7 +416,7 @@ impl Room {
         {
             self.commands = commands;
         }
-        let linked = self.claude.is_linked();
+        let linked = self.is_linked();
         self.linked.send_if_modified(|current| {
             let changed = *current != linked;
             *current = linked;

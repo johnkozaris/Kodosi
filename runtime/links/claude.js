@@ -133,7 +133,7 @@ function earlier(rows) {
 }
 
 async function hello($) {
-  const facts = {}
+  const facts = { agent: 'claude' }
   let rows = []
   try {
     facts.session = await $.session.id()

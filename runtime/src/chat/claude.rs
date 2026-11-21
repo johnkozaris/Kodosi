@@ -11,13 +11,14 @@ use serde_json::{Value, json};
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTool, MOST_OUTPUT, MOST_TARGET,
-    MOST_TEXT, ToolDetail, ToolKind, ToolState, TurnEnd, diff,
+    MOST_TEXT, ToolDetail, ToolKind, ToolState, TurnEnd,
+    agent::{Agent, Stop, answer, file_name, list, person, text, words},
+    diff,
     state::{Chat, ends_of, start_of},
 };
 
 pub(crate) const MODULE: &str = include_str!("../../links/claude.js");
 pub(super) const VERSION: u64 = 1;
-const NAME: &str = "claude";
 const REFUSED_WITH_WORDS: &str = "The user doesn't want to proceed with this tool use. The tool \
     use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To \
     tell you how to proceed, the user said:\n";
@@ -113,101 +114,8 @@ impl Rows {
     }
 }
 
-pub(super) enum Stop {
-    /// The open questions get these decisions, which end the turn.
-    Decisions(Vec<(String, Value)>),
-    /// The module ends the turn and the commands of the turn.
-    Command(Value),
-    Nothing,
-}
-
 impl Claude {
-    /// Takes one report of the module. It gives the questions that closed with no decision from
-    /// the chat: a person answered them in the terminal, or their turn ended.
-    pub(super) fn apply(&mut self, chat: &mut Chat, event: &Value) -> Vec<String> {
-        let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
-        let helper = text(event, "agent");
-        let kind = text(event, "k");
-        // A module that loaded in the middle of a turn did not report the turn's start.
-        if helper.is_empty() && matches!(kind, "step" | "think" | "text" | "tool") {
-            self.turn.get_or_insert(Turn { stopped: false });
-        }
-        let mut closed = Vec::new();
-        match kind {
-            "hello" => closed = self.hello(chat, event),
-            "history" => self.history(chat, event),
-            "row" => closed = self.row(chat, event, at),
-            "turn" if helper.is_empty() => {
-                self.turn = Some(Turn { stopped: false });
-                self.now = None;
-                self.held = false;
-            }
-            "turn" => self.helper(helper).working = true,
-            "step" if helper.is_empty() => {
-                self.end_writing(chat, None);
-                chat.change_facts(|facts| {
-                    facts.model = words(event, "model").or_else(|| facts.model.take());
-                    facts.effort = words(event, "effort").or_else(|| facts.effort.take());
-                });
-            }
-            "think" if helper.is_empty() => self.now = Some(ChatNow::Thinking),
-            "text" if helper.is_empty() => self.write(chat, event, at),
-            "tool" if helper.is_empty() => self.begin(chat, event, at),
-            "stepEnd" if helper.is_empty() => self.end_writing(chat, None),
-            "turnEnd" if helper.is_empty() => closed = self.end_turn(chat, event, at),
-            "turnEnd" => self.end_helper(chat, helper, text(event, "reason")),
-            "ask" => self.ask(chat, event),
-            "decided" => closed = self.decided(chat, event),
-            "done" => self.done(chat, event),
-            "halted" => self.halted(chat, event),
-            "agent" => self.started_helper(chat, event),
-            "mode" => chat.change_facts(|facts| {
-                facts.mode = mode(text(event, "mode")).or(facts.mode);
-                if let Some(background) = event.get("background").and_then(Value::as_u64) {
-                    facts.background = u32::try_from(background).unwrap_or(u32::MAX);
-                }
-            }),
-            "measure" => measure(chat, event),
-            "model" => chat.change_facts(|facts| {
-                facts.model = words(event, "model").or_else(|| facts.model.take());
-            }),
-            "cwd" => chat.change_facts(|facts| {
-                facts.folder = words(event, "cwd").or_else(|| facts.folder.take());
-            }),
-            "compact" => {
-                self.compacting = text(event, "phase") == "start";
-                if !self.compacting {
-                    chat.push(
-                        at,
-                        ChatBody::Note {
-                            note: ChatNote::Compacted,
-                        },
-                    );
-                }
-            }
-            "failure" => {
-                chat.push(
-                    at,
-                    ChatBody::Note {
-                        note: ChatNote::Failed {
-                            error: start_of(text(event, "error"), MOST_TARGET).to_owned(),
-                            text: ends_of(text(event, "details"), MOST_OUTPUT),
-                        },
-                    },
-                );
-            }
-            "stop" => {
-                if let Some(turn) = &mut self.turn {
-                    turn.stopped = true;
-                }
-            }
-            "end" => closed = self.end(chat, text(event, "reason")),
-            "did" => self.did(chat, event),
-            _ => {}
-        }
-        self.show(chat);
-        closed
-    }
+    pub(super) const NAME: &'static str = "claude";
 
     /// The state that the reports so far give.
     fn show(&self, chat: &mut Chat) {
@@ -280,7 +188,7 @@ impl Claude {
         session.clone_into(&mut self.session);
         self.linked = true;
         chat.change_facts(|facts| {
-            facts.agent = Some(NAME.to_owned());
+            facts.agent = Some(Self::NAME.to_owned());
             facts.version = words(event, "version").or_else(|| facts.version.take());
             facts.model = words(event, "model").or_else(|| facts.model.take());
             facts.folder = words(event, "cwd").or_else(|| facts.folder.take());
@@ -859,34 +767,6 @@ impl Claude {
         self.lost(chat)
     }
 
-    /// Claude Code ended, or its module does not report.
-    pub(super) fn lost(&mut self, chat: &mut Chat) -> Vec<String> {
-        self.linked = false;
-        self.end_writing(chat, None);
-        self.turn = None;
-        self.now = None;
-        self.compacting = false;
-        self.handed.clear();
-        for helper in self.helpers.values_mut() {
-            helper.working = false;
-        }
-        let open = chat
-            .items()
-            .iter()
-            .filter_map(|item| match &item.body {
-                ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        for item in open {
-            chat.change_tool(&item, |tool| tool.state = ToolState::Stopped);
-        }
-        self.asked.clear();
-        let closed = chat.close_asks(|_| true);
-        self.show(chat);
-        closed
-    }
-
     /// A message that Claude Code did not take stays in the queue with Claude Code's reason.
     fn did(&mut self, chat: &mut Chat, event: &Value) {
         let reason = [text(event, "error"), text(event, "drop")]
@@ -923,81 +803,148 @@ impl Claude {
             });
         }
     }
+}
 
-    /// A person sent a new message, so the chat tries the queue again.
-    pub(super) fn retry(&mut self) {
-        self.held = false;
+impl Agent for Claude {
+    fn name(&self) -> &'static str {
+        Self::NAME
     }
 
-    pub(super) fn is_linked(&self) -> bool {
-        self.linked
+    fn apply(&mut self, chat: &mut Chat, event: &Value) -> Vec<String> {
+        let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
+        let helper = text(event, "agent");
+        let kind = text(event, "k");
+        // A module that loaded in the middle of a turn did not report the turn's start.
+        if helper.is_empty() && matches!(kind, "step" | "think" | "text" | "tool") {
+            self.turn.get_or_insert(Turn { stopped: false });
+        }
+        let mut closed = Vec::new();
+        match kind {
+            "hello" => closed = self.hello(chat, event),
+            "history" => self.history(chat, event),
+            "row" => closed = self.row(chat, event, at),
+            "turn" if helper.is_empty() => {
+                self.turn = Some(Turn { stopped: false });
+                self.now = None;
+                self.held = false;
+            }
+            "turn" => self.helper(helper).working = true,
+            "step" if helper.is_empty() => {
+                self.end_writing(chat, None);
+                chat.change_facts(|facts| {
+                    facts.model = words(event, "model").or_else(|| facts.model.take());
+                    facts.effort = words(event, "effort").or_else(|| facts.effort.take());
+                });
+            }
+            "think" if helper.is_empty() => self.now = Some(ChatNow::Thinking),
+            "text" if helper.is_empty() => self.write(chat, event, at),
+            "tool" if helper.is_empty() => self.begin(chat, event, at),
+            "stepEnd" if helper.is_empty() => self.end_writing(chat, None),
+            "turnEnd" if helper.is_empty() => closed = self.end_turn(chat, event, at),
+            "turnEnd" => self.end_helper(chat, helper, text(event, "reason")),
+            "ask" => self.ask(chat, event),
+            "decided" => closed = self.decided(chat, event),
+            "done" => self.done(chat, event),
+            "halted" => self.halted(chat, event),
+            "agent" => self.started_helper(chat, event),
+            "mode" => chat.change_facts(|facts| {
+                facts.mode = mode(text(event, "mode")).or(facts.mode);
+                if let Some(background) = event.get("background").and_then(Value::as_u64) {
+                    facts.background = u32::try_from(background).unwrap_or(u32::MAX);
+                }
+            }),
+            "measure" => measure(chat, event),
+            "model" => chat.change_facts(|facts| {
+                facts.model = words(event, "model").or_else(|| facts.model.take());
+            }),
+            "cwd" => chat.change_facts(|facts| {
+                facts.folder = words(event, "cwd").or_else(|| facts.folder.take());
+            }),
+            "compact" => {
+                self.compacting = text(event, "phase") == "start";
+                if !self.compacting {
+                    chat.push(
+                        at,
+                        ChatBody::Note {
+                            note: ChatNote::Compacted,
+                        },
+                    );
+                }
+            }
+            "failure" => {
+                chat.push(
+                    at,
+                    ChatBody::Note {
+                        note: ChatNote::Failed {
+                            error: start_of(text(event, "error"), MOST_TARGET).to_owned(),
+                            text: ends_of(text(event, "details"), MOST_OUTPUT),
+                        },
+                    },
+                );
+            }
+            "stop" => {
+                if let Some(turn) = &mut self.turn {
+                    turn.stopped = true;
+                }
+            }
+            "end" => closed = self.end(chat, text(event, "reason")),
+            "did" => self.did(chat, event),
+            _ => {}
+        }
+        self.show(chat);
+        closed
     }
 
-    /// The module reports again after a silence.
-    pub(super) fn back(&mut self, chat: &mut Chat) {
+    /// Claude Code ended, or its module does not report.
+    fn lost(&mut self, chat: &mut Chat) -> Vec<String> {
+        self.linked = false;
+        self.end_writing(chat, None);
+        self.turn = None;
+        self.now = None;
+        self.compacting = false;
+        self.handed.clear();
+        for helper in self.helpers.values_mut() {
+            helper.working = false;
+        }
+        let open = chat
+            .items()
+            .iter()
+            .filter_map(|item| match &item.body {
+                ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for item in open {
+            chat.change_tool(&item, |tool| tool.state = ToolState::Stopped);
+        }
+        self.asked.clear();
+        let closed = chat.close_asks(|_| true);
+        self.show(chat);
+        closed
+    }
+
+    fn back(&mut self, chat: &mut Chat) {
         if !self.linked {
             self.linked = true;
             self.show(chat);
         }
     }
 
-    /// A person of the chat decided a question. The chat shows the decision at once, and Claude
-    /// Code's own record of it follows.
-    pub(super) fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) {
-        let Some(asked) = self.asked.remove(ask) else {
-            return;
-        };
-        chat.close_asks(|open| open.id == ask);
-        let allowed = text(decision, "behavior") == "allow";
-        let item = asked
-            .call
-            .as_ref()
-            .and_then(|call| self.calls.get(call))
-            .and_then(|call| call.item.clone());
-        if let Some(item) = item {
-            chat.change_tool(&item, |tool| {
-                if tool.state == ToolState::Asking {
-                    tool.state = if allowed {
-                        ToolState::Running
-                    } else {
-                        ToolState::Denied
-                    };
-                }
-            });
-        }
-        self.show(chat);
+    fn is_linked(&self) -> bool {
+        self.linked
     }
 
-    /// The next message of the queue, as a command for the module, when Claude Code can start it:
-    /// no turn runs, no question is open and no earlier message waits in Claude Code.
-    pub(super) fn next_prompt(&mut self, chat: &Chat) -> Option<Value> {
-        if !self.linked
-            || self.held
-            || self.turn.is_some()
-            || self.compacting
-            || !self.handed.is_empty()
-            || !chat.asks().is_empty()
-        {
-            return None;
-        }
-        let queued = chat.queued().first()?;
-        self.sent += 1;
-        self.handed.push_back(Handed {
-            n: self.sent,
-            queued: queued.id.clone(),
-            text: queued.text.clone(),
-            by: queued.by.clone(),
-        });
-        Some(json!({"do": "prompt", "n": self.sent, "text": queued.text}))
+    fn retry(&mut self) {
+        self.held = false;
     }
 
-    pub(super) fn has(&self, queued: &str) -> bool {
+    fn has(&self, queued: &str) -> bool {
         self.handed.iter().any(|handed| handed.queued == queued)
     }
 
     /// The decision that Claude Code takes for an answer, or nothing when the answer does not fit
     /// the question.
-    pub(super) fn decision(&self, ask: &str, answer: &ChatAnswer) -> Option<Value> {
+    fn decision(&mut self, ask: &str, answer: &ChatAnswer) -> Option<Value> {
         let asked = self.asked.get(ask)?;
         Some(match (asked.kind, answer) {
             (AskKind::Permission, ChatAnswer::Allow) => json!({"behavior": "allow"}),
@@ -1049,8 +996,60 @@ impl Claude {
         })
     }
 
+    /// A person of the chat decided a question. The chat shows the decision at once, and Claude
+    /// Code's own record of it follows.
+    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) {
+        let Some(asked) = self.asked.remove(ask) else {
+            return;
+        };
+        chat.close_asks(|open| open.id == ask);
+        let allowed = text(decision, "behavior") == "allow";
+        let item = asked
+            .call
+            .as_ref()
+            .and_then(|call| self.calls.get(call))
+            .and_then(|call| call.item.clone());
+        if let Some(item) = item {
+            chat.change_tool(&item, |tool| {
+                if tool.state == ToolState::Asking {
+                    tool.state = if allowed {
+                        ToolState::Running
+                    } else {
+                        ToolState::Denied
+                    };
+                }
+            });
+        }
+        self.show(chat);
+    }
+
+    /// The next message of the queue, as a command for the module, when Claude Code can start it:
+    /// no turn runs, no question is open and no earlier message waits in Claude Code.
+    fn commands(&mut self, chat: &Chat) -> Vec<Value> {
+        if !self.linked
+            || self.held
+            || self.turn.is_some()
+            || self.compacting
+            || !self.handed.is_empty()
+            || !chat.asks().is_empty()
+        {
+            return Vec::new();
+        }
+        let Some(queued) = chat.queued().first() else {
+            return Vec::new();
+        };
+        self.sent += 1;
+        self.handed.push_back(Handed {
+            n: self.sent,
+            queued: queued.id.clone(),
+            text: queued.text.clone(),
+            by: queued.by.clone(),
+        });
+        vec![json!({"do": "prompt", "n": self.sent, "text": queued.text})]
+    }
+
     /// How the turn of the main conversation stops for a person in the chat.
-    pub(super) fn stop(&self, chat: &Chat) -> Stop {
+    fn stop(&mut self, chat: &Chat) -> Stop {
         if !chat.asks().is_empty() {
             return Stop::Decisions(
                 chat.asks()
@@ -1069,38 +1068,6 @@ impl Claude {
 
 fn refusal(words: &str) -> Value {
     json!({"behavior": "deny", "message": words, "interrupt": true})
-}
-
-fn text<'a>(value: &'a Value, key: &str) -> &'a str {
-    value.get(key).and_then(Value::as_str).unwrap_or_default()
-}
-
-fn words(value: &Value, key: &str) -> Option<String> {
-    Some(text(value, key))
-        .filter(|words| !words.is_empty())
-        .map(|words| start_of(words, MOST_TARGET).to_owned())
-}
-
-fn list<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a Value> + use<'a> {
-    value
-        .get(key)
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-}
-
-fn person(words: &str, by: Option<ChatPerson>) -> ChatBody {
-    ChatBody::Person {
-        text: ends_of(words, MOST_TEXT),
-        by,
-    }
-}
-
-fn answer(words: &str, live: bool) -> ChatBody {
-    ChatBody::Text {
-        text: start_of(words, MOST_TEXT).to_owned(),
-        live,
-    }
 }
 
 fn measure(chat: &mut Chat, usage: &Value) {
@@ -1164,10 +1131,6 @@ fn is_hidden(name: &str, input: &Value) -> bool {
             && text(input, "file_path")
                 .replace('\\', "/")
                 .contains("/.claude/plans/"))
-}
-
-fn file_name(path: &str) -> &str {
-    path.rsplit(['/', '\\']).next().unwrap_or(path)
 }
 
 /// A call as the chat shows it before it ran, from the tool's name and what the agent gave it.
