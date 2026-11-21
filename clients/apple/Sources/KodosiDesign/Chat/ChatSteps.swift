@@ -266,7 +266,7 @@ struct ChangeLines: View {
             ForEach(Array(lines.prefix(most).enumerated()), id: \.offset) { _, line in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(verbatim: line.sign == .added ? "+" : line.sign == .removed ? "−" : " ")
-                    Text(verbatim: line.text).lineLimit(1).truncationMode(.tail)
+                    Text(verbatim: line.text).lineLimit(4).truncationMode(.tail)
                 }
                 .foregroundStyle(line.sign == .added ? theme.colors.ready : line.sign == .removed ? theme.colors.danger : theme.colors.inkFaint)
             }

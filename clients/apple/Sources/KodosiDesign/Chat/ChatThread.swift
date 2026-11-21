@@ -54,6 +54,7 @@ struct ChatThread: View {
             }
             .followsEnd($following, position: $position, viewport: $viewport)
             .scrollIndicators(.automatic)
+            .scrollDismissesKeyboard(.interactively)
             .overlay {
                 let empty = chat.chat != nil && rows.isEmpty
                 ZStack {

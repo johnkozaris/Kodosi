@@ -160,11 +160,29 @@ struct FollowsEnd: ViewModifier {
                     }
                 } else if offset >= end - 40 {
                     following = true
-                } else if old.contentOffset.y - new.contentOffset.y > ([.tracking, .interacting, .decelerating].contains(phase) ? 0.5 : 8) {
+                } else if old.contentOffset.y - new.contentOffset.y > Self.leaves(phase) {
                     following = false
                 }
             }
             .onScrollPhaseChange { _, new in phase = new }
+    }
+
+    /// A person's scroll on a touch screen always has a phase, while a mouse wheel moves the
+    /// Mac's view in the idle phase. The moves of the keyboard and of the app's own scrolls
+    /// must not stop the following.
+    private static func leaves(_ phase: ScrollPhase) -> CGFloat {
+        switch phase {
+        case .tracking, .interacting, .decelerating:
+            0.5
+        case .idle:
+            #if os(iOS)
+                .infinity
+            #else
+                8
+            #endif
+        default:
+            .infinity
+        }
     }
 }
 

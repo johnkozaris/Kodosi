@@ -38,7 +38,9 @@ struct ChatDock<ModelKey: View>: View {
                 ChatQueuedRow(chat: chat, queued: queued).transition(AnyTransition.rise)
             }
             if let ask {
+                // The card takes the room before the composer, which needs only its own line.
                 ChatAskCard(chat: chat, ask: ask).id(ask.id).transition(AnyTransition.rise)
+                    .layoutPriority(1)
             } else if chat.state == .working {
                 ChatLiveLine(chat: chat).transition(.opacity)
             }
@@ -73,6 +75,12 @@ struct ChatDock<ModelKey: View>: View {
         .animation(theme.motion.hover, value: focused.wrappedValue)
         #if os(iOS)
             .sensoryFeedback(.impact(weight: .light), trigger: sends)
+            // The keyboard of a phone would leave a new question little room.
+            .onChange(of: ask?.id) { _, id in
+                if id != nil, !typed {
+                    focused.wrappedValue = false
+                }
+            }
         #endif
     }
 

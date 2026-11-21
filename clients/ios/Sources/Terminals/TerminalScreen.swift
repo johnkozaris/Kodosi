@@ -368,6 +368,7 @@ private struct ChatModelMenu: View {
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
+            .loadsAgentModels(of: session)
             .accessibilityLabel(Text("Model"))
             .accessibilityValue(label)
             .accessibilityIdentifier("terminal.chat.model")

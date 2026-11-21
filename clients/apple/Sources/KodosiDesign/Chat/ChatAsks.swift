@@ -64,38 +64,51 @@ private struct ChatPermission: View {
         return nil
     }
 
+    /// Above a phone's keyboard the command and the change get less room, so that the keys stay.
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            StatusSign(form: .hand, size: 12)
-            StepGlyph(symbol: ChatWords.symbol(tool.kind))
-            Text(verbatim: tool.target.isEmpty ? tool.name : tool.target)
-                .appTextStyle(.mono).foregroundStyle(theme.colors.ink).lineLimit(whole == nil ? 3 : 1).truncationMode(.middle)
-                .textSelection(.enabled)
-                .help(tool.name)
+        ViewThatFits(in: .vertical) {
+            card(command: 140, lines: 14)
+            card(command: 56, lines: 4)
+            card(command: 0, lines: 0)
         }
-        if !helper.isEmpty {
-            Label { Text(verbatim: helper) } icon: { Image(systemName: "person.2") }
-                .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
-        }
-        if let whole {
-            ScrollView {
-                Text(verbatim: whole).appTextStyle(.monoCaption).foregroundStyle(theme.colors.ink).textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(8)
+    }
+
+    private func card(command: CGFloat, lines most: Int) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
+                StatusSign(form: .hand, size: 12)
+                StepGlyph(symbol: ChatWords.symbol(tool.kind))
+                Text(verbatim: tool.target.isEmpty ? tool.name : tool.target)
+                    .appTextStyle(.mono).foregroundStyle(theme.colors.ink).lineLimit(whole == nil ? 3 : 1).truncationMode(.middle)
+                    .textSelection(.enabled)
+                    .help(tool.name)
             }
-            .frame(maxHeight: 140).fixedSize(horizontal: false, vertical: true)
-            .well(Radius.md)
-        } else if case let .change(_, _, _, lines)? = tool.detail, !lines.isEmpty {
-            ChangeLines(lines: lines, most: 14)
-        }
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) {
-                decisions
-                Spacer(minLength: 6)
-                alwaysKey
+            if !helper.isEmpty {
+                Label { Text(verbatim: helper) } icon: { Image(systemName: "person.2") }
+                    .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
             }
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) { decisions }
-                alwaysKey
+            if let whole {
+                if command > 0 {
+                    ScrollView {
+                        Text(verbatim: whole).appTextStyle(.monoCaption).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(8)
+                    }
+                    .frame(maxHeight: command).fixedSize(horizontal: false, vertical: true)
+                    .well(Radius.md)
+                }
+            } else if case let .change(_, _, _, lines)? = tool.detail, !lines.isEmpty, most > 0 {
+                ChangeLines(lines: lines, most: most)
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) {
+                    decisions
+                    Spacer(minLength: 6)
+                    alwaysKey
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) { decisions }
+                    alwaysKey
+                }
             }
         }
     }
@@ -148,6 +161,21 @@ private struct ChatQuestions: View {
     }
 
     var body: some View {
+        ViewThatFits(in: .vertical) {
+            VStack(alignment: .leading, spacing: 10) {
+                list
+                sendKey
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                ScrollView { VStack(alignment: .leading, spacing: 10) { list } }
+                    .frame(maxHeight: 180).fixedSize(horizontal: false, vertical: true)
+                sendKey
+            }
+        }
+    }
+
+    @ContentBuilder
+    private var list: some View {
         let sent = sent
         ForEach(questions.indices, id: \.self) { index in
             let question = questions[index]
@@ -177,6 +205,10 @@ private struct ChatQuestions: View {
                 }
             }
         }
+    }
+
+    @ContentBuilder
+    private var sendKey: some View {
         if !direct {
             Button { send() } label: { Text("Send", bundle: .module) }
                 .buttonStyle(.kodosi(.primary, size: .small))
@@ -215,18 +247,33 @@ private struct ChatPlan: View {
     let text: String
     let choices: [PlanChoice]
 
+    /// Above a phone's keyboard the plan gets less room, and at last only its keys stay.
     var body: some View {
-        HStack(spacing: 8) {
-            StatusSign(form: .hand, size: 12)
-            StepGlyph(symbol: ChatWords.symbol(.plan))
+        ViewThatFits(in: .vertical) {
+            card(most: 260)
+            card(most: 120)
+            card(most: 0)
         }
-        if !text.isEmpty {
-            ScrollView {
-                AgentProse(text: text, live: false).frame(maxWidth: .infinity, alignment: .leading).padding(10)
+    }
+
+    private func card(most: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                StatusSign(form: .hand, size: 12)
+                StepGlyph(symbol: ChatWords.symbol(.plan))
             }
-            .frame(maxHeight: 260).fixedSize(horizontal: false, vertical: true)
-            .well(Radius.md)
+            if !text.isEmpty, most > 0 {
+                ScrollView {
+                    AgentProse(text: text, live: false).frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                }
+                .frame(maxHeight: most).fixedSize(horizontal: false, vertical: true)
+                .well(Radius.md)
+            }
+            keys
         }
+    }
+
+    private var keys: some View {
         FlowLayout(spacing: 6) {
             ForEach(choices.indices, id: \.self) { index in
                 let choice = choices[index]

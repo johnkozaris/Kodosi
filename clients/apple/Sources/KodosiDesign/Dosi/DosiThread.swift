@@ -136,6 +136,7 @@ public struct DosiThread: View {
             }
             .followsEnd($following, position: $position, viewport: $viewport)
             .scrollIndicators(.automatic)
+            .scrollDismissesKeyboard(.interactively)
             .task(id: place.dosi.pending) {
                 guard place.dosi.pending else {
                     thinking = false

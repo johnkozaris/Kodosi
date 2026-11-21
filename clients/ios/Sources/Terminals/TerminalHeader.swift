@@ -189,6 +189,7 @@ struct TerminalMenu: View {
         }
         .menuStyle(.button)
         .buttonStyle(PressScaleStyle(scale: 0.9))
+        .loadsAgentModels(of: session)
         .accessibilityLabel(Text("Terminal actions"))
         .accessibilityIdentifier("terminal.menu")
     }

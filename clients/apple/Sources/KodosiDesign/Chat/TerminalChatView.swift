@@ -23,6 +23,7 @@ public struct TerminalChatView<ModelKey: View>: View {
         VStack(spacing: 0) {
             ChatThread(chat: chat, agent: agent, me: me, sent: sent)
             ChatDock(chat: chat, agent: agent, focused: $focused, modelKey: modelKey) { sent += 1 }
+                .layoutPriority(1)
         }
         .task { await chat.watch() }
         .accessibilityElement(children: .contain)
