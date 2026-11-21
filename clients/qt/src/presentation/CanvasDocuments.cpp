@@ -5,6 +5,7 @@
 #include <QSet>
 #include <QUuid>
 
+#include <algorithm>
 #include <utility>
 
 namespace kodosi {
@@ -95,9 +96,19 @@ QString CanvasDocuments::open(const QString& sessionId, const QString& key)
     return openPipe(newId(), sessionId, key, false);
 }
 
+// A terminal's browser gives this app one seat, which two pipes would take from each other again
+// and again. A view lives on for a moment after the next one begins, as a Loader deletes its item
+// later, so the newest view takes the pipe.
 QString CanvasDocuments::openReader(
     const QString& sessionId, const QString& key, QObject& reader, PipeRouter::Read read)
 {
+    const auto held = std::find_if(m_pipes.cbegin(), m_pipes.cend(),
+        [&](const Pipe& open) { return open.routed && open.sessionId == sessionId && open.key == key; });
+    if (held != m_pipes.cend()) {
+        const auto taken = held.key();
+        close(taken);
+        emit closed(taken);
+    }
     const auto pipe = newId();
     m_router.route(pipe, reader, std::move(read));
     return openPipe(pipe, sessionId, key, true);

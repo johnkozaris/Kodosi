@@ -575,6 +575,29 @@ private slots:
         QVERIFY(commands.routes.isEmpty());
     }
 
+    void aTerminalsBrowserHasOnePipeAndTheNewestViewTakesIt()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        QSignalSpy closed(&documents, &kodosi::CanvasDocuments::closed);
+        QObject earlier;
+        QObject later;
+        QObject other;
+        const auto first = documents.openReader(test::id(1), QStringLiteral("browser"), earlier, {});
+        const auto elsewhere = documents.openReader(test::id(2), QStringLiteral("browser"), other, {});
+        const auto sent = commands.values.size();
+        const auto second = documents.openReader(test::id(1), QStringLiteral("browser"), later, {});
+        QCOMPARE(commands.values.size(), sent + 2);
+        QCOMPARE(commands.values.at(sent).value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
+        QCOMPARE(commands.values.at(sent).value(QStringLiteral("pipe")).toString(), first);
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), second);
+        QCOMPARE(closed.size(), 1);
+        QCOMPARE(closed.first().at(0).toString(), first);
+        QCOMPARE(commands.routes, (QStringList { elsewhere, second }));
+    }
+
     void aDocumentGoesToAHostThatComesBackOnceItListsTheTerminal()
     {
         Commands commands;
