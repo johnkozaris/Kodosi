@@ -17,6 +17,8 @@ struct ChatRow: Identifiable, Equatable {
 
     let id: String
     let kind: Kind
+    /// When its first item came, in milliseconds since 1970 on the terminal's computer.
+    let at: UInt64
 
     /// `live`: the agent works on the last turn.
     static func rows(_ items: [ChatItem], live: Bool) -> [ChatRow] {
@@ -39,11 +41,11 @@ struct ChatRow: Identifiable, Equatable {
             if work.tools.isEmpty {
                 for item in work {
                     if case let .text(text, _) = item.body {
-                        rows.append(ChatRow(id: item.id, kind: .answer(text: text, live: false)))
+                        rows.append(ChatRow(id: item.id, kind: .answer(text: text, live: false), at: item.at))
                     }
                 }
             } else {
-                rows.append(ChatRow(id: "work.\(work[0].id)", kind: .work(work)))
+                rows.append(ChatRow(id: "work.\(work[0].id)", kind: .work(work), at: work[0].at))
             }
             if let answer, let row = answerRow(turn[answer], ended: ended) {
                 rows.append(row)
@@ -53,17 +55,17 @@ struct ChatRow: Identifiable, Equatable {
             switch item.body {
             case let .person(text, by):
                 fold(ended: true)
-                rows.append(ChatRow(id: item.id, kind: .person(text: text, by: by)))
+                rows.append(ChatRow(id: item.id, kind: .person(text: text, by: by), at: item.at))
             case .text, .tool:
                 turn.append(item)
             case let .turn(end, ms):
                 fold(ended: true)
                 if end == .stopped || end == .failed || end == .refused || (end == .done && ms >= longTurn) {
-                    rows.append(ChatRow(id: item.id, kind: .end(end, ms: ms)))
+                    rows.append(ChatRow(id: item.id, kind: .end(end, ms: ms), at: item.at))
                 }
             case let .note(note):
                 fold(ended: true)
-                rows.append(ChatRow(id: item.id, kind: .note(note)))
+                rows.append(ChatRow(id: item.id, kind: .note(note), at: item.at))
             }
         }
         fold(ended: !live)
@@ -73,10 +75,10 @@ struct ChatRow: Identifiable, Equatable {
     private static func answerRow(_ item: ChatItem, ended: Bool) -> ChatRow? {
         switch item.body {
         case let .text(text, writing):
-            ChatRow(id: item.id, kind: .answer(text: text, live: writing && !ended))
+            ChatRow(id: item.id, kind: .answer(text: text, live: writing && !ended), at: item.at)
         case let .tool(tool):
             if case let .plan(text)? = tool.detail, !text.isEmpty {
-                ChatRow(id: item.id, kind: .plan(text: text, live: tool.state.isOpen && !ended))
+                ChatRow(id: item.id, kind: .plan(text: text, live: tool.state.isOpen && !ended), at: item.at)
             } else {
                 nil
             }

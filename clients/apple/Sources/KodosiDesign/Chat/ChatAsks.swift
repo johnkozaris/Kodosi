@@ -1,22 +1,24 @@
 import KodosiBridge
 import SwiftUI
 
-/// A question of the agent, open by itself above the composer. The button that a person pressed
-/// stays pressed until the question is gone, and the others wait.
+/// A question of the agent, open by itself above the composer: the agent's mark, what it asks and
+/// the status sign of a wait, then what the answer is about and the keys. The key that a person
+/// pressed stays pressed until the question is gone, and the others wait.
 struct ChatAskCard: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
     let ask: ChatAsk
+    let agent: AgentKind
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        Group {
             switch ask.body {
             case let .permission(tool, always, helper):
-                ChatPermission(chat: chat, ask: ask, tool: tool, always: always, helper: helper)
+                ChatPermission(chat: chat, ask: ask, agent: agent, tool: tool, always: always, helper: helper)
             case let .question(questions):
-                ChatQuestions(chat: chat, ask: ask, questions: questions)
+                ChatQuestions(chat: chat, ask: ask, agent: agent, questions: questions)
             case let .plan(text, choices):
-                ChatPlan(chat: chat, ask: ask, text: text, choices: choices)
+                ChatPlan(chat: chat, ask: ask, agent: agent, text: text, choices: choices)
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 11)
@@ -24,6 +26,24 @@ struct ChatAskCard: View {
         .raised(Radius.lg, fill: theme.colors.raised, elevation: .lifted)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat.ask.\(AccessibilityIdentifier.token(ask.id))")
+    }
+}
+
+/// The first row of a question card: who asks, about what, and the sign that it waits for the
+/// person. The hand waves once when the card comes.
+private struct AskHeader<Title: View>: View {
+    let agent: AgentKind
+    let sign: StatusSign.Form
+    @ContentBuilder let title: Title
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            AgentMark(kind: agent, size: 20).accessibilityHidden(true)
+            title
+            Spacer(minLength: 4)
+            StatusSign(form: sign, size: 14)
+        }
+        .frame(minHeight: 22)
     }
 }
 
@@ -35,15 +55,19 @@ private struct AnswerKey: View {
     let answer: ChatAnswer
     let kind: KodosiButtonStyle.Kind
     let label: Text
+    var wide = false
 
     var body: some View {
         let given = chat.answers[ask.id]
-        Button { chat.answer(ask, answer) } label: { label.truncationMode(.middle) }
+        Button { chat.answer(ask, answer) } label: { label.truncationMode(.middle).frame(maxWidth: wide ? .infinity : nil) }
             .buttonStyle(.kodosi(kind, size: .small))
             .disabled(given != nil && given != answer)
             .allowsHitTesting(given == nil)
             .scaleEffect(given == answer ? 0.97 : 1)
             .accessibilityAddTraits(given == answer ? .isSelected : [])
+        #if os(iOS)
+            .sensoryFeedback(.impact(weight: .light), trigger: given == answer)
+        #endif
     }
 }
 
@@ -51,6 +75,7 @@ private struct ChatPermission: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
     let ask: ChatAsk
+    let agent: AgentKind
     let tool: ChatTool
     let always: AskAlways?
     let helper: String
@@ -75,28 +100,23 @@ private struct ChatPermission: View {
 
     private func card(command: CGFloat, lines most: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 8) {
-                StatusSign(form: .hand, size: 12)
-                StepGlyph(symbol: ChatWords.symbol(tool.kind))
-                Text(verbatim: tool.target.isEmpty ? tool.name : tool.target)
-                    .appTextStyle(.mono).foregroundStyle(theme.colors.ink).lineLimit(whole == nil ? 3 : 1).truncationMode(.middle)
-                    .textSelection(.enabled)
-                    .help(tool.name)
+            AskHeader(agent: agent, sign: .hand) {
+                HStack(spacing: 6) {
+                    StepSymbol(kind: tool.kind)
+                    Text(verbatim: tool.target.isEmpty ? tool.name : tool.target)
+                        .appTextStyle(.mono).foregroundStyle(theme.colors.ink)
+                        .lineLimit(whole == nil || command == 0 ? 3 : 1).truncationMode(.middle)
+                        .textSelection(.enabled)
+                        .help(tool.name)
+                }
             }
             if !helper.isEmpty {
                 Label { Text(verbatim: helper) } icon: { Image(systemName: "person.2") }
-                    .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
+                    .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
             }
-            if let whole {
-                if command > 0 {
-                    ScrollView {
-                        Text(verbatim: whole).appTextStyle(.monoCaption).foregroundStyle(theme.colors.ink).textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(8)
-                    }
-                    .frame(maxHeight: command).fixedSize(horizontal: false, vertical: true)
-                    .well(Radius.md)
-                }
-            } else if case let .change(_, _, _, lines)? = tool.detail, !lines.isEmpty, most > 0 {
+            if let whole, command > 0 {
+                CodeTile(text: whole, most: command)
+            } else if whole == nil, case let .change(_, _, _, lines)? = tool.detail, !lines.isEmpty, most > 0 {
                 ChangeLines(lines: lines, most: most)
             }
             ViewThatFits(in: .horizontal) {
@@ -115,16 +135,16 @@ private struct ChatPermission: View {
 
     @ContentBuilder
     private var decisions: some View {
-        AnswerKey(chat: chat, ask: ask, answer: .deny(nil), kind: .secondary, label: Text("Deny", bundle: .module))
-            .accessibilityIdentifier("chat.ask.deny")
         AnswerKey(chat: chat, ask: ask, answer: .allow, kind: .primary, label: Text("Allow", bundle: .module))
             .accessibilityIdentifier("chat.ask.allow")
+        AnswerKey(chat: chat, ask: ask, answer: .deny(nil), kind: .secondary, label: Text("Deny", bundle: .module))
+            .accessibilityIdentifier("chat.ask.deny")
     }
 
     @ContentBuilder
     private var alwaysKey: some View {
         if let offer {
-            let offered = Text(verbatim: offer).monospaced().foregroundStyle(theme.colors.inkMuted)
+            let offered = Text(verbatim: offer).monospaced(Self.code(always)).foregroundStyle(theme.colors.inkMuted)
             AnswerKey(chat: chat, ask: ask, answer: .always, kind: .secondary, label: Text("Always \(offered)", bundle: .module))
                 .help(offer)
                 .accessibilityIdentifier("chat.ask.always")
@@ -133,11 +153,27 @@ private struct ChatPermission: View {
 
     private var offer: String? {
         switch always {
-        case let .rule(_, text): text
+        case let .rule(_, text): Self.short(text)
         case let .mode(mode): ChatWords.mode(mode)
         case let .folder(path): HostPath.folderName(path)
         case nil: nil
         }
+    }
+
+    /// A rule and a folder say themselves in the letters of code, and a mode in words.
+    private static func code(_ always: AskAlways?) -> Bool {
+        if case .mode? = always {
+            return false
+        }
+        return true
+    }
+
+    /// A rule for an absolute path names only its folder, with the pattern that follows it.
+    private static func short(_ rule: String) -> String {
+        guard rule.hasPrefix("/") || rule.hasPrefix("~") else { return rule }
+        let parts = rule.split(separator: "/")
+        guard let folder = parts.lastIndex(where: { !$0.contains(where: { "*?[".contains($0) }) }) else { return rule }
+        return parts[folder...].joined(separator: "/")
     }
 }
 
@@ -145,6 +181,7 @@ private struct ChatQuestions: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
     let ask: ChatAsk
+    let agent: AgentKind
     let questions: [ChatQuestion]
     @State private var picked: [Int: [String]] = [:]
 
@@ -163,13 +200,24 @@ private struct ChatQuestions: View {
     var body: some View {
         ViewThatFits(in: .vertical) {
             VStack(alignment: .leading, spacing: 10) {
+                header
                 list
                 sendKey
             }
             VStack(alignment: .leading, spacing: 10) {
-                ScrollView { VStack(alignment: .leading, spacing: 10) { list } }
-                    .frame(maxHeight: 180).fixedSize(horizontal: false, vertical: true)
+                header
+                ScrollView { VStack(alignment: .leading, spacing: 14) { list } }
+                    .frame(maxHeight: 260).fixedSize(horizontal: false, vertical: true)
                 sendKey
+            }
+        }
+    }
+
+    private var header: some View {
+        AskHeader(agent: agent, sign: .question) {
+            let topics = questions.map(\.header).filter { !$0.isEmpty }
+            if !topics.isEmpty {
+                Text(verbatim: topics.joined(separator: " · ")).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).lineLimit(1)
             }
         }
     }
@@ -179,30 +227,11 @@ private struct ChatQuestions: View {
         let sent = sent
         ForEach(questions.indices, id: \.self) { index in
             let question = questions[index]
-            let chosen = sent.map { index < $0.count ? $0[index] : [] } ?? picked[index] ?? []
             VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    if index == 0 {
-                        StatusSign(form: .question, size: 12)
-                    }
-                    if !question.header.isEmpty {
-                        Text(verbatim: question.header).appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
-                            .padding(.horizontal, 7).controlHeight(18).background(theme.colors.surface, in: Capsule())
-                    }
-                    Text(question.question).appTextStyle(.subhead).foregroundStyle(theme.colors.ink).textSelection(.enabled)
-                }
-                FlowLayout(spacing: 6) {
-                    ForEach(question.options, id: \.label) { option in
-                        let on = chosen.contains(option.label)
-                        Button(option.label) { choose(option.label, in: index) }
-                            .buttonStyle(.kodosi(on ? .tinted : .secondary, size: .small))
-                            .disabled(sent != nil && !on)
-                            .allowsHitTesting(sent == nil)
-                            .help(option.description)
-                            .accessibilityHint(Text(verbatim: option.description))
-                            .accessibilityAddTraits(on ? .isSelected : [])
-                    }
-                }
+                Text(question.question).appTextStyle(.body).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                ChatOptions(question: question, chosen: sent.map { index < $0.count ? $0[index] : [] } ?? picked[index] ?? [],
+                            sent: sent != nil) { choose($0, in: index) }
             }
         }
     }
@@ -240,10 +269,74 @@ private struct ChatQuestions: View {
     }
 }
 
+private struct ChatOptions: View {
+    @Environment(\.theme) private var theme
+    let question: ChatQuestion
+    let chosen: [String]
+    let sent: Bool
+    let choose: (String) -> Void
+    @Namespace private var thumb
+
+    var body: some View {
+        VStack(spacing: 2) {
+            ForEach(question.options, id: \.label) { option in
+                let on = chosen.contains(option.label)
+                Button { choose(option.label) } label: {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: option.label).appTextStyle(.subhead)
+                                .foregroundStyle(on ? theme.colors.ink : theme.colors.inkMuted)
+                            if !option.description.isEmpty {
+                                Text(verbatim: option.description).appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint)
+                                    .lineLimit(3)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .multilineTextAlignment(.leading)
+                        if question.multiple {
+                            Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                .font(mac: 13, ios: .body)
+                                .foregroundStyle(on ? theme.colors.accent : theme.colors.inkFaint)
+                                .contentTransition(.symbolEffect(.replace))
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .padding(.horizontal, 11).padding(.vertical, 7)
+                    .frame(minHeight: Self.row)
+                    .background {
+                        if on {
+                            RaisedBackground(shape: RoundedRectangle(cornerRadius: Radius.md - 3, style: .continuous),
+                                             fill: theme.colors.raised, elevation: .resting)
+                                .matchedGeometryEffect(id: question.multiple ? option.label : "thumb", in: thumb)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressScaleStyle(scale: 0.98))
+                .disabled(sent && !on)
+                .allowsHitTesting(!sent)
+                .accessibilityAddTraits(on ? .isSelected : [])
+                .accessibilityIdentifier("chat.ask.option.\(AccessibilityIdentifier.token(option.label))")
+            }
+        }
+        .padding(3)
+        .well(Radius.md)
+    }
+
+    private static var row: CGFloat {
+        #if os(iOS)
+            40
+        #else
+            28
+        #endif
+    }
+}
+
 private struct ChatPlan: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
     let ask: ChatAsk
+    let agent: AgentKind
     let text: String
     let choices: [PlanChoice]
 
@@ -258,31 +351,40 @@ private struct ChatPlan: View {
 
     private func card(most: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                StatusSign(form: .hand, size: 12)
-                StepGlyph(symbol: ChatWords.symbol(.plan))
+            AskHeader(agent: agent, sign: .hand) {
+                HStack(spacing: 6) {
+                    StepSymbol(kind: .plan)
+                    Text(verbatim: ChatWords.mode(.plan)).appTextStyle(.subhead).foregroundStyle(theme.colors.ink)
+                }
             }
             if !text.isEmpty, most > 0 {
                 ScrollView {
-                    AgentProse(text: text, live: false).frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                    AgentProse(text: text, live: false).frame(maxWidth: .infinity, alignment: .leading).padding(12)
                 }
                 .frame(maxHeight: most).fixedSize(horizontal: false, vertical: true)
-                .well(Radius.md)
+                .background(theme.colors.surface, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
             }
             keys
         }
     }
 
     private var keys: some View {
-        FlowLayout(spacing: 6) {
-            ForEach(choices.indices, id: \.self) { index in
-                let choice = choices[index]
-                AnswerKey(chat: chat, ask: ask, answer: .plan(choice), kind: index == 0 ? .primary : .secondary, label: Self.label(choice))
-                    .accessibilityIdentifier("chat.ask.plan.\(choice.rawValue)")
-            }
-            AnswerKey(chat: chat, ask: ask, answer: .deny(nil), kind: .secondary, label: Text("Keep planning", bundle: .module))
-                .accessibilityIdentifier("chat.ask.deny")
+        #if os(iOS)
+            VStack(spacing: 6) { choiceKeys(wide: true) }
+        #else
+            FlowLayout(spacing: 6) { choiceKeys(wide: false) }
+        #endif
+    }
+
+    @ContentBuilder
+    private func choiceKeys(wide: Bool) -> some View {
+        ForEach(choices.indices, id: \.self) { index in
+            let choice = choices[index]
+            AnswerKey(chat: chat, ask: ask, answer: .plan(choice), kind: index == 0 ? .primary : .secondary, label: Self.label(choice), wide: wide)
+                .accessibilityIdentifier("chat.ask.plan.\(choice.rawValue)")
         }
+        AnswerKey(chat: chat, ask: ask, answer: .deny(nil), kind: .secondary, label: Text("Keep planning", bundle: .module), wide: wide)
+            .accessibilityIdentifier("chat.ask.deny")
     }
 
     private static func label(_ choice: PlanChoice) -> Text {

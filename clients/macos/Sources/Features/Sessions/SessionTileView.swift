@@ -156,10 +156,9 @@ struct SessionTileView: View {
                     .opacity(chatting ? 0 : 1).allowsHitTesting(!chatting).accessibilityHidden(chatting)
                     .environment(\.terminalTileVisible, tileVisible && !chatting)
                 if chatting {
-                    TerminalChatView(chat: deps.canvas.chat(session.id), agent: session.agent, me: deps.account.userId) { label in
-                        ChatModelKey(session: session, label: label)
+                    TerminalChatView(chat: deps.canvas.chat(session.id), agent: session.agent, me: deps.account.userId) { name, effort in
+                        ChatModelKey(session: session, name: name, effort: effort)
                     }
-                    .background(theme.colors.terminal)
                 }
             }
         }

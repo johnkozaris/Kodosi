@@ -5,17 +5,11 @@ struct PersonBubble: View {
     let text: String
 
     var body: some View {
-        HStack {
-            Spacer(minLength: 48)
+        HStack(spacing: 0) {
+            Spacer(minLength: 56)
             Text(ProjectMessageText.formatted(text))
-                .appTextStyle(.body).lineSpacing(2.5).foregroundStyle(theme.colors.ink).textSelection(.enabled)
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background {
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: 14, bottomLeadingRadius: 14, bottomTrailingRadius: 4, topTrailingRadius: 14, style: .continuous,
-                    )
-                    .fill(theme.colors.accentSoft)
-                }
+                .appTextStyle(.body).lineSpacing(2).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+                .projectBubble()
         }
     }
 }
@@ -145,6 +139,7 @@ struct FollowsEnd: ViewModifier {
     @Binding var position: ScrollPosition
     @Binding var viewport: CGFloat
     @State private var phase = ScrollPhase.idle
+    @State private var aim: CGFloat?
 
     func body(content: Content) -> some View {
         content
@@ -156,8 +151,12 @@ struct FollowsEnd: ViewModifier {
                 let offset = new.contentOffset.y + new.contentInsets.top
                 if new.contentSize != old.contentSize || new.containerSize != old.containerSize || new.contentInsets != old.contentInsets {
                     if following, abs(offset - end) > 0.5 {
-                        withTransaction(\.disablesAnimations, true) { position.scrollTo(y: end) }
+                        scroll(to: end)
                     }
+                } else if following, let aim, abs(offset - aim) < 0.5, abs(offset - end) > 0.5 {
+                    // A scroll of the view lands after the content changed again: its end then is
+                    // not the end now.
+                    scroll(to: end)
                 } else if offset >= end - 40 {
                     following = true
                 } else if old.contentOffset.y - new.contentOffset.y > Self.leaves(phase) {
@@ -165,6 +164,11 @@ struct FollowsEnd: ViewModifier {
                 }
             }
             .onScrollPhaseChange { _, new in phase = new }
+    }
+
+    private func scroll(to end: CGFloat) {
+        aim = end
+        withTransaction(\.disablesAnimations, true) { position.scrollTo(y: end) }
     }
 
     /// A person's scroll on a touch screen always has a phase, while a mouse wheel moves the

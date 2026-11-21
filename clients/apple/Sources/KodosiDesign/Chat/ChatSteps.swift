@@ -2,8 +2,8 @@ import KodosiBridge
 import SwiftUI
 
 /// The work of a turn as one line: what the steps did, and the steps that did not go as the agent
-/// wanted. While the turn runs, the live line under the conversation says what runs. The line is
-/// there from the first step, so a person can open a step while it runs.
+/// wanted. The line ends with its status sign, and it is there from the first step, so a person can
+/// open a step while it runs.
 struct ChatWork: View {
     @Environment(\.theme) private var theme
     let items: [ChatItem]
@@ -13,71 +13,78 @@ struct ChatWork: View {
     var body: some View {
         let tools = items.tools
         let ended = tools.filter { !$0.state.isOpen }
-        VStack(alignment: .leading, spacing: 4) {
+        let done = ended.filter { $0.state == .done }
+        VStack(alignment: .leading, spacing: 0) {
             Button {
                 hold()
                 open.toggle()
             } label: {
-                HStack(spacing: 7) {
-                    HStack(spacing: -4) {
-                        ForEach(kinds(tools), id: \.self) { kind in
-                            StepGlyph(symbol: ChatWords.symbol(kind))
-                                .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.terminal, lineWidth: 1.5) }
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    StepSymbol(kind: Self.main(tools))
+                    Group {
+                        if !done.isEmpty {
+                            Text(ChatWords.summary(done))
+                        } else if ended.isEmpty {
+                            Text("\(tools.count) steps", bundle: .module)
                         }
                     }
-                    let done = ended.filter { $0.state == .done }
-                    if !done.isEmpty {
-                        words(Text(ChatWords.summary(done)))
-                    } else if ended.isEmpty {
-                        words(Text("\(tools.count) steps", bundle: .module))
+                    .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .contentTransition(.numericText())
+                    ForEach(ChatWords.setbacks(ended).filter { $0.state != .failed }, id: \.state) { setback in
+                        Text(verbatim: setback.words).appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint).lineLimit(1).fixedSize()
                     }
-                    ForEach(ChatWords.setbacks(ended), id: \.state) { setback in
-                        HStack(spacing: 3) {
-                            if setback.state == .failed {
-                                Image(systemName: "exclamationmark.triangle.fill").font(mac: 9, ios: .caption2, weight: .semibold)
-                                    .accessibilityHidden(true)
-                            }
-                            Text(verbatim: setback.words).font(mac: 11, ios: .caption, design: .monospaced).lineLimit(1)
+                    ZStack {
+                        if ended.contains(where: { $0.state == .failed }) {
+                            StatusSign(form: .failed, size: 11).transition(AnyTransition.pop)
+                        } else if !tools.isEmpty, done.count == tools.count {
+                            StatusSign(form: .done, size: 11).transition(AnyTransition.pop)
                         }
-                        .foregroundStyle(setback.state == .failed ? theme.colors.caution : theme.colors.inkFaint)
-                        .fixedSize()
                     }
                     Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
                         .rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
                         .accessibilityHidden(true)
                 }
-                .controlHeight(22).touchTarget(Rectangle())
+                .controlHeight(26).touchTarget(Rectangle())
             }
             .buttonStyle(.plain)
             .help(open ? Text("Hide the steps", bundle: .module) : Text("Show the steps", bundle: .module))
             .accessibilityHint(open ? Text("Hide the steps", bundle: .module) : Text("Show the steps", bundle: .module))
             if open {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(items) { item in
                         ChatStepLine(item: item, hold: hold).transition(AnyTransition.unfold)
                     }
                 }
-                .padding(.leading, 12)
-                .overlay(alignment: .leading) { Rectangle().fill(theme.colors.lifted).frame(width: 1) }
-                .padding(.leading, 6)
+                .padding(.bottom, 4)
                 .transition(.opacity)
             }
         }
         .animation(theme.motion.snappy, value: open)
         .animation(theme.motion.spring, value: items.map(\.id))
+        .animation(theme.motion.snappy, value: ended.count)
     }
 
-    private func words(_ text: Text) -> some View {
-        text.font(mac: 11, ios: .caption, design: .monospaced).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
-            .contentTransition(.interpolate)
-    }
-
-    private func kinds(_ tools: [ChatTool]) -> [ChatToolKind] {
-        var kinds: [ChatToolKind] = []
-        for tool in tools where !kinds.contains(tool.kind) && kinds.count < 4 {
-            kinds.append(tool.kind)
+    /// The kind that most steps of the turn have.
+    private static func main(_ tools: [ChatTool]) -> ChatToolKind {
+        var counts: [ChatToolKind: Int] = [:]
+        for tool in tools {
+            counts[tool.kind, default: 0] += 1
         }
-        return kinds
+        return tools.map(\.kind).max { counts[$0, default: 0] < counts[$1, default: 0] } ?? .other
+    }
+}
+
+/// The plain symbol of a kind of step: no tile, no outline.
+struct StepSymbol: View {
+    @Environment(\.theme) private var theme
+    let kind: ChatToolKind
+
+    var body: some View {
+        Image(systemName: ChatWords.symbol(kind)).font(mac: 10, ios: .caption, weight: .semibold)
+            .foregroundStyle(theme.colors.inkFaint)
+            .frame(width: 15)
+            .accessibilityHidden(true)
     }
 }
 
@@ -91,44 +98,57 @@ struct ChatStepLine: View {
         switch item.body {
         case let .tool(tool):
             VStack(alignment: .leading, spacing: 4) {
-                Button {
-                    hold()
-                    open.toggle()
-                } label: {
-                    HStack(spacing: 7) {
-                        StepGlyph(symbol: ChatWords.symbol(tool.kind))
-                        Text(verbatim: ChatWords.step(tool)).font(mac: 11, ios: .caption, design: .monospaced)
-                            .foregroundStyle(tool.state.isOpen ? theme.colors.ink : theme.colors.inkMuted)
-                            .lineLimit(1).truncationMode(.middle)
-                        ChatStepState(state: tool.state)
-                        if ChatStepDetail.shows(tool) {
-                            Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
-                                .rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
-                                .accessibilityHidden(true)
-                        }
-                        Spacer(minLength: 0)
+                if ChatStepDetail.shows(tool) {
+                    Button {
+                        hold()
+                        open.toggle()
+                    } label: {
+                        line(tool, opens: true).touchTarget(Rectangle())
                     }
-                    #if os(iOS)
-                    .frame(minHeight: 44)
-                    #else
-                    .frame(minHeight: 22)
-                    #endif
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+                    .help(tool.target)
+                } else {
+                    line(tool, opens: false).help(tool.target)
                 }
-                .buttonStyle(.plain)
-                .disabled(!ChatStepDetail.shows(tool))
-                .help(tool.target)
                 if open {
-                    ChatStepDetail(tool: tool).transition(AnyTransition.unfold)
+                    ChatStepDetail(tool: tool).padding(.leading, 21).padding(.bottom, 6).transition(AnyTransition.unfold)
                 }
             }
             .animation(theme.motion.snappy, value: open)
         case let .text(text, _):
             Text(ProjectMessageText.formatted(text)).appTextStyle(.footnote).lineSpacing(2).foregroundStyle(theme.colors.inkMuted)
-                .textSelection(.enabled).padding(.vertical, 4)
+                .textSelection(.enabled).padding(.vertical, 4).padding(.leading, 21)
         default:
             EmptyView()
         }
+    }
+
+    private func line(_ tool: ChatTool, opens: Bool) -> some View {
+        HStack(spacing: 6) {
+            StepSymbol(kind: tool.kind)
+            Text(verbatim: ChatWords.step(tool))
+                .font(mac: 11.5, ios: .footnote, design: Self.code(tool) ? .monospaced : .default)
+                .foregroundStyle(tool.state.isOpen ? theme.colors.ink : theme.colors.inkMuted)
+                .lineLimit(1).truncationMode(.middle)
+            ChatStepState(state: tool.state)
+            if opens {
+                Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
+                    .rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
+                    .accessibilityHidden(true)
+            }
+            Spacer(minLength: 0)
+        }
+        #if os(iOS)
+        .frame(minHeight: 30)
+        #else
+        .frame(minHeight: 24)
+        #endif
+        .contentShape(Rectangle())
+    }
+
+    /// A command, a file and a search say themselves in the letters of code.
+    private static func code(_ tool: ChatTool) -> Bool {
+        [.command, .read, .edit, .write, .search].contains(tool.kind)
     }
 }
 
@@ -140,12 +160,9 @@ struct ChatStepState: View {
         Group {
             switch state {
             case .done:
-                Image(systemName: "checkmark").font(mac: 9, ios: .caption2, weight: .bold).foregroundStyle(theme.colors.ready)
-                    .accessibilityLabel(Text("Done", bundle: .module))
+                StatusSign(form: .done, size: 10)
             case .failed:
-                Image(systemName: "exclamationmark.triangle.fill").font(mac: 9, ios: .caption2, weight: .semibold)
-                    .foregroundStyle(theme.colors.caution)
-                    .accessibilityLabel(Text("Failed", bundle: .module))
+                StatusSign(form: .failed, size: 10)
             case .denied:
                 word(Text("denied", bundle: .module))
             case .stopped:
@@ -158,7 +175,7 @@ struct ChatStepState: View {
     }
 
     private func word(_ text: Text) -> some View {
-        text.font(mac: 10.5, ios: .caption2, design: .monospaced).foregroundStyle(theme.colors.inkFaint)
+        text.appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
     }
 }
 
@@ -180,15 +197,12 @@ struct ChatStepDetail: View {
         switch tool.detail {
         case let .command(command, output, background):
             VStack(alignment: .leading, spacing: 6) {
-                if command != tool.target {
-                    well(command, color: theme.colors.ink)
-                }
-                if !output.isEmpty {
-                    well(output, color: theme.colors.inkMuted, from: .bottom)
+                if command != tool.target || !output.isEmpty {
+                    CodeTile(text: command, output: output)
                 }
                 if background {
                     Label { Text("in the background", bundle: .module) } icon: { Image(systemName: "arrow.triangle.2.circlepath") }
-                        .font(mac: 10.5, ios: .caption2, design: .monospaced).foregroundStyle(theme.colors.inkFaint)
+                        .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
                 }
             }
         case let .change(path, added, removed, lines):
@@ -202,7 +216,7 @@ struct ChatStepDetail: View {
                 ChangeLines(lines: lines, most: 40)
             }
         case let .output(text):
-            well(text, color: theme.colors.inkMuted)
+            CodeTile(text: "", output: text)
         case let .question(questions, answers):
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(questions.indices, id: \.self) { index in
@@ -216,18 +230,19 @@ struct ChatStepDetail: View {
             }
             .textSelection(.enabled)
         case let .plan(text):
-            AgentProse(text: text, live: false).padding(10).well(Radius.md)
+            AgentProse(text: text, live: false).padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                .raised(Radius.lg, fill: theme.colors.raised)
         case let .agent(name, steps, doing, said):
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     if !name.isEmpty {
-                        Text(verbatim: name).appTextStyle(.monoCaption).foregroundStyle(theme.colors.ink)
+                        Text(verbatim: name).appTextStyle(.footnote).fontWeight(.semibold).foregroundStyle(theme.colors.ink)
                     }
-                    Text("\(steps) steps", bundle: .module).appTextStyle(.monoCaption).foregroundStyle(theme.colors.inkFaint)
+                    Text("\(steps) steps", bundle: .module).appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.inkFaint)
                 }
                 if let doing {
                     HStack(spacing: 6) {
-                        StepGlyph(symbol: ChatWords.symbol(doing.kind))
+                        StepSymbol(kind: doing.kind)
                         Text(verbatim: doing.target).appTextStyle(.monoCaption).foregroundStyle(theme.colors.inkMuted)
                             .lineLimit(1).truncationMode(.middle)
                     }
@@ -241,22 +256,56 @@ struct ChatStepDetail: View {
             EmptyView()
         }
     }
+}
 
-    /// A long text moves in its well. What a command printed starts at its end: a result or a
-    /// fault is on the last lines, and the lines of a command that runs come in there.
-    private func well(_ text: String, color: Color, from start: UnitPoint = .top) -> some View {
-        ScrollView {
-            Text(verbatim: text).appTextStyle(.monoCaption).foregroundStyle(color).textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading).padding(8)
-        }
-        .defaultScrollAnchor(start)
-        .frame(maxHeight: 180).fixedSize(horizontal: false, vertical: true)
-        .well(Radius.md)
+/// Code that a step ran and what it printed, in a small terminal: dark in both appearances, as
+/// terminals are. What a command printed starts at its end, where a result or a fault is.
+struct CodeTile: View {
+    let text: String
+    var output = ""
+    var most: CGFloat = 180
+
+    var body: some View {
+        CodeTileFace(text: text, output: output, most: most).terminalScope()
     }
 }
 
-/// The lines of a change to a file, as the agent sends them.
+private struct CodeTileFace: View {
+    @Environment(\.theme) private var theme
+    let text: String
+    let output: String
+    let most: CGFloat
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+                if !text.isEmpty {
+                    Text(verbatim: text).foregroundStyle(theme.colors.ink)
+                }
+                if !output.isEmpty {
+                    Text(verbatim: output).foregroundStyle(theme.colors.inkMuted)
+                }
+            }
+            .appTextStyle(.monoCaption).textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+        }
+        .defaultScrollAnchor(output.isEmpty ? .top : .bottom)
+        .frame(maxHeight: most).fixedSize(horizontal: false, vertical: true)
+        .background(theme.colors.terminal, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+    }
+}
+
+/// The lines of a change to a file, as the agent sends them, in a small terminal.
 struct ChangeLines: View {
+    let lines: [ChangeLine]
+    let most: Int
+
+    var body: some View {
+        ChangeLinesFace(lines: lines, most: most).terminalScope()
+    }
+}
+
+private struct ChangeLinesFace: View {
     @Environment(\.theme) private var theme
     let lines: [ChangeLine]
     let most: Int
@@ -277,6 +326,7 @@ struct ChangeLines: View {
         .appTextStyle(.monoCaption)
         .textSelection(.enabled)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(8).well(Radius.md)
+        .padding(10)
+        .background(theme.colors.terminal, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
     }
 }

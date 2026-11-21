@@ -1,14 +1,14 @@
 import KodosiBridge
 import SwiftUI
 
-/// What sits under the conversation: the agent's list of its work, the waiting messages, then the
-/// question of the agent or the one live line, the composer and the facts of the session.
+/// What sits under the conversation: the agent's list of its work, the waiting messages, the
+/// question of the agent, the composer and the facts of the session.
 struct ChatDock<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     @Bindable var chat: TerminalChat
     let agent: AgentKind
     var focused: FocusState<Bool>.Binding
-    let modelKey: (Text) -> ModelKey
+    let modelKey: (_ model: String, _ effort: String?) -> ModelKey
     let sent: () -> Void
     @State private var sends = 0
     @State private var selection: TextSelection?
@@ -35,14 +35,12 @@ struct ChatDock<ModelKey: View>: View {
                 ChatTasks(tasks: tasks).transition(AnyTransition.rise)
             }
             ForEach(chat.queued) { queued in
-                ChatQueuedRow(chat: chat, queued: queued).transition(AnyTransition.rise)
+                ChatQueuedRow(chat: chat, queued: queued, agent: agent).transition(AnyTransition.rise)
             }
             if let ask {
                 // The card takes the room before the composer, which needs only its own line.
-                ChatAskCard(chat: chat, ask: ask).id(ask.id).transition(AnyTransition.rise)
+                ChatAskCard(chat: chat, ask: ask, agent: agent).id(ask.id).transition(AnyTransition.rise)
                     .layoutPriority(1)
-            } else if chat.state == .working {
-                ChatLiveLine(chat: chat).transition(.opacity)
             }
             if let failure = chat.failure {
                 HStack(spacing: 7) {
@@ -143,32 +141,36 @@ struct ChatDock<ModelKey: View>: View {
     }
 }
 
+/// A message that waits until the agent is free: my bubble, with the sign that it waits and a key
+/// that takes it back.
 private struct ChatQueuedRow: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
     let queued: ChatQueued
+    let agent: AgentKind
 
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
-            Image(systemName: "clock").font(mac: 9, ios: .caption2, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(queued.text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(2)
-                if let refused = queued.refused {
-                    Text("The agent takes the next message in its terminal.", bundle: .module)
-                        .appTextStyle(.caption).foregroundStyle(theme.colors.caution)
-                        .help(refused)
-                }
-            }
-            Spacer(minLength: 2)
+            Spacer(minLength: 40)
             IconButton(title: "Remove", bundle: .module, symbol: "xmark",
-                       identifier: "chat.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 20)
+                       identifier: "chat.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 22)
             {
                 chat.unqueue(queued)
             }
+            VStack(alignment: .trailing, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "clock").font(mac: 9, ios: .caption2, weight: .semibold).foregroundStyle(theme.colors.inkFaint)
+                        .accessibilityLabel(Text("Waiting for \(agent.label)", bundle: .module))
+                    Text(queued.text).appTextStyle(.footnote).foregroundStyle(theme.colors.ink).lineLimit(2)
+                }
+                .projectBubble()
+                if let refused = queued.refused {
+                    Text("The agent takes the next message in its terminal.", bundle: .module)
+                        .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.caution)
+                        .help(refused)
+                }
+            }
         }
-        .padding(.leading, 10).padding(.trailing, 3).padding(.vertical, 3).frame(minHeight: 26)
-        .background { BezelBackground(shape: RoundedRectangle(cornerRadius: 13, style: .continuous), fill: theme.colors.raised, bezel: .quiet) }
         .accessibilityElement(children: .contain)
     }
 }
@@ -261,53 +263,29 @@ private struct ChatTaskLine: View {
     }
 }
 
-/// While the agent works, one line says what it does now, and rolls to the next.
-private struct ChatLiveLine: View {
-    @Environment(\.theme) private var theme
-    let chat: TerminalChat
-
-    var body: some View {
-        let words = ChatWords.now(chat.now, in: chat)
-        ZStack(alignment: .leading) {
-            Text(verbatim: words).font(mac: 11, ios: .caption, design: .monospaced).foregroundStyle(theme.colors.inkMuted)
-                .lineLimit(1).truncationMode(.middle)
-                .shimmer()
-                .id(words)
-                .transition(AnyTransition.roll)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .controlHeight(20)
-        .clipped()
-        .padding(.leading, 6)
-        .animation(theme.motion.snappy, value: words)
-        .accessibilityIdentifier("chat.live")
-    }
-}
-
 private struct ChatFactsRow<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     let facts: ChatFacts
-    let modelKey: (Text) -> ModelKey
+    let modelKey: (_ model: String, _ effort: String?) -> ModelKey
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
             row(full: true)
             row(full: false)
         }
-        .font(mac: 10.5, ios: .caption2, design: .monospaced)
+        .appTextStyle(.caption2)
         .foregroundStyle(theme.colors.inkFaint)
     }
 
     private func row(full: Bool) -> some View {
         HStack(spacing: 10) {
             if let model = facts.model {
-                modelKey(Text(verbatim: model))
+                modelKey(model, facts.effort)
             }
-            if let effort = facts.effort {
-                Text(verbatim: effort)
-            }
-            if let mode = facts.mode.map(ChatWords.mode) {
-                Text(verbatim: mode)
+            if let mode = facts.mode {
+                Image(systemName: Self.symbol(mode)).font(mac: 10, ios: .caption2, weight: .semibold)
+                    .tip(Text(verbatim: ChatWords.mode(mode)))
+                    .accessibilityLabel(Text(verbatim: ChatWords.mode(mode)))
             }
             if let context = facts.context {
                 ContextMeter(context: context)
@@ -316,7 +294,7 @@ private struct ChatFactsRow<ModelKey: View>: View {
                 UsageDial(limit: limit, size: 18)
             }
             if full, let cost = facts.cost, cost > 0 {
-                Text(verbatim: ChatWords.cost(cost))
+                Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
             }
             if facts.helpers > 0 {
                 Label { Text(verbatim: "\(facts.helpers)") } icon: { Image(systemName: "person.2") }
@@ -335,6 +313,17 @@ private struct ChatFactsRow<ModelKey: View>: View {
         }
         .lineLimit(1)
         .fixedSize()
+    }
+
+    private static func symbol(_ mode: ChatMode) -> String {
+        switch mode {
+        case .ask: AgentPermissions.ask.symbol
+        case .auto: AgentPermissions.auto.symbol
+        case .unrestricted: AgentPermissions.unrestricted.symbol
+        case .edits: "pencil"
+        case .plan: ChatWords.symbol(.plan)
+        case .rules: "checklist"
+        }
     }
 }
 
@@ -355,5 +344,54 @@ private struct ContextMeter: View {
         .tip(Text("Context: \(percent)% used", bundle: .module))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Context: \(percent)% used", bundle: .module))
+    }
+}
+
+/// The agent's model by its name, and its effort as bars, as the key in a chat's facts shows them.
+public struct ChatModelFace: View {
+    let models: AgentModels?
+    let model: String
+    let effort: String?
+
+    public init(models: AgentModels?, model: String, effort: String?) {
+        self.models = models
+        self.model = model
+        self.effort = effort
+    }
+
+    public var title: String {
+        Self.name(of: model, in: models)
+    }
+
+    public var body: some View {
+        let levels = models?.efforts(for: model) ?? []
+        HStack(spacing: 5) {
+            Text(verbatim: title).lineLimit(1)
+            if let effort {
+                if let level = levels.firstIndex(where: { $0.id == effort }) {
+                    EffortBars(level: level, count: levels.count, height: 9, width: 2)
+                        .tip(Text(verbatim: levels[level].label))
+                } else {
+                    Text(verbatim: effort)
+                }
+            }
+        }
+    }
+
+    /// An agent reports its model by its full ID, such as claude-sonnet-5-5 or
+    /// claude-sonnet-4-5-20250929, where the launcher knows the model by a shorter one, such as
+    /// sonnet: the name of the shorter one and the version after it make "Sonnet 5.5".
+    static func name(of model: String, in models: AgentModels?) -> String {
+        guard let models else { return model }
+        if let known = models.models.first(where: { $0.id == model }) {
+            return known.label
+        }
+        let parts = model.prefix { $0 != "[" }.split(separator: "-").map(String.init)
+        for known in models.models {
+            guard let at = parts.firstIndex(of: known.id) else { continue }
+            let version = parts[(at + 1)...].prefix { $0.count <= 2 && $0.allSatisfy(\.isNumber) }
+            return version.isEmpty ? known.label : "\(known.label) \(version.joined(separator: "."))"
+        }
+        return model
     }
 }

@@ -15,11 +15,6 @@ private struct ComposerField: ViewModifier {
         content
             .padding(5)
             .background { RaisedBackground(shape: shape, fill: theme.colors.lifted, elevation: focused ? .lifted : .resting) }
-            .overlay {
-                shape.strokeBorder(theme.colors.accent.mix(with: theme.colors.lifted, by: 0.5), lineWidth: 1.5)
-                    .opacity(focused ? 1 : 0)
-                    .allowsHitTesting(false)
-            }
     }
 }
 

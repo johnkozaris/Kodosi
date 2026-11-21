@@ -100,7 +100,7 @@ private struct TerminalScreenContent: View {
         let header = input.showsHeader(compact: compact) || chatting
         VStack(spacing: 0) {
             stage(session)
-                .padding(.horizontal, compact ? 6 : 10)
+                .padding(.horizontal, chatting ? 0 : compact ? 6 : 10)
                 .padding(.top, header ? 6 : 2)
                 .padding(.bottom, session == nil || chatting ? 10 : 0)
             if let session, !chatting {
@@ -261,7 +261,7 @@ private struct TerminalScreenContent: View {
     private func stage(_ session: RuntimeSession?) -> some View {
         stageContent(session)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .terminalTile()
+            .terminalTile(shown: !(chatting && session?.isConnected == true))
             .overlay(alignment: .top) {
                 VStack(spacing: 8) {
                     if waitsForConnection(session) {
@@ -311,8 +311,8 @@ private struct TerminalScreenContent: View {
                                    failure: controller.openFailure, render: surface.map { _ in controller.renderState })
             ZStack {
                 if chatting, session.isConnected {
-                    TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId) { label in
-                        ChatModelMenu(session: session, label: label)
+                    TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId) { name, effort in
+                        ChatModelMenu(session: session, name: name, effort: effort)
                     }
                     .transition(.identity)
                 }
@@ -356,24 +356,34 @@ private struct TerminalScreenContent: View {
 
 /// The model in a chat's facts opens the agent's part of the terminal menu, which changes its model.
 private struct ChatModelMenu: View {
+    @Environment(AppModel.self) private var model
     let session: RuntimeSession
-    let label: Text
+    let name: String
+    let effort: String?
+
+    private var face: ChatModelFace {
+        var models: AgentModels?
+        if session.isOwner, let host = session.hostDeviceId {
+            models = model.launcher(for: host).models[session.agent.rawValue]
+        }
+        return ChatModelFace(models: models, model: name, effort: effort)
+    }
 
     var body: some View {
         if session.canControl, let live = session.programLive {
             Menu {
                 AgentMenuSection(session: session, live: live)
             } label: {
-                label.touchTarget()
+                face.touchTarget()
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
             .loadsAgentModels(of: session)
             .accessibilityLabel(Text("Model"))
-            .accessibilityValue(label)
+            .accessibilityValue(Text(verbatim: face.title))
             .accessibilityIdentifier("terminal.chat.model")
         } else {
-            label
+            face
         }
     }
 }
