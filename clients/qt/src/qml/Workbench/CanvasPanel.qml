@@ -324,7 +324,7 @@ Item {
                                     readonly property bool closing: hovered
 
                                     function keepInView(): void {
-                                        if (selected)
+                                        if (selected || activeFocus)
                                             Qt.callLater(() => {
                                                 tabs.forceLayout();
                                                 tabsArea.positionViewAtChild(tab, Flickable.Contain);
@@ -373,11 +373,19 @@ Item {
                                     }
                                     background: Item {
                                         Raised { anchors.fill: parent; radius: height / 2; visible: tab.selected }
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: height / 2
+                                            color: "transparent"
+                                            border.width: tab.visualFocus ? 1.5 : 0
+                                            border.color: KodosiTheme.accentStrong
+                                        }
                                         BreathingDot { x: parent.width - 8; y: 2; size: 6; color: KodosiTheme.glowOrange; visible: tab.fresh }
                                     }
                                     onClicked: Models.Canvas.pick(root.sessionId, modelData.key)
                                     T.ContextMenu.onRequested: position => root.openFileMenu(tab.modelData, tab, position)
                                     onSelectedChanged: keepInView()
+                                    onActiveFocusChanged: keepInView()
                                     Component.onCompleted: keepInView()
 
                                     RemoveKey {
