@@ -152,6 +152,9 @@ extension AppDependencies {
         guard let target = sessions.notificationTarget(notified.terminal) else { return }
         self.notified = nil
         activateSession(target.id)
+        if canvasOpen(target.id) {
+            canvas.use(target)
+        }
     }
 
     private func receiveSystem(_ event: RuntimeEvent) throws {
@@ -311,6 +314,8 @@ extension AppDependencies {
             case .changed: !open && settings.opensCanvas && !canvas.isShut(id)
             }
             guard opens else { continue }
+            // A show of the agent is no act of a person here, so the browser's page stays with
+            // the device in use.
             canvas.reveal(news.shown, in: session)
             showCanvas(id)
             open = true
@@ -329,7 +334,7 @@ extension AppDependencies {
     private func showCanvas(_ id: String) {
         switch workbench.section {
         case .sessions:
-            workbench.openCanvas(id)
+            workbench.showCanvas(id)
         case .projects:
             workbench.selectedProjectId.flatMap { projectWorkspaces[$0] }?.showsCanvas = true
         case .people, .settings:

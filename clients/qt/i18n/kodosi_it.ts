@@ -500,12 +500,12 @@
         <translation>Condiviso</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 schede</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>Nuova scheda</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Schede</translation>
     </message>
     <message>
         <source>Close tab</source>

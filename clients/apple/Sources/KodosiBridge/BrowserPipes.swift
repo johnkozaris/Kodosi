@@ -1,0 +1,80 @@
+import Foundation
+import Synchronization
+
+/// The open pipes of the shared browser. The runtime's callback gives each event that names one
+/// of them to their own inbox, and their own task reads it, so that a frame never waits behind
+/// the events of the main actor or for the main thread.
+public final class BrowserPipes: Sendable {
+    private struct Claim {
+        let mark: Data
+        weak var link: DocumentLink?
+    }
+
+    private struct State {
+        var claims: [String: Claim] = [:]
+        var reading = false
+    }
+
+    private let state = Mutex(State())
+    private let inbox = RuntimeEventInbox()
+
+    public init() {}
+
+    deinit {
+        inbox.close()
+    }
+
+    /// Returns whether the event names a claimed pipe, which then takes it. Only the events of a
+    /// pipe carry its name, and the base64 data of a frame holds no quote.
+    public func take(_ event: Data) -> Bool {
+        let marks = state.withLock { $0.claims.isEmpty ? [] : $0.claims.values.map(\.mark) }
+        guard marks.contains(where: { Self.names(event, $0) }) else { return false }
+        inbox.push(event)
+        return true
+    }
+
+    func claim(_ pipe: String, for link: DocumentLink) {
+        let starts = state.withLock { state in
+            state.claims[pipe] = Claim(mark: Data(#""pipe":"\#(pipe)""#.utf8), link: link)
+            defer { state.reading = true }
+            return !state.reading
+        }
+        if starts {
+            read()
+        }
+    }
+
+    func release(_ pipe: String) {
+        _ = state.withLock { $0.claims.removeValue(forKey: pipe) }
+    }
+
+    private func read() {
+        let inbox = inbox
+        Task.detached(name: "Browser frames", priority: .userInitiated) { [weak self] in
+            var faults = RuntimeEventFaults()
+            while let item = await inbox.nextItem() {
+                guard let self else { return }
+                switch item {
+                case let .event(event):
+                    let pipe = event.string("pipe")
+                    state.withLock { state in pipe.flatMap { state.claims[$0]?.link } }?.receive(event)
+                case let .unreadable(error):
+                    faults.unreadable(nil, error)
+                case let .behind(drop):
+                    RuntimeEventFaults.browserBehind(drop)
+                    for link in state.withLock({ $0.claims.values.compactMap(\.link) }) {
+                        link.renewAfterLoss()
+                    }
+                }
+            }
+        }
+    }
+
+    private static func names(_ event: Data, _ mark: Data) -> Bool {
+        event.withUnsafeBytes { event in
+            mark.withUnsafeBytes { mark in
+                memmem(event.baseAddress, event.count, mark.baseAddress, mark.count) != nil
+            }
+        }
+    }
+}

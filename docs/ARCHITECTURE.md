@@ -143,8 +143,11 @@ nothing on the computer. The host gets it from a signed feed and keeps it up to 
 host and the browser speak over a link with a version, and a host takes only a browser of
 its own version of that link.
 
-A device looks at the browser only while it is on its screen, and while one looks, the
-engine encodes the page as video. One picture serves every device that looks. The page
+A device looks at the browser only while it is on its screen. The Mac app on the browser's
+own computer gets the page as the browser draws it: the browser puts each picture in a Core
+Animation layer, and the window server draws that layer into the app's window. For the other
+devices, the engine encodes the page as video while one looks, and one picture serves every
+device that looks. The host decides for each view which of the two it gets. The page
 takes the size of the device in use: the one that acted last, or another device of the
 same person once they open the browser there. It takes the pixels of the sharpest view, as
 far as the host's encoder takes them, and a page that stays still is coded again until it

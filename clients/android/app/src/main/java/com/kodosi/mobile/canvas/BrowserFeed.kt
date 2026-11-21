@@ -31,7 +31,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-class BrowserFeed(private val store: CanvasStore, private val session: String, private val scope: CoroutineScope) :
+/**
+ * A feed does its work on the browser's own thread, after each call of its view and in the order
+ * of the calls and of the pipe's events. [opened] tells that a person's act opened the browser on
+ * this device.
+ */
+class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: CoroutineScope, opened: Boolean) :
     AutoCloseable {
     val window: StateFlow<JsonObject>
         field = MutableStateFlow(fields())
@@ -49,10 +54,11 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         field = MutableStateFlow(0L)
     val copies: SharedFlow<String>
         field = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    private val link = store.link(session, "browser")
+    private val work = CoroutineScope(scope.coroutineContext + pipes.dispatcher)
+    private val link = pipes.link(session)
     private var joining: Job? = null
     private var active = false
-    private var opening = false
+    private var opening = opened
     private var behind = true
     private var last: Long? = null
     private var decoder: BrowserDecoder? = null
@@ -67,28 +73,28 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     }
 
     /** A TextureView keeps its last frame after its decoder stops, so only a new surface is without a picture. */
-    fun surface(surface: Surface?, width: Int, height: Int, density: Float) {
+    fun surface(surface: Surface?, width: Int, height: Int, density: Float) = pipes.execute {
         decoder?.close()
         picture.value = false
         decoder = surface?.let {
             BrowserDecoder(it, { shown -> pictureSize.value = shown }) { failed ->
-                scope.launch { if (decoder === failed) restart() }
+                pipes.execute { if (decoder === failed) restart() }
             }
         }
-        resize(width, height, density)
+        settle(width, height, density)
         restart()
     }
 
-    fun rendered() {
-        picture.value = true
-    }
+    fun rendered() = pipes.execute { picture.value = true }
+
+    fun resize(width: Int, height: Int, density: Float) = pipes.execute { settle(width, height, density) }
 
     /**
      * The page takes the shape of the view of the person who acted last, so a new size goes to
      * the host once the view settles, never while a button is held, and one that waits goes
      * right after the person's act: the act then reaches the page that the person saw.
      */
-    fun resize(width: Int, height: Int, density: Float) {
+    private fun settle(width: Int, height: Int, density: Float) {
         if (width <= 0 || height <= 0) return
         size = fields(
             "width" to (width / density).toInt().coerceAtLeast(1),
@@ -96,32 +102,37 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
             "scale" to density
         )
         settling?.cancel()
-        settling = scope.launch {
+        settling = work.launch {
             delay(SETTLE_MS)
             sendSize()
         }
     }
 
-    /** The page takes the shape of the person's device that comes on the screen, but never of one that only joins again. */
-    fun show(on: Boolean) {
-        if (active == on) return
+    /**
+     * The page takes the shape of this device only when a person opened the browser here, at the
+     * first look of the view after the act. A view that only comes back on the screen, or whose pipe
+     * opens again, leaves the page to the device in use, so nobody's page changes shape for a device
+     * that nobody uses.
+     */
+    fun show(on: Boolean) = pipes.execute {
+        if (active == on) return@execute
         active = on
         if (on) {
-            opening = true
             join()
         } else {
+            opening = false
             joining?.cancel()
             link.detach()
             reconnecting.value = false
         }
     }
 
-    fun input(value: JsonObject) {
+    fun input(value: JsonObject) = pipes.execute {
         touches.value++
         post(fields("type" to "input", "input" to value))
         if (value.string("kind") == "mouse") {
             when (value.string("action")) {
-                "move" -> if (value.string("button") == "none") return
+                "move" -> if (value.string("button") == "none") return@execute
                 "press" -> holding = true
                 "release" -> holding = false
             }
@@ -138,7 +149,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
     private fun join() {
         joining?.cancel()
         if (!active) return
-        joining = scope.launch {
+        joining = work.launch {
             try {
                 link.open()
             } catch (cancelled: CancellationException) {
@@ -223,7 +234,7 @@ class BrowserFeed(private val store: CanvasStore, private val session: String, p
         if (active) link.send(byteArrayOf(0) + value.toString().encodeToByteArray())
     }
 
-    override fun close() {
+    override fun close() = pipes.execute {
         active = false
         joining?.cancel()
         link.close()

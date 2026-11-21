@@ -880,7 +880,7 @@ impl TerminalTarget {
                 let person = person.unwrap_or_else(|| view.clone());
                 Box::pin(async move {
                     canvas
-                        .document(&key, view, person, name)
+                        .document(&key, view, person, name, true)
                         .await
                         .map_err(Error::Text)
                 })

@@ -11,6 +11,7 @@ public final class RuntimeHandle: Sendable {
     private let terminalSubscriptions = TerminalSubscriptionRegistry()
 
     private let inbox: RuntimeEventInbox
+    public let browserPipes = BrowserPipes()
 
     public init(inbox: RuntimeEventInbox) {
         self.inbox = inbox
@@ -267,7 +268,10 @@ public final class RuntimeHandle: Sendable {
 
     private static let onEvent: kodosi_event_cb_t = { json, len, ud in
         guard len <= KODOSI_MAX_FRAME_BYTES, let json, let runtime = resolve(ud) else { return }
-        runtime.inbox.push(Data(bytes: json, count: Int(len)))
+        let event = Data(bytes: json, count: Int(len))
+        if !runtime.browserPipes.take(event) {
+            runtime.inbox.push(event)
+        }
     }
 
     private static let onTerminalData: kodosi_terminal_data_cb_t = { sid, subscriptionId, subscriptionGeneration, _, bytes, len, ud in

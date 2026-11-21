@@ -168,7 +168,7 @@ int main(int argc, char* argv[])
     kodosi::CanvasModel canvas(runtime, sessions);
     workspace.attachCanvas(canvas);
     desktop.attachCanvas(&canvas);
-    kodosi::CanvasDocuments documents(runtime, sessions);
+    kodosi::CanvasDocuments documents(runtime, runtime, sessions);
     kodosi::CanvasWeb canvasWeb(canvas);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);

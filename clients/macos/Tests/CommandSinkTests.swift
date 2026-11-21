@@ -5,7 +5,8 @@ import Testing
 
 @Test func `command reply matches request and operation`() async throws {
     var sent: [Data] = []
-    let commands = CommandSink { data in sent.append(data); return 0 }
+    let commands = CommandSink()
+    commands.transport { data in sent.append(data); return 0 }
     commands.setAccount(userId: "owner", epoch: 4)
     var completed = false
     let request = Task {
@@ -31,7 +32,8 @@ import Testing
 
 @Test func `account change cancels pending mutation`() async {
     var sent = false
-    let commands = CommandSink { _ in sent = true; return 0 }
+    let commands = CommandSink()
+    commands.transport { _ in sent = true; return 0 }
     commands.setAccount(userId: "owner", epoch: 1)
     let request = Task { try await commands.request("session.rename") }
     await settle { !sent }
@@ -41,7 +43,8 @@ import Testing
 
 @Test func `duplicate request cannot replace continuation`() async {
     var sent = false
-    let commands = CommandSink { _ in sent = true; return 0 }
+    let commands = CommandSink()
+    commands.transport { _ in sent = true; return 0 }
     let fields: [String: JSONValue] = ["requestId": .string("duplicate")]
     let first = Task { try await commands.request("project.create", fields) }
     await settle { !sent }
@@ -61,7 +64,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(fields)
         }
@@ -87,7 +90,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(fields)
         }
@@ -110,7 +113,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(fields)
         }
@@ -131,7 +134,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(fields)
         }
@@ -155,7 +158,8 @@ private func settle(_ pending: () -> Bool) async {
 
 @Test func `preview uses native identity and byte cursor`() async throws {
     var requests: [[String: JSONValue]] = []
-    let commands = CommandSink { data in
+    let commands = CommandSink()
+    commands.transport { data in
         if let value = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             requests.append(value)
         }

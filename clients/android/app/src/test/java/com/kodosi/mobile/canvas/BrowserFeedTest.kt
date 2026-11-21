@@ -2,7 +2,6 @@ package com.kodosi.mobile.canvas
 
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.SentCommands
-import com.kodosi.mobile.runtime.TestWords
 import com.kodosi.mobile.runtime.event
 import com.kodosi.mobile.runtime.string
 import java.util.Base64
@@ -21,11 +20,11 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class BrowserFeedTest {
     private val sent = SentCommands()
-    private val store = CanvasStore(sent.sink, TestWords)
+    private val pipes = BrowserPipes(sent.sink, Runnable::run)
 
     @Test
     fun aFeedWatchesOnEachOpenOfItsPipeAndShowsALossUntilAFrameComes() = runTest {
-        val feed = BrowserFeed(store, "terminal", backgroundScope)
+        val feed = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
         feed.show(true)
         runCurrent()
         val pipe = sent.last("document.open").string("pipe")
@@ -46,8 +45,34 @@ class BrowserFeedTest {
         assertFalse(feed.reconnecting.value)
     }
 
+    @Test
+    fun onlyThePersonsActTakesThePageAndAReturnToTheScreenDoesNot() = runTest {
+        val opened = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
+        opened.show(true)
+        assertEquals(true, look())
+        opened.show(false)
+        opened.show(true)
+        assertEquals(false, look())
+
+        val leaving = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
+        leaving.show(true)
+        leaving.show(false)
+        leaving.show(true)
+        assertEquals(false, look())
+
+        BrowserFeed(pipes, "terminal", backgroundScope, opened = false).show(true)
+        assertEquals(false, look())
+    }
+
+    private fun look(): Boolean? {
+        val pipe = sent.last("document.open").string("pipe")
+        sent.reply("document.open")
+        news("document.opened", pipe)
+        return watched()?.get("opened")?.jsonPrimitive?.boolean
+    }
+
     private fun news(type: String, pipe: String, fields: String = "") {
-        store.receive(event(type, """"pipe":"$pipe"${if (fields.isEmpty()) "" else ",$fields"}"""))
+        pipes.receive(event(type, """"pipe":"$pipe"${if (fields.isEmpty()) "" else ",$fields"}"""))
     }
 
     private fun watched(): JsonObject? {

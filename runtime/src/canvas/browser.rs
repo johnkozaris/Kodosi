@@ -35,6 +35,7 @@ const FIRST_SIZE: (u32, u32) = (1280, 720);
 /// on its debug port.
 const DAEMON_IDLE_MS: &str = "60000";
 const FIRST_PAGE: &str = "about:blank";
+/// A new name would leave the sign-ins of the person in the old folder.
 pub(super) const KEPT_PROFILE: &str = "person";
 /// Options and commands that would give the browser of this terminal another session, profile,
 /// program or lifetime.

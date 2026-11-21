@@ -36,6 +36,7 @@ public final class CanvasStore {
     private static let partBytes = 256 * 1024
 
     private let commands: CommandSink
+    private let browserPipes: BrowserPipes
     private var marks: [String: [String: UInt64]] = [:]
     private var firstSeen: [String: UInt64] = [:]
     public private(set) var picks: [String: String] = [:]
@@ -65,15 +66,17 @@ public final class CanvasStore {
     @ObservationIgnored private var feeds: [String: BrowserFeed] = [:]
     @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
 
-    public init(commands: CommandSink, started: UInt64 = UInt64(Date.now.timeIntervalSince1970 * 1000)) {
+    public init(commands: CommandSink, browserPipes: BrowserPipes = BrowserPipes(),
+                started: UInt64 = UInt64(Date.now.timeIntervalSince1970 * 1000))
+    {
         self.commands = commands
+        self.browserPipes = browserPipes
         self.started = started
     }
 
+    /// The browser pipes give the link its events and open it again after a drop of their own.
     func browser(of session: String) -> DocumentLink {
-        let link = DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey)
-        documents.add(link)
-        return link
+        DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey, claims: browserPipes)
     }
 
     public func document(_ item: CanvasItem, in session: String) -> DocumentLink {
@@ -109,6 +112,7 @@ public final class CanvasStore {
             if opening.contains(session.id), session.canvas?.browser != nil {
                 opening.remove(session.id)
                 picks[session.id] = CanvasShown.browserKey
+                use(session)
             }
             if let pick = picks[session.id], session.canvas?.shown(pick) == nil {
                 picks[session.id] = nil
@@ -185,10 +189,24 @@ public final class CanvasStore {
     public func open(_ session: RuntimeSession, at section: CanvasSection? = nil) {
         shut.remove(session.id)
         if let section {
-            show(section, in: session)
+            place(section, in: session)
         } else if !showsSomething(session), let newest = session.canvas?.newest {
-            show(newest.section, in: session)
+            place(newest.section, in: session)
         }
+        use(session)
+    }
+
+    /// A person opens the canvas at what its agent showed or changed.
+    public func open(_ shown: CanvasShown, in session: RuntimeSession) {
+        reveal(shown, in: session)
+        use(session)
+    }
+
+    /// A person uses the canvas of this terminal on this device now, so a browser that it shows
+    /// takes the shape of this device.
+    public func use(_ session: RuntimeSession) {
+        guard session.canvas?.browser != nil, current(session)?.section == .browser else { return }
+        feed(session.id).open()
     }
 
     public func news(_ session: RuntimeSession) -> [CanvasNews] {
@@ -252,6 +270,11 @@ public final class CanvasStore {
     }
 
     public func show(_ section: CanvasSection, in session: RuntimeSession) {
+        place(section, in: session)
+        use(session)
+    }
+
+    private func place(_ section: CanvasSection, in session: RuntimeSession) {
         settle(session)
         shut.remove(session.id)
         closed[session.id]?[section] = nil

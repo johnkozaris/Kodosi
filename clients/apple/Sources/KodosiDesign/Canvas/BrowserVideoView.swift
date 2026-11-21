@@ -32,10 +32,8 @@ import SwiftUI
         }
 
         func show(_ feed: BrowserFeed) {
-            let video = video
-            feed.show(on: self) { [weak feed] sample in
-                Self.enqueue(sample, on: video, feed: feed)
-            }
+            let renderer = VideoRenderer(video.sampleBufferRenderer)
+            feed.show(on: self) { renderer.enqueue($0) }
         }
     }
 
@@ -74,23 +72,58 @@ import SwiftUI
         }
 
         func show(_ feed: BrowserFeed) {
-            let video = video
-            feed.show(on: self) { [weak feed] sample in
-                Self.enqueue(sample, on: video, feed: feed)
-            }
+            let renderer = VideoRenderer(video.sampleBufferRenderer)
+            feed.show(on: self) { renderer.enqueue($0) }
         }
     }
 #endif
 
-@MainActor
-extension VideoSurface {
+/// AVFoundation marks its video renderer as not sendable, yet it takes sample buffers from any
+/// queue, and the frames come on the task of the browser pipes.
+private final class VideoRenderer: @unchecked Sendable {
+    private let renderer: AVSampleBufferVideoRenderer
+
+    init(_ renderer: AVSampleBufferVideoRenderer) {
+        self.renderer = renderer
+    }
+
     /// A display that lost the stream starts again at the next key frame.
-    static func enqueue(_ sample: CMSampleBuffer, on video: AVSampleBufferDisplayLayer, feed: BrowserFeed?) {
-        let renderer = video.sampleBufferRenderer
-        if renderer.status == .failed {
+    func enqueue(_ sample: CMSampleBuffer) -> Bool {
+        let failed = renderer.status == .failed
+        if failed {
             renderer.flush()
-            feed?.restart()
         }
         renderer.enqueue(sample)
+        return !failed
+    }
+}
+
+/// The page: the layer that the browser on this Mac draws, when the host gives it, or else the
+/// video. Under the layer, the video view keeps the browser's last still for the time that the
+/// layer cannot show the page. The video view has the page's shape, so a still from before a new
+/// shape never shows beside the layer.
+struct BrowserPicture: View {
+    @Environment(\.theme) private var theme
+    let browser: CanvasBrowser
+    let feed: BrowserFeed
+    let blank: Bool
+
+    /// The page's width to its height, once the page has a size.
+    private var pageRatio: CGFloat? {
+        let page = feed.window.size
+        return page.width > 0 && page.height > 0 ? page.width / page.height : nil
+    }
+
+    var body: some View {
+        BrowserVideoView(feed: feed)
+            .aspectRatio(pageRatio, contentMode: .fit)
+            .opacity(feed.picture != .waiting && !blank ? 1 : 0)
+            .grayscale(browser.state == .awake ? 0 : 1)
+            .animation(theme.motion.fade, value: browser.state)
+        #if os(macOS)
+            if let layer = feed.window.layer, !blank {
+                BrowserLayerView(context: layer, page: feed.window.size)
+            }
+        #endif
     }
 }

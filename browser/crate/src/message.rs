@@ -15,6 +15,8 @@ pub struct Viewer {
     pub id: String,
     pub person: String,
     pub name: String,
+    /// The view runs on the computer of the browser, with no link between them.
+    pub local: bool,
 }
 
 /// In CSS pixels, with the scale of the viewer's screen.
@@ -46,6 +48,11 @@ pub struct State {
     /// takes a tab's icon away.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub icons: BTreeMap<String, String>,
+    /// The Core Animation context that shows the page, only for a view on the browser's own
+    /// computer that hosts it: another process of the person's session that knows it can show
+    /// the page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layer: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

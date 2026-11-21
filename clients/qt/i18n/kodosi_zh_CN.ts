@@ -499,12 +499,12 @@
         <translation>已共享</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 个标签页</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>新标签页</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>标签页</translation>
     </message>
     <message>
         <source>Close tab</source>

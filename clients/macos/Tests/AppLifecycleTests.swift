@@ -88,7 +88,7 @@ import Testing
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     var sent: [String] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data), let type = command["type"]?.stringValue {
             sent.append(type)
         }
@@ -115,7 +115,7 @@ import Testing
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(command)
         }
@@ -161,7 +161,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(command)
         }
@@ -198,7 +198,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(command)
         }
@@ -261,7 +261,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var reports: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data), command["type"] == .string("session.visible") {
             reports.append(command)
         }
