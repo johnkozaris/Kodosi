@@ -409,6 +409,7 @@ Item {
 
                 anchors.fill: parent
                 documents: Models.CanvasDocuments
+                canvas: Models.Canvas
                 sessionId: root.sessionId
                 active: !root.browser.problem && KodosiTheme.shown
                 visible: root.browserState === "awake" && shows

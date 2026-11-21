@@ -12,12 +12,14 @@
 namespace kodosi {
 class BrowserStream;
 class CanvasDocuments;
+class CanvasModel;
 
 // Each frame is decoded and acknowledged on a thread of its own, so the host keeps the picture as
 // sharp as this device and the link allow while the GUI thread is busy, and no queue forms.
 class BrowserVideo : public QQuickItem {
     Q_OBJECT
     Q_PROPERTY(QObject* documents READ documents WRITE setDocuments FINAL)
+    Q_PROPERTY(QObject* canvas READ canvas WRITE setCanvas FINAL)
     Q_PROPERTY(QString sessionId READ sessionId WRITE setSessionId FINAL)
     Q_PROPERTY(bool active READ active WRITE setActive FINAL)
     Q_PROPERTY(bool shows READ shows NOTIFY showsChanged FINAL)
@@ -31,6 +33,8 @@ public:
 
     [[nodiscard]] QObject* documents() const;
     void setDocuments(QObject* documents);
+    [[nodiscard]] QObject* canvas() const;
+    void setCanvas(QObject* canvas);
     [[nodiscard]] QString sessionId() const { return m_sessionId; }
     void setSessionId(const QString& sessionId);
     [[nodiscard]] bool active() const { return m_active; }
@@ -62,7 +66,9 @@ private:
     void join();
     void leave();
     void forgetTerminal();
+    void chosen(const QString& sessionId);
     void opened(const QString& pipe);
+    void watch();
     void received(const QString& pipe, quint64 generation, const QByteArray& message);
     void keepIcons(const QJsonObject& changed, const QJsonArray& tabs);
     void showPicture();
@@ -80,12 +86,11 @@ private:
     [[nodiscard]] QRectF pictureRect() const;
 
     QPointer<CanvasDocuments> m_documents;
+    QPointer<CanvasModel> m_canvas;
     QString m_sessionId;
     QString m_pipe;
     bool m_active = false;
-    // The page takes the shape of the person's device that comes on the screen, but never of
-    // one that only joins again after a lost link.
-    bool m_opening = false;
+    bool m_watching = false;
     QVariantMap m_window;
     QVariantMap m_icons;
     QImage m_image;

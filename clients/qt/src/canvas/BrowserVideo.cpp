@@ -293,15 +293,32 @@ void BrowserVideo::setDocuments(QObject* documents)
     join();
 }
 
+QObject* BrowserVideo::canvas() const
+{
+    return m_canvas;
+}
+
+void BrowserVideo::setCanvas(QObject* canvas)
+{
+    m_canvas = qobject_cast<CanvasModel*>(canvas);
+    if (m_canvas)
+        connect(m_canvas, &CanvasModel::browserChosen, this, &BrowserVideo::chosen);
+}
+
 void BrowserVideo::setSessionId(const QString& sessionId)
 {
     if (sessionId == m_sessionId)
         return;
     leave();
     m_sessionId = sessionId;
-    m_opening = true;
     forgetTerminal();
     join();
+}
+
+void BrowserVideo::chosen(const QString& sessionId)
+{
+    if (sessionId == m_sessionId && m_watching)
+        watch();
 }
 
 void BrowserVideo::forgetTerminal()
@@ -327,12 +344,10 @@ void BrowserVideo::setActive(bool active)
     if (active == m_active)
         return;
     m_active = active;
-    if (active) {
-        m_opening = true;
+    if (active)
         join();
-    } else {
+    else
         leave();
-    }
 }
 
 void BrowserVideo::join()
@@ -350,6 +365,7 @@ void BrowserVideo::leave()
     if (m_documents && !m_pipe.isEmpty())
         m_documents->close(m_pipe);
     m_pipe.clear();
+    m_watching = false;
 }
 
 void BrowserVideo::opened(const QString& pipe)
@@ -357,10 +373,16 @@ void BrowserVideo::opened(const QString& pipe)
     if (pipe != m_pipe)
         return;
     m_holding = false;
+    watch();
+}
+
+void BrowserVideo::watch()
+{
     m_sentSize = sizeMessage();
+    m_watching = true;
     post({ { QStringLiteral("type"), QStringLiteral("watch") },
         { QStringLiteral("size"), m_sentSize },
-        { QStringLiteral("opened"), std::exchange(m_opening, false) } });
+        { QStringLiteral("opened"), m_canvas && m_canvas->takeChoice(m_sessionId) } });
 }
 
 void BrowserVideo::received(const QString& pipe, quint64 generation, const QByteArray& message)
@@ -413,8 +435,10 @@ void BrowserVideo::showPicture()
 
 void BrowserVideo::lost(const QString& pipe)
 {
-    if (pipe == m_pipe)
-        setReconnecting(true);
+    if (pipe != m_pipe)
+        return;
+    m_watching = false;
+    setReconnecting(true);
 }
 
 void BrowserVideo::closed(const QString& pipe)
@@ -424,12 +448,15 @@ void BrowserVideo::closed(const QString& pipe)
     if (m_documents)
         m_documents->forget(pipe);
     m_pipe.clear();
+    m_watching = false;
 }
 
 void BrowserVideo::broke(const QString& pipe)
 {
-    if (pipe == m_pipe && m_documents)
-        m_documents->renew(pipe);
+    if (pipe != m_pipe || !m_documents)
+        return;
+    m_watching = false;
+    m_documents->renew(pipe);
 }
 
 void BrowserVideo::setReconnecting(bool reconnecting)
@@ -444,8 +471,10 @@ void BrowserVideo::post(const QJsonObject& message)
 {
     if (!m_documents || m_pipe.isEmpty())
         return;
-    if (!m_stream->post(m_documents->commands(), m_pipe, message))
+    if (!m_stream->post(m_documents->commands(), m_pipe, message)) {
+        m_watching = false;
         m_documents->renew(m_pipe);
+    }
 }
 
 QJsonObject BrowserVideo::sizeMessage() const
