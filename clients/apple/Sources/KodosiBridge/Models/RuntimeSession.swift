@@ -77,6 +77,8 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let activity: String?
     public let context: TerminalContext?
     public let canvas: Canvas?
+    /// An agent of the terminal reports to the terminal's chat.
+    public let chat: Bool?
     public let name: String
     public let workingDir: String?
     public let ownerUserId: String?
@@ -103,6 +105,10 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var atPrompt: Bool {
         kind == .local && canControl && prompt == true
+    }
+
+    public var reportsToChat: Bool {
+        chat == true
     }
 
     public var needsUser: Bool {
