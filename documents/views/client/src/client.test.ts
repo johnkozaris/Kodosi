@@ -356,3 +356,40 @@ test("a batch that the document took goes once, and what came after it goes on t
   ).toEqual(["join", "after"]);
   expect(editor.dropped).toBe(false);
 });
+
+class FramePipe implements Pipe {
+  readonly frames: Uint8Array[] = [];
+  private handler: (frame: Uint8Array) => void = () => {};
+
+  send(frame: Uint8Array): void {
+    this.frames.push(frame);
+  }
+
+  onMessage(handler: (frame: Uint8Array) => void): void {
+    this.handler = handler;
+  }
+
+  deliver(frame: Uint8Array): void {
+    this.handler(frame);
+  }
+}
+
+test("an asset that a lost pipe was bringing is asked for again on the next pipe", async () => {
+  const client = new Client();
+  client.use(new TestEditor());
+  const hash = "ab".repeat(32);
+  const asked = (pipe: FramePipe) =>
+    pipe.frames.filter(
+      (frame) => frame[0] === 2 && Buffer.from(frame.subarray(1)).toString("hex") === hash,
+    ).length;
+  const lost = new FramePipe();
+  client.attach(lost);
+  const asset = client.asset(hash);
+  expect(asked(lost)).toBe(1);
+  client.detach();
+  const again = new FramePipe();
+  client.attach(again);
+  expect(asked(again)).toBe(1);
+  again.deliver(new Uint8Array([2, ...Buffer.from(hash, "hex"), 7, 8]));
+  expect(await asset).toEqual(new Uint8Array([7, 8]));
+});
