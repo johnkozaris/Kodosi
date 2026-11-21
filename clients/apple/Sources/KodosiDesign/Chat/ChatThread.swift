@@ -11,7 +11,8 @@ struct ChatThread: View {
     /// Counts the messages that a person sent from this view.
     let sent: Int
     @State private var following = true
-    @State private var atEnd = true
+    /// The last row is in view. Below it the part of the newest message can be empty.
+    @State private var endShown = true
     @State private var viewport: CGFloat = 0
     @State private var position = ScrollPosition(edge: .bottom)
 
@@ -29,6 +30,7 @@ struct ChatThread: View {
                 false
             }
         } ?? rows.endIndex
+        let newest = start < rows.endIndex ? rows[start].id : nil
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
@@ -41,6 +43,7 @@ struct ChatThread: View {
                         ForEach(rows[start...]) { row in
                             ChatRowView(row: row, me: me, hold: hold).id(row.id).transition(Self.row)
                         }
+                        Color.clear.frame(height: 1).onScrollVisibilityChange(threshold: 0.5) { endShown = $0 }
                     }
                     .frame(minHeight: start < rows.endIndex ? max(viewport - 1, 0) : nil, alignment: .top)
                     Color.clear.frame(height: 1).id("latest")
@@ -50,11 +53,6 @@ struct ChatThread: View {
                 .animation(theme.motion.spring, value: rows.map(\.id))
             }
             .followsEnd($following, position: $position, viewport: $viewport)
-            .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentOffset.y + geometry.contentInsets.top >= geometry.contentSize.height - geometry.containerSize.height - 40
-            } action: { _, now in
-                atEnd = now
-            }
             .scrollIndicators(.automatic)
             .overlay {
                 let empty = chat.chat != nil && rows.isEmpty
@@ -67,20 +65,26 @@ struct ChatThread: View {
             }
             .overlay(alignment: .bottom) {
                 ZStack {
-                    if !following, !atEnd {
-                        LatestKey {
-                            following = true
-                            withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
-                        }
+                    if !following, !endShown {
+                        LatestKey { toEnd(proxy) }
                     }
                 }
-                .animation(theme.motion.spring, value: !following && !atEnd)
+                .animation(theme.motion.spring, value: !following && !endShown)
             }
-            .onChange(of: sent) { _, _ in
-                following = true
-                withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
+            .onChange(of: sent) { _, _ in toEnd(proxy) }
+            // A message that starts later, from the queue or from another device, also goes to the
+            // top for a person who is at the end.
+            .onChange(of: newest) { _, _ in
+                if following || endShown {
+                    toEnd(proxy)
+                }
             }
         }
+    }
+
+    private func toEnd(_ proxy: ScrollViewProxy) {
+        following = true
+        withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
     }
 
     /// The steps that a person opens grow below the line that they pressed, and the view stays
