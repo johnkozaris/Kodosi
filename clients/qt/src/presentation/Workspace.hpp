@@ -42,6 +42,7 @@ public:
 
     Q_INVOKABLE void clearError();
     void apply(const QJsonObject& event, std::uint64_t accountEpoch);
+    void abandonPending(const QString& message);
     void reset();
     void route(const DeepLinkDestination& destination);
     void setError(QString error);

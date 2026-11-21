@@ -1,5 +1,7 @@
 #pragma once
 
+#include "runtime/RuntimeEventFaults.hpp"
+
 #include <QAbstractListModel>
 #include <QHash>
 #include <QJsonObject>
@@ -130,6 +132,7 @@ private:
     QHash<QString, int> m_views;
     AuthorityState m_state = Loading;
     QString m_error;
+    RuntimeEventFaults m_faults;
     [[nodiscard]] static std::optional<Session> decode(const QJsonObject& object);
     [[nodiscard]] static std::optional<QVariantMap> decodeCanvas(const QJsonValue& value);
     [[nodiscard]] static std::optional<QVariantMap> decodeAgentSettings(const QJsonValue& value);

@@ -708,6 +708,10 @@
         <translation>コピーを保存</translation>
     </message>
     <message>
+        <source>Show in folder</source>
+        <translation>フォルダに表示</translation>
+    </message>
+    <message>
         <source>Remove from canvas</source>
         <translation>キャンバスから削除</translation>
     </message>
@@ -4754,12 +4758,8 @@
         <translation>%1 に失敗しました（%2）。</translation>
     </message>
     <message>
-        <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi は更新を受け取りすぎたため停止しました。もう一度お試しください。</translation>
-    </message>
-    <message>
-        <source>Kodosi got an incomplete answer.</source>
-        <translation>Kodosi が不完全な応答を受け取りました。</translation>
+        <source>Kodosi cannot tell if that worked. Check before you try again.</source>
+        <translation>成功したかどうか Kodosi にはわかりません。再試行する前に確認してください。</translation>
     </message>
 </context>
 <context>
@@ -4854,14 +4854,6 @@
     <message>
         <source>On %1</source>
         <translation>%1 上</translation>
-    </message>
-    <message>
-        <source>The terminal list is invalid.</source>
-        <translation>ターミナルの一覧が無効です。</translation>
-    </message>
-    <message>
-        <source>The terminal list contains an invalid entry.</source>
-        <translation>ターミナルの一覧に無効な項目があります。</translation>
     </message>
 </context>
 <context>

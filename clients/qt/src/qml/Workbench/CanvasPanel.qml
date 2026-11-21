@@ -552,6 +552,12 @@ Item {
             onTriggered: Models.Canvas.saveCopy(root.sessionId, fileMenu.item.key)
         }
         KMenuItem {
+            text: qsTr("Show in folder")
+            iconName: "folder"
+            visible: root.local && !!fileMenu.item && fileMenu.item.missing !== true
+            onTriggered: Models.DesktopFiles.showInFolder(fileMenu.item.key)
+        }
+        KMenuItem {
             text: qsTr("Ask %1 about this").arg(Models.DesktopSettings.agentLabel(root.session.program))
             iconName: "chat"
             visible: root.agent && root.session.canControl === true

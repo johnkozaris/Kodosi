@@ -636,9 +636,10 @@ void SessionCatalogModel::apply(const QJsonObject& event)
 {
     if (event.value(QStringLiteral("type")).toString() != QStringLiteral("sessions.snapshot"))
         return;
+    const auto type = QStringLiteral("sessions.snapshot");
     if (!event.value(QStringLiteral("sessions")).isArray()
         || event.value(QStringLiteral("sessions")).toArray().size() > 4096) {
-        fail(tr("The terminal list is invalid."));
+        m_faults.unreadable(type, QStringLiteral("its terminal list is missing or too long"));
         return;
     }
     QVector<Session> result;
@@ -646,7 +647,7 @@ void SessionCatalogModel::apply(const QJsonObject& event)
     for (const auto& value : event.value(QStringLiteral("sessions")).toArray()) {
         const auto s = decode(value.toObject());
         if (!s || ids.contains(s->id)) {
-            fail(tr("The terminal list contains an invalid entry."));
+            m_faults.unreadable(type, QStringLiteral("terminal %1 of its list is invalid or repeats").arg(result.size()));
             return;
         }
         ids.insert(s->id);

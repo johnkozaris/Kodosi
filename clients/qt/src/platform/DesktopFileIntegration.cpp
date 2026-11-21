@@ -8,6 +8,15 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QWindow>
+#ifdef Q_OS_WIN
+#include <QProcess>
+#else
+#include <QDBusConnection>
+#include <QDBusError>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
+#include <QDebug>
+#endif
 
 namespace kodosi {
 DesktopFileIntegration::DesktopFileIntegration(QObject* parent)
@@ -148,6 +157,47 @@ bool DesktopFileIntegration::openPath(const QString& path)
     }
     clearError();
     return true;
+}
+void DesktopFileIntegration::showInFolder(const QString& path)
+{
+    const auto file = canonicalLocalPath(path);
+    if (file.isEmpty()) {
+        fail(tr("This local file or folder is missing, or Kodosi cannot open it."));
+        return;
+    }
+    const auto folder = QFileInfo(file).absolutePath();
+#ifdef Q_OS_WIN
+    QProcess explorer;
+    explorer.setProgram(QStringLiteral("explorer.exe"));
+    // Explorer finds the file only when the quotes hold the path alone.
+    explorer.setNativeArguments(QStringLiteral("/select,\"%1\"").arg(QDir::toNativeSeparators(file)));
+    if (explorer.startDetached())
+        clearError();
+    else
+        openPath(folder);
+#else
+    const auto openFolder = [this, folder](const QString& reason) {
+        qInfo().noquote() << "the file manager did not show the file, so its folder opens:" << reason;
+        openPath(folder);
+    };
+    const auto bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        openFolder(bus.lastError().message());
+        return;
+    }
+    auto call = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.FileManager1"),
+        QStringLiteral("/org/freedesktop/FileManager1"), QStringLiteral("org.freedesktop.FileManager1"),
+        QStringLiteral("ShowItems"));
+    call << QStringList { QUrl::fromLocalFile(file).toString(QUrl::FullyEncoded) } << QString();
+    auto* pending = new QDBusPendingCallWatcher(bus.asyncCall(call), this);
+    connect(pending, &QDBusPendingCallWatcher::finished, this, [this, openFolder](QDBusPendingCallWatcher* answer) {
+        answer->deleteLater();
+        if (answer->isError())
+            openFolder(answer->error().message());
+        else
+            clearError();
+    });
+#endif
 }
 void DesktopFileIntegration::saveCopy(const QString& name, const QByteArray& content)
 {

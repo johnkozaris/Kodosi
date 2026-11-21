@@ -242,6 +242,30 @@ void Workspace::clearAccountData(bool clearLinks, const QString& userId)
     notifyBusy();
 }
 
+// The list of projects that comes after the catch-up opens the chosen project again, so a project
+// that waited for its details stays chosen.
+void Workspace::abandonPending(const QString& message)
+{
+    const auto epoch = m_account.m_epoch.value_or(0);
+    for (const auto& [id, pending] : QHash(m_pending).asKeyValueRange()) {
+        if (pending.operation == QStringLiteral("project.open"))
+            m_pending.remove(id);
+        else
+            apply(lostAnswer(pending.operation, id, message), epoch);
+    }
+    if (m_people.reporting())
+        apply(lostAnswer(QStringLiteral("friends.report"), m_people.m_reportRequest, message), epoch);
+    if (!m_devices.m_checkRequest.isEmpty())
+        apply(lostAnswer(QStringLiteral("devices.link.check"), m_devices.m_checkRequest, message), epoch);
+    if (m_devices.m_offerState == QStringLiteral("requesting"))
+        apply(lostAnswer(QStringLiteral("devices.link.offer"), {}, message), epoch);
+    if (m_projects.m_repositoryChoices.value(QStringLiteral("loading")).toBool())
+        apply(lostAnswer(QStringLiteral("repositories.list"), {}, message), epoch);
+    for (const auto& [id, pending] : QHash(m_dosi.m_pending).asKeyValueRange())
+        apply(lostAnswer(pending.operation, id, message), epoch);
+    notifyBusy();
+}
+
 void Workspace::reset()
 {
     m_hostReady = false;
@@ -413,10 +437,6 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("sessions.snapshot")) {
         m_sessions.apply(event);
-        if (!m_sessions.hasAuthoritativeSnapshot()) {
-            setError(m_sessions.authorityError());
-            return;
-        }
         emit m_projects.selectionChanged();
         return;
     }

@@ -709,6 +709,10 @@
         <translation>Αποθήκευση αντιγράφου</translation>
     </message>
     <message>
+        <source>Show in folder</source>
+        <translation>Εμφάνιση στον φάκελο</translation>
+    </message>
+    <message>
         <source>Remove from canvas</source>
         <translation>Αφαίρεση από το canvas</translation>
     </message>
@@ -4771,12 +4775,8 @@
         <translation>%1: απέτυχε (%2).</translation>
     </message>
     <message>
-        <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Το Kodosi έλαβε πάρα πολλές αλλαγές ταυτόχρονα και σταμάτησε. Δοκιμάστε ξανά.</translation>
-    </message>
-    <message>
-        <source>Kodosi got an incomplete answer.</source>
-        <translation>Το Kodosi έλαβε ελλιπή απάντηση.</translation>
+        <source>Kodosi cannot tell if that worked. Check before you try again.</source>
+        <translation>Το Kodosi δεν ξέρει αν αυτό πέτυχε. Ελέγξτε πριν δοκιμάσετε ξανά.</translation>
     </message>
 </context>
 <context>
@@ -4871,14 +4871,6 @@
     <message>
         <source>On %1</source>
         <translation>Στο %1</translation>
-    </message>
-    <message>
-        <source>The terminal list is invalid.</source>
-        <translation>Η λίστα τερματικών δεν είναι έγκυρη.</translation>
-    </message>
-    <message>
-        <source>The terminal list contains an invalid entry.</source>
-        <translation>Η λίστα τερματικών περιέχει μη έγκυρη καταχώριση.</translation>
     </message>
 </context>
 <context>

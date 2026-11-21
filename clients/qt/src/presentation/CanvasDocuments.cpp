@@ -151,6 +151,17 @@ void CanvasDocuments::reset()
         emit lost(pipe, {});
 }
 
+// The events that the app dropped may hold parts of a pipe or the answer to its registration, so
+// each pipe that went to the host starts again.
+void CanvasDocuments::renewPipes()
+{
+    m_opening.clear();
+    for (const auto& [pipe, open] : m_pipes.asKeyValueRange()) {
+        if (open.registered)
+            renew(pipe);
+    }
+}
+
 // A part that went missing breaks the frames, so the pipe starts again, and the parts that were on
 // their way go nowhere.
 void CanvasDocuments::renew(const QString& pipe)

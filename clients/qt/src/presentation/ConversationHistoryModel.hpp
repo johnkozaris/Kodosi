@@ -46,6 +46,7 @@ public:
     Q_INVOKABLE void reset();
 
     void apply(const QJsonObject& event, const QByteArray& payload);
+    void abandonPending(const QString& message);
 
 signals:
     void selectionChanged();

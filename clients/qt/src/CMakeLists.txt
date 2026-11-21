@@ -23,6 +23,7 @@ set_source_files_properties(
 qt_add_library(kodosi-runtime STATIC
     runtime/RuntimeBridge.cpp
     runtime/RuntimeBridge.hpp
+    runtime/RuntimeEventFaults.hpp
     runtime/JsonEnvelope.hpp
 )
 

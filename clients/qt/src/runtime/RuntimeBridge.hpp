@@ -1,5 +1,7 @@
 #pragma once
 
+#include "runtime/RuntimeEventFaults.hpp"
+
 #include <QByteArray>
 #include <QByteArrayView>
 #include <QJsonObject>
@@ -36,6 +38,13 @@ public:
     virtual ~CommandDispatcher() = default;
     [[nodiscard]] virtual Result send(QByteArrayView json) = 0;
 };
+
+[[nodiscard]] inline QJsonObject lostAnswer(const QString& operation, const QString& requestId, const QString& message)
+{
+    return { { QStringLiteral("type"), operation.section(QLatin1Char('.'), 0, 0) + QStringLiteral(".error") },
+        { QStringLiteral("operation"), operation }, { QStringLiteral("requestId"), requestId },
+        { QStringLiteral("message"), message } };
+}
 
 struct TerminalSubscription {
     QString sessionId;
@@ -116,31 +125,47 @@ signals:
     void eventReceived(QJsonObject event, quint64 accountEpoch, QByteArray payload);
     void runningChanged(bool running);
     void hostForegroundChanged();
-    void eventError(QString message);
+    // The events that the app dropped may hold the answers that its requests wait for, so each
+    // request that waits ends with this message.
+    void fellBehind(QString message);
 
 private:
     struct CallbackContext {
         std::recursive_mutex mutex;
         RuntimeBridge* bridge = nullptr;
     };
+    struct Backlog {
+        int events = 0;
+        qsizetype bytes = 0;
+    };
+    struct QueuedEvent {
+        std::uint64_t dropGeneration = 0;
+        QByteArray payload;
+    };
     std::shared_ptr<CallbackContext> m_callbacks = std::make_shared<CallbackContext>();
     bool m_starting = false;
+    bool m_catchUpAfterStart = false;
     bool m_hostForeground = false;
-    QList<QByteArray> m_startupEvents;
+    QList<QueuedEvent> m_startupEvents;
     void* m_handle = nullptr;
     TerminalEventSink* m_terminalSink = nullptr;
     std::atomic<std::uint64_t> m_activeGeneration { 0 };
-    std::atomic<qsizetype> m_queuedBytes { 0 };
-    std::atomic<int> m_queuedEvents { 0 };
-    std::atomic<bool> m_queueFailed { false };
+    std::mutex m_queueMutex;
+    std::uint64_t m_dropGeneration = 0;
+    Backlog m_queued;
+    Backlog m_dropped;
     std::uint64_t m_nextGeneration = 0;
     QString m_accountUserId;
     std::uint64_t m_accountEpoch = 0;
+    RuntimeEventFaults m_faults;
     [[nodiscard]] Result requireRunning() const;
     [[nodiscard]] Result terminalOperationResult(std::int32_t result, QString operation) const;
     [[nodiscard]] Result subscriptionCommand(const TerminalSubscription& subscription,
         std::int32_t (*command)(void*, const char*, const char*, std::uint64_t), QString operation) const;
     void queueEvent(const std::uint8_t* json, std::uintptr_t length);
+    void forgetQueue();
+    void receiveQueued(std::uint64_t generation, const QueuedEvent& event);
+    void catchUp(std::uint64_t generation);
     void deliverEvent(const QByteArray& payload);
     static RuntimeBridge* resolve(void* userdata) noexcept;
     static void event(const std::uint8_t* json, std::uintptr_t length, void* userdata) noexcept;

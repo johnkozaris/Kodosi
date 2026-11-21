@@ -462,6 +462,14 @@ void AgentLauncherModel::apply(const QJsonObject& event)
     }
 }
 
+void AgentLauncherModel::abandonPending(const QString& message)
+{
+    if (m_remote)
+        m_remote->abandonPending(message);
+    for (const auto& [id, pending] : QHash(m_pending).asKeyValueRange())
+        apply(lostAnswer(pending.operation, id, message));
+}
+
 void AgentLauncherModel::reset()
 {
     if (m_remote)
@@ -491,7 +499,7 @@ QString AgentLauncherModel::send(Request request, const QString& agent, QJsonObj
         }
         return {};
     }
-    m_pending.insert(requestId, { request, agent, m_changes, browse });
+    m_pending.insert(requestId, { request, values.value(QStringLiteral("type")).toString(), agent, m_changes, browse });
     return requestId;
 }
 

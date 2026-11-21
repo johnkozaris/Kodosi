@@ -23,6 +23,7 @@ public:
     Q_INVOKABLE void send(const QString& pipe, const QString& frame);
     Q_INVOKABLE void close(const QString& pipe);
     void apply(const QJsonObject& event);
+    void renewPipes();
     void reset();
 
 signals:

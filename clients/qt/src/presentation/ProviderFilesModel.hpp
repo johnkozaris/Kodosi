@@ -21,6 +21,7 @@ public:
     QString error() const { return m_error; }
 
     Q_INVOKABLE void inspect(const QString& provider, const QString& directory);
+    void abandonPending(const QString& message);
     void reset();
 
     void apply(const QJsonObject& event);

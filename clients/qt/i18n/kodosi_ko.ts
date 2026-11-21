@@ -708,6 +708,10 @@
         <translation>사본 저장</translation>
     </message>
     <message>
+        <source>Show in folder</source>
+        <translation>폴더에서 보기</translation>
+    </message>
+    <message>
         <source>Remove from canvas</source>
         <translation>캔버스에서 제거</translation>
     </message>
@@ -4754,12 +4758,8 @@
         <translation>%1 실패(%2).</translation>
     </message>
     <message>
-        <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi가 업데이트를 너무 많이 받아서 멈췄어요. 다시 시도하세요.</translation>
-    </message>
-    <message>
-        <source>Kodosi got an incomplete answer.</source>
-        <translation>Kodosi가 불완전한 응답을 받았어요.</translation>
+        <source>Kodosi cannot tell if that worked. Check before you try again.</source>
+        <translation>Kodosi가 성공 여부를 알 수 없어요. 다시 시도하기 전에 확인하세요.</translation>
     </message>
 </context>
 <context>
@@ -4854,14 +4854,6 @@
     <message>
         <source>On %1</source>
         <translation>%1에서</translation>
-    </message>
-    <message>
-        <source>The terminal list is invalid.</source>
-        <translation>터미널 목록이 올바르지 않아요.</translation>
-    </message>
-    <message>
-        <source>The terminal list contains an invalid entry.</source>
-        <translation>터미널 목록에 올바르지 않은 항목이 있어요.</translation>
     </message>
 </context>
 <context>

@@ -23,6 +23,12 @@ void ConversationHistoryModel::open(const QString& provider, const QString& dire
     discover();
 }
 
+void ConversationHistoryModel::abandonPending(const QString& message)
+{
+    if (!m_requestId.isEmpty())
+        apply(lostAnswer(m_operation, m_requestId, message), {});
+}
+
 void ConversationHistoryModel::reset()
 {
     m_requestId.clear();

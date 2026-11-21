@@ -709,6 +709,10 @@
         <translation>Enregistrer une copie</translation>
     </message>
     <message>
+        <source>Show in folder</source>
+        <translation>Afficher dans le dossier</translation>
+    </message>
+    <message>
         <source>Remove from canvas</source>
         <translation>Retirer du canvas</translation>
     </message>
@@ -4771,12 +4775,8 @@
         <translation>%1&#xa0;: échec (%2).</translation>
     </message>
     <message>
-        <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi a reçu trop de changements d&apos;un coup et s&apos;est arrêté. Réessayez.</translation>
-    </message>
-    <message>
-        <source>Kodosi got an incomplete answer.</source>
-        <translation>Kodosi a reçu une réponse incomplète.</translation>
+        <source>Kodosi cannot tell if that worked. Check before you try again.</source>
+        <translation>Kodosi ne sait pas si l&apos;opération a réussi. Vérifiez avant de réessayer.</translation>
     </message>
 </context>
 <context>
@@ -4871,14 +4871,6 @@
     <message>
         <source>On %1</source>
         <translation>Sur %1</translation>
-    </message>
-    <message>
-        <source>The terminal list is invalid.</source>
-        <translation>La liste des terminaux n&apos;est pas valide.</translation>
-    </message>
-    <message>
-        <source>The terminal list contains an invalid entry.</source>
-        <translation>La liste des terminaux contient une entrée non valide.</translation>
     </message>
 </context>
 <context>
