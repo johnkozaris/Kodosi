@@ -297,6 +297,7 @@
     <string name="browser_forward">앞으로</string>
     <string name="browser_reload">새로고침</string>
     <string name="browser_sleeping">브라우저가 절전 상태예요</string>
+    <string name="browser_undecodable">이 기기에서는 페이지를 표시할 수 없어요</string>
     <string name="wake_browser">브라우저 열기</string>
     <string name="browser_dialog">페이지에서 묻습니다</string>
     <string name="choose_file">파일 선택</string>

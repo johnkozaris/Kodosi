@@ -115,7 +115,7 @@ import kotlin.math.hypot
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
-private enum class BrowserCover { ASLEEP, LOADING }
+private enum class BrowserCover { ASLEEP, UNDECODABLE, LOADING }
 
 @Composable
 fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask: ((String?) -> Unit)? = null) {
@@ -131,6 +131,7 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
     val pictureSize by feed.pictureSize.collectAsStateWithLifecycle()
     val reconnecting by feed.reconnecting.collectAsStateWithLifecycle()
     val failure by feed.failure.collectAsStateWithLifecycle()
+    val undecodable by feed.undecodable.collectAsStateWithLifecycle()
     val address = remember { BrowserAddress(browser.tabs.firstOrNull { it.active }?.url.orEmpty()) }
     val addressFocus = remember { FocusRequester() }
     var addressFocused by remember { mutableStateOf(false) }
@@ -365,6 +366,7 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                 val fading = fade<Float>()
                 val cover = when {
                     browser.state == "asleep" -> BrowserCover.ASLEEP
+                    undecodable -> BrowserCover.UNDECODABLE
                     !picture -> BrowserCover.LOADING
                     else -> null
                 }
@@ -385,6 +387,11 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                                 scope.launch { model.runAction { model.canvas.wake(session) } }
                             }) { Text(stringResource(R.string.wake_browser)) }
                         }
+
+                        BrowserCover.UNDECODABLE -> EmptyState(
+                            stringResource(R.string.browser_undecodable),
+                            symbol = AppSymbol.BROWSER
+                        )
 
                         BrowserCover.LOADING -> Column(
                             Modifier.fillMaxSize().padding(24.dp),

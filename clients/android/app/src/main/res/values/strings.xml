@@ -305,6 +305,7 @@
     <string name="browser_forward">Go forward</string>
     <string name="browser_reload">Reload</string>
     <string name="browser_sleeping">The browser is asleep</string>
+    <string name="browser_undecodable">This device cannot show the page</string>
     <string name="wake_browser">Open browser</string>
     <string name="browser_dialog">The page asks</string>
     <string name="choose_file">Choose a file</string>

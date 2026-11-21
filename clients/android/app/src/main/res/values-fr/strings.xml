@@ -297,6 +297,7 @@
     <string name="browser_forward">Avancer</string>
     <string name="browser_reload">Actualiser</string>
     <string name="browser_sleeping">Le navigateur est en veille</string>
+    <string name="browser_undecodable">Cet appareil ne peut pas afficher la page</string>
     <string name="wake_browser">Ouvrir le navigateur</string>
     <string name="browser_dialog">La page demande</string>
     <string name="choose_file">Choisir un fichier</string>

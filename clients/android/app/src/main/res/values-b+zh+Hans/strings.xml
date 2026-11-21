@@ -297,6 +297,7 @@
     <string name="browser_forward">前进</string>
     <string name="browser_reload">重新加载</string>
     <string name="browser_sleeping">浏览器正在休眠</string>
+    <string name="browser_undecodable">此设备无法显示该页面</string>
     <string name="wake_browser">打开浏览器</string>
     <string name="browser_dialog">页面询问</string>
     <string name="choose_file">选择文件</string>

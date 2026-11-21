@@ -297,6 +297,7 @@
     <string name="browser_forward">Vorwärts</string>
     <string name="browser_reload">Neu laden</string>
     <string name="browser_sleeping">Der Browser schläft</string>
+    <string name="browser_undecodable">Dieses Gerät kann die Seite nicht anzeigen</string>
     <string name="wake_browser">Browser öffnen</string>
     <string name="browser_dialog">Die Seite fragt</string>
     <string name="choose_file">Datei auswählen</string>

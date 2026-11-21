@@ -297,6 +297,7 @@
     <string name="browser_forward">Adelante</string>
     <string name="browser_reload">Recargar</string>
     <string name="browser_sleeping">El navegador está en reposo</string>
+    <string name="browser_undecodable">Este dispositivo no puede mostrar la página</string>
     <string name="wake_browser">Abrir navegador</string>
     <string name="browser_dialog">La página pregunta</string>
     <string name="choose_file">Elegir archivo</string>
