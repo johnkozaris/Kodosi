@@ -236,6 +236,12 @@ struct CanvasPanel: View {
     private func actions(_ item: CanvasItem) -> some View {
         if !item.missing {
             Button("Save a Copy…", systemImage: "square.and.arrow.down") { save(item) }
+            // The key of a file is its path on the terminal's computer.
+            if session.kind == .local {
+                Button("Show in Finder", systemImage: "folder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: item.key)])
+                }
+            }
         }
         if session.canControl, AgentKind(program: session.program).isAgent {
             Button(session.askTitle, systemImage: "text.bubble") { ask(about: .item(item), words: nil) }
