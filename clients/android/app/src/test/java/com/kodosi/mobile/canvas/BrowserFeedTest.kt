@@ -24,7 +24,8 @@ class BrowserFeedTest {
 
     @Test
     fun aFeedWatchesOnEachOpenOfItsPipeAndShowsALossUntilAFrameComes() = runTest {
-        val feed = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
+        pipes.choose("terminal")
+        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
         feed.show(true)
         runCurrent()
         val pipe = sent.last("document.open").string("pipe")
@@ -47,20 +48,31 @@ class BrowserFeedTest {
 
     @Test
     fun onlyThePersonsActTakesThePageAndAReturnToTheScreenDoesNot() = runTest {
-        val opened = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
-        opened.show(true)
+        pipes.choose("terminal")
+        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
+        feed.show(true)
         assertEquals(true, look())
-        opened.show(false)
-        opened.show(true)
+        feed.show(false)
+        feed.show(true)
         assertEquals(false, look())
 
-        val leaving = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
-        leaving.show(true)
-        leaving.show(false)
-        leaving.show(true)
+        pipes.choose("terminal")
+        pipes.forget("terminal")
+        feed.show(false)
+        feed.show(true)
+        assertEquals(false, look())
+    }
+
+    @Test
+    fun anActOnTheBrowserThatAViewWatchesTakesThePageAtOnceAndOnlyOnce() = runTest {
+        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
+        feed.show(true)
         assertEquals(false, look())
 
-        BrowserFeed(pipes, "terminal", backgroundScope, opened = false).show(true)
+        pipes.choose("terminal")
+        assertEquals(true, watched()?.get("opened")?.jsonPrimitive?.boolean)
+        feed.show(false)
+        feed.show(true)
         assertEquals(false, look())
     }
 

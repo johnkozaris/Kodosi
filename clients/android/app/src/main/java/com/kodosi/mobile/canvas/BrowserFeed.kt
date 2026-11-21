@@ -33,10 +33,9 @@ import kotlinx.serialization.json.contentOrNull
 
 /**
  * A feed does its work on the browser's own thread, after each call of its view and in the order
- * of the calls and of the pipe's events. [opened] tells that a person's act opened the browser on
- * this device.
+ * of the calls and of the pipe's events.
  */
-class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: CoroutineScope, opened: Boolean) :
+class BrowserFeed(private val pipes: BrowserPipes, internal val session: String, scope: CoroutineScope) :
     AutoCloseable {
     val window: StateFlow<JsonObject>
         field = MutableStateFlow(fields())
@@ -58,7 +57,7 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
     private val link = pipes.link(session)
     private var joining: Job? = null
     private var active = false
-    private var opening = opened
+    private var watching = false
     private var behind = true
     private var last: Long? = null
     private var decoder: BrowserDecoder? = null
@@ -70,6 +69,7 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
     init {
         link.onFrame = ::receive
         link.onNews = ::heard
+        pipes.execute { pipes.follow(this) }
     }
 
     /** A TextureView keeps its last frame after its decoder stops, so only a new surface is without a picture. */
@@ -108,23 +108,21 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
         }
     }
 
-    /**
-     * The page takes the shape of this device only when a person opened the browser here, at the
-     * first look of the view after the act. A view that only comes back on the screen, or whose pipe
-     * opens again, leaves the page to the device in use, so nobody's page changes shape for a device
-     * that nobody uses.
-     */
     fun show(on: Boolean) = pipes.execute {
         if (active == on) return@execute
         active = on
         if (on) {
             join()
         } else {
-            opening = false
+            watching = false
             joining?.cancel()
             link.detach()
             reconnecting.value = false
         }
+    }
+
+    internal fun chosen() {
+        if (watching) watch()
     }
 
     fun input(value: JsonObject) = pipes.execute {
@@ -167,18 +165,23 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
                 failure.value = null
                 behind = true
                 last = null
-                sent = size
-                post(fields("type" to "watch", "size" to size, "opened" to opening))
-                opening = false
+                watch()
             }
 
             is DocumentLink.News.Lost -> {
+                watching = false
                 failure.value = news.reason
                 reconnecting.value = true
             }
 
-            DocumentLink.News.Closed -> {}
+            DocumentLink.News.Closed -> watching = false
         }
+    }
+
+    private fun watch() {
+        sent = size
+        watching = true
+        post(fields("type" to "watch", "size" to size, "opened" to pipes.takeChoice(session)))
     }
 
     private fun keepIcons(state: JsonObject) {
@@ -236,6 +239,8 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
 
     override fun close() = pipes.execute {
         active = false
+        watching = false
+        pipes.unfollow(this)
         joining?.cancel()
         link.close()
         decoder?.close()

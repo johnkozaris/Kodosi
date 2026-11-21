@@ -62,7 +62,7 @@ class BrowserInputTest {
             }
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
             try {
-                BrowserFeed(BrowserPipes(commands, Runnable::run), "fixture", scope, opened = false).use { feed ->
+                BrowserFeed(BrowserPipes(commands, Runnable::run), "fixture", scope).use { feed ->
                     feed.show(true)
                     val view = BrowserSurface(instrumentation.targetContext, feed)
                     assertTrue(

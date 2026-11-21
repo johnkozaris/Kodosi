@@ -117,19 +117,13 @@ import kotlinx.serialization.json.JsonObject
 private enum class BrowserCover { ASLEEP, LOADING }
 
 @Composable
-fun BrowserScreen(
-    model: AppModel,
-    session: String,
-    browser: CanvasBrowser,
-    opened: Boolean,
-    ask: ((String?) -> Unit)? = null
-) {
+fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask: ((String?) -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val history by model.preferences.browserHistory.collectAsStateWithLifecycle()
-    val feed = remember(session) { BrowserFeed(model.browser, session, scope, opened) }
+    val feed = remember(session) { BrowserFeed(model.browser, session, scope) }
     val window by feed.window.collectAsStateWithLifecycle()
     val icons by feed.icons.collectAsStateWithLifecycle()
     val picture by feed.picture.collectAsStateWithLifecycle()
@@ -381,6 +375,7 @@ fun BrowserScreen(
                             AppSymbol.BROWSER
                         ) {
                             KodosiTextButton(onClick = {
+                                model.browser.choose(session)
                                 scope.launch { model.runAction { model.canvas.wake(session) } }
                             }) { Text(stringResource(R.string.wake_browser)) }
                         }

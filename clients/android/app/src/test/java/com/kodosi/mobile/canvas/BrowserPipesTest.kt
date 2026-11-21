@@ -51,7 +51,7 @@ class BrowserPipesTest {
         val scope = CoroutineScope(SupervisorJob())
         try {
             scope.launch(pipes.dispatcher) { pipes.consume(runtime.browserEvents) }
-            BrowserFeed(pipes, "terminal", scope, opened = false).show(true)
+            BrowserFeed(pipes, "terminal", scope).show(true)
             val open = next(sent) { it.string("type") == "document.open" }.command
             commands.receive(answer("document.result", open.string("requestId"), "document.open"))
             val pipe = open.string("pipe")

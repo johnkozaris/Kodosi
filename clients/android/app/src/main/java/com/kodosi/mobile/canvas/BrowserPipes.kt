@@ -23,6 +23,8 @@ class BrowserPipes(
     val dispatcher: CoroutineDispatcher = thread.asCoroutineDispatcher()
 
     private val links = mutableListOf<DocumentLink>()
+    private val feeds = mutableListOf<BrowserFeed>()
+    private val chosen = mutableSetOf<String>()
 
     /** The key and the id of each open pipe, as the runtime writes them in the events of the pipe. */
     @Volatile
@@ -60,7 +62,34 @@ class BrowserPipes(
 
     fun receive(event: RuntimeEvent) = links.toList().forEach { it.receive(event) }
 
-    fun reset() = execute { links.toList().forEach(DocumentLink::close) }
+    /**
+     * A person chose the terminal's browser on this device, so the page takes the shape of this
+     * device: at once when a view of it watches, or else at the next watch of it, which can come
+     * much later when the browser starts first. A view that only comes back on the screen, or
+     * whose pipe opens again, leaves the page to the device in use.
+     */
+    fun choose(session: String) = execute {
+        chosen += session
+        feeds.filter { it.session == session }.forEach(BrowserFeed::chosen)
+    }
+
+    /** The person left the terminal's browser, so no later watch takes the page for that act. */
+    fun forget(session: String) = execute { chosen -= session }
+
+    internal fun takeChoice(session: String) = chosen.remove(session)
+
+    internal fun follow(feed: BrowserFeed) {
+        feeds += feed
+    }
+
+    internal fun unfollow(feed: BrowserFeed) {
+        feeds -= feed
+    }
+
+    fun reset() = execute {
+        links.toList().forEach(DocumentLink::close)
+        chosen.clear()
+    }
 
     private fun claim() {
         claimed = links.mapNotNull { link -> link.pipe?.let { "\"pipe\":\"$it\"".encodeToByteArray() } }
