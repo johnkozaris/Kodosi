@@ -25,7 +25,7 @@ const ANCHOR_FLOOR: Duration = Duration::from_millis(250);
 const STEADY: Duration = Duration::from_secs(10);
 const MOST_FALLS: u32 = 3;
 /// A viewer that takes no frame for this long is gone.
-const HOPELESS: Duration = Duration::from_secs(15);
+pub(crate) const HOPELESS: Duration = Duration::from_secs(15);
 /// A frame that comes this much later than the link's own round trip and the stream's bitrate
 /// allow shows that the link is slower than the stream.
 const QUEUE_LIMIT: Duration = Duration::from_millis(40);

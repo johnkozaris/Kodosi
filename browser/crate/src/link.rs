@@ -27,6 +27,7 @@ const FRAME_HEADER: usize = 8 + 1 + 8;
 const KEY: u8 = 1;
 const ANCHOR: u8 = 2;
 const MARKED: u8 = 4;
+const STILL: u8 = 8;
 
 /// The host writes the address into the engine's profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -90,6 +91,10 @@ pub enum ToEngine {
     Layer {
         window: i64,
         tab: Option<i64>,
+    },
+    /// A view that hosts the layer has no still of its picture yet.
+    Still {
+        window: i64,
     },
     Activate {
         tab: i64,
@@ -236,6 +241,9 @@ pub struct EncodedFrame {
     pub window: i64,
     pub kind: FrameKind,
     pub mark: Option<u64>,
+    /// A key frame of the window's layer, which the views that host the layer keep for the time
+    /// that the layer cannot show the page. It is no part of the video.
+    pub still: bool,
     pub data: Bytes,
 }
 
@@ -248,6 +256,9 @@ impl EncodedFrame {
         };
         if self.mark.is_some() {
             flags |= MARKED;
+        }
+        if self.still {
+            flags |= STILL;
         }
         let mut message = Vec::with_capacity(FRAME_HEADER + self.data.len());
         message.extend_from_slice(&self.window.to_be_bytes());
@@ -273,6 +284,7 @@ impl EncodedFrame {
             mark: (flags & MARKED != 0)
                 .then(|| header[9..].try_into().ok().map(u64::from_be_bytes))
                 .flatten(),
+            still: flags & STILL != 0,
             data: message.slice(FRAME_HEADER..),
         })
     }
@@ -283,16 +295,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_frame_keeps_its_window_kind_mark_and_data() {
-        for (kind, mark) in [
-            (FrameKind::Key, None),
-            (FrameKind::Anchor, Some(0)),
-            (FrameKind::Delta, Some(u64::MAX)),
+    fn a_frame_keeps_its_window_kind_mark_data_and_whether_it_is_a_still() {
+        for (kind, mark, still) in [
+            (FrameKind::Key, None, false),
+            (FrameKind::Anchor, Some(0), false),
+            (FrameKind::Delta, Some(u64::MAX), false),
+            (FrameKind::Key, Some(3), true),
         ] {
             let frame = EncodedFrame {
                 window: -7,
                 kind,
                 mark,
+                still,
                 data: Bytes::from_static(b"\0\0\0\x01picture"),
             };
             let message = Bytes::from(frame.to_message());

@@ -97,3 +97,33 @@ private final class VideoRenderer: @unchecked Sendable {
         return !failed
     }
 }
+
+/// The page: the layer that the browser on this Mac draws, when the host gives it, or else the
+/// video. Under the layer, the video view keeps the browser's last still for the time that the
+/// layer cannot show the page. The video view has the page's shape, so a still from before a new
+/// shape never shows beside the layer.
+struct BrowserPicture: View {
+    @Environment(\.theme) private var theme
+    let browser: CanvasBrowser
+    let feed: BrowserFeed
+    let blank: Bool
+
+    /// The page's width to its height, once the page has a size.
+    private var pageRatio: CGFloat? {
+        let page = feed.window.size
+        return page.width > 0 && page.height > 0 ? page.width / page.height : nil
+    }
+
+    var body: some View {
+        BrowserVideoView(feed: feed)
+            .aspectRatio(pageRatio, contentMode: .fit)
+            .opacity(feed.picture != .waiting && !blank ? 1 : 0)
+            .grayscale(browser.state == .awake ? 0 : 1)
+            .animation(theme.motion.fade, value: browser.state)
+        #if os(macOS)
+            if let layer = feed.window.layer, !blank {
+                BrowserLayerView(context: layer, page: feed.window.size)
+            }
+        #endif
+    }
+}

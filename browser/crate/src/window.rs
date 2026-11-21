@@ -16,9 +16,9 @@ use crate::{
     Error,
     driver::{self, Driver},
     engine::Engine,
-    flow::{Ask, Flow},
+    flow::{Ask, Flow, HOPELESS},
     input,
-    link::{EncodedFrame, EngineTab, MOST_ICON, ToEngine},
+    link::{EncodedFrame, EngineTab, FrameKind, MOST_ICON, ToEngine},
     message::{
         Chooser, Dialog, Download, Frame, Input, KeyAction, Menu, MenuContext, MenuItem,
         MouseAction, MouseButton, Pointer, Size, State, Tab, ToViewer, ToWindow, Viewer,
@@ -81,6 +81,8 @@ pub(crate) enum Event {
     Driven,
     Close,
     Frame(EncodedFrame),
+    /// A key frame of the engine's layer, for the views that host it.
+    Still(Bytes),
     CaptureFailed,
     /// The engine's layer shows the page, in the context of this id.
     Layer(u32),
@@ -336,6 +338,9 @@ struct Seat {
     size: Option<Size>,
     /// The viewer gets no state before it says how it watches, as the state names its picture.
     watching: Option<Watching>,
+    /// Since when a still waits for the acknowledgment of a view that hosts the layer. The view
+    /// gets no other still before it, and leaves as a view of the video does when none comes.
+    still_since: Option<Instant>,
 }
 
 impl Seat {
@@ -574,7 +579,16 @@ impl Live {
                 bitrate,
             });
         }
-        let hopeless = self.flow.hopeless(now);
+        let mut hopeless = self.flow.hopeless(now);
+        hopeless.extend(
+            self.seats
+                .iter()
+                .filter(|(_, seat)| {
+                    seat.still_since
+                        .is_some_and(|since| now.duration_since(since) >= HOPELESS)
+                })
+                .map(|(viewer, _)| viewer.clone()),
+        );
         if !hopeless.is_empty() {
             for viewer in hopeless {
                 if let Some(left) = self.seats.remove(&viewer) {
@@ -685,6 +699,7 @@ impl Live {
                         pointer: None,
                         size: None,
                         watching: None,
+                        still_since: None,
                     },
                 );
             }
@@ -704,6 +719,7 @@ impl Live {
             Event::Driven => self.driven(),
             Event::Close => {}
             Event::Frame(frame) => self.frame(frame),
+            Event::Still(data) => self.still(data),
             Event::CaptureFailed => {
                 self.capturing = None;
                 self.capture_failed_at = Some(Instant::now());
@@ -807,10 +823,21 @@ impl Live {
                 if watching == Watching::Video {
                     self.flow.keyframe_asked(now);
                     self.ask(Ask::Keyframe);
+                } else {
+                    self.engine.command(ToEngine::Still { window: self.id });
                 }
                 self.welcome(viewer);
             }
-            ToWindow::Ack { frame } => self.flow.ack(viewer, frame, now),
+            ToWindow::Ack { frame } => {
+                if let Some(seat) = self.seats.get_mut(viewer).filter(|seat| seat.hosts_layer()) {
+                    seat.still_since = None;
+                } else {
+                    self.flow.ack(viewer, frame, now);
+                }
+            }
+            ToWindow::Keyframe if self.seats.get(viewer).is_some_and(Seat::hosts_layer) => {
+                self.engine.command(ToEngine::Still { window: self.id });
+            }
             ToWindow::Keyframe => {
                 let seats = &self.seats;
                 if let Some(ask) = self.flow.reset(viewer, now, |viewer| queued(seats, viewer)) {
@@ -862,6 +889,27 @@ impl Live {
         }
         if let Some(ask) = delivery.ask {
             self.ask(ask);
+        }
+    }
+
+    /// A still has the number of the newest frame of the video, as the views that take the video
+    /// count its frames for gaps.
+    fn still(&mut self, data: Bytes) {
+        let now = Instant::now();
+        let message = ToViewer::Frame(Frame {
+            id: self.next_frame,
+            kind: FrameKind::Key,
+            data,
+        })
+        .encode();
+        for seat in self
+            .seats
+            .values_mut()
+            .filter(|seat| seat.hosts_layer() && seat.still_since.is_none())
+        {
+            if seat.outgoing.try_send(message.clone()).is_ok() {
+                seat.still_since = Some(now);
+            }
         }
     }
 
@@ -940,6 +988,7 @@ impl Live {
         for (viewer, seat) in &mut self.seats {
             if let Some(Watching::Layer { anchors }) = seat.watching {
                 seat.watching = Some(Watching::Video);
+                seat.still_since = None;
                 self.flow.seat(viewer, anchors, seat.viewer.local, now);
                 moved = true;
             }
@@ -1592,6 +1641,7 @@ mod tests {
             pointer: None,
             size: None,
             watching: None,
+            still_since: None,
         }
     }
 
@@ -2167,19 +2217,26 @@ mod tests {
         }
     }
 
-    fn key_frame() -> Event {
+    fn video_frame(kind: FrameKind) -> Event {
         Event::Frame(EncodedFrame {
             window: 1,
-            kind: crate::link::FrameKind::Key,
+            kind,
             mark: None,
+            still: false,
             data: Bytes::from_static(b"\0\0\0\x01picture"),
         })
     }
 
-    /// The flags of each picture that waits in the pipe.
-    fn pictures(pipe: &mut Pipe) -> Vec<u8> {
+    fn key_frame() -> Event {
+        video_frame(FrameKind::Key)
+    }
+
+    fn pictures(pipe: &mut Pipe) -> Vec<(u32, u8)> {
         std::iter::from_fn(|| pipe.incoming.try_recv().ok())
-            .map(|message| message[5])
+            .map(|message| {
+                let id = u32::from_be_bytes(message[1..5].try_into().unwrap());
+                (id, message[5])
+            })
             .collect()
     }
 
@@ -2198,8 +2255,8 @@ mod tests {
         assert_eq!(newest(&phone).and_then(|state| state.layer), None);
 
         live.handle(key_frame()).await;
-        assert_eq!(pictures(&mut mac), Vec::<u8>::new());
-        assert_eq!(pictures(&mut phone), [KEY]);
+        assert_eq!(pictures(&mut mac), Vec::<(u32, u8)>::new());
+        assert_eq!(pictures(&mut phone), [(1, KEY)]);
 
         let again = join_from(&mut live, "mac", "ana", true).await;
         assert_eq!(newest(&again), None);
@@ -2236,11 +2293,54 @@ mod tests {
         assert_eq!((live.capturing, live.layering), (Some(5), None));
         assert_eq!(newest(&mac).and_then(|state| state.layer), None);
         live.handle(key_frame()).await;
-        assert_eq!(pictures(&mut mac), [KEY]);
+        assert_eq!(pictures(&mut mac), [(1, KEY)]);
 
         let _again = join_from(&mut live, "mac", "ana", true).await;
         watch_hosting(&mut live, "mac", view(900, 700), false, true).await;
         assert_eq!((live.capturing, live.layering), (Some(5), None));
+    }
+
+    #[tokio::test]
+    async fn a_still_goes_only_to_the_views_that_host_the_layer_and_leaves_no_gap_in_the_video() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let mut mac = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
+        let mut phone = join_from(&mut live, "phone", "ana", false).await;
+        watch(&mut live, "phone", view(600, 1000), true).await;
+        live.handle(key_frame()).await;
+        live.handle(Event::Still(Bytes::from_static(b"\0\0\0\x01still")))
+            .await;
+        live.handle(video_frame(FrameKind::Delta)).await;
+        assert_eq!(pictures(&mut mac), [(1, KEY)]);
+        assert_eq!(pictures(&mut phone), [(1, KEY), (2, 0)]);
+    }
+
+    #[tokio::test]
+    async fn a_view_that_hosts_the_layer_gets_one_still_at_a_time_and_leaves_when_it_takes_none() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let mut mac = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
+        let still = || Event::Still(Bytes::from_static(b"\0\0\0\x01still"));
+        for _ in 0..3 {
+            live.handle(still()).await;
+        }
+        assert_eq!(pictures(&mut mac).len(), 1);
+
+        live.handle(Event::Message {
+            viewer: "mac".to_owned(),
+            message: ToWindow::Ack { frame: 0 },
+        })
+        .await;
+        live.handle(still()).await;
+        live.handle(still()).await;
+        assert_eq!(pictures(&mut mac).len(), 1);
+
+        live.seats.get_mut("mac").unwrap().still_since = Instant::now().checked_sub(HOPELESS);
+        live.tick();
+        assert!(!live.seats.contains_key("mac"));
+        assert!(!live.watched());
     }
 
     #[tokio::test]

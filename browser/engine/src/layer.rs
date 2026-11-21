@@ -4,7 +4,11 @@
 //! `CAContext` and `CALayerHost` are private classes of Core Animation, which Chromium uses in
 //! the same way to show the pages of its GPU process in its windows.
 
-use std::{ffi::c_void, ptr};
+use std::{
+    ffi::c_void,
+    ptr,
+    time::{Duration, Instant},
+};
 
 use objc2::{
     encode::{Encoding, RefEncode},
@@ -23,6 +27,7 @@ use crate::{
         IOSurfaceSetValues, IOSurfaceUnlock, Owned, dictionary, kIOSurfaceBytesPerElement,
         kIOSurfaceHeight, kIOSurfacePixelFormat, kIOSurfaceWidth, number_i64,
     },
+    encode::Encoder,
     engine,
     link::Link,
 };
@@ -35,6 +40,13 @@ const BGRA: u32 = u32::from_be_bytes(*b"BGRA");
 const BYTES_PER_PIXEL: usize = 4;
 const METAL_BGRA8: usize = 80;
 const METAL_COMPLETED: usize = 4;
+/// A still shows the page as it stays, so it waits until the page rests this long.
+const SETTLE: Duration = Duration::from_millis(500);
+/// Each still costs the coding of a whole picture, so stills come at most once in this time,
+/// also while the page keeps changing.
+const STILL_EVERY: Duration = Duration::from_secs(3);
+/// A still is one key frame, with no refinement after it, so it gets the bits of a sharp page.
+const STILL_BITRATE: u32 = 40_000_000;
 
 /// `IOSurfaceRef`, as Objective-C methods take it.
 #[repr(C)]
@@ -87,6 +99,47 @@ pub(crate) struct Layer {
     /// The tab whose page the layer shows, or none while no view hosts the layer.
     pub(crate) tab: Option<i64>,
     reported: bool,
+    /// Codes the layer's picture as a still, which the views that host the layer keep for the
+    /// time that the layer cannot show the page, as while the browser sleeps.
+    encoder: Encoder,
+    stills: Stills,
+    /// A look at the stills waits.
+    looking: bool,
+}
+
+/// A still goes once the layer's picture rests for `SETTLE`, or after `STILL_EVERY` while the
+/// picture keeps changing, and never sooner than `STILL_EVERY` after the one before.
+#[derive(Default)]
+struct Stills {
+    /// When the first picture came that no still shows yet.
+    waiting: Option<Instant>,
+    drawn: Option<Instant>,
+    made: Option<Instant>,
+}
+
+impl Stills {
+    fn drawn(&mut self, now: Instant) {
+        self.waiting.get_or_insert(now);
+        self.drawn = Some(now);
+    }
+
+    fn wanted(&mut self, now: Instant) {
+        self.waiting.get_or_insert(now);
+    }
+
+    /// How long the next still waits, or none while each still shows the picture.
+    fn due_in(&self, now: Instant) -> Option<Duration> {
+        let waiting = self.waiting?;
+        let rested = self.drawn.unwrap_or(waiting) + SETTLE;
+        let due = rested.min(waiting + STILL_EVERY);
+        let due = self.made.map_or(due, |made| due.max(made + STILL_EVERY));
+        Some(due.saturating_duration_since(now))
+    }
+
+    fn made(&mut self, now: Instant) {
+        self.waiting = None;
+        self.made = Some(now);
+    }
 }
 
 struct Surface {
@@ -156,6 +209,7 @@ impl Layer {
             let queue: Option<Retained<AnyObject>> = msg_send![&*device, newCommandQueue];
             (context, root, device, queue.ok_or("no Metal queue")?)
         };
+        let encoder = Encoder::stills(window, STILL_BITRATE, link.clone());
         transaction(|| {
             // SAFETY: the root is a live layer, and white is a live color until its release.
             unsafe {
@@ -180,6 +234,9 @@ impl Layer {
             spare: Vec::new(),
             tab: None,
             reported: false,
+            encoder,
+            stills: Stills::default(),
+            looking: false,
         })
     }
 
@@ -245,6 +302,42 @@ impl Layer {
     pub(crate) fn resize(&self, size: Size) {
         if let Some(shown) = &self.shown {
             self.place(shown, size);
+        }
+    }
+
+    /// A view that hosts the layer has no still of its picture yet.
+    pub(crate) fn want_still(&mut self) {
+        self.stills.wanted(Instant::now());
+        self.look();
+    }
+
+    pub(crate) fn looked(&mut self) {
+        self.looking = false;
+        self.look();
+    }
+
+    /// Codes the picture as a still once the rule allows it, and else looks again then. A view
+    /// that hosts the layer again makes the page draw, so a still waits only while one hosts it.
+    fn look(&mut self) {
+        if self.looking {
+            return;
+        }
+        let now = Instant::now();
+        let Some(wait) = self.stills.due_in(now) else {
+            return;
+        };
+        if !wait.is_zero() {
+            self.looking = true;
+            engine::look_at_stills(
+                self.window,
+                i64::try_from(wait.as_millis()).unwrap_or(i64::MAX),
+            );
+            return;
+        }
+        if let (Some(_), Some(shown)) = (self.tab, &self.shown) {
+            self.encoder.want_key();
+            self.encoder.encode_surface(shown.raw.mutable());
+            self.stills.made(now);
         }
     }
 
@@ -315,6 +408,8 @@ impl Layer {
         if let Some(earlier) = self.shown.replace(surface) {
             self.spare.push(earlier);
         }
+        self.stills.drawn(Instant::now());
+        self.look();
         if !self.reported {
             self.reported = true;
             // SAFETY: the context is live.
@@ -386,5 +481,32 @@ fn transaction(change: impl FnOnce()) {
     // SAFETY: as above.
     unsafe {
         let _: () = msg_send![class, commit];
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_still_waits_for_the_page_to_rest_and_comes_once_in_its_time_while_the_page_changes() {
+        let start = Instant::now();
+        let at = |millis: u64| start + Duration::from_millis(millis);
+        let mut stills = Stills::default();
+        assert_eq!(stills.due_in(start), None);
+        stills.drawn(start);
+        assert_eq!(stills.due_in(start), Some(SETTLE));
+        stills.made(at(500));
+        stills.drawn(at(600));
+        assert_eq!(stills.due_in(at(1100)), Some(Duration::from_millis(2400)));
+        stills.made(at(3500));
+        for frame in 0..188 {
+            stills.drawn(at(3600 + frame * 16));
+        }
+        assert_eq!(stills.due_in(at(6599)), Some(Duration::from_millis(1)));
+        assert_eq!(stills.due_in(at(6600)), Some(Duration::ZERO));
+        stills.made(at(6600));
+        stills.wanted(at(20_000));
+        assert_eq!(stills.due_in(at(20_000)), Some(Duration::ZERO));
     }
 }

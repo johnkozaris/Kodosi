@@ -30,7 +30,14 @@ impl Link {
         }
     }
 
+    /// A still is no part of the video, so it neither breaks nor mends it.
     pub(crate) fn send_frame(&self, frame: &EncodedFrame) -> bool {
+        if frame.still {
+            return self
+                .frames
+                .try_send(Message::binary(frame.to_message()))
+                .is_err();
+        }
         let mut broken = self.broken.lock().unwrap_or_else(PoisonError::into_inner);
         if frame.kind != FrameKind::Key && broken.contains(&frame.window) {
             return true;

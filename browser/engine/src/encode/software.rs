@@ -386,6 +386,7 @@ impl Worker<'_> {
                 FrameKind::Delta
             },
             mark: None,
+            still: false,
             data: Bytes::from(data),
         });
         if self.lost {

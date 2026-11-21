@@ -151,6 +151,29 @@ wrap_task! {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub(crate) fn look_at_stills(window: i64, delay_ms: i64) {
+    let mut task = StillsTaskBuilder::new(window);
+    post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
+}
+
+#[cfg(target_os = "macos")]
+wrap_task! {
+    struct StillsTaskBuilder {
+        window: i64,
+    }
+
+    impl Task {
+        fn execute(&self) {
+            with(|engine| {
+                let shared = engine.shared_of(self.window)?;
+                shared.layer.borrow_mut().as_mut()?.looked();
+                Some(())
+            });
+        }
+    }
+}
+
 /// The engine, unless it is borrowed: a handler that CEF calls while a command runs gets `None`.
 /// So no code calls CEF while it holds the engine.
 pub(crate) fn with<R>(work: impl FnOnce(&mut Engine) -> R) -> Option<R> {
@@ -743,6 +766,7 @@ fn run(command: ToEngine) {
         | ToEngine::Held { .. }
         | ToEngine::Bitrate { .. } => capture(&command),
         ToEngine::Layer { window, tab } => layer(window, tab),
+        ToEngine::Still { window } => still(window),
         ToEngine::Activate { tab } => activate(tab),
         ToEngine::NewTab {
             window,
@@ -904,6 +928,18 @@ fn layer(window: i64, tab: Option<i64>) {
         host.invalidate(PaintElementType::VIEW);
     }
 }
+
+#[cfg(target_os = "macos")]
+fn still(window: i64) {
+    with(|engine| {
+        let shared = engine.shared_of(window)?;
+        shared.layer.borrow_mut().as_mut()?.want_still();
+        Some(())
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn still(_window: i64) {}
 
 #[cfg(not(target_os = "macos"))]
 fn layer(window: i64, tab: Option<i64>) {

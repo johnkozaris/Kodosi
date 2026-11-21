@@ -542,6 +542,9 @@ impl Engine {
 
     fn report(&self, report: Report) -> Vec<(mpsc::Sender<Event>, Event)> {
         let said = match report {
+            Report::Frame(frame) if frame.still => {
+                return self.to_window(frame.window, Event::Still(frame.data));
+            }
             Report::Frame(frame) => {
                 self.deliver_frame(frame);
                 return Vec::new();

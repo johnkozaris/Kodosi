@@ -170,6 +170,7 @@ unsafe extern "C" {
 struct Output {
     window: i64,
     link: Link,
+    still: bool,
     waiting: AtomicUsize,
     failed: AtomicBool,
     /// The link lost a picture, which every viewer needs, so the next one is a key frame.
@@ -208,6 +209,9 @@ pub(crate) struct Encoder {
     window: i64,
     link: Link,
     bitrate: u32,
+    /// The encoder codes stills of the window's layer. A still that fails stops nothing, as each
+    /// view keeps the one before, so the host hears of no failure.
+    still: bool,
     want_key: bool,
     recover: bool,
     /// The marks that every viewer holds, for the next picture.
@@ -228,6 +232,7 @@ impl Encoder {
             window,
             link,
             bitrate,
+            still: false,
             want_key: true,
             recover: false,
             held: Vec::new(),
@@ -236,6 +241,12 @@ impl Encoder {
             transfer,
             last: None,
         }
+    }
+
+    pub(crate) fn stills(window: i64, bitrate: u32, link: Link) -> Self {
+        let mut encoder = Self::new(window, bitrate, link);
+        encoder.still = true;
+        encoder
     }
 
     pub(crate) fn want_key(&mut self) {
@@ -500,6 +511,7 @@ impl Encoder {
         let output = Arc::new(Output {
             window: self.window,
             link: self.link.clone(),
+            still: self.still,
             waiting: AtomicUsize::new(0),
             failed: AtomicBool::new(false),
             want_key: AtomicBool::new(false),
@@ -567,10 +579,12 @@ impl Encoder {
     }
 
     fn fail(&self, problem: &str) {
-        self.link.send(&FromEngine::Failed {
-            window: self.window,
-            problem: problem.to_owned(),
-        });
+        if !self.still {
+            self.link.send(&FromEngine::Failed {
+                window: self.window,
+                problem: problem.to_owned(),
+            });
+        }
     }
 }
 
@@ -626,7 +640,7 @@ unsafe extern "C" fn encoded(
         engine::redraw(output.window, 0);
     }
     if status != 0 || sample.is_null() {
-        if status != 0 && !output.failed.swap(true, Ordering::AcqRel) {
+        if status != 0 && !output.still && !output.failed.swap(true, Ordering::AcqRel) {
             output.link.send(&FromEngine::Failed {
                 window: output.window,
                 problem: format!("the encoder failed: {status}"),
@@ -652,6 +666,7 @@ unsafe extern "C" fn encoded(
             FrameKind::Delta
         },
         mark: coded.mark,
+        still: output.still,
         data: Bytes::from(coded.data),
     });
     if refinement

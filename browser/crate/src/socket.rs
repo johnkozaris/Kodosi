@@ -179,6 +179,7 @@ mod tests {
             window: 4,
             kind: FrameKind::Key,
             mark: None,
+            still: false,
             data: Bytes::from_static(b"\0\0\0\x01x"),
         };
         engine
