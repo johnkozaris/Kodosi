@@ -1,6 +1,5 @@
 #include "presentation/CanvasDocuments.hpp"
 #include "presentation/SessionCatalogModel.hpp"
-#include "runtime/RuntimeBridge.hpp"
 
 #include <QJsonDocument>
 #include <QSet>
@@ -19,12 +18,69 @@ QString newId()
 }
 }
 
-CanvasDocuments::CanvasDocuments(CommandDispatcher& commands, SessionCatalogModel& sessions, QObject* parent)
+void PipeParts::open()
+{
+    m_filling.clear();
+    m_next = 0;
+}
+
+void PipeParts::close()
+{
+    m_filling.clear();
+    m_next = -1;
+}
+
+void PipeParts::lose()
+{
+    m_filling.clear();
+}
+
+PipeParts::Taken PipeParts::take(const QJsonObject& part)
+{
+    if (m_next < 0)
+        return {};
+    const auto data = QByteArray::fromBase64Encoding(part.value(QStringLiteral("data")).toString().toLatin1(),
+        QByteArray::AbortOnBase64DecodingErrors);
+    if (!data || part.value(QStringLiteral("sequence")).toInteger() != m_next) {
+        close();
+        return { .broken = true, .frame = std::nullopt };
+    }
+    ++m_next;
+    m_filling += *data;
+    if (part.value(QStringLiteral("more")).toBool())
+        return {};
+    return { .broken = false, .frame = std::exchange(m_filling, {}) };
+}
+
+bool sendPipeFrame(CommandDispatcher& commands, const QString& pipe, const QString& frame)
+{
+    for (qsizetype at = 0; at < frame.size(); at += partLetters) {
+        const QJsonObject fields { { QStringLiteral("type"), QStringLiteral("document.send") },
+            { QStringLiteral("requestId"), newId() }, { QStringLiteral("pipe"), pipe },
+            { QStringLiteral("more"), at + partLetters < frame.size() },
+            { QStringLiteral("data"), frame.mid(at, partLetters) } };
+        if (!commands.send(QJsonDocument(fields).toJson(QJsonDocument::Compact)))
+            return false;
+    }
+    return true;
+}
+
+CanvasDocuments::CanvasDocuments(
+    CommandDispatcher& commands, PipeRouter& router, SessionCatalogModel& sessions, QObject* parent)
     : QObject(parent)
     , m_commands(commands)
+    , m_router(router)
     , m_sessions(sessions)
 {
     connect(&sessions, &SessionCatalogModel::authoritativeSnapshotApplied, this, &CanvasDocuments::observe);
+}
+
+CanvasDocuments::~CanvasDocuments()
+{
+    for (const auto& [pipe, open] : m_pipes.asKeyValueRange()) {
+        if (open.routed)
+            m_router.unroute(pipe);
+    }
 }
 
 bool CanvasDocuments::command(const QString& type, QJsonObject fields, const QString& requestId)
@@ -36,23 +92,25 @@ bool CanvasDocuments::command(const QString& type, QJsonObject fields, const QSt
 
 QString CanvasDocuments::open(const QString& sessionId, const QString& key)
 {
-    return openPipe(sessionId, key, false);
+    return openPipe(newId(), sessionId, key, false);
 }
 
-QString CanvasDocuments::openBytes(const QString& sessionId, const QString& key)
-{
-    return openPipe(sessionId, key, true);
-}
-
-QString CanvasDocuments::openPipe(const QString& sessionId, const QString& key, bool bytes)
+QString CanvasDocuments::openReader(
+    const QString& sessionId, const QString& key, QObject& reader, PipeRouter::Read read)
 {
     const auto pipe = newId();
-    auto& open = *m_pipes.insert(pipe,
-        { .sessionId = sessionId, .key = key, .filling = {}, .next = -1, .bytes = bytes, .registered = false });
+    m_router.route(pipe, reader, std::move(read));
+    return openPipe(pipe, sessionId, key, true);
+}
+
+QString CanvasDocuments::openPipe(const QString& pipe, const QString& sessionId, const QString& key, bool routed)
+{
+    auto& open = *m_pipes.insert(
+        pipe, { .sessionId = sessionId, .key = key, .parts = {}, .routed = routed, .registered = false });
     registerPipe(pipe, open);
     if (open.registered)
         return pipe;
-    m_pipes.remove(pipe);
+    remove(pipe);
     return {};
 }
 
@@ -61,8 +119,7 @@ void CanvasDocuments::registerPipe(const QString& pipe, Pipe& open)
     const auto request = newId();
     const QJsonObject fields { { QStringLiteral("sessionId"), open.sessionId }, { QStringLiteral("pipe"), pipe },
         { QStringLiteral("key"), open.key } };
-    open.filling.clear();
-    open.next = -1;
+    open.parts.close();
     open.registered = command(QStringLiteral("document.open"), fields, request);
     if (open.registered)
         m_opening.insert(request, pipe);
@@ -70,23 +127,32 @@ void CanvasDocuments::registerPipe(const QString& pipe, Pipe& open)
 
 void CanvasDocuments::send(const QString& pipe, const QString& frame)
 {
-    if (!m_pipes.contains(pipe))
-        return;
-    for (qsizetype at = 0; at < frame.size(); at += partLetters) {
-        const QJsonObject fields { { QStringLiteral("pipe"), pipe },
-            { QStringLiteral("more"), at + partLetters < frame.size() },
-            { QStringLiteral("data"), frame.mid(at, partLetters) } };
-        if (!command(QStringLiteral("document.send"), fields)) {
-            renew(pipe);
-            return;
-        }
-    }
+    if (m_pipes.contains(pipe) && !sendPipeFrame(m_commands, pipe, frame))
+        renew(pipe);
 }
 
 void CanvasDocuments::close(const QString& pipe)
 {
-    if (m_pipes.remove(pipe) > 0)
-        command(QStringLiteral("document.close"), { { QStringLiteral("pipe"), pipe } });
+    if (!m_pipes.contains(pipe))
+        return;
+    remove(pipe);
+    command(QStringLiteral("document.close"), { { QStringLiteral("pipe"), pipe } });
+}
+
+// The host closed the pipe of a reader.
+void CanvasDocuments::forget(const QString& pipe)
+{
+    remove(pipe);
+}
+
+void CanvasDocuments::remove(const QString& pipe)
+{
+    const auto found = m_pipes.find(pipe);
+    if (found == m_pipes.end())
+        return;
+    if (found->routed)
+        m_router.unroute(pipe);
+    m_pipes.erase(found);
 }
 
 void CanvasDocuments::apply(const QJsonObject& event)
@@ -94,22 +160,23 @@ void CanvasDocuments::apply(const QJsonObject& event)
     const auto type = event.value(QStringLiteral("type")).toString();
     if (type == QStringLiteral("document.result") || type == QStringLiteral("document.error")) {
         const auto pipe = m_opening.take(event.value(QStringLiteral("requestId")).toString());
-        if (type == QStringLiteral("document.error") && m_pipes.remove(pipe) > 0)
+        if (type == QStringLiteral("document.error") && m_pipes.contains(pipe)) {
+            remove(pipe);
             emit closed(pipe);
+        }
         return;
     }
     const auto pipe = event.value(QStringLiteral("pipe")).toString();
     const auto found = m_pipes.find(pipe);
-    if (found == m_pipes.end())
+    if (found == m_pipes.end() || found->routed)
         return;
     if (type == QStringLiteral("document.opened")) {
-        found->filling.clear();
-        found->next = 0;
+        found->parts.open();
         emit opened(pipe);
         return;
     }
     if (type == QStringLiteral("document.lost")) {
-        found->filling.clear();
+        found->parts.lose();
         emit lost(pipe, event.value(QStringLiteral("message")).toString());
         return;
     }
@@ -118,23 +185,13 @@ void CanvasDocuments::apply(const QJsonObject& event)
         emit closed(pipe);
         return;
     }
-    if (type != QStringLiteral("document.frame") || found->next < 0)
+    if (type != QStringLiteral("document.frame"))
         return;
-    const auto part = QByteArray::fromBase64Encoding(event.value(QStringLiteral("data")).toString().toLatin1(),
-        QByteArray::AbortOnBase64DecodingErrors);
-    if (!part || event.value(QStringLiteral("sequence")).toInteger() != found->next) {
+    const auto taken = found->parts.take(event);
+    if (taken.broken)
         renew(pipe);
-        return;
-    }
-    ++found->next;
-    found->filling += *part;
-    if (event.value(QStringLiteral("more")).toBool())
-        return;
-    const auto frame = std::exchange(found->filling, {});
-    if (found->bytes)
-        emit receivedBytes(pipe, frame);
-    else
-        emit received(pipe, QString::fromLatin1(frame.toBase64()));
+    else if (taken.frame)
+        emit received(pipe, QString::fromLatin1(taken.frame->toBase64()));
 }
 
 // The host that comes back knows no pipe, so each one goes to it again once it lists the terminal.
@@ -142,8 +199,7 @@ void CanvasDocuments::reset()
 {
     m_opening.clear();
     for (auto& open : m_pipes) {
-        open.filling.clear();
-        open.next = -1;
+        open.parts.close();
         open.registered = false;
     }
     const auto pipes = m_pipes.keys();

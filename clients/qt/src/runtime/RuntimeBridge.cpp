@@ -7,6 +7,7 @@
 #include <QMetaObject>
 #include <QThread>
 #include <QUuid>
+#include <algorithm>
 #include <utility>
 #include <thread>
 
@@ -53,6 +54,13 @@ namespace {
         }
         return result;
     }
+
+    // The runtime writes compact JSON, only the events of a pipe have a "pipe" key, and a string
+    // holds no quote without an escape, so an event holds these bytes only as its own pipe.
+    QByteArray pipeField(const QString& pipe)
+    {
+        return QByteArrayLiteral("\"pipe\":\"") + pipe.toUtf8() + '"';
+    }
 }
 
 RuntimeBridge::RuntimeBridge(QObject* parent)
@@ -76,7 +84,7 @@ RuntimeBridge::~RuntimeBridge()
 }
 bool RuntimeBridge::isRunning() const noexcept
 {
-    return m_handle != nullptr;
+    return m_handle.load(std::memory_order_acquire) != nullptr;
 }
 
 void RuntimeBridge::startAsync(std::function<void(Result)> completion)
@@ -94,8 +102,11 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
         return;
     }
     m_starting = true;
-    m_accountEpoch = 0;
-    m_accountUserId.clear();
+    {
+        std::lock_guard lock(m_accountMutex);
+        m_accountEpoch = 0;
+        m_accountUserId.clear();
+    }
     forgetQueue();
     const auto generation = ++m_nextGeneration;
     m_activeGeneration.store(generation, std::memory_order_release);
@@ -120,7 +131,7 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
                     current->m_starting = false;
                     if (current->m_activeGeneration.load(std::memory_order_acquire) != generation) return;
                     auto* handle = std::exchange(*pending, nullptr);
-                    current->m_handle = handle;
+                    current->m_handle.store(handle, std::memory_order_release);
                     if (handle) {
                         emit current->runningChanged(true);
                         if (std::exchange(current->m_catchUpAfterStart, false))
@@ -146,9 +157,9 @@ void RuntimeBridge::stop() noexcept
     Q_ASSERT(thread() == QThread::currentThread());
     m_activeGeneration.store(0, std::memory_order_release);
     forgetQueue();
-    if (!m_handle)
+    auto* handle = m_handle.exchange(nullptr, std::memory_order_acq_rel);
+    if (!handle)
         return;
-    auto* handle = std::exchange(m_handle, nullptr);
     kodosi_stop(handle);
     emit runningChanged(false);
 }
@@ -179,9 +190,9 @@ void RuntimeBridge::stopHostAsync(std::function<void(HostStop)> completion)
 
 RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
 {
-    Q_ASSERT(thread() == QThread::currentThread());
-    if (auto result = requireRunning(); !result)
-        return result;
+    auto* handle = m_handle.load(std::memory_order_acquire);
+    if (!handle)
+        return std::unexpected(failure(KODOSI_FFI_RUNTIME_STOPPED, tr("Kodosi is not ready.")));
     if (json.isEmpty() || json.size() > maximumEventBytes) {
         return std::unexpected(failure(KODOSI_FFI_PAYLOAD_TOO_LARGE,
             tr("The command is too large.")));
@@ -192,8 +203,11 @@ RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
         return std::unexpected(failure(KODOSI_FFI_DESER_FAILED, tr("The command is invalid or contains duplicate fields.")));
     }
     QByteArray bytes = QByteArrayLiteral("{\"accountUserId\":");
-    bytes += m_accountUserId.isEmpty() ? QByteArrayLiteral("null") : jsonStringBytes(m_accountUserId);
-    bytes += QByteArrayLiteral(",\"accountEpoch\":") + QByteArray::number(m_accountEpoch);
+    {
+        std::lock_guard lock(m_accountMutex);
+        bytes += m_accountUserId.isEmpty() ? QByteArrayLiteral("null") : jsonStringBytes(m_accountUserId);
+        bytes += QByteArrayLiteral(",\"accountEpoch\":") + QByteArray::number(m_accountEpoch);
+    }
     for (const auto& field : *fields) {
         if (field.name == QStringLiteral("accountUserId") || field.name == QStringLiteral("accountEpoch")) {
             return std::unexpected(failure(KODOSI_FFI_DESER_FAILED, tr("The command must not name the account.")));
@@ -205,9 +219,29 @@ RuntimeBridge::Result RuntimeBridge::send(QByteArrayView json)
     if (bytes.size() > maximumEventBytes)
         return std::unexpected(failure(KODOSI_FFI_PAYLOAD_TOO_LARGE, tr("The command is too large.")));
     return terminalOperationResult(
-        kodosi_send_command(m_handle, reinterpret_cast<const std::uint8_t*>(bytes.constData()),
+        kodosi_send_command(handle, reinterpret_cast<const std::uint8_t*>(bytes.constData()),
             static_cast<std::uintptr_t>(bytes.size())),
         tr("Command"));
+}
+
+void RuntimeBridge::route(const QString& pipe, QObject& reader, Read read)
+{
+    std::uint64_t dropGeneration = 0;
+    {
+        std::lock_guard lock(m_queueMutex);
+        dropGeneration = m_dropGeneration;
+    }
+    const auto field = pipeField(pipe);
+    std::lock_guard lock(m_routesMutex);
+    m_routes.removeIf([&field](const Route& route) { return route.field == field; });
+    m_routes.append({ .field = field, .reader = &reader, .read = std::move(read), .dropGeneration = dropGeneration });
+}
+
+void RuntimeBridge::unroute(const QString& pipe)
+{
+    const auto field = pipeField(pipe);
+    std::lock_guard lock(m_routesMutex);
+    m_routes.removeIf([&field](const Route& route) { return route.field == field; });
 }
 
 RuntimeBridge::Result RuntimeBridge::connectTerminal(const TerminalSubscription& subscription)
@@ -233,8 +267,9 @@ RuntimeBridge::Result RuntimeBridge::subscriptionCommand(const TerminalSubscript
         return std::unexpected(failure(KODOSI_FFI_DESER_FAILED,
             tr("The terminal subscription is invalid.")));
     }
-    return terminalOperationResult(
-        command(m_handle, session.constData(), id.constData(), subscription.generation), std::move(operation));
+    return terminalOperationResult(command(m_handle.load(std::memory_order_acquire), session.constData(),
+                                       id.constData(), subscription.generation),
+        std::move(operation));
 }
 RuntimeBridge::Result RuntimeBridge::sendTerminalInput(const TerminalSubscription& subscription,
     const QString& expectedRuntimeIncarnationId, QByteArrayView bytes)
@@ -250,8 +285,9 @@ RuntimeBridge::Result RuntimeBridge::sendTerminalInput(const TerminalSubscriptio
             tr("The terminal input target is invalid.")));
     }
     return terminalOperationResult(
-        kodosi_terminal_input(m_handle, session.constData(), incarnation.constData(), id.constData(),
-            subscription.generation, reinterpret_cast<const std::uint8_t*>(bytes.data()),
+        kodosi_terminal_input(m_handle.load(std::memory_order_acquire), session.constData(),
+            incarnation.constData(), id.constData(), subscription.generation,
+            reinterpret_cast<const std::uint8_t*>(bytes.data()),
             static_cast<std::uintptr_t>(bytes.size())),
         tr("Terminal input"));
 }
@@ -293,8 +329,76 @@ void RuntimeBridge::queueEvent(const std::uint8_t* json, std::uintptr_t length)
     QueuedEvent event { .dropGeneration = m_dropGeneration, .payload = {} };
     lock.unlock();
     event.payload = copyBytes(json, length, static_cast<std::uintptr_t>(maximumEventBytes));
+    if (routeEvent(generation, event))
+        return;
     QMetaObject::invokeMethod(
         this, [this, generation, event = std::move(event)] { receiveQueued(generation, event); }, Qt::QueuedConnection);
+}
+// A routed event stays in the queue's bound until its reader takes it, or goes with a reader
+// that ends, so the queue drops it with the others when the app falls behind.
+class RuntimeBridge::Waiting {
+public:
+    Waiting(RuntimeBridge& bridge, std::uint64_t generation, QueuedEvent event)
+        : m_bridge(bridge)
+        , m_generation(generation)
+        , m_event(std::move(event))
+    {
+    }
+    ~Waiting()
+    {
+        if (!m_taken)
+            (void)m_bridge.dequeue(m_generation, m_event);
+    }
+    Waiting(const Waiting&) = delete;
+    Waiting& operator=(const Waiting&) = delete;
+    [[nodiscard]] bool take()
+    {
+        m_taken = true;
+        return m_bridge.dequeue(m_generation, m_event);
+    }
+    [[nodiscard]] const QByteArray& payload() const { return m_event.payload; }
+
+private:
+    RuntimeBridge& m_bridge;
+    std::uint64_t m_generation;
+    QueuedEvent m_event;
+    bool m_taken = false;
+};
+
+bool RuntimeBridge::routeEvent(std::uint64_t generation, const QueuedEvent& event)
+{
+    std::lock_guard lock(m_routesMutex);
+    const auto route = std::ranges::find_if(
+        m_routes, [&event](const Route& route) { return event.payload.contains(route.field); });
+    if (route == m_routes.end())
+        return false;
+    const bool afterDrop = std::exchange(route->dropGeneration, event.dropGeneration) != event.dropGeneration;
+    QMetaObject::invokeMethod(
+        route->reader,
+        [this, waiting = std::make_shared<Waiting>(*this, generation, event), field = route->field,
+            reader = route->reader, read = route->read, afterDrop] {
+            if (waiting->take() && claimed(field, reader))
+                read(waiting->payload(), afterDrop);
+        },
+        Qt::QueuedConnection);
+    return true;
+}
+bool RuntimeBridge::claimed(const QByteArray& field, const QObject* reader)
+{
+    std::lock_guard lock(m_routesMutex);
+    return std::ranges::any_of(
+        m_routes, [&](const Route& route) { return route.field == field && route.reader == reader; });
+}
+bool RuntimeBridge::dequeue(std::uint64_t generation, const QueuedEvent& event)
+{
+    if (m_activeGeneration.load(std::memory_order_acquire) != generation)
+        return false;
+    std::lock_guard lock(m_queueMutex);
+    if (event.dropGeneration != m_dropGeneration)
+        return false;
+    --m_queued.events;
+    m_queued.bytes -= event.payload.size();
+    return true;
 }
 void RuntimeBridge::forgetQueue()
 {
@@ -313,14 +417,8 @@ void RuntimeBridge::receiveQueued(std::uint64_t generation, const QueuedEvent& e
         m_startupEvents.append(event);
         return;
     }
-    {
-        std::lock_guard lock(m_queueMutex);
-        if (event.dropGeneration != m_dropGeneration)
-            return;
-        --m_queued.events;
-        m_queued.bytes -= event.payload.size();
-    }
-    deliverEvent(event.payload);
+    if (dequeue(generation, event))
+        deliverEvent(event.payload);
 }
 void RuntimeBridge::catchUp(std::uint64_t generation)
 {
@@ -371,18 +469,21 @@ void RuntimeBridge::deliverEvent(const QByteArray& payload)
         return;
     }
     const auto user = object.value(QStringLiteral("accountUserId")).toString();
-    if (*epoch < m_accountEpoch)
-        return;
-    if (*epoch > m_accountEpoch && type != QStringLiteral("auth.ready")
-        && type != QStringLiteral("auth.required") && type != QStringLiteral("system.ready"))
-        return;
-    if (*epoch == m_accountEpoch && user != m_accountUserId && type != QStringLiteral("auth.ready")
-        && type != QStringLiteral("auth.required"))
-        return;
-    if (type == QStringLiteral("auth.ready") || type == QStringLiteral("auth.required")
-        || type == QStringLiteral("system.ready")) {
-        m_accountEpoch = *epoch;
-        m_accountUserId = user;
+    {
+        std::lock_guard lock(m_accountMutex);
+        if (*epoch < m_accountEpoch)
+            return;
+        if (*epoch > m_accountEpoch && type != QStringLiteral("auth.ready")
+            && type != QStringLiteral("auth.required") && type != QStringLiteral("system.ready"))
+            return;
+        if (*epoch == m_accountEpoch && user != m_accountUserId && type != QStringLiteral("auth.ready")
+            && type != QStringLiteral("auth.required"))
+            return;
+        if (type == QStringLiteral("auth.ready") || type == QStringLiteral("auth.required")
+            || type == QStringLiteral("system.ready")) {
+            m_accountEpoch = *epoch;
+            m_accountUserId = user;
+        }
     }
     if (type == QStringLiteral("system.ready")) {
         const bool foreground = object.value(QStringLiteral("host")).toString() == QStringLiteral("foreground");
