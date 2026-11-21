@@ -213,6 +213,9 @@ pub struct TerminalMetadata {
     pub context: Option<super::TerminalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canvas: Option<Box<crate::canvas::Canvas>>,
+    /// An agent of the terminal reports to the terminal's chat.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub chat: bool,
 }
 
 impl TerminalMetadata {

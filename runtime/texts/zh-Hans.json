@@ -215,6 +215,7 @@
 "The terminal did not take the picture.": "终端未接收该图片。",
 "The terminal ended.": "终端已结束。",
 "The terminal of this canvas closed.": "此画布的终端已关闭。",
+"The terminal of this chat closed.": "此聊天的终端已关闭。",
 "The terminal or the account changed. Try again.": "终端或账号已变更。请重试。",
 "The terminal refused the control.": "终端拒绝了此控制。",
 "The terminal stopped.": "终端已停止。",

@@ -31,7 +31,7 @@ pub(crate) use picture::pictures_root;
 pub use picture::{Picture, PictureFormat, TERMINAL_PICTURE_MAX_BYTES};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
-pub(crate) use session::TerminalSession;
+pub(crate) use session::{TerminalSession, pipe};
 pub use status::{BlockedKind, ProgramState, ProgramStatus, Waiting};
 pub use subscribers::{ControlFrame, DataFrame, Frame, RefreshRetry, Subscription};
 pub(crate) use title::{title_spins, title_words};
@@ -123,6 +123,10 @@ pub(crate) enum SessionChange {
     },
     #[cfg(feature = "host")]
     Canvas {
+        id: Uuid,
+    },
+    #[cfg(feature = "host")]
+    Chat {
         id: Uuid,
     },
     #[cfg(feature = "host")]

@@ -21,6 +21,10 @@ impl Endpoint {
         let path = directory.join(format!("{role}.sock"));
         Ok(Self { directory, path })
     }
+
+    pub(super) fn socket(&self) -> &Path {
+        &self.path
+    }
 }
 
 pub(super) fn private_dir(namespace: &str) -> io::Result<PathBuf> {

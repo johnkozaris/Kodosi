@@ -1,0 +1,29 @@
+{"k":"mode","t":1795226758824,"mode":"default"}
+{"k":"row","t":1795226758826,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"b142eeff-bb9e-4089-a35e-abace1698075","type":"user","meta":false,"content":[{"type":"text","text":"Run python3 app.py and tell me the total in one short sentence."}]}
+{"k":"turn","t":1795226758828,"turn":"937dcb03-c1b7-4c4e-9c4a-9a7dacda9257"}
+{"k":"did","t":1795226758829,"n":1}
+{"k":"step","t":1795226758831,"step":0,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"tool","t":1795226759488,"id":"toolu_01LmTfhJg2AHtVDS3xtYNLxD","name":"Bash"}
+{"k":"row","t":1795226759742,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"f9562544-43d4-4b52-9ae2-5b32fa126585","type":"assistant","meta":false,"content":[{"type":"tool_use","id":"toolu_01LmTfhJg2AHtVDS3xtYNLxD","name":"Bash","input":{"command":"python3 app.py"}}]}
+{"k":"stepEnd","t":1795226759757,"step":0}
+{"k":"ask","t":1795226759760,"ask":"mwprn9k5-2","call":"toolu_01LmTfhJg2AHtVDS3xtYNLxD","tool":"Bash","input":{"command":"python3 app.py"},"suggestions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"python3 app.py"}],"behavior":"allow","destination":"localSettings"}],"mode":"default"}
+{"answer":{"ask":"mwprn9k5-2","decision":{"behavior":"allow"}}}
+{"k":"decided","t":1795226759881,"id":"toolu_01LmTfhJg2AHtVDS3xtYNLxD","decision":"accept","source":"hook","mode":"default"}
+{"k":"done","t":1795226759929,"id":"toolu_01LmTfhJg2AHtVDS3xtYNLxD","ms":46,"result":{"stdout":"Mug         12.00\nNotebook     7.50\nPen          2.50\nTotal       33.83","stderr":"","interrupted":false,"isImage":false,"noOutputExpected":false}}
+{"k":"row","t":1795226759932,"door":"tool-result","origin":{"kind":"tool","tool":"Bash"},"uuid":"09a334da-50a9-4de3-823f-830c6b5d72e8","type":"user","meta":false,"content":[{"type":"tool_result","tool_use_id":"toolu_01LmTfhJg2AHtVDS3xtYNLxD","is_error":false,"content":[{"type":"text","text":"Mug         12.00\nNotebook     7.50\nPen          2.50\nTotal       33.83"}]}]}
+{"k":"step","t":1795226759940,"step":1,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"text","t":1795226760813,"block":0,"text":"The total is 33.83,"}
+{"k":"text","t":1795226760814,"block":0,"text":" which"}
+{"k":"text","t":1795226760815,"block":0,"text":" is 22"}
+{"k":"text","t":1795226760816,"block":0,"text":".00 with"}
+{"k":"text","t":1795226760816,"block":0,"text":" the"}
+{"k":"text","t":1795226760816,"block":0,"text":" 1.24 tax appl"}
+{"k":"text","t":1795226760817,"block":0,"text":"ied twice (the"}
+{"k":"text","t":1795226760817,"block":0,"text":" correct single"}
+{"k":"text","t":1795226760817,"block":0,"text":"-tax total would be 27"}
+{"k":"text","t":1795226760817,"block":0,"text":".28)."}
+{"k":"row","t":1795226760818,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"fddb8c3e-82f9-49dd-b371-f362c86f5721","type":"assistant","meta":false,"content":[{"type":"text","text":"The total is 33.83, which is 22.00 with the 1.24 tax applied twice (the correct single-tax total would be 27.28)."}]}
+{"k":"stepEnd","t":1795226760828,"step":1}
+{"k":"mode","t":1795226760829,"mode":"default","background":0}
+{"k":"turnEnd","t":1795226760834,"turn":"937dcb03-c1b7-4c4e-9c4a-9a7dacda9257","ms":1898,"reason":"answer"}
+{"k":"measure","t":1795226760835,"context":{"tokens":39293,"window":1000000,"percent":4},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.0826872}}

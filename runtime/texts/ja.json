@@ -215,6 +215,7 @@
 "The terminal did not take the picture.": "ターミナルは画像を受け取りませんでした。",
 "The terminal ended.": "ターミナルは終了しました。",
 "The terminal of this canvas closed.": "このキャンバスのターミナルは閉じました。",
+"The terminal of this chat closed.": "このチャットのターミナルは閉じました。",
 "The terminal or the account changed. Try again.": "ターミナルまたはアカウントが変わりました。もう一度お試しください。",
 "The terminal refused the control.": "ターミナルが制御を拒否しました。",
 "The terminal stopped.": "ターミナルは停止しました。",

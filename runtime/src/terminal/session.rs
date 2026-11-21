@@ -26,6 +26,7 @@ use super::{
 use crate::{
     Error, Result,
     canvas::{Canvas, CanvasHandle},
+    chat::{ChatHandle, TerminalChat},
     network::{CheckpointCut, HostPicture, HostRequest, PublishedFrame, TerminalControl},
     text::Text,
 };
@@ -129,6 +130,7 @@ pub(crate) struct Foreground {
 pub(crate) struct TerminalSession {
     pub incarnation_id: Uuid,
     pub canvas: CanvasHandle,
+    pub chat: ChatHandle,
     commands: mpsc::Sender<Request>,
     pub host_requests: mpsc::Sender<HostRequest>,
     output: broadcast::Sender<PublishedFrame>,
@@ -154,18 +156,23 @@ impl TerminalSession {
         screen: Vec<u8>,
         (size, cell): (TerminalSize, CellPixels),
         canvas: CanvasHandle,
+        chat: TerminalChat,
         pictures: PathBuf,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
         let clear_line = clear_line_keys(&program);
         let launch_directory = directory.clone();
         canvas.moved_to(directory.clone());
+        let TerminalChat {
+            handle: chat,
+            socket: link,
+        } = chat;
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
             let cwd = directory
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
             let emulator = SessionTerminalHandle::spawn(size, screen)?;
-            let variables = kodosi_variables(id, notes.as_deref());
+            let variables = kodosi_variables(id, notes.as_deref(), link);
             let environment = variables
                 .iter()
                 .map(|(name, value)| (*name, value.as_str()))
@@ -196,6 +203,7 @@ impl TerminalSession {
         let session = Self {
             incarnation_id,
             canvas: canvas.clone(),
+            chat: chat.clone(),
             commands,
             host_requests,
             output: output.clone(),
@@ -248,6 +256,8 @@ impl TerminalSession {
             published_context: None,
             canvas,
             canvas_state,
+            chat_linked: chat.linked(),
+            chat,
             pictures,
             saving: JoinSet::new(),
             metadata_dirty: false,
@@ -626,7 +636,27 @@ fn command_path() -> Option<String> {
     )
 }
 
-fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String)> {
+/// A pipe of a terminal: its chat, or the shared browser or a document of its canvas.
+pub(crate) async fn pipe(
+    canvas: &CanvasHandle,
+    chat: &ChatHandle,
+    key: &str,
+    view: String,
+    person: String,
+    name: String,
+) -> std::result::Result<crate::canvas::PipeEnds, Text> {
+    if key == crate::chat::CHAT_PIPE {
+        chat.attach(person, name).await
+    } else {
+        canvas.document(key, view, person, name).await
+    }
+}
+
+fn kodosi_variables(
+    id: Uuid,
+    notes: Option<&Path>,
+    link: Option<String>,
+) -> Vec<(&'static str, String)> {
     let mut variables = vec![
         ("KODOSI_SESSION_ID", id.to_string()),
         ("KODOSI_VERSION", crate::PRODUCT_VERSION.to_owned()),
@@ -635,6 +665,7 @@ fn kodosi_variables(id: Uuid, notes: Option<&Path>) -> Vec<(&'static str, String
             crate::agents::CONTEXT.trim().to_owned(),
         ),
     ];
+    variables.extend(link.map(|socket| (crate::chat::LINK_VARIABLE, socket)));
     variables.extend(command_path().map(|path| ("PATH", path)));
     if let Some(notes) = notes {
         variables.extend(
@@ -738,6 +769,8 @@ struct LocalActor {
     published_context: Option<TerminalContext>,
     canvas: CanvasHandle,
     canvas_state: watch::Receiver<Canvas>,
+    chat: ChatHandle,
+    chat_linked: watch::Receiver<bool>,
     pictures: PathBuf,
     saving: JoinSet<SavedPicture>,
     metadata_dirty: bool,
@@ -797,6 +830,21 @@ impl LocalActor {
             status: self.status.summary(),
             context: self.published_context.clone(),
             canvas: self.canvas.current().map(Box::new),
+            chat: *self.chat_linked.borrow(),
+        }
+    }
+
+    fn publish_chat(&mut self) {
+        if !self.chat_linked.has_changed().unwrap_or(false) {
+            return;
+        }
+        self.metadata_dirty = true;
+        if self
+            .changes
+            .try_send(SessionChange::Chat { id: self.id })
+            .is_ok()
+        {
+            self.chat_linked.mark_unchanged();
         }
     }
 
@@ -1208,6 +1256,7 @@ impl LocalActor {
         self.publish_status();
         self.publish_context();
         self.publish_canvas();
+        self.publish_chat();
         if !titles_look_same(self.title.as_deref(), self.published_title.as_deref())
             && let Some(title) = &self.title
             && self
@@ -1765,7 +1814,7 @@ impl LocalActor {
         name: String,
         reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, Text>>,
     ) {
-        let canvas = self.canvas.clone();
+        let (canvas, chat) = (self.canvas.clone(), self.chat.clone());
         let view = connection_id.to_string();
         let person = self
             .viewers
@@ -1773,7 +1822,7 @@ impl LocalActor {
             .cloned()
             .unwrap_or_else(|| view.clone());
         tokio::spawn(async move {
-            let ends = canvas.document(&key, view, person, name).await;
+            let ends = pipe(&canvas, &chat, &key, view, person, name).await;
             drop(reply.send(ends));
         });
     }

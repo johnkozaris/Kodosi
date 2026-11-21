@@ -1,0 +1,25 @@
+{"k":"hello","t":1795226734711,"session":"11111111-1111-4111-8111-111111111111","version":"2.1.330","model":"claude-sonnet-5-5","cwd":"/home/sam/shop","usage":{"startedAt":1795226734173,"context":{"window":1000000},"rateLimits":[],"cost":{"usd":0}},"models":["default","sonnet","opus","haiku","fable","best","sonnet[1m]","opus[1m]","fable[1m]","opusplan"]}
+{"k":"measure","t":1795226735022,"context":{"window":1000000},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0}}
+{"k":"mode","t":1795226745854,"mode":"default"}
+{"k":"row","t":1795226745858,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"a3be3801-42e8-49a8-9a0a-bcc19da3d48d","type":"user","meta":false,"content":[{"type":"text","text":"Say hello in five words."}]}
+{"k":"turn","t":1795226745867,"turn":"2c797622-b093-4b76-a2f5-dfafab4f10d3"}
+{"k":"did","t":1795226745869,"n":1}
+{"k":"step","t":1795226745896,"step":0,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"text","t":1795226746441,"block":0,"text":"Hello, n"}
+{"k":"text","t":1795226746629,"block":0,"text":"ice to meet you!"}
+{"k":"row","t":1795226746631,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"c2a5b5c8-a167-4cba-9ede-b8a6589eabdd","type":"assistant","meta":false,"content":[{"type":"text","text":"Hello, nice to meet you!"}]}
+{"k":"stepEnd","t":1795226746649,"step":0}
+{"k":"mode","t":1795226746654,"mode":"default","background":0}
+{"k":"turnEnd","t":1795226746662,"turn":"2c797622-b093-4b76-a2f5-dfafab4f10d3","ms":820,"reason":"answer"}
+{"k":"measure","t":1795226746664,"context":{"tokens":30740,"window":1000000,"percent":3},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.015204200000000001}}
+{"k":"mode","t":1795227311023,"mode":"default"}
+{"k":"row","t":1795227311033,"door":"prompt","origin":{"kind":"composer"},"uuid":"23a2a2e5-a294-41ca-a308-0945032e637f","type":"user","meta":false,"content":[{"type":"text","text":"Say ok."}]}
+{"k":"turn","t":1795227311035,"turn":"30beeea3-4ff1-485d-b332-66358c01de8b"}
+{"k":"step","t":1795227311038,"step":0,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"hello","t":1795227311129,"session":"11111111-1111-4111-8111-111111111111","version":"2.1.330","model":"claude-sonnet-5-5","cwd":"/home/sam/shop","usage":{"startedAt":1795226734173,"context":{"tokens":45276,"window":1000000,"percent":5},"rateLimits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.37379970000000007}},"models":["default","sonnet","opus","haiku","fable","best","sonnet[1m]","opus[1m]","fable[1m]","opusplan"]}
+{"k":"history","t":1795227311129,"rows":[{"role":"user","text":"Say hello in five words.","uuid":"a3be3801-42e8-49a8-9a0a-bcc19da3d48d","toolUses":[]},{"role":"assistant","text":"Hello, nice to meet you!","uuid":"c2a5b5c8-a167-4cba-9ede-b8a6589eabdd","toolUses":[]}]}
+{"k":"text","t":1795227311605,"block":0,"text":"ok"}
+{"k":"row","t":1795227311607,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"2c905169-c68a-4682-a8f9-07a3ae0bee88","type":"assistant","meta":false,"content":[{"type":"text","text":"ok"}]}
+{"k":"mode","t":1795227311620,"mode":"default","background":0}
+{"k":"turnEnd","t":1795227311623,"turn":"30beeea3-4ff1-485d-b332-66358c01de8b","ms":606,"reason":"answer"}
+{"k":"measure","t":1795227311629,"context":{"tokens":45510,"window":1000000,"percent":5},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.37931090000000006}}

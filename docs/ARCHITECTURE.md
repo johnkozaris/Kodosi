@@ -109,6 +109,21 @@ of a running agent's model, effort, fast mode or permissions is also typed, as t
 own command. The host types only while the agent can take it: not while it waits for a
 person, and not while a person types there.
 
+## Chat
+
+The chat is a second view of a terminal, beside its screen. An agent can report what it
+does to the host through the agent's own interface for add-ons. For Claude Code that is a
+module in Kodosi's plugin, which reaches a socket of the host that the terminal names in
+its environment. The host turns the reports into the chat of the terminal: the messages,
+the agent's answers, its tool calls, the questions that wait for a person, and the facts
+of the session. A person's message, answer or stop goes back the same way.
+
+The chat reads nothing from the terminal's screen and presses no key there, so a new
+look of the agent does not change it. Each part of a report is optional, and an agent
+that does not report has no chat while its terminal works as before. The chat is content
+of the terminal: it travels on a pipe of the terminal's encrypted channel, as the canvas
+does, and each client gets the chat as it is and then each change.
+
 ## Canvas
 
 The host keeps the canvas of each terminal: the files that its agent showed, and its

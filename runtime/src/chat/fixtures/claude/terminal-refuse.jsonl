@@ -1,0 +1,14 @@
+{"k":"mode","t":1795226814833,"mode":"default"}
+{"k":"row","t":1795226814838,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"09732916-a345-48e4-8a89-c7321a885aef","type":"user","meta":false,"content":[{"type":"text","text":"Run this exact command with the Bash tool: python3 -c \"print('second')\""}]}
+{"k":"turn","t":1795226814844,"turn":"000689c5-876f-4565-a57a-4caccc8e2bee"}
+{"k":"did","t":1795226814845,"n":1}
+{"k":"step","t":1795226814851,"step":0,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"tool","t":1795226815395,"id":"toolu_01NC1FAwgvBwoKx8vXGavajD","name":"Bash"}
+{"k":"row","t":1795226815665,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"db7a8d95-5496-4725-ab05-71590de64831","type":"assistant","meta":false,"content":[{"type":"tool_use","id":"toolu_01NC1FAwgvBwoKx8vXGavajD","name":"Bash","input":{"command":"python3 -c \"print('second')\""}}]}
+{"k":"ask","t":1795226815681,"ask":"mwprn9k5-9","call":"toolu_01NC1FAwgvBwoKx8vXGavajD","tool":"Bash","input":{"command":"python3 -c \"print('second')\""},"suggestions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"python3 -c \"print('second')\""}],"behavior":"allow","destination":"localSettings"}],"mode":"default"}
+{"k":"stepEnd","t":1795226815689,"step":0}
+{"k":"decided","t":1795226817497,"id":"toolu_01NC1FAwgvBwoKx8vXGavajD","decision":"reject","source":"user_reject","mode":"default"}
+{"k":"row","t":1795226817498,"door":"tool-result","origin":{"kind":"tool","tool":"Bash"},"uuid":"af8bf296-bead-4fd1-9ae9-5999faa34989","type":"user","meta":false,"content":[{"type":"tool_result","tool_use_id":"toolu_01NC1FAwgvBwoKx8vXGavajD","is_error":true,"content":[{"type":"text","text":"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.\n\nNote: The user's next message may contain a correction or preference. Pay close attention — if they explain what went wrong or how they'd prefer you to work, consider saving that to memory for future sessions."}]}]}
+{"k":"row","t":1795226817500,"door":"note","origin":{"kind":"engine"},"uuid":"aeb5adb3-3a92-4d76-be5c-6ad4feadb4a7","type":"user","meta":false,"content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]}
+{"k":"turnEnd","t":1795226817501,"turn":"000689c5-876f-4565-a57a-4caccc8e2bee","ms":867,"reason":"answer"}
+{"k":"measure","t":1795226817502,"context":{"tokens":40683,"window":1000000,"percent":4},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.1724439}}

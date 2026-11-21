@@ -40,6 +40,7 @@ async fn shell_at(
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
         directory.join("pictures"),
         changes,
     )
@@ -726,6 +727,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         &std::env::temp_dir(),
         crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
     );
+    let chat = TerminalChat::alone().handle;
     let mut actor = LocalActor {
         id: Uuid::now_v7(),
         incarnation: Uuid::now_v7(),
@@ -771,6 +773,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         published_context: None,
         canvas: canvas.clone(),
         canvas_state: canvas.state(),
+        chat_linked: chat.linked(),
+        chat,
         pictures: std::env::temp_dir().join(Uuid::now_v7().to_string()),
         saving: JoinSet::new(),
         metadata_dirty: false,
@@ -1096,6 +1100,7 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1150,6 +1155,7 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1198,6 +1204,7 @@ async fn interactive_shell() -> (
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1494,6 +1501,7 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )

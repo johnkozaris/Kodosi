@@ -649,6 +649,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             #[cfg(feature = "host")]
             services: crate::canvas::CanvasServices::new(&config.data_root, true),
             #[cfg(feature = "host")]
+            links: crate::chat::Links::unserved(),
+            #[cfg(feature = "host")]
             dosi: crate::dosi::Engine::load(
                 &config.data_root,
                 &config.home,
@@ -2990,6 +2992,7 @@ async fn hosted(runtime: &mut Runtime, folder: &Path) -> (Uuid, TerminalSession)
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -3438,6 +3441,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
             }),
             context: None,
             canvas: None,
+            chat: false,
         },
     });
     let generation = runtime.network.generation();
@@ -3511,6 +3515,7 @@ async fn a_closed_terminal_keeps_its_title_only_while_the_same_agent_runs_there(
             status: None,
             context: None,
             canvas: None,
+            chat: false,
         },
     });
     runtime.change(SessionChange::RemoteClosed {
@@ -3982,6 +3987,7 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
             Vec::new(),
             Default::default(),
             stand_in_canvas(),
+            crate::chat::TerminalChat::alone(),
             home.join("pictures"),
             changes.clone(),
         )
@@ -4334,6 +4340,7 @@ async fn a_restored_terminal_rejoins_its_project_for_its_account_and_leaves_a_re
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -4617,6 +4624,7 @@ async fn a_working_agent_gets_the_project_message_that_names_its_terminal_unless
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -4822,6 +4830,7 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -5188,6 +5197,7 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )

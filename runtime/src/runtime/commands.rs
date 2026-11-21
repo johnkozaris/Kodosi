@@ -1059,12 +1059,14 @@ impl Runtime {
         let changes = self.changes.clone();
         let launcher = Arc::clone(&self.launcher);
         let services = self.services.clone();
+        let chat = self.links.room(id);
         self.creating.insert(id, command.clone());
         self.spawn(async move {
             let result = create_session(
                 id,
                 config,
                 services,
+                chat,
                 &launcher,
                 &command,
                 like,
@@ -1686,6 +1688,7 @@ impl Runtime {
                     activity: None,
                     context: None,
                     canvas: None,
+                    chat: false,
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),
                     kind: SessionKind::Local,
@@ -2134,6 +2137,7 @@ async fn create_session(
     id: Uuid,
     config: Config,
     services: crate::canvas::CanvasServices,
+    chat: crate::chat::TerminalChat,
     launcher: &Arc<Launcher>,
     command: &Command,
     like: Option<RunningAgent>,
@@ -2224,6 +2228,7 @@ async fn create_session(
         screen,
         grid,
         crate::canvas::CanvasHandle::spawn(id, &config.data_root, services),
+        chat,
         crate::terminal::pictures_root(&config.data_root).join(id.to_string()),
         changes,
     )

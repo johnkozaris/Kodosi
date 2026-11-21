@@ -875,12 +875,11 @@ impl TerminalTarget {
         match self {
             #[cfg(feature = "host")]
             Self::Local(terminal) => {
-                let canvas = terminal.canvas.clone();
+                let (canvas, chat) = (terminal.canvas.clone(), terminal.chat.clone());
                 let view = consumer.to_string();
                 let person = person.unwrap_or_else(|| view.clone());
                 Box::pin(async move {
-                    canvas
-                        .document(&key, view, person, name)
+                    crate::terminal::pipe(&canvas, &chat, &key, view, person, name)
                         .await
                         .map_err(Error::Text)
                 })
@@ -1141,6 +1140,8 @@ struct Runtime {
     #[cfg(feature = "host")]
     services: crate::canvas::CanvasServices,
     #[cfg(feature = "host")]
+    links: crate::chat::Links,
+    #[cfg(feature = "host")]
     dosi: crate::dosi::Engine,
     #[cfg(not(feature = "host"))]
     dosi: crate::dosi::Viewer,
@@ -1293,6 +1294,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         direct: HashMap::new(),
         #[cfg(feature = "host")]
         services: crate::canvas::CanvasServices::new(&config.data_root, config.isolated),
+        #[cfg(feature = "host")]
+        links: crate::chat::Links::serve(&config.data_root).await,
         #[cfg(feature = "host")]
         recent: crate::folders::Recent::load(&config.data_root),
         #[cfg(feature = "host")]
@@ -3575,6 +3578,7 @@ impl Runtime {
             } else {
                 None
             },
+            chat: live && previous.is_some_and(|entry| entry.chat),
             id: remote.id.to_string(),
             incarnation_id: remote.incarnation_id.to_string(),
             kind: SessionKind::Remote,
@@ -3789,6 +3793,16 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Canvas { id } => self.sync_canvas(&id.to_string()),
             #[cfg(feature = "host")]
+            SessionChange::Chat { id } => {
+                if let Some(local) = self.local.get_mut(&id) {
+                    let chat = *local.terminal.chat.linked().borrow();
+                    if local.entry.chat != chat {
+                        local.entry.chat = chat;
+                        self.publish_catalog();
+                    }
+                }
+            }
+            #[cfg(feature = "host")]
             SessionChange::Notification { id, title, body } => {
                 let key = id.to_string();
                 if let Some(incarnation) = self
@@ -3832,6 +3846,7 @@ impl Runtime {
                     entry.program_status = metadata.status;
                     entry.context = metadata.context;
                     entry.canvas = metadata.canvas.map(|canvas| *canvas);
+                    entry.chat = metadata.chat;
                     self.publish_catalog();
                 }
             }

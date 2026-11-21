@@ -22,6 +22,8 @@ pub(crate) use live::NO_RUNNING_AGENT;
 pub(crate) use live::asks;
 pub(crate) use live::live_of;
 pub use live::{AgentLive, AgentSettings};
+#[cfg(feature = "host")]
+pub(crate) use usage::claude_session;
 
 #[cfg(feature = "host")]
 use std::path::Path;
@@ -508,8 +510,10 @@ pub(crate) fn notes_folder(data_root: &Path) -> std::path::PathBuf {
     data_root.join("agents")
 }
 
+/// The module is Claude Code's link to the chat of its terminal.
 #[cfg(feature = "host")]
 const CLAUDE_HOOKS: &str = r#"{
+  "modules": ["./link.js"],
   "hooks": {
     "SessionStart": [
       {
@@ -570,6 +574,10 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
         (
             plugin.join("hooks").join("hooks.json"),
             CLAUDE_HOOKS.to_owned(),
+        ),
+        (
+            plugin.join("hooks").join("link.js"),
+            crate::chat::CLAUDE_MODULE.to_owned(),
         ),
         (cursor.join(".cursor-plugin").join("plugin.json"), manifest),
         (

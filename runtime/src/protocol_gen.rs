@@ -313,6 +313,7 @@ fn rendered() -> Result<String> {
         "ffiAbiVersion":11,
         "commands":schema::<protocol::CommandEnvelope>(Direction::Input)?,
         "events":shape::<protocol::Event>()?,
+        "chat":{"pipe":kodosi_runtime::chat::CHAT_PIPE,"frames":shape::<kodosi_runtime::chat::ChatFrame>()?,"requests":schema::<kodosi_runtime::chat::ChatRequest>(Direction::Input)?},
         "terminal":{"checkpointSchema":kodosi_runtime::terminal::TERMINAL_CHECKPOINT_SCHEMA_VERSION,"checkpointMaxBytes":kodosi_runtime::terminal::TERMINAL_SNAPSHOT_MAX_BYTES,"imageStorageMaxBytes":kodosi_runtime::terminal::TERMINAL_IMAGE_STORAGE_MAX_BYTES,"rawInputMaxBytes":kodosi_runtime::terminal::TERMINAL_INPUT_MAX_BYTES},
     });
     Ok(serde_json::to_string_pretty(&value)? + "\n")
