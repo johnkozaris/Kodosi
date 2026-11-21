@@ -76,6 +76,8 @@ export class Client {
       this.incoming = this.incoming.then(() => this.receive(frame)).catch(console.error);
     });
     this.join();
+    // An asset that the lost pipe was bringing never comes on the new one.
+    for (const hash of this.assetWaiters.keys()) pipe.send(encodeAssetRequest(hash));
   }
 
   private join(): void {

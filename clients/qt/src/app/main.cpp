@@ -231,7 +231,14 @@ int main(int argc, char* argv[])
             providerFiles.reset();
         }
     });
-    QObject::connect(&runtime, &kodosi::RuntimeBridge::eventError, &workspace, &kodosi::Workspace::setError);
+    QObject::connect(&runtime, &kodosi::RuntimeBridge::fellBehind, &app, [&](const QString& message) {
+        workspace.abandonPending(message);
+        canvas.abandonPending(message);
+        documents.renewPipes();
+        history.abandonPending(message);
+        providerFiles.abandonPending(message);
+        launcher.abandonPending(message);
+    });
     QObject::connect(&runtime, &kodosi::RuntimeBridge::runningChanged, &app, [&](bool running) {
         if (!running) {
             workspace.reset();

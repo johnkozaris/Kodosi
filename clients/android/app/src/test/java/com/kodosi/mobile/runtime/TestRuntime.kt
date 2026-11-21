@@ -11,6 +11,7 @@ object TestWords : Words {
     override val otherAccount = "other account"
     override val signInEnded = "sign-in ended"
     override val accountDeleted = "account deleted"
+    override val outcomeUnknown = "outcome unknown"
 
     override fun rejected(code: Int) = "rejected $code"
 }

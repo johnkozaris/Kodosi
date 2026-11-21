@@ -708,6 +708,10 @@
         <translation>保存副本</translation>
     </message>
     <message>
+        <source>Show in folder</source>
+        <translation>在文件夹中显示</translation>
+    </message>
+    <message>
         <source>Remove from canvas</source>
         <translation>从画布移除</translation>
     </message>
@@ -4754,12 +4758,8 @@
         <translation>%1 失败（%2）。</translation>
     </message>
     <message>
-        <source>Kodosi got too many updates and stopped. Try again.</source>
-        <translation>Kodosi 一次收到的变更过多，已停止。请重试。</translation>
-    </message>
-    <message>
-        <source>Kodosi got an incomplete answer.</source>
-        <translation>Kodosi 收到了不完整的响应。</translation>
+        <source>Kodosi cannot tell if that worked. Check before you try again.</source>
+        <translation>Kodosi 无法判断操作是否成功。重试前请先检查。</translation>
     </message>
 </context>
 <context>
@@ -4854,14 +4854,6 @@
     <message>
         <source>On %1</source>
         <translation>在 %1 上</translation>
-    </message>
-    <message>
-        <source>The terminal list is invalid.</source>
-        <translation>终端列表无效。</translation>
-    </message>
-    <message>
-        <source>The terminal list contains an invalid entry.</source>
-        <translation>终端列表包含无效条目。</translation>
     </message>
 </context>
 <context>

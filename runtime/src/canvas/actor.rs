@@ -475,11 +475,14 @@ impl Actor {
                     drop(reply.send(drawn));
                 });
             }
-            Job::Watch { viewer, reply } => {
-                let browser = self.browser();
-                self.publish();
-                tokio::spawn(async move { drop(reply.send(browser.watch(viewer).await)) });
-            }
+            // A view opens its pipe again after each loss, also after the person closed the last
+            // tab, so a view only watches the browser that a person or an agent opened.
+            Job::Watch { viewer, reply } => match self.existing() {
+                Some(browser) => {
+                    tokio::spawn(async move { drop(reply.send(browser.watch(viewer).await)) });
+                }
+                None => drop(reply.send(Err(text!("The shared browser is closed.")))),
+            },
             Job::Downloaded { path } => {
                 match files::examine_all(vec![path]).await {
                     Ok(files) => drop(self.files.show(files, &self.stamp)),
@@ -489,16 +492,7 @@ impl Actor {
                 }
                 self.publish();
             }
-            Job::LastTabClosed { browser } => {
-                let current = self
-                    .browser
-                    .as_ref()
-                    .is_some_and(|(open, _)| Weak::as_ptr(&browser) == Arc::as_ptr(open));
-                if current && let Some((browser, _)) = self.browser.take() {
-                    tokio::spawn(async move { browser.end().await });
-                    self.publish();
-                }
-            }
+            Job::LastTabClosed { browser } => self.last_tab_closed(&browser),
             Job::Edited { path } => {
                 let key = key_of(&kodosi_os::fs::canonicalize(&path).unwrap_or(path));
                 if self.files.contains(&key) {
@@ -700,6 +694,20 @@ impl Actor {
             .map(|files| self.files.show(files, &self.stamp));
         self.publish();
         showing.map(|_| CanvasAnswer::Attached { key })
+    }
+
+    fn last_tab_closed(&mut self, closed: &Weak<Browser>) {
+        let current = self
+            .browser
+            .as_ref()
+            .is_some_and(|(open, _)| Weak::as_ptr(closed) == Arc::as_ptr(open));
+        if current && let Some((browser, _)) = self.browser.take() {
+            tokio::spawn(async move {
+                browser.end().await;
+                browser.forget_pages().await;
+            });
+            self.publish();
+        }
     }
 
     fn existing(&self) -> Option<Arc<Browser>> {

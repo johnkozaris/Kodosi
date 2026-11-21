@@ -90,8 +90,10 @@ private slots:
         QCOMPARE(shown.value(QStringLiteral("browser")).toMap().value(QStringLiteral("state")).toString(), QStringLiteral("asleep"));
         auto broken = item(QStringLiteral("plan.html"), 5);
         broken.insert(QStringLiteral("kind"), QStringLiteral("program"));
+        QTest::ignoreMessage(QtWarningMsg,
+            "the app could not read the event sessions.snapshot: terminal 0 of its list is invalid or repeats");
         sessions.apply(test::snapshot({ terminal(canvas(10, { broken })) }));
-        QCOMPARE(sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        QCOMPARE(sessions.presentationForSession(test::id(1)).value(QStringLiteral("canvas")).toMap().value(QStringLiteral("sequence")).toInt(), 9);
         sessions.apply(test::snapshot({ terminal({}) }));
         QVERIFY(!sessions.presentationForSession(test::id(1)).value(QStringLiteral("canvas")).isValid());
         for (const auto& name : { QStringLiteral("open"), QStringLiteral("change") }) {
@@ -99,7 +101,7 @@ private slots:
             auto unstamped = canvas(11, { item(QStringLiteral("plan.html"), 5) });
             unstamped.insert(name, QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.html") } });
             sessions.apply(test::snapshot({ terminal(unstamped) }));
-            QCOMPARE(sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+            QVERIFY(!sessions.presentationForSession(test::id(1)).value(QStringLiteral("canvas")).isValid());
         }
     }
 
@@ -579,6 +581,38 @@ private slots:
         QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
         sessions.apply(test::snapshot({ test::session(1, true) }));
         QCOMPARE(commands.values.size(), sent + 1);
+    }
+
+    void eachPipeOpensAgainAfterTheAppFellBehindAndAnEarlierAnswerClosesNothing()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, sessions);
+        QSignalSpy received(&documents, &kodosi::CanvasDocuments::received);
+        QSignalSpy closed(&documents, &kodosi::CanvasDocuments::closed);
+        const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
+        const auto registration = commands.values.last().value(QStringLiteral("requestId"));
+        const QJsonObject open { { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } };
+        const auto frame = [&pipe](const QByteArray& data) {
+            return QJsonObject { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
+                { QStringLiteral("sequence"), 0 }, { QStringLiteral("more"), false },
+                { QStringLiteral("data"), QString::fromLatin1(data.toBase64()) } };
+        };
+        documents.apply(open);
+        documents.renewPipes();
+        const auto sent = commands.values.size();
+        QCOMPARE(commands.values.at(sent - 2).value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.error") }, { QStringLiteral("requestId"), registration },
+            { QStringLiteral("operation"), QStringLiteral("document.open") } });
+        QVERIFY(closed.isEmpty());
+        documents.apply(frame("before"));
+        QVERIFY(received.isEmpty());
+        documents.apply(open);
+        documents.apply(frame("after"));
+        QCOMPARE(received.size(), 1);
+        QCOMPARE(received.first().at(1).toString(), QString::fromLatin1(QByteArray("after").toBase64()));
     }
 
     void aLargeFrameGoesInPartsOfWholeLetterGroups()

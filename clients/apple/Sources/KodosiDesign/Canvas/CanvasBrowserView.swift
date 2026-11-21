@@ -128,6 +128,8 @@ public struct CanvasBrowserView: View {
         let active = tabs.first(where: \.active)?.id
         let plus = IconButton(title: "New tab", bundle: .module, symbol: "plus", identifier: "canvas.browser.newTab", size: control) {
             feed.send(.newTab)
+            address = ""
+            editing = true
         }
         return ViewThatFits(in: .horizontal) {
             HStack(spacing: 4) {

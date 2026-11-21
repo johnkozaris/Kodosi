@@ -307,6 +307,49 @@ private func marked(_ name: String?, _ at: UInt64) -> JSONValue? {
     _ = await opening.result
 }
 
+@Test func `after the app falls behind, an open pipe and a pipe whose answer went missing both start again`() async throws {
+    let commands = CommandSink()
+    var sent: [[String: JSONValue]] = []
+    commands.transport = { data in
+        if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+            sent.append(command)
+        }
+        return 0
+    }
+    let store = CanvasStore(commands: commands)
+    let open = store.browser(of: "01992e43-53db-7040-8e02-f6ebf4149b28")
+    let opening = Task { try await open.open() }
+    while sent.isEmpty {
+        await Task.yield()
+    }
+    let first = try #require(open.pipe)
+    try commands.receive(runtimeEvent("document.result", fields: [
+        "requestId": #require(sent.last?["requestId"]), "operation": .string("document.open"),
+    ]))
+    try await opening.value
+    try store.receive(runtimeEvent("document.opened", fields: ["pipe": .string(first)]))
+    let waiting = store.browser(of: "01992e43-53db-7040-8e02-f6ebf4149b29")
+    let registering = Task { try await waiting.open() }
+    while sent.count < 2 {
+        await Task.yield()
+    }
+    let second = try #require(waiting.pipe)
+    let unanswered = try #require(sent.last?["requestId"])
+    sent.removeAll()
+    commands.abandonPending()
+    store.renewPipes()
+    while sent.count(where: { $0["type"] == .string("document.open") }) < 2 {
+        await Task.yield()
+    }
+    for pipe in [first, second] {
+        #expect(sent.filter { $0["pipe"] == .string(pipe) }.map { $0["type"] } == [.string("document.close"), .string("document.open")])
+    }
+    let late = try runtimeEvent("document.result", fields: ["requestId": unanswered, "operation": .string("document.open")])
+    #expect(commands.receive(late) == .caller)
+    registering.cancel()
+    _ = await registering.result
+}
+
 @Test func `a frame of the browser splits at its start codes`() {
     let frame = Data([0, 0, 0, 1, 0x67, 1, 2, 0, 0, 1, 0x68, 3, 0, 0, 0, 1, 0x65, 4, 0])
     #expect(H264Samples.units(of: frame).map(Array.init) == [[0x67, 1, 2], [0x68, 3], [0x65, 4, 0]])

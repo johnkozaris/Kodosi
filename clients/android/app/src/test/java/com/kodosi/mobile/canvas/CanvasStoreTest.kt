@@ -1,9 +1,13 @@
 package com.kodosi.mobile.canvas
 
 import com.kodosi.mobile.Preferences
+import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.SentCommands
 import com.kodosi.mobile.runtime.TestWords
+import com.kodosi.mobile.runtime.answer
+import com.kodosi.mobile.runtime.event
+import com.kodosi.mobile.runtime.string
 import com.kodosi.mobile.terminals.RuntimeSession
 import java.util.Base64
 import kotlinx.coroutines.CoroutineStart
@@ -62,6 +66,36 @@ class CanvasStoreTest {
         sent.reply("canvas.request", """"answer":{"answer":"attached","key":null}""")
         assertEquals(TestWords.accountChanged, uploading.await().exceptionOrNull()?.message)
         assertEquals(1, sent.commands.size)
+    }
+
+    @Test
+    fun afterTheAppFallsBehindAnOpenPipeAndAPipeWhoseAnswerWentMissingBothStartAgain() = runTest {
+        val open = store.link("terminal", "browser")
+        val opening = async(start = CoroutineStart.UNDISPATCHED) { open.open() }
+        val first = sent.last("document.open").string("pipe")
+        sent.reply("document.open")
+        opening.await()
+        store.receive(event("document.opened", """"pipe":"$first""""))
+        val waiting = store.link("other", "browser")
+        val registering = async(start = CoroutineStart.UNDISPATCHED) { waiting.open() }
+        val second = sent.last("document.open").string("pipe")
+        val unanswered = sent.last("document.open").string("requestId")
+        sent.commands.clear()
+
+        sent.sink.abandonPending()
+        store.renewPipes()
+        runCurrent()
+
+        for (pipe in listOf(first, second)) {
+            assertEquals(
+                listOf("document.close", "document.open"),
+                sent.commands.filter { it.string("pipe") == pipe }.map { it.string("type") }
+            )
+        }
+        val late = answer("document.result", unanswered, "document.open")
+        assertEquals(CommandSink.Delivery.CALLER, sent.sink.receive(late))
+        sent.reply("document.open")
+        registering.await()
     }
 
     @Test

@@ -46,6 +46,11 @@ Item {
         video.step({ kind: "open", address: typed });
         surface.forceActiveFocus();
     }
+    function newTab(): void {
+        video.step({ kind: "newTab" });
+        address.text = "";
+        address.forceActiveFocus();
+    }
     function cursor(shape: string): int {
         switch (shape) {
         case "pointer": return Qt.PointingHandCursor;
@@ -166,7 +171,7 @@ Item {
                         }
                     }
                     MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
-                    KMenuItem { text: qsTr("New tab"); iconName: "plus"; onTriggered: video.step({ kind: "newTab" }) }
+                    KMenuItem { text: qsTr("New tab"); iconName: "plus"; onTriggered: root.newTab() }
                     KMenuItem {
                         text: qsTr("Close tab")
                         iconName: "close"
@@ -181,7 +186,7 @@ Item {
                 size: 26
                 Accessible.name: qsTr("New tab")
                 objectName: "canvas.browser.newTab"
-                onClicked: video.step({ kind: "newTab" })
+                onClicked: root.newTab()
             }
             PlainLabel {
                 Layout.fillWidth: true

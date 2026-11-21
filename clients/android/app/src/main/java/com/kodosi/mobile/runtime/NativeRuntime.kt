@@ -51,6 +51,8 @@ internal object NativeRuntime {
 
     @JvmStatic external fun sendCommand(handle: Long, json: ByteArray): Int
 
+    @JvmStatic external fun log(level: Int, line: ByteArray): Int
+
     @JvmStatic
     external fun terminalConnect(handle: Long, sessionId: String, subscriptionId: String, generation: Long): Int
 
@@ -69,10 +71,12 @@ internal object NativeRuntime {
 
 object Ffi {
     const val ABI_VERSION = 11
-    const val PROTOCOL_VERSION = 97
+    const val PROTOCOL_VERSION = 98
     const val OK = 0
     const val RUNTIME_STOPPED = 5
     const val BUSY = 6
     const val STALE_SUBSCRIPTION = 8
     const val CHECKPOINT_REJECTED = 9
+    const val LOG_WARNING = 1
+    const val LOG_ERROR = 2
 }

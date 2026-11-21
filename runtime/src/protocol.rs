@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 97;
+pub const VERSION: u32 = 98;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -443,6 +443,13 @@ pub enum Command {
     /// A phone app sends it when the phone moves to another network.
     #[serde(rename = "app.network")]
     NetworkChanged {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    /// An app sends it when it could not keep up with the runtime's events and dropped some:
+    /// the runtime sends that app its whole state again.
+    #[serde(rename = "app.resync")]
+    Resync {
         #[serde(rename = "requestId")]
         request_id: String,
     },
@@ -1979,6 +1986,7 @@ impl Command {
             Self::Presence { .. } => "app.presence",
             Self::Lifecycle { .. } => "app.lifecycle",
             Self::NetworkChanged { .. } => "app.network",
+            Self::Resync { .. } => "app.resync",
             Self::Read { .. } => "session.read",
             Self::Show { .. } => "session.show",
             Self::OpenRemote { .. } => "session.openRemote",
@@ -2123,6 +2131,7 @@ impl Command {
             | Self::Presence { request_id, .. }
             | Self::Lifecycle { request_id, .. }
             | Self::NetworkChanged { request_id }
+            | Self::Resync { request_id }
             | Self::Read { request_id, .. }
             | Self::Show { request_id, .. }
             | Self::OpenRemote { request_id, .. }
@@ -3098,6 +3107,7 @@ pub(crate) mod tests {
             json!({"type":"app.presence","requestId":ID,"state":"here"}),
             json!({"type":"app.lifecycle","requestId":ID,"state":"background"}),
             json!({"type":"app.network","requestId":ID}),
+            json!({"type":"app.resync","requestId":ID}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachProject","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"projectId":null}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),
@@ -3180,7 +3190,7 @@ pub(crate) mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 79);
+        assert_eq!(kinds.len(), 80);
     }
 
     #[test]

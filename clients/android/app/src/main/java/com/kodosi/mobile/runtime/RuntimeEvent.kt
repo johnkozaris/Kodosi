@@ -13,7 +13,7 @@ import kotlinx.serialization.json.longOrNull
 
 val RuntimeJson = Json { ignoreUnknownKeys = true }
 
-class InvalidEvent(message: String) : Exception(message)
+class InvalidEvent(message: String) : IllegalArgumentException(message)
 
 class RuntimeEvent(val type: String, val accountUserId: String?, val accountEpoch: Long, val payload: JsonObject) {
     fun string(key: String): String? = (payload[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
@@ -77,6 +77,7 @@ interface Words {
     val otherAccount: String
     val signInEnded: String
     val accountDeleted: String
+    val outcomeUnknown: String
 
     fun rejected(code: Int): String
 }

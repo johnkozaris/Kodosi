@@ -194,6 +194,7 @@
 "The server has no trusted devices for this account, but this device knows some.": "서버에는 이 계정의 신뢰하는 기기 정보가 없지만, 이 기기에는 있어요.",
 "The server has reached its limit of terminal connections.": "서버의 터미널 연결 수가 한도에 도달했어요.",
 "The server uses an older version of Kodosi. Its operator must update it.": "서버의 Kodosi 버전이 오래됐어요. 서버 관리자가 업데이트해야 해요.",
+"The shared browser is closed.": "공유 브라우저가 닫혔어요.",
 "The sharing of this terminal changed. Open sharing again before you save.": "이 터미널의 공유가 바뀌었어요. 저장하기 전에 공유를 다시 여세요.",
 "The sharing of this terminal changed. Refresh before you add people.": "이 터미널의 공유가 바뀌었어요. 공유 대상을 추가하기 전에 새로고침하세요.",
 "The sharing of this terminal changed; refresh before retrying.": "이 터미널의 공유가 바뀌었어요. 다시 시도하기 전에 새로고침하세요.",

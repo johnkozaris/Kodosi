@@ -61,6 +61,10 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         links.toList().forEach { it.receive(event) }
     }
 
+    fun renewPipes() {
+        links.toList().forEach(DocumentLink::renewAfterLoss)
+    }
+
     fun link(session: String, key: String): DocumentLink = DocumentLink(commands, session, key) {
         links.remove(it)
     }

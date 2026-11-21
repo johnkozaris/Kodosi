@@ -64,6 +64,7 @@ public:
     Q_INVOKABLE void closeFolders();
 
     void apply(const QJsonObject& event);
+    void abandonPending(const QString& message);
     void reset();
 
 signals:
@@ -82,6 +83,7 @@ private:
     enum class Request { Agents, Models, Account, Choose, Folders, Usage };
     struct Pending {
         Request request;
+        QString operation;
         QString agent;
         int asOf;
         bool browse = false;

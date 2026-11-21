@@ -37,7 +37,7 @@ public final class RuntimeHandle: Sendable {
 
     public static let expectedFFIABIVersion: Int32 = 11
 
-    public static let expectedProtocolVersion: UInt32 = 97
+    public static let expectedProtocolVersion: UInt32 = 98
 
     public enum StartOutcome: Equatable {
         case started
@@ -267,9 +267,7 @@ public final class RuntimeHandle: Sendable {
 
     private static let onEvent: kodosi_event_cb_t = { json, len, ud in
         guard len <= KODOSI_MAX_FRAME_BYTES, let json, let runtime = resolve(ud) else { return }
-        if !runtime.inbox.push(Data(bytes: json, count: Int(len))) {
-            runtime.inbox.close(overflowed: true)
-        }
+        runtime.inbox.push(Data(bytes: json, count: Int(len)))
     }
 
     private static let onTerminalData: kodosi_terminal_data_cb_t = { sid, subscriptionId, subscriptionGeneration, _, bytes, len, ud in

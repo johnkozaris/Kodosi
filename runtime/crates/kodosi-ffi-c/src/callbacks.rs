@@ -168,10 +168,15 @@ impl State {
         let Ok(bytes) = serde_json::to_vec(event) else {
             return;
         };
+        let kind = event.get("type").and_then(serde_json::Value::as_str);
         if bytes.len() > KODOSI_MAX_FRAME_BYTES {
+            tracing::warn!(
+                kind,
+                bytes = bytes.len(),
+                "an event was too long for the app, so it went nowhere"
+            );
             return;
         }
-        let kind = event.get("type").and_then(serde_json::Value::as_str);
         if kind == Some("sessions.snapshot") {
             self.catalog(event);
         }

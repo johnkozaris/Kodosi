@@ -21,6 +21,8 @@ public final class DocumentLink {
     private var filling = Data()
     /// The next part, or none while a new pipe has not opened.
     private var next: UInt64?
+    /// The pipe that waits for the answer to its registration.
+    private var registering: String?
     public private(set) var pipe: String?
     public var onFrame: (Data) -> Void = { _ in }
     public var onNews: (News) -> Void = { _ in }
@@ -65,6 +67,13 @@ public final class DocumentLink {
         commands.send("document.close", ["pipe": .string(pipe)])
     }
 
+    /// The app dropped events when it fell behind, maybe parts of this pipe, so the pipe starts
+    /// again. A pipe that waits for its registration registers again by itself.
+    func renewAfterLoss() {
+        guard let pipe, registering != pipe else { return }
+        renew(pipe)
+    }
+
     func receive(_ event: RuntimeEvent) {
         guard let pipe, event.string("pipe") == pipe else { return }
         switch event.type {
@@ -97,10 +106,25 @@ public final class DocumentLink {
         }
     }
 
+    /// An answer that went with the events that the app dropped leaves the pipe unknown, so the
+    /// link closes it and registers it again.
     private func register(_ pipe: String) async throws {
-        _ = try await commands.request("document.open", [
-            "sessionId": .string(session), "pipe": .string(pipe), "key": .string(key),
-        ])
+        registering = pipe
+        defer {
+            if registering == pipe {
+                registering = nil
+            }
+        }
+        while true {
+            do {
+                _ = try await commands.request("document.open", [
+                    "sessionId": .string(session), "pipe": .string(pipe), "key": .string(key),
+                ])
+                return
+            } catch RuntimeError.timedOut where self.pipe == pipe {
+                commands.send("document.close", ["pipe": .string(pipe)])
+            }
+        }
     }
 
     /// A part that went missing breaks the frames, so the pipe starts again, and the parts that
@@ -109,6 +133,7 @@ public final class DocumentLink {
         filling = Data()
         next = nil
         commands.send("document.close", ["pipe": .string(pipe)])
+        registering = pipe
         Task { [weak self] in
             guard let self, self.pipe == pipe else { return }
             do {

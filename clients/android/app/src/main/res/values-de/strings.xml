@@ -22,7 +22,6 @@
     <string name="did_not_work">Das hat nicht geklappt.</string>
     <string name="did_not_work_code">Das hat nicht geklappt (%1$d).</string>
     <string name="encrypted_end_to_end">Ende-zu-Ende-verschlüsselt</string>
-    <string name="event_unreadable">Kodosi hat ein Update erhalten, das es nicht lesen kann: %1$s</string>
     <string name="feature_answer_detail">Freigaben und Fragen kommen zuerst zu dir.</string>
     <string name="feature_answer_title">Antworte, wenn sie fragen</string>
     <string name="feature_follow_detail">Live-Terminals von jedem Computer, den du nutzt.</string>
@@ -43,6 +42,7 @@
     <string name="offline">Offline</string>
     <string name="opening_sign_in">Anmeldung wird geöffnet</string>
     <string name="other_account">Kodosi hat eine Antwort für ein anderes Konto erhalten.</string>
+    <string name="outcome_unknown">Kodosi kann nicht sagen, ob das geklappt hat. Prüfe es, bevor du es erneut versuchst.</string>
     <string name="reconnecting">Verbindung wird wiederhergestellt</string>
     <string name="recovery_key">Wiederherstellungsschlüssel</string>
     <string name="remote_computer">Entfernter Computer</string>

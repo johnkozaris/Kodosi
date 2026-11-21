@@ -194,6 +194,7 @@
 "The server has no trusted devices for this account, but this device knows some.": "服务器上没有此账号的受信任设备，但此设备上有记录。",
 "The server has reached its limit of terminal connections.": "服务器的终端连接数已达上限。",
 "The server uses an older version of Kodosi. Its operator must update it.": "服务器使用的是旧版 Kodosi。需要由服务器管理员更新。",
+"The shared browser is closed.": "共享浏览器已关闭。",
 "The sharing of this terminal changed. Open sharing again before you save.": "此终端的共享已变更。保存前请重新打开共享。",
 "The sharing of this terminal changed. Refresh before you add people.": "此终端的共享已变更。添加人员前请先刷新。",
 "The sharing of this terminal changed; refresh before retrying.": "此终端的共享已变更。重试前请先刷新。",

@@ -22,7 +22,6 @@
     <string name="did_not_work">L\'opération a échoué.</string>
     <string name="did_not_work_code">L\'opération a échoué (%1$d).</string>
     <string name="encrypted_end_to_end">Chiffré de bout en bout</string>
-    <string name="event_unreadable">Kodosi a reçu une mise à jour qu\'il ne peut pas lire : %1$s</string>
     <string name="feature_answer_detail">Les approbations et les questions vous parviennent en premier.</string>
     <string name="feature_answer_title">Répondez à leurs questions</string>
     <string name="feature_follow_detail">Des terminaux en direct depuis chaque ordinateur que vous utilisez.</string>
@@ -43,6 +42,7 @@
     <string name="offline">Hors ligne</string>
     <string name="opening_sign_in">Ouverture de la page de connexion</string>
     <string name="other_account">Kodosi a reçu une réponse pour un autre compte.</string>
+    <string name="outcome_unknown">Kodosi ne sait pas si l\'opération a réussi. Vérifiez avant de réessayer.</string>
     <string name="reconnecting">Reconnexion</string>
     <string name="recovery_key">Clé de récupération</string>
     <string name="remote_computer">Ordinateur distant</string>

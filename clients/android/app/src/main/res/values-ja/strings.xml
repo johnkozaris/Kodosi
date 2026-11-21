@@ -22,7 +22,6 @@
     <string name="did_not_work">うまくいきませんでした。</string>
     <string name="did_not_work_code">うまくいきませんでした（%1$d）。</string>
     <string name="encrypted_end_to_end">エンドツーエンドで暗号化</string>
-    <string name="event_unreadable">Kodosi が読み取れない更新を受け取りました：%1$s</string>
     <string name="feature_answer_detail">承認や質問は、まずあなたに届きます。</string>
     <string name="feature_answer_title">質問されたら回答</string>
     <string name="feature_follow_detail">使っているすべてのコンピュータのターミナルをリアルタイムで。</string>
@@ -43,6 +42,7 @@
     <string name="offline">オフライン</string>
     <string name="opening_sign_in">サインインを開いています</string>
     <string name="other_account">Kodosi が別のアカウント宛ての応答を受け取りました。</string>
+    <string name="outcome_unknown">成功したかどうか Kodosi にはわかりません。再試行する前に確認してください。</string>
     <string name="reconnecting">再接続中</string>
     <string name="recovery_key">リカバリーキー</string>
     <string name="remote_computer">リモートコンピュータ</string>

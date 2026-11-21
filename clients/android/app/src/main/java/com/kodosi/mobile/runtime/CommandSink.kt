@@ -7,12 +7,17 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
-class RuntimeFailure(message: String) : Exception(message)
+open class RuntimeFailure(message: String) : Exception(message)
+
+/** The answer went with the events that the app dropped when it fell behind. */
+class LostAnswer(message: String) : RuntimeFailure(message)
 
 class CommandSink(private val words: Words) {
     enum class Delivery { CALLER, APP }
 
     private class Pending(val operation: String, val answer: CompletableDeferred<RuntimeEvent>)
+
+    private data class Abandoned(val requestId: String, val operation: String)
 
     var transport: ((ByteArray) -> Int?)? = null
     var onFailure: (String) -> Unit = {}
@@ -21,6 +26,9 @@ class CommandSink(private val words: Words) {
     var accountEpoch: Long = 0
         private set
     private val pending = HashMap<String, Pending>()
+
+    /** The requests that the app gave up, so that their late answers reach nobody. */
+    private val abandoned = ArrayDeque<Abandoned>()
 
     fun setAccount(userId: String?, epoch: Long) {
         if (epoch == accountEpoch && userId == accountUserId) return
@@ -62,19 +70,18 @@ class CommandSink(private val words: Words) {
 
     fun receive(event: RuntimeEvent): Delivery {
         val requestId = event.string("requestId") ?: return Delivery.APP
-        val waiting = pending[requestId] ?: return Delivery.APP
-        if (event.string("operation") != waiting.operation) return Delivery.APP
-        val area = waiting.operation.substringBefore('.')
-        when (event.type) {
-            "$area.error" -> waiting.answer.completeExceptionally(
-                RuntimeFailure(event.string("message") ?: words.didNotWork)
-            )
-
-            "$area.result" -> waiting.answer.complete(event)
-
-            else -> return Delivery.APP
-        }
+        val operation = event.string("operation") ?: return Delivery.APP
+        val area = operation.substringBefore('.')
+        val failed = event.type == "$area.error"
+        if (!failed && event.type != "$area.result") return Delivery.APP
+        val waiting = pending[requestId]?.takeIf { it.operation == operation }
+            ?: return if (abandoned.remove(Abandoned(requestId, operation))) Delivery.CALLER else Delivery.APP
         pending.remove(requestId)
+        if (failed) {
+            waiting.answer.completeExceptionally(RuntimeFailure(event.string("message") ?: words.didNotWork))
+        } else {
+            waiting.answer.complete(event)
+        }
         return Delivery.CALLER
     }
 
@@ -82,6 +89,20 @@ class CommandSink(private val words: Words) {
         val waiting = pending.values.toList()
         pending.clear()
         for (request in waiting) request.answer.completeExceptionally(error)
+    }
+
+    /**
+     * The answers that the app dropped when it fell behind are lost, so each caller that waits
+     * hears that Kodosi cannot tell whether its request worked, and a late answer reaches nobody.
+     */
+    fun abandonPending() {
+        val waiting = pending.toList()
+        pending.clear()
+        for ((requestId, request) in waiting) {
+            abandoned.addLast(Abandoned(requestId, request.operation))
+            if (abandoned.size > MAX_PENDING) abandoned.removeFirst()
+            request.answer.completeExceptionally(LostAnswer(words.outcomeUnknown))
+        }
     }
 
     private fun failure(result: Int?) = RuntimeFailure(result?.let(words::rejected) ?: words.unavailable)

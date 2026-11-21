@@ -30,6 +30,12 @@ void ProviderFilesModel::inspect(const QString& provider, const QString& directo
     emit busyChanged();
 }
 
+void ProviderFilesModel::abandonPending(const QString& message)
+{
+    if (!m_requestId.isEmpty())
+        apply(lostAnswer(QStringLiteral("provider.inspect"), m_requestId, message));
+}
+
 void ProviderFilesModel::reset()
 {
     m_requestId.clear();

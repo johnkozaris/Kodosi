@@ -22,7 +22,6 @@
     <string name="did_not_work">Η ενέργεια απέτυχε.</string>
     <string name="did_not_work_code">Η ενέργεια απέτυχε (%1$d).</string>
     <string name="encrypted_end_to_end">Κρυπτογραφημένο από άκρο σε άκρο</string>
-    <string name="event_unreadable">Το Kodosi έλαβε μια ενημέρωση που δεν μπορεί να διαβάσει: %1$s</string>
     <string name="feature_answer_detail">Οι εγκρίσεις και οι ερωτήσεις έρχονται πρώτα σε εσάς.</string>
     <string name="feature_answer_title">Απαντήστε όταν ρωτούν</string>
     <string name="feature_follow_detail">Ζωντανά τερματικά από κάθε υπολογιστή που χρησιμοποιείτε.</string>
@@ -43,6 +42,7 @@
     <string name="offline">Εκτός σύνδεσης</string>
     <string name="opening_sign_in">Άνοιγμα σύνδεσης</string>
     <string name="other_account">Το Kodosi έλαβε απάντηση για άλλον λογαριασμό.</string>
+    <string name="outcome_unknown">Το Kodosi δεν ξέρει αν αυτό πέτυχε. Ελέγξτε πριν δοκιμάσετε ξανά.</string>
     <string name="reconnecting">Γίνεται επανασύνδεση</string>
     <string name="recovery_key">Κλειδί ανάκτησης</string>
     <string name="remote_computer">Απομακρυσμένος υπολογιστής</string>

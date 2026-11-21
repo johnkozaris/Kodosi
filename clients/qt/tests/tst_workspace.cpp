@@ -71,6 +71,11 @@ QJsonObject accountEvent(const QString& userId, int epoch)
         event.insert(QStringLiteral("userId"), userId);
     return event;
 }
+void skippedSnapshot()
+{
+    QTest::ignoreMessage(QtWarningMsg,
+        "the app could not read the event sessions.snapshot: terminal 0 of its list is invalid or repeats");
+}
 QJsonObject lastOpen(const Commands& commands)
 {
     for (auto command = commands.values.crbegin(); command != commands.values.crend(); ++command) {
@@ -601,8 +606,9 @@ private slots:
         QCOMPARE(f.sessions.listedSessions().size(), 2);
         QCOMPARE(f.sessions.folderGroups().first().toMap().value(QStringLiteral("sessions")).toList().size(), 2);
         away.insert(QStringLiteral("hidden"), QStringLiteral("yes"));
+        skippedSnapshot();
         f.workspace.apply(test::snapshot({ away, other }), 0);
-        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        QCOMPARE(f.sessions.listedSessions().size(), 2);
     }
     void folderGroupsKeepNamesAndRemoteDirectoriesPresentationOnly()
     {
@@ -800,8 +806,9 @@ private slots:
         QCOMPARE(place(2), -1);
         auto invalid = test::session(3);
         invalid.insert(QStringLiteral("programAccount"), 256);
+        skippedSnapshot();
         f.workspace.apply(test::snapshot({ invalid }), 0);
-        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        QVERIFY(!f.sessions.containsSession(test::id(3)));
     }
     void aLocalTerminalSaysThatItsAgentStartedByHandDoesNotSeeKodosiUntilThePersonDismissesIt()
     {
@@ -827,8 +834,9 @@ private slots:
         QVERIFY(f.desktop.notedOutside().isEmpty());
         auto invalid = test::session(4);
         invalid.insert(QStringLiteral("programOutside"), QStringLiteral("yes"));
+        skippedSnapshot();
         f.workspace.apply(test::snapshot({ invalid }), 0);
-        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        QVERIFY(!f.sessions.containsSession(test::id(4)));
     }
     void aRunningAgentShowsWhatItCanChangeAndAsksItsHostToChangeIt()
     {
@@ -858,8 +866,9 @@ private slots:
         QVERIFY(!f.workspace.sessionActions().changeAgent(test::id(1), {}));
         auto invalid = test::session(2);
         invalid.insert(QStringLiteral("programSettings"), QJsonObject { { QStringLiteral("permissions"), QStringLiteral("skip") } });
+        skippedSnapshot();
         f.workspace.apply(test::snapshot({ invalid }), 0);
-        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        QVERIFY(!f.sessions.containsSession(test::id(2)));
     }
     void aTerminalShowsTheStateThatTheRuntimeGives()
     {
@@ -1026,8 +1035,9 @@ private slots:
         QVERIFY(!f.workspace.sessionActions().activate(test::id(1)));
         QVERIFY(f.commands.values.isEmpty());
         closing.insert(QStringLiteral("status"), QStringLiteral("stopping"));
+        skippedSnapshot();
         f.workspace.apply(test::snapshot({ closing }), 0);
-        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        QCOMPARE(f.sessions.session(test::id(1))->status, QStringLiteral("closing"));
     }
     void aClosingTerminalLeavesTheStageAndTheSidebarAtOnce()
     {
@@ -1742,8 +1752,9 @@ private slots:
         QVERIFY(!f.workspace.sessionActions().activate(test::id(7)));
         auto invalid = test::session(9);
         invalid.insert(QStringLiteral("incarnationId"), QStringLiteral("bad"));
+        skippedSnapshot();
         f.workspace.apply(test::snapshot({ invalid }), 0);
-        QCOMPARE(f.sessions.authorityState(), kodosi::SessionCatalogModel::Failed);
+        QVERIFY(!f.sessions.containsSession(test::id(9)));
     }
     void projectRepliesAreRequestScopedAndDeleteKeepsTerminal()
     {
@@ -1777,6 +1788,18 @@ private slots:
             { QStringLiteral("projectId"), test::id(11) } }, 0);
         QVERIFY(f.workspace.projects().selectedProjectId().isEmpty());
         QVERIFY(f.sessions.containsSession(test::id(1)));
+    }
+    void aRequestThatWaitsWhenTheAppFallsBehindEndsWithTheWordsAndTheChosenProjectStays()
+    {
+        Fixture f;
+        const auto words = QStringLiteral("Kodosi cannot tell if that worked. Check before you try again.");
+        f.workspace.projects().open(test::id(11));
+        f.workspace.projects().rename(QStringLiteral("Plans"));
+        QVERIFY(f.workspace.projects().busy());
+        f.workspace.abandonPending(words);
+        QVERIFY(!f.workspace.projects().busy());
+        QCOMPARE(f.workspace.error(), words);
+        QCOMPARE(f.workspace.projects().selectedProjectId(), test::id(11));
     }
     void projectCreationNeedsOnlyNameAndAttachedTerminalsFollowCatalog()
     {

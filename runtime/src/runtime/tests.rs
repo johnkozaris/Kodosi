@@ -1230,6 +1230,34 @@ async fn a_stream_of_document_parts_leaves_room_for_the_requests_of_its_client()
     assert!(runtime.answers().is_empty());
 }
 
+#[tokio::test]
+async fn an_app_that_fell_behind_gets_the_whole_state_again_also_after_an_account_change() {
+    let (mut runtime, _root) = registry_fixture();
+    let mut events = runtime.events.subscribe();
+    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let resync = CommandEnvelope {
+        account_user_id: Some("an account that went away".to_owned()),
+        account_epoch: runtime.scope.epoch + 1,
+        computer: None,
+        command: Command::Resync {
+            request_id: Uuid::now_v7().to_string(),
+        },
+    };
+    runtime.command(&resync, consumer, lifetime);
+    let heard: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| (event.event.kind(), event.recipient, event.account_epoch))
+        .collect();
+    let snapshot: Vec<_> = runtime
+        .snapshot_events()
+        .unwrap()
+        .iter()
+        .map(|event| (event.event.kind(), Some(consumer), runtime.scope.epoch))
+        .chain([("app.result", Some(consumer), runtime.scope.epoch)])
+        .collect();
+    assert_eq!(heard, snapshot);
+    assert!(heard.iter().any(|(kind, ..)| *kind == "sessions.snapshot"));
+}
+
 struct OpenDocument {
     pipe: Uuid,
     consumer: Uuid,

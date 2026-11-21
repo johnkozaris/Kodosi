@@ -16,7 +16,9 @@ Each computer runs one Kodosi host, a process of the Rust runtime. The host runs
 on a PTY and owns the computer's terminals, identity, encryption and projects. The
 desktop apps and the `kodosi` command are its clients over a local connection, and the
 first client that needs the host starts it. Every client gets the state of terminals and
-projects, so what one client does, the others show. The host keeps terminal state with
+projects, so what one client does, the others show. A client that falls behind the
+runtime's events drops what waits and gets the whole state again, so a slow moment never
+stops its window. The host keeps terminal state with
 Ghostty's terminal library, and the apps draw it with Ghostty.
 
 The iPhone, iPad and Android apps embed the viewer build of the runtime, which hosts no

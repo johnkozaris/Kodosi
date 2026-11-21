@@ -960,6 +960,17 @@ void CanvasModel::apply(const QJsonObject& event)
     }
 }
 
+void CanvasModel::abandonPending(const QString& message)
+{
+    for (const auto& id : m_requests.keys())
+        apply(lostAnswer(QStringLiteral("canvas.request"), id, message));
+    for (const auto& id : { m_browserStatusRequest, m_browserStepRequest }) {
+        if (!id.isEmpty())
+            applyBrowser({ { QStringLiteral("type"), QStringLiteral("browser.error") }, { QStringLiteral("requestId"), id },
+                { QStringLiteral("message"), message } });
+    }
+}
+
 void CanvasModel::reset()
 {
     m_marks.clear();

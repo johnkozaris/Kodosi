@@ -62,6 +62,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -129,6 +131,7 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
     val reconnecting by feed.reconnecting.collectAsStateWithLifecycle()
     val failure by feed.failure.collectAsStateWithLifecycle()
     val address = remember { BrowserAddress(browser.tabs.firstOrNull { it.active }?.url.orEmpty()) }
+    val addressFocus = remember { FocusRequester() }
     var addressFocused by remember { mutableStateOf(false) }
     var view by remember { mutableStateOf<BrowserSurface?>(null) }
     val dialogText = rememberTextFieldState()
@@ -222,7 +225,12 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
             ActionIcon(
                 AppSymbol.ADD,
                 R.string.new_browser_tab,
-                { feed.input(fields("kind" to "newTab")) },
+                {
+                    feed.input(fields("kind" to "newTab"))
+                    address.place("")
+                    addressFocus.requestFocus()
+                    keyboard?.show()
+                },
                 enabled = awake
             )
         }
@@ -254,6 +262,7 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
                                 CircleShape
                             )
                             .padding(horizontal = 10.dp, vertical = 9.dp)
+                            .focusRequester(addressFocus)
                             .onFocusChanged { addressFocused = it.isFocused }
                             .semantics { contentDescription = addressLabel },
                         keyboardOptions = KeyboardOptions(

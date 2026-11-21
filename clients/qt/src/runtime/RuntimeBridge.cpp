@@ -2,9 +2,11 @@
 #include "runtime/JsonEnvelope.hpp"
 #include <kodosi_runtime.h>
 
+#include <QDebug>
 #include <QJsonDocument>
 #include <QMetaObject>
 #include <QThread>
+#include <QUuid>
 #include <utility>
 #include <thread>
 
@@ -13,7 +15,9 @@ static_assert(KODOSI_FFI_ABI_VERSION == 11, "KodosiQT requires FFI ABI 11");
 namespace kodosi {
 namespace {
     constexpr qsizetype maximumEventBytes = 8 * 1024 * 1024;
-    constexpr qsizetype maximumQueuedEventBytes = 16 * 1024 * 1024;
+    // The largest file of a canvas fits in the parts of one frame, with room for the events beside it.
+    constexpr qsizetype maximumQueuedEventBytes = 64 * 1024 * 1024;
+    constexpr int maximumQueuedEvents = 4096;
     QByteArray copyBytes(const std::uint8_t* bytes, std::uintptr_t length, std::uintptr_t maximum)
     {
         if (length == 0)
@@ -92,7 +96,7 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
     m_starting = true;
     m_accountEpoch = 0;
     m_accountUserId.clear();
-    m_queueFailed.store(false, std::memory_order_release);
+    forgetQueue();
     const auto generation = ++m_nextGeneration;
     m_activeGeneration.store(generation, std::memory_order_release);
     std::thread([context = m_callbacks, generation, completion = std::move(completion)]() mutable {
@@ -119,8 +123,10 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
                     current->m_handle = handle;
                     if (handle) {
                         emit current->runningChanged(true);
+                        if (std::exchange(current->m_catchUpAfterStart, false))
+                            current->catchUp(generation);
                         const auto events = std::exchange(current->m_startupEvents, {});
-                        for (const auto& event : events) current->deliverEvent(event);
+                        for (const auto& event : events) current->receiveQueued(generation, event);
                         completion({});
                     } else {
                         current->m_activeGeneration.store(0, std::memory_order_release);
@@ -138,8 +144,8 @@ void RuntimeBridge::startAsync(std::function<void(Result)> completion)
 void RuntimeBridge::stop() noexcept
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    m_startupEvents.clear();
     m_activeGeneration.store(0, std::memory_order_release);
+    forgetQueue();
     if (!m_handle)
         return;
     auto* handle = std::exchange(m_handle, nullptr);
@@ -267,54 +273,87 @@ RuntimeBridge::Result RuntimeBridge::terminalOperationResult(std::int32_t result
 void RuntimeBridge::queueEvent(const std::uint8_t* json, std::uintptr_t length)
 {
     const auto generation = m_activeGeneration.load(std::memory_order_acquire);
-    if (!generation || length == 0 || length > static_cast<std::uintptr_t>(maximumEventBytes))
+    if (!generation || !json || length == 0 || length > static_cast<std::uintptr_t>(maximumEventBytes))
         return;
     const auto size = static_cast<qsizetype>(length);
-    const auto queued = m_queuedBytes.fetch_add(size, std::memory_order_acq_rel);
-    const auto queuedEvents = m_queuedEvents.fetch_add(1, std::memory_order_acq_rel);
-    if (queued > maximumQueuedEventBytes - size || queuedEvents >= 4096) {
-        m_queuedBytes.fetch_sub(size, std::memory_order_acq_rel);
-        m_queuedEvents.fetch_sub(1, std::memory_order_acq_rel);
-        if (m_queueFailed.exchange(true, std::memory_order_acq_rel))
-            return;
-        QMetaObject::invokeMethod(
-            this,
-            [this, generation] {
-                if (m_activeGeneration.load(std::memory_order_acquire) != generation)
-                    return;
-                stop();
-                emit eventError(
-                    tr("Kodosi got too many updates and stopped. Try again."));
-            },
-            Qt::QueuedConnection);
+    std::unique_lock lock(m_queueMutex);
+    if (m_queued.events >= maximumQueuedEvents || m_queued.bytes > maximumQueuedEventBytes - size) {
+        const bool catchingUp = m_dropped.events > 0;
+        m_dropped.events += m_queued.events + 1;
+        m_dropped.bytes += m_queued.bytes + size;
+        m_queued = {};
+        ++m_dropGeneration;
+        lock.unlock();
+        if (!catchingUp)
+            QMetaObject::invokeMethod(this, [this, generation] { catchUp(generation); }, Qt::QueuedConnection);
         return;
     }
-    const auto payload = copyBytes(json, length, static_cast<std::uintptr_t>(maximumEventBytes));
+    ++m_queued.events;
+    m_queued.bytes += size;
+    QueuedEvent event { .dropGeneration = m_dropGeneration, .payload = {} };
+    lock.unlock();
+    event.payload = copyBytes(json, length, static_cast<std::uintptr_t>(maximumEventBytes));
     QMetaObject::invokeMethod(
-        this,
-        [this, generation, size, payload] {
-            m_queuedBytes.fetch_sub(size, std::memory_order_acq_rel);
-            m_queuedEvents.fetch_sub(1, std::memory_order_acq_rel);
-            if (m_activeGeneration.load(std::memory_order_acquire) != generation)
-                return;
-            if (m_starting) {
-                if (m_startupEvents.size() >= 4096) { stop(); return; }
-                qsizetype bytes = payload.size();
-                for (const auto& queued : m_startupEvents) bytes += queued.size();
-                if (bytes > maximumQueuedEventBytes) { stop(); return; }
-                m_startupEvents.append(payload);
-                return;
-            }
-            deliverEvent(payload);
-        },
-        Qt::QueuedConnection);
+        this, [this, generation, event = std::move(event)] { receiveQueued(generation, event); }, Qt::QueuedConnection);
+}
+void RuntimeBridge::forgetQueue()
+{
+    m_startupEvents.clear();
+    m_catchUpAfterStart = false;
+    std::lock_guard lock(m_queueMutex);
+    ++m_dropGeneration;
+    m_queued = {};
+    m_dropped = {};
+}
+void RuntimeBridge::receiveQueued(std::uint64_t generation, const QueuedEvent& event)
+{
+    if (m_activeGeneration.load(std::memory_order_acquire) != generation)
+        return;
+    if (m_starting) {
+        m_startupEvents.append(event);
+        return;
+    }
+    {
+        std::lock_guard lock(m_queueMutex);
+        if (event.dropGeneration != m_dropGeneration)
+            return;
+        --m_queued.events;
+        m_queued.bytes -= event.payload.size();
+    }
+    deliverEvent(event.payload);
+}
+void RuntimeBridge::catchUp(std::uint64_t generation)
+{
+    if (m_activeGeneration.load(std::memory_order_acquire) != generation)
+        return;
+    if (m_starting) {
+        m_startupEvents.clear();
+        m_catchUpAfterStart = true;
+        return;
+    }
+    Backlog dropped;
+    {
+        std::lock_guard lock(m_queueMutex);
+        dropped = std::exchange(m_dropped, {});
+    }
+    qWarning().noquote() << QStringLiteral(
+        "the app fell behind the runtime's events and dropped %1 of them, %2 bytes, so it asks for its state again")
+                                .arg(dropped.events)
+                                .arg(dropped.bytes);
+    emit fellBehind(tr("Kodosi cannot tell if that worked. Check before you try again."));
+    const QJsonObject resync { { QStringLiteral("type"), QStringLiteral("app.resync") },
+        { QStringLiteral("requestId"), QUuid::createUuidV7().toString(QUuid::WithoutBraces) } };
+    if (const auto sent = send(QJsonDocument(resync).toJson(QJsonDocument::Compact)); !sent)
+        qWarning().noquote() << "the app could not ask for its state again:" << sent.error().message;
 }
 void RuntimeBridge::deliverEvent(const QByteArray& payload)
 {
     QJsonParseError error;
     const auto document = QJsonDocument::fromJson(payload, &error);
     if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        emit eventError(tr("Kodosi got an incomplete answer."));
+        m_faults.unreadable({}, error.error != QJsonParseError::NoError
+                ? QStringLiteral("%1 at byte %2").arg(error.errorString()).arg(error.offset)
+                : QStringLiteral("it is not an object"));
         return;
     }
     const auto object = document.object();
@@ -326,8 +365,13 @@ void RuntimeBridge::deliverEvent(const QByteArray& payload)
             if (field.name == QStringLiteral("accountEpoch")) epoch = jsonUnsigned(field.value);
         }
     }
+    if (!fields || !epoch) {
+        m_faults.unreadable(type, fields ? QStringLiteral("its account epoch is missing or not a whole number")
+                                    : QStringLiteral("it repeats a field or has too many"));
+        return;
+    }
     const auto user = object.value(QStringLiteral("accountUserId")).toString();
-    if (!epoch || *epoch < m_accountEpoch)
+    if (*epoch < m_accountEpoch)
         return;
     if (*epoch > m_accountEpoch && type != QStringLiteral("auth.ready")
         && type != QStringLiteral("auth.required") && type != QStringLiteral("system.ready"))

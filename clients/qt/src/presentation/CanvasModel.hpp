@@ -102,6 +102,7 @@ public:
     Q_INVOKABLE void wake(const QString& sessionId);
 
     void apply(const QJsonObject& event);
+    void abandonPending(const QString& message);
     void reset();
 
     [[nodiscard]] static std::optional<QPointF> browserPoint(

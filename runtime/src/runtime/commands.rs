@@ -97,6 +97,14 @@ impl Runtime {
                 self.result(command);
                 Ok(())
             }
+            Command::Resync { .. } => {
+                for mut event in self.snapshot_events()? {
+                    event.recipient = Some(consumer);
+                    self.send_event(event);
+                }
+                self.result(command);
+                Ok(())
+            }
             _ => self.apply(command),
         }
     }
@@ -257,7 +265,8 @@ impl Runtime {
             Command::OpenRemote { .. }
             | Command::DisconnectRemote { .. }
             | Command::Visible { .. }
-            | Command::Presence { .. } => {
+            | Command::Presence { .. }
+            | Command::Resync { .. } => {
                 return Err(Error::Invalid(
                     "remote view commands require a current client".to_owned(),
                 ));

@@ -2,6 +2,7 @@
 #include "SessionFixture.hpp"
 #include "runtime/RuntimeBridge.hpp"
 #include <QJsonDocument>
+#include <QRegularExpression>
 #include <QSignalSpy>
 #include <limits>
 #include <optional>
@@ -109,15 +110,45 @@ private slots:
         QVERIFY(events.isEmpty());
         QVERIFY(!bridge.send(QByteArrayLiteral("{\"type\":\"session.list\"}")));
     }
-    void boundsSmallQueuedEventsAndReportsOnce()
+    void aFullQueueDropsWhatWaitsAndCatchesUpBeforeTheNewerEvents()
     {
         kodosi::RuntimeBridge bridge;
-        QSignalSpy errors(&bridge,&kodosi::RuntimeBridge::eventError);
+        QStringList heard;
+        connect(&bridge, &kodosi::RuntimeBridge::eventReceived, this,
+            [&](const QJsonObject& event) { heard.append(QString::number(event.value(QStringLiteral("number")).toInt())); });
+        connect(&bridge, &kodosi::RuntimeBridge::fellBehind, this, [&](const QString& message) { heard.append(message); });
         QVERIFY(started(bridge));
-        const auto event=QByteArrayLiteral("{\"type\":\"system.ready\",\"accountEpoch\":0,\"accountUserId\":null}");
-        for(int i=0;i<10000;++i)runtime_fixture::sendEvent(event);
-        QTRY_VERIFY(!bridge.isRunning());
-        QCOMPARE(errors.size(),1);
+        const auto event = [](int number) {
+            return QByteArrayLiteral("{\"type\":\"sessions.snapshot\",\"number\":") + QByteArray::number(number)
+                + QByteArrayLiteral(",\"accountEpoch\":0,\"accountUserId\":null}");
+        };
+        qsizetype dropped = 0;
+        for (int number = 0; number <= 4096; ++number)
+            dropped += event(number).size();
+        QTest::ignoreMessage(QtWarningMsg,
+            qPrintable(QStringLiteral("the app fell behind the runtime's events and dropped 4097 of them, %1 bytes, so it "
+                                      "asks for its state again")
+                    .arg(dropped)));
+        for (int number = 0; number < 4099; ++number)
+            runtime_fixture::sendEvent(event(number));
+        QTRY_COMPARE(heard.size(), 3);
+        QCOMPARE(heard, (QStringList { QStringLiteral("Kodosi cannot tell if that worked. Check before you try again."),
+                            QStringLiteral("4097"), QStringLiteral("4098") }));
+        QCOMPARE(QJsonDocument::fromJson(runtime_fixture::lastCommand).object().value(QStringLiteral("type")).toString(),
+            QStringLiteral("app.resync"));
+        QVERIFY(bridge.isRunning());
+    }
+    void anUnreadableEventGoesToTheLogAndTheNextOneArrives()
+    {
+        kodosi::RuntimeBridge bridge;
+        QSignalSpy events(&bridge, &kodosi::RuntimeBridge::eventReceived);
+        QVERIFY(started(bridge));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(QStringLiteral("^the app could not read an event: ")));
+        runtime_fixture::sendEvent(QByteArrayLiteral("{\"type\":"));
+        runtime_fixture::sendEvent(
+            QByteArrayLiteral("{\"type\":\"system.ready\",\"accountEpoch\":0,\"accountUserId\":null}"));
+        QTRY_COMPARE(events.size(), 1);
+        QVERIFY(bridge.isRunning());
     }
     void preservesUnsignedIdentitiesAndRejectsCallerEnvelope()
     {
