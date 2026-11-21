@@ -220,18 +220,20 @@ private struct ChatPlan: View {
             StatusSign(form: .hand, size: 12)
             StepGlyph(symbol: ChatWords.symbol(.plan))
         }
-        ScrollView {
-            AgentProse(text: text, live: false).frame(maxWidth: .infinity, alignment: .leading).padding(10)
+        if !text.isEmpty {
+            ScrollView {
+                AgentProse(text: text, live: false).frame(maxWidth: .infinity, alignment: .leading).padding(10)
+            }
+            .frame(maxHeight: 260).fixedSize(horizontal: false, vertical: true)
+            .well(Radius.md)
         }
-        .frame(maxHeight: 260).fixedSize(horizontal: false, vertical: true)
-        .well(Radius.md)
         FlowLayout(spacing: 6) {
             ForEach(choices.indices, id: \.self) { index in
                 let choice = choices[index]
                 AnswerKey(chat: chat, ask: ask, answer: .plan(choice), kind: index == 0 ? .primary : .secondary, label: Self.label(choice))
                     .accessibilityIdentifier("chat.ask.plan.\(choice.rawValue)")
             }
-            AnswerKey(chat: chat, ask: ask, answer: .deny(nil), kind: .secondary, label: Text("Deny", bundle: .module))
+            AnswerKey(chat: chat, ask: ask, answer: .deny(nil), kind: .secondary, label: Text("Keep planning", bundle: .module))
                 .accessibilityIdentifier("chat.ask.deny")
         }
     }
@@ -241,6 +243,7 @@ private struct ChatPlan: View {
         case .go: Text("Approve", bundle: .module)
         case .ask: Text("Approve, and ask before each change", bundle: .module)
         case .edits: Text("Approve, and allow its edits", bundle: .module)
+        case .auto: Text("Approve, and use the safety check", bundle: .module)
         case .alone: Text("Approve, and ask nothing", bundle: .module)
         case .helpers: Text("Approve, and let helpers work alone", bundle: .module)
         case .leave: Text("Leave plan mode", bundle: .module)

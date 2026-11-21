@@ -75,7 +75,7 @@ struct ChatRow: Identifiable, Equatable {
         case let .text(text, writing):
             ChatRow(id: item.id, kind: .answer(text: text, live: writing && !ended))
         case let .tool(tool):
-            if case let .plan(text)? = tool.detail {
+            if case let .plan(text)? = tool.detail, !text.isEmpty {
                 ChatRow(id: item.id, kind: .plan(text: text, live: tool.state.isOpen && !ended))
             } else {
                 nil

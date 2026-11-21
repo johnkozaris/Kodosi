@@ -394,6 +394,8 @@ pub enum PlanChoice {
     Ask,
     /// Carry out the plan, and the agent changes files without asking.
     Edits,
+    /// Carry out the plan, and the agent's safety check decides what it may do.
+    Auto,
     /// The agent carries out the plan alone and asks nothing.
     Alone,
     /// Helpers of the agent carry out parts of the plan side by side, alone.

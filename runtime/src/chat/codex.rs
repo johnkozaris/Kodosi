@@ -14,7 +14,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Stop, answer, file_name, list, person, text, words},
+    agent::{Agent, Stop, answer, file_name, list, person, plan_command, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -45,6 +45,11 @@ pub(super) struct Codex {
     said: Option<(String, Option<ChatPerson>)>,
     /// The next message carries out the plan, in Codex's default mode.
     implement: bool,
+    /// The model and the effort of the default mode. Plan mode has its own, and the work on a plan
+    /// goes back to these, as Codex's terminal does.
+    default_mode: Option<(String, Option<String>)>,
+    /// Codex's own setting of its plan mode, which a `/plan` of the chat takes, as the terminal's.
+    plan_mode: Option<Value>,
     /// The chat's item of the plan that the turn that runs wrote.
     plan: Option<String>,
     /// The commands that ran when a person of the chat stopped their turn. Codex lets them run
@@ -147,6 +152,7 @@ impl Codex {
             };
         });
         self.call("models", "model/list", &json!({}));
+        self.call("modes", "collaborationMode/list", &json!({}));
         self.call("limits", "account/rateLimits/read", &Value::Null);
         self.call("loaded", "thread/loaded/list", &json!({}));
         closed
@@ -167,6 +173,20 @@ impl Codex {
                 chat.change_facts(|facts| facts.models = models);
             }
             ("limits", Some(result)) => limits(chat, result),
+            ("modes", Some(result)) => {
+                self.plan_mode = list(result, "data")
+                    .find(|mask| text(mask, "mode") == "plan")
+                    .cloned();
+            }
+            ("plan", Some(_)) => {
+                let n = name.parse::<u64>().ok();
+                if let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n)
+                    && let Some(handed) = self.handed.remove(index)
+                    && let Some(queued) = &handed.queued
+                {
+                    chat.unqueue(queued);
+                }
+            }
             ("loaded", Some(result)) if self.thread.is_none() => {
                 let loaded = list(result, "data")
                     .filter_map(Value::as_str)
@@ -193,6 +213,7 @@ impl Codex {
                         describe(chat, thread);
                     }
                     settings(chat, result);
+                    self.saw_settings(result);
                     if chat.items().is_empty() {
                         self.call(
                             &format!("history:{name}"),
@@ -213,7 +234,7 @@ impl Codex {
             {
                 self.history(chat, result);
             }
-            ("prompt", None) => self.refused(chat, name, event),
+            ("prompt" | "plan", None) => self.refused(chat, name, event),
             ("background", Some(result)) => {
                 let ended = std::mem::take(&mut self.stopped);
                 let Some(thread) = self.thread.clone() else {
@@ -336,6 +357,34 @@ impl Codex {
         );
     }
 
+    /// Codex's plan mode, with the model and the effort that its setting gives and the
+    /// conversation's own where it gives none.
+    fn plan_settings(&self, chat: &Chat) -> Option<Value> {
+        let facts = chat.facts();
+        let mask = self.plan_mode.as_ref();
+        let model = mask
+            .and_then(|mask| words(mask, "model"))
+            .or_else(|| facts.model.clone())?;
+        let effort = mask
+            .and_then(|mask| mask.get("reasoning_effort"))
+            .cloned()
+            .unwrap_or_else(|| json!(facts.effort));
+        Some(json!({
+            "mode": "plan",
+            "settings": {"model": model, "reasoning_effort": effort, "developer_instructions": null},
+        }))
+    }
+
+    fn saw_settings(&mut self, settings: &Value) {
+        if text(&settings["collaborationMode"], "mode") == "plan" {
+            return;
+        }
+        if let Some(model) = words(settings, "model") {
+            let effort = words(settings, "effort").or_else(|| words(settings, "reasoningEffort"));
+            self.default_mode = Some((model, effort));
+        }
+    }
+
     fn is_ours(&self, params: &Value) -> bool {
         self.thread
             .as_deref()
@@ -440,7 +489,10 @@ impl Codex {
                     });
                 }
             }
-            "thread/settings/updated" => settings(chat, &params["threadSettings"]),
+            "thread/settings/updated" => {
+                settings(chat, &params["threadSettings"]);
+                self.saw_settings(&params["threadSettings"]);
+            }
             _ => {}
         }
         Vec::new()
@@ -1068,18 +1120,49 @@ impl Agent for Codex {
             });
         if let Some((queued, text, by)) = next {
             self.sent += 1;
+            let plan = plan_command(&text).map(str::to_owned);
+            let text = plan.clone().unwrap_or(text);
+            let plan_mode = plan.as_ref().and_then(|_| self.plan_settings(chat));
+            // A `/plan` without words changes only the mode, as the terminal's does.
+            if plan.as_deref() == Some("") {
+                if let Some(mode) = plan_mode {
+                    commands.push(json!({
+                        "do": "call",
+                        "tag": format!("plan:{}", self.sent),
+                        "m": "thread/settings/update",
+                        "p": {"threadId": thread, "collaborationMode": mode},
+                    }));
+                    self.handed.push_back(Handed {
+                        n: self.sent,
+                        queued,
+                        text,
+                        by,
+                    });
+                }
+                return commands;
+            }
             let mut start = json!({
                 "threadId": thread,
                 "input": [{"type": "text", "text": text, "text_elements": []}],
             });
-            // As the terminal's own choice: Codex's default mode with the model and the effort of
-            // the conversation, and that mode's own instructions.
-            if let (true, Some(model)) = (implement, &chat.facts().model) {
+            if let Some(mode) = plan_mode {
+                start["collaborationMode"] = mode;
+            }
+            // As the terminal's own choice: Codex's default mode with its model and effort, and
+            // that mode's own instructions.
+            let default_mode = self.default_mode.clone().or_else(|| {
+                let facts = chat.facts();
+                facts
+                    .model
+                    .clone()
+                    .map(|model| (model, facts.effort.clone()))
+            });
+            if let (true, Some((model, effort))) = (implement, default_mode) {
                 start["collaborationMode"] = json!({
                     "mode": "default",
                     "settings": {
                         "model": model,
-                        "reasoning_effort": chat.facts().effort,
+                        "reasoning_effort": effort,
                         "developer_instructions": null,
                     },
                 });

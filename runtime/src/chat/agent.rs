@@ -111,3 +111,10 @@ pub(super) fn answer(words: &str, live: bool) -> ChatBody {
 pub(super) fn file_name(path: &str) -> &str {
     path.rsplit(['/', '\\']).next().unwrap_or(path)
 }
+
+/// A message that starts with the agents' own `/plan` command goes on in plan mode, with the rest
+/// as the message, as the agents' terminals take it.
+pub(super) fn plan_command(text: &str) -> Option<&str> {
+    let rest = text.trim_start().strip_prefix("/plan")?;
+    (rest.is_empty() || rest.starts_with(char::is_whitespace)).then(|| rest.trim())
+}

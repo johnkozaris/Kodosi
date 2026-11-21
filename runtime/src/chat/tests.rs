@@ -551,7 +551,7 @@ fn a_plan_waits_for_approval_and_a_refusal_without_words_stops_the_turn() {
     let planned = play.changes.iter().any(|change| {
         matches!(change, ChatChange::Asks { asks } if asks.iter().any(|ask| {
             matches!(&ask.body, AskBody::Plan { text, choices } if text.starts_with("# Add a discount field")
-                && choices == &[PlanChoice::Edits, PlanChoice::Ask])
+                && choices == &[PlanChoice::Auto, PlanChoice::Ask])
         }))
     });
     assert!(planned, "the plan showed for approval");
@@ -572,6 +572,75 @@ fn a_plan_waits_for_approval_and_a_refusal_without_words_stops_the_turn() {
     assert_eq!(play.view.facts.mode, Some(ChatMode::Ask));
     assert_eq!(play.view.asks, [] as [ChatAsk; 0]);
     assert_eq!(play.view.state, ChatState::Idle);
+}
+
+#[test]
+fn a_command_of_the_chat_runs_as_in_the_terminal_and_a_session_without_checks_can_stay_so() {
+    let play = Play::of(record!("plan-command"), &[]);
+
+    assert_eq!(
+        play.people(),
+        [
+            "/plan Work only in this folder. Add an optional discount field to each item in items.json and take it off the price in the total. Keep the plan short."
+        ]
+    );
+    assert_eq!(play.answers(), ["Turned on plan mode"]);
+    let [ask] = &play.view.asks[..] else {
+        panic!("the plan waits for approval");
+    };
+    assert!(matches!(&ask.body, AskBody::Plan { choices, .. }
+        if choices == &[PlanChoice::Alone, PlanChoice::Ask]));
+    let mut agent = play.agent;
+    let alone = ChatAnswer::Plan {
+        choice: PlanChoice::Alone,
+    };
+    assert_eq!(
+        agent.decision(&ask.id, &alone, None).expect("a decision")["updatedPermissions"],
+        json!([{"type": "setMode", "mode": "bypassPermissions", "destination": "session"}])
+    );
+}
+
+#[test]
+fn a_command_that_claude_code_cannot_run_ends_with_its_reason_and_the_chat_goes_on() {
+    let mut play = Play::of(record!("text"), &[]);
+    play.chat.queue("/nonexistent".to_owned(), None);
+    let [command] = &play.agent.commands(&play.chat)[..] else {
+        panic!("the message goes to Claude Code");
+    };
+
+    play.take(
+        &json!({"k": "did", "n": command["n"], "error": "Error: no command named nonexistent"}),
+    );
+
+    assert_eq!(play.view.queued, []);
+    assert!(
+        play.view.items.iter().any(|item| matches!(&item.body,
+        ChatBody::Note { note: ChatNote::Failed { error, .. } } if error.ends_with("nonexistent")))
+    );
+    play.chat.queue("Hello.".to_owned(), None);
+    play.follow();
+    assert!(
+        play.view.state != ChatState::Away && !play.agent.commands(&play.chat).is_empty(),
+        "the next message goes on"
+    );
+}
+
+#[test]
+fn a_session_in_auto_mode_goes_back_to_it_after_its_plan_as_claude_code_itself_does() {
+    let play = Play::of(record!("plan-auto"), &[]);
+
+    let [ask] = &play.view.asks[..] else {
+        panic!("the plan waits for approval");
+    };
+    assert!(matches!(&ask.body, AskBody::Plan { choices, .. }
+        if choices == &[PlanChoice::Auto, PlanChoice::Ask]));
+    let mut agent = play.agent;
+    let auto = ChatAnswer::Plan {
+        choice: PlanChoice::Auto,
+    };
+    let decision = agent.decision(&ask.id, &auto, None).expect("a decision");
+    assert_eq!(decision["behavior"], "allow");
+    assert_eq!(decision.get("updatedPermissions"), None);
 }
 
 #[test]
@@ -1542,8 +1611,8 @@ async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_person
     );
     assert_eq!(heard!()["method"], "initialized");
 
-    // The adapter asks for the models, the limits and the conversations of the server.
-    let asked = [heard!(), heard!(), heard!()];
+    // The adapter asks for the models, the modes, the limits and the conversations of the server.
+    let asked = [heard!(), heard!(), heard!(), heard!()];
     let loaded = asked
         .iter()
         .find(|call| call["method"] == "thread/loaded/list")
@@ -1868,6 +1937,40 @@ fn a_person_answers_the_question_of_codex_in_plan_mode_and_its_plan_shows() {
     assert!(
         matches!(codex.agent.stop(&codex.chat), Stop::Decisions(decisions) if decisions.len() == 1),
         "a stop ends the question and starts nothing"
+    );
+}
+
+#[test]
+fn a_plan_command_of_the_chat_goes_to_codex_in_its_plan_mode_as_the_terminal_sends_it() {
+    let mut codex = Play::codex(&[codex!("first")], &[]);
+    codex.chat.queue("/plan Add a discount.".to_owned(), None);
+
+    let calls = codex.agent.commands(&codex.chat);
+    let [start] = &calls[..] else {
+        panic!("one turn: {calls:?}");
+    };
+    assert_eq!(start["m"], "turn/start");
+    assert_eq!(start["p"]["input"][0]["text"], "Add a discount.");
+    assert_eq!(start["p"]["collaborationMode"]["mode"], "plan");
+
+    let mut codex = Play::codex(&[codex!("first")], &[]);
+    codex.chat.queue("/plan".to_owned(), None);
+    let calls = codex.agent.commands(&codex.chat);
+    let [change] = &calls[..] else {
+        panic!("one change of the mode: {calls:?}");
+    };
+    assert_eq!(change["m"], "thread/settings/update");
+    assert_eq!(change["p"]["collaborationMode"]["mode"], "plan");
+}
+
+#[test]
+fn a_plan_command_of_the_chat_goes_to_copilot_in_its_plan_mode() {
+    let mut copilot = Play::copilot(&[], &[]);
+    copilot.chat.queue("/plan Add a discount.".to_owned(), None);
+
+    assert_eq!(
+        copilot.agent.commands(&copilot.chat),
+        [json!({"do": "prompt", "n": 1, "text": "Add a discount.", "mode": "plan"})]
     );
 }
 

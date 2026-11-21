@@ -14,7 +14,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTask, ChatTool, MOST_OUTPUT,
     MOST_TARGET, MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Stop, answer, file_name, list, person, text, words},
+    agent::{Agent, Stop, answer, file_name, list, person, plan_command, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -795,18 +795,26 @@ impl Copilot {
         chat.close_asks(|_| true)
     }
 
-    /// Copilot took a message of the chat, or refused it with its reason.
+    /// Copilot took a message of the chat, or refused it with its reason. A `/plan` without words
+    /// only changed the mode, and Copilot has no message of it.
     fn did(&mut self, chat: &mut Chat, event: &Value) {
-        let Some(error) = words(event, "error") else {
-            return;
-        };
         let n = event.get("n").and_then(Value::as_u64);
         let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
             return;
         };
-        if let Some(handed) = self.handed.remove(index) {
-            chat.refuse(&handed.queued, error);
-            self.held = true;
+        match words(event, "error") {
+            Some(error) => {
+                if let Some(handed) = self.handed.remove(index) {
+                    chat.refuse(&handed.queued, error);
+                    self.held = true;
+                }
+            }
+            None if self.handed[index].text.is_empty() => {
+                if let Some(handed) = self.handed.remove(index) {
+                    chat.unqueue(&handed.queued);
+                }
+            }
+            None => {}
         }
     }
 }
@@ -1005,13 +1013,19 @@ impl Agent for Copilot {
             return Vec::new();
         };
         self.sent += 1;
+        let plan = plan_command(&queued.text);
+        let text = plan.unwrap_or(&queued.text);
         self.handed.push_back(Handed {
             n: self.sent,
             queued: queued.id.clone(),
-            text: queued.text.clone(),
+            text: text.to_owned(),
             by: queued.by.clone(),
         });
-        vec![json!({"do": "prompt", "n": self.sent, "text": queued.text})]
+        let mut command = json!({"do": "prompt", "n": self.sent, "text": text});
+        if plan.is_some() {
+            command["mode"] = json!("plan");
+        }
+        vec![command]
     }
 
     fn stop(&mut self, chat: &Chat) -> Stop {

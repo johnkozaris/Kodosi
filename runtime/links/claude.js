@@ -30,6 +30,10 @@ let sending = false
 let failures = 0
 let batch = 0
 let asks = 0
+// The permission mode of the session. Claude Code offers to go on without permission checks after a plan
+// only in a session that started without them.
+let mode = ''
+let bypass = false
 
 function post($, path, body) {
   return $.http.fetch('http://kodosi' + path, {
@@ -74,6 +78,26 @@ function tell($, kind, fields) {
   if (!socket) return
   pending.push({ k: kind, t: Date.now(), ...fields })
   flush($)
+}
+
+function newMode($, to, from, fields) {
+  if (typeof to !== 'string' || !to) return
+  mode = to
+  if (to === 'bypassPermissions' || from === 'bypassPermissions') bypass = true
+  tell($, 'mode', { mode: to, from: typeof from === 'string' ? from : undefined, ...fields })
+}
+
+// The settings that take permission modes out of the session.
+async function modesOff($) {
+  try {
+    const permissions = (await $.settings.read({ key: 'permissions' })) || {}
+    return {
+      autoOff: (await $.settings.read({ key: 'disableAutoMode' })) === 'disable' || permissions.disableAutoMode === 'disable',
+      bypassOff: permissions.disableBypassPermissionsMode === 'disable',
+    }
+  } catch (error) {
+    return {}
+  }
 }
 
 // The host has each event that came before, so a request that follows finds what it names.
@@ -143,10 +167,13 @@ async function hello($) {
     facts.usage = await $.session.usage()
     const model = (await $.config.list()).find(row => row.key === 'model')
     facts.models = model && model.options ? model.options : []
+    Object.assign(facts, await modesOff($))
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
     facts.error = String(error)
   }
+  facts.mode = mode || undefined
+  facts.bypass = bypass
   tell($, 'hello', facts)
   for (let at = 0; at < rows.length; at += HISTORY_PART) tell($, 'history', { rows: rows.slice(at, at + HISTORY_PART) })
 }
@@ -181,11 +208,15 @@ async function stop($) {
   moved.length = 0
 }
 
-// A message goes in as the person's own words. Claude Code starts its turn when the session is idle.
+// A message goes in as the person's own words, and one that starts with a slash runs that command, as in the
+// terminal. Claude Code starts its turn when the session is idle.
 function run($, command) {
   if (command.do === 'stop') stop($)
   if (command.do !== 'prompt') return
-  $.prompt.submit({ text: String(command.text), asUser: true }).then(
+  const text = String(command.text)
+  const slash = /^\s*\/(\S+)\s*([\s\S]*)$/.exec(text)
+  const sent = slash ? $.command.run({ command: slash[1], args: slash[2] }) : $.prompt.submit({ text, asUser: true })
+  sent.then(
     result => tell($, 'did', { n: command.n, drop: result && result.drop ? String(result.drop) : undefined }),
     error => tell($, 'did', { n: command.n, error: String(error) }),
   )
@@ -252,7 +283,7 @@ export function register(on) {
 
   on('session.append', async ($, e, next) => {
     const door = e.door
-    if (door === 'prompt' || door === 'response' || door === 'tool-result' || door === 'note' || door === 'compaction') {
+    if (door === 'prompt' || door === 'command' || door === 'response' || door === 'tool-result' || door === 'note' || door === 'compaction') {
       const message = e.message || {}
       tell($, 'row', {
         door,
@@ -341,8 +372,9 @@ export function register(on) {
     return next(e)
   })
 
-  // Claude Code reports the moment and the source of each permission decision only in this record. The hook
-  // reads the tool call, the decision and the mode from it, and nothing about the person or the account.
+  // Claude Code reports the moment and the source of each permission decision, and each change of the
+  // permission mode, only in these records. The hook reads the tool call, the decision and the modes from
+  // them, and nothing about the person or the account.
   on('telemetry.log', { to: 'collector' }, async ($, e, next) => {
     if (e.event === 'tool_decision' && e.attributes) {
       tell($, 'decided', {
@@ -351,6 +383,8 @@ export function register(on) {
         source: e.attributes.source,
         mode: e.attributes.permission_mode,
       })
+    } else if (e.event === 'permission_mode_changed' && e.attributes) {
+      newMode($, e.attributes.to_mode, e.attributes.from_mode)
     }
     return next(e)
   })
@@ -371,12 +405,14 @@ export function register(on) {
   })
 
   on('classic.UserPromptSubmit', async ($, e, next) => {
-    tell($, 'mode', { mode: e.permission_mode })
+    newMode($, e.permission_mode)
     return next(e)
   })
 
   on('classic.Stop', async ($, e, next) => {
-    tell($, 'mode', { mode: e.permission_mode, background: (e.background_tasks || []).filter(task => task.status === 'running').length })
+    newMode($, e.permission_mode, undefined, {
+      background: (e.background_tasks || []).filter(task => task.status === 'running').length,
+    })
     return next(e)
   })
 

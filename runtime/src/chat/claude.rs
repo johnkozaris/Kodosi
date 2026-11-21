@@ -44,6 +44,83 @@ pub(super) struct Claude {
     linked: bool,
     /// Claude Code's name of the conversation that the chat shows.
     session: String,
+    ways: Ways,
+}
+
+/// What decides the ways on after a plan that Claude Code offers in its terminal.
+#[derive(Default, Clone)]
+struct Ways {
+    /// The session can go on without permission checks: its command line allows that, or it had
+    /// that mode.
+    bypass: bool,
+    bypass_off: bool,
+    auto_off: bool,
+    /// The mode that the session had before plan mode.
+    before_plan: String,
+}
+
+impl Ways {
+    /// The command line also gives the mode that the session starts in, which Claude Code reports
+    /// first with a change of the mode or with a message.
+    fn started(&mut self, arguments: &[&str]) {
+        let (mut skip, mut allow, mut mode) = (false, false, None);
+        let mut rest = arguments.iter();
+        while let Some(argument) = rest.next() {
+            match *argument {
+                "--dangerously-skip-permissions" => skip = true,
+                "--allow-dangerously-skip-permissions" => allow = true,
+                "--permission-mode" => mode = rest.next().copied(),
+                other => mode = other.strip_prefix("--permission-mode=").or(mode),
+            }
+        }
+        let mode = mode.map(|mode| if mode == "manual" { "default" } else { mode });
+        let bypass = !self.bypass_off && (skip || allow || mode == Some("bypassPermissions"));
+        self.bypass |= bypass;
+        let start = if bypass && skip {
+            Some("bypassPermissions")
+        } else {
+            mode
+        };
+        if let (true, Some(start)) = (
+            self.before_plan.is_empty(),
+            start.filter(|start| *start != "plan"),
+        ) {
+            start.clone_into(&mut self.before_plan);
+        }
+    }
+
+    /// The least asking mode that the session can take, then the mode that asks before each change.
+    fn choices(&self) -> Vec<PlanChoice> {
+        let first = if self.bypass {
+            PlanChoice::Alone
+        } else if !self.auto_off || self.before_plan == "auto" {
+            PlanChoice::Auto
+        } else {
+            PlanChoice::Edits
+        };
+        vec![first, PlanChoice::Ask]
+    }
+
+    /// Without a plan, Claude Code asks only whether to leave plan mode: back to auto mode when
+    /// the session had it, or else to the mode that asks before each change.
+    fn without_plan(&self) -> Vec<PlanChoice> {
+        vec![if self.before_plan == "auto" && !self.auto_off {
+            PlanChoice::Auto
+        } else {
+            PlanChoice::Ask
+        }]
+    }
+
+    fn saw(&mut self, mode: &str, from: &str) {
+        if mode == "bypassPermissions" || from == "bypassPermissions" {
+            self.bypass = true;
+        }
+        if mode != "plan" && !mode.is_empty() {
+            mode.clone_into(&mut self.before_plan);
+        } else if mode == "plan" && !from.is_empty() && from != "plan" {
+            from.clone_into(&mut self.before_plan);
+        }
+    }
 }
 
 struct Call {
@@ -142,6 +219,13 @@ impl Claude {
         self.helpers.entry(id.to_owned()).or_default()
     }
 
+    /// The permission mode that a report names, and the mode that it changed from.
+    fn saw_mode(&mut self, chat: &mut Chat, event: &Value) {
+        let name = text(event, "mode");
+        self.ways.saw(name, text(event, "from"));
+        chat.change_facts(|facts| facts.mode = mode(name).or(facts.mode));
+    }
+
     /// A long session makes more calls than the chat keeps items. The calls of the items that
     /// left the chat, and the helpers that ended, are forgotten.
     fn forget(&mut self, chat: &Chat) {
@@ -187,6 +271,15 @@ impl Claude {
         };
         session.clone_into(&mut self.session);
         self.linked = true;
+        self.ways.bypass |= event.get("bypass").and_then(Value::as_bool) == Some(true);
+        self.ways.bypass_off = event.get("bypassOff").and_then(Value::as_bool) == Some(true);
+        self.ways.auto_off = event.get("autoOff").and_then(Value::as_bool) == Some(true);
+        self.ways.started(
+            &list(event, "arguments")
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>(),
+        );
+        self.saw_mode(chat, event);
         chat.change_facts(|facts| {
             facts.agent = Some(Self::NAME.to_owned());
             facts.version = words(event, "version").or_else(|| facts.version.take());
@@ -214,6 +307,7 @@ impl Claude {
             sent: self.sent,
             session: std::mem::take(&mut self.session),
             linked: true,
+            ways: self.ways.clone(),
             ..Self::default()
         };
         chat.reset();
@@ -277,6 +371,9 @@ impl Claude {
         for block in list(event, "content") {
             match (door, text(block, "type")) {
                 ("prompt", "text") if helper.is_empty() => self.prompt(chat, event, block, at),
+                ("command", "text") if helper.is_empty() => {
+                    self.command(chat, event, text(block, "text"), at);
+                }
                 ("response", "text") if helper.is_empty() => {
                     self.end_writing(chat, Some(text(block, "text")));
                     if self.writing.take().is_none() {
@@ -297,12 +394,48 @@ impl Claude {
     /// this door are records that Claude Code makes, such as the end of a helper.
     fn prompt(&mut self, chat: &mut Chat, event: &Value, block: &Value, at: u64) {
         let origin = event.get("origin").unwrap_or(&Value::Null);
-        let words = text(block, "text");
         let from_chat = text(origin, "kind") == "plugin"
             && origin.get("asUser").and_then(Value::as_bool) == Some(true);
+        if from_chat || text(origin, "kind") == "composer" {
+            self.person_said(chat, text(block, "text"), from_chat, at);
+        }
+    }
+
+    /// A slash command that a person ran in the terminal or the chat, or what it printed.
+    fn command(&mut self, chat: &mut Chat, event: &Value, row: &str, at: u64) {
+        if let Some(output) = between(row, "<local-command-stdout>", "</local-command-stdout>") {
+            if !output.trim().is_empty() {
+                chat.push(at, answer(output.trim(), false));
+            }
+            return;
+        }
+        if let Some(error) = between(row, "<local-command-stderr>", "</local-command-stderr>") {
+            chat.push(
+                at,
+                ChatBody::Note {
+                    note: ChatNote::Failed {
+                        error: start_of(error.trim(), MOST_TARGET).to_owned(),
+                        text: String::new(),
+                    },
+                },
+            );
+            return;
+        }
+        let Some(name) = between(row, "<command-name>", "</command-name>") else {
+            return;
+        };
+        let origin = event.get("origin").unwrap_or(&Value::Null);
+        let from_chat =
+            text(origin, "kind") == "plugin" && text(origin, "name") == crate::agents::PLUGIN_NAME;
         if !from_chat && text(origin, "kind") != "composer" {
             return;
         }
+        let arguments = between(row, "<command-args>", "</command-args>").unwrap_or_default();
+        let words = format!("{} {}", name.trim(), arguments.trim());
+        self.person_said(chat, words.trim_end(), from_chat, at);
+    }
+
+    fn person_said(&mut self, chat: &mut Chat, words: &str, from_chat: bool, at: u64) {
         self.held &= from_chat;
         self.end_writing(chat, None);
         // Claude Code starts the messages of the chat in their order, so a message whose text it
@@ -585,8 +718,12 @@ impl Claude {
                 AskKind::Plan,
                 // The ways on that Claude Code's terminal offers when the conversation goes on.
                 AskBody::Plan {
+                    choices: if text.trim().is_empty() {
+                        self.ways.without_plan()
+                    } else {
+                        self.ways.choices()
+                    },
                     text,
-                    choices: vec![PlanChoice::Edits, PlanChoice::Ask],
                 },
             ),
             _ => (
@@ -607,7 +744,7 @@ impl Claude {
         if let Some(item) = &item {
             chat.change_tool(item, |tool| tool.state = ToolState::Asking);
         }
-        chat.change_facts(|facts| facts.mode = mode(text(event, "mode")).or(facts.mode));
+        self.saw_mode(chat, event);
         self.asked.insert(
             id.to_owned(),
             Asked {
@@ -626,7 +763,7 @@ impl Claude {
 
     fn decided(&mut self, chat: &mut Chat, event: &Value) -> Vec<String> {
         let id = text(event, "id");
-        chat.change_facts(|facts| facts.mode = mode(text(event, "mode")).or(facts.mode));
+        self.saw_mode(chat, event);
         let Some(call) = self.calls.get(id) else {
             return Vec::new();
         };
@@ -774,20 +911,34 @@ impl Claude {
         self.lost(chat)
     }
 
-    /// A message that Claude Code did not take stays in the queue with Claude Code's reason.
-    fn did(&mut self, chat: &mut Chat, event: &Value) {
-        let reason = [text(event, "error"), text(event, "drop")]
-            .into_iter()
-            .find(|reason| !reason.is_empty());
+    /// Claude Code holds a message after a stop in the terminal until a person types there, and
+    /// the message waits in the queue with Claude Code's reason. A command that it cannot run ends
+    /// there, as in its terminal.
+    fn did(&mut self, chat: &mut Chat, event: &Value, at: u64) {
+        let (error, drop) = (text(event, "error"), text(event, "drop"));
         let n = event.get("n").and_then(Value::as_u64);
-        let (Some(reason), Some(index)) = (
-            reason,
-            self.handed.iter().position(|handed| Some(handed.n) == n),
-        ) else {
+        let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
             return;
         };
-        if let Some(handed) = self.handed.remove(index) {
-            chat.refuse(&handed.queued, start_of(reason, MOST_TARGET).to_owned());
+        if error.is_empty() && drop.is_empty() {
+            return;
+        }
+        let Some(handed) = self.handed.remove(index) else {
+            return;
+        };
+        if drop.is_empty() {
+            chat.unqueue(&handed.queued);
+            chat.push(
+                at,
+                ChatBody::Note {
+                    note: ChatNote::Failed {
+                        error: start_of(error, MOST_TARGET).to_owned(),
+                        text: String::new(),
+                    },
+                },
+            );
+        } else {
+            chat.refuse(&handed.queued, start_of(drop, MOST_TARGET).to_owned());
             self.held = true;
         }
     }
@@ -854,12 +1005,14 @@ impl Agent for Claude {
             "done" => self.done(chat, event),
             "halted" => self.halted(chat, event),
             "agent" => self.started_helper(chat, event),
-            "mode" => chat.change_facts(|facts| {
-                facts.mode = mode(text(event, "mode")).or(facts.mode);
+            "mode" => {
+                self.saw_mode(chat, event);
                 if let Some(background) = event.get("background").and_then(Value::as_u64) {
-                    facts.background = u32::try_from(background).unwrap_or(u32::MAX);
+                    chat.change_facts(|facts| {
+                        facts.background = u32::try_from(background).unwrap_or(u32::MAX);
+                    });
                 }
-            }),
+            }
             "measure" => measure(chat, event),
             "model" => chat.change_facts(|facts| {
                 facts.model = words(event, "model").or_else(|| facts.model.take());
@@ -895,7 +1048,7 @@ impl Agent for Claude {
                 }
             }
             "end" => closed = self.end(chat, text(event, "reason")),
-            "did" => self.did(chat, event),
+            "did" => self.did(chat, event, at),
             _ => {}
         }
         self.show(chat);
@@ -999,6 +1152,13 @@ impl Agent for Claude {
             // Claude Code's own ways on after a plan set the mode of the session.
             (AskKind::Plan, ChatAnswer::Plan { choice }) => {
                 let mode = match choice {
+                    PlanChoice::Alone => "bypassPermissions",
+                    // Claude Code goes back by itself to the mode that it had before the plan, and
+                    // only so does it take auto mode with each step that its own switch to it takes.
+                    PlanChoice::Auto if self.ways.before_plan == "auto" => {
+                        return Some(json!({"behavior": "allow", "updatedInput": asked.input}));
+                    }
+                    PlanChoice::Auto => "auto",
                     PlanChoice::Edits => "acceptEdits",
                     PlanChoice::Ask => "default",
                     _ => return None,
@@ -1082,6 +1242,12 @@ impl Agent for Claude {
             Stop::Nothing
         }
     }
+}
+
+/// The text between two marks that Claude Code puts around a part of a row.
+fn between<'a>(row: &'a str, start: &str, end: &str) -> Option<&'a str> {
+    let after = &row[row.find(start)? + start.len()..];
+    Some(&after[..after.find(end)?])
 }
 
 fn refusal(words: &str) -> Value {
@@ -1222,14 +1388,12 @@ fn described(name: &str, input: &Value) -> ChatTool {
                 }),
             )
         }
+        // Claude Code also asks to leave plan mode when it found no plan.
         ToolKind::Plan => (
             "",
-            input
-                .get("plan")
-                .and_then(Value::as_str)
-                .map(|plan| ToolDetail::Plan {
-                    text: start_of(plan, MOST_TEXT).to_owned(),
-                }),
+            Some(ToolDetail::Plan {
+                text: start_of(text(input, "plan"), MOST_TEXT).to_owned(),
+            }),
         ),
         ToolKind::Edit | ToolKind::Write | ToolKind::Other => ("", None),
     };

@@ -555,6 +555,10 @@ pub(crate) fn notes_folder(data_root: &Path) -> std::path::PathBuf {
     data_root.join("agents")
 }
 
+/// The name of Kodosi's plugin for the agents, which names what it does in a session.
+#[cfg(feature = "host")]
+pub(crate) const PLUGIN_NAME: &str = "kodosi";
+
 /// The module is Claude Code's link to the chat of its terminal.
 #[cfg(feature = "host")]
 const CLAUDE_HOOKS: &str = r#"{
@@ -578,7 +582,7 @@ const CLAUDE_HOOKS: &str = r#"{
 pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
     let plugin = folder.join(PLUGIN);
     let manifest = format!(
-        "{{\n  \"name\": \"kodosi\",\n  \"version\": \"{}\",\n  \"description\": \"Work with the people and agents in Kodosi, and show them what you make on the canvas of a terminal.\"\n}}\n",
+        "{{\n  \"name\": \"{PLUGIN_NAME}\",\n  \"version\": \"{}\",\n  \"description\": \"Work with the people and agents in Kodosi, and show them what you make on the canvas of a terminal.\"\n}}\n",
         crate::PRODUCT_VERSION
     );
     let cursor = folder.join(CURSOR_PLUGIN);

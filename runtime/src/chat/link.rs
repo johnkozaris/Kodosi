@@ -213,9 +213,11 @@ fn socket_of(_: &kodosi_os::ipc::Endpoint) -> Option<Arc<str>> {
 }
 
 async fn connection(mut stream: kodosi_os::ipc::Stream, rooms: Rooms) {
+    let peer = stream.peer_pid();
     let mut kept = Vec::new();
     while let Ok(Some(request)) = http::read(&mut stream, &mut kept).await {
-        let Some((status, body)) = respond(&mut stream, &mut kept, &rooms, request).await else {
+        let Some((status, body)) = respond(&mut stream, &mut kept, &rooms, peer, request).await
+        else {
             return;
         };
         let body = body.map_or_default(|body| body.to_string());
@@ -233,6 +235,7 @@ async fn respond(
     stream: &mut kodosi_os::ipc::Stream,
     kept: &mut Vec<u8>,
     rooms: &Rooms,
+    peer: Option<u32>,
     request: http::Request,
 ) -> Option<(u16, Option<Value>)> {
     let Ok(mut body) = serde_json::from_slice::<Value>(&request.body) else {
@@ -262,6 +265,7 @@ async fn respond(
                 return Some((400, None));
             };
             events.truncate(MOST_EVENTS);
+            started_with(&mut events, peer);
             let (reply, heard) = oneshot::channel();
             let job = Job::Events {
                 link,
@@ -314,6 +318,25 @@ async fn respond(
         _ => (404, None),
     })
 }
+
+/// The agent's greeting carries the command line that its program started with. Some choices of
+/// a session, such as Claude Code's permission modes, are given there and reported nowhere else.
+#[cfg(unix)]
+fn started_with(events: &mut [Value], peer: Option<u32>) {
+    let Some(hello) = events
+        .iter_mut()
+        .find(|event| event.get("k").and_then(Value::as_str) == Some("hello"))
+    else {
+        return;
+    };
+    if let Some(start) = peer.and_then(kodosi_pty::process_start) {
+        hello["arguments"] = json!(start.arguments);
+    }
+}
+
+/// The module of an agent's link reaches a socket file, and a Windows endpoint is a named pipe.
+#[cfg(not(unix))]
+const fn started_with(_: &mut [Value], _: Option<u32>) {}
 
 /// The chat's answer to a request that waits: the answer, nothing when the time of the request
 /// ended, and no value at all when the other side left.

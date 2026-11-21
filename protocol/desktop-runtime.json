@@ -530,6 +530,9 @@
                                       "const": "edits"
                                     },
                                     {
+                                      "const": "auto"
+                                    },
+                                    {
                                       "const": "alone"
                                     },
                                     {
@@ -2585,6 +2588,9 @@
                                                 "const": "edits"
                                               },
                                               {
+                                                "const": "auto"
+                                              },
+                                              {
                                                 "const": "alone"
                                               },
                                               {
@@ -3205,6 +3211,9 @@
                         },
                         {
                           "const": "edits"
+                        },
+                        {
+                          "const": "auto"
                         },
                         {
                           "const": "alone"

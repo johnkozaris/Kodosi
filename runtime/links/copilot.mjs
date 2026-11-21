@@ -203,7 +203,8 @@ async function hello(early) {
   await readTasks()
 }
 
-// A message goes in as the person's own words. Copilot starts its turn when the session is idle.
+// A message goes in as the person's own words, in the mode that it names. Copilot starts its turn when the
+// session is idle.
 async function run(command) {
   if (command.do === 'stop') {
     try {
@@ -215,7 +216,8 @@ async function run(command) {
   }
   if (command.do !== 'prompt') return
   try {
-    await session.send({ prompt: String(command.text) })
+    if (command.mode) await session.rpc.mode.set({ mode: String(command.mode) })
+    if (command.text) await session.send({ prompt: String(command.text) })
     tell('did', { n: command.n })
   } catch (error) {
     tell('did', { n: command.n, error: String((error && error.message) || error) })

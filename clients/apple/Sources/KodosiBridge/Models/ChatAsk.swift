@@ -78,6 +78,8 @@ public enum PlanChoice: String, Decodable, Sendable {
     case ask
     /// Carry out the plan, and the agent changes files without asking.
     case edits
+    /// Carry out the plan, and the agent's safety check decides what it may do.
+    case auto
     /// The agent carries out the plan alone and asks nothing.
     case alone
     /// Helpers of the agent carry out parts of the plan side by side, alone.
