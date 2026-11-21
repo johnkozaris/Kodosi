@@ -194,6 +194,7 @@
 "The server has no trusted devices for this account, but this device knows some.": "Ο διακομιστής δεν έχει αξιόπιστες συσκευές για αυτόν τον λογαριασμό, αλλά αυτή η συσκευή γνωρίζει κάποιες.",
 "The server has reached its limit of terminal connections.": "Ο διακομιστής έφτασε το όριο συνδέσεων τερματικών.",
 "The server uses an older version of Kodosi. Its operator must update it.": "Ο διακομιστής χρησιμοποιεί παλαιότερη έκδοση του Kodosi. Ο διαχειριστής του πρέπει να τον ενημερώσει.",
+"The shared browser is closed.": "Ο κοινόχρηστος browser είναι κλειστός.",
 "The sharing of this terminal changed. Open sharing again before you save.": "Η κοινή χρήση αυτού του τερματικού άλλαξε. Ανοίξτε ξανά την κοινή χρήση πριν αποθηκεύσετε.",
 "The sharing of this terminal changed. Refresh before you add people.": "Η κοινή χρήση αυτού του τερματικού άλλαξε. Ανανεώστε πριν προσθέσετε άτομα.",
 "The sharing of this terminal changed; refresh before retrying.": "Η κοινή χρήση αυτού του τερματικού άλλαξε. Ανανεώστε πριν δοκιμάσετε ξανά.",

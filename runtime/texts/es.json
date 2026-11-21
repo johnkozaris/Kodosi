@@ -194,6 +194,7 @@
 "The server has no trusted devices for this account, but this device knows some.": "El servidor no tiene dispositivos de confianza para esta cuenta, pero este dispositivo conoce algunos.",
 "The server has reached its limit of terminal connections.": "El servidor ha alcanzado su límite de conexiones de terminal.",
 "The server uses an older version of Kodosi. Its operator must update it.": "El servidor usa una versión anterior de Kodosi. Su administrador debe actualizarlo.",
+"The shared browser is closed.": "El navegador compartido está cerrado.",
 "The sharing of this terminal changed. Open sharing again before you save.": "El uso compartido de este terminal ha cambiado. Vuelve a abrir el uso compartido antes de guardar.",
 "The sharing of this terminal changed. Refresh before you add people.": "El uso compartido de este terminal ha cambiado. Actualiza antes de añadir personas.",
 "The sharing of this terminal changed; refresh before retrying.": "El uso compartido de este terminal ha cambiado. Actualiza antes de reintentarlo.",

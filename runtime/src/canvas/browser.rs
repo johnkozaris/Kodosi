@@ -546,6 +546,12 @@ impl Browser {
         {
             tracing::warn!(%problem, "the profile of a closed terminal stays");
         }
+        self.forget_pages().await;
+    }
+
+    /// agent-browser keeps the page of its session in a file, so after the window ends it takes
+    /// that page for gone and opens a second tab in the next window.
+    pub(super) async fn forget_pages(&self) {
         let sockets = self.places.sockets.clone();
         let session = format!("{}.", self.terminal.id.simple());
         drop(
