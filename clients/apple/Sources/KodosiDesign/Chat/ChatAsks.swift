@@ -15,8 +15,8 @@ struct ChatAskCard: View {
                 ChatPermission(chat: chat, ask: ask, tool: tool, always: always, helper: helper)
             case let .question(questions):
                 ChatQuestions(chat: chat, ask: ask, questions: questions)
-            case let .plan(text):
-                ChatPlan(chat: chat, ask: ask, text: text)
+            case let .plan(text, chooseAsks):
+                ChatPlan(chat: chat, ask: ask, text: text, chooseAsks: chooseAsks)
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 11)
@@ -213,6 +213,7 @@ private struct ChatPlan: View {
     let chat: TerminalChat
     let ask: ChatAsk
     let text: String
+    let chooseAsks: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -227,9 +228,11 @@ private struct ChatPlan: View {
         FlowLayout(spacing: 6) {
             AnswerKey(chat: chat, ask: ask, answer: .approve(asks: false), kind: .primary, label: Text("Approve", bundle: .module))
                 .accessibilityIdentifier("chat.ask.approve")
-            AnswerKey(chat: chat, ask: ask, answer: .approve(asks: true), kind: .secondary,
-                      label: Text("Approve, and ask before each change", bundle: .module))
-                .accessibilityIdentifier("chat.ask.approveAsking")
+            if chooseAsks {
+                AnswerKey(chat: chat, ask: ask, answer: .approve(asks: true), kind: .secondary,
+                          label: Text("Approve, and ask before each change", bundle: .module))
+                    .accessibilityIdentifier("chat.ask.approveAsking")
+            }
             AnswerKey(chat: chat, ask: ask, answer: .deny(nil), kind: .secondary, label: Text("Deny", bundle: .module))
                 .accessibilityIdentifier("chat.ask.deny")
         }

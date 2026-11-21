@@ -44,6 +44,10 @@ public final class TerminalChat {
         chat?.queued ?? []
     }
 
+    public var tasks: [ChatTask] {
+        chat?.tasks ?? []
+    }
+
     public var facts: ChatFacts {
         chat?.facts ?? ChatFacts()
     }
@@ -216,6 +220,8 @@ extension ChatSnapshot {
             self.asks = asks
         case let .queued(queued):
             self.queued = queued
+        case let .tasks(tasks):
+            self.tasks = tasks
         case let .facts(facts):
             self.facts = facts
         case let .state(state, now):
@@ -224,6 +230,7 @@ extension ChatSnapshot {
         case .reset:
             items = []
             asks = []
+            tasks = []
         }
     }
 

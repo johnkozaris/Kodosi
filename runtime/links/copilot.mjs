@@ -2,7 +2,8 @@
 // does, gives Copilot the person's answer to a question, and sends what the person writes in Kodosi.
 // It changes nothing else in the session, and outside a Kodosi terminal it does not join the session.
 //
-// It presses no key. Copilot shows each question in the terminal too, so a person can answer there.
+// It presses no key. Copilot shows each question in the terminal too, so a person can answer there, and
+// the first answer counts.
 
 import { joinSession } from '@microsoft/copilot-sdk/extension'
 import http from 'node:http'
@@ -30,10 +31,16 @@ const READ = {
   'tool.execution_start': ['toolCallId', 'toolName', 'arguments', 'toolTitle', 'parentToolCallId'],
   'tool.shell_output': ['toolCallId', 'stream', 'text'],
   'tool.execution_complete': ['toolCallId', 'success', 'result', 'error', 'parentToolCallId'],
-  'permission.requested': ['requestId', 'permissionRequest'],
   'permission.completed': ['requestId', 'toolCallId', 'result'],
+  'elicitation.requested': ['requestId', 'toolCallId'],
+  'elicitation.completed': ['requestId', 'action', 'content'],
+  'exit_plan_mode.completed': ['requestId', 'approved'],
+  'subagent.started': ['toolCallId', 'agentName', 'agentDisplayName'],
+  'subagent.completed': ['toolCallId'],
+  'subagent.failed': ['toolCallId'],
   'session.usage_info': ['tokenLimit', 'currentTokens'],
   'session.model_change': ['newModel', 'reasoningEffort'],
+  'session.mode_changed': ['newMode'],
 }
 
 let socket = process.env.KODOSI_AGENT_LINK || ''
@@ -46,6 +53,8 @@ let failures = 0
 let batch = 0
 let asks = 0
 let session = null
+let reading = null
+let readAgain = false
 
 function post(path, body) {
   return new Promise(resolve => {
@@ -126,7 +135,32 @@ function shaped(event) {
   if (!fields) return null
   const data = {}
   for (const field of fields) if (event.data && event.data[field] !== undefined) data[field] = brief(event.data[field], 0)
-  return { type: event.type, data, id: event.id, at: Date.parse(event.timestamp) || undefined }
+  return { type: event.type, data, id: event.id, agent: event.agentId, at: Date.parse(event.timestamp) || undefined }
+}
+
+// Copilot keeps its list of the work in the session's own database, and only says that it changed.
+function readTasks() {
+  if (reading) {
+    readAgain = true
+    return reading
+  }
+  reading = session.rpc.plan
+    .readSqlTodosWithDependencies()
+    .then(
+      todos => {
+        const rows = todos && Array.isArray(todos.rows) ? todos.rows : []
+        tell('tasks', { rows: rows.slice(0, 64).map(row => ({ title: row.title, status: row.status })) })
+      },
+      () => {},
+    )
+    .then(() => {
+      reading = null
+      if (readAgain) {
+        readAgain = false
+        return readTasks()
+      }
+    })
+  return reading
 }
 
 // The session's earlier events go first. An event that comes while the extension reads them waits, and goes
@@ -138,6 +172,12 @@ async function hello(early) {
     facts.model = current && current.modelId
   } catch (error) {
     facts.error = String(error)
+  }
+  try {
+    const mode = await session.rpc.mode.get()
+    facts.mode = typeof mode === 'string' ? mode : mode && mode.mode
+  } catch (error) {
+    facts.mode = undefined
   }
   try {
     const models = await session.rpc.model.list()
@@ -160,6 +200,7 @@ async function hello(early) {
   }
   const known = new Set(earlier.map(event => event.id))
   for (const event of early.splice(0)) if (!known.has(event.id)) tell('event', event)
+  await readTasks()
 }
 
 // A message goes in as the person's own words. Copilot starts its turn when the session is idle.
@@ -210,12 +251,12 @@ async function ask(body) {
 }
 
 // Copilot shows its own question at the same time, so the person can answer in the terminal too. The host
-// ends this wait when the question is gone, and Copilot then keeps the answer of the terminal.
-async function decide(request) {
-  if (!socket) return { kind: 'no-result' }
+// ends this wait when the question is gone: the answer of the terminal came first, and Copilot keeps it.
+async function wait(kind, request) {
+  if (!socket) return null
   asks += 1
   const id = loaded + '-' + asks
-  tell('ask', { ask: id, request: brief(request, 0) })
+  tell('ask', { ask: id, [kind]: brief(request, 0) })
   await settled()
   let answer = null
   let quick = 0
@@ -224,14 +265,41 @@ async function decide(request) {
     answer = await ask({ ask: id })
     quick = !answer && Date.now() - began < QUICK_MS ? quick + 1 : 0
   }
+  return answer
+}
+
+async function decide(request) {
+  const answer = await wait('request', request)
   return answer && answer.decision ? answer.decision : { kind: 'no-result' }
 }
 
+// A question or a plan has no answer that leaves the decision to the terminal. Without the host the
+// extension gives none, and after the terminal's answer Copilot takes no other.
+const UNANSWERED = new Promise(() => {})
+
+async function form(context) {
+  const answer = await wait('form', { message: context.message, requestedSchema: context.requestedSchema })
+  if (answer && answer.decision) return answer.decision
+  return answer && answer.closed ? { action: 'cancel' } : UNANSWERED
+}
+
+async function plan(request) {
+  const answer = await wait('plan', request)
+  if (answer && answer.decision) return answer.decision
+  return answer && answer.closed ? { approved: false } : UNANSWERED
+}
+
 if (socket && terminal) {
-  session = await joinSession({ events: { streaming: true }, onPermissionRequest: decide })
+  session = await joinSession({
+    events: { streaming: true },
+    onPermissionRequest: decide,
+    onElicitationRequest: form,
+    onExitPlanModeRequest: plan,
+  })
   const early = []
   let started = false
   session.on(event => {
+    if (event && event.type === 'session.todos_changed' && started) readTasks()
     const shown = shaped(event)
     if (!shown) return
     if (started) tell('event', shown)

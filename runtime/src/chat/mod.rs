@@ -59,6 +59,8 @@ const MOST_TARGET: usize = 400;
 const MOST_LINES: usize = 160;
 #[cfg(feature = "host")]
 const MOST_ASKS: usize = 16;
+#[cfg(feature = "host")]
+const MOST_TASKS: usize = 64;
 
 /// What the terminal's computer sends on the chat pipe: the chat as it is, then each change in order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -81,6 +83,8 @@ pub struct ChatSnapshot {
     pub asks: Vec<ChatAsk>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub queued: Vec<ChatQueued>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tasks: Vec<ChatTask>,
 }
 
 /// The changes that make the chat of one revision from the chat of the revision before.
@@ -111,6 +115,10 @@ pub enum ChatChange {
     },
     Queued {
         queued: Vec<ChatQueued>,
+    },
+    /// The agent's list of its work, whole.
+    Tasks {
+        tasks: Vec<ChatTask>,
     },
     Facts {
         facts: Box<ChatFacts>,
@@ -371,6 +379,13 @@ pub enum AskBody {
     },
     Plan {
         text: String,
+        /// The person chooses whether the agent then asks before each change.
+        #[serde(
+            default,
+            rename = "chooseAsks",
+            skip_serializing_if = "std::ops::Not::not"
+        )]
+        choose_asks: bool,
     },
 }
 
@@ -424,6 +439,22 @@ pub struct ChatQueued {
     /// sends another, removes it, or writes to the agent in the terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refused: Option<String>,
+}
+
+/// A step of the list that the agent keeps of its work.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatTask {
+    pub text: String,
+    pub state: TaskState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum TaskState {
+    Pending,
+    Working,
+    Done,
 }
 
 /// A person of the terminal: the account, or for a person with no account the view that sent.

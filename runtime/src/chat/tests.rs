@@ -154,6 +154,7 @@ impl Play {
                 ChatChange::Remove { id } => self.view.items.retain(|item| &item.id != id),
                 ChatChange::Asks { asks } => self.view.asks.clone_from(asks),
                 ChatChange::Queued { queued } => self.view.queued.clone_from(queued),
+                ChatChange::Tasks { tasks } => self.view.tasks.clone_from(tasks),
                 ChatChange::Facts { facts } => self.view.facts = (**facts).clone(),
                 ChatChange::State { state, now } => {
                     self.view.state = *state;
@@ -162,6 +163,7 @@ impl Play {
                 ChatChange::Reset => {
                     self.view.items.clear();
                     self.view.asks.clear();
+                    self.view.tasks.clear();
                 }
             }
         }
@@ -546,7 +548,7 @@ fn a_plan_waits_for_approval_and_a_refusal_without_words_stops_the_turn() {
 
     let planned = play.changes.iter().any(|change| {
         matches!(change, ChatChange::Asks { asks } if asks.iter().any(|ask| {
-            matches!(&ask.body, AskBody::Plan { text } if text.starts_with("# Add a discount field"))
+            matches!(&ask.body, AskBody::Plan { text, choose_asks: true } if text.starts_with("# Add a discount field"))
         }))
     });
     assert!(planned, "the plan showed for approval");
@@ -1770,4 +1772,228 @@ fn a_message_of_the_chat_goes_to_copilot_only_when_copilot_is_idle() {
 
     play.more(copilot!("text"), &[]);
     assert_eq!(play.people(), ["Say hello in five words."]);
+}
+
+#[test]
+fn a_person_answers_a_question_of_copilot_with_one_of_its_choices() {
+    let mut play = Play::copilot(&[], &[]);
+    let lines = copilot!("question").lines().collect::<Vec<_>>();
+    let asked = lines
+        .iter()
+        .position(|line| line.contains(r#""k":"ask""#))
+        .expect("a question");
+    play.more(&lines[..=asked].join("\n"), &[]);
+    let [ask] = &play.view.asks[..] else {
+        panic!("one question");
+    };
+    let AskBody::Question { questions } = &ask.body else {
+        panic!("a question with choices");
+    };
+    assert_eq!(
+        questions
+            .iter()
+            .map(|question| (
+                question.question.as_str(),
+                question
+                    .options
+                    .iter()
+                    .map(|option| option.label.as_str())
+                    .collect::<Vec<_>>()
+            ))
+            .collect::<Vec<_>>(),
+        [(
+            "Which fruit should I add to the price list?",
+            vec!["pear", "plum", "kiwi"]
+        )]
+    );
+    assert_eq!(play.view.state, ChatState::Asking);
+
+    play.more(
+        &lines[asked + 1..].join("\n"),
+        &[ChatAnswer::Answers {
+            answers: vec![vec!["plum".to_owned()]],
+        }],
+    );
+    let [question] = play.tools()[..] else {
+        panic!("one call");
+    };
+    assert_eq!(question.kind, ToolKind::Question);
+    assert_eq!(question.state, ToolState::Done);
+    assert!(
+        matches!(&question.detail, Some(ToolDetail::Question { answers, .. }) if answers == &["plum"])
+    );
+    assert_eq!(play.answers(), ["plum"]);
+    assert_eq!(play.view.asks, [] as [ChatAsk; 0]);
+}
+
+#[test]
+fn an_answer_in_the_terminal_closes_a_question_of_copilot_and_shows_in_the_chat() {
+    let play = Play::copilot(&[copilot!("question-terminal")], &[]);
+
+    assert_eq!(play.closed.len(), 1, "the question closed without the chat");
+    assert_eq!(play.view.asks, [] as [ChatAsk; 0]);
+    let [question] = play.tools()[..] else {
+        panic!("one call");
+    };
+    assert!(
+        matches!(&question.detail, Some(ToolDetail::Question { answers, .. }) if answers == &["tea"])
+    );
+    assert_eq!(play.answers(), ["tea"]);
+}
+
+#[test]
+fn words_in_place_of_an_answer_go_to_copilot_as_the_person_s_own_answer() {
+    let mut play = Play::copilot(&[], &[]);
+    let lines = copilot!("question").lines().collect::<Vec<_>>();
+    let asked = lines
+        .iter()
+        .position(|line| line.contains(r#""k":"ask""#))
+        .expect("a question");
+    play.more(&lines[..=asked].join("\n"), &[]);
+    let ask = play.view.asks[0].id.clone();
+    let words = ChatAnswer::Deny {
+        text: Some(" a ripe mango ".to_owned()),
+    };
+
+    assert_eq!(
+        play.agent.decision(&ask, &words, None),
+        Some(json!({"action": "accept", "content": {"fruit": "a ripe mango"}}))
+    );
+    assert_eq!(
+        play.agent
+            .decision(&ask, &ChatAnswer::Deny { text: None }, None),
+        Some(json!({"action": "decline"}))
+    );
+}
+
+#[test]
+fn copilot_takes_the_words_of_a_refused_plan_and_then_its_approval() {
+    let answers = [
+        ChatAnswer::Deny {
+            text: Some("Use only two steps".to_owned()),
+        },
+        ChatAnswer::Approve { asks: false },
+        ChatAnswer::Allow,
+        ChatAnswer::Allow,
+        ChatAnswer::Allow,
+    ];
+    let play = Play::copilot(&[copilot!("plan")], &answers);
+
+    let plans = play
+        .changes
+        .iter()
+        .filter_map(|change| match change {
+            ChatChange::Asks { asks } => asks.iter().find_map(|ask| match &ask.body {
+                AskBody::Plan { text, choose_asks } => Some((text.clone(), *choose_asks)),
+                _ => None,
+            }),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(plans.len(), 2, "the plan, and the plan in two steps");
+    assert!(
+        plans.iter().all(|(_, choose)| !choose),
+        "Copilot asks as it is set"
+    );
+    assert!(
+        plans[1].0.starts_with("1. Update `total()`"),
+        "{}",
+        plans[1].0
+    );
+    assert_eq!(
+        play.tools()
+            .iter()
+            .filter(|tool| tool.kind == ToolKind::Plan)
+            .map(|tool| tool.state)
+            .collect::<Vec<_>>(),
+        [ToolState::Denied, ToolState::Done]
+    );
+    let planning = play.changes.iter().any(|change| {
+        matches!(change, ChatChange::Facts { facts } if facts.mode == Some(ChatMode::Plan))
+    });
+    assert!(planning, "the chat showed the plan mode");
+    assert_eq!(play.view.facts.mode, None);
+    assert_eq!(
+        play.view.tasks,
+        [
+            ChatTask {
+                text: "Adding total discount".to_owned(),
+                state: TaskState::Done
+            },
+            ChatTask {
+                text: "Verifying discounted total".to_owned(),
+                state: TaskState::Done
+            },
+        ]
+    );
+    let worked = play.changes.iter().any(|change| {
+        matches!(change, ChatChange::Tasks { tasks } if tasks.first().is_some_and(|task| task.state == TaskState::Working))
+    });
+    assert!(worked, "the list showed the step that Copilot worked on");
+}
+
+#[test]
+fn the_steps_of_a_helper_of_copilot_show_in_the_call_that_started_it() {
+    let play = Play::copilot(&[copilot!("helper")], &[ChatAnswer::Allow]);
+
+    let [task] = play.tools()[..] else {
+        panic!("one call of the main agent");
+    };
+    assert_eq!(
+        (task.kind, task.state, task.target.as_str()),
+        (ToolKind::Agent, ToolState::Done, "Run arithmetic command")
+    );
+    let Some(ToolDetail::Agent {
+        name,
+        steps,
+        doing,
+        said,
+    }) = &task.detail
+    else {
+        panic!("a helper");
+    };
+    assert_eq!((name.as_str(), *steps, said.as_str()), ("task", 1, "42"));
+    assert_eq!(
+        doing.as_ref().map(|step| (step.kind, step.target.as_str())),
+        Some((ToolKind::Command, "python3 -c 'print(6*7)'"))
+    );
+    assert_eq!(
+        play.people().len(),
+        1,
+        "the helper's task is no message of a person"
+    );
+    assert_eq!(play.answers(), ["42"]);
+    let helper_asked = play.changes.iter().any(|change| {
+        matches!(change, ChatChange::Asks { asks } if asks.iter().any(|ask| ask.item.is_none()
+            && matches!(&ask.body, AskBody::Permission { helper, .. } if helper == "Run arithmetic command")))
+    });
+    assert!(helper_asked, "the helper's question named its task");
+    assert_eq!(play.view.facts.helpers, 0);
+    assert_eq!(play.view.facts.model.as_deref(), Some("mai-code-2-flash"));
+}
+
+#[test]
+fn a_resumed_conversation_of_copilot_keeps_its_helper_in_the_call_that_started_it() {
+    let mut play = Play::new(Box::new(Copilot::default()));
+    play.more(copilot!("resume"), &[]);
+
+    let tasks = play
+        .tools()
+        .into_iter()
+        .filter(|tool| tool.kind == ToolKind::Agent)
+        .collect::<Vec<_>>();
+    let [task] = tasks[..] else {
+        panic!("one helper");
+    };
+    assert!(
+        matches!(&task.detail, Some(ToolDetail::Agent { steps: 1, said, .. }) if said.contains("report.py"))
+    );
+    assert!(
+        play.people()
+            .iter()
+            .all(|said| !said.starts_with("Search the current workspace")),
+        "the helper's task is no message of a person"
+    );
+    assert_eq!(play.view.state, ChatState::Idle);
+    assert_eq!(play.view.asks, [] as [ChatAsk; 0]);
 }

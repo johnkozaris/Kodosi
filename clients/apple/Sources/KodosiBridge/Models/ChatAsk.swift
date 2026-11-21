@@ -48,10 +48,11 @@ public enum AskBody: Decodable, Equatable, Sendable {
     /// helper that asks.
     case permission(ChatTool, always: AskAlways?, helper: String)
     case question([ChatQuestion])
-    case plan(String)
+    /// With `chooseAsks`, the person chooses whether the agent then asks before each change.
+    case plan(String, chooseAsks: Bool)
 
     private enum Key: String, CodingKey {
-        case kind, tool, always, helper, questions, text
+        case kind, tool, always, helper, questions, text, chooseAsks
     }
 
     public init(from decoder: any Decoder) throws {
@@ -61,7 +62,8 @@ public enum AskBody: Decodable, Equatable, Sendable {
             self = try .permission(fields.decode(ChatTool.self, forKey: .tool), always: fields.decodeIfPresent(AskAlways.self, forKey: .always),
                                    helper: fields.decodeIfPresent(String.self, forKey: .helper) ?? "")
         case "question": self = try .question(fields.decode([ChatQuestion].self, forKey: .questions))
-        case "plan": self = try .plan(fields.decode(String.self, forKey: .text))
+        case "plan": self = try .plan(fields.decode(String.self, forKey: .text),
+                                      chooseAsks: fields.decodeIfPresent(Bool.self, forKey: .chooseAsks) ?? false)
         case let kind:
             throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown question \(kind)")
         }

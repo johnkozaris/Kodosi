@@ -581,7 +581,13 @@ impl Claude {
             Some(ToolDetail::Question { questions, .. }) => {
                 (AskKind::Question, AskBody::Question { questions })
             }
-            Some(ToolDetail::Plan { text }) => (AskKind::Plan, AskBody::Plan { text }),
+            Some(ToolDetail::Plan { text }) => (
+                AskKind::Plan,
+                AskBody::Plan {
+                    text,
+                    choose_asks: true,
+                },
+            ),
             _ => (
                 AskKind::Permission,
                 AskBody::Permission {

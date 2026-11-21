@@ -517,6 +517,9 @@
                           {
                             "additionalProperties": false,
                             "properties": {
+                              "chooseAsks": {
+                                "type": "boolean"
+                              },
                               "kind": {
                                 "const": "plan"
                               },
@@ -1407,6 +1410,35 @@
                       "const": "asking"
                     }
                   ]
+                },
+                "tasks": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "state": {
+                        "oneOf": [
+                          {
+                            "const": "pending"
+                          },
+                          {
+                            "const": "working"
+                          },
+                          {
+                            "const": "done"
+                          }
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "state"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
                 }
               },
               "required": [
@@ -2517,6 +2549,9 @@
                                     {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "chooseAsks": {
+                                          "type": "boolean"
+                                        },
                                         "kind": {
                                           "const": "plan"
                                         },
@@ -2626,6 +2661,48 @@
                         "required": [
                           "change",
                           "queued"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "tasks"
+                          },
+                          "tasks": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "state": {
+                                  "oneOf": [
+                                    {
+                                      "const": "pending"
+                                    },
+                                    {
+                                      "const": "working"
+                                    },
+                                    {
+                                      "const": "done"
+                                    }
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "state"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "tasks"
                         ],
                         "type": "object"
                       },

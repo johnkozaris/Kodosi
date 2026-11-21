@@ -92,6 +92,34 @@ import Testing
 }
 
 @MainActor
+@Test func `the agent's list of its work follows the agent, and a new conversation has none`() async throws {
+    let runtime = ChatRuntime()
+    let watching = Task { await runtime.chat.watch() }
+    defer { watching.cancel() }
+
+    try await runtime.open()
+    try runtime.send(#"""
+    {"snapshot":{"revision":1,"state":"working","facts":{},"items":[],
+      "tasks":[{"text":"Adding total discount","state":"working"},{"text":"Verifying discounted total","state":"pending"}],
+      "asks":[{"id":"a1","body":{"kind":"plan","text":"1. Update total()","chooseAsks":true}}]}}
+    """#)
+    #expect(runtime.chat.tasks.map(\.state) == [.working, .pending])
+    #expect(runtime.chat.asks.first?.body == .plan("1. Update total()", chooseAsks: true))
+    try runtime.send(#"""
+    {"update":{"revision":2,"changes":[{"change":"tasks","tasks":[
+      {"text":"Adding total discount","state":"done"},{"text":"Verifying discounted total","state":"working"}]}]}}
+    """#)
+    #expect(runtime.chat.tasks == [
+        ChatTask(text: "Adding total discount", state: .done),
+        ChatTask(text: "Verifying discounted total", state: .working),
+    ])
+    try runtime.send(#"{"update":{"revision":3,"changes":[{"change":"reset"}]}}"#)
+
+    #expect(runtime.chat.tasks.isEmpty)
+    #expect(runtime.chat.asks.isEmpty)
+}
+
+@MainActor
 @Test func `a message typed while a question waits answers the question with its words, and the first answer counts`() async throws {
     let runtime = ChatRuntime()
     let watching = Task { await runtime.chat.watch() }

@@ -1,6 +1,7 @@
 use super::{
     ChatAsk, ChatBody, ChatChange, ChatFacts, ChatItem, ChatNow, ChatPerson, ChatQueued,
-    ChatSnapshot, ChatState, ChatTool, ChatUpdate, MOST_ASKS, MOST_ITEMS, MOST_QUEUED, MOST_TEXT,
+    ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate, MOST_ASKS, MOST_ITEMS, MOST_QUEUED,
+    MOST_TARGET, MOST_TASKS, MOST_TEXT,
 };
 
 /// The chat of one terminal, and the changes since they were last taken.
@@ -13,6 +14,7 @@ pub(super) struct Chat {
     items: Vec<ChatItem>,
     asks: Vec<ChatAsk>,
     queued: Vec<ChatQueued>,
+    tasks: Vec<ChatTask>,
     changes: Vec<ChatChange>,
     made: u64,
 }
@@ -27,6 +29,7 @@ impl Chat {
             items: self.items.clone(),
             asks: self.asks.clone(),
             queued: self.queued.clone(),
+            tasks: self.tasks.clone(),
         }
     }
 
@@ -247,6 +250,27 @@ impl Chat {
         });
     }
 
+    /// The agent's list of its work as the agent has it now.
+    pub(super) fn set_tasks(&mut self, tasks: impl IntoIterator<Item = ChatTask>) {
+        let tasks = tasks
+            .into_iter()
+            .take(MOST_TASKS)
+            .map(|task| ChatTask {
+                text: start_of(&task.text, MOST_TARGET).to_owned(),
+                ..task
+            })
+            .collect::<Vec<_>>();
+        if tasks == self.tasks {
+            return;
+        }
+        self.tasks = tasks;
+        self.changes
+            .retain(|change| !matches!(change, ChatChange::Tasks { .. }));
+        self.changes.push(ChatChange::Tasks {
+            tasks: self.tasks.clone(),
+        });
+    }
+
     pub(super) fn change_facts(&mut self, change: impl FnOnce(&mut ChatFacts)) {
         let mut facts = self.facts.clone();
         change(&mut facts);
@@ -272,10 +296,12 @@ impl Chat {
         self.changes.push(ChatChange::State { state, now });
     }
 
-    /// A new conversation: the items and the questions go, and what the person queued stays.
+    /// A new conversation: the items, the questions and the agent's list of its work go, and what
+    /// the person queued stays.
     pub(super) fn reset(&mut self) {
         self.items.clear();
         self.asks.clear();
+        self.tasks.clear();
         self.changes.retain(|change| {
             matches!(
                 change,

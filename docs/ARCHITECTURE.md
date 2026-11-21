@@ -119,7 +119,8 @@ that the terminal names gets a server that the host starts with Codex's own prog
 the host follows that server as a second client. For Copilot CLI it is an extension in a
 plugin of Kodosi's, which Kodosi's start line of Copilot names. The host turns the
 reports into the chat of the terminal: the messages, the agent's answers, its tool calls,
-the questions that wait for a person, and the facts of the session. A person's message,
+the questions that wait for a person, the list that the agent keeps of its work, and the
+facts of the session. A person's message,
 answer or stop goes back the same way.
 
 The chat reads nothing from the terminal's screen and presses no key there, so a new

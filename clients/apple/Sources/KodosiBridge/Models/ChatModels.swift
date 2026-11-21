@@ -28,9 +28,10 @@ public struct ChatSnapshot: Decodable, Equatable, Sendable {
     public var items: [ChatItem]
     public var asks: [ChatAsk]
     public var queued: [ChatQueued]
+    public var tasks: [ChatTask]
 
     private enum Key: String, CodingKey {
-        case revision, state, now, facts, items, asks, queued
+        case revision, state, now, facts, items, asks, queued, tasks
     }
 
     public init(from decoder: any Decoder) throws {
@@ -42,6 +43,7 @@ public struct ChatSnapshot: Decodable, Equatable, Sendable {
         items = try fields.decode([ChatItem].self, forKey: .items)
         asks = try fields.decodeIfPresent([ChatAsk].self, forKey: .asks) ?? []
         queued = try fields.decodeIfPresent([ChatQueued].self, forKey: .queued) ?? []
+        tasks = try fields.decodeIfPresent([ChatTask].self, forKey: .tasks) ?? []
     }
 }
 
@@ -56,12 +58,14 @@ public enum ChatChange: Decodable, Equatable, Sendable {
     case remove(id: String)
     case asks([ChatAsk])
     case queued([ChatQueued])
+    /// The agent's list of its work, whole.
+    case tasks([ChatTask])
     case facts(ChatFacts)
     case state(ChatState, now: ChatNow?)
     case reset
 
     private enum Key: String, CodingKey {
-        case change, item, id, text, asks, queued, facts, state, now
+        case change, item, id, text, asks, queued, tasks, facts, state, now
     }
 
     public init(from decoder: any Decoder) throws {
@@ -72,6 +76,7 @@ public enum ChatChange: Decodable, Equatable, Sendable {
         case "remove": self = try .remove(id: fields.decode(String.self, forKey: .id))
         case "asks": self = try .asks(fields.decode([ChatAsk].self, forKey: .asks))
         case "queued": self = try .queued(fields.decode([ChatQueued].self, forKey: .queued))
+        case "tasks": self = try .tasks(fields.decode([ChatTask].self, forKey: .tasks))
         case "facts": self = try .facts(fields.decode(ChatFacts.self, forKey: .facts))
         case "state": self = try .state(fields.decode(ChatState.self, forKey: .state), now: fields.decodeIfPresent(ChatNow.self, forKey: .now))
         case "reset": self = .reset
@@ -79,6 +84,21 @@ public enum ChatChange: Decodable, Equatable, Sendable {
             throw DecodingError.dataCorruptedError(forKey: .change, in: fields, debugDescription: "Unknown chat change \(change)")
         }
     }
+}
+
+/// A step of the list that the agent keeps of its work.
+public struct ChatTask: Decodable, Equatable, Sendable {
+    public let text: String
+    public let state: TaskState
+
+    public init(text: String, state: TaskState) {
+        self.text = text
+        self.state = state
+    }
+}
+
+public enum TaskState: String, Decodable, Sendable {
+    case pending, working, done
 }
 
 public enum ChatState: String, Decodable, Sendable {
