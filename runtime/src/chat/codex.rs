@@ -12,8 +12,8 @@ use serde_json::{Map, Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTool, MOST_OUTPUT, MOST_TARGET,
-    MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
+    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
+    MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{Agent, Stop, answer, file_name, list, person, text, words},
     diff,
     state::{Chat, ends_of, start_of},
@@ -392,6 +392,14 @@ impl Codex {
                 self.offer_plan(chat, &params["turn"]);
                 return closed;
             }
+            "turn/plan/updated" => chat.set_tasks(list(params, "plan").map(|step| ChatTask {
+                text: text(step, "step").to_owned(),
+                state: match text(step, "status") {
+                    "completed" => TaskState::Done,
+                    "inProgress" => TaskState::Working,
+                    _ => TaskState::Pending,
+                },
+            })),
             "item/started" => self.item(chat, params, at, false),
             "item/completed" => self.item(chat, params, at, true),
             "item/agentMessage/delta" | "item/plan/delta" | "item/commandExecution/outputDelta" => {

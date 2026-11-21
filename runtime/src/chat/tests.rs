@@ -1930,6 +1930,29 @@ fn a_person_carries_out_the_plan_of_codex_from_the_chat_as_its_terminal_does() {
 }
 
 #[test]
+fn the_plan_tool_of_codex_shows_as_its_list_of_the_work() {
+    let codex = Play::codex(&[codex!("first"), codex!("tasks")], &[]);
+
+    let working = codex.changes.iter().any(|change| {
+        matches!(change, ChatChange::Tasks { tasks } if tasks.first().is_some_and(|task| task.state == TaskState::Working))
+    });
+    assert!(working, "the list showed the step that Codex worked on");
+    assert_eq!(
+        codex
+            .view
+            .tasks
+            .iter()
+            .map(|task| (task.text.as_str(), task.state))
+            .collect::<Vec<_>>(),
+        [
+            ("Write “one” into one.txt", TaskState::Done),
+            ("Write “two” into two.txt", TaskState::Done),
+            ("Say done", TaskState::Done),
+        ]
+    );
+}
+
+#[test]
 fn a_person_answers_a_question_of_copilot_with_one_of_its_choices() {
     let mut play = Play::copilot(&[], &[]);
     let lines = copilot!("question").lines().collect::<Vec<_>>();

@@ -150,6 +150,8 @@ impl Server {
                 "developer_instructions={}",
                 toml_string(crate::agents::CONTEXT.trim())
             ))
+            // Codex keeps its list of the work only with its plan tool, which the chat shows.
+            .args(["-c", "tools.update_plan.enabled=true"])
             .env_clear()
             .envs(start.variables.iter().map(|(name, value)| (name, value)))
             .current_dir(&start.directory)
