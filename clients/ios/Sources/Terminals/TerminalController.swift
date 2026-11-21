@@ -169,6 +169,7 @@ final class TerminalController {
     }
 
     func resizeHere() {
+        releaseFocus()
         focusTerminal()
         store.live.takeSize(for: sessionId)
     }

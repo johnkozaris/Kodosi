@@ -389,19 +389,13 @@ async fn a_focused_view_takes_its_size_back_when_the_view_that_took_it_leaves() 
 }
 
 #[tokio::test]
-async fn the_focused_view_that_set_the_size_last_takes_it_back() {
+async fn the_focused_view_that_took_the_size_last_takes_it_back() {
     let (session, _changes, _root) = shell("exec /bin/cat").await;
     let first = session.subscribe().await.expect("first");
     let second = session.subscribe().await.expect("second");
     let blurred = session.subscribe().await.expect("blurred");
     let attach = session.subscribe().await.expect("attach");
     let size = |rows, cols| TerminalSize::new(rows, cols).expect("size");
-    for view in [&first, &second, &blurred] {
-        session
-            .focus(view.connection_id, true)
-            .await
-            .expect("focus");
-    }
     for (view, rows, cols) in [
         (&first, 18, 60),
         (&second, 24, 80),
@@ -409,9 +403,13 @@ async fn the_focused_view_that_set_the_size_last_takes_it_back() {
         (&blurred, 40, 90),
     ] {
         session
+            .focus(view.connection_id, true)
+            .await
+            .expect("focus");
+        session
             .resize(view.connection_id, size(rows, cols), None, false)
             .await
-            .expect("a focused view sets the size");
+            .expect("the focused view sets the size");
     }
     session
         .focus(blurred.connection_id, false)
@@ -427,6 +425,70 @@ async fn the_focused_view_that_set_the_size_last_takes_it_back() {
         .await
         .expect("checkpoint");
     assert_eq!(cut.checkpoint.size(), size(20, 70));
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_focused_view_that_only_changes_its_size_leaves_the_size_with_the_view_in_use() {
+    let (session, _changes, _root) = shell("exec /bin/cat").await;
+    let away = session.subscribe().await.expect("view nobody uses");
+    let used = session.subscribe().await.expect("view in use");
+    let size = |rows, cols| TerminalSize::new(rows, cols).expect("size");
+    session
+        .focus(away.connection_id, true)
+        .await
+        .expect("focus");
+    session
+        .resize(away.connection_id, size(18, 60), None, false)
+        .await
+        .expect("size of the focused view");
+    session
+        .focus(used.connection_id, true)
+        .await
+        .expect("a person focuses the other view");
+    session
+        .resize(used.connection_id, size(30, 100), None, false)
+        .await
+        .expect("the first size of the view in use");
+    assert!(
+        session
+            .resize(away.connection_id, size(24, 80), None, false)
+            .await
+            .is_err()
+    );
+    let cut = session
+        .checkpoint(used.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(cut.checkpoint.size(), size(30, 100));
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn keys_bring_the_size_of_the_view_that_types() {
+    let (session, _changes, _root) = shell("stty raw -echo; exec /bin/cat").await;
+    let typing = session.subscribe().await.expect("view that types");
+    let other = session.subscribe().await.expect("other view");
+    let size = |rows, cols| TerminalSize::new(rows, cols).expect("size");
+    for (view, rows, cols) in [(&typing, 18, 60), (&other, 30, 100)] {
+        session
+            .focus(view.connection_id, true)
+            .await
+            .expect("focus");
+        session
+            .resize(view.connection_id, size(rows, cols), None, false)
+            .await
+            .expect("size");
+    }
+    session
+        .write_input(typing.connection_id, Bytes::from_static(b"x"))
+        .await
+        .expect("a person types");
+    let cut = session
+        .checkpoint(other.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(cut.checkpoint.size(), size(18, 60));
     session.close().await.expect("close");
 }
 

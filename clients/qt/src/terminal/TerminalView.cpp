@@ -827,6 +827,7 @@ void TerminalView::geometryChange(const QRectF& newGeometry, const QRectF& oldGe
 void TerminalView::focusInEvent(QFocusEvent* event)
 {
     QQuickItem::focusInEvent(event);
+    m_focusMovedHere = true;
     sendFocus(true);
     updateBlinkTimer();
     if (event->reason() != Qt::ActiveWindowFocusReason)
@@ -835,6 +836,7 @@ void TerminalView::focusInEvent(QFocusEvent* event)
 
 void TerminalView::focusOutEvent(QFocusEvent* event)
 {
+    m_focusMovedHere = false;
     sendFocus(false);
     m_copyShortcutActive = false;
     m_pasteShortcutKey.reset();
@@ -968,7 +970,9 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
             } else if constexpr (std::is_same_v<T, std::int32_t>) {
                 emit connectionCompleted(value == KODOSI_FFI_OK, value);
                 if (m_attachmentEpoch.load(std::memory_order_acquire) == epoch && value == KODOSI_FFI_OK) {
-                    if (hasActiveFocus() && interactionAvailable()) sendFocus(true);
+                    // A window keeps its focus where nobody is. So a view that attaches again, as when
+                    // its terminal comes back, takes the focus only for a person who moved it here.
+                    if (m_focusMovedHere && hasActiveFocus() && interactionAvailable()) sendFocus(true);
                     scheduleResize();
                 }
             } else if constexpr (std::is_same_v<T, TerminalFocusOutcome>) {
@@ -1195,7 +1199,9 @@ void TerminalView::handleFocusOutcome(TerminalFocusOutcome outcome)
     }
     m_pendingFocusRequestId.clear();
     m_focusClaimed = outcome.applied;
-    if (!outcome.applied) {
+    if (outcome.applied) {
+        m_focusMovedHere = false;
+    } else {
         emit operationError(
             outcome.reason.isEmpty()
                 ? tr("Kodosi could not focus the terminal.")
