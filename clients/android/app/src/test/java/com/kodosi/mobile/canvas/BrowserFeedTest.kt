@@ -6,10 +6,13 @@ import com.kodosi.mobile.runtime.event
 import com.kodosi.mobile.runtime.string
 import java.util.Base64
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,7 +28,7 @@ class BrowserFeedTest {
     @Test
     fun aFeedWatchesOnEachOpenOfItsPipeAndShowsALossUntilAFrameComes() = runTest {
         pipes.choose("terminal")
-        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
+        val feed = feed()
         feed.show(true)
         runCurrent()
         val pipe = sent.last("document.open").string("pipe")
@@ -49,7 +52,7 @@ class BrowserFeedTest {
     @Test
     fun onlyThePersonsActTakesThePageAndAReturnToTheScreenDoesNot() = runTest {
         pipes.choose("terminal")
-        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
+        val feed = feed()
         feed.show(true)
         assertEquals(true, look())
         feed.show(false)
@@ -65,7 +68,7 @@ class BrowserFeedTest {
 
     @Test
     fun anActOnTheBrowserThatAViewWatchesTakesThePageAtOnceAndOnlyOnce() = runTest {
-        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
+        val feed = feed()
         feed.show(true)
         assertEquals(false, look())
 
@@ -75,6 +78,24 @@ class BrowserFeedTest {
         feed.show(true)
         assertEquals(false, look())
     }
+
+    @Test
+    fun aPipeThatOpensBeforeTheViewHasItsSizeWatchesWithTheSizeOfTheView() = runTest {
+        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
+        feed.show(true)
+        val pipe = sent.last("document.open").string("pipe")
+        sent.reply("document.open")
+        news("document.opened", pipe)
+        assertTrue(sent.types.none { it == "document.send" })
+
+        feed.resize(1080, 1740, 2.625f)
+        val size = watched()?.get("size")?.jsonObject
+        assertEquals(411, size?.get("width")?.jsonPrimitive?.int)
+        assertEquals(662, size?.get("height")?.jsonPrimitive?.int)
+    }
+
+    private fun TestScope.feed() =
+        BrowserFeed(pipes, "terminal", backgroundScope).also { it.resize(1080, 1740, 2.625f) }
 
     private fun look(): Boolean? {
         val pipe = sent.last("document.open").string("pipe")

@@ -57,11 +57,12 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
     private val link = pipes.link(session)
     private var joining: Job? = null
     private var active = false
+    private var open = false
     private var watching = false
     private var behind = true
     private var last: Long? = null
     private var decoder: BrowserDecoder? = null
-    private var size = fields("width" to 360, "height" to 640, "scale" to 1)
+    private var size: JsonObject? = null
     private var sent: JsonObject? = null
     private var settling: Job? = null
     private var holding = false
@@ -92,7 +93,9 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
     /**
      * The page takes the shape of the view of the person who acted last, so a new size goes to
      * the host once the view settles, never while a button is held, and one that waits goes
-     * right after the person's act: the act then reaches the page that the person saw.
+     * right after the person's act: the act then reaches the page that the person saw. A pipe
+     * that opens before the view has its size watches when the view has it, as the page takes
+     * the shape of the watch at once.
      */
     private fun settle(width: Int, height: Int, density: Float) {
         if (width <= 0 || height <= 0) return
@@ -102,6 +105,10 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
             "scale" to density
         )
         settling?.cancel()
+        if (open && !watching) {
+            watch()
+            return
+        }
         settling = work.launch {
             delay(SETTLE_MS)
             sendSize()
@@ -114,6 +121,7 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
         if (on) {
             join()
         } else {
+            open = false
             watching = false
             joining?.cancel()
             link.detach()
@@ -139,7 +147,8 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
     }
 
     private fun sendSize() {
-        if (holding || size == sent) return
+        val size = size ?: return
+        if (holding || !watching || size == sent) return
         sent = size
         post(fields("type" to "size", "size" to size))
     }
@@ -165,20 +174,26 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
                 failure.value = null
                 behind = true
                 last = null
+                open = true
                 watch()
             }
 
             is DocumentLink.News.Lost -> {
+                open = false
                 watching = false
                 failure.value = news.reason
                 reconnecting.value = true
             }
 
-            DocumentLink.News.Closed -> watching = false
+            DocumentLink.News.Closed -> {
+                open = false
+                watching = false
+            }
         }
     }
 
     private fun watch() {
+        val size = size ?: return
         sent = size
         watching = true
         post(fields("type" to "watch", "size" to size, "opened" to pipes.takeChoice(session)))
@@ -239,6 +254,7 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
 
     override fun close() = pipes.execute {
         active = false
+        open = false
         watching = false
         pipes.unfollow(this)
         joining?.cancel()
