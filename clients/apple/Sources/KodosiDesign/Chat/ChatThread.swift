@@ -8,7 +8,9 @@ struct ChatThread: View {
     let chat: TerminalChat
     let agent: AgentKind
     let me: String?
-    @Binding var following: Bool
+    /// Counts the messages that a person sent from this view.
+    let sent: Int
+    @State private var following = true
     @State private var viewport: CGFloat = 0
     @State private var position = ScrollPosition(edge: .bottom)
 
@@ -66,6 +68,10 @@ struct ChatThread: View {
                     }
                 }
                 .animation(theme.motion.spring, value: following)
+            }
+            .onChange(of: sent) { _, _ in
+                following = true
+                withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
             }
         }
     }

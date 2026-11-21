@@ -33,6 +33,7 @@ struct ChatWork: View {
                             HStack(spacing: 3) {
                                 if setback.state == .failed {
                                     Image(systemName: "exclamationmark.triangle.fill").font(mac: 9, ios: .caption2, weight: .semibold)
+                                        .accessibilityHidden(true)
                                 }
                                 Text(verbatim: setback.words).font(mac: 11, ios: .caption, design: .monospaced).lineLimit(1)
                             }
@@ -41,6 +42,7 @@ struct ChatWork: View {
                         }
                         Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
                             .rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
+                            .accessibilityHidden(true)
                     }
                     .controlHeight(22).touchTarget(Rectangle())
                 }
@@ -96,6 +98,7 @@ struct ChatStepLine: View {
                         if ChatStepDetail.shows(tool) {
                             Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
                                 .rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
+                                .accessibilityHidden(true)
                         }
                         Spacer(minLength: 0)
                     }
@@ -132,9 +135,11 @@ struct ChatStepState: View {
             switch state {
             case .done:
                 Image(systemName: "checkmark").font(mac: 9, ios: .caption2, weight: .bold).foregroundStyle(theme.colors.ready)
+                    .accessibilityLabel(Text("Done", bundle: .module))
             case .failed:
                 Image(systemName: "exclamationmark.triangle.fill").font(mac: 9, ios: .caption2, weight: .semibold)
                     .foregroundStyle(theme.colors.caution)
+                    .accessibilityLabel(Text("Failed", bundle: .module))
             case .denied:
                 word(Text("denied", bundle: .module))
             case .stopped:

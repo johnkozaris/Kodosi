@@ -40,7 +40,7 @@ private struct AnswerKey: View {
 
     var body: some View {
         let given = chat.answers[ask.id]
-        Button { chat.answer(ask, answer) } label: { label }
+        Button { chat.answer(ask, answer) } label: { label.truncationMode(.middle) }
             .buttonStyle(.kodosi(kind, size: .small))
             .disabled(given != nil && given != answer)
             .allowsHitTesting(given == nil)

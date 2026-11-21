@@ -122,6 +122,7 @@ struct StepGlyph: View {
         Image(systemName: symbol).font(.system(size: 7.5, weight: .bold)).foregroundStyle(theme.colors.inkMuted)
             .frame(width: 14, height: 14)
             .background(theme.colors.lifted, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
 

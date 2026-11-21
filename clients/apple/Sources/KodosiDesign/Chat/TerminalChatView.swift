@@ -10,7 +10,7 @@ public struct TerminalChatView<ModelKey: View>: View {
     let me: String?
     let modelKey: (Text) -> ModelKey
     @FocusState private var focused: Bool
-    @State private var following = true
+    @State private var sent = 0
 
     public init(chat: TerminalChat, agent: AgentKind, me: String?, @ContentBuilder modelKey: @escaping (Text) -> ModelKey) {
         self.chat = chat
@@ -21,8 +21,8 @@ public struct TerminalChatView<ModelKey: View>: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            ChatThread(chat: chat, agent: agent, me: me, following: $following)
-            ChatDock(chat: chat, agent: agent, focused: $focused, modelKey: modelKey) { following = true }
+            ChatThread(chat: chat, agent: agent, me: me, sent: sent)
+            ChatDock(chat: chat, agent: agent, focused: $focused, modelKey: modelKey) { sent += 1 }
         }
         .task { await chat.watch() }
         .accessibilityElement(children: .contain)
