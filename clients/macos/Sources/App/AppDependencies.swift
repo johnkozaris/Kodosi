@@ -131,18 +131,23 @@ final class AppDependencies {
             while !Task.isCancelled, self?.runtimeHandle.isRunning == false {
                 try? await Task.sleep(for: .milliseconds(10))
             }
+            var faults = RuntimeEventFaults()
             while !Task.isCancelled {
-                guard let event = await currentInbox.nextEvent() else { break }
+                guard let item = await currentInbox.nextItem() else { break }
                 guard !Task.isCancelled, let self else { return }
-                do {
-                    try receive(event.get())
-
-                } catch {
-                    failRuntime(String(localized: "Kodosi got an update it cannot read: \(error.localizedDescription)")); return
+                switch item {
+                case let .event(event):
+                    do {
+                        try receive(event)
+                    } catch {
+                        faults.unreadable(event.type, error)
+                    }
+                case let .unreadable(error):
+                    faults.unreadable(nil, error)
+                case let .behind(events, bytes):
+                    RuntimeEventFaults.behind(events: events, bytes: bytes)
+                    catchUp()
                 }
-            }
-            if !Task.isCancelled, currentInbox.didOverflow {
-                self?.failRuntime(String(localized: "Kodosi fell behind. Start it again."))
             }
         }
         runtimeHandle.start(commandSink: commandSink) { [weak self] outcome in
@@ -239,6 +244,14 @@ final class AppDependencies {
         eventTask?.cancel()
         eventTask = nil
         runtimeHandle.stop(completion: completion)
+    }
+
+    /// The answers and the parts of documents that the app dropped are lost, so the requests
+    /// that wait for them end, each pipe starts again, and the runtime sends the whole state.
+    private func catchUp() {
+        commandSink.abandonPending()
+        canvas.renewPipes()
+        commandSink.send("app.resync")
     }
 
     func failRuntime(_ message: String) {

@@ -76,18 +76,23 @@ final class AppModel {
             while !Task.isCancelled, !runtime.isRunning {
                 try? await Task.sleep(for: .milliseconds(10))
             }
+            var faults = RuntimeEventFaults()
             while !Task.isCancelled {
-                guard let event = await inbox.nextEvent() else { break }
+                guard let item = await inbox.nextItem() else { break }
                 guard !Task.isCancelled, let self else { return }
-                do {
-                    try receive(event.get())
-                } catch {
-                    fail(String(localized: "Kodosi got an update it cannot read: \(error.localizedDescription)"))
-                    return
+                switch item {
+                case let .event(event):
+                    do {
+                        try receive(event)
+                    } catch {
+                        faults.unreadable(event.type, error)
+                    }
+                case let .unreadable(error):
+                    faults.unreadable(nil, error)
+                case let .behind(events, bytes):
+                    RuntimeEventFaults.behind(events: events, bytes: bytes)
+                    catchUp()
                 }
-            }
-            if !Task.isCancelled, inbox.didOverflow {
-                self?.fail(String(localized: "Kodosi fell behind. Start it again."))
             }
         }
         runtime.start(commandSink: commands) { [weak self] outcome in
@@ -210,6 +215,14 @@ final class AppModel {
         }
     }
 
+    /// The answers and the parts of documents that the app dropped are lost, so the requests
+    /// that wait for them end, each pipe starts again, and the runtime sends the whole state.
+    private func catchUp() {
+        commands.abandonPending()
+        terminals.canvas.renewPipes()
+        commands.send("app.resync")
+    }
+
     private func fail(_ message: String) {
         guard phase != .failed(message) else { return }
         shutdown()
@@ -304,7 +317,8 @@ final class AppModel {
         guard event.type == "system.ready" else { return }
         let version: UInt32 = try event.value("protocolVersion")
         guard version == RuntimeHandle.expectedProtocolVersion else {
-            throw RuntimeError.invalidResponse(String(localized: "This copy of Kodosi is damaged. Install it again."))
+            fail(String(localized: "This copy of Kodosi is damaged. Install it again."))
+            return
         }
         phase = .ready
         reportedPresence = nil

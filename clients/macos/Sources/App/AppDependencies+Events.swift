@@ -164,7 +164,8 @@ extension AppDependencies {
         hostForeground = event.string("host") == "foreground"
         let version: UInt32 = try event.value("protocolVersion")
         guard version == RuntimeHandle.expectedProtocolVersion else {
-            throw RuntimeError.invalidResponse(String(localized: "This copy of Kodosi is damaged. Install it again."))
+            failRuntime(String(localized: "This copy of Kodosi is damaged. Install it again."))
+            return
         }
         let awaySeconds: UInt64 = try event.value("awaySeconds")
         presence.connected(awaySeconds: TimeInterval(awaySeconds))

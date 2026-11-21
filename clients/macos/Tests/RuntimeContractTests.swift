@@ -100,14 +100,13 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     }
 }
 
-@Test func `event inbox is bounded ordered and closes waiter`() async {
+@Test func `event inbox keeps its order and closes its waiter`() async {
     let inbox = RuntimeEventInbox()
     for index in 0 ..< 256 {
         #expect(inbox.push(Data("\(index)".utf8)))
     }
-    #expect(!inbox.push(Data("overflow".utf8)))
     for index in 0 ..< 256 {
-        #expect(await inbox.next() == Data("\(index)".utf8))
+        #expect(await inbox.next() == .data(Data("\(index)".utf8)))
     }
     let pending = Task { await inbox.next() }
     inbox.close()
@@ -115,20 +114,19 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(!inbox.push(Data()))
     inbox.reopen()
     #expect(inbox.push(Data("restarted".utf8)))
-    #expect(await inbox.next() == Data("restarted".utf8))
-    inbox.close(overflowed: true)
-    #expect(inbox.didOverflow)
+    #expect(await inbox.next() == .data(Data("restarted".utf8)))
 }
 
-@Test func `terminal control inbox enforces its own count and byte budget`() async {
+@Test func `a full inbox drops all that waits and says so before the newer data`() async {
     let inbox = RuntimeEventInbox(maximumBytes: 8, maximumCount: 2)
     #expect(inbox.push(Data([1, 2, 3, 4])))
     #expect(inbox.push(Data([5, 6, 7, 8])))
     #expect(!inbox.push(Data([9])))
-    #expect(await inbox.next() == Data([1, 2, 3, 4]))
-    #expect(!inbox.push(Data(repeating: 0, count: 5)))
-    #expect(await inbox.next() == Data([5, 6, 7, 8]))
+    #expect(inbox.push(Data([10])))
+    #expect(await inbox.next() == .behind(events: 3, bytes: 9))
+    #expect(await inbox.next() == .data(Data([10])))
     #expect(!inbox.push(Data(repeating: 0, count: 9)))
+    #expect(await inbox.next() == .behind(events: 1, bytes: 9))
     inbox.close()
 }
 

@@ -1441,6 +1441,7 @@ impl Runtime {
                     | Command::Presence { .. }
                     | Command::Lifecycle { .. }
                     | Command::NetworkChanged { .. }
+                    | Command::Resync { .. }
             ) {
             Err(Error::Stale)
         } else if let Some(computer) = elsewhere {

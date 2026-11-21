@@ -2975,6 +2975,48 @@
           "requestId": {
             "type": "string"
           },
+          "type": {
+            "const": "app.resync"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
           "sessionId": {
             "type": "string"
           },
@@ -14404,7 +14446,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 97,
+  "protocolVersion": 98,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

@@ -13695,58 +13695,6 @@
         }
       }
     },
-    "Kodosi fell behind. Start it again." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi kommt nicht mehr hinterher. Starte es neu."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Το Kodosi δεν πρόλαβε τις ενημερώσεις. Ξεκινήστε το ξανά."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi no ha podido seguir el ritmo. Vuelve a iniciarlo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi n'arrive plus à suivre. Relancez-le."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi non riesce a stare al passo. Riavvialo."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi の処理が追いつきません。再起動してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi가 처리 속도를 따라가지 못했어요. 다시 시작하세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi 跟不上更新速度，请重新启动它。"
-          }
-        }
-      }
-    },
     "Kodosi got a terminal list it cannot read." : {
       "localizations" : {
         "de" : {
@@ -13795,58 +13743,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kodosi 收到了无法读取的终端列表。"
-          }
-        }
-      }
-    },
-    "Kodosi got an update it cannot read: %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi hat ein Update erhalten, das es nicht lesen kann: %@"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Το Kodosi έλαβε μια ενημέρωση που δεν μπορεί να διαβάσει: %@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi ha recibido una actualización que no puede leer: %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi a reçu une mise à jour qu'il ne peut pas lire : %@"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi ha ricevuto un aggiornamento che non riesce a leggere: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi が読み取れない更新を受け取りました：%@"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi가 읽을 수 없는 업데이트를 받았어요: %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kodosi 收到了无法读取的更新：%@"
           }
         }
       }

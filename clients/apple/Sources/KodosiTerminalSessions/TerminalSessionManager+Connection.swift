@@ -10,7 +10,7 @@ extension TerminalSessionManager {
         let resizeDelivery = managed.resizeDelivery
         let controls = managed.controls
         managed.controlTask = Task(name: "Terminal controls \(sessionId)") { [weak self, token] in
-            while let data = await controls.next() {
+            while case let .data(data)? = await controls.next() {
                 guard !Task.isCancelled, token.isActive, self?.sessions[sessionId]?.token === token else { return }
                 self?.handleControlFrame(data, sessionId: sessionId, token: token, resizeDelivery: resizeDelivery)
             }
@@ -121,7 +121,7 @@ private extension TerminalSessionManager {
                 return
             }
             guard !controls.push(data), link.token.deactivate() else { return }
-            controls.close(overflowed: true)
+            controls.close()
             Task { @MainActor [weak self] in
                 self?.fail(link, message: String(localized: "This terminal fell behind. Try again.", bundle: .module))
             }

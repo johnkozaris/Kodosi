@@ -310,8 +310,8 @@ import Testing
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
-    app.failRuntime("Kodosi fell behind. Start it again.")
-    #expect(app.appState == .error("Kodosi fell behind. Start it again."))
+    app.failRuntime("Terminals could not start.")
+    #expect(app.appState == .error("Terminals could not start."))
     #expect(app.errorMessage == nil)
 }
 

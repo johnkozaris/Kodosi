@@ -140,17 +140,32 @@ public final class CommandSink {
         }
     }
 
+    /// The answers that the app dropped when it fell behind are lost, so each caller that waits
+    /// hears that Kodosi cannot tell whether its request worked, and a late answer reaches nobody.
+    public func abandonPending() {
+        let waiting = pending
+        pending.removeAll()
+        for (requestId, request) in waiting {
+            remember(Abandoned(requestId: requestId, operation: request.operation))
+            request.continuation.resume(throwing: RuntimeError.timedOut)
+        }
+    }
+
     private func finish(_ requestId: String, result: Result<RuntimeEvent, any Error>) {
         pending.removeValue(forKey: requestId)?.continuation.resume(with: result)
     }
 
     private func abandon(_ requestId: String) {
         guard let pending = pending.removeValue(forKey: requestId) else { return }
-        abandoned.append(Abandoned(requestId: requestId, operation: pending.operation))
+        remember(Abandoned(requestId: requestId, operation: pending.operation))
+        pending.continuation.resume(throwing: CancellationError())
+    }
+
+    private func remember(_ request: Abandoned) {
+        abandoned.append(request)
         if abandoned.count > Self.mostAbandoned {
             abandoned.removeFirst()
         }
-        pending.continuation.resume(throwing: CancellationError())
     }
 
     public static func didAcceptSynchronously(_ result: Int32?) -> Bool {

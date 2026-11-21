@@ -88,6 +88,12 @@ public final class CanvasStore {
         }
     }
 
+    public func renewPipes() {
+        for link in documents.allObjects {
+            link.renewAfterLoss()
+        }
+    }
+
     public func observe(_ sessions: [RuntimeSession]) {
         let ids = Set(sessions.map(\.id))
         for session in sessions where firstSeen[session.id] == nil {
