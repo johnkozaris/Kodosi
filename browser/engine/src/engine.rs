@@ -106,7 +106,11 @@ wrap_task! {
 
     impl Task {
         fn execute(&self) {
-            with(Engine::report);
+            with(|engine| {
+                if engine.report_waiting {
+                    engine.report();
+                }
+            });
         }
     }
 }
@@ -615,6 +619,11 @@ impl Engine {
             .get(&browser)
             .is_some_and(|tab| tab.icon == address)
         {
+            // The host finds the window of an icon by the report of its tab, which waits a moment
+            // after a new tab, and a fast page has its icon sooner.
+            if self.report_waiting {
+                self.report();
+            }
             let png = STANDARD.encode(png);
             self.link.send(&FromEngine::Icon {
                 tab: browser,
