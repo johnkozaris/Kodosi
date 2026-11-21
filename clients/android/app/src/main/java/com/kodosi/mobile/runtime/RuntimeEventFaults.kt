@@ -25,6 +25,13 @@ class RuntimeEventFaults {
             "so it asks for its state again"
     )
 
+    fun browserBehind(events: Int, bytes: Long) = write(
+        Log.WARN,
+        Ffi.LOG_WARNING,
+        "the shared browser fell behind the runtime's events and dropped $events of them, $bytes bytes, " +
+            "so its pipes start again"
+    )
+
     private fun write(priority: Int, level: Int, line: String) {
         Log.println(priority, TAG, line)
         NativeRuntime.log(level, line.encodeToByteArray())

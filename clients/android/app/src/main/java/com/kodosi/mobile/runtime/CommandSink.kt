@@ -12,6 +12,7 @@ open class RuntimeFailure(message: String) : Exception(message)
 /** The answer went with the events that the app dropped when it fell behind. */
 class LostAnswer(message: String) : RuntimeFailure(message)
 
+/** The shared browser's own thread sends and asks too. */
 class CommandSink(private val words: Words) {
     enum class Delivery { CALLER, APP }
 
@@ -19,10 +20,15 @@ class CommandSink(private val words: Words) {
 
     private data class Abandoned(val requestId: String, val operation: String)
 
+    @Volatile
     var transport: ((ByteArray) -> Int?)? = null
     var onFailure: (String) -> Unit = {}
+
+    @Volatile
     var accountUserId: String? = null
         private set
+
+    @Volatile
     var accountEpoch: Long = 0
         private set
     private val pending = HashMap<String, Pending>()
@@ -55,16 +61,18 @@ class CommandSink(private val words: Words) {
     }
 
     suspend fun request(type: String, fields: Map<String, JsonElement> = emptyMap()): RuntimeEvent {
-        if (pending.size >= MAX_PENDING) throw RuntimeFailure(words.rejected(Ffi.BUSY))
         val requestId = (fields["requestId"] as? JsonPrimitive)?.content ?: UuidV7.generate()
         val answer = CompletableDeferred<RuntimeEvent>()
-        pending[requestId] = Pending(type, answer)
+        synchronized(pending) {
+            if (pending.size >= MAX_PENDING) throw RuntimeFailure(words.rejected(Ffi.BUSY))
+            pending[requestId] = Pending(type, answer)
+        }
         try {
             val result = send(type, fields + ("requestId" to JsonPrimitive(requestId)))
             if (result != Ffi.OK) throw failure(result)
             return withTimeoutOrNull(60_000) { answer.await() } ?: throw RuntimeFailure(words.unavailable)
         } finally {
-            pending.remove(requestId)
+            synchronized(pending) { pending.remove(requestId) }
         }
     }
 
@@ -74,9 +82,10 @@ class CommandSink(private val words: Words) {
         val area = operation.substringBefore('.')
         val failed = event.type == "$area.error"
         if (!failed && event.type != "$area.result") return Delivery.APP
-        val waiting = pending[requestId]?.takeIf { it.operation == operation }
-            ?: return if (abandoned.remove(Abandoned(requestId, operation))) Delivery.CALLER else Delivery.APP
-        pending.remove(requestId)
+        val waiting = synchronized(pending) {
+            pending[requestId]?.takeIf { it.operation == operation }?.also { pending.remove(requestId) }
+                ?: return if (abandoned.remove(Abandoned(requestId, operation))) Delivery.CALLER else Delivery.APP
+        }
         if (failed) {
             waiting.answer.completeExceptionally(RuntimeFailure(event.string("message") ?: words.didNotWork))
         } else {
@@ -86,8 +95,7 @@ class CommandSink(private val words: Words) {
     }
 
     fun cancelPending(error: Throwable = RuntimeFailure(words.unavailable)) {
-        val waiting = pending.values.toList()
-        pending.clear()
+        val waiting = synchronized(pending) { pending.values.toList().also { pending.clear() } }
         for (request in waiting) request.answer.completeExceptionally(error)
     }
 
@@ -96,8 +104,7 @@ class CommandSink(private val words: Words) {
      * hears that Kodosi cannot tell whether its request worked, and a late answer reaches nobody.
      */
     fun abandonPending() {
-        val waiting = pending.toList()
-        pending.clear()
+        val waiting = synchronized(pending) { pending.toList().also { pending.clear() } }
         for ((requestId, request) in waiting) {
             abandoned.addLast(Abandoned(requestId, request.operation))
             if (abandoned.size > MAX_PENDING) abandoned.removeFirst()

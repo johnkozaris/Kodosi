@@ -10,11 +10,15 @@ import com.kodosi.mobile.runtime.number
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 
-/** The runtime keeps the pipe of a view and opens it again after each loss, until the view closes it. */
+/**
+ * The runtime keeps the pipe of a view and opens it again after each loss, until the view closes it.
+ * A link lives on one thread: the main thread for a document, the browser's own for the browser.
+ */
 class DocumentLink(
     private val commands: CommandSink,
     val session: String,
     private val key: String,
+    private val onPipe: () -> Unit = {},
     private val onClose: (DocumentLink) -> Unit
 ) {
     sealed interface News {
@@ -28,7 +32,11 @@ class DocumentLink(
         data object Closed : News
     }
 
-    private var pipe: String? = null
+    var pipe: String? = null
+        private set(value) {
+            field = value
+            onPipe()
+        }
 
     /** The pipe that waits for the answer to its registration. */
     private var registering: String? = null
