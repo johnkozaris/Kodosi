@@ -55,12 +55,21 @@ private struct ChatPermission: View {
     let always: AskAlways?
     let helper: String
 
+    /// A command that is longer than its line shows whole below the line: a person reads all of
+    /// what they allow.
+    private var whole: String? {
+        if case let .command(command, _, _)? = tool.detail, command != tool.target || command.count > 96 {
+            return command
+        }
+        return nil
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             StatusSign(form: .hand, size: 12)
             StepGlyph(symbol: ChatWords.symbol(tool.kind))
             Text(verbatim: tool.target.isEmpty ? tool.name : tool.target)
-                .appTextStyle(.mono).foregroundStyle(theme.colors.ink).lineLimit(3).truncationMode(.middle)
+                .appTextStyle(.mono).foregroundStyle(theme.colors.ink).lineLimit(whole == nil ? 3 : 1).truncationMode(.middle)
                 .textSelection(.enabled)
                 .help(tool.name)
         }
@@ -68,18 +77,15 @@ private struct ChatPermission: View {
             Label { Text(verbatim: helper) } icon: { Image(systemName: "person.2") }
                 .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint).lineLimit(1)
         }
-        switch tool.detail {
-        case let .command(command, _, _) where command != tool.target:
+        if let whole {
             ScrollView {
-                Text(verbatim: command).appTextStyle(.monoCaption).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+                Text(verbatim: whole).appTextStyle(.monoCaption).foregroundStyle(theme.colors.ink).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(8)
             }
             .frame(maxHeight: 140).fixedSize(horizontal: false, vertical: true)
             .well(Radius.md)
-        case let .change(_, _, _, lines) where !lines.isEmpty:
+        } else if case let .change(_, _, _, lines)? = tool.detail, !lines.isEmpty {
             ChangeLines(lines: lines, most: 14)
-        default:
-            EmptyView()
         }
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 6) {
