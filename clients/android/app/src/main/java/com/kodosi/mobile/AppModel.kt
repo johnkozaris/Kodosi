@@ -95,6 +95,7 @@ class AppModel(
     init {
         commands.onFailure = ::notify
         account.notify = ::notify
+        canvas.unreadableChatFrame = RuntimeEventFaults()::unreadableChatFrame
         scope.launch {
             combine(deviceJoin, account.state) { code, state -> code?.let { it to state.stage } }
                 .filterNotNull()
