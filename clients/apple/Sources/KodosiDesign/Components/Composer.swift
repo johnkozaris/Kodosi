@@ -60,6 +60,29 @@ public struct SendKey: View {
     }
 }
 
+public struct StopKey: View {
+    @Environment(\.theme) private var theme
+    let size: CGFloat
+    let action: () -> Void
+
+    public init(size: CGFloat = 30, action: @escaping () -> Void) {
+        self.size = size
+        self.action = action
+    }
+
+    public var body: some View {
+        Button(action: action) {
+            RoundedRectangle(cornerRadius: size * 0.075, style: .continuous).fill(theme.colors.ink)
+                .frame(width: (size * 0.3).rounded(), height: (size * 0.3).rounded())
+                .frame(width: size, height: size)
+                .background { BezelBackground(shape: Circle(), fill: theme.buttonFace(), bezel: .quiet) }
+                .touchTarget()
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(Text("Stop", bundle: .module))
+    }
+}
+
 public struct CautionNote<Actions: View>: View {
     @Environment(\.theme) private var theme
     let message: String

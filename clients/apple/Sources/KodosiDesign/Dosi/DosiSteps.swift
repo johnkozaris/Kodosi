@@ -110,6 +110,15 @@ struct DosiMini: View {
     }
 
     private func glyph(_ symbol: String) -> some View {
+        StepGlyph(symbol: symbol)
+    }
+}
+
+struct StepGlyph: View {
+    @Environment(\.theme) private var theme
+    let symbol: String
+
+    var body: some View {
         Image(systemName: symbol).font(.system(size: 7.5, weight: .bold)).foregroundStyle(theme.colors.inkMuted)
             .frame(width: 14, height: 14)
             .background(theme.colors.lifted, in: RoundedRectangle(cornerRadius: 4, style: .continuous))

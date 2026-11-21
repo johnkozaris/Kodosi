@@ -1,26 +1,6 @@
 import KodosiBridge
 import SwiftUI
 
-struct DosiPersonBubble: View {
-    @Environment(\.theme) private var theme
-    let text: String
-
-    var body: some View {
-        HStack {
-            Spacer(minLength: 48)
-            Text(ProjectMessageText.formatted(text))
-                .appTextStyle(.body).lineSpacing(2.5).foregroundStyle(theme.colors.ink).textSelection(.enabled)
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background {
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: 14, bottomLeadingRadius: 14, bottomTrailingRadius: 4, topTrailingRadius: 14, style: .continuous,
-                    )
-                    .fill(theme.colors.accentSoft)
-                }
-        }
-    }
-}
-
 struct DosiWaiting: View {
     @Environment(DosiPlace.self) private var place
     @Environment(\.theme) private var theme
@@ -55,24 +35,6 @@ struct DosiWaiting: View {
         Button { place.dosi.takeBack(item) } label: { Text("Do not send", bundle: .module) }
             .buttonStyle(.kodosi(.ghost, size: .small))
             .accessibilityIdentifier("dosi.waiting.remove.\(AccessibilityIdentifier.token(item.id))")
-    }
-}
-
-struct DosiProse: View {
-    @Environment(\.theme) private var theme
-    let text: String
-    let live: Bool
-
-    var body: some View {
-        HStack(alignment: .lastTextBaseline, spacing: 3) {
-            Text(ProjectMessageText.formatted(text))
-                .appTextStyle(.body).lineSpacing(3).foregroundStyle(theme.colors.ink).textSelection(.enabled)
-                .tint(theme.colors.accentStrong)
-            if live {
-                CursorBlock(width: 6, height: 14, blink: .typing).transition(.opacity)
-            }
-        }
-        .animation(theme.motion.fade, value: live)
     }
 }
 

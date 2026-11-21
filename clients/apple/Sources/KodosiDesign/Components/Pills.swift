@@ -41,12 +41,17 @@ public struct SegmentedPill<Value: Hashable>: View {
     @Binding public var selection: Value
     public let options: [SegmentOption<Value>]
     public var compact = false
+    /// Each choice shows only its symbol, and names itself in a tip.
+    public var symbolic = false
     public var identifier = "segment"
 
-    public init(selection: Binding<Value>, options: [SegmentOption<Value>], compact: Bool = false, identifier: String = "segment") {
+    public init(selection: Binding<Value>, options: [SegmentOption<Value>], compact: Bool = false, symbolic: Bool = false,
+                identifier: String = "segment")
+    {
         _selection = selection
         self.options = options
         self.compact = compact
+        self.symbolic = symbolic
         self.identifier = identifier
     }
 
@@ -81,11 +86,13 @@ public struct SegmentedPill<Value: Hashable>: View {
                     if let symbol = option.symbol {
                         Image(systemName: symbol).font(.system(size: compact ? 11 : 12, weight: .semibold))
                     }
-                    Text(option.title)
-                    #if os(iOS)
-                        .lineLimit(stacked ? nil : 1)
-                        .minimumScaleFactor(stacked ? 1 : 0.7)
-                    #endif
+                    if !symbolic {
+                        Text(option.title)
+                        #if os(iOS)
+                            .lineLimit(stacked ? nil : 1)
+                            .minimumScaleFactor(stacked ? 1 : 0.7)
+                        #endif
+                    }
                     if let count = option.count, count > 0 {
                         CountBadge(count: count, quiet: true)
                     }
@@ -104,8 +111,21 @@ public struct SegmentedPill<Value: Hashable>: View {
                 .touchTarget(Capsule())
             }
             .buttonStyle(.plain)
+            .modifier(SymbolTip(title: symbolic ? option.title : nil))
             .accessibilityAddTraits(selected ? .isSelected : [])
             .accessibilityIdentifier("\(identifier).\(String(describing: option.value))")
+        }
+    }
+
+    private struct SymbolTip: ViewModifier {
+        let title: String?
+
+        func body(content: Content) -> some View {
+            if let title {
+                content.tip(verbatim: title).accessibilityLabel(Text(verbatim: title))
+            } else {
+                content
+            }
         }
     }
 
