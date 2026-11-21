@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
@@ -83,6 +84,9 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
         mutableStateOf(canvas?.openKey(initialKey, closed) ?: initialKey ?: "browser")
     }
     var part by rememberSaveable(sessionId) { mutableStateOf(if (selected == "browser") "browser" else "files") }
+
+    /** A person's act brought the browser forward, and its view has not taken that yet. An agent's show is no act. */
+    var browserOpened by rememberSaveable(sessionId) { mutableStateOf(part == "browser") }
     var shelf by rememberSaveable(sessionId) { mutableStateOf(false) }
     var followedShow by rememberSaveable(sessionId) { mutableLongStateOf(canvas?.open?.at ?: 0L) }
     val item = canvas?.items?.firstOrNull { it.key == selected && part == "files" && !shelf }
@@ -202,6 +206,10 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
             selected = canvas.items.firstOrNull()?.key ?: "browser"
         }
     }
+    LaunchedEffect(part, canvas?.browser != null) {
+        if (part != "browser" || canvas?.browser != null) browserOpened = false
+    }
+    LifecycleResumeEffect(Unit) { onPauseOrDispose { browserOpened = false } }
     val parts = listOfNotNull(
         if (!canvas?.items.isNullOrEmpty() && "files" !in closed) {
             "files" to DockItem(stringResource(R.string.files), AppSymbol.STACK, canvas.items.size)
@@ -220,6 +228,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                 Text(stringResource(R.string.canvas), style = KodosiType.headline)
             } else {
                 SectionDock(parts.map { it.second }, parts.indexOfFirst { it.first == part }) {
+                    if (part != "browser" && parts[it].first == "browser") browserOpened = true
                     part = parts[it].first
                 }
             }
@@ -242,6 +251,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                                 adding = false
                                 model.preferences.canvasPart(sessionId, "browser", true)
                                 part = "browser"
+                                browserOpened = true
                                 if (canvas?.browser == null) scope.launch { wakeBrowser() }
                             }
                         )
@@ -342,6 +352,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                         model,
                         sessionId,
                         canvas.browser,
+                        opened = browserOpened,
                         ask = if (session.canControl && session.agent.isAgent) {
                             { words -> askAbout(null) { words } }
                         } else {

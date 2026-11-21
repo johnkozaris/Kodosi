@@ -24,7 +24,7 @@ class BrowserFeedTest {
 
     @Test
     fun aFeedWatchesOnEachOpenOfItsPipeAndShowsALossUntilAFrameComes() = runTest {
-        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
+        val feed = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
         feed.show(true)
         runCurrent()
         val pipe = sent.last("document.open").string("pipe")
@@ -43,6 +43,32 @@ class BrowserFeedTest {
         assertEquals(1, sent.types.count { it == "document.open" })
         feed.show(false)
         assertFalse(feed.reconnecting.value)
+    }
+
+    @Test
+    fun onlyThePersonsActTakesThePageAndAReturnToTheScreenDoesNot() = runTest {
+        val opened = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
+        opened.show(true)
+        assertEquals(true, look())
+        opened.show(false)
+        opened.show(true)
+        assertEquals(false, look())
+
+        val leaving = BrowserFeed(pipes, "terminal", backgroundScope, opened = true)
+        leaving.show(true)
+        leaving.show(false)
+        leaving.show(true)
+        assertEquals(false, look())
+
+        BrowserFeed(pipes, "terminal", backgroundScope, opened = false).show(true)
+        assertEquals(false, look())
+    }
+
+    private fun look(): Boolean? {
+        val pipe = sent.last("document.open").string("pipe")
+        sent.reply("document.open")
+        news("document.opened", pipe)
+        return watched()?.get("opened")?.jsonPrimitive?.boolean
     }
 
     private fun news(type: String, pipe: String, fields: String = "") {
