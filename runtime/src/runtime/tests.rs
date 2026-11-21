@@ -5480,7 +5480,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
     assert_eq!(
         typed(&work).await,
         format!(
-            "env CLAUDE_CONFIG_DIR={}/.claude-work claude --model opus --effort max --dangerously-skip-permissions\n",
+            "env CLAUDE_CONFIG_DIR={}/.claude-work claude --model opus --effort max --dangerously-skip-permissions --fast-mode off\n",
             home.display()
         ),
         "the account, model and permissions of the agent and the effort that waits; the output of the last choice"
@@ -5498,7 +5498,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
     started(&mut runtime, &default, Some(agent)).await;
     assert_eq!(
         typed(&default).await,
-        "claude --model sonnet --dangerously-skip-permissions\n",
+        "claude --model sonnet --dangerously-skip-permissions --fast-mode off\n",
         "a new model that waits runs at its own effort"
     );
 
@@ -5509,7 +5509,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
     started(&mut runtime, &by_hand, Some(agent)).await;
     assert_eq!(
         typed(&by_hand).await,
-        "claude --model sonnet --dangerously-skip-permissions\n",
+        "claude --model sonnet --dangerously-skip-permissions --fast-mode off\n",
         "a model that Kodosi cannot start stays the last choice"
     );
 

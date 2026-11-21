@@ -39,8 +39,8 @@ la shell del terminal nuevo.
   ajustes, así que Kodosi los cambia mientras Copilot CLI se ejecuta en Breve y después los
   restablece.
 - Claude Code y Codex tienen un modo rápido, que responde más rápido y cuesta más. Actívalo
-  junto al modelo y el esfuerzo. Mientras está desactivado, el agente mantiene su propio
-  ajuste.
+  junto al modelo y el esfuerzo. Vale solo para ese inicio, así que un agente empieza sin él
+  salvo que lo actives.
 - Una cuenta nueva tiene su propia carpeta de inicio de sesión, como `~/.claude-work`. Kodosi
   también encuentra las cuentas que configura tu shell, como
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.

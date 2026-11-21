@@ -41,8 +41,8 @@ Befehl in die Shell des neuen Terminals.
   eigenen Einstellungen, deshalb ändert Kodosi diese, solange Copilot CLI mit Knapp läuft,
   und stellt sie danach zurück.
 - Claude Code und Codex haben einen Schnellmodus, der schneller antwortet und mehr kostet.
-  Schalte ihn bei Modell und Denkaufwand ein. Solange er aus ist, behält der Agent seine
-  eigene Einstellung.
+  Schalte ihn bei Modell und Denkaufwand ein. Er gilt nur für diesen Start, also startet ein
+  Agent ohne ihn, solange du ihn nicht einschaltest.
 - Ein neues Konto bekommt seinen eigenen Anmeldeordner, zum Beispiel `~/.claude-work`.
   Kodosi findet auch die Konten, die deine Shell einrichtet, etwa
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.

@@ -873,7 +873,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
     let (line, pick) = plan(&info, Some(&models), &saved, &start(None, None, None)).unwrap();
     assert_eq!(
         line,
-        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model opus --effort high --dangerously-skip-permissions"
+        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model opus --effort high --dangerously-skip-permissions --fast-mode off"
     );
     assert_eq!(pick, saved);
 
@@ -884,7 +884,10 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         &start(Some("default"), Some(""), None),
     )
     .unwrap();
-    assert_eq!(line, "claude --effort high --dangerously-skip-permissions");
+    assert_eq!(
+        line,
+        "claude --effort high --dangerously-skip-permissions --fast-mode off"
+    );
 
     let (line, pick) = plan(
         &info,
@@ -895,7 +898,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
     .unwrap();
     assert_eq!(
         line,
-        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model haiku --dangerously-skip-permissions"
+        "CLAUDE_CONFIG_DIR=~/.claude-work claude --model haiku --dangerously-skip-permissions --fast-mode off"
     );
     assert_eq!(pick.effort, None);
 
@@ -905,7 +908,10 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         ..saved.clone()
     };
     let (line, _) = plan(&info, Some(&models), &stale, &start(None, None, None)).unwrap();
-    assert_eq!(line, "claude --effort high --dangerously-skip-permissions");
+    assert_eq!(
+        line,
+        "claude --effort high --dangerously-skip-permissions --fast-mode off"
+    );
 
     assert_eq!(
         plan(
@@ -1137,25 +1143,31 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
     assert_eq!(
         line(Agent::Claude, None, None, None).unwrap(),
         (
-            format!("claude --dangerously-skip-permissions --settings '{CLAUDE_QUIET}'"),
+            format!(
+                "claude --dangerously-skip-permissions --settings '{CLAUDE_QUIET}' --fast-mode off"
+            ),
             Some(unrestricted)
         )
     );
     assert_eq!(
         line(Agent::Claude, Some(ask), None, Some(Output::Standard)).unwrap(),
-        ("claude --permission-mode manual".to_owned(), Some(ask))
+        (
+            "claude --permission-mode manual --fast-mode off".to_owned(),
+            Some(ask)
+        )
     );
     assert_eq!(
         line(Agent::Claude, Some(unrestricted), Some(auto), None)
             .unwrap()
             .0,
-        format!("claude --permission-mode auto --settings '{CLAUDE_QUIET}'")
+        format!("claude --permission-mode auto --settings '{CLAUDE_QUIET}' --fast-mode off")
     );
     assert_eq!(
         line(Agent::Codex, None, None, None).unwrap().0,
         "codex --dangerously-bypass-approvals-and-sandbox -c hide_agent_reasoning=true \
          -c show_raw_agent_reasoning=false -c model_reasoning_summary=none -c tui.auto_recap=false \
-         -c tui.show_tooltips=false -c tui.animations=false -c 'tui.status_line=[]'"
+         -c tui.show_tooltips=false -c tui.animations=false -c 'tui.status_line=[]' \
+         -c service_tier=default"
     );
     assert_eq!(
         line(Agent::Copilot, None, None, None).unwrap(),
@@ -1180,7 +1192,7 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
 }
 
 #[test]
-fn an_agent_starts_fast_when_chosen_and_else_with_its_own_setting() {
+fn an_agent_starts_fast_only_when_chosen_and_the_next_start_chooses_again() {
     let line = |agent: Agent, saved: bool, fast: Option<bool>| {
         let saved = AgentPick {
             agent,
@@ -1213,17 +1225,23 @@ fn an_agent_starts_fast_when_chosen_and_else_with_its_own_setting() {
         line(Agent::Claude, true, None).unwrap(),
         (
             "claude --permission-mode manual --fast-mode on".to_owned(),
-            true
+            false
         )
     );
     assert_eq!(
         line(Agent::Claude, true, Some(false)).unwrap(),
-        ("claude --permission-mode manual".to_owned(), false),
-        "off leaves the agent's own setting"
+        (
+            "claude --permission-mode manual --fast-mode off".to_owned(),
+            false
+        ),
+        "off turns off a fast mode that the agent kept"
     );
     assert_eq!(
         line(Agent::Codex, false, None).unwrap(),
-        ("codex -a on-request -s read-only".to_owned(), false)
+        (
+            "codex -a on-request -s read-only -c service_tier=default".to_owned(),
+            false
+        )
     );
     assert_eq!(
         line(Agent::Copilot, true, None).unwrap(),
@@ -1295,7 +1313,8 @@ fn a_running_agent_shows_each_permissions_output_and_fast_mode_that_kodosi_start
                     if agent != Agent::Copilot {
                         assert_eq!(started.output, Some(output), "{line}");
                     }
-                    assert_eq!(started.fast, fast, "{line}");
+                    let shown = agent.has_fast().then(|| fast.unwrap_or(false));
+                    assert_eq!(started.fast, shown, "{line}");
                 }
             }
         }

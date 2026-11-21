@@ -37,8 +37,8 @@ comando nella shell del nuovo terminale.
   partono da Essenziale. Copilot CLI legge la verbosità solo dalle proprie impostazioni,
   quindi Kodosi le cambia finché Copilot CLI gira in Essenziale e poi le ripristina.
 - Claude Code e Codex hanno una modalità veloce, che risponde più velocemente e costa di più.
-  Attivala insieme al modello e al livello di ragionamento. Finché è disattivata, l'agente
-  mantiene la propria impostazione.
+  Attivala insieme al modello e al livello di ragionamento. Vale solo per quell'avvio, quindi
+  un agente parte senza di essa, a meno che tu non la attivi.
 - Un nuovo account ha una sua cartella di accesso, come `~/.claude-work`. Kodosi trova anche
   gli account che configura la tua shell, come
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
