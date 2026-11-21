@@ -89,8 +89,8 @@ final class AppModel {
                     }
                 case let .unreadable(error):
                     faults.unreadable(nil, error)
-                case let .behind(events, bytes):
-                    RuntimeEventFaults.behind(events: events, bytes: bytes)
+                case let .behind(drop):
+                    RuntimeEventFaults.behind(drop)
                     catchUp()
                 }
             }

@@ -102,10 +102,16 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
 
 @Test func `event inbox keeps its order and closes its waiter`() async {
     let inbox = RuntimeEventInbox()
-    for index in 0 ..< 256 {
+    for index in 0 ..< 200 {
         #expect(inbox.push(Data("\(index)".utf8)))
     }
-    for index in 0 ..< 256 {
+    for index in 0 ..< 100 {
+        #expect(await inbox.next() == .data(Data("\(index)".utf8)))
+    }
+    for index in 200 ..< 256 {
+        #expect(inbox.push(Data("\(index)".utf8)))
+    }
+    for index in 100 ..< 256 {
         #expect(await inbox.next() == .data(Data("\(index)".utf8)))
     }
     let pending = Task { await inbox.next() }
@@ -123,10 +129,12 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     #expect(inbox.push(Data([5, 6, 7, 8])))
     #expect(!inbox.push(Data([9])))
     #expect(inbox.push(Data([10])))
-    #expect(await inbox.next() == .behind(events: 3, bytes: 9))
+    guard case let .behind(first)? = await inbox.next() else { Issue.record("no drop"); return }
+    #expect(first.events == 3 && first.bytes == 9)
     #expect(await inbox.next() == .data(Data([10])))
     #expect(!inbox.push(Data(repeating: 0, count: 9)))
-    #expect(await inbox.next() == .behind(events: 1, bytes: 9))
+    guard case let .behind(second)? = await inbox.next() else { Issue.record("no drop"); return }
+    #expect(second.events == 1 && second.bytes == 9)
     inbox.close()
 }
 
