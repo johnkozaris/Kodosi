@@ -241,6 +241,7 @@ private:
     std::optional<PendingResize> m_pendingResize;
     QString m_pendingFocusRequestId;
     bool m_focusClaimed = false;
+    bool m_focusMovedHere = false;
     bool m_terminalReady = false;
     bool m_focusRetryQueued = false;
     FocusOperation m_focusRetryOperation = FocusOperation::None;
