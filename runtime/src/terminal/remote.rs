@@ -522,6 +522,10 @@ struct RemoteActor {
     confirmed_focus: bool,
     resize_owner: Option<(Uuid, CancellationToken)>,
     requested: HashMap<Uuid, RequestedResize>,
+    claiming: Option<Uuid>,
+    /// An app gives up a view's focus while the terminal reconnects and gives it again after, with
+    /// no act of a person.
+    returning: HashSet<Uuid>,
     typed_at: Option<tokio::time::Instant>,
     lost_at: Option<tokio::time::Instant>,
     pictures: VecDeque<Picture>,
@@ -572,6 +576,8 @@ impl RemoteActor {
             confirmed_focus: false,
             resize_owner: None,
             requested: HashMap::new(),
+            claiming: None,
+            returning: HashSet::new(),
             typed_at: None,
             lost_at: None,
             pictures: VecDeque::new(),
@@ -1008,20 +1014,18 @@ impl RemoteActor {
                 "Remote input exceeded its connection buffer, and Kodosi did not send it again."
             )));
         }
-        let resize = match (&queued.connection, &queued.control) {
-            (Some(_), TerminalControl::Input { .. }) => {
+        match (queued.connection, &queued.control) {
+            (Some(id), TerminalControl::Input { .. }) => {
                 self.typed_at = Some(tokio::time::Instant::now());
-                None
+                if !self.has_size_of(id) && !self.claims(id) {
+                    self.queued.extend(self.claim(id));
+                }
             }
-            (Some(id), TerminalControl::Focus { focused: true })
-                if !self
-                    .resize_owner
-                    .as_ref()
-                    .is_some_and(|(owner, token)| owner == id && !token.is_cancelled()) =>
-            {
-                self.requested
-                    .get(id)
-                    .map(|requested| (*id, requested.control.clone()))
+            (Some(id), TerminalControl::Focus { focused }) => {
+                let focused = *focused;
+                self.queued.push_back(queued);
+                self.view_focused(id, focused);
+                return Ok(());
             }
             (None, TerminalControl::Input { .. })
                 if self.typed_at.is_some_and(|at| at.elapsed() < super::TYPING) =>
@@ -1031,18 +1035,56 @@ impl RemoteActor {
                 }
                 return Ok(());
             }
-            _ => None,
-        };
-        self.queued.push_back(queued);
-        if let Some((id, control)) = resize {
-            self.queued.push_back(QueuedControl {
-                connection: Some(id),
-                control,
-                reply: None,
-                budget: None,
-            });
+            _ => {}
         }
+        self.queued.push_back(queued);
         Ok(())
+    }
+
+    fn view_focused(&mut self, id: Uuid, focused: bool) {
+        if !focused {
+            if self.link == Link::Lost {
+                self.returning.insert(id);
+            }
+            self.claiming.take_if(|claiming| *claiming == id);
+            return;
+        }
+        if self.returning.remove(&id) {
+            return;
+        }
+        match self.claim(id) {
+            Some(claim) => self.queued.push_back(claim),
+            None => self.claiming = Some(id),
+        }
+    }
+
+    fn claim(&self, id: Uuid) -> Option<QueuedControl> {
+        let mut control = self.requested.get(&id)?.control.clone();
+        if let TerminalControl::Resize { claim, .. } = &mut control {
+            *claim = true;
+        }
+        Some(QueuedControl {
+            connection: Some(id),
+            control,
+            reply: None,
+            budget: None,
+        })
+    }
+
+    fn has_size_of(&self, id: Uuid) -> bool {
+        self.requested.get(&id).and_then(RequestedResize::size)
+            == self.grid.map(|(size, _)| (size.rows(), size.cols()))
+    }
+
+    fn claims(&self, id: Uuid) -> bool {
+        self.queued.iter().any(|queued| {
+            queued.connection == Some(id)
+                && matches!(queued.control, TerminalControl::Resize { claim: true, .. })
+        }) || self
+            .in_flight
+            .as_ref()
+            .and_then(|active| active.resize_owner.as_ref())
+            .is_some_and(|(owner, _)| *owner == id)
     }
 
     fn next_control(&mut self) {
@@ -1216,7 +1258,6 @@ impl RemoteActor {
                 taken_turn,
             },
         );
-        let focused = self.focused.contains(&id);
         let TerminalControl::Resize {
             rows,
             cols,
@@ -1238,7 +1279,7 @@ impl RemoteActor {
             *cell_width_pixels,
             *cell_height_pixels,
         )?;
-        *claim = *claim || focused;
+        *claim = *claim || self.claiming == Some(id);
         if self
             .resize_owner
             .as_ref()
@@ -1249,6 +1290,7 @@ impl RemoteActor {
                 "Another terminal view controls the size. Focus this view to resize it."
             )));
         }
+        self.claiming.take_if(|claiming| *claiming == id);
         Ok(id)
     }
 
@@ -1605,7 +1647,7 @@ impl RemoteActor {
                 Some(Request::Reconnected(connection)) => { self.resume(*connection).await; Ok(()) }
                 Some(Request::Subscribe(reply)) => self.add_capture(CaptureReply::Subscribe(reply)).await,
                 Some(Request::Checkpoint { connection, reply }) => self.add_capture(CaptureReply::Checkpoint { connection, reply }).await,
-                Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); Ok(()) }
+                Some(Request::Unsubscribe(id)) => { self.subscribers.remove(id); self.focused.remove(&id); self.claiming.take_if(|claiming| *claiming == id); self.returning.remove(&id); Ok(()) }
                 Some(Request::Control(queued)) if self.lost_too_long() => {
                     if let Some(reply) = queued.reply {
                         drop(reply.send(Err(Error::Text(reconnecting()))));

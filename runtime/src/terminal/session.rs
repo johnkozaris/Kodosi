@@ -929,7 +929,6 @@ impl LocalActor {
                 taken_turn,
             },
         );
-        let claim = claim || self.focused.contains_key(&controller);
         let cell = geometry.map_or(self.cell, CellPixels::of);
         let (width, height) = cell.pty_pixels(size);
         if authorization.is_cancelled() {
@@ -1056,17 +1055,39 @@ impl LocalActor {
         {
             return (Err(error), false);
         }
-        let owner = self
-            .resize_owner
-            .as_ref()
-            .is_some_and(|owner| owner.controller == controller);
-        if !focused || owner {
+        // A device tells its focus again when its connection comes back. So its focus brings only
+        // a size that it asked for, and its runtime claims the size for a view that did not ask.
+        let acts =
+            matches!(controller, Controller::Local(_)) || self.requested.contains_key(&controller);
+        if !focused || !acts {
             return (Ok(()), false);
         }
-        match self.take_requested_size(controller, authorization).await {
+        match self.acted(controller, authorization).await {
             Ok(()) => (Ok(()), false),
             Err(error) => (Err(error), true),
         }
+    }
+
+    async fn acted(
+        &mut self,
+        controller: Controller,
+        authorization: CancellationToken,
+    ) -> Result<()> {
+        if self
+            .resize_owner
+            .as_ref()
+            .is_some_and(|owner| owner.controller == controller)
+        {
+            return Ok(());
+        }
+        if self.requested.contains_key(&controller) {
+            return self.take_requested_size(controller, authorization).await;
+        }
+        self.resize_owner = Some(ResizeOwner {
+            controller,
+            authorization,
+        });
+        Ok(())
     }
 
     async fn take_requested_size(
@@ -1407,15 +1428,22 @@ impl LocalActor {
         program.is_none() && self.pty.foreground_is_child()
     }
 
-    fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) {
+    async fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) -> Option<Text> {
         let Ok(authorization) = self.subscribers.authorization(connection) else {
             if let Some(completion) = write.completion.take() {
                 completion.send(Err(Error::Stale));
             }
-            return;
+            return None;
         };
+        let taken = self
+            .acted(Controller::Local(connection), authorization.clone())
+            .await;
         write.authorization = Some(authorization);
         self.type_keys(write);
+        taken.err().map(|error| {
+            tracing::warn!(id = %self.id, %error, "typing did not bring the view's size");
+            size_not_applied()
+        })
     }
 
     fn accept_command_input(&mut self, mut write: PendingWrite, message: bool) {
@@ -1495,7 +1523,9 @@ impl LocalActor {
                 self.note_local_view();
                 return self.release(Controller::Local(connection)).await;
             }
-            Request::Input { connection, write } => self.accept_input(connection, write),
+            Request::Input { connection, write } => {
+                return self.accept_input(connection, write).await;
+            }
             Request::Picture { picture, reply } => {
                 self.save_picture(None, picture, InputCompletion::Local(reply));
             }
