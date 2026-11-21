@@ -535,6 +535,11 @@ impl Engine {
         }
     }
 
+    fn to_window(&self, window: i64, event: Event) -> Vec<(mpsc::Sender<Event>, Event)> {
+        let sender = self.routes().windows.get(&window).cloned();
+        sender.map_or_default(|sender| vec![(sender, event)])
+    }
+
     fn report(&self, report: Report) -> Vec<(mpsc::Sender<Event>, Event)> {
         let said = match report {
             Report::Frame(frame) => {
@@ -551,8 +556,12 @@ impl Engine {
         match said {
             FromEngine::Failed { window, problem } => {
                 tracing::warn!(%problem, "the capture stopped");
-                let sender = self.routes().windows.get(&window).cloned();
-                sender.map_or_default(|sender| vec![(sender, Event::CaptureFailed)])
+                self.to_window(window, Event::CaptureFailed)
+            }
+            FromEngine::Layer { window, context } => self.to_window(window, Event::Layer(context)),
+            FromEngine::NoLayer { window, problem } => {
+                tracing::warn!(%problem, "the browser's views take video");
+                self.to_window(window, Event::NoLayer)
             }
             FromEngine::Shape { tab, shape } => to_tab(tab, Event::Shape(shape)),
             FromEngine::Menu {

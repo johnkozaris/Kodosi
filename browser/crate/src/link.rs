@@ -20,7 +20,7 @@ pub const MOST_ICON: usize = 12 * 1024;
 ///
 /// Raise it with each change of a command, a report or the bytes before a picture that the
 /// version before cannot take.
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 
 /// The bytes before a picture's data: its window, its kind and its mark.
 const FRAME_HEADER: usize = 8 + 1 + 8;
@@ -84,6 +84,12 @@ pub enum ToEngine {
     Bitrate {
         window: i64,
         bitrate: u32,
+    },
+    /// The tab whose page the window's layer shows, or none, when the layer keeps its last
+    /// picture.
+    Layer {
+        window: i64,
+        tab: Option<i64>,
     },
     Activate {
         tab: i64,
@@ -179,6 +185,17 @@ pub enum FromEngine {
         png: String,
     },
     Failed {
+        window: i64,
+        problem: String,
+    },
+    /// The window's layer shows a picture, in the Core Animation context of this id, which an
+    /// app on this computer can host.
+    Layer {
+        window: i64,
+        context: u32,
+    },
+    /// The window has no layer, so its views take video.
+    NoLayer {
         window: i64,
         problem: String,
     },

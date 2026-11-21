@@ -19,13 +19,17 @@ const ANCHOR: u8 = 2;
 pub(crate) enum ToWindow {
     /// A viewer whose decoder takes an anchor after frames that it missed says so. A view that
     /// a person opened by an act on its device says so too; one that only comes back on the
-    /// screen, or joins again after a lost link, does not.
+    /// screen, or joins again after a lost link, does not. A view that can host the page's Core
+    /// Animation layer says so, and gets the layer in place of the video when it runs on the
+    /// browser's own computer.
     Watch {
         size: Size,
         #[serde(default)]
         anchors: bool,
         #[serde(default)]
         opened: bool,
+        #[serde(default)]
+        layer: bool,
     },
     Ack {
         frame: u32,
@@ -213,16 +217,18 @@ mod tests {
     }
 
     #[test]
-    fn a_watch_says_whether_its_viewer_takes_anchors_and_whether_a_person_opened_it() {
+    fn a_watch_says_whether_its_viewer_takes_anchors_hosts_the_layer_and_whether_a_person_opened_it()
+     {
         let watch = |body: &str| ToWindow::decode(&[&[JSON], body.as_bytes()].concat());
         let size = r#""size":{"width":800,"height":600,"scale":2}"#;
         assert!(matches!(
             watch(&format!(
-                r#"{{"type":"watch",{size},"anchors":true,"opened":true}}"#
+                r#"{{"type":"watch",{size},"anchors":true,"opened":true,"layer":true}}"#
             )),
             Ok(ToWindow::Watch {
                 anchors: true,
                 opened: true,
+                layer: true,
                 ..
             })
         ));
@@ -231,6 +237,7 @@ mod tests {
             Ok(ToWindow::Watch {
                 anchors: false,
                 opened: false,
+                layer: false,
                 ..
             })
         ));

@@ -180,15 +180,18 @@ wrap_render_handler! {
             if type_ != PaintElementType::VIEW || buffer.is_null() {
                 return;
             }
-            let mut capture = self.shared.capture.borrow_mut();
-            let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab) else {
-                return;
-            };
             // SAFETY: CEF gives a buffer of `width` times `height` BGRA pixels that stays valid
             // until this call returns.
             let pixels = unsafe { std::slice::from_raw_parts(buffer, width * height * 4) };
-            capture.encoder.encode_pixels(pixels, width, height);
-            drawn(capture, dirty_rects, &self.shared);
+            #[cfg(target_os = "macos")]
+            if let Some(layer) = self.shared.layer.borrow_mut().as_mut().filter(|layer| layer.tab == Some(tab)) {
+                layer.draw_pixels(pixels, width, height, self.shared.size.get());
+            }
+            let mut capture = self.shared.capture.borrow_mut();
+            if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab) {
+                capture.encoder.encode_pixels(pixels, width, height);
+                drawn(capture, dirty_rects, &self.shared);
+            }
         }
 
         fn on_accelerated_paint(
@@ -204,17 +207,20 @@ wrap_render_handler! {
             if type_ != PaintElementType::VIEW {
                 return;
             }
-            let mut capture = self.shared.capture.borrow_mut();
-            let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab) else {
-                return;
-            };
             #[cfg(target_os = "macos")]
             {
-                capture.encoder.encode_surface(info.shared_texture_io_surface);
-                drawn(capture, dirty_rects, &self.shared);
+                let surface = info.shared_texture_io_surface;
+                if let Some(layer) = self.shared.layer.borrow_mut().as_mut().filter(|layer| layer.tab == Some(tab)) {
+                    layer.draw_surface(surface, self.shared.size.get());
+                }
+                let mut capture = self.shared.capture.borrow_mut();
+                if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab) {
+                    capture.encoder.encode_surface(surface);
+                    drawn(capture, dirty_rects, &self.shared);
+                }
             }
             #[cfg(not(target_os = "macos"))]
-            let _ = (capture, info, dirty_rects);
+            let _ = (tab, info, dirty_rects);
         }
     }
 }

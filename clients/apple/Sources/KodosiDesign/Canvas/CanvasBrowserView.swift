@@ -46,10 +46,7 @@ public struct CanvasBrowserView: View {
             bar.zIndex(1)
             ZStack {
                 theme.colors.terminal
-                BrowserVideoView(feed: feed)
-                    .opacity(feed.picture != .waiting && !blank ? 1 : 0)
-                    .grayscale(browser.state == .awake ? 0 : 1)
-                    .animation(theme.motion.fade, value: browser.state)
+                BrowserPicture(browser: browser, feed: feed, blank: blank)
                 if blank, browser.state == .awake {
                     Image(systemName: "globe").font(.system(size: 34, weight: .light))
                         .foregroundStyle(theme.colors.inkFaint.opacity(0.6))
@@ -438,6 +435,27 @@ public struct CanvasBrowserView: View {
         editing = false
         address = target
         feed.send(.open(target))
+    }
+}
+
+/// The page: the layer that the browser on this Mac draws, when the host gives it, or else the
+/// video.
+private struct BrowserPicture: View {
+    @Environment(\.theme) private var theme
+    let browser: CanvasBrowser
+    let feed: BrowserFeed
+    let blank: Bool
+
+    var body: some View {
+        BrowserVideoView(feed: feed)
+            .opacity(feed.picture != .waiting && !blank ? 1 : 0)
+            .grayscale(browser.state == .awake ? 0 : 1)
+            .animation(theme.motion.fade, value: browser.state)
+        #if os(macOS)
+            if let layer = feed.window.layer, !blank {
+                BrowserLayerView(context: layer, page: feed.window.size)
+            }
+        #endif
     }
 }
 

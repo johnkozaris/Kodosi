@@ -48,6 +48,11 @@ pub struct State {
     /// takes a tab's icon away.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub icons: BTreeMap<String, String>,
+    /// The Core Animation context that shows the page, only for a view on the browser's own
+    /// computer that hosts it: another process of the person's session that knows it can show
+    /// the page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub layer: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

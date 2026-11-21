@@ -799,6 +799,7 @@ dependencies = [
  "libc",
  "objc2",
  "objc2-app-kit",
+ "objc2-core-foundation",
  "openh264",
  "openh264-sys2",
  "serde",

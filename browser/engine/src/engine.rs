@@ -14,6 +14,8 @@ use shared_browser::{
     link::{EngineTab, FromEngine, MOST_ICON, ToEngine},
 };
 
+#[cfg(target_os = "macos")]
+use crate::layer::Layer;
 use crate::{
     client,
     encode::{Cleanup, Encoder, REFINE_MS},
@@ -137,7 +139,8 @@ wrap_task! {
         fn execute(&self) {
             let browser = with(|engine| {
                 let shared = engine.shared_of(self.window)?;
-                let tab = shared.capture.borrow().as_ref()?.tab;
+                let capturing = shared.capture.borrow().as_ref().map(|capture| capture.tab);
+                let tab = capturing.or_else(|| shared.layer.borrow().as_ref()?.tab)?;
                 engine.browser_of(tab)
             })
             .flatten();
@@ -162,6 +165,8 @@ pub(crate) fn with<R>(work: impl FnOnce(&mut Engine) -> R) -> Option<R> {
 pub(crate) struct Shared {
     pub size: Rc<Cell<Size>>,
     pub capture: Rc<RefCell<Option<Capture>>>,
+    #[cfg(target_os = "macos")]
+    pub layer: Rc<RefCell<Option<Layer>>>,
 }
 
 impl Shared {
@@ -169,6 +174,8 @@ impl Shared {
         Self {
             size: Rc::new(Cell::new(size)),
             capture: Rc::default(),
+            #[cfg(target_os = "macos")]
+            layer: Rc::default(),
         }
     }
 }
@@ -525,6 +532,8 @@ impl Engine {
         };
         known.closing = true;
         known.shared.capture.borrow_mut().take();
+        #[cfg(target_os = "macos")]
+        known.shared.layer.borrow_mut().take();
         let browsers = self.browsers_of(window);
         if browsers.is_empty() {
             self.windows.remove(&window);
@@ -733,6 +742,7 @@ fn run(command: ToEngine) {
         | ToEngine::Recover { .. }
         | ToEngine::Held { .. }
         | ToEngine::Bitrate { .. } => capture(&command),
+        ToEngine::Layer { window, tab } => layer(window, tab),
         ToEngine::Activate { tab } => activate(tab),
         ToEngine::NewTab {
             window,
@@ -794,6 +804,10 @@ fn resize(window: i64, size: Size) {
     let browsers = with(|engine| {
         let shared = engine.shared_of(window)?;
         shared.size.set(size);
+        #[cfg(target_os = "macos")]
+        if let Some(layer) = shared.layer.borrow().as_ref() {
+            layer.resize(size);
+        }
         Some(engine.browsers_of(window))
     })
     .flatten()
@@ -863,6 +877,43 @@ fn capture(command: &ToEngine) {
     .flatten();
     if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
         host.invalidate(PaintElementType::VIEW);
+    }
+}
+
+/// The layer shows a tab only while a view hosts it, and keeps its last picture between. A tab
+/// new to the layer draws at once, as a still page draws nothing by itself.
+#[cfg(target_os = "macos")]
+fn layer(window: i64, tab: Option<i64>) {
+    let repaint_tab = with(|engine| {
+        let shared = engine.shared_of(window)?;
+        let mut layer = shared.layer.borrow_mut();
+        if layer.is_none() && tab.is_some() {
+            match Layer::new(window, engine.link().clone()) {
+                Ok(made) => *layer = Some(made),
+                Err(problem) => {
+                    engine.link().send(&FromEngine::NoLayer { window, problem });
+                    return None;
+                }
+            }
+        }
+        layer.as_mut()?.tab = tab;
+        engine.browser_of(tab?)
+    })
+    .flatten();
+    if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
+        host.invalidate(PaintElementType::VIEW);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn layer(window: i64, tab: Option<i64>) {
+    if tab.is_some() {
+        with(|engine| {
+            engine.link().send(&FromEngine::NoLayer {
+                window,
+                problem: "only a Mac hosts the layer".to_owned(),
+            });
+        });
     }
 }
 

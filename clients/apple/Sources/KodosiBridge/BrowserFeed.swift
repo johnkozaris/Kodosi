@@ -44,6 +44,11 @@ public final class BrowserFeed {
     private nonisolated static let keyFlag: UInt8 = 1
     private nonisolated static let anchorFlag: UInt8 = 2
     private static let settle = Duration.milliseconds(250)
+    #if os(macOS)
+        private static let hostsLayer = NSClassFromString("CALayerHost") != nil
+    #else
+        private static let hostsLayer = false
+    #endif
 
     public private(set) var window = BrowserWindow()
     public private(set) var icons: [String: CGImage] = [:]
@@ -142,13 +147,16 @@ public final class BrowserFeed {
     }
 
     /// A surface that is new to the feed has no picture, so the host sends a key frame at once.
-    /// The display returns false when it lost the stream and waits for a key frame.
+    /// The display returns false when it lost the stream and waits for a key frame. The page's
+    /// layer is no picture of the surface.
     public func show(on surface: AnyObject, _ display: @escaping @Sendable (CMSampleBuffer) -> Bool) {
         let fresh = surface !== self.surface
         if fresh {
             self.surface = surface
             surfaces += 1
-            picture = .waiting
+            if window.layer == nil {
+                picture = .waiting
+            }
         }
         let number = surfaces
         video.withLock { video in
@@ -246,7 +254,7 @@ public final class BrowserFeed {
         video.withLock { $0.holds = .nothing }
         let size = currentSize
         sentSize = size
-        post(.watch(size, opened: opened))
+        post(.watch(size, opened: opened, layer: Self.hostsLayer))
         opened = false
     }
 
@@ -314,6 +322,9 @@ public final class BrowserFeed {
             failure = reason
         case let .state(state):
             window = state
+            if state.layer != nil {
+                picture = .live
+            }
             keep(state.icons, of: state.tabs)
             if let words = state.copied {
                 copied(words)
@@ -389,7 +400,7 @@ private enum Holds {
 }
 
 private enum ToBrowserWindow: Encodable {
-    case watch(BrowserSize, opened: Bool)
+    case watch(BrowserSize, opened: Bool, layer: Bool)
     case size(BrowserSize)
     case ack(UInt32)
     case keyframe
@@ -398,11 +409,12 @@ private enum ToBrowserWindow: Encodable {
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Field.self)
         switch self {
-        case let .watch(size, opened):
+        case let .watch(size, opened, layer):
             try container.encode("watch", forKey: .type)
             try container.encode(size, forKey: .size)
             try container.encode(true, forKey: .anchors)
             try container.encode(opened, forKey: .opened)
+            try container.encode(layer, forKey: .layer)
         case let .size(size):
             try container.encode("size", forKey: .type)
             try container.encode(size, forKey: .size)
@@ -417,7 +429,7 @@ private enum ToBrowserWindow: Encodable {
         }
     }
 
-    private enum Field: String, CodingKey { case type, size, frame, input, anchors, opened }
+    private enum Field: String, CodingKey { case type, size, frame, input, anchors, opened, layer }
 }
 
 private struct BrowserSize: Encodable, Equatable {
