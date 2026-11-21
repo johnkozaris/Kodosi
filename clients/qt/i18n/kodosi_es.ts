@@ -500,12 +500,12 @@
         <translation>Compartido</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 pestañas</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>Nueva pestaña</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Pestañas</translation>
     </message>
     <message>
         <source>Close tab</source>

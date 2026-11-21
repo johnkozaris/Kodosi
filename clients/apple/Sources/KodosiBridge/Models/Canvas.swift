@@ -319,6 +319,9 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
     public var copied: String?
     /// The icons that changed, as PNG in base64; an empty one takes a tab's icon away.
     public var icons: [String: String] = [:]
+    /// The context of the page's Core Animation layer, which the host gives in place of video to a
+    /// view on the browser's own Mac.
+    public var layer: UInt32?
 
     public var size: CGSize {
         CGSize(width: width, height: height)
@@ -338,9 +341,10 @@ public struct BrowserWindow: Decodable, Equatable, Sendable {
         chooser = try container.decodeIfPresent(Chooser.self, forKey: .chooser)
         copied = try container.decodeIfPresent(String.self, forKey: .copied)
         icons = try container.decodeIfPresent([String: String].self, forKey: .icons) ?? [:]
+        layer = try container.decodeIfPresent(UInt32.self, forKey: .layer)
     }
 
-    private enum CodingKeys: String, CodingKey { case tabs, width, height, shape, pointers, menu, dialog, chooser, copied, icons }
+    private enum CodingKeys: String, CodingKey { case tabs, width, height, shape, pointers, menu, dialog, chooser, copied, icons, layer }
 }
 
 /// Positions are in the CSS pixels of the page.

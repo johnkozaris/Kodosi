@@ -1773,7 +1773,7 @@ impl LocalActor {
             .cloned()
             .unwrap_or_else(|| view.clone());
         tokio::spawn(async move {
-            let ends = canvas.document(&key, view, person, name).await;
+            let ends = canvas.document(&key, view, person, name, false).await;
             drop(reply.send(ends));
         });
     }

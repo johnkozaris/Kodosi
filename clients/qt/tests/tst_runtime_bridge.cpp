@@ -4,7 +4,11 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QSignalSpy>
+#include <QThread>
+#include <chrono>
+#include <condition_variable>
 #include <limits>
+#include <mutex>
 #include <optional>
 #include <QtTest/QTest>
 
@@ -15,6 +19,61 @@ bool started(kodosi::RuntimeBridge& bridge)
     bridge.startAsync([&](auto result) { running = result.has_value(); });
     return QTest::qWaitFor([&] { return running; });
 }
+QByteArray pipeEvent(const QString& type, const QString& pipe)
+{
+    return QJsonDocument(QJsonObject { { QStringLiteral("type"), type }, { QStringLiteral("pipe"), pipe },
+                             { QStringLiteral("accountEpoch"), 0 }, { QStringLiteral("accountUserId"), QJsonValue::Null } })
+        .toJson(QJsonDocument::Compact);
+}
+// A reader on a thread of its own that a test waits for without the event loop of the GUI thread.
+class Reader {
+public:
+    Reader(kodosi::RuntimeBridge& bridge, const QString& pipe, bool start = true)
+        : m_bridge(bridge)
+        , m_pipe(pipe)
+    {
+        m_object->moveToThread(&m_thread);
+        QObject::connect(&m_thread, &QThread::finished, m_object, &QObject::deleteLater);
+        if (start)
+            m_thread.start();
+        bridge.route(pipe, *m_object, [this](const QByteArray& event, bool afterDrop) {
+            const auto sent = m_bridge.send(QByteArrayLiteral("{\"type\":\"session.list\"}")).has_value();
+            std::lock_guard lock(m_mutex);
+            m_read.append(QJsonDocument::fromJson(event).object().value(QStringLiteral("type")).toString()
+                + (afterDrop ? QStringLiteral(" after a drop") : QString {}));
+            m_sent = sent ? runtime_fixture::lastCommand : QByteArray {};
+            m_changed.notify_all();
+        });
+    }
+    ~Reader()
+    {
+        m_bridge.unroute(m_pipe);
+        m_thread.quit();
+        m_thread.wait();
+    }
+    void start() { m_thread.start(); }
+    QStringList waitFor(qsizetype count)
+    {
+        std::unique_lock lock(m_mutex);
+        m_changed.wait_for(lock, std::chrono::seconds(5), [&] { return m_read.size() >= count; });
+        return m_read;
+    }
+    QByteArray sent()
+    {
+        std::lock_guard lock(m_mutex);
+        return m_sent;
+    }
+
+private:
+    kodosi::RuntimeBridge& m_bridge;
+    QString m_pipe;
+    QThread m_thread;
+    QObject* m_object = new QObject;
+    std::mutex m_mutex;
+    std::condition_variable m_changed;
+    QStringList m_read;
+    QByteArray m_sent;
+};
 class CheckpointSink final : public kodosi::TerminalEventSink {
 public:
     void receiveData(kodosi::TerminalData) noexcept override { }
@@ -137,6 +196,46 @@ private slots:
         QCOMPARE(QJsonDocument::fromJson(runtime_fixture::lastCommand).object().value(QStringLiteral("type")).toString(),
             QStringLiteral("app.resync"));
         QVERIFY(bridge.isRunning());
+    }
+    void aPipeEventGoesToItsReaderWhileTheGuiThreadWaits()
+    {
+        kodosi::RuntimeBridge bridge;
+        QSignalSpy events(&bridge, &kodosi::RuntimeBridge::eventReceived);
+        QVERIFY(started(bridge));
+        const auto pipe = test::id(9);
+        Reader reader(bridge, pipe);
+        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.opened"), pipe));
+        runtime_fixture::sendEvent(
+            QByteArrayLiteral("{\"type\":\"sessions.snapshot\",\"accountEpoch\":0,\"accountUserId\":null}"));
+        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.frame"), pipe));
+        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.frame"), test::id(8)));
+        QCOMPARE(reader.waitFor(2), (QStringList { QStringLiteral("document.opened"), QStringLiteral("document.frame") }));
+        QVERIFY(reader.sent().contains("session.list"));
+        QVERIFY(events.isEmpty());
+        QTRY_COMPARE(events.size(), 2);
+        QCOMPARE(events.at(0).first().toJsonObject().value(QStringLiteral("type")).toString(),
+            QStringLiteral("sessions.snapshot"));
+        QCOMPARE(events.at(1).first().toJsonObject().value(QStringLiteral("pipe")).toString(), test::id(8));
+        bridge.unroute(pipe);
+        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.frame"), pipe));
+        QTRY_COMPARE(events.size(), 3);
+    }
+    void aFullQueueDropsWhatWaitsForAReaderAndTellsItWithItsNextEvent()
+    {
+        kodosi::RuntimeBridge bridge;
+        QSignalSpy behind(&bridge, &kodosi::RuntimeBridge::fellBehind);
+        QVERIFY(started(bridge));
+        const auto pipe = test::id(9);
+        Reader reader(bridge, pipe, false);
+        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.frame"), pipe));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(QStringLiteral("^the app fell behind the runtime's events")));
+        for (int number = 0; number < 4096; ++number)
+            runtime_fixture::sendEvent(
+                QByteArrayLiteral("{\"type\":\"sessions.snapshot\",\"accountEpoch\":0,\"accountUserId\":null}"));
+        runtime_fixture::sendEvent(pipeEvent(QStringLiteral("document.opened"), pipe));
+        reader.start();
+        QCOMPARE(reader.waitFor(1), QStringList { QStringLiteral("document.opened after a drop") });
+        QTRY_COMPARE(behind.size(), 1);
     }
     void anUnreadableEventGoesToTheLogAndTheNextOneArrives()
     {

@@ -75,6 +75,7 @@ public struct CanvasFilesBar<Actions: View>: View {
                     .padding(.vertical, 1)
                 }
                 .scrollIndicators(.never)
+                .touchRoom(height: row)
                 .onChange(of: chosen, initial: true) { _, key in
                     if let key {
                         withAnimation(theme.motion.snappy) { reader.scrollTo(key) }
@@ -129,16 +130,24 @@ struct RemoveKey: View {
     let size: CGFloat
     var title = String(localized: "Remove from Canvas", bundle: .module)
     let identifier: String
+    /// On a card the key takes only its circle, because a click beside it opens the card.
+    var onCard = false
     let action: () -> Void
     @State private var hovered = false
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "xmark").font(.system(size: size * 0.5, weight: .bold))
+            let face = Image(systemName: "xmark").font(.system(size: size * 0.5, weight: .bold))
                 .foregroundStyle(hovered ? theme.colors.ink : theme.colors.inkMuted)
                 .frame(width: size, height: size)
                 .background(theme.colors.ink.opacity(hovered ? 0.14 : 0.08), in: Circle())
-                .contentShape(Circle())
+            if onCard {
+                face.contentShape(Circle())
+            } else {
+                // The key sits 5 points inside the end of its tab, and the touch ends halfway to the
+                // next tab, 2 points away.
+                face.touchTarget(Circle(), reach: 6)
+            }
         }
         .buttonStyle(PressScaleStyle(scale: 0.88))
         .onHover { hovered = $0 }
@@ -218,7 +227,7 @@ struct CanvasCard: View {
         .accessibilityIdentifier("canvas.card.\(AccessibilityIdentifier.token(file.key))")
         .overlay(alignment: .topLeading) {
             if hovered {
-                RemoveKey(size: 18, identifier: "canvas.card.remove.\(AccessibilityIdentifier.token(file.key))", action: remove)
+                RemoveKey(size: 18, identifier: "canvas.card.remove.\(AccessibilityIdentifier.token(file.key))", onCard: true, action: remove)
                     .background(theme.colors.sheet, in: Circle())
                     .offset(x: -6, y: -6)
                     .transition(.opacity.combined(with: .scale(scale: 0.6)))

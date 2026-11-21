@@ -12,7 +12,15 @@ use bytes::Bytes;
 use shared_browser::link::{EncodedFrame, FrameKind, FromEngine};
 
 use super::{Convergence, FRAME_RATE, REDRAW_AFTER_MS, frame_budget, sps};
-use crate::{engine, link::Link};
+use crate::{
+    cf::{
+        CFArrayGetCount, CFArrayGetValueAtIndex, CFDictionaryGetValue, CFNumberGetValue, CFRelease,
+        IOSurfaceGetHeight, IOSurfaceGetWidth, NUMBER_I64, Owned, Ref, array, dictionary,
+        kCFBooleanFalse, kCFBooleanTrue, number_f64, number_i64,
+    },
+    engine,
+    link::Link,
+};
 
 /// The most pictures that wait in the encoder. A picture that finds no room is dropped, and the
 /// page draws again as soon as there is room, so the viewer still sees the page as it is now.
@@ -21,7 +29,6 @@ const START_CODE: [u8; 4] = [0, 0, 0, 1];
 const SEQUENCE_PARAMETERS: u8 = 7;
 
 type OSStatus = i32;
-type Ref = *const c_void;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -42,8 +49,6 @@ const NO_TIME: CMTime = CMTime {
 const H264: u32 = u32::from_be_bytes(*b"avc1");
 const NV12: u32 = u32::from_be_bytes(*b"420v");
 const BGRA: u32 = u32::from_be_bytes(*b"BGRA");
-const NUMBER_I64: isize = 4;
-const NUMBER_F64: isize = 13;
 const MICROSECONDS: i32 = 1_000_000;
 const KEY_INTERVAL: i64 = 3600;
 /// A second of bursts may go half again above the average.
@@ -160,98 +165,12 @@ unsafe extern "C" {
     static kCMSampleAttachmentKey_NotSync: Ref;
 }
 
-#[link(name = "CoreFoundation", kind = "framework")]
-unsafe extern "C" {
-    fn CFRelease(object: Ref);
-    fn CFDictionaryCreate(
-        allocator: Ref,
-        keys: *const Ref,
-        values: *const Ref,
-        count: isize,
-        key_callbacks: Ref,
-        value_callbacks: Ref,
-    ) -> Ref;
-    fn CFDictionaryGetValue(dictionary: Ref, key: Ref) -> Ref;
-    fn CFArrayCreate(allocator: Ref, values: *const Ref, count: isize, callbacks: Ref) -> Ref;
-    fn CFArrayGetCount(array: Ref) -> isize;
-    fn CFArrayGetValueAtIndex(array: Ref, index: isize) -> Ref;
-    fn CFNumberCreate(allocator: Ref, kind: isize, value: *const c_void) -> Ref;
-    fn CFNumberGetValue(number: Ref, kind: isize, value: *mut c_void) -> u8;
-    static kCFBooleanTrue: Ref;
-    static kCFBooleanFalse: Ref;
-    static kCFTypeDictionaryKeyCallBacks: c_void;
-    static kCFTypeDictionaryValueCallBacks: c_void;
-    static kCFTypeArrayCallBacks: c_void;
-}
-
-#[link(name = "IOSurface", kind = "framework")]
-unsafe extern "C" {
-    fn IOSurfaceGetWidth(surface: *mut c_void) -> usize;
-    fn IOSurfaceGetHeight(surface: *mut c_void) -> usize;
-}
-
-struct Owned(Ref);
-
-impl Owned {
-    fn new(object: Ref) -> Option<Self> {
-        (!object.is_null()).then_some(Self(object))
-    }
-
-    fn mutable(&self) -> *mut c_void {
-        self.0.cast_mut()
-    }
-}
-
-impl Drop for Owned {
-    fn drop(&mut self) {
-        // SAFETY: the object is not null and this code holds one reference to it.
-        unsafe { CFRelease(self.0) };
-    }
-}
-
-fn number_i64(value: i64) -> Option<Owned> {
-    // SAFETY: the value lives for the call, and CFNumberCreate copies it.
-    Owned::new(unsafe { CFNumberCreate(ptr::null(), NUMBER_I64, (&raw const value).cast()) })
-}
-
-fn number_f64(value: f64) -> Option<Owned> {
-    // SAFETY: as in `number_i64`.
-    Owned::new(unsafe { CFNumberCreate(ptr::null(), NUMBER_F64, (&raw const value).cast()) })
-}
-
-fn array(values: &[Ref]) -> Option<Owned> {
-    // SAFETY: the values are live CF objects, and the array retains them.
-    Owned::new(unsafe {
-        CFArrayCreate(
-            ptr::null(),
-            values.as_ptr(),
-            isize::try_from(values.len()).ok()?,
-            (&raw const kCFTypeArrayCallBacks).cast(),
-        )
-    })
-}
-
-fn dictionary(pairs: &[(Ref, Ref)]) -> Option<Owned> {
-    let keys: Vec<Ref> = pairs.iter().map(|(key, _)| *key).collect();
-    let values: Vec<Ref> = pairs.iter().map(|(_, value)| *value).collect();
-    // SAFETY: the keys and values are live CF objects, and the dictionary retains them.
-    Owned::new(unsafe {
-        CFDictionaryCreate(
-            ptr::null(),
-            keys.as_ptr(),
-            values.as_ptr(),
-            isize::try_from(pairs.len()).ok()?,
-            (&raw const kCFTypeDictionaryKeyCallBacks).cast(),
-            (&raw const kCFTypeDictionaryValueCallBacks).cast(),
-        )
-    })
-}
-
 /// What the encoder's callback needs. Each session has its own, so a session that ends takes
 /// its count of waiting pictures with it.
 struct Output {
     window: i64,
     link: Link,
+    still: bool,
     waiting: AtomicUsize,
     failed: AtomicBool,
     /// The link lost a picture, which every viewer needs, so the next one is a key frame.
@@ -290,6 +209,9 @@ pub(crate) struct Encoder {
     window: i64,
     link: Link,
     bitrate: u32,
+    /// The encoder codes stills of the window's layer. A still that fails stops nothing, as each
+    /// view keeps the one before, so the host hears of no failure.
+    still: bool,
     want_key: bool,
     recover: bool,
     /// The marks that every viewer holds, for the next picture.
@@ -310,6 +232,7 @@ impl Encoder {
             window,
             link,
             bitrate,
+            still: false,
             want_key: true,
             recover: false,
             held: Vec::new(),
@@ -318,6 +241,12 @@ impl Encoder {
             transfer,
             last: None,
         }
+    }
+
+    pub(crate) fn stills(window: i64, bitrate: u32, link: Link) -> Self {
+        let mut encoder = Self::new(window, bitrate, link);
+        encoder.still = true;
+        encoder
     }
 
     pub(crate) fn want_key(&mut self) {
@@ -582,6 +511,7 @@ impl Encoder {
         let output = Arc::new(Output {
             window: self.window,
             link: self.link.clone(),
+            still: self.still,
             waiting: AtomicUsize::new(0),
             failed: AtomicBool::new(false),
             want_key: AtomicBool::new(false),
@@ -649,10 +579,12 @@ impl Encoder {
     }
 
     fn fail(&self, problem: &str) {
-        self.link.send(&FromEngine::Failed {
-            window: self.window,
-            problem: problem.to_owned(),
-        });
+        if !self.still {
+            self.link.send(&FromEngine::Failed {
+                window: self.window,
+                problem: problem.to_owned(),
+            });
+        }
     }
 }
 
@@ -708,7 +640,7 @@ unsafe extern "C" fn encoded(
         engine::redraw(output.window, 0);
     }
     if status != 0 || sample.is_null() {
-        if status != 0 && !output.failed.swap(true, Ordering::AcqRel) {
+        if status != 0 && !output.still && !output.failed.swap(true, Ordering::AcqRel) {
             output.link.send(&FromEngine::Failed {
                 window: output.window,
                 problem: format!("the encoder failed: {status}"),
@@ -734,6 +666,7 @@ unsafe extern "C" fn encoded(
             FrameKind::Delta
         },
         mark: coded.mark,
+        still: output.still,
         data: Bytes::from(coded.data),
     });
     if refinement

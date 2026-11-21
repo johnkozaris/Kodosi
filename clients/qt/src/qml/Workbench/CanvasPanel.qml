@@ -323,6 +323,14 @@ Item {
                                         && Models.Canvas.isNew(root.sessionId, modelData.key)
                                     readonly property bool closing: hovered
 
+                                    function keepInView(): void {
+                                        if (selected || activeFocus)
+                                            Qt.callLater(() => {
+                                                tabs.forceLayout();
+                                                tabsArea.positionViewAtChild(tab, Flickable.Contain);
+                                            });
+                                    }
+
                                     height: 24
                                     implicitWidth: Math.min(200, tabRow.implicitWidth + 17)
                                     hoverEnabled: true
@@ -365,18 +373,20 @@ Item {
                                     }
                                     background: Item {
                                         Raised { anchors.fill: parent; radius: height / 2; visible: tab.selected }
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: height / 2
+                                            color: "transparent"
+                                            border.width: tab.visualFocus ? 1.5 : 0
+                                            border.color: KodosiTheme.accentStrong
+                                        }
                                         BreathingDot { x: parent.width - 8; y: 2; size: 6; color: KodosiTheme.glowOrange; visible: tab.fresh }
                                     }
                                     onClicked: Models.Canvas.pick(root.sessionId, modelData.key)
                                     T.ContextMenu.onRequested: position => root.openFileMenu(tab.modelData, tab, position)
-                                    onSelectedChanged: {
-                                        if (selected)
-                                            Qt.callLater(tabsArea.positionViewAtChild, tab, Flickable.Contain);
-                                    }
-                                    Component.onCompleted: {
-                                        if (selected)
-                                            Qt.callLater(tabsArea.positionViewAtChild, tab, Flickable.Contain);
-                                    }
+                                    onSelectedChanged: keepInView()
+                                    onActiveFocusChanged: keepInView()
+                                    Component.onCompleted: keepInView()
 
                                     RemoveKey {
                                         x: 5

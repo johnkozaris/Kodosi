@@ -162,6 +162,7 @@ void CanvasModel::observe()
     m_lastFiles.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_closed.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_opening.removeIf(gone);
+    m_chosen.removeIf(gone);
     m_shelves.removeIf(gone);
     m_shut.removeIf(gone);
     m_readings.removeIf([&](const auto& entry) { return gone(entry.value().sessionId); });
@@ -262,10 +263,34 @@ void CanvasModel::close(const QString& sessionId, const QString& section)
         m_picks.remove(sessionId);
     if (section != browserItem)
         m_shelves.remove(sessionId);
+    else
+        m_chosen.remove(sessionId);
     touch();
 }
 
 void CanvasModel::show(const QString& sessionId, const QString& section)
+{
+    if (section == browserItem)
+        choose(sessionId);
+    else
+        m_chosen.remove(sessionId);
+    display(sessionId, section);
+}
+
+// The view of a browser that a person chose can come much later than the act, when the browser
+// starts first or the canvas opens later, so the choice waits for the next watch of that browser.
+void CanvasModel::choose(const QString& sessionId)
+{
+    m_chosen.insert(sessionId);
+    emit browserChosen(sessionId);
+}
+
+bool CanvasModel::takeChoice(const QString& sessionId)
+{
+    return m_chosen.remove(sessionId);
+}
+
+void CanvasModel::display(const QString& sessionId, const QString& section)
 {
     settle(sessionId);
     m_shut.remove(sessionId);
@@ -299,7 +324,7 @@ void CanvasModel::open(const QString& sessionId, const QString& section)
         return;
     const auto entries = shown(sessionId);
     if (const auto newest = std::ranges::max_element(entries, {}, &Shown::changed); newest != entries.end())
-        show(sessionId, sectionOf(newest->key));
+        display(sessionId, sectionOf(newest->key));
 }
 
 bool CanvasModel::showsShelf(const QString& sessionId) const
@@ -327,6 +352,7 @@ void CanvasModel::openBrowser(const QString& sessionId)
     m_shut.remove(sessionId);
     m_closed[sessionId].remove(browserItem);
     m_opening.insert(sessionId);
+    choose(sessionId);
     touch();
     wake(sessionId);
 }
@@ -393,6 +419,7 @@ void CanvasModel::reveal(const QString& sessionId, const QString& key)
 void CanvasModel::closeCanvas(const QString& sessionId)
 {
     m_shut.insert(sessionId);
+    m_chosen.remove(sessionId);
 }
 
 bool CanvasModel::isShut(const QString& sessionId) const
@@ -930,6 +957,7 @@ void CanvasModel::apply(const QJsonObject& event)
         return;
     case Asked::Act:
         if (failed && m_opening.remove(request.sessionId)) {
+            m_chosen.remove(request.sessionId);
             emit problem(message);
             touch();
         } else if (failed) {
@@ -983,6 +1011,7 @@ void CanvasModel::reset()
     m_lastFiles.clear();
     m_closed.clear();
     m_opening.clear();
+    m_chosen.clear();
     m_shelves.clear();
     m_stored.clear();
     m_storedOrder.clear();

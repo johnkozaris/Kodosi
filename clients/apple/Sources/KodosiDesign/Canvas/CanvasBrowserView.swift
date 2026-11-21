@@ -32,8 +32,12 @@ public struct CanvasBrowserView: View {
         self.ask = ask
     }
 
+    /// A browser that wakes has no tab for a moment, and a tab that loads a page is at about:blank
+    /// first, so the last picture stays until the page draws, and only a tab that rests at
+    /// about:blank, or no tab before any picture, is blank.
     private var blank: Bool {
-        (browser.activeTab?.url ?? Self.blankPage) == Self.blankPage
+        guard let tab = tabs.first(where: \.active) else { return feed.picture == .waiting }
+        return (tab.address.isEmpty || tab.address == Self.blankPage) && !tab.loading
     }
 
     private static let blankPage = "about:blank"
@@ -46,10 +50,7 @@ public struct CanvasBrowserView: View {
             bar.zIndex(1)
             ZStack {
                 theme.colors.terminal
-                BrowserVideoView(feed: feed)
-                    .opacity(feed.picture != .waiting && !blank ? 1 : 0)
-                    .grayscale(browser.state == .awake ? 0 : 1)
-                    .animation(theme.motion.fade, value: browser.state)
+                BrowserPicture(browser: browser, feed: feed, blank: blank)
                 if blank, browser.state == .awake {
                     Image(systemName: "globe").font(.system(size: 34, weight: .light))
                         .foregroundStyle(theme.colors.inkFaint.opacity(0.6))
@@ -143,6 +144,7 @@ public struct CanvasBrowserView: View {
                         tabKeys(tabs)
                     }
                     .scrollIndicators(.never)
+                    .touchRoom(height: control)
                     .onChange(of: active, initial: true) { _, active in
                         if let active {
                             withAnimation(theme.motion.snappy) { reader.scrollTo(active) }

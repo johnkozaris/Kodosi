@@ -499,12 +499,12 @@
         <translation>共有中</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>タブ %1 個</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>新規タブ</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>タブ</translation>
     </message>
     <message>
         <source>Close tab</source>

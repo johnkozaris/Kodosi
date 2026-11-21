@@ -54,6 +54,13 @@ public struct CanvasDock: View {
                         .transition(.scale(scale: 0.7).combined(with: .opacity))
                 }
             }
+            // Under all keys, as the iPhone lifts the chosen key over the key that it slides from.
+            .background {
+                if let chosen, sections.contains(chosen) {
+                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+                        .matchedGeometryEffect(id: chosen, in: thumb, isSource: false)
+                }
+            }
             .padding(2)
             .wellCapsule()
             .fixedSize()
@@ -129,12 +136,7 @@ public struct CanvasDock: View {
             .appTextStyle(.footnote).fontWeight(.medium)
             .padding(.leading, words == nil ? 7 : 9).padding(.trailing, (words == nil ? 7 : 11) + (closing ? 16 : 0))
             .frame(minWidth: 26).controlHeight(24)
-            .background {
-                if selected {
-                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
-                        .matchedGeometryEffect(id: "thumb", in: thumb)
-                }
-            }
+            .background { Color.clear.matchedGeometryEffect(id: section, in: thumb) }
             .wash(trigger: newest, radius: 12)
             .overlay {
                 if doing {
@@ -176,6 +178,10 @@ public struct CanvasDock: View {
                 pointed = nil
             }
         }
+        #if os(iOS)
+        // The touch target of the next key reaches back over the end of this one, where the close key is.
+        .zIndex(closing ? 1 : 0)
+        #endif
     }
 
     @ContentBuilder

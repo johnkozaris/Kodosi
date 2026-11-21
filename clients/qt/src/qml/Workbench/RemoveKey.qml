@@ -27,6 +27,8 @@ AbstractButton {
         radius: width / 2
         color: root.backed ? Qt.tint(KodosiTheme.sheet, KodosiTheme.alpha(KodosiTheme.ink, root.hovered ? 0.14 : 0.08))
             : KodosiTheme.alpha(KodosiTheme.ink, root.hovered ? 0.14 : 0.08)
+        border.width: root.visualFocus ? 1.5 : 0
+        border.color: KodosiTheme.accentStrong
     }
     padding: size * 0.25
 }

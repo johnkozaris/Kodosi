@@ -8,7 +8,7 @@ private func launcherApp(_ prefix: String) throws -> (AppDependencies, () -> [[S
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(fields)
         }

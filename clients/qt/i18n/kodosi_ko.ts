@@ -499,12 +499,12 @@
         <translation>공유됨</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>탭 %1개</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>새 탭</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>탭</translation>
     </message>
     <message>
         <source>Close tab</source>

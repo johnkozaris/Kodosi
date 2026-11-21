@@ -9,7 +9,7 @@ import Testing
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data), fields["type"] == .string("session.create") {
             sent.append(fields)
         }
