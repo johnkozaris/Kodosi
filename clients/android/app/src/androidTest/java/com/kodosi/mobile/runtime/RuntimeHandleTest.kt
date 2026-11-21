@@ -48,7 +48,7 @@ class RuntimeHandleTest {
                     var signIn = false
                     withTimeout(60_000) {
                         while (!ready || !signIn) {
-                            val event = RuntimeEvent.parse(runtime.events.receive())
+                            val event = runtime.nextEvent()
                             when (event.type) {
                                 "system.ready" -> ready = true
 
@@ -64,7 +64,7 @@ class RuntimeHandleTest {
                         assertEquals(Ffi.OK, commands.send("auth.login.cancel", fields("requestId" to request)))
                         withTimeout(60_000) {
                             while (true) {
-                                val event = RuntimeEvent.parse(runtime.events.receive())
+                                val event = runtime.nextEvent()
                                 if (event.string("requestId") != request) continue
                                 if (event.type == "auth.error") error(event.string("message").orEmpty())
                                 if (event.type == "auth.result") break
@@ -79,5 +79,10 @@ class RuntimeHandleTest {
             saved.forEach(target::deleteSharedPreferences)
             directory.deleteRecursively()
         }
+    }
+
+    private suspend fun RuntimeHandle.nextEvent(): RuntimeEvent = when (val arrival = events.next()) {
+        is RuntimeEventInbox.Arrival.Event -> arrival.event
+        else -> error("the runtime gave $arrival instead of an event")
     }
 }

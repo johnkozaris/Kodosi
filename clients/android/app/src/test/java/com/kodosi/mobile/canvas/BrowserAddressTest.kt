@@ -25,4 +25,16 @@ class BrowserAddressTest {
         assertFalse(address.edited)
         assertEquals("https://kodosi.com/docs/security#keys", address.state.text.toString())
     }
+
+    @Test
+    fun aNewTabKeepsTheAddressEmptyUntilItsPageOpens() {
+        val address = BrowserAddress("https://kodosi.com/")
+
+        address.place("")
+        address.follow("about:blank")
+        assertEquals("", address.state.text.toString())
+
+        address.follow("https://kodosi.com/docs")
+        assertEquals("https://kodosi.com/docs", address.state.text.toString())
+    }
 }

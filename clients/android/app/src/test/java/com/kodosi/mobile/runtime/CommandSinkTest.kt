@@ -55,6 +55,19 @@ class CommandSinkTest {
     }
 
     @Test
+    fun aRequestWhoseAnswerTheAppDroppedCannotTellAndItsLateAnswerReachesNobody() = runTest {
+        val pending = async(start = CoroutineStart.UNDISPATCHED) { runCatching { sink.request("project.create") } }
+        val requestId = sent.last("project.create").string("requestId")
+
+        sink.abandonPending()
+        val failure = pending.await().exceptionOrNull()
+        assertTrue(failure is LostAnswer)
+        assertEquals(TestWords.outcomeUnknown, failure?.message)
+        val late = answer("project.error", requestId, "project.create", """"message":"The name is taken."""")
+        assertEquals(CommandSink.Delivery.CALLER, sink.receive(late))
+    }
+
+    @Test
     fun failsARequestThatTheRuntimeRefuses() = runTest {
         sent.result = Ffi.BUSY
 

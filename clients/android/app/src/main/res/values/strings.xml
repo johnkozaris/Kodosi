@@ -29,7 +29,6 @@
     <string name="did_not_work">That did not work.</string>
     <string name="did_not_work_code">That did not work (%1$d).</string>
     <string name="encrypted_end_to_end">Encrypted end to end</string>
-    <string name="event_unreadable">Kodosi got an update it cannot read: %1$s</string>
     <string name="feature_answer_detail">Approvals and questions come to you first.</string>
     <string name="feature_answer_title">Answer when they ask</string>
     <string name="feature_follow_detail">Live terminals from every computer you use.</string>
@@ -51,6 +50,7 @@
     <string name="offline">Offline</string>
     <string name="opening_sign_in">Opening sign-in</string>
     <string name="other_account">Kodosi got an answer for a different account.</string>
+    <string name="outcome_unknown">Kodosi cannot tell if that worked. Check before you try again.</string>
     <string name="reconnecting">Reconnecting</string>
     <string name="recovery_key">Recovery key</string>
     <string name="remote_computer">Remote computer</string>

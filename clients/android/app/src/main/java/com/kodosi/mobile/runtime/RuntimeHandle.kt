@@ -4,7 +4,6 @@ import android.content.Context
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
-import kotlinx.coroutines.channels.Channel
 
 interface TerminalLink {
     val subscriptionId: String
@@ -44,11 +43,7 @@ class RuntimeHandle :
         data class Failed(val message: String?) : Start
     }
 
-    val events = Channel<ByteArray>(EVENT_CAPACITY)
-
-    @Volatile
-    var overflowed = false
-        private set
+    val events = RuntimeEventInbox()
 
     @Volatile
     private var handle = 0L
@@ -106,12 +101,7 @@ class RuntimeHandle :
     private fun link(sessionId: String, subscriptionId: String, generation: Long): TerminalLink? =
         links[sessionId]?.takeIf { it.subscriptionId == subscriptionId && it.generation == generation }
 
-    override fun onEvent(json: ByteArray) {
-        if (!events.trySend(json).isSuccess) {
-            overflowed = true
-            events.close()
-        }
-    }
+    override fun onEvent(json: ByteArray) = events.push(json)
 
     override fun onTerminalData(
         sessionId: String,
@@ -144,8 +134,6 @@ class RuntimeHandle :
         ?: Ffi.STALE_SUBSCRIPTION
 
     companion object {
-        private const val EVENT_CAPACITY = 256
-
         fun setLanguage(language: String) = NativeRuntime.setLanguage(language)
     }
 }

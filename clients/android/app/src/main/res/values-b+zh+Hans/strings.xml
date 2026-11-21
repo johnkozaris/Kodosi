@@ -22,7 +22,6 @@
     <string name="did_not_work">操作未成功。</string>
     <string name="did_not_work_code">操作未成功（%1$d）。</string>
     <string name="encrypted_end_to_end">端到端加密</string>
-    <string name="event_unreadable">Kodosi 收到了无法读取的更新：%1$s</string>
     <string name="feature_answer_detail">审批请求和问题会先发给你。</string>
     <string name="feature_answer_title">在它们提问时回答</string>
     <string name="feature_follow_detail">来自你使用的每台电脑的实时终端。</string>
@@ -43,6 +42,7 @@
     <string name="offline">离线</string>
     <string name="opening_sign_in">正在打开登录页面</string>
     <string name="other_account">Kodosi 收到了另一个账号的响应。</string>
+    <string name="outcome_unknown">Kodosi 无法判断操作是否成功。重试前请先检查。</string>
     <string name="reconnecting">正在重新连接</string>
     <string name="recovery_key">恢复密钥</string>
     <string name="remote_computer">远程电脑</string>

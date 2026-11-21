@@ -22,7 +22,6 @@
     <string name="did_not_work">No ha funcionado.</string>
     <string name="did_not_work_code">No ha funcionado (%1$d).</string>
     <string name="encrypted_end_to_end">Cifrado de extremo a extremo</string>
-    <string name="event_unreadable">Kodosi ha recibido una actualización que no puede leer: %1$s</string>
     <string name="feature_answer_detail">Las aprobaciones y preguntas te llegan a ti primero.</string>
     <string name="feature_answer_title">Responde cuando pregunten</string>
     <string name="feature_follow_detail">Terminales en directo de cada ordenador que usas.</string>
@@ -43,6 +42,7 @@
     <string name="offline">Sin conexión</string>
     <string name="opening_sign_in">Abriendo el inicio de sesión</string>
     <string name="other_account">Kodosi ha recibido una respuesta para otra cuenta.</string>
+    <string name="outcome_unknown">Kodosi no sabe si ha funcionado. Compruébalo antes de volver a intentarlo.</string>
     <string name="reconnecting">Reconectando</string>
     <string name="recovery_key">Clave de recuperación</string>
     <string name="remote_computer">Ordenador remoto</string>

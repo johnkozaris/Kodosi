@@ -13,10 +13,11 @@ import com.kodosi.mobile.notifications.PushRegistration
 import com.kodosi.mobile.people.PeopleStore
 import com.kodosi.mobile.projects.ProjectStore
 import com.kodosi.mobile.runtime.CommandSink
-import com.kodosi.mobile.runtime.InvalidEvent
 import com.kodosi.mobile.runtime.NetworkWatch
 import com.kodosi.mobile.runtime.RuntimeEnvironment
 import com.kodosi.mobile.runtime.RuntimeEvent
+import com.kodosi.mobile.runtime.RuntimeEventFaults
+import com.kodosi.mobile.runtime.RuntimeEventInbox
 import com.kodosi.mobile.runtime.RuntimeFailure
 import com.kodosi.mobile.runtime.RuntimeHandle
 import com.kodosi.mobile.runtime.fields
@@ -29,21 +30,21 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.SerializationException
 
 class AppModel(
     private val application: Application,
@@ -232,22 +233,36 @@ class AppModel(
     }
 
     private suspend fun consume(handle: RuntimeHandle) {
-        try {
-            handle.events.receiveAsFlow()
-                .map { RuntimeEvent.parse(it) }
-                .flowOn(Dispatchers.Default)
-                .collect { receive(it) }
-        } catch (failure: InvalidEvent) {
-            fail(words.unreadable(failure.message.orEmpty()))
-            return
-        } catch (failure: SerializationException) {
-            fail(words.unreadable(failure.message.orEmpty()))
-            return
-        } catch (failure: IllegalArgumentException) {
-            fail(words.unreadable(failure.message.orEmpty()))
-            return
-        }
-        if (handle.overflowed) fail(words.fellBehind)
+        val faults = RuntimeEventFaults()
+        flow { while (true) emit(handle.events.next() ?: break) }
+            .buffer(Channel.RENDEZVOUS)
+            .flowOn(Dispatchers.Default)
+            .collect { arrival ->
+                when (arrival) {
+                    is RuntimeEventInbox.Arrival.Event -> try {
+                        receive(arrival.event)
+                    } catch (failure: IllegalArgumentException) {
+                        faults.unreadable(arrival.event.type, failure.message.orEmpty())
+                    }
+
+                    is RuntimeEventInbox.Arrival.Unreadable -> faults.unreadable(null, arrival.reason)
+
+                    is RuntimeEventInbox.Arrival.Behind -> {
+                        faults.behind(arrival.events, arrival.bytes)
+                        catchUp()
+                    }
+                }
+            }
+    }
+
+    /**
+     * The answers and the parts of documents that the app dropped are lost, so the requests that
+     * wait for them end, each pipe starts again, and the runtime sends the whole state.
+     */
+    private fun catchUp() {
+        commands.abandonPending()
+        canvas.renewPipes()
+        commands.send("app.resync")
     }
 
     private fun acceptAccount(event: RuntimeEvent): Boolean {

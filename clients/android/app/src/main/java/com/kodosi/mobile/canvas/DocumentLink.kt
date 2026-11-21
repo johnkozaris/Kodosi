@@ -2,6 +2,7 @@ package com.kodosi.mobile.canvas
 
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.Ffi
+import com.kodosi.mobile.runtime.LostAnswer
 import com.kodosi.mobile.runtime.RuntimeEvent
 import com.kodosi.mobile.runtime.UuidV7
 import com.kodosi.mobile.runtime.fields
@@ -29,6 +30,9 @@ class DocumentLink(
 
     private var pipe: String? = null
 
+    /** The pipe that waits for the answer to its registration. */
+    private var registering: String? = null
+
     /** The next part, or none while the pipe has not opened. */
     private var next: Long? = null
     private var filling = ByteArrayOutputStream()
@@ -42,11 +46,20 @@ class DocumentLink(
         next = null
         filling.reset()
         try {
-            commands.request("document.open", fields("sessionId" to session, "pipe" to opening, "key" to key))
+            register(opening)
         } catch (failure: Exception) {
             if (pipe == opening) pipe = null
             throw failure
         }
+    }
+
+    /**
+     * The app dropped events when it fell behind, maybe parts of this pipe, so the pipe starts
+     * again. A pipe that waits for its registration registers again by itself.
+     */
+    fun renewAfterLoss() {
+        val pipe = pipe ?: return
+        if (pipe != registering) renew(pipe)
     }
 
     fun send(bytes: ByteArray) {
@@ -114,15 +127,41 @@ class DocumentLink(
         }
     }
 
-    /** A part that went missing breaks the frames, so the pipe starts again, and the parts on their way go nowhere. */
+    /**
+     * An answer that went with the events that the app dropped leaves the pipe unknown, so the
+     * link closes it and registers it again.
+     */
+    private suspend fun register(pipe: String) {
+        registering = pipe
+        try {
+            while (true) {
+                try {
+                    commands.request("document.open", fields("sessionId" to session, "pipe" to pipe, "key" to key))
+                    return
+                } catch (lost: LostAnswer) {
+                    if (this.pipe != pipe) throw lost
+                    shut(pipe)
+                }
+            }
+        } finally {
+            if (registering == pipe) registering = null
+        }
+    }
+
+    /** A part that went missing breaks the frames, so the pipe starts again. */
     private fun renew(pipe: String) {
-        filling.reset()
-        next = null
-        commands.send("document.close", fields("pipe" to pipe))
+        shut(pipe)
         if (commands.send("document.open", fields("sessionId" to session, "pipe" to pipe, "key" to key)) != Ffi.OK) {
             this.pipe = null
             onNews(News.Closed)
         }
+    }
+
+    /** The parts that are on their way go nowhere, until the pipe opens again. */
+    private fun shut(pipe: String) {
+        filling.reset()
+        next = null
+        commands.send("document.close", fields("pipe" to pipe))
     }
 
     fun detach() {

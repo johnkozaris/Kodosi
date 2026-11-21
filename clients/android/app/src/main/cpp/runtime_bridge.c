@@ -277,6 +277,19 @@ JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_sendCommand(
     return result;
 }
 
+JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_log(JNIEnv *env, jclass type, jint level,
+                                                                        jbyteArray line) {
+    (void)type;
+    jsize length = (*env)->GetArrayLength(env, line);
+    jbyte *bytes = (*env)->GetByteArrayElements(env, line, NULL);
+    if (bytes == NULL) {
+        return KODOSI_FFI_DESER_FAILED;
+    }
+    int32_t result = kodosi_log((int32_t)level, (const uint8_t *)bytes, (uintptr_t)length);
+    (*env)->ReleaseByteArrayElements(env, line, bytes, JNI_ABORT);
+    return result;
+}
+
 typedef int32_t (*terminal_call)(void *, const char *, const char *, uint64_t);
 
 static jint call_terminal(JNIEnv *env, terminal_call call, jlong handle, jstring session, jstring subscription,

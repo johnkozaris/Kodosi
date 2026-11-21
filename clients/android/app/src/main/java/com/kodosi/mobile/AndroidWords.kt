@@ -13,6 +13,7 @@ class AndroidWords(private val context: Context) :
     override val otherAccount: String get() = context.getString(R.string.other_account)
     override val signInEnded: String get() = context.getString(R.string.sign_in_ended)
     override val accountDeleted: String get() = context.getString(R.string.account_deleted)
+    override val outcomeUnknown: String get() = context.getString(R.string.outcome_unknown)
     override val fellBehind: String get() = context.getString(R.string.terminal_fell_behind)
     override val couldNotConnect: String get() = context.getString(R.string.terminal_could_not_connect)
     override val invalidControl: String get() = context.getString(R.string.terminal_invalid_control)
@@ -21,6 +22,4 @@ class AndroidWords(private val context: Context) :
     val couldNotStart: String get() = context.getString(R.string.runtime_could_not_start)
 
     override fun rejected(code: Int): String = context.getString(R.string.did_not_work_code, code)
-
-    fun unreadable(detail: String): String = context.getString(R.string.event_unreadable, detail)
 }
