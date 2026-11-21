@@ -40,8 +40,8 @@ commande dans le shell du nouveau terminal.
   dans ses propres réglages ; Kodosi les modifie donc tant que Copilot CLI tourne en
   Discrète, puis les rétablit.
 - Claude Code et Codex ont un mode rapide, qui répond plus vite et coûte plus cher.
-  Activez-le avec le modèle et l'effort. Tant qu'il est désactivé, l'agent garde son propre
-  réglage.
+  Activez-le avec le modèle et l'effort. Il ne vaut que pour ce démarrage : un agent démarre
+  sans lui, sauf si vous l'activez.
 - Un nouveau compte a son propre dossier de connexion, par exemple `~/.claude-work`. Kodosi
   trouve aussi les comptes que votre shell configure, comme
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.

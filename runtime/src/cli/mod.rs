@@ -121,7 +121,7 @@ const TERMINAL: &str =
 const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where the agent's own safety check decides and asks for the rest; or unrestricted, which never asks. It starts with your last choice, else unrestricted, or ask for an agent without it";
 const LIVE_PERMISSIONS: &str = "How the agent asks before it acts: ask, auto or unrestricted, as far as the agent can change it while it runs";
 const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed for Claude Code and Codex, and quiet or standard for Copilot CLI. It starts with your last choice, else quiet";
-const FAST: &str = "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off for the agent's own setting. It starts with your last choice";
+const FAST: &str = "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off. Each start is off unless you turn it on";
 const LIVE_FAST: &str =
     "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off";
 
@@ -229,7 +229,7 @@ enum TerminalAction {
         /// Make a new branch of the repository in --directory (or the current folder), with its own folder, and start the terminal there.
         #[arg(long)]
         branch: Option<String>,
-        /// Start an agent in the terminal, for example claude or codex, with your last choice of account, model, effort, fast mode, permissions and output.
+        /// Start an agent in the terminal, for example claude or codex, with your last choice of account, model, effort, permissions and output.
         #[arg(long)]
         agent: Option<String>,
         /// The agent's account, by the name that `kodosi agent list` shows.
@@ -255,7 +255,7 @@ enum TerminalAction {
     Run {
         #[arg(help = TERMINAL)]
         terminal: String,
-        /// The agent, for example claude or codex. It starts with your last choice of account, model, effort, fast mode, permissions and output.
+        /// The agent, for example claude or codex. It starts with your last choice of account, model, effort, permissions and output.
         #[arg(long)]
         agent: String,
         /// The agent's account, by the name that `kodosi agent list` shows.

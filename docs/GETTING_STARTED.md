@@ -38,7 +38,8 @@ the shell of the new terminal.
   at Quiet. Copilot CLI takes its verbosity only from its own settings, so Kodosi changes
   them while Copilot CLI runs at Quiet and puts them back after.
 - Claude Code and Codex have a fast mode, which answers faster and costs more. Turn it on
-  with the model and effort. While it is off, the agent keeps its own setting.
+  with the model and effort. It holds for that start only, so an agent starts without it
+  unless you turn it on.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
