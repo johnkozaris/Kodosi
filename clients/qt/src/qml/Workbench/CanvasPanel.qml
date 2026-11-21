@@ -75,6 +75,12 @@ Item {
         if (key.length > 0)
             DocumentViews.show(sessionId, key, documentView, documentPlace);
     }
+    function renewView(): void {
+        if (body.item && body.key !== currentKey) {
+            body.active = false;
+            body.active = true;
+        }
+    }
     function ask(key: string): void {
         const send = words => root.askAbout(key, words);
         const page = body.item as CanvasPage;
@@ -111,10 +117,11 @@ Item {
     Accessible.name: qsTr("Canvas of %1").arg(session.name || qsTr("Terminal"))
 
     onLoadKeyChanged: load()
+    // QML runs this before the bindings that follow the new key, so a restart here would make a
+    // view of the component of the key before.
     onCurrentKeyChanged: {
         Qt.callLater(placeDocument);
-        body.active = false;
-        body.active = true;
+        Qt.callLater(renewView);
         Qt.callLater(markSeen);
     }
 
@@ -531,6 +538,8 @@ Item {
                     Loader {
                         id: body
 
+                        property string key: ""
+
                         anchors.fill: parent
                         visible: !root.shelf
                         sourceComponent: !root.current || root.documentView.length > 0 ? null
@@ -540,6 +549,7 @@ Item {
                             : root.current.kind === "picture" ? pictureView
                             : root.documentKind(root.current.kind) || !Models.CanvasWeb.available ? fileView
                             : pageView
+                        onLoaded: key = root.currentKey
                     }
                     Spinner {
                         anchors.centerIn: parent

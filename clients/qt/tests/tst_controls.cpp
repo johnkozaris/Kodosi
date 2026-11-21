@@ -104,7 +104,8 @@ std::unique_ptr<QSettings> settingsIn(const QTemporaryDir& directory, const char
     return std::make_unique<QSettings>(directory.filePath(QLatin1String(name)), QSettings::IniFormat);
 }
 
-// The view of a terminal's shared browser with the models that it reads, on stand-in pipes.
+// The view of a terminal's shared browser, alone or in its canvas, with the models that they read,
+// on stand-in pipes.
 class BrowserViews {
 public:
     BrowserViews()
@@ -114,6 +115,7 @@ public:
         , settings(settingsIn(directory, "settings.ini"))
         , workspace(commands, sessions, desktop, settings)
         , canvas(commands, sessions)
+        , web(canvas)
         , documents(commands, commands, sessions)
     {
         kodosi::qml::provide<kodosi::qml::AppearanceModelForeign>(engine, appearance);
@@ -125,28 +127,26 @@ public:
         kodosi::qml::provide<kodosi::qml::PeopleModelForeign>(engine, workspace.people());
         kodosi::qml::provide<kodosi::qml::ProjectsModelForeign>(engine, workspace.projects());
         kodosi::qml::provide<kodosi::qml::CanvasModelForeign>(engine, canvas);
+        kodosi::qml::provide<kodosi::qml::CanvasWebForeign>(engine, web);
         kodosi::qml::provide<kodosi::qml::CanvasDocumentsForeign>(engine, documents);
         kodosi::qml::provide<kodosi::qml::DesktopFileIntegrationForeign>(engine, files);
     }
     std::unique_ptr<QObject> view(const QString& sessionId)
     {
-        QQmlComponent component(&engine);
-        component.setData(QStringLiteral(R"(
-            import QtQuick
-            import Kodosi 1.0
-            Window {
-                width: 640; height: 480; visible: true
-                CanvasBrowser {
-                    anchors.fill: parent
-                    sessionId: "%1"
-                    browser: ({ state: "awake" })
-                }
-            }
-        )").arg(sessionId).toUtf8(), {});
-        std::unique_ptr<QObject> made(component.create());
-        if (!made)
-            qWarning().noquote() << component.errorString();
-        return made;
+        return window(QStringLiteral(R"(CanvasBrowser { anchors.fill: parent; sessionId: "%1"; browser: ({ state: "awake" }) })")
+                .arg(sessionId));
+    }
+    std::unique_ptr<QObject> panel(const QString& sessionId)
+    {
+        return window(QStringLiteral(R"(CanvasPanel { anchors.fill: parent; sessionId: "%1" })").arg(sessionId));
+    }
+    QStringList opensAndCloses() const
+    {
+        auto types = commands.types();
+        types.removeIf([](const QString& type) {
+            return type != QStringLiteral("document.open") && type != QStringLiteral("document.close");
+        });
+        return types;
     }
     // The watches that the view sent on its pipe, once the pipe opened.
     QList<QJsonObject> watchesAfterOpening(const QString& pipe)
@@ -165,9 +165,28 @@ public:
     kodosi::SessionCatalogModel sessions;
     kodosi::Workspace workspace;
     kodosi::CanvasModel canvas;
+    kodosi::CanvasWeb web;
     kodosi::CanvasDocuments documents;
     kodosi::DesktopFileIntegration files;
     QQmlEngine engine;
+
+private:
+    std::unique_ptr<QObject> window(const QString& content)
+    {
+        QQmlComponent component(&engine);
+        component.setData(QStringLiteral(R"(
+            import QtQuick
+            import Kodosi 1.0
+            Window {
+                width: 640; height: 480; visible: true
+                %1
+            }
+        )").arg(content).toUtf8(), {});
+        std::unique_ptr<QObject> made(component.create());
+        if (!made)
+            qWarning().noquote() << component.errorString();
+        return made;
+    }
 };
 
 QString terminal(int number)
@@ -193,6 +212,7 @@ private slots:
     void aPersonWhoOpensTheBrowserBeforeItStartsGivesThePageToItsLaterView();
     void aPersonWhoChoosesAWatchedBrowserGivesThePageToItAtOnce();
     void aPersonWhoLeavesTheBrowserLeavesNoChoiceForALaterView();
+    void aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser();
 };
 
 void ControlsTest::theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWithoutThePage()
@@ -275,6 +295,32 @@ void ControlsTest::aPersonWhoLeavesTheBrowserLeavesNoChoiceForALaterView()
         QCOMPARE(watches.size(), 1);
         QVERIFY2(!watches.first().value(QStringLiteral("opened")).toBool(), qPrintable(QString::number(way)));
     }
+}
+
+void ControlsTest::aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser()
+{
+    BrowserViews rig;
+    auto entry = test::session(1);
+    entry.insert(QStringLiteral("canvas"),
+        QJsonObject { { QStringLiteral("sequence"), 1 },
+            { QStringLiteral("items"),
+                QJsonArray { QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.png") },
+                    { QStringLiteral("name"), QStringLiteral("plan.png") }, { QStringLiteral("kind"), QStringLiteral("picture") },
+                    { QStringLiteral("revision"), 1 }, { QStringLiteral("bytes"), 120 }, { QStringLiteral("changed"), 1 } } } },
+            { QStringLiteral("browser"),
+                QJsonObject { { QStringLiteral("state"), QStringLiteral("awake") }, { QStringLiteral("changed"), 2 },
+                    { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } } } });
+    rig.sessions.apply(test::snapshot({ entry }));
+    rig.canvas.show(test::id(1), QStringLiteral("browser"));
+    const auto panel = rig.panel(test::id(1));
+    QVERIFY(panel);
+    QCOMPARE(rig.opensAndCloses(), QStringList { QStringLiteral("document.open") });
+
+    rig.canvas.pick(test::id(1), QStringLiteral("/work/plan.png"));
+    QTRY_COMPARE(rig.opensAndCloses(), (QStringList { QStringLiteral("document.open"), QStringLiteral("document.close") }));
+    rig.canvas.show(test::id(1), QStringLiteral("browser"));
+    QCOMPARE(rig.opensAndCloses(),
+        (QStringList { QStringLiteral("document.open"), QStringLiteral("document.close"), QStringLiteral("document.open") }));
 }
 
 void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
