@@ -22,6 +22,7 @@ use super::{
 /// The turns that the chat shows of a conversation that is older than the link.
 const HISTORY: u64 = 20;
 const MOST_ITEMS: usize = 2048;
+const MOST_PASSED: usize = 64;
 
 #[derive(Default)]
 pub(super) struct Codex {
@@ -29,6 +30,8 @@ pub(super) struct Codex {
     /// The conversation of the Codex in the terminal.
     thread: Option<String>,
     follows: Follows,
+    /// The conversations of the server that the chat looked at and does not show.
+    passed: VecDeque<String>,
     turn: Option<Turn>,
     /// The chat's item of each item of Codex.
     items: HashMap<String, String>,
@@ -220,7 +223,8 @@ impl Codex {
         }
     }
 
-    /// A message that Codex did not take stays in the queue with Codex's reason.
+    /// A message that Codex did not take stays in the queue with Codex's reason. The words of a
+    /// refusal go there too.
     fn refused(&mut self, chat: &mut Chat, n: &str, event: &Value) {
         let n = n.parse::<u64>().ok();
         let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
@@ -230,24 +234,34 @@ impl Codex {
             .pointer("/e/message")
             .and_then(Value::as_str)
             .unwrap_or_default();
-        if let Some(handed) = self.handed.remove(index)
-            && let Some(queued) = handed.queued
-        {
+        let Some(handed) = self.handed.remove(index) else {
+            return;
+        };
+        let queued = handed.queued.or_else(|| chat.queue(handed.text, handed.by));
+        if let Some(queued) = queued {
             chat.refuse(&queued, start_of(reason, MOST_TARGET).to_owned());
             self.held = true;
         }
     }
 
     /// The terminal's Codex has one conversation that a person writes in. A conversation that
-    /// Codex makes for its own work, such as the one that names a conversation, is not it.
+    /// Codex makes for its own work is not it: the one that names a conversation, which Codex
+    /// does not keep, and the one of a helper or of a review, which has a parent.
     fn consider(&mut self, chat: &mut Chat, thread: &Value) {
         let id = text(thread, "id");
-        if id.is_empty()
-            || thread.get("ephemeral").and_then(Value::as_bool) != Some(false)
-            || text(thread, "threadSource") != "user"
-        {
+        if id.is_empty() {
             return;
         }
+        if thread.get("ephemeral").and_then(Value::as_bool) != Some(false)
+            || thread
+                .get("parentThreadId")
+                .is_some_and(|parent| !parent.is_null())
+            || thread.pointer("/source/subAgent").is_some()
+        {
+            self.pass(id);
+            return;
+        }
+        self.passed.retain(|passed| passed != id);
         if self.thread.as_deref() != Some(id) {
             if let Some(before) = self.thread.replace(id.to_owned()) {
                 self.call("left", "thread/unsubscribe", &json!({"threadId": before}));
@@ -257,6 +271,30 @@ impl Codex {
         }
         describe(chat, thread);
         self.follow();
+    }
+
+    fn pass(&mut self, thread: &str) {
+        if self.passed.iter().any(|passed| passed == thread) {
+            return;
+        }
+        if self.passed.len() >= MOST_PASSED {
+            self.passed.pop_front();
+        }
+        self.passed.push_back(thread.to_owned());
+    }
+
+    /// Codex works in a conversation that is not the chat's. When a person went to it in the
+    /// terminal, the server tells no more than this, so the chat reads what the conversation is.
+    fn look(&mut self, thread: &str) {
+        if thread.is_empty() || self.passed.iter().any(|passed| passed == thread) {
+            return;
+        }
+        self.pass(thread);
+        self.call(
+            "read",
+            "thread/read",
+            &json!({"threadId": thread, "includeTurns": false}),
+        );
     }
 
     /// The person began another conversation, so the chat begins again.
@@ -300,6 +338,11 @@ impl Codex {
                 }
             }
             "account/rateLimits/updated" => limits(chat, params),
+            "thread/status/changed" if !self.is_ours(params) => {
+                if text(&params["status"], "type") == "active" {
+                    self.look(text(params, "threadId"));
+                }
+            }
             _ if !self.is_ours(params) => {}
             "thread/status/changed" => match text(&params["status"], "type") {
                 "active" => {
@@ -318,7 +361,17 @@ impl Codex {
                 self.now = None;
                 self.held = false;
             }
-            "turn/completed" => return self.end_turn(chat, &params["turn"], at),
+            "turn/completed" => {
+                let closed = self.end_turn(chat, &params["turn"], at);
+                // Codex has each message that the chat gave it before the turn. One that Codex
+                // did not write down in the chat's words leaves the queue here.
+                for handed in std::mem::take(&mut self.handed) {
+                    if let Some(queued) = handed.queued {
+                        chat.unqueue(&queued);
+                    }
+                }
+                return closed;
+            }
             "item/started" => self.item(chat, params, at, false),
             "item/completed" => self.item(chat, params, at, true),
             "item/agentMessage/delta" => {
@@ -379,6 +432,12 @@ impl Codex {
             self.turn.get_or_insert_default().id = Some(turn);
         }
         let known = self.items.get(id).cloned();
+        if done
+            && let Some(shown) = &known
+            && matches!(&self.now, Some(ChatNow::Tool { item }) if item == shown)
+        {
+            self.now = None;
+        }
         let shown = match (text(item, "type"), known) {
             ("userMessage", None) => self.said_by_person(chat, item, at),
             ("agentMessage", None) => Some(chat.push(at, answer(text(item, "text"), !done))),
@@ -539,15 +598,7 @@ impl Codex {
             "failed" => TurnEnd::Failed,
             _ => TurnEnd::Done,
         };
-        let open = chat
-            .items()
-            .iter()
-            .filter_map(|item| match &item.body {
-                ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
-                ChatBody::Text { live: true, .. } => Some(item.id.clone()),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
+        let open = open(chat);
         for item in &open {
             match chat.body(item).cloned() {
                 Some(ChatBody::Text { text, .. }) => chat.put(item, answer(&text, false)),
@@ -629,6 +680,7 @@ impl Codex {
                 .get("completedAt")
                 .and_then(Value::as_u64)
                 .map_or(at, |seconds| seconds.saturating_mul(1000));
+            stop_open(chat);
             let live = self.turn.take();
             self.end_turn(chat, turn, ended);
             self.turn = live;
@@ -670,21 +722,7 @@ impl Agent for Codex {
         self.handed.clear();
         self.calls.clear();
         self.stopped.clear();
-        let open = chat
-            .items()
-            .iter()
-            .filter_map(|item| match &item.body {
-                ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
-                ChatBody::Text { live: true, .. } => Some(item.id.clone()),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        for item in open {
-            match chat.body(&item).cloned() {
-                Some(ChatBody::Text { text, .. }) => chat.put(&item, answer(&text, false)),
-                _ => chat.change_tool(&item, |tool| tool.state = ToolState::Stopped),
-            }
-        }
+        stop_open(chat);
         self.asked.clear();
         let closed = chat.close_asks(|_| true);
         self.show(chat);
@@ -823,6 +861,27 @@ impl Agent for Codex {
             "p": {"threadId": thread, "turnId": id},
         }))
     }
+}
+
+/// The answer that the agent wrote and each call that did not end stay as far as they came.
+fn stop_open(chat: &mut Chat) {
+    for item in open(chat) {
+        match chat.body(&item).cloned() {
+            Some(ChatBody::Text { text, .. }) => chat.put(&item, answer(&text, false)),
+            _ => chat.change_tool(&item, |tool| tool.state = ToolState::Stopped),
+        }
+    }
+}
+
+fn open(chat: &Chat) -> Vec<String> {
+    chat.items()
+        .iter()
+        .filter_map(|item| match &item.body {
+            ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
+            ChatBody::Text { live: true, .. } => Some(item.id.clone()),
+            _ => None,
+        })
+        .collect()
 }
 
 /// What a conversation tells of the agent that works in it.

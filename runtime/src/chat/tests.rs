@@ -1257,6 +1257,94 @@ fn a_new_conversation_of_codex_in_the_terminal_starts_the_chat_again() {
     );
 }
 
+/// The server says of a conversation that the chat does not follow only that Codex works in it.
+fn codex_works_in(thread: &str) -> String {
+    json!({
+        "k": "note",
+        "m": "thread/status/changed",
+        "p": {"threadId": thread, "status": {"type": "active", "activeFlags": []}},
+    })
+    .to_string()
+}
+
+#[test]
+fn the_chat_of_codex_goes_to_the_conversation_that_a_person_goes_to_in_the_terminal() {
+    let mut play = Play::codex(&[codex!("first")], &[]);
+    let started: Value =
+        serde_json::from_str(codex!("new").lines().next().expect("the start")).expect("a line");
+    let other = started["p"]["thread"].clone();
+    let id = other["id"].as_str().expect("the name").to_owned();
+
+    play.more(&codex_works_in(&id), &[]);
+    assert_eq!(
+        calls(&play, "thread/read")
+            .last()
+            .map(|call| &call["p"]["threadId"]),
+        Some(&json!(id))
+    );
+    assert_eq!(
+        play.people(),
+        ["Say hello in five words."],
+        "the chat stays until it knows what the conversation is"
+    );
+
+    play.more(
+        &json!({"k": "reply", "tag": "read", "r": {"thread": other}}).to_string(),
+        &[],
+    );
+    assert_eq!(play.view.items, []);
+    assert_eq!(
+        calls(&play, "thread/resume")
+            .last()
+            .map(|call| &call["p"]["threadId"]),
+        Some(&json!(id))
+    );
+}
+
+#[test]
+fn the_chat_of_codex_stays_when_a_helper_of_codex_works_in_its_own_conversation() {
+    let mut play = Play::codex(&[codex!("first")], &[]);
+    let started: Value =
+        serde_json::from_str(codex!("new").lines().next().expect("the start")).expect("a line");
+    let mut helper = started["p"]["thread"].clone();
+    helper["parentThreadId"] = json!("00000001-0000-7000-8000-000000000000");
+    let id = helper["id"].as_str().expect("the name").to_owned();
+
+    play.more(&codex_works_in(&id), &[]);
+    play.more(
+        &json!({"k": "reply", "tag": "read", "r": {"thread": helper}}).to_string(),
+        &[],
+    );
+    play.more(&codex_works_in(&id), &[]);
+
+    assert_eq!(play.people(), ["Say hello in five words."]);
+    assert_eq!(
+        calls(&play, "thread/read").len(),
+        2,
+        "one at the start, one for the helper"
+    );
+    assert_eq!(calls(&play, "thread/unsubscribe"), Vec::<&Value>::new());
+}
+
+#[test]
+fn a_message_that_codex_writes_down_in_other_words_leaves_the_queue_when_its_turn_ends() {
+    let mut play = Play::codex(&[], &[]);
+    play.chat
+        .queue("Say hello.".to_owned(), Some(sam()))
+        .expect("room in the queue");
+    assert_eq!(play.agent.commands(&play.chat).len(), 1);
+
+    play.more(codex!("first"), &[]);
+
+    assert_eq!(play.view.queued, []);
+    play.chat
+        .queue("And again.".to_owned(), Some(sam()))
+        .expect("room in the queue");
+    let sent = play.agent.commands(&play.chat);
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert_eq!(sent[0]["p"]["input"][0]["text"], "And again.");
+}
+
 #[test]
 fn a_conversation_of_codex_that_a_person_resumes_shows_its_last_turns_in_order() {
     let play = Play::codex(&[codex!("history")], &[]);
