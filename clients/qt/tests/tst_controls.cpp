@@ -193,6 +193,21 @@ QString terminal(int number)
 {
     return QStringLiteral("0198aaaa-0000-7000-8000-%1").arg(number, 12, 10, QLatin1Char('0'));
 }
+
+QJsonObject terminalWithPictureAndBrowser()
+{
+    auto entry = test::session(1);
+    entry.insert(QStringLiteral("canvas"),
+        QJsonObject { { QStringLiteral("sequence"), 1 },
+            { QStringLiteral("items"),
+                QJsonArray { QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.png") },
+                    { QStringLiteral("name"), QStringLiteral("plan.png") }, { QStringLiteral("kind"), QStringLiteral("picture") },
+                    { QStringLiteral("revision"), 1 }, { QStringLiteral("bytes"), 120 }, { QStringLiteral("changed"), 1 } } } },
+            { QStringLiteral("browser"),
+                QJsonObject { { QStringLiteral("state"), QStringLiteral("awake") }, { QStringLiteral("changed"), 2 },
+                    { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } } } });
+    return entry;
+}
 }
 
 class ControlsTest final : public QObject {
@@ -213,6 +228,7 @@ private slots:
     void aPersonWhoChoosesAWatchedBrowserGivesThePageToItAtOnce();
     void aPersonWhoLeavesTheBrowserLeavesNoChoiceForALaterView();
     void aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser();
+    void theCanvasOpenMenuClosesAfterEachChoice();
 };
 
 void ControlsTest::theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWithoutThePage()
@@ -300,17 +316,7 @@ void ControlsTest::aPersonWhoLeavesTheBrowserLeavesNoChoiceForALaterView()
 void ControlsTest::aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser()
 {
     BrowserViews rig;
-    auto entry = test::session(1);
-    entry.insert(QStringLiteral("canvas"),
-        QJsonObject { { QStringLiteral("sequence"), 1 },
-            { QStringLiteral("items"),
-                QJsonArray { QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.png") },
-                    { QStringLiteral("name"), QStringLiteral("plan.png") }, { QStringLiteral("kind"), QStringLiteral("picture") },
-                    { QStringLiteral("revision"), 1 }, { QStringLiteral("bytes"), 120 }, { QStringLiteral("changed"), 1 } } } },
-            { QStringLiteral("browser"),
-                QJsonObject { { QStringLiteral("state"), QStringLiteral("awake") }, { QStringLiteral("changed"), 2 },
-                    { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } } } });
-    rig.sessions.apply(test::snapshot({ entry }));
+    rig.sessions.apply(test::snapshot({ terminalWithPictureAndBrowser() }));
     rig.canvas.show(test::id(1), QStringLiteral("browser"));
     const auto panel = rig.panel(test::id(1));
     QVERIFY(panel);
@@ -321,6 +327,44 @@ void ControlsTest::aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser()
     rig.canvas.show(test::id(1), QStringLiteral("browser"));
     QCOMPARE(rig.opensAndCloses(),
         (QStringList { QStringLiteral("document.open"), QStringLiteral("document.close"), QStringLiteral("document.open") }));
+}
+
+void ControlsTest::theCanvasOpenMenuClosesAfterEachChoice()
+{
+    BrowserViews rig;
+    rig.sessions.apply(test::snapshot({ terminalWithPictureAndBrowser() }));
+    rig.canvas.show(test::id(1), QStringLiteral("browser"));
+    const auto panel = rig.panel(test::id(1));
+    auto* window = qobject_cast<QQuickWindow*>(panel.get());
+    QVERIFY(window);
+    QVERIFY(QTest::qWaitForWindowExposed(window));
+    auto* adder = panel->findChild<QQuickItem*>(QStringLiteral("canvas.key.open"));
+    QVERIFY(adder);
+    QObject* menu = nullptr;
+    for (auto* child : adder->findChildren<QObject*>()) {
+        if (child->inherits("QQuickMenu"))
+            menu = child;
+    }
+    QVERIFY(menu);
+    const auto click = [window](QQuickItem* item) {
+        QTest::mouseClick(window, Qt::LeftButton, {}, item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
+    };
+
+    for (const auto& section : { QStringLiteral("browser"), QStringLiteral("files") }) {
+        rig.canvas.close(test::id(1), section);
+        click(adder);
+        QTRY_VERIFY(menu->property("opened").toBool());
+        QQuickItem* choice = nullptr;
+        QVERIFY(QMetaObject::invokeMethod(menu, "itemAt", Q_RETURN_ARG(QQuickItem*, choice), Q_ARG(int, 0)));
+        QVERIFY(choice);
+        QCOMPARE(choice->objectName(), QStringLiteral("canvas.key.open.") + section);
+        click(choice);
+        QTRY_VERIFY2(!menu->property("visible").toBool(), qPrintable(section));
+        QVERIFY(rig.canvas.sections(test::id(1)).contains(section));
+    }
+    click(adder);
+    QTRY_VERIFY(menu->property("opened").toBool());
+    QCOMPARE(menu->property("count").toInt(), 1);
 }
 
 void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
