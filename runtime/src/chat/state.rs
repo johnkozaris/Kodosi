@@ -271,6 +271,10 @@ impl Chat {
         });
     }
 
+    pub(super) fn facts(&self) -> &ChatFacts {
+        &self.facts
+    }
+
     pub(super) fn change_facts(&mut self, change: impl FnOnce(&mut ChatFacts)) {
         let mut facts = self.facts.clone();
         change(&mut facts);

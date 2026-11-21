@@ -46,8 +46,9 @@ pub(super) trait Agent: Send {
     ) -> Option<Value>;
 
     /// A person of the chat decided a question. The chat shows the decision at once, and the
-    /// agent's own record of it follows.
-    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value);
+    /// agent's own record of it follows. It gives true when the agent's link waits for the
+    /// decision; a question that the adapter asks for the agent takes the decision itself.
+    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool;
 
     /// What the link does next for the chat: the next message of the queue when the agent can
     /// start it, and the calls that the adapter makes.

@@ -12,8 +12,8 @@ use serde_json::{Map, Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTool, MOST_OUTPUT, MOST_TARGET, MOST_TEXT,
-    ToolDetail, ToolKind, ToolState, TurnEnd,
+    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTool, MOST_OUTPUT, MOST_TARGET,
+    MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{Agent, Stop, answer, file_name, list, person, text, words},
     diff,
     state::{Chat, ends_of, start_of},
@@ -21,6 +21,8 @@ use super::{
 
 /// The turns that the chat shows of a conversation that is older than the link.
 const HISTORY: u64 = 20;
+/// Codex's own words, which its terminal sends when a person chooses to carry out a plan.
+const IMPLEMENT: &str = "Implement the plan.";
 const MOST_ITEMS: usize = 2048;
 const MOST_PASSED: usize = 64;
 
@@ -41,6 +43,10 @@ pub(super) struct Codex {
     sent: u64,
     /// What a person wrote to refuse a question. Codex gets it as the next message.
     said: Option<(String, Option<ChatPerson>)>,
+    /// The next message carries out the plan, in Codex's default mode.
+    implement: bool,
+    /// The chat's item of the plan that the turn that runs wrote.
+    plan: Option<String>,
     /// The commands that ran when a person of the chat stopped their turn. Codex lets them run
     /// on, so the adapter ends them.
     stopped: Vec<String>,
@@ -78,6 +84,8 @@ enum AskKind {
     Command,
     Change,
     Question,
+    /// Whether to carry out a plan, which Codex's terminal asks after its plan mode wrote one.
+    Plan,
 }
 
 struct Handed {
@@ -310,6 +318,8 @@ impl Codex {
         self.handed.clear();
         self.stopped.clear();
         self.said = None;
+        self.implement = false;
+        self.plan = None;
         self.now = None;
         self.held = false;
     }
@@ -366,6 +376,9 @@ impl Codex {
                 });
                 self.now = None;
                 self.held = false;
+                self.plan = None;
+                // A person chose in the terminal, or wrote there.
+                return self.close_plan(chat);
             }
             "turn/completed" => {
                 let closed = self.end_turn(chat, &params["turn"], at);
@@ -376,6 +389,7 @@ impl Codex {
                         chat.unqueue(&queued);
                     }
                 }
+                self.offer_plan(chat, &params["turn"]);
                 return closed;
             }
             "item/started" => self.item(chat, params, at, false),
@@ -396,7 +410,7 @@ impl Codex {
                         {
                             ToolState::Stopped
                         }
-                        AskKind::Question => ToolState::Done,
+                        AskKind::Question | AskKind::Plan => ToolState::Done,
                         AskKind::Command | AskKind::Change => ToolState::Running,
                     };
                     chat.change_tool(&asked.item, |tool| {
@@ -549,6 +563,63 @@ impl Codex {
             }
             self.items.insert(id.to_owned(), shown);
         }
+        if done && text(item, "type") == "plan" {
+            self.plan = self.items.get(id).cloned();
+        }
+    }
+
+    /// After a turn of its plan mode that wrote a plan, Codex's terminal asks whether to carry the
+    /// plan out, unless a message waits, and the chat asks it too. The answer that comes first
+    /// counts: the chat's starts the work, as the terminal's does, and the terminal's starts a
+    /// turn, which ends the chat's question.
+    fn offer_plan(&mut self, chat: &mut Chat, turn: &Value) {
+        let Some(item) = self.plan.take() else {
+            return;
+        };
+        if text(turn, "status") != "completed"
+            || chat.facts().mode != Some(ChatMode::Plan)
+            || !chat.queued().is_empty()
+            || self.said.is_some()
+        {
+            return;
+        }
+        let Some(ToolDetail::Plan { text }) = chat.tool(&item).and_then(|tool| tool.detail.clone())
+        else {
+            return;
+        };
+        chat.change_tool(&item, |tool| tool.state = ToolState::Asking);
+        let ask = format!("plan:{item}");
+        chat.ask(ChatAsk {
+            id: ask.clone(),
+            item: Some(item.clone()),
+            body: AskBody::Plan {
+                text,
+                choices: vec![PlanChoice::Go],
+            },
+        });
+        self.asked.insert(
+            ask,
+            Asked {
+                kind: AskKind::Plan,
+                item,
+                offered: Vec::new(),
+                questions: Vec::new(),
+            },
+        );
+    }
+
+    fn close_plan(&mut self, chat: &mut Chat) -> Vec<String> {
+        let planned = self
+            .asked
+            .iter()
+            .filter(|(_, asked)| asked.kind == AskKind::Plan)
+            .map(|(ask, asked)| (ask.clone(), asked.item.clone()))
+            .collect::<Vec<_>>();
+        for (ask, item) in &planned {
+            self.asked.remove(ask);
+            chat.change_tool(item, |tool| tool.state = ToolState::Done);
+        }
+        chat.close_asks(|open| planned.iter().any(|(ask, _)| *ask == open.id))
     }
 
     /// A message of a person: one that the chat gave Codex, or one that a person typed in the
@@ -610,7 +681,7 @@ impl Codex {
                 })
                 .map(rule),
             AskKind::Change => Some(tool.target.clone()),
-            AskKind::Question => None,
+            AskKind::Question | AskKind::Plan => None,
         }
         .filter(|text| !text.is_empty())
         .map(|text| AskAlways::Rule {
@@ -835,6 +906,8 @@ impl Agent for Codex {
         self.turn = None;
         self.now = None;
         self.said = None;
+        self.implement = false;
+        self.plan = None;
         self.handed.clear();
         self.calls.clear();
         self.stopped.clear();
@@ -870,8 +943,29 @@ impl Agent for Codex {
         by: Option<&ChatPerson>,
     ) -> Option<Value> {
         let asked = self.asked.get(ask)?;
-        if asked.kind == AskKind::Question {
-            return answers_for(&asked.questions, answer);
+        match (asked.kind, answer) {
+            (AskKind::Question, answer) => return answers_for(&asked.questions, answer),
+            (
+                AskKind::Plan,
+                ChatAnswer::Plan {
+                    choice: PlanChoice::Go,
+                },
+            ) => {
+                self.said = Some((IMPLEMENT.to_owned(), by.cloned()));
+                self.implement = true;
+                return Some(json!({"implement": true}));
+            }
+            // As the terminal's "No, stay in Plan mode": words go to Codex as the next message.
+            (AskKind::Plan, ChatAnswer::Deny { text }) => {
+                self.said = text
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|words| !words.is_empty())
+                    .map(|words| (words.to_owned(), by.cloned()));
+                return Some(json!({"implement": false}));
+            }
+            (AskKind::Plan, _) => return None,
+            _ => {}
         }
         let decision = match (asked.kind, answer) {
             (_, ChatAnswer::Allow) => json!("accept"),
@@ -894,11 +988,17 @@ impl Agent for Codex {
         Some(json!({"decision": decision}))
     }
 
-    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) {
+    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool {
         let Some(asked) = self.asked.remove(ask) else {
-            return;
+            return true;
         };
         chat.close_asks(|open| open.id == ask);
+        // The adapter asked about the plan for Codex, and the decision starts a turn.
+        if asked.kind == AskKind::Plan {
+            chat.change_tool(&asked.item, |tool| tool.state = ToolState::Done);
+            self.show(chat);
+            return false;
+        }
         if asked.kind == AskKind::Question {
             let given = asked
                 .questions
@@ -917,7 +1017,7 @@ impl Agent for Codex {
                 }
             });
             self.show(chat);
-            return;
+            return true;
         }
         let refused = text(decision, "decision") == "cancel";
         chat.change_tool(&asked.item, |tool| {
@@ -930,6 +1030,7 @@ impl Agent for Codex {
             }
         });
         self.show(chat);
+        true
     }
 
     /// The calls of the adapter, then the next message when Codex can start it: no turn runs, no
@@ -944,6 +1045,7 @@ impl Agent for Codex {
         let (true, Some(thread)) = (ready, self.thread.clone()) else {
             return commands;
         };
+        let implement = std::mem::take(&mut self.implement) && self.said.is_some();
         let next = self
             .said
             .take()
@@ -958,14 +1060,27 @@ impl Agent for Codex {
             });
         if let Some((queued, text, by)) = next {
             self.sent += 1;
+            let mut start = json!({
+                "threadId": thread,
+                "input": [{"type": "text", "text": text, "text_elements": []}],
+            });
+            // As the terminal's own choice: Codex's default mode with the model and the effort of
+            // the conversation, and that mode's own instructions.
+            if let (true, Some(model)) = (implement, &chat.facts().model) {
+                start["collaborationMode"] = json!({
+                    "mode": "default",
+                    "settings": {
+                        "model": model,
+                        "reasoning_effort": chat.facts().effort,
+                        "developer_instructions": null,
+                    },
+                });
+            }
             commands.push(json!({
                 "do": "call",
                 "tag": format!("prompt:{}", self.sent),
                 "m": "turn/start",
-                "p": {
-                    "threadId": thread,
-                    "input": [{"type": "text", "text": text, "text_elements": []}],
-                },
+                "p": start,
             }));
             self.handed.push_back(Handed {
                 n: self.sent,

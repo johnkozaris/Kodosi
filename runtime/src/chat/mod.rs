@@ -379,14 +379,27 @@ pub enum AskBody {
     },
     Plan {
         text: String,
-        /// The person chooses whether the agent then asks before each change.
-        #[serde(
-            default,
-            rename = "chooseAsks",
-            skip_serializing_if = "std::ops::Not::not"
-        )]
-        choose_asks: bool,
+        /// The ways on that the agent offers, the one that it recommends first.
+        choices: Vec<PlanChoice>,
     },
+}
+
+/// A way on after a plan of the agent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum PlanChoice {
+    /// Carry out the plan, and the agent asks as it is set.
+    Go,
+    /// Carry out the plan, and the agent asks before each change.
+    Ask,
+    /// Carry out the plan, and the agent changes files without asking.
+    Edits,
+    /// The agent carries out the plan alone and asks nothing.
+    Alone,
+    /// Helpers of the agent carry out parts of the plan side by side, alone.
+    Helpers,
+    /// The agent leaves plan mode and does not carry out the plan.
+    Leave,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -421,10 +434,9 @@ pub enum ChatAnswer {
     Answers {
         answers: Vec<Vec<String>>,
     },
-    /// Approve the plan. With `asks`, the agent then asks before each change.
-    Approve {
-        #[serde(default)]
-        asks: bool,
+    /// The way on after a plan that the person chose.
+    Plan {
+        choice: PlanChoice,
     },
 }
 

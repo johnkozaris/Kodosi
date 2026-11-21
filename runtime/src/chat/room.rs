@@ -344,8 +344,12 @@ impl Room {
     /// The first decision of a question counts. It goes to the request that waits for it, or to
     /// the next one.
     fn decide(&mut self, ask: String, decision: Value) {
-        if let Some(agent) = &mut self.agent {
-            agent.answered(&mut self.chat, &ask, &decision);
+        let waits = self
+            .agent
+            .as_mut()
+            .is_some_and(|agent| agent.answered(&mut self.chat, &ask, &decision));
+        if !waits {
+            return;
         }
         match self.waits.remove(&ask) {
             Some(wait) => {

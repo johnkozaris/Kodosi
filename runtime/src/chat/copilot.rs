@@ -13,7 +13,7 @@ use serde_json::{Map, Value, json};
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTask, ChatTool, MOST_OUTPUT,
-    MOST_TARGET, MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
+    MOST_TARGET, MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{Agent, Stop, answer, file_name, list, person, text, words},
     diff,
     state::{Chat, ends_of, start_of},
@@ -83,9 +83,9 @@ enum AskKind {
     Form {
         fields: Vec<Field>,
     },
-    /// With the way of work that Copilot continues in after an approval.
+    /// With Copilot's names of the ways on that it offers.
     Plan {
-        action: String,
+        actions: Vec<(PlanChoice, String)>,
     },
 }
 
@@ -653,11 +653,13 @@ impl Copilot {
             return;
         }
         let shown = start_of(shown, MOST_TEXT).to_owned();
-        let action = if list(plan, "actions").any(|offered| offered == "interactive") {
-            "interactive".to_owned()
-        } else {
-            text(plan, "recommendedAction").to_owned()
-        };
+        // Copilot's terminal offers the recommended way first.
+        let recommended = text(plan, "recommendedAction");
+        let mut actions = list(plan, "actions")
+            .filter_map(Value::as_str)
+            .filter_map(|action| Some((plan_choice(action)?, action.to_owned())))
+            .collect::<Vec<_>>();
+        actions.sort_by_key(|(_, action)| *action != recommended);
         let (call, item) = self
             .waiting(chat, "exit_plan_mode")
             .map_or((String::new(), None), |(call, item)| (call, Some(item)));
@@ -674,7 +676,7 @@ impl Copilot {
             item: item.clone(),
             body: AskBody::Plan {
                 text: shown,
-                choose_asks: false,
+                choices: actions.iter().map(|(choice, _)| *choice).collect(),
             },
         });
         self.asked.insert(
@@ -682,7 +684,7 @@ impl Copilot {
             Asked {
                 call,
                 item,
-                kind: AskKind::Plan { action },
+                kind: AskKind::Plan { actions },
                 request: words(plan, "requestId"),
             },
         );
@@ -935,8 +937,15 @@ impl Agent for Copilot {
                     _ => json!({"action": "decline"}),
                 }
             }
-            (AskKind::Plan { action }, ChatAnswer::Approve { .. }) => {
-                json!({"approved": true, "selectedAction": action})
+            // Copilot's own autopilot also allows each tool for the session, which its terminal
+            // asks for at once, so the extension turns that on as it gives the decision.
+            (AskKind::Plan { actions }, ChatAnswer::Plan { choice }) => {
+                let action = &actions.iter().find(|(offered, _)| offered == choice)?.1;
+                let mut decision = json!({"approved": true, "selectedAction": action});
+                if matches!(choice, PlanChoice::Alone | PlanChoice::Helpers) {
+                    decision["autoApproveEdits"] = json!(true);
+                }
+                decision
             }
             (AskKind::Plan { .. }, ChatAnswer::Deny { .. }) => refusal.map_or_else(
                 || json!({"approved": false}),
@@ -946,9 +955,9 @@ impl Agent for Copilot {
         })
     }
 
-    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) {
+    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool {
         let Some(asked) = self.asked.remove(ask) else {
-            return;
+            return true;
         };
         chat.close_asks(|open| open.id == ask);
         let refused = text(decision, "kind") == "reject"
@@ -978,6 +987,7 @@ impl Agent for Copilot {
             });
         }
         self.show(chat);
+        true
     }
 
     /// The next message when Copilot can start it: no turn runs, no question is open and Copilot
@@ -1025,6 +1035,17 @@ impl Agent for Copilot {
         } else {
             Stop::Nothing
         }
+    }
+}
+
+/// A way on after a plan, by Copilot's name of it.
+fn plan_choice(action: &str) -> Option<PlanChoice> {
+    match action {
+        "interactive" => Some(PlanChoice::Go),
+        "autopilot" => Some(PlanChoice::Alone),
+        "autopilot_fleet" => Some(PlanChoice::Helpers),
+        "exit_only" => Some(PlanChoice::Leave),
+        _ => None,
     }
 }
 

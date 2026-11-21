@@ -48,11 +48,11 @@ public enum AskBody: Decodable, Equatable, Sendable {
     /// helper that asks.
     case permission(ChatTool, always: AskAlways?, helper: String)
     case question([ChatQuestion])
-    /// With `chooseAsks`, the person chooses whether the agent then asks before each change.
-    case plan(String, chooseAsks: Bool)
+    /// With the ways on that the agent offers, the one that it recommends first.
+    case plan(String, choices: [PlanChoice])
 
     private enum Key: String, CodingKey {
-        case kind, tool, always, helper, questions, text, chooseAsks
+        case kind, tool, always, helper, questions, text, choices
     }
 
     public init(from decoder: any Decoder) throws {
@@ -63,11 +63,27 @@ public enum AskBody: Decodable, Equatable, Sendable {
                                    helper: fields.decodeIfPresent(String.self, forKey: .helper) ?? "")
         case "question": self = try .question(fields.decode([ChatQuestion].self, forKey: .questions))
         case "plan": self = try .plan(fields.decode(String.self, forKey: .text),
-                                      chooseAsks: fields.decodeIfPresent(Bool.self, forKey: .chooseAsks) ?? false)
+                                      choices: fields.decode([PlanChoice].self, forKey: .choices))
         case let kind:
             throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown question \(kind)")
         }
     }
+}
+
+/// A way on after a plan of the agent.
+public enum PlanChoice: String, Decodable, Sendable {
+    /// Carry out the plan, and the agent asks as it is set.
+    case go
+    /// Carry out the plan, and the agent asks before each change.
+    case ask
+    /// Carry out the plan, and the agent changes files without asking.
+    case edits
+    /// The agent carries out the plan alone and asks nothing.
+    case alone
+    /// Helpers of the agent carry out parts of the plan side by side, alone.
+    case helpers
+    /// The agent leaves plan mode and does not carry out the plan.
+    case leave
 }
 
 public enum AskAlways: Decodable, Equatable, Sendable {
@@ -135,8 +151,8 @@ public enum ChatAnswer: Equatable, Sendable {
     case deny(String?)
     /// For each question in order, the labels that the person chose or one text of their own.
     case answers([[String]])
-    /// Approve the plan. With `asks`, the agent then asks before each change.
-    case approve(asks: Bool)
+    /// The way on after a plan that the person chose.
+    case plan(PlanChoice)
 
     var json: JSONValue {
         switch self {
@@ -145,7 +161,7 @@ public enum ChatAnswer: Equatable, Sendable {
         case let .deny(text?): .object(["kind": .string("deny"), "text": .string(text)])
         case .deny(nil): .object(["kind": .string("deny")])
         case let .answers(answers): .object(["kind": .string("answers"), "answers": .array(answers.map { .array($0.map(JSONValue.string)) })])
-        case let .approve(asks): .object(["kind": .string("approve"), "asks": .bool(asks)])
+        case let .plan(choice): .object(["kind": .string("plan"), "choice": .string(choice.rawValue)])
         }
     }
 }

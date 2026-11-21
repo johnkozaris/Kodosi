@@ -540,7 +540,9 @@ fn a_question_takes_the_chosen_label_and_the_call_shows_the_answer() {
 
 #[test]
 fn a_plan_waits_for_approval_and_a_refusal_without_words_stops_the_turn() {
-    let approval = ChatAnswer::Approve { asks: true };
+    let approval = ChatAnswer::Plan {
+        choice: PlanChoice::Ask,
+    };
     let play = Play::of(
         record!("plan"),
         &[approval, ChatAnswer::Deny { text: None }],
@@ -548,7 +550,8 @@ fn a_plan_waits_for_approval_and_a_refusal_without_words_stops_the_turn() {
 
     let planned = play.changes.iter().any(|change| {
         matches!(change, ChatChange::Asks { asks } if asks.iter().any(|ask| {
-            matches!(&ask.body, AskBody::Plan { text, choose_asks: true } if text.starts_with("# Add a discount field"))
+            matches!(&ask.body, AskBody::Plan { text, choices } if text.starts_with("# Add a discount field")
+                && choices == &[PlanChoice::Edits, PlanChoice::Ask])
         }))
     });
     assert!(planned, "the plan showed for approval");
@@ -1837,7 +1840,7 @@ fn a_person_answers_the_question_of_codex_in_plan_mode_and_its_plan_shows() {
     assert!(
         matches!(&question.detail, Some(ToolDetail::Question { answers, .. }) if answers == &["greet.txt"])
     );
-    assert_eq!((plan.kind, plan.state), (ToolKind::Plan, ToolState::Done));
+    assert_eq!((plan.kind, plan.state), (ToolKind::Plan, ToolState::Asking));
     assert!(
         matches!(&plan.detail, Some(ToolDetail::Plan { text }) if text.starts_with("## Create greeting file")),
         "{:?}",
@@ -1849,8 +1852,81 @@ fn a_person_answers_the_question_of_codex_in_plan_mode_and_its_plan_shows() {
         )
     });
     assert!(grew, "the plan showed while Codex wrote it");
-    assert_eq!(codex.view.asks, [] as [ChatAsk; 0]);
     assert_eq!(codex.ends(), [TurnEnd::Done, TurnEnd::Done]);
+    let offer = codex
+        .view
+        .asks
+        .first()
+        .cloned()
+        .expect("the question about the plan");
+    assert!(
+        matches!(&offer.body, AskBody::Plan { text, choices } if text.starts_with("## Create greeting file")
+            && choices == &[PlanChoice::Go]),
+        "{offer:?}"
+    );
+    assert_eq!(codex.view.state, ChatState::Asking);
+    assert!(
+        matches!(codex.agent.stop(&codex.chat), Stop::Decisions(decisions) if decisions.len() == 1),
+        "a stop ends the question and starts nothing"
+    );
+}
+
+#[test]
+fn a_person_carries_out_the_plan_of_codex_from_the_chat_as_its_terminal_does() {
+    let mut codex = Play::codex(
+        &[codex!("first"), codex!("question")],
+        &[ChatAnswer::Answers {
+            answers: vec![vec!["greet.txt".to_owned()]],
+        }],
+    );
+    let offer = codex
+        .view
+        .asks
+        .first()
+        .cloned()
+        .expect("the question about the plan");
+    let go = ChatAnswer::Plan {
+        choice: PlanChoice::Go,
+    };
+
+    let decision = codex
+        .agent
+        .decision(&offer.id, &go, Some(&sam()))
+        .expect("a decision");
+    assert!(
+        !codex.agent.answered(&mut codex.chat, &offer.id, &decision),
+        "the adapter takes the decision, and no link waits for it"
+    );
+    codex.follow();
+    let calls = codex.agent.commands(&codex.chat);
+    let [start] = &calls[..] else {
+        panic!("one turn: {calls:?}");
+    };
+    assert_eq!(start["m"], "turn/start");
+    assert_eq!(start["p"]["input"][0]["text"], "Implement the plan.");
+    assert_eq!(
+        start["p"]["collaborationMode"],
+        json!({"mode": "default", "settings": {"model": "gpt-6-luna", "reasoning_effort": "low", "developer_instructions": null}})
+    );
+
+    codex.more(codex!("implement"), &[]);
+    assert_eq!(codex.people().last(), Some(&"Implement the plan."));
+    let said = codex
+        .view
+        .items
+        .iter()
+        .rev()
+        .find_map(|item| match &item.body {
+            ChatBody::Person { by, .. } => Some(by.clone()),
+            _ => None,
+        });
+    assert_eq!(
+        said,
+        Some(Some(sam())),
+        "the message of the person who chose"
+    );
+    assert_eq!(codex.view.asks, [] as [ChatAsk; 0]);
+    assert_eq!(codex.ends().last(), Some(&TurnEnd::Done));
 }
 
 #[test]
@@ -1951,7 +2027,9 @@ fn copilot_takes_the_words_of_a_refused_plan_and_then_its_approval() {
         ChatAnswer::Deny {
             text: Some("Use only two steps".to_owned()),
         },
-        ChatAnswer::Approve { asks: false },
+        ChatAnswer::Plan {
+            choice: PlanChoice::Go,
+        },
         ChatAnswer::Allow,
         ChatAnswer::Allow,
         ChatAnswer::Allow,
@@ -1963,7 +2041,7 @@ fn copilot_takes_the_words_of_a_refused_plan_and_then_its_approval() {
         .iter()
         .filter_map(|change| match change {
             ChatChange::Asks { asks } => asks.iter().find_map(|ask| match &ask.body {
-                AskBody::Plan { text, choose_asks } => Some((text.clone(), *choose_asks)),
+                AskBody::Plan { text, choices } => Some((text.clone(), choices.clone())),
                 _ => None,
             }),
             _ => None,
@@ -1971,8 +2049,10 @@ fn copilot_takes_the_words_of_a_refused_plan_and_then_its_approval() {
         .collect::<Vec<_>>();
     assert_eq!(plans.len(), 2, "the plan, and the plan in two steps");
     assert!(
-        plans.iter().all(|(_, choose)| !choose),
-        "Copilot asks as it is set"
+        plans
+            .iter()
+            .all(|(_, choices)| choices == &[PlanChoice::Go, PlanChoice::Alone, PlanChoice::Leave]),
+        "Copilot's own ways on, the recommended one first: {plans:?}"
     );
     assert!(
         plans[1].0.starts_with("1. Update `total()`"),
@@ -2075,4 +2155,52 @@ fn a_resumed_conversation_of_copilot_keeps_its_helper_in_the_call_that_started_i
     );
     assert_eq!(play.view.state, ChatState::Idle);
     assert_eq!(play.view.asks, [] as [ChatAsk; 0]);
+}
+
+#[test]
+fn copilot_carries_out_a_plan_alone_as_its_autopilot_and_asks_nothing() {
+    let play = Play::copilot(
+        &[copilot!("plan-alone")],
+        &[ChatAnswer::Plan {
+            choice: PlanChoice::Alone,
+        }],
+    );
+
+    let asked = play
+        .changes
+        .iter()
+        .filter(|change| matches!(change, ChatChange::Asks { asks } if !asks.is_empty()))
+        .count();
+    assert_eq!(asked, 1, "only the plan asked");
+    let edit = play
+        .tools()
+        .into_iter()
+        .find(|tool| tool.kind == ToolKind::Edit)
+        .expect("the change of the file");
+    assert_eq!(edit.state, ToolState::Done);
+    assert_eq!(play.ends(), [TurnEnd::Done]);
+}
+
+#[test]
+fn copilot_leaves_plan_mode_without_carrying_out_the_plan() {
+    let play = Play::copilot(
+        &[copilot!("plan-leave")],
+        &[ChatAnswer::Plan {
+            choice: PlanChoice::Leave,
+        }],
+    );
+
+    let plans = play
+        .tools()
+        .into_iter()
+        .filter(|tool| tool.kind == ToolKind::Plan)
+        .map(|tool| tool.state)
+        .collect::<Vec<_>>();
+    assert_eq!(plans, [ToolState::Done]);
+    let changed = play.tools().into_iter().any(|tool| {
+        matches!(tool.kind, ToolKind::Edit | ToolKind::Write) && tool.target == "prices.py"
+    });
+    assert!(!changed, "the plan was not carried out");
+    assert_eq!(play.view.facts.mode, None);
+    assert_eq!(play.view.state, ChatState::Idle);
 }

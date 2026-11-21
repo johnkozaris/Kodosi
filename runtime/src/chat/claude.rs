@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTool, MOST_OUTPUT, MOST_TARGET,
-    MOST_TEXT, ToolDetail, ToolKind, ToolState, TurnEnd,
+    MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{Agent, Stop, answer, file_name, list, person, text, words},
     diff,
     state::{Chat, ends_of, start_of},
@@ -583,9 +583,10 @@ impl Claude {
             }
             Some(ToolDetail::Plan { text }) => (
                 AskKind::Plan,
+                // The ways on that Claude Code's terminal offers when the conversation goes on.
                 AskBody::Plan {
                     text,
-                    choose_asks: true,
+                    choices: vec![PlanChoice::Edits, PlanChoice::Ask],
                 },
             ),
             _ => (
@@ -995,23 +996,28 @@ impl Agent for Claude {
                     .insert("answers".to_owned(), given.into());
                 json!({"behavior": "allow", "updatedInput": input})
             }
-            (AskKind::Plan, ChatAnswer::Approve { asks: false }) => {
-                json!({"behavior": "allow", "updatedInput": asked.input})
+            // Claude Code's own ways on after a plan set the mode of the session.
+            (AskKind::Plan, ChatAnswer::Plan { choice }) => {
+                let mode = match choice {
+                    PlanChoice::Edits => "acceptEdits",
+                    PlanChoice::Ask => "default",
+                    _ => return None,
+                };
+                json!({
+                    "behavior": "allow",
+                    "updatedInput": asked.input,
+                    "updatedPermissions": [{"type": "setMode", "mode": mode, "destination": "session"}],
+                })
             }
-            (AskKind::Plan, ChatAnswer::Approve { asks: true }) => json!({
-                "behavior": "allow",
-                "updatedInput": asked.input,
-                "updatedPermissions": [{"type": "setMode", "mode": "default", "destination": "session"}],
-            }),
             _ => return None,
         })
     }
 
     /// A person of the chat decided a question. The chat shows the decision at once, and Claude
     /// Code's own record of it follows.
-    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) {
+    fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool {
         let Some(asked) = self.asked.remove(ask) else {
-            return;
+            return true;
         };
         chat.close_asks(|open| open.id == ask);
         let allowed = text(decision, "behavior") == "allow";
@@ -1032,6 +1038,7 @@ impl Agent for Claude {
             });
         }
         self.show(chat);
+        true
     }
 
     /// The next message of the queue, as a command for the module, when Claude Code can start it:

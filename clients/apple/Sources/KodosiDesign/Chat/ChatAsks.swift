@@ -15,8 +15,8 @@ struct ChatAskCard: View {
                 ChatPermission(chat: chat, ask: ask, tool: tool, always: always, helper: helper)
             case let .question(questions):
                 ChatQuestions(chat: chat, ask: ask, questions: questions)
-            case let .plan(text, chooseAsks):
-                ChatPlan(chat: chat, ask: ask, text: text, chooseAsks: chooseAsks)
+            case let .plan(text, choices):
+                ChatPlan(chat: chat, ask: ask, text: text, choices: choices)
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 11)
@@ -213,7 +213,7 @@ private struct ChatPlan: View {
     let chat: TerminalChat
     let ask: ChatAsk
     let text: String
-    let chooseAsks: Bool
+    let choices: [PlanChoice]
 
     var body: some View {
         HStack(spacing: 8) {
@@ -226,15 +226,24 @@ private struct ChatPlan: View {
         .frame(maxHeight: 260).fixedSize(horizontal: false, vertical: true)
         .well(Radius.md)
         FlowLayout(spacing: 6) {
-            AnswerKey(chat: chat, ask: ask, answer: .approve(asks: false), kind: .primary, label: Text("Approve", bundle: .module))
-                .accessibilityIdentifier("chat.ask.approve")
-            if chooseAsks {
-                AnswerKey(chat: chat, ask: ask, answer: .approve(asks: true), kind: .secondary,
-                          label: Text("Approve, and ask before each change", bundle: .module))
-                    .accessibilityIdentifier("chat.ask.approveAsking")
+            ForEach(choices.indices, id: \.self) { index in
+                let choice = choices[index]
+                AnswerKey(chat: chat, ask: ask, answer: .plan(choice), kind: index == 0 ? .primary : .secondary, label: Self.label(choice))
+                    .accessibilityIdentifier("chat.ask.plan.\(choice.rawValue)")
             }
             AnswerKey(chat: chat, ask: ask, answer: .deny(nil), kind: .secondary, label: Text("Deny", bundle: .module))
                 .accessibilityIdentifier("chat.ask.deny")
+        }
+    }
+
+    private static func label(_ choice: PlanChoice) -> Text {
+        switch choice {
+        case .go: Text("Approve", bundle: .module)
+        case .ask: Text("Approve, and ask before each change", bundle: .module)
+        case .edits: Text("Approve, and allow its edits", bundle: .module)
+        case .alone: Text("Approve, and ask nothing", bundle: .module)
+        case .helpers: Text("Approve, and let helpers work alone", bundle: .module)
+        case .leave: Text("Leave plan mode", bundle: .module)
         }
     }
 }

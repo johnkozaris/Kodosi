@@ -92,7 +92,7 @@ import Testing
 }
 
 @MainActor
-@Test func `the agent's list of its work follows the agent, and a new conversation has none`() async throws {
+@Test func `the agent's list of its work and the ways on after its plan follow the agent, and a new conversation has none`() async throws {
     let runtime = ChatRuntime()
     let watching = Task { await runtime.chat.watch() }
     defer { watching.cancel() }
@@ -101,10 +101,13 @@ import Testing
     try runtime.send(#"""
     {"snapshot":{"revision":1,"state":"working","facts":{},"items":[],
       "tasks":[{"text":"Adding total discount","state":"working"},{"text":"Verifying discounted total","state":"pending"}],
-      "asks":[{"id":"a1","body":{"kind":"plan","text":"1. Update total()","chooseAsks":true}}]}}
+      "asks":[{"id":"a1","body":{"kind":"plan","text":"1. Update total()","choices":["go","alone","leave"]}}]}}
     """#)
     #expect(runtime.chat.tasks.map(\.state) == [.working, .pending])
-    #expect(runtime.chat.asks.first?.body == .plan("1. Update total()", chooseAsks: true))
+    let plan = try #require(runtime.chat.asks.first)
+    #expect(plan.body == .plan("1. Update total()", choices: [.go, .alone, .leave]))
+    runtime.chat.answer(plan, .plan(.alone))
+    #expect(runtime.requests() == [#"{"answer":{"choice":"alone","kind":"plan"},"ask":"a1","do":"answer"}"#])
     try runtime.send(#"""
     {"update":{"revision":2,"changes":[{"change":"tasks","tasks":[
       {"text":"Adding total discount","state":"done"},{"text":"Verifying discounted total","state":"working"}]}]}}

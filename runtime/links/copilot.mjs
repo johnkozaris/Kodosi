@@ -283,9 +283,19 @@ async function form(context) {
   return answer && answer.closed ? { action: 'cancel' } : UNANSWERED
 }
 
+// Copilot's terminal turns on approval of each tool for the session when a person chooses its
+// autopilot, which asks nothing, and the extension does the same for a choice in Kodosi.
 async function plan(request) {
   const answer = await wait('plan', request)
-  if (answer && answer.decision) return answer.decision
+  const decision = answer && answer.decision
+  if (decision && decision.approved && String(decision.selectedAction).startsWith('autopilot')) {
+    try {
+      await session.rpc.permissions.setApproveAll({ enabled: true, source: 'autopilot_confirmation' })
+    } catch (error) {
+      tell('did', { plan: decision.selectedAction, error: String(error) })
+    }
+  }
+  if (decision) return decision
   return answer && answer.closed ? { approved: false } : UNANSWERED
 }
 

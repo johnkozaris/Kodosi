@@ -517,8 +517,30 @@
                           {
                             "additionalProperties": false,
                             "properties": {
-                              "chooseAsks": {
-                                "type": "boolean"
+                              "choices": {
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "const": "go"
+                                    },
+                                    {
+                                      "const": "ask"
+                                    },
+                                    {
+                                      "const": "edits"
+                                    },
+                                    {
+                                      "const": "alone"
+                                    },
+                                    {
+                                      "const": "helpers"
+                                    },
+                                    {
+                                      "const": "leave"
+                                    }
+                                  ]
+                                },
+                                "type": "array"
                               },
                               "kind": {
                                 "const": "plan"
@@ -529,7 +551,8 @@
                             },
                             "required": [
                               "kind",
-                              "text"
+                              "text",
+                              "choices"
                             ],
                             "type": "object"
                           }
@@ -2549,8 +2572,30 @@
                                     {
                                       "additionalProperties": false,
                                       "properties": {
-                                        "chooseAsks": {
-                                          "type": "boolean"
+                                        "choices": {
+                                          "items": {
+                                            "oneOf": [
+                                              {
+                                                "const": "go"
+                                              },
+                                              {
+                                                "const": "ask"
+                                              },
+                                              {
+                                                "const": "edits"
+                                              },
+                                              {
+                                                "const": "alone"
+                                              },
+                                              {
+                                                "const": "helpers"
+                                              },
+                                              {
+                                                "const": "leave"
+                                              }
+                                            ]
+                                          },
+                                          "type": "array"
                                         },
                                         "kind": {
                                           "const": "plan"
@@ -2561,7 +2606,8 @@
                                       },
                                       "required": [
                                         "kind",
-                                        "text"
+                                        "text",
+                                        "choices"
                                       ],
                                       "type": "object"
                                     }
@@ -3149,15 +3195,35 @@
                 {
                   "additionalProperties": false,
                   "properties": {
-                    "asks": {
-                      "type": "boolean"
+                    "choice": {
+                      "oneOf": [
+                        {
+                          "const": "go"
+                        },
+                        {
+                          "const": "ask"
+                        },
+                        {
+                          "const": "edits"
+                        },
+                        {
+                          "const": "alone"
+                        },
+                        {
+                          "const": "helpers"
+                        },
+                        {
+                          "const": "leave"
+                        }
+                      ]
                     },
                     "kind": {
-                      "const": "approve"
+                      "const": "plan"
                     }
                   },
                   "required": [
-                    "kind"
+                    "kind",
+                    "choice"
                   ],
                   "type": "object"
                 }
