@@ -37,6 +37,8 @@ struct Play {
     changes: Vec<ChatChange>,
     /// What Codex's adapter gave its link to do.
     calls: Vec<Value>,
+    /// The person who gives the answers of the play.
+    answers_by: Option<ChatPerson>,
 }
 
 impl Default for Play {
@@ -54,6 +56,7 @@ impl Play {
             closed: Vec::new(),
             changes: Vec::new(),
             calls: Vec::new(),
+            answers_by: None,
         }
     }
 
@@ -61,6 +64,7 @@ impl Play {
     /// message, the play takes what the adapter gives the link to do.
     fn codex(records: &[&str], answers: &[ChatAnswer]) -> Self {
         let mut play = Self::new(Box::new(Codex::default()));
+        play.answers_by = Some(sam());
         play.more(codex!("start"), &[]);
         let records = records.join("");
         play.more(&records, answers);
@@ -86,7 +90,10 @@ impl Play {
                 Some(recorded) => {
                     let ask = recorded["ask"].as_str().expect("the question");
                     let answer = answers.next().expect("an answer for each question");
-                    let decision = self.agent.decision(ask, answer).expect("a decision");
+                    let decision = self
+                        .agent
+                        .decision(ask, answer, self.answers_by.as_ref())
+                        .expect("a decision");
                     assert_eq!(decision, recorded["decision"]);
                     self.agent.answered(&mut self.chat, ask, &decision);
                 }
@@ -957,6 +964,13 @@ async fn reports_of_a_module_that_the_chat_does_not_follow_are_refused() {
     );
 }
 
+fn sam() -> ChatPerson {
+    ChatPerson {
+        id: "sam".to_owned(),
+        name: "Sam".to_owned(),
+    }
+}
+
 /// The calls of the play to one method of Codex's app-server.
 fn calls<'a>(play: &'a Play, method: &str) -> Vec<&'a Value> {
     play.calls
@@ -978,6 +992,7 @@ fn codex_shows_its_first_turn_from_the_moment_its_server_lets_the_chat_follow() 
     assert_eq!(facts.version.as_deref(), Some("0.171.0"));
     assert_eq!(facts.model.as_deref(), Some("gpt-6-luna"));
     assert_eq!(facts.effort.as_deref(), Some("low"));
+    assert_eq!(facts.mode, Some(ChatMode::Ask));
     assert_eq!(facts.folder.as_deref(), Some("/home/sam/shop"));
     assert_eq!(
         facts.models,
@@ -1092,7 +1107,13 @@ fn a_refusal_with_words_ends_the_turn_of_codex_and_the_words_are_its_next_messag
     let sent = calls(&play, "turn/start");
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert_eq!(sent[0]["p"]["input"][0]["text"], words);
-    assert_eq!(play.people().last(), Some(&words));
+    assert!(matches!(
+        play.view.items.iter().rev().find_map(|item| match &item.body {
+            ChatBody::Person { text, by } => Some((text.as_str(), by.clone())),
+            _ => None,
+        }),
+        Some((said, Some(by))) if said == words && by == sam()
+    ));
     assert_eq!(play.answers().last(), Some(&"skipped"));
 }
 
@@ -1264,10 +1285,7 @@ fn a_conversation_of_codex_that_a_person_resumes_shows_its_last_turns_in_order()
 #[test]
 fn a_message_of_the_chat_goes_to_codex_when_no_turn_runs_and_shows_with_its_person() {
     let mut play = Play::codex(&[], &[]);
-    let sam = ChatPerson {
-        id: "sam".to_owned(),
-        name: "Sam".to_owned(),
-    };
+    let sam = sam();
     let queued = play
         .chat
         .queue("Say hello in five words.".to_owned(), Some(sam.clone()))
@@ -1287,4 +1305,155 @@ fn a_message_of_the_chat_goes_to_codex_when_no_turn_runs_and_shows_with_its_pers
         &item.body,
         ChatBody::Person { text, by } if text == "Say hello in five words." && by.as_ref() == Some(&sam)
     )));
+}
+
+/// The first change of the chat that has what the test waits for.
+#[cfg(unix)]
+async fn change<T>(
+    viewer: &mut crate::canvas::PipeEnds,
+    wanted: impl Fn(&ChatChange) -> Option<T>,
+) -> T {
+    loop {
+        if let ChatFrame::Update(update) = frame(viewer).await
+            && let Some(found) = update.changes.iter().find_map(&wanted)
+        {
+            return found;
+        }
+    }
+}
+
+/// The messages of a record of Codex as its server sends them on a connection.
+#[cfg(unix)]
+fn server_says(record: &str) -> Vec<Value> {
+    events(record)
+        .into_iter()
+        .filter_map(|event| match event["k"].as_str()? {
+            "note" => Some(json!({"method": event["m"], "params": event["p"]})),
+            "request" => {
+                Some(json!({"method": event["m"], "id": event["id"], "params": event["p"]}))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// The answer of a record to one call of the adapter.
+#[cfg(unix)]
+fn answer_of(record: &str, tag: &str) -> Value {
+    events(record)
+        .into_iter()
+        .find(|event| {
+            event["tag"]
+                .as_str()
+                .is_some_and(|given| given.starts_with(tag))
+                && !event["r"].is_null()
+        })
+        .map(|event| event["r"].clone())
+        .expect("the record has the answer")
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_persons_decision_to_the_server()
+ {
+    use futures_util::{SinkExt as _, StreamExt as _};
+    use tokio_tungstenite::tungstenite::Message;
+
+    let chat = ChatHandle::spawn();
+    let room = chat.jobs().upgrade().expect("the chat");
+    let (ours, theirs) = tokio::net::UnixStream::pair().expect("two connected sockets");
+    let left = tokio_util::sync::CancellationToken::new();
+    let link = tokio::spawn(codex_link::report(ours, room, left.clone()));
+    let mut server = tokio_tungstenite::accept_async(theirs)
+        .await
+        .expect("the link connects");
+    macro_rules! heard {
+        () => {
+            loop {
+                let message =
+                    tokio::time::timeout(std::time::Duration::from_secs(5), server.next())
+                        .await
+                        .expect("the link speaks in time")
+                        .expect("the link is there")
+                        .expect("a message");
+                if let Message::Text(text) = message {
+                    break serde_json::from_str::<Value>(text.as_str())
+                        .expect("a message of the protocol");
+                }
+            }
+        };
+    }
+    macro_rules! say {
+        ($message:expr) => {
+            server
+                .send(Message::text($message.to_string()))
+                .await
+                .expect("the link listens")
+        };
+    }
+
+    let first = heard!();
+    assert_eq!(first["method"], "initialize");
+    assert_eq!(first["params"]["capabilities"]["experimentalApi"], true);
+    say!(
+        json!({"id": first["id"], "result": {"userAgent": "codex-tui/0.171.0 (Mac OS 27.2.1; arm64)"}})
+    );
+    assert_eq!(heard!()["method"], "initialized");
+
+    // The adapter asks for the models, the limits and the conversations of the server.
+    let asked = [heard!(), heard!(), heard!()];
+    let loaded = asked
+        .iter()
+        .find(|call| call["method"] == "thread/loaded/list")
+        .expect("the link asks for the conversations");
+    say!(json!({"id": loaded["id"], "result": answer_of(codex!("start"), "loaded")}));
+    let read = heard!();
+    assert_eq!(read["method"], "thread/read");
+    say!(json!({"id": read["id"], "result": answer_of(codex!("start"), "read")}));
+    let follow = heard!();
+    assert_eq!(follow["method"], "thread/resume");
+    say!(json!({"id": follow["id"], "result": answer_of(codex!("first"), "follow")}));
+    let history = heard!();
+    assert_eq!(history["method"], "thread/turns/list");
+    say!(json!({"id": history["id"], "result": {"data": [], "nextCursor": null}}));
+
+    let mut viewer = chat
+        .attach("sam".to_owned(), "Sam".to_owned())
+        .await
+        .expect("the chat opens");
+    assert!(matches!(frame(&mut viewer).await, ChatFrame::Snapshot(_)));
+    for message in server_says(codex!("allow")) {
+        let asks = !message["id"].is_null();
+        say!(message);
+        if asks {
+            break;
+        }
+    }
+    let ask = change(&mut viewer, |change| match change {
+        ChatChange::Asks { asks } => asks.first().map(|ask| ask.id.clone()),
+        _ => None,
+    })
+    .await;
+    let answer = serde_json::to_vec(&ChatRequest::Answer {
+        ask,
+        answer: ChatAnswer::Allow,
+    })
+    .expect("a request");
+    viewer.sender.send(answer).await.expect("the pipe is open");
+    assert_eq!(heard!(), json!({"id": 0, "result": {"decision": "accept"}}));
+
+    // Codex leaves the terminal.
+    left.cancel();
+    link.await.expect("the link ends");
+    change(&mut viewer, |change| {
+        matches!(
+            change,
+            ChatChange::State {
+                state: ChatState::Away,
+                ..
+            }
+        )
+        .then_some(())
+    })
+    .await;
 }

@@ -944,7 +944,12 @@ impl Agent for Claude {
 
     /// The decision that Claude Code takes for an answer, or nothing when the answer does not fit
     /// the question.
-    fn decision(&mut self, ask: &str, answer: &ChatAnswer) -> Option<Value> {
+    fn decision(
+        &mut self,
+        ask: &str,
+        answer: &ChatAnswer,
+        _: Option<&ChatPerson>,
+    ) -> Option<Value> {
         let asked = self.asked.get(ask)?;
         Some(match (asked.kind, answer) {
             (AskKind::Permission, ChatAnswer::Allow) => json!({"behavior": "allow"}),

@@ -166,13 +166,14 @@ impl TerminalSession {
         let TerminalChat {
             handle: chat,
             socket: link,
+            codex,
         } = chat;
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
             let cwd = directory
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
             let emulator = SessionTerminalHandle::spawn(size, screen)?;
-            let variables = kodosi_variables(id, notes.as_deref(), link);
+            let variables = kodosi_variables(id, notes.as_deref(), link, codex);
             let environment = variables
                 .iter()
                 .map(|(name, value)| (*name, value.as_str()))
@@ -656,6 +657,7 @@ fn kodosi_variables(
     id: Uuid,
     notes: Option<&Path>,
     link: Option<String>,
+    codex: Option<String>,
 ) -> Vec<(&'static str, String)> {
     let mut variables = vec![
         ("KODOSI_SESSION_ID", id.to_string()),
@@ -666,6 +668,7 @@ fn kodosi_variables(
         ),
     ];
     variables.extend(link.map(|socket| (crate::chat::LINK_VARIABLE, socket)));
+    variables.extend(codex.map(|server| (crate::chat::CODEX_VARIABLE, server)));
     variables.extend(command_path().map(|path| ("PATH", path)));
     if let Some(notes) = notes {
         variables.extend(

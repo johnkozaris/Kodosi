@@ -35,9 +35,14 @@ pub(super) trait Agent: Send {
     /// True for a queued message that the agent has, which a person can no longer take back.
     fn has(&self, queued: &str) -> bool;
 
-    /// The decision that the agent takes for an answer, or nothing when the answer does not fit
-    /// the question.
-    fn decision(&mut self, ask: &str, answer: &ChatAnswer) -> Option<Value>;
+    /// The decision that the agent takes for the answer of the person `by`, or nothing when the
+    /// answer does not fit the question.
+    fn decision(
+        &mut self,
+        ask: &str,
+        answer: &ChatAnswer,
+        by: Option<&ChatPerson>,
+    ) -> Option<Value>;
 
     /// A person of the chat decided a question. The chat shows the decision at once, and the
     /// agent's own record of it follows.

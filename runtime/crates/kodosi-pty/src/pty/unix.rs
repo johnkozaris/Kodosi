@@ -746,6 +746,47 @@ fn variable(environment: &[String], name: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
+/// What a running process of this user started with.
+pub struct ProcessStart {
+    pub program: PathBuf,
+    pub arguments: Vec<String>,
+    pub variables: Vec<(String, String)>,
+    pub directory: PathBuf,
+}
+
+pub fn process_start(pid: u32) -> Option<ProcessStart> {
+    Some(ProcessStart {
+        program: process_program(pid)?,
+        arguments: process_arguments(pid)?,
+        variables: process_environment(pid)?
+            .iter()
+            .filter_map(|entry| entry.split_once('='))
+            .map(|(name, value)| (name.to_owned(), value.to_owned()))
+            .collect(),
+        directory: process_directory(pid)?,
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn process_program(pid: u32) -> Option<PathBuf> {
+    std::fs::read_link(format!("/proc/{pid}/exe")).ok()
+}
+
+#[cfg(target_os = "macos")]
+fn process_program(pid: u32) -> Option<PathBuf> {
+    use std::os::unix::ffi::OsStringExt as _;
+    let mut path = vec![0_u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+    let length = unsafe {
+        libc::proc_pidpath(
+            i32::try_from(pid).ok()?,
+            path.as_mut_ptr().cast(),
+            u32::try_from(path.len()).ok()?,
+        )
+    };
+    path.truncate(usize::try_from(length).ok().filter(|length| *length > 0)?);
+    Some(PathBuf::from(std::ffi::OsString::from_vec(path)))
+}
+
 pub fn process_group(pid: u32) -> Option<u32> {
     nix::unistd::getpgid(Some(Pid::from_raw(i32::try_from(pid).ok()?)))
         .ok()

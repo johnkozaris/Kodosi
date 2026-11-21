@@ -324,7 +324,8 @@ impl Room {
                 }
             }
             ChatRequest::Answer { ask, answer } => {
-                if let Some(decision) = agent.decision(&ask, &answer) {
+                let by = self.viewers.get(&viewer).map(|viewer| &viewer.person);
+                if let Some(decision) = agent.decision(&ask, &answer, by) {
                     self.decide(ask, decision);
                 }
             }

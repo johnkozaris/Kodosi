@@ -37,7 +37,7 @@ pub(super) struct Codex {
     handed: VecDeque<Handed>,
     sent: u64,
     /// What a person wrote to refuse a question. Codex gets it as the next message.
-    said: Option<String>,
+    said: Option<(String, Option<ChatPerson>)>,
     /// The commands that ran when a person of the chat stopped their turn. Codex lets them run
     /// on, so the adapter ends them.
     stopped: Vec<String>,
@@ -178,6 +178,7 @@ impl Codex {
                     if let Some(thread) = result.get("thread") {
                         describe(chat, thread);
                     }
+                    settings(chat, result);
                     if chat.items().is_empty() {
                         self.call(
                             &format!("history:{name}"),
@@ -708,7 +709,12 @@ impl Agent for Codex {
 
     /// Codex takes no words with a refusal. As its own "No, and tell Codex what to do
     /// differently", a refusal ends the turn, and the person's words are the next message.
-    fn decision(&mut self, ask: &str, answer: &ChatAnswer) -> Option<Value> {
+    fn decision(
+        &mut self,
+        ask: &str,
+        answer: &ChatAnswer,
+        by: Option<&ChatPerson>,
+    ) -> Option<Value> {
         let asked = self.asked.get(ask)?;
         let decision = match (asked.kind, answer) {
             (_, ChatAnswer::Allow) => json!("accept"),
@@ -723,7 +729,7 @@ impl Agent for Codex {
                     .as_deref()
                     .map(str::trim)
                     .filter(|words| !words.is_empty())
-                    .map(str::to_owned);
+                    .map(|words| (words.to_owned(), by.cloned()));
                 json!("cancel")
             }
             _ => return None,
@@ -761,14 +767,18 @@ impl Agent for Codex {
         let (true, Some(thread)) = (ready, self.thread.clone()) else {
             return commands;
         };
-        let next = self.said.take().map(|said| (None, said, None)).or_else(|| {
-            let queued = chat.queued().first()?;
-            Some((
-                Some(queued.id.clone()),
-                queued.text.clone(),
-                queued.by.clone(),
-            ))
-        });
+        let next = self
+            .said
+            .take()
+            .map(|(said, by)| (None, said, by))
+            .or_else(|| {
+                let queued = chat.queued().first()?;
+                Some((
+                    Some(queued.id.clone()),
+                    queued.text.clone(),
+                    queued.by.clone(),
+                ))
+            });
         if let Some((queued, text, by)) = next {
             self.sent += 1;
             commands.push(json!({
@@ -824,7 +834,14 @@ fn describe(chat: &mut Chat, thread: &Value) {
     });
 }
 
+/// The settings of a conversation, as a change of them gives them or as the answer to the
+/// request to follow does, which has other names for two of them.
 fn settings(chat: &mut Chat, settings: &Value) {
+    let sandbox = settings
+        .get("sandboxPolicy")
+        .or_else(|| settings.get("sandbox"))
+        .unwrap_or(&Value::Null);
+    let effort = words(settings, "effort").or_else(|| words(settings, "reasoningEffort"));
     let mode = if text(&settings["collaborationMode"], "mode") == "plan" {
         Some(ChatMode::Plan)
     } else if text(settings, "approvalsReviewer") != "user"
@@ -832,10 +849,7 @@ fn settings(chat: &mut Chat, settings: &Value) {
     {
         Some(ChatMode::Auto)
     } else {
-        match (
-            text(settings, "approvalPolicy"),
-            text(&settings["sandboxPolicy"], "type"),
-        ) {
+        match (text(settings, "approvalPolicy"), text(sandbox, "type")) {
             ("never", "dangerFullAccess") => Some(ChatMode::Unrestricted),
             ("never", _) => Some(ChatMode::Rules),
             (_, "readOnly") => Some(ChatMode::Ask),
@@ -845,7 +859,7 @@ fn settings(chat: &mut Chat, settings: &Value) {
     };
     chat.change_facts(|facts| {
         facts.model = words(settings, "model").or_else(|| facts.model.take());
-        facts.effort = words(settings, "effort").or_else(|| facts.effort.take());
+        facts.effort = effort.or_else(|| facts.effort.take());
         facts.folder = words(settings, "cwd").or_else(|| facts.folder.take());
         facts.mode = mode.or(facts.mode);
     });

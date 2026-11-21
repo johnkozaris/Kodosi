@@ -35,6 +35,8 @@ pub(crate) struct TerminalChat {
     pub(crate) handle: ChatHandle,
     /// Where the terminal's agents report, on a platform that has such an address.
     pub(crate) socket: Option<String>,
+    /// Where a Codex of the terminal finds its app-server, on such a platform.
+    pub(crate) codex: Option<String>,
 }
 
 impl TerminalChat {
@@ -43,6 +45,7 @@ impl TerminalChat {
         Self {
             handle: ChatHandle::spawn(),
             socket: None,
+            codex: None,
         }
     }
 }
@@ -52,33 +55,51 @@ impl TerminalChat {
 pub(crate) struct Links {
     rooms: Rooms,
     socket: Option<Arc<str>>,
+    #[cfg(unix)]
+    codex: Option<CodexAddresses>,
     _served: Arc<tokio_util::sync::DropGuard>,
+}
+
+/// What gives each terminal its own address for Codex's server.
+#[cfg(unix)]
+#[derive(Clone)]
+struct CodexAddresses {
+    /// The name of this host's private folder of local addresses.
+    namespace: Arc<str>,
+    stop: CancellationToken,
 }
 
 impl Links {
     pub(crate) async fn serve(root: &Path) -> Self {
         let rooms = Rooms::default();
         let stop = CancellationToken::new();
-        let socket = match listen(root, Arc::clone(&rooms), stop.clone()).await {
-            Ok(socket) => socket,
-            Err(error) => {
+        let served = listen(root, Arc::clone(&rooms), stop.clone())
+            .await
+            .unwrap_or_else(|error| {
                 tracing::warn!(%error, "agents cannot report to the chats of their terminals");
                 None
-            }
-        };
+            });
         Self {
             rooms,
-            socket,
+            socket: served.as_ref().map(|(socket, _)| Arc::clone(socket)),
+            #[cfg(unix)]
+            codex: served.map(|(_, namespace)| CodexAddresses {
+                namespace,
+                stop: stop.clone(),
+            }),
             _served: Arc::new(stop.drop_guard()),
         }
     }
 
     #[cfg(test)]
     pub(crate) fn unserved() -> Self {
+        let stop = CancellationToken::new();
         Self {
             rooms: Rooms::default(),
             socket: None,
-            _served: Arc::new(CancellationToken::new().drop_guard()),
+            #[cfg(unix)]
+            codex: None,
+            _served: Arc::new(stop.drop_guard()),
         }
     }
 
@@ -90,19 +111,54 @@ impl Links {
             rooms.insert(terminal, handle.jobs());
         }
         TerminalChat {
+            #[cfg(unix)]
+            codex: self
+                .codex
+                .as_ref()
+                .and_then(|codex| codex.serve(terminal, &handle)),
+            // Codex reaches its app-server at a socket file, and a Windows endpoint is a named pipe.
+            #[cfg(not(unix))]
+            codex: None,
             handle,
             socket: self.socket.as_deref().map(str::to_owned),
         }
     }
 }
 
+#[cfg(unix)]
+impl CodexAddresses {
+    /// Serves the address of one terminal, and gives it as Codex takes it.
+    fn serve(&self, terminal: Uuid, chat: &ChatHandle) -> Option<String> {
+        // The end of a terminal's name is what tells it from the others of its time, and an
+        // address has room for few characters.
+        let name = terminal.simple().to_string();
+        let name = &name[name.len() - 16..];
+        let endpoint =
+            kodosi_os::ipc::Endpoint::new(&self.namespace, &format!("codex-{name}")).ok()?;
+        let server = endpoint
+            .socket()
+            .with_file_name(format!("codex-{name}-s.sock"));
+        let address = super::codex_link::address(endpoint.socket())?;
+        tokio::spawn(super::codex_link::serve(
+            endpoint,
+            server,
+            chat.jobs(),
+            chat.linked(),
+            self.stop.clone(),
+        ));
+        Some(address)
+    }
+}
+
+/// The address where the agents report, with the name of the host's folder of local addresses.
 async fn listen(
     root: &Path,
     rooms: Rooms,
     stop: CancellationToken,
-) -> std::io::Result<Option<Arc<str>>> {
+) -> std::io::Result<Option<(Arc<str>, Arc<str>)>> {
     let root = kodosi_os::fs::canonicalize(root)?;
-    let endpoint = kodosi_os::ipc::Endpoint::new(&crate::local_host::namespace(&root), ROLE)?;
+    let namespace = crate::local_host::namespace(&root);
+    let endpoint = kodosi_os::ipc::Endpoint::new(&namespace, ROLE)?;
     let Some(socket) = socket_of(&endpoint) else {
         return Ok(None);
     };
@@ -133,7 +189,7 @@ async fn listen(
             });
         }
     });
-    Ok(Some(socket))
+    Ok(Some((socket, namespace.into())))
 }
 
 #[cfg(unix)]

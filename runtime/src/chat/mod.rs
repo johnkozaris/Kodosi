@@ -11,6 +11,8 @@ mod agent;
 mod claude;
 #[cfg(feature = "host")]
 mod codex;
+#[cfg(all(feature = "host", unix))]
+mod codex_link;
 #[cfg(feature = "host")]
 mod diff;
 #[cfg(feature = "host")]
@@ -34,6 +36,9 @@ pub(crate) use room::ChatHandle;
 /// The variable that gives the programs of a terminal the address where an agent reports to the chat.
 #[cfg(feature = "host")]
 pub(crate) const LINK_VARIABLE: &str = "KODOSI_AGENT_LINK";
+/// The variable that gives a terminal the address of its own app-server of Codex.
+#[cfg(feature = "host")]
+pub(crate) const CODEX_VARIABLE: &str = "KODOSI_CODEX_SERVER";
 
 /// The key of the pipe that carries a terminal's chat.
 pub const CHAT_PIPE: &str = "chat";

@@ -114,9 +114,12 @@ person, and not while a person types there.
 The chat is a second view of a terminal, beside its screen. An agent can report what it
 does to the host through the agent's own interface for add-ons. For Claude Code that is a
 module in Kodosi's plugin, which reaches a socket of the host that the terminal names in
-its environment. The host turns the reports into the chat of the terminal: the messages,
-the agent's answers, its tool calls, the questions that wait for a person, and the facts
-of the session. A person's message, answer or stop goes back the same way.
+its environment. For Codex it is Codex's app server: a Codex that connects to the address
+that the terminal names gets a server that the host starts with Codex's own program, and
+the host follows that server as a second client. The host turns the reports into the chat
+of the terminal: the messages, the agent's answers, its tool calls, the questions that
+wait for a person, and the facts of the session. A person's message, answer or stop goes
+back the same way.
 
 The chat reads nothing from the terminal's screen and presses no key there, so a new
 look of the agent does not change it. Each part of a report is optional, and an agent
