@@ -11,7 +11,7 @@ use std::{
     fmt::Write as _,
     path::{Path, PathBuf},
     process::Stdio,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 
 use futures_util::{SinkExt as _, StreamExt as _};
@@ -27,6 +27,7 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::{
+    agent::now,
     codex::Codex,
     room::{Asked, Job},
 };
@@ -246,14 +247,6 @@ async fn follow(socket: PathBuf, room: mpsc::Sender<Job>, left: CancellationToke
         return;
     };
     report(stream, room, left).await;
-}
-
-fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| {
-            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
-        })
 }
 
 /// What the chat's room hears from this link, in order.

@@ -12,7 +12,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Stop, answer, file_name, list, person, text, words},
+    agent::{Agent, Stop, answer, file_name, list, now, person, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -45,6 +45,9 @@ pub(super) struct Claude {
     /// Claude Code's name of the conversation that the chat shows.
     session: String,
     ways: Ways,
+    /// The words of a person's refusal. Claude Code gives them to the model as the result of the
+    /// call and keeps no message of the person.
+    said: Option<(String, Option<ChatPerson>)>,
 }
 
 /// What decides the ways on after a plan that Claude Code offers in its terminal.
@@ -1108,7 +1111,7 @@ impl Agent for Claude {
         &mut self,
         ask: &str,
         answer: &ChatAnswer,
-        _: Option<&ChatPerson>,
+        by: Option<&ChatPerson>,
     ) -> Option<Value> {
         let asked = self.asked.get(ask)?;
         Some(match (asked.kind, answer) {
@@ -1119,10 +1122,13 @@ impl Agent for Claude {
             }),
             // Claude Code gives the model these words as the result of the call as they are, so
             // they start as Claude Code's own refusal with words does in its terminal.
-            (_, ChatAnswer::Deny { text: Some(words) }) if !words.trim().is_empty() => json!({
-                "behavior": "deny",
-                "message": format!("{REFUSED_WITH_WORDS}{}", words.trim()),
-            }),
+            (_, ChatAnswer::Deny { text: Some(words) }) if !words.trim().is_empty() => {
+                self.said = Some((words.trim().to_owned(), by.cloned()));
+                json!({
+                    "behavior": "deny",
+                    "message": format!("{REFUSED_WITH_WORDS}{}", words.trim()),
+                })
+            }
             (_, ChatAnswer::Deny { .. }) => refusal("The person did not allow this."),
             (AskKind::Question, ChatAnswer::Answers { answers }) => {
                 let questions = list(&asked.input, "questions").collect::<Vec<_>>();
@@ -1176,10 +1182,14 @@ impl Agent for Claude {
     /// A person of the chat decided a question. The chat shows the decision at once, and Claude
     /// Code's own record of it follows.
     fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool {
+        let said = self.said.take();
         let Some(asked) = self.asked.remove(ask) else {
             return true;
         };
         chat.close_asks(|open| open.id == ask);
+        if let Some((words, by)) = said {
+            chat.push(now(), person(&words, by));
+        }
         let allowed = text(decision, "behavior") == "allow";
         let item = asked
             .call

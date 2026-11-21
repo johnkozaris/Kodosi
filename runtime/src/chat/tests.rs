@@ -358,6 +358,7 @@ fn the_words_of_a_refusal_go_to_the_agent_as_the_persons_and_the_change_shows_as
         play.answers()[0].starts_with("I would remove the `* TAX`"),
         "the agent followed the person's words"
     );
+    assert_said_after_refusal(&play, "Do not change the file.");
 }
 
 #[test]
@@ -1726,6 +1727,24 @@ fn the_words_of_a_refusal_go_to_copilot_and_the_command_shows_as_refused() {
         "the agent followed the person's words"
     );
     assert_eq!(play.ends(), [TurnEnd::Done]);
+    assert_said_after_refusal(&play, "Do not run it.");
+}
+
+fn assert_said_after_refusal(play: &Play, words: &str) {
+    let items = &play.view.items;
+    let refused = items.iter().position(
+        |item| matches!(&item.body, ChatBody::Tool { tool } if tool.state == ToolState::Denied),
+    );
+    let said = items.iter().position(
+        |item| matches!(&item.body, ChatBody::Person { text, .. } if text.starts_with(words)),
+    );
+    let answered = items
+        .iter()
+        .rposition(|item| matches!(&item.body, ChatBody::Text { .. }));
+    assert!(
+        refused.is_some() && refused < said && said < answered,
+        "{items:#?}"
+    );
 }
 
 #[test]

@@ -14,7 +14,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTask, ChatTool, MOST_OUTPUT,
     MOST_TARGET, MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Stop, answer, file_name, list, person, plan_command, text, words},
+    agent::{Agent, Stop, answer, file_name, list, now, person, plan_command, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -45,6 +45,9 @@ pub(super) struct Copilot {
     now: Option<ChatNow>,
     /// Copilot refused a message of the chat.
     held: bool,
+    /// The words of a person's refusal. Copilot gives them to the agent with the refusal and keeps
+    /// no message of the person.
+    said: Option<(String, Option<ChatPerson>)>,
 }
 
 #[derive(Default)]
@@ -906,7 +909,7 @@ impl Agent for Copilot {
         &mut self,
         ask: &str,
         answer: &ChatAnswer,
-        _: Option<&ChatPerson>,
+        by: Option<&ChatPerson>,
     ) -> Option<Value> {
         let asked = self.asked.get(ask)?;
         let refusal = match answer {
@@ -915,6 +918,11 @@ impl Agent for Copilot {
             }
             _ => None,
         };
+        if let (Some(words), AskKind::Permission { .. } | AskKind::Plan { .. }) =
+            (refusal, &asked.kind)
+        {
+            self.said = Some((words.to_owned(), by.cloned()));
+        }
         Some(match (&asked.kind, answer) {
             (AskKind::Permission { .. }, ChatAnswer::Allow) => json!({"kind": "approve-once"}),
             (AskKind::Permission { commands }, ChatAnswer::Always) if !commands.is_empty() => {
@@ -964,10 +972,14 @@ impl Agent for Copilot {
     }
 
     fn answered(&mut self, chat: &mut Chat, ask: &str, decision: &Value) -> bool {
+        let said = self.said.take();
         let Some(asked) = self.asked.remove(ask) else {
             return true;
         };
         chat.close_asks(|open| open.id == ask);
+        if let Some((words, by)) = said {
+            chat.push(now(), person(&words, by));
+        }
         let refused = text(decision, "kind") == "reject"
             || decision.get("approved").and_then(Value::as_bool) == Some(false)
             || matches!(text(decision, "action"), "decline" | "cancel");
