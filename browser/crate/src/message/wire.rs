@@ -18,8 +18,8 @@ const ANCHOR: u8 = 2;
 )]
 pub(crate) enum ToWindow {
     /// A viewer whose decoder takes an anchor after frames that it missed says so. A view that
-    /// a person opened, or brought back to the screen, says so too; one that joins again after a
-    /// lost link does not.
+    /// a person opened by an act on its device says so too; one that only comes back on the
+    /// screen, or joins again after a lost link, does not.
     Watch {
         size: Size,
         #[serde(default)]

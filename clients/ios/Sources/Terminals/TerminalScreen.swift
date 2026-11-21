@@ -224,7 +224,7 @@ private struct TerminalScreenContent: View {
     }
 
     private func openCanvas(at shown: CanvasShown, in session: RuntimeSession) {
-        model.terminals.canvas.reveal(shown, in: session)
+        model.terminals.canvas.open(shown, in: session)
         canvasOpen = true
     }
 

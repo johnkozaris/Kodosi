@@ -79,6 +79,11 @@ public final class BrowserFeed {
     @ObservationIgnored private var sentSize: BrowserSize?
     @ObservationIgnored private var settling: Task<Void, Never>?
     @ObservationIgnored private var holding = false
+    @ObservationIgnored private var joined = false
+    /// A person opened the browser on this device, and the page did not take the shape of this
+    /// view since: a view that only comes back on the screen, or joins again, leaves the page to
+    /// the device in use.
+    @ObservationIgnored private var opened = false
 
     init(store: CanvasStore, session: String) {
         self.store = store
@@ -103,6 +108,8 @@ public final class BrowserFeed {
             }
             teller.finish()
             link.close()
+            joined = false
+            opened = false
         }
         do {
             try await link.open()
@@ -113,17 +120,24 @@ public final class BrowserFeed {
             }
             return
         }
-        var opened = true
         for await item in heard {
             switch item {
             case .news(.open):
-                join(opened: opened)
-                opened = false
+                join()
             case .news(.closed):
                 return
             default:
                 take(item)
             }
+        }
+    }
+
+    /// A person opened the browser on this device, so the page takes the shape of this view: at
+    /// once while it watches, or else when it joins.
+    public func open() {
+        opened = true
+        if joined {
+            join()
         }
     }
 
@@ -150,6 +164,7 @@ public final class BrowserFeed {
     }
 
     public func wake() async {
+        open()
         await run(.wake)
     }
 
@@ -225,12 +240,14 @@ public final class BrowserFeed {
         return BrowserInput.Point(x: Double(x), y: Double(y))
     }
 
-    private func join(opened: Bool) {
+    private func join() {
         failure = nil
+        joined = true
         video.withLock { $0.holds = .nothing }
         let size = currentSize
         sentSize = size
         post(.watch(size, opened: opened))
+        opened = false
     }
 
     private var currentSize: BrowserSize {
@@ -290,6 +307,7 @@ public final class BrowserFeed {
     private func take(_ heard: Heard) {
         switch heard {
         case let .news(.lost(reason)):
+            joined = false
             if picture == .live {
                 picture = .kept
             }

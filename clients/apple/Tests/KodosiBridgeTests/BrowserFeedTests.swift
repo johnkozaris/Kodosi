@@ -97,16 +97,44 @@ import Testing
 }
 
 @MainActor
-@Test func `a view says that a person opened the browser, but not when it joins again after a lost link`() async throws {
+@Test func `the page takes the shape of a view only after a person opens the browser there`() async throws {
     let runtime = BrowserRuntime()
-    let watching = Task { await runtime.feed.watch() }
-    defer { watching.cancel() }
-
+    var watching = Task { await runtime.feed.watch() }
     let first = try await runtime.open()
-    #expect(runtime.opened == true)
+    #expect(runtime.opened == false)
+    runtime.feed.open()
+    #expect(try await runtime.watched() == true)
     try runtime.lose(first)
     _ = try await runtime.open()
     #expect(runtime.opened == false)
+
+    try await runtime.leave(watching)
+    runtime.feed.open()
+    watching = Task { await runtime.feed.watch() }
+    _ = try await runtime.open()
+    #expect(runtime.opened == true)
+
+    try await runtime.leave(watching)
+    watching = Task { await runtime.feed.watch() }
+    _ = try await runtime.open()
+    #expect(runtime.opened == false)
+    try await runtime.leave(watching)
+}
+
+@MainActor
+@Test func `an agent's show leaves the page where it is, and a person's open takes it to this device`() async throws {
+    let runtime = BrowserRuntime()
+    let session = try BrowserRuntime.terminal()
+    let browser = try #require(session.canvas?.shown(CanvasShown.browserKey))
+    let watching = Task { await runtime.feed.watch() }
+    defer { watching.cancel() }
+    _ = try await runtime.open()
+
+    runtime.store.reveal(browser, in: session)
+    runtime.store.show(.files, in: session)
+    #expect(!runtime.messages().contains("watch"))
+    runtime.store.show(.browser, in: session)
+    #expect(try await runtime.watched() == true)
 }
 
 @Test func `taps in about one place count up as clicks, so two select a word, and a later or farther tap is one click again`() {
@@ -164,12 +192,29 @@ private final class BrowserRuntime {
         return Data(header + start + picture)
     }
 
+    static let terminalId = "01992e43-53db-7040-8e02-f6ebf4149b28"
+
+    /// A terminal whose canvas holds a file and a browser that is awake.
+    static func terminal() throws -> RuntimeSession {
+        let fields: [String: Any] = [
+            "id": terminalId, "incarnationId": "01992e43-53db-7040-8e02-f6ebf4149b29", "kind": "local", "name": "checkout",
+            "isOwner": true, "status": "running", "attention": false, "hidden": false, "working": false,
+            "connectionState": "local", "sharedWith": [Any](),
+            "canvas": [
+                "sequence": 2,
+                "items": [["key": "/tmp/work/plan.md", "name": "plan.md", "kind": "page", "revision": 1, "bytes": 1, "changed": 1]],
+                "browser": ["state": "awake", "changed": 2, "width": 1280, "height": 720],
+            ],
+        ]
+        return try JSONDecoder().decode(RuntimeSession.self, from: JSONSerialization.data(withJSONObject: fields))
+    }
+
     let feed: BrowserFeed
+    let store: CanvasStore
     private(set) var opened: Bool?
     private var pipe: String?
     private let commands = CommandSink()
     private let pipes = BrowserPipes()
-    private let store: CanvasStore
     private let log = ProjectCommandLog()
     private var sequences: [String: UInt64] = [:]
 
@@ -182,7 +227,7 @@ private final class BrowserRuntime {
         }
         commands.setAccount(userId: "user-1", epoch: 1)
         store = CanvasStore(commands: commands, browserPipes: pipes)
-        feed = store.feed("terminal")
+        feed = store.feed(Self.terminalId)
     }
 
     /// The view opens the pipe once, and the runtime opens it again after each loss.
@@ -195,12 +240,25 @@ private final class BrowserRuntime {
         let pipe = try #require(pipe)
         sequences[pipe] = 0
         try deliver("document.opened", ["pipe": pipe])
+        opened = try await watched()
+        return pipe
+    }
+
+    /// Whether the next watch of the view says that a person opened the browser.
+    func watched() async throws -> Bool? {
         var sent = try await Self.body(log.next("document.send"))
         while sent?["type"] as? String != "watch" {
             sent = try await Self.body(log.next("document.send"))
         }
-        opened = sent?["opened"] as? Bool
-        return pipe
+        return sent?["opened"] as? Bool
+    }
+
+    /// The view leaves the screen and closes its pipe.
+    func leave(_ watching: Task<Void, Never>) async throws {
+        watching.cancel()
+        await watching.value
+        _ = try await log.next("document.close")
+        pipe = nil
     }
 
     func send(_ frame: Data, on pipe: String) throws {
