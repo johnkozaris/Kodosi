@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -166,6 +167,11 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
             picking = false
         }
     }
+    val strip = rememberLazyListState()
+    val active = tabs.indexOfFirst { it.active }
+    LaunchedEffect(active, tabs.size, tabs.getOrNull(active)) {
+        if (active >= 0) strip.keepInView(active)
+    }
     LaunchedEffect(tabs, feedTabs) {
         tabs.firstOrNull { it.active }?.url?.let(address::follow)
         feedTabs.firstOrNull { it.flag("active") && !it.flag("loading") }?.let {
@@ -202,7 +208,7 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyRow(Modifier.weight(1f), state = strip, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(tabs, key = { it.id }) { tab ->
                     CanvasTab(
                         tab.title.ifBlank { tab.url }.ifBlank { stringResource(R.string.browser) },
