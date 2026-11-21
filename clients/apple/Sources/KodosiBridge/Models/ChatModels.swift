@@ -1,21 +1,8 @@
 import Foundation
 
-/// A host of a newer release can send a kind that this app does not know. It reads as `other`, so
-/// the rest of its frame still applies.
-protocol OpenKind: RawRepresentable, Decodable where RawValue == String {
-    static var other: Self { get }
-}
-
-extension OpenKind {
-    static func read(_ decoder: any Decoder) throws -> Self {
-        try Self(rawValue: decoder.singleValueContainer().decode(String.self)) ?? .other
-    }
-}
-
 public enum ChatFrame: Decodable, Sendable {
     case snapshot(ChatSnapshot)
     case update(ChatUpdate)
-    case other
 
     private enum Key: String, CodingKey {
         case snapshot, update
@@ -28,7 +15,7 @@ public enum ChatFrame: Decodable, Sendable {
         } else if let update = try fields.decodeIfPresent(ChatUpdate.self, forKey: .update) {
             self = .update(update)
         } else {
-            self = .other
+            throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Unknown chat frame"))
         }
     }
 }
@@ -72,7 +59,6 @@ public enum ChatChange: Decodable, Equatable, Sendable {
     case facts(ChatFacts)
     case state(ChatState, now: ChatNow?)
     case reset
-    case other
 
     private enum Key: String, CodingKey {
         case change, item, id, text, asks, queued, facts, state, now
@@ -89,23 +75,19 @@ public enum ChatChange: Decodable, Equatable, Sendable {
         case "facts": self = try .facts(fields.decode(ChatFacts.self, forKey: .facts))
         case "state": self = try .state(fields.decode(ChatState.self, forKey: .state), now: fields.decodeIfPresent(ChatNow.self, forKey: .now))
         case "reset": self = .reset
-        default: self = .other
+        case let change:
+            throw DecodingError.dataCorruptedError(forKey: .change, in: fields, debugDescription: "Unknown chat change \(change)")
         }
     }
 }
 
-public enum ChatState: String, Decodable, Sendable, OpenKind {
+public enum ChatState: String, Decodable, Sendable {
     /// No agent of the terminal reports to the chat.
     case away
     case idle
     case working
     /// The agent waits for a person's answer.
     case asking
-    case other
-
-    public init(from decoder: any Decoder) throws {
-        self = try .read(decoder)
-    }
 }
 
 /// What the agent does at this moment.
@@ -114,7 +96,6 @@ public enum ChatNow: Decodable, Equatable, Sendable {
     case writing
     case tool(item: String)
     case compacting
-    case other
 
     private enum Key: String, CodingKey {
         case kind, item
@@ -127,7 +108,8 @@ public enum ChatNow: Decodable, Equatable, Sendable {
         case "writing": self = .writing
         case "tool": self = try .tool(item: fields.decode(String.self, forKey: .item))
         case "compacting": self = .compacting
-        default: self = .other
+        case let kind:
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown chat activity \(kind)")
         }
     }
 }
@@ -147,7 +129,6 @@ public enum ChatBody: Decodable, Equatable, Sendable {
     /// The agent's turn ended here.
     case turn(TurnEnd, ms: UInt64)
     case note(ChatNote)
-    case other
 
     private enum Key: String, CodingKey {
         case kind, text, by, live, tool, end, ms, note
@@ -162,17 +143,14 @@ public enum ChatBody: Decodable, Equatable, Sendable {
         case "tool": self = try .tool(fields.decode(ChatTool.self, forKey: .tool))
         case "turn": self = try .turn(fields.decode(TurnEnd.self, forKey: .end), ms: fields.decodeIfPresent(UInt64.self, forKey: .ms) ?? 0)
         case "note": self = try .note(fields.decode(ChatNote.self, forKey: .note))
-        default: self = .other
+        case let kind:
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown chat item \(kind)")
         }
     }
 }
 
-public enum TurnEnd: String, Decodable, Sendable, OpenKind {
-    case done, stopped, failed, refused, other
-
-    public init(from decoder: any Decoder) throws {
-        self = try .read(decoder)
-    }
+public enum TurnEnd: String, Decodable, Sendable {
+    case done, stopped, failed, refused
 }
 
 public enum ChatNote: Decodable, Equatable, Sendable {
@@ -180,7 +158,6 @@ public enum ChatNote: Decodable, Equatable, Sendable {
     case compacted
     /// The agent could not continue. `error` is the agent's word for the cause.
     case failed(error: String, text: String)
-    case other
 
     private enum Key: String, CodingKey {
         case kind, error, text
@@ -192,7 +169,8 @@ public enum ChatNote: Decodable, Equatable, Sendable {
         case "compacted": self = .compacted
         case "failed":
             self = try .failed(error: fields.decode(String.self, forKey: .error), text: fields.decodeIfPresent(String.self, forKey: .text) ?? "")
-        default: self = .other
+        case let kind:
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown chat note \(kind)")
         }
     }
 }
@@ -231,27 +209,19 @@ public struct ChatTool: Decodable, Equatable, Sendable {
     }
 }
 
-public enum ChatToolKind: String, Decodable, Sendable, CaseIterable, OpenKind {
+public enum ChatToolKind: String, Decodable, Sendable, CaseIterable {
     case command, read, edit, write, search, web
     /// A helper: another agent that the agent starts for a part of its work.
     case agent
     case skill, question, plan, other
-
-    public init(from decoder: any Decoder) throws {
-        self = try .read(decoder)
-    }
 }
 
-public enum ChatToolState: String, Decodable, Sendable, OpenKind {
+public enum ChatToolState: String, Decodable, Sendable {
     /// The agent writes the call.
     case preparing
     /// The call waits for a person's permission or answer.
     case asking
-    case running, done, failed, denied, stopped, other
-
-    public init(from decoder: any Decoder) throws {
-        self = try .read(decoder)
-    }
+    case running, done, failed, denied, stopped
 
     public var isOpen: Bool {
         self == .preparing || self == .asking || self == .running
@@ -269,7 +239,6 @@ public enum ChatToolDetail: Decodable, Equatable, Sendable {
     /// A helper of the agent: its kind's name, its steps so far, its last step and the start of
     /// what it wrote last.
     case agent(name: String, steps: Int, doing: ChatStep?, said: String)
-    case other
 
     private enum Key: String, CodingKey {
         case kind, command, output, background, path, added, removed, lines, text, questions, answers, name, steps, doing, said
@@ -293,7 +262,8 @@ public enum ChatToolDetail: Decodable, Equatable, Sendable {
         case "agent":
             self = try .agent(name: text(.name), steps: fields.decodeIfPresent(Int.self, forKey: .steps) ?? 0,
                               doing: fields.decodeIfPresent(ChatStep.self, forKey: .doing), said: text(.said))
-        default: self = .other
+        case let kind:
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown tool detail \(kind)")
         }
     }
 }
@@ -318,12 +288,8 @@ public struct ChangeLine: Decodable, Equatable, Sendable {
     public let text: String
 }
 
-public enum ChangeSign: String, Decodable, Sendable, OpenKind {
-    case same, added, removed, other
-
-    public init(from decoder: any Decoder) throws {
-        self = try .read(decoder)
-    }
+public enum ChangeSign: String, Decodable, Sendable {
+    case same, added, removed
 }
 
 public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
@@ -380,7 +346,7 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
         mode = try fields.decodeIfPresent(ChatMode.self, forKey: .mode)
         folder = try fields.decodeIfPresent(String.self, forKey: .folder)
         context = try fields.decodeIfPresent(ChatContext.self, forKey: .context)
-        limits = (try? fields.decodeIfPresent([UsageLimit].self, forKey: .limits)) ?? []
+        limits = try fields.decodeIfPresent([UsageLimit].self, forKey: .limits) ?? []
         cost = try fields.decodeIfPresent(Double.self, forKey: .cost)
         helpers = try fields.decodeIfPresent(Int.self, forKey: .helpers) ?? 0
         background = try fields.decodeIfPresent(Int.self, forKey: .background) ?? 0

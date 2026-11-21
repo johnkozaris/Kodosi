@@ -112,11 +112,11 @@ enum ChatWords {
             } else {
                 String(localized: "thinking", bundle: .module)
             }
-        case .thinking, .other, nil: String(localized: "thinking", bundle: .module)
+        case .thinking, nil: String(localized: "thinking", bundle: .module)
         }
     }
 
-    static func mode(_ mode: ChatMode) -> String? {
+    static func mode(_ mode: ChatMode) -> String {
         switch mode {
         case .ask: AgentPermissions.ask.label
         case .auto: AgentPermissions.auto.label
@@ -124,7 +124,6 @@ enum ChatWords {
         case .edits: String(localized: "Edits", bundle: .module)
         case .plan: String(localized: "Plan", bundle: .module)
         case .rules: String(localized: "Rules", bundle: .module)
-        case .other: nil
         }
     }
 

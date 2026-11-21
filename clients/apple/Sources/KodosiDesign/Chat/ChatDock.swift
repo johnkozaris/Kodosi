@@ -27,7 +27,7 @@ struct ChatDock<ModelKey: View>: View {
     }
 
     var body: some View {
-        let ask = chat.asks.first { $0.body != .other }
+        let ask = chat.asks.first
         let away = chat.chat != nil && chat.state == .away
         VStack(alignment: .leading, spacing: 8) {
             ForEach(chat.queued) { queued in
@@ -58,6 +58,7 @@ struct ChatDock<ModelKey: View>: View {
             }
         }
         .padding(.horizontal, 10).padding(.top, 4).padding(.bottom, 8)
+        .chatColumn()
         .animation(theme.motion.spring, value: chat.queued.map(\.id))
         .animation(theme.motion.spring, value: ask?.id)
         .animation(theme.motion.fade, value: chat.state)
@@ -204,7 +205,7 @@ private struct ChatFactsRow<ModelKey: View>: View {
             if let effort = facts.effort {
                 Text(verbatim: effort)
             }
-            if let mode = facts.mode.flatMap(ChatWords.mode) {
+            if let mode = facts.mode.map(ChatWords.mode) {
                 Text(verbatim: mode)
             }
             if let context = facts.context {

@@ -49,7 +49,6 @@ public enum AskBody: Decodable, Equatable, Sendable {
     case permission(ChatTool, always: AskAlways?, helper: String)
     case question([ChatQuestion])
     case plan(String)
-    case other
 
     private enum Key: String, CodingKey {
         case kind, tool, always, helper, questions, text
@@ -63,7 +62,8 @@ public enum AskBody: Decodable, Equatable, Sendable {
                                    helper: fields.decodeIfPresent(String.self, forKey: .helper) ?? "")
         case "question": self = try .question(fields.decode([ChatQuestion].self, forKey: .questions))
         case "plan": self = try .plan(fields.decode(String.self, forKey: .text))
-        default: self = .other
+        case let kind:
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown question \(kind)")
         }
     }
 }
@@ -74,7 +74,6 @@ public enum AskAlways: Decodable, Equatable, Sendable {
     /// Each call that this permission mode allows, until the session ends.
     case mode(ChatMode)
     case folder(String)
-    case other
 
     private enum Key: String, CodingKey {
         case kind, tool, text, mode, path
@@ -86,13 +85,14 @@ public enum AskAlways: Decodable, Equatable, Sendable {
         case "rule": self = try .rule(tool: fields.decode(String.self, forKey: .tool), text: fields.decode(String.self, forKey: .text))
         case "mode": self = try .mode(fields.decode(ChatMode.self, forKey: .mode))
         case "folder": self = try .folder(fields.decode(String.self, forKey: .path))
-        default: self = .other
+        case let kind:
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown offer \(kind)")
         }
     }
 }
 
 /// When the agent asks before it acts.
-public enum ChatMode: String, Decodable, Sendable, OpenKind {
+public enum ChatMode: String, Decodable, Sendable {
     /// Before each change and each command.
     case ask
     /// Before each command, and not before a change of a file.
@@ -104,11 +104,6 @@ public enum ChatMode: String, Decodable, Sendable, OpenKind {
     /// The agent does what a rule allows and refuses the rest. It asks nothing.
     case rules
     case unrestricted
-    case other
-
-    public init(from decoder: any Decoder) throws {
-        self = try .read(decoder)
-    }
 }
 
 /// What the app sends on the chat pipe.

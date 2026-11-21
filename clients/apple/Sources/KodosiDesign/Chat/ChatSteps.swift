@@ -1,8 +1,8 @@
 import KodosiBridge
 import SwiftUI
 
-/// The work of a turn as one line. While the turn runs, it counts the steps that ended, and the
-/// live line under the conversation says what runs.
+/// The work of a turn as one line: what the steps did, and the steps that did not go as the agent
+/// wanted. While the turn runs, the live line under the conversation says what runs.
 struct ChatWork: View {
     @Environment(\.theme) private var theme
     let items: [ChatItem]
@@ -26,9 +26,12 @@ struct ChatWork: View {
                                     .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.terminal, lineWidth: 1.5) }
                             }
                         }
-                        Text(ChatWords.summary(ended)).font(mac: 11, ios: .caption, design: .monospaced)
-                            .foregroundStyle(theme.colors.inkMuted).lineLimit(1)
-                            .contentTransition(.interpolate)
+                        let done = ended.filter { $0.state == .done }
+                        if !done.isEmpty {
+                            Text(ChatWords.summary(done)).font(mac: 11, ios: .caption, design: .monospaced)
+                                .foregroundStyle(theme.colors.inkMuted).lineLimit(1)
+                                .contentTransition(.interpolate)
+                        }
                         ForEach(ChatWords.setbacks(ended), id: \.state) { setback in
                             HStack(spacing: 3) {
                                 if setback.state == .failed {
@@ -144,7 +147,7 @@ struct ChatStepState: View {
                 word(Text("denied", bundle: .module))
             case .stopped:
                 word(Text("stopped", bundle: .module))
-            case .preparing, .asking, .running, .other:
+            case .preparing, .asking, .running:
                 EmptyView()
             }
         }
@@ -166,7 +169,7 @@ struct ChatStepDetail: View {
         case .change, .plan, .agent: true
         case let .output(text): !text.isEmpty
         case let .question(questions, _): !questions.isEmpty
-        case .other, nil: false
+        case nil: false
         }
     }
 
@@ -231,7 +234,7 @@ struct ChatStepDetail: View {
                         .lineLimit(6).textSelection(.enabled)
                 }
             }
-        case .other, nil:
+        case nil:
             EmptyView()
         }
     }

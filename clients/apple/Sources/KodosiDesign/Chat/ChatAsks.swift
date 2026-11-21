@@ -17,8 +17,6 @@ struct ChatAskCard: View {
                 ChatQuestions(chat: chat, ask: ask, questions: questions)
             case let .plan(text):
                 ChatPlan(chat: chat, ask: ask, text: text)
-            case .other:
-                EmptyView()
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 11)
@@ -119,7 +117,7 @@ private struct ChatPermission: View {
         case let .rule(_, text): text
         case let .mode(mode): ChatWords.mode(mode)
         case let .folder(path): HostPath.folderName(path)
-        case .other, nil: nil
+        case nil: nil
         }
     }
 }

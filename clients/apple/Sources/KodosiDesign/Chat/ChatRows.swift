@@ -68,11 +68,7 @@ struct ChatRow: Identifiable, Equatable {
                 }
             case let .note(note):
                 fold(ended: true)
-                if note != .other {
-                    rows.append(ChatRow(id: item.id, kind: .note(note)))
-                }
-            case .other:
-                break
+                rows.append(ChatRow(id: item.id, kind: .note(note)))
             }
         }
         fold(ended: !live)

@@ -11,6 +11,7 @@ struct ChatThread: View {
     /// Counts the messages that a person sent from this view.
     let sent: Int
     @State private var following = true
+    @State private var atEnd = true
     @State private var viewport: CGFloat = 0
     @State private var position = ScrollPosition(edge: .bottom)
 
@@ -45,9 +46,15 @@ struct ChatThread: View {
                     Color.clear.frame(height: 1).id("latest")
                 }
                 .padding(.horizontal, 14).padding(.top, 6).padding(.bottom, 10)
+                .chatColumn()
                 .animation(theme.motion.spring, value: rows.map(\.id))
             }
             .followsEnd($following, position: $position, viewport: $viewport)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top >= geometry.contentSize.height - geometry.containerSize.height - 40
+            } action: { _, now in
+                atEnd = now
+            }
             .scrollIndicators(.automatic)
             .overlay {
                 let empty = chat.chat != nil && rows.isEmpty
@@ -60,14 +67,14 @@ struct ChatThread: View {
             }
             .overlay(alignment: .bottom) {
                 ZStack {
-                    if !following {
+                    if !following, !atEnd {
                         LatestKey {
                             following = true
                             withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
                         }
                     }
                 }
-                .animation(theme.motion.spring, value: following)
+                .animation(theme.motion.spring, value: !following && !atEnd)
             }
             .onChange(of: sent) { _, _ in
                 following = true
@@ -127,7 +134,7 @@ struct ChatTurnEnd: View {
             case .stopped: tag(Text("Stopped", bundle: .module))
             case .failed: tag(Text("Failed", bundle: .module))
             case .refused: tag(Text("Refused", bundle: .module))
-            case .done, .other: EmptyView()
+            case .done: EmptyView()
             }
             if ms >= ChatRow.longTurn {
                 Text("worked for \(ChatWords.duration(ms))", bundle: .module)
@@ -164,8 +171,13 @@ struct ChatNoteView: View {
             .padding(.horizontal, 12).padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .raised(Radius.lg, fill: theme.colors.raised, elevation: .resting)
-        case .other:
-            EmptyView()
         }
+    }
+}
+
+extension View {
+    /// A chat reads as one centered column, also in a wide tile.
+    func chatColumn() -> some View {
+        frame(maxWidth: 760).frame(maxWidth: .infinity)
     }
 }

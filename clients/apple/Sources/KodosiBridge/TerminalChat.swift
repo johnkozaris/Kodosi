@@ -179,8 +179,6 @@ public final class TerminalChat {
             if !answers.isEmpty {
                 answers = answers.filter { answered in chat.asks.contains { $0.id == answered.key } }
             }
-        case .other:
-            break
         }
     }
 
@@ -226,8 +224,6 @@ extension ChatSnapshot {
         case .reset:
             items = []
             asks = []
-        case .other:
-            break
         }
     }
 

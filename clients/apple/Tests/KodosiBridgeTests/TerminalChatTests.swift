@@ -4,7 +4,7 @@ import KodosiKit
 import Testing
 
 @MainActor
-@Test func `the chat applies each change in order, and a kind that it does not know leaves the rest of the frame`() async throws {
+@Test func `the chat applies each change in order`() async throws {
     let runtime = ChatRuntime()
     let watching = Task { await runtime.chat.watch() }
     defer { watching.cancel() }
@@ -18,16 +18,15 @@ import Testing
     """#)
     try runtime.send(#"""
     {"update":{"revision":6,"changes":[
-      {"change":"item","item":{"id":"i2","at":2,"body":{"kind":"tool","tool":{"name":"Teleport","kind":"teleport","state":"warping","target":"app.py"}}}},
-      {"change":"confetti","colors":3},
-      {"change":"facts","facts":{"model":"sonnet","mode":"careful","context":{"tokens":650,"window":1000},"helpers":1}},
+      {"change":"item","item":{"id":"i2","at":2,"body":{"kind":"tool","tool":{"name":"Edit","kind":"edit","state":"running","target":"app.py"}}}},
+      {"change":"facts","facts":{"model":"sonnet","mode":"edits","context":{"tokens":650,"window":1000},"helpers":1}},
       {"change":"state","state":"working","now":{"kind":"tool","item":"i2"}}]}}
     """#)
     try runtime.send(#"{"update":{"revision":7,"changes":[{"change":"item","item":{"id":"i3","at":3,"body":{"kind":"text","text":"I made","live":true}}}]}}"#)
     try runtime.send(#"{"update":{"revision":8,"changes":[{"change":"text","id":"i3","text":" the fix."}]}}"#)
     try runtime.send(#"""
     {"update":{"revision":9,"changes":[
-      {"change":"item","item":{"id":"i2","at":2,"body":{"kind":"tool","tool":{"name":"Teleport","kind":"teleport","state":"done","target":"app.py","ms":12}}}},
+      {"change":"item","item":{"id":"i2","at":2,"body":{"kind":"tool","tool":{"name":"Edit","kind":"edit","state":"done","target":"app.py","ms":12}}}},
       {"change":"item","item":{"id":"i3","at":3,"body":{"kind":"text","text":"I made the fix."}}},
       {"change":"item","item":{"id":"i4","at":4,"body":{"kind":"turn","end":"done","ms":9017}}},
       {"change":"state","state":"idle"}]}}
@@ -36,10 +35,10 @@ import Testing
     let chat = try #require(runtime.chat.chat)
     #expect(chat.revision == 9)
     #expect(chat.items.map(\.id) == ["i1", "i2", "i3", "i4"])
-    #expect(chat.items[1].body == .tool(ChatTool(name: "Teleport", kind: .other, state: .done, target: "app.py", ms: 12)))
+    #expect(chat.items[1].body == .tool(ChatTool(name: "Edit", kind: .edit, state: .done, target: "app.py", ms: 12)))
     #expect(chat.items[2].body == .text("I made the fix.", live: false))
     #expect(chat.facts.model == "sonnet")
-    #expect(chat.facts.mode == .other)
+    #expect(chat.facts.mode == .edits)
     #expect(chat.state == .idle)
     #expect(chat.now == nil)
 }
