@@ -5,6 +5,8 @@ struct ChatRow: Identifiable, Equatable {
     enum Kind: Equatable {
         case person(text: String, by: ChatPerson?)
         case answer(text: String, live: Bool)
+        /// A plan that the agent wrote at the end of its turn, which is what the turn gives.
+        case plan(text: String, live: Bool)
         /// The calls of a turn and what the agent wrote between them, as far as they came.
         case work([ChatItem])
         case end(TurnEnd, ms: UInt64)
@@ -24,14 +26,8 @@ struct ChatRow: Identifiable, Equatable {
             defer { turn = [] }
             guard !turn.isEmpty else { return }
             let answer: Int? = if ended {
-                turn.lastIndex {
-                    if case .text = $0.body {
-                        true
-                    } else {
-                        false
-                    }
-                }
-            } else if case .text = turn.last?.body {
+                turn.lastIndex(where: \.answers)
+            } else if turn.last?.answers == true {
                 turn.count - 1
             } else {
                 nil
@@ -49,8 +45,8 @@ struct ChatRow: Identifiable, Equatable {
             } else {
                 rows.append(ChatRow(id: "work.\(work[0].id)", kind: .work(work)))
             }
-            if let answer, case let .text(text, writing) = turn[answer].body {
-                rows.append(ChatRow(id: turn[answer].id, kind: .answer(text: text, live: writing && !ended)))
+            if let answer, let row = answerRow(turn[answer], ended: ended) {
+                rows.append(row)
             }
         }
         for item in items {
@@ -72,6 +68,39 @@ struct ChatRow: Identifiable, Equatable {
         }
         fold(ended: !live)
         return rows
+    }
+
+    private static func answerRow(_ item: ChatItem, ended: Bool) -> ChatRow? {
+        switch item.body {
+        case let .text(text, writing):
+            ChatRow(id: item.id, kind: .answer(text: text, live: writing && !ended))
+        case let .tool(tool):
+            if case let .plan(text)? = tool.detail {
+                ChatRow(id: item.id, kind: .plan(text: text, live: tool.state.isOpen && !ended))
+            } else {
+                nil
+            }
+        default:
+            nil
+        }
+    }
+}
+
+extension ChatItem {
+    /// A turn can end with what the agent wrote: its text, or a plan that no question holds.
+    var answers: Bool {
+        switch body {
+        case .text:
+            true
+        case let .tool(tool):
+            if case .plan? = tool.detail {
+                tool.state != .asking
+            } else {
+                false
+            }
+        default:
+            false
+        }
     }
 }
 

@@ -8,12 +8,12 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatPerson, ChatState, ChatTool, MOST_OUTPUT, MOST_TARGET, ToolDetail, ToolKind, ToolState,
-    TurnEnd,
+    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTool, MOST_OUTPUT, MOST_TARGET, MOST_TEXT,
+    ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{Agent, Stop, answer, file_name, list, person, text, words},
     diff,
     state::{Chat, ends_of, start_of},
@@ -69,12 +69,15 @@ struct Asked {
     kind: AskKind,
     item: String,
     offered: Vec<Value>,
+    /// Codex's names of the questions of a request for the person's input, in order.
+    questions: Vec<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum AskKind {
     Command,
     Change,
+    Question,
 }
 
 struct Handed {
@@ -377,32 +380,28 @@ impl Codex {
             }
             "item/started" => self.item(chat, params, at, false),
             "item/completed" => self.item(chat, params, at, true),
-            "item/agentMessage/delta" => {
-                if let Some(item) = self.items.get(text(params, "itemId")) {
-                    chat.write(item, text(params, "delta"));
-                    self.now = Some(ChatNow::Writing);
-                }
-            }
-            "item/commandExecution/outputDelta" => {
-                if let Some(item) = self.items.get(text(params, "itemId")) {
-                    let more = text(params, "delta");
-                    chat.change_tool(item, |tool| {
-                        if let Some(ToolDetail::Command { output, .. }) = &mut tool.detail {
-                            *output = ends_of(&format!("{output}{more}"), MOST_OUTPUT);
-                        }
-                    });
-                }
+            "item/agentMessage/delta" | "item/plan/delta" | "item/commandExecution/outputDelta" => {
+                self.piece(chat, text(event, "m"), params);
             }
             "serverRequest/resolved" => {
                 let Some(ask) = Self::ask_name(&params["requestId"]) else {
                     return Vec::new();
                 };
-                // A person answered in the terminal. What Codex did with the answer comes with
-                // the item.
+                // A person answered in the terminal, or the chat's stop ended the turn. What Codex
+                // did with the answer comes with the item.
                 if let Some(asked) = self.asked.remove(&ask) {
+                    let answered = match asked.kind {
+                        AskKind::Question
+                            if self.turn.as_ref().is_some_and(|turn| turn.stopped) =>
+                        {
+                            ToolState::Stopped
+                        }
+                        AskKind::Question => ToolState::Done,
+                        AskKind::Command | AskKind::Change => ToolState::Running,
+                    };
                     chat.change_tool(&asked.item, |tool| {
                         if tool.state == ToolState::Asking {
-                            tool.state = ToolState::Running;
+                            tool.state = answered;
                         }
                     });
                     return chat.close_asks(|open| open.id == ask);
@@ -423,6 +422,32 @@ impl Codex {
             _ => {}
         }
         Vec::new()
+    }
+
+    /// More of an item that grows: the answer that Codex writes, its plan, or what a command
+    /// prints.
+    fn piece(&mut self, chat: &mut Chat, method: &str, params: &Value) {
+        let Some(item) = self.items.get(text(params, "itemId")).cloned() else {
+            return;
+        };
+        let more = text(params, "delta");
+        match method {
+            "item/agentMessage/delta" => {
+                chat.write(&item, more);
+                self.now = Some(ChatNow::Writing);
+            }
+            "item/plan/delta" => chat.change_tool(&item, |tool| {
+                if let Some(ToolDetail::Plan { text }) = &mut tool.detail {
+                    let room = MOST_TEXT.saturating_sub(text.len());
+                    text.push_str(start_of(more, room));
+                }
+            }),
+            _ => chat.change_tool(&item, |tool| {
+                if let Some(ToolDetail::Command { output, .. }) = &mut tool.detail {
+                    *output = ends_of(&format!("{output}{more}"), MOST_OUTPUT);
+                }
+            }),
+        }
     }
 
     fn item(&mut self, chat: &mut Chat, params: &Value, at: u64, done: bool) {
@@ -455,6 +480,22 @@ impl Codex {
                 if !done {
                     self.now = Some(ChatNow::Thinking);
                 }
+                None
+            }
+            ("plan", None) => Some(chat.push(
+                at,
+                ChatBody::Tool {
+                    tool: Box::new(plan(item, done)),
+                },
+            )),
+            // The pieces of a plan need not add up to the plan, so the whole plan replaces them.
+            ("plan", Some(shown)) if done => {
+                chat.put(
+                    &shown,
+                    ChatBody::Tool {
+                        tool: Box::new(plan(item, true)),
+                    },
+                );
                 None
             }
             ("commandExecution" | "fileChange", None) => described(item).map(|mut tool| {
@@ -542,6 +583,7 @@ impl Codex {
         let kind = match text(event, "m") {
             "item/commandExecution/requestApproval" => AskKind::Command,
             "item/fileChange/requestApproval" => AskKind::Change,
+            "item/tool/requestUserInput" => return self.question(chat, event),
             _ => return,
         };
         let (Some(ask), Some(item)) = (
@@ -568,6 +610,7 @@ impl Codex {
                 })
                 .map(rule),
             AskKind::Change => Some(tool.target.clone()),
+            AskKind::Question => None,
         }
         .filter(|text| !text.is_empty())
         .map(|text| AskAlways::Rule {
@@ -589,6 +632,76 @@ impl Codex {
                 kind,
                 item,
                 offered,
+                questions: Vec::new(),
+            },
+        );
+    }
+
+    /// Codex asks the person questions, as its plan mode does before a plan. The call has no item
+    /// of Codex, so the chat keeps the questions as a step of its own. A question with a secret
+    /// answer is for the terminal alone.
+    fn question(&mut self, chat: &mut Chat, event: &Value) {
+        let params = event.get("p").unwrap_or(&Value::Null);
+        let Some(ask) = event.get("id").and_then(Self::ask_name) else {
+            return;
+        };
+        let given = list(params, "questions").take(8).collect::<Vec<_>>();
+        if !self.is_ours(params)
+            || given.is_empty()
+            || given
+                .iter()
+                .any(|question| question.get("isSecret").and_then(Value::as_bool) == Some(true))
+        {
+            return;
+        }
+        let questions = given
+            .iter()
+            .map(|question| ChatQuestion {
+                question: start_of(text(question, "question"), MOST_TARGET * 2).to_owned(),
+                header: start_of(text(question, "header"), MOST_TARGET).to_owned(),
+                options: list(question, "options")
+                    .take(16)
+                    .map(|option| ChatOption {
+                        label: start_of(text(option, "label"), MOST_TARGET).to_owned(),
+                        description: start_of(text(option, "description"), MOST_TARGET * 2)
+                            .to_owned(),
+                    })
+                    .collect(),
+                multiple: false,
+            })
+            .collect::<Vec<_>>();
+        let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
+        let item = chat.push(
+            at,
+            ChatBody::Tool {
+                tool: Box::new(ChatTool {
+                    name: "request_user_input".to_owned(),
+                    kind: ToolKind::Question,
+                    state: ToolState::Asking,
+                    target: questions[0].question.clone(),
+                    detail: Some(ToolDetail::Question {
+                        questions: questions.clone(),
+                        answers: Vec::new(),
+                    }),
+                    ms: None,
+                }),
+            },
+        );
+        chat.ask(ChatAsk {
+            id: ask.clone(),
+            item: Some(item.clone()),
+            body: AskBody::Question { questions },
+        });
+        self.asked.insert(
+            ask,
+            Asked {
+                kind: AskKind::Question,
+                item,
+                offered: Vec::new(),
+                questions: given
+                    .iter()
+                    .map(|question| text(question, "id").to_owned())
+                    .collect(),
             },
         );
     }
@@ -757,6 +870,9 @@ impl Agent for Codex {
         by: Option<&ChatPerson>,
     ) -> Option<Value> {
         let asked = self.asked.get(ask)?;
+        if asked.kind == AskKind::Question {
+            return answers_for(&asked.questions, answer);
+        }
         let decision = match (asked.kind, answer) {
             (_, ChatAnswer::Allow) => json!("accept"),
             (AskKind::Command, ChatAnswer::Always) => asked
@@ -783,6 +899,26 @@ impl Agent for Codex {
             return;
         };
         chat.close_asks(|open| open.id == ask);
+        if asked.kind == AskKind::Question {
+            let given = asked
+                .questions
+                .iter()
+                .map(|id| {
+                    list(&decision["answers"][id], "answers")
+                        .filter_map(Value::as_str)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .collect::<Vec<_>>();
+            chat.change_tool(&asked.item, |tool| {
+                tool.state = ToolState::Done;
+                if let Some(ToolDetail::Question { answers, .. }) = &mut tool.detail {
+                    *answers = given;
+                }
+            });
+            self.show(chat);
+            return;
+        }
         let refused = text(decision, "decision") == "cancel";
         chat.change_tool(&asked.item, |tool| {
             if tool.state == ToolState::Asking {
@@ -842,7 +978,11 @@ impl Agent for Codex {
     }
 
     fn stop(&mut self, chat: &Chat) -> Stop {
-        if !chat.asks().is_empty() {
+        let questions = self
+            .asked
+            .values()
+            .any(|asked| asked.kind == AskKind::Question);
+        if !chat.asks().is_empty() && !questions {
             return Stop::Decisions(
                 chat.asks()
                     .iter()
@@ -1058,6 +1198,24 @@ fn change(item: &Value) -> Option<ChatTool> {
 }
 
 /// An item of a kind that the chat has no own view of. It shows with Codex's name of the kind.
+/// Codex's plan, as its plan mode writes it.
+fn plan(item: &Value, done: bool) -> ChatTool {
+    ChatTool {
+        name: "plan".to_owned(),
+        kind: ToolKind::Plan,
+        state: if done {
+            ToolState::Done
+        } else {
+            ToolState::Running
+        },
+        target: String::new(),
+        detail: Some(ToolDetail::Plan {
+            text: start_of(text(item, "text"), MOST_TEXT).to_owned(),
+        }),
+        ms: None,
+    }
+}
+
 fn other(kind: &str, item: &Value) -> Option<ChatTool> {
     let (shown, subject) = match kind {
         "webSearch" => (ToolKind::Web, words(item, "query")),
@@ -1078,6 +1236,38 @@ fn other(kind: &str, item: &Value) -> Option<ChatTool> {
         detail: None,
         ms: None,
     })
+}
+
+/// The answers to Codex's questions: for each question in order, the labels that the person chose,
+/// or their own words. Words in place of the answers answer the first question, as Codex's own
+/// "Other" does.
+fn answers_for(questions: &[String], answer: &ChatAnswer) -> Option<Value> {
+    let given = match answer {
+        ChatAnswer::Answers { answers } if answers.len() == questions.len() => answers.clone(),
+        ChatAnswer::Deny { text: Some(words) } if !words.trim().is_empty() => {
+            let mut given = vec![Vec::new(); questions.len()];
+            given[0] = vec![words.trim().to_owned()];
+            given
+        }
+        _ => return None,
+    };
+    if given
+        .iter()
+        .take(if matches!(answer, ChatAnswer::Deny { .. }) {
+            1
+        } else {
+            given.len()
+        })
+        .any(|labels| labels.iter().all(|label| label.trim().is_empty()))
+    {
+        return None;
+    }
+    let answers = questions
+        .iter()
+        .zip(given)
+        .map(|(id, labels)| (id.clone(), json!({"answers": labels})))
+        .collect::<Map<_, _>>();
+    Some(json!({"answers": answers}))
 }
 
 /// What Codex offers to allow from now on: commands that start as this one does. A command that

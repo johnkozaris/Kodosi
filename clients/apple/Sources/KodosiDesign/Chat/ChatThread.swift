@@ -117,6 +117,13 @@ struct ChatRowView: View {
             .padding(.top, 16)
         case let .answer(text, live):
             AgentProse(text: text, live: live).padding(.top, 10)
+        case let .plan(text, live):
+            VStack(alignment: .leading, spacing: 6) {
+                Label { Text(verbatim: ChatWords.mode(.plan)) } icon: { StepGlyph(symbol: ChatWords.symbol(.plan)) }
+                    .font(mac: 11, ios: .caption, design: .monospaced).foregroundStyle(theme.colors.inkMuted)
+                AgentProse(text: text, live: live).padding(10).frame(maxWidth: .infinity, alignment: .leading).well(Radius.md)
+            }
+            .padding(.top, 10)
         case let .work(items):
             ChatWork(items: items, hold: hold).padding(.top, 10)
         case let .end(end, ms):

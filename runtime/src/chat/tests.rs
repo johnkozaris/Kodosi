@@ -1775,6 +1775,85 @@ fn a_message_of_the_chat_goes_to_copilot_only_when_copilot_is_idle() {
 }
 
 #[test]
+fn a_person_answers_the_question_of_codex_in_plan_mode_and_its_plan_shows() {
+    let mut codex = Play::codex(&[codex!("first")], &[]);
+    let lines = codex!("question").lines().collect::<Vec<_>>();
+    let asked = lines
+        .iter()
+        .position(|line| line.contains(r#""k":"request""#))
+        .expect("a question");
+    codex.more(&lines[..=asked].join("\n"), &[]);
+    let [ask] = &codex.view.asks[..] else {
+        panic!("one question");
+    };
+    let AskBody::Question { questions } = &ask.body else {
+        panic!("a question with choices");
+    };
+    let [question] = &questions[..] else {
+        panic!("one question");
+    };
+    assert_eq!(
+        (question.header.as_str(), question.question.as_str()),
+        (
+            "Filename",
+            "Which file name should I use for the greeting file?"
+        )
+    );
+    assert_eq!(
+        question
+            .options
+            .iter()
+            .map(|option| option.label.as_str())
+            .collect::<Vec<_>>(),
+        ["hello.txt (Recommended)", "greet.txt"]
+    );
+    assert_eq!(codex.view.facts.mode, Some(ChatMode::Plan));
+    assert!(
+        matches!(codex.agent.stop(&codex.chat), Stop::Command(stop) if stop["m"] == "turn/interrupt"),
+        "a question of Codex takes no refusal, so a stop ends the turn"
+    );
+    assert_eq!(
+        codex.agent.decision(
+            &ask.id,
+            &ChatAnswer::Deny {
+                text: Some("a name of your own".to_owned())
+            },
+            None
+        ),
+        Some(json!({"answers": {"greeting_filename": {"answers": ["a name of your own"]}}}))
+    );
+
+    codex.more(
+        &lines[asked + 1..].join("\n"),
+        &[ChatAnswer::Answers {
+            answers: vec![vec!["greet.txt".to_owned()]],
+        }],
+    );
+    let tools = codex.tools();
+    let [question, plan] = &tools[tools.len() - 2..] else {
+        panic!("the question and the plan");
+    };
+    assert_eq!(question.state, ToolState::Done);
+    assert!(
+        matches!(&question.detail, Some(ToolDetail::Question { answers, .. }) if answers == &["greet.txt"])
+    );
+    assert_eq!((plan.kind, plan.state), (ToolKind::Plan, ToolState::Done));
+    assert!(
+        matches!(&plan.detail, Some(ToolDetail::Plan { text }) if text.starts_with("## Create greeting file")),
+        "{:?}",
+        plan.detail
+    );
+    let grew = codex.changes.iter().any(|change| {
+        matches!(change, ChatChange::Item { item } if matches!(&item.body, ChatBody::Tool { tool }
+            if tool.state == ToolState::Running && matches!(&tool.detail, Some(ToolDetail::Plan { text }) if text.starts_with("## Create")))
+        )
+    });
+    assert!(grew, "the plan showed while Codex wrote it");
+    assert_eq!(codex.view.asks, [] as [ChatAsk; 0]);
+    assert_eq!(codex.ends(), [TurnEnd::Done, TurnEnd::Done]);
+}
+
+#[test]
 fn a_person_answers_a_question_of_copilot_with_one_of_its_choices() {
     let mut play = Play::copilot(&[], &[]);
     let lines = copilot!("question").lines().collect::<Vec<_>>();
