@@ -143,6 +143,7 @@ public struct CanvasBrowserView: View {
                         tabKeys(tabs)
                     }
                     .scrollIndicators(.never)
+                    .touchRoom(height: control)
                     .onChange(of: active, initial: true) { _, active in
                         if let active {
                             withAnimation(theme.motion.snappy) { reader.scrollTo(active) }

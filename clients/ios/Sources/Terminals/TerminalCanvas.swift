@@ -176,6 +176,8 @@ struct CanvasScreen: View {
                         } add: {
                             addingFile = true
                         }
+                        // A toolbar item takes no touch beyond its view, and the keys take touches 44 points high.
+                        .frame(minHeight: 44)
                     }
                     .sharedBackgroundVisibility(.hidden)
                 }

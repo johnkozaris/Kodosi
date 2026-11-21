@@ -176,6 +176,10 @@ public struct CanvasDock: View {
                 pointed = nil
             }
         }
+        #if os(iOS)
+        // The touch target of the next key reaches back over the end of this one, where the close key is.
+        .zIndex(closing ? 1 : 0)
+        #endif
     }
 
     @ContentBuilder
