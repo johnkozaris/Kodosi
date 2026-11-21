@@ -32,8 +32,12 @@ public struct CanvasBrowserView: View {
         self.ask = ask
     }
 
+    /// A browser that wakes has no tab for a moment, and a tab that loads a page is at about:blank
+    /// first, so the last picture stays until the page draws, and only a tab that rests at
+    /// about:blank, or no tab before any picture, is blank.
     private var blank: Bool {
-        (browser.activeTab?.url ?? Self.blankPage) == Self.blankPage
+        guard let tab = tabs.first(where: \.active) else { return feed.picture == .waiting }
+        return (tab.address.isEmpty || tab.address == Self.blankPage) && !tab.loading
     }
 
     private static let blankPage = "about:blank"
