@@ -2,71 +2,74 @@ import KodosiBridge
 import SwiftUI
 
 /// The work of a turn as one line: what the steps did, and the steps that did not go as the agent
-/// wanted. While the turn runs, the live line under the conversation says what runs.
+/// wanted. While the turn runs, the live line under the conversation says what runs. The line is
+/// there from the first step, so a person can open a step while it runs.
 struct ChatWork: View {
     @Environment(\.theme) private var theme
     let items: [ChatItem]
-    let live: Bool
     let hold: () -> Void
     @State private var open = false
 
     var body: some View {
         let tools = items.tools
         let ended = tools.filter { !$0.state.isOpen }
-        if !ended.isEmpty || open {
-            VStack(alignment: .leading, spacing: 4) {
-                Button {
-                    hold()
-                    open.toggle()
-                } label: {
-                    HStack(spacing: 7) {
-                        HStack(spacing: -4) {
-                            ForEach(kinds(ended), id: \.self) { kind in
-                                StepGlyph(symbol: ChatWords.symbol(kind))
-                                    .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.terminal, lineWidth: 1.5) }
-                            }
-                        }
-                        let done = ended.filter { $0.state == .done }
-                        if !done.isEmpty {
-                            Text(ChatWords.summary(done)).font(mac: 11, ios: .caption, design: .monospaced)
-                                .foregroundStyle(theme.colors.inkMuted).lineLimit(1)
-                                .contentTransition(.interpolate)
-                        }
-                        ForEach(ChatWords.setbacks(ended), id: \.state) { setback in
-                            HStack(spacing: 3) {
-                                if setback.state == .failed {
-                                    Image(systemName: "exclamationmark.triangle.fill").font(mac: 9, ios: .caption2, weight: .semibold)
-                                        .accessibilityHidden(true)
-                                }
-                                Text(verbatim: setback.words).font(mac: 11, ios: .caption, design: .monospaced).lineLimit(1)
-                            }
-                            .foregroundStyle(setback.state == .failed ? theme.colors.caution : theme.colors.inkFaint)
-                            .fixedSize()
-                        }
-                        Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
-                            .rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
-                            .accessibilityHidden(true)
-                    }
-                    .controlHeight(22).touchTarget(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(open ? Text("Hide the steps", bundle: .module) : Text("Show the steps", bundle: .module))
-                .accessibilityHint(open ? Text("Hide the steps", bundle: .module) : Text("Show the steps", bundle: .module))
-                if open {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(items) { item in
-                            ChatStepLine(item: item, hold: hold).transition(AnyTransition.unfold)
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                hold()
+                open.toggle()
+            } label: {
+                HStack(spacing: 7) {
+                    HStack(spacing: -4) {
+                        ForEach(kinds(tools), id: \.self) { kind in
+                            StepGlyph(symbol: ChatWords.symbol(kind))
+                                .overlay { RoundedRectangle(cornerRadius: 4.2, style: .continuous).stroke(theme.colors.terminal, lineWidth: 1.5) }
                         }
                     }
-                    .padding(.leading, 12)
-                    .overlay(alignment: .leading) { Rectangle().fill(theme.colors.lifted).frame(width: 1) }
-                    .padding(.leading, 6)
-                    .transition(.opacity)
+                    let done = ended.filter { $0.state == .done }
+                    if !done.isEmpty {
+                        words(Text(ChatWords.summary(done)))
+                    } else if ended.isEmpty {
+                        words(Text("\(tools.count) steps", bundle: .module))
+                    }
+                    ForEach(ChatWords.setbacks(ended), id: \.state) { setback in
+                        HStack(spacing: 3) {
+                            if setback.state == .failed {
+                                Image(systemName: "exclamationmark.triangle.fill").font(mac: 9, ios: .caption2, weight: .semibold)
+                                    .accessibilityHidden(true)
+                            }
+                            Text(verbatim: setback.words).font(mac: 11, ios: .caption, design: .monospaced).lineLimit(1)
+                        }
+                        .foregroundStyle(setback.state == .failed ? theme.colors.caution : theme.colors.inkFaint)
+                        .fixedSize()
+                    }
+                    Image(systemName: "chevron.right").font(mac: 8, ios: .caption2, weight: .bold)
+                        .rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(theme.colors.inkFaint)
+                        .accessibilityHidden(true)
                 }
+                .controlHeight(22).touchTarget(Rectangle())
             }
-            .animation(theme.motion.snappy, value: open)
-            .animation(theme.motion.spring, value: items.map(\.id))
+            .buttonStyle(.plain)
+            .help(open ? Text("Hide the steps", bundle: .module) : Text("Show the steps", bundle: .module))
+            .accessibilityHint(open ? Text("Hide the steps", bundle: .module) : Text("Show the steps", bundle: .module))
+            if open {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(items) { item in
+                        ChatStepLine(item: item, hold: hold).transition(AnyTransition.unfold)
+                    }
+                }
+                .padding(.leading, 12)
+                .overlay(alignment: .leading) { Rectangle().fill(theme.colors.lifted).frame(width: 1) }
+                .padding(.leading, 6)
+                .transition(.opacity)
+            }
         }
+        .animation(theme.motion.snappy, value: open)
+        .animation(theme.motion.spring, value: items.map(\.id))
+    }
+
+    private func words(_ text: Text) -> some View {
+        text.font(mac: 11, ios: .caption, design: .monospaced).foregroundStyle(theme.colors.inkMuted).lineLimit(1)
+            .contentTransition(.interpolate)
     }
 
     private func kinds(_ tools: [ChatTool]) -> [ChatToolKind] {
@@ -181,7 +184,7 @@ struct ChatStepDetail: View {
                     well(command, color: theme.colors.ink)
                 }
                 if !output.isEmpty {
-                    well(output, color: theme.colors.inkMuted)
+                    well(output, color: theme.colors.inkMuted, from: .bottom)
                 }
                 if background {
                     Label { Text("in the background", bundle: .module) } icon: { Image(systemName: "arrow.triangle.2.circlepath") }
@@ -239,10 +242,16 @@ struct ChatStepDetail: View {
         }
     }
 
-    private func well(_ text: String, color: Color) -> some View {
-        Text(verbatim: text).appTextStyle(.monoCaption).foregroundStyle(color).textSelection(.enabled)
-            .lineLimit(12).frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8).well(Radius.md)
+    /// A long text moves in its well. What a command printed starts at its end: a result or a
+    /// fault is on the last lines, and the lines of a command that runs come in there.
+    private func well(_ text: String, color: Color, from start: UnitPoint = .top) -> some View {
+        ScrollView {
+            Text(verbatim: text).appTextStyle(.monoCaption).foregroundStyle(color).textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(8)
+        }
+        .defaultScrollAnchor(start)
+        .frame(maxHeight: 180).fixedSize(horizontal: false, vertical: true)
+        .well(Radius.md)
     }
 }
 

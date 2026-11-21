@@ -117,8 +117,8 @@ struct ChatRowView: View {
             .padding(.top, 16)
         case let .answer(text, live):
             AgentProse(text: text, live: live).padding(.top, 10)
-        case let .work(items, live):
-            ChatWork(items: items, live: live, hold: hold).padding(.top, 10)
+        case let .work(items):
+            ChatWork(items: items, hold: hold).padding(.top, 10)
         case let .end(end, ms):
             ChatTurnEnd(end: end, ms: ms).padding(.top, 8)
         case let .note(note):

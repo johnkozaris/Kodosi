@@ -5,9 +5,8 @@ struct ChatRow: Identifiable, Equatable {
     enum Kind: Equatable {
         case person(text: String, by: ChatPerson?)
         case answer(text: String, live: Bool)
-        /// The calls of a turn and what the agent wrote between them, while `live` as far as they
-        /// came.
-        case work([ChatItem], live: Bool)
+        /// The calls of a turn and what the agent wrote between them, as far as they came.
+        case work([ChatItem])
         case end(TurnEnd, ms: UInt64)
         case note(ChatNote)
     }
@@ -48,7 +47,7 @@ struct ChatRow: Identifiable, Equatable {
                     }
                 }
             } else {
-                rows.append(ChatRow(id: "work.\(work[0].id)", kind: .work(work, live: !ended)))
+                rows.append(ChatRow(id: "work.\(work[0].id)", kind: .work(work)))
             }
             if let answer, case let .text(text, writing) = turn[answer].body {
                 rows.append(ChatRow(id: turn[answer].id, kind: .answer(text: text, live: writing && !ended)))
