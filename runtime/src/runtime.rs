@@ -1288,6 +1288,12 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     let (dosi, dosi_messages) = crate::dosi::Viewer::load(&config.data_root);
     #[cfg(feature = "host")]
     network.answer_calls(handle.command_client().answering());
+    #[cfg(feature = "host")]
+    let links = crate::chat::Links::serve(&config.data_root).await;
+    #[cfg(all(feature = "host", unix))]
+    if let Some(servers) = links.codex_servers() {
+        launcher.serve_codex(servers);
+    }
     let runtime = Runtime {
         host: cfg!(feature = "host").then_some(config.host),
         pipes: HashMap::new(),
@@ -1295,7 +1301,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         #[cfg(feature = "host")]
         services: crate::canvas::CanvasServices::new(&config.data_root, config.isolated),
         #[cfg(feature = "host")]
-        links: crate::chat::Links::serve(&config.data_root).await,
+        links,
         #[cfg(feature = "host")]
         recent: crate::folders::Recent::load(&config.data_root),
         #[cfg(feature = "host")]

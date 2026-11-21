@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex, MutexGuard, PoisonError,
+        Arc, Mutex, MutexGuard, OnceLock, PoisonError,
         atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
@@ -32,6 +32,7 @@ pub struct Launcher {
     unsaved: AtomicBool,
     usage: usage::Readings,
     quiet: QuietSettings,
+    codex_servers: OnceLock<String>,
 }
 
 pub(crate) struct Launch {
@@ -120,7 +121,14 @@ impl Launcher {
             unsaved: AtomicBool::new(false),
             usage: usage::Readings::default(),
             quiet: QuietSettings::load(data_root),
+            codex_servers: OnceLock::new(),
         }
+    }
+
+    /// From now on Codex starts through the server of its terminal.
+    #[cfg(unix)]
+    pub(crate) fn serve_codex(&self, servers: String) {
+        drop(self.codex_servers.set(servers));
     }
 
     fn state(&self) -> MutexGuard<'_, State> {
@@ -132,6 +140,7 @@ impl Launcher {
             shell: self.shell.clone(),
             folder: self.notes.clone(),
             installed: self.state().installed,
+            codex_servers: self.codex_servers.get().cloned(),
         }
     }
 

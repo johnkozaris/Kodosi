@@ -337,7 +337,10 @@ pub(super) fn restart_command(
     notes: &Notes,
 ) -> String {
     let mut words = vec![crate::agents::account_command(agent, home, account)];
-    words.extend(agent.chosen(arguments, changed));
+    // A conversation that Codex resumes through its server keeps the permissions that it had,
+    // and Codex refuses others there.
+    let through_server = agent == Agent::Codex && notes.codex_servers.is_some();
+    words.extend(agent.chosen(arguments, changed, !through_server));
     agent.with_context(&words.join(" "), notes)
 }
 

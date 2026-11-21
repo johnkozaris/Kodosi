@@ -3845,6 +3845,43 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
 
 #[cfg(feature = "host")]
 #[test]
+fn a_codex_that_comes_back_through_its_server_keeps_the_permissions_of_its_conversation() {
+    use crate::agents::Agent;
+    let id = "019f0000-0000-7000-8000-000000000001";
+    let home = Path::new("/home/ana");
+    let served = crate::agents::Notes {
+        shell: "/bin/zsh".into(),
+        codex_servers: Some("unix:///tmp/kodosi-501-a/codex-".to_owned()),
+        ..crate::agents::Notes::default()
+    };
+    let command = restore::restart_command(
+        Agent::Codex,
+        home,
+        &home.join(".codex"),
+        &[
+            "codex",
+            "-m",
+            "gpt-5.6-sol",
+            "-a",
+            "on-request",
+            "-s",
+            "read-only",
+        ]
+        .map(str::to_owned),
+        &crate::agents::AgentSettings {
+            permissions: Some(crate::agents::Permissions::Auto),
+            ..crate::agents::AgentSettings::default()
+        },
+        &served,
+    );
+    assert_eq!(
+        restore::resume_line(Agent::Codex, &command, Some(id)).unwrap(),
+        format!("codex -m gpt-5.6-sol --remote \"$KODOSI_CODEX_SERVER\" resume {id}")
+    );
+}
+
+#[cfg(feature = "host")]
+#[test]
 fn a_terminal_comes_back_to_the_conversation_its_agent_had_when_the_agent_stops_first() {
     use restore::{AgentLine, Conversation};
     let now = Instant::now();

@@ -343,6 +343,9 @@ impl Codex {
                     self.look(text(params, "threadId"));
                 }
             }
+            // Codex resumed a conversation, as after a restart of its terminal: the server tells
+            // the other programs only that the conversation has no goal now.
+            "thread/goal/cleared" if !self.is_ours(params) => self.look(text(params, "threadId")),
             _ if !self.is_ours(params) => {}
             "thread/status/changed" => match text(&params["status"], "type") {
                 "active" => {

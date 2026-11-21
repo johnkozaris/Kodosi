@@ -126,6 +126,15 @@ impl Links {
 }
 
 #[cfg(unix)]
+impl Links {
+    /// How the address of each terminal's Codex server starts.
+    pub(crate) fn codex_servers(&self) -> Option<String> {
+        let folder = kodosi_os::ipc::private_dir(&self.codex.as_ref()?.namespace).ok()?;
+        super::codex_link::address(&folder.join("codex-"))
+    }
+}
+
+#[cfg(unix)]
 impl CodexAddresses {
     /// Serves the address of one terminal, and gives it as Codex takes it.
     fn serve(&self, terminal: Uuid, chat: &ChatHandle) -> Option<String> {

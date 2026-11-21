@@ -293,8 +293,16 @@ impl Agent {
         }
     }
 
+    /// The settings of a running agent as words of its start line, with the changed ones in
+    /// place of what it started with. Without `permissions`, the line leaves the agent's
+    /// permissions to it.
     #[cfg(feature = "host")]
-    pub(crate) fn chosen(self, arguments: &[String], changed: &AgentSettings) -> Vec<String> {
+    pub(crate) fn chosen(
+        self,
+        arguments: &[String],
+        changed: &AgentSettings,
+        permissions: bool,
+    ) -> Vec<String> {
         let model = changed.model.clone();
         let effort = self
             .effort_flag()
@@ -315,7 +323,7 @@ impl Agent {
         .collect();
         for (flag, start, setting) in self.mode_flags() {
             let replaced = match setting {
-                Setting::Permissions => changed.permissions.is_some(),
+                Setting::Permissions => !permissions || changed.permissions.is_some(),
                 Setting::Output => changed.output.is_some(),
                 Setting::Fast => changed.fast.is_some(),
             };
@@ -341,6 +349,7 @@ impl Agent {
         let now = [
             changed
                 .permissions
+                .filter(|_| permissions)
                 .and_then(|permissions| self.permission_words(permissions)),
             changed.output.and_then(|output| self.output_words(output)),
             changed.fast.and_then(|fast| self.fast_words(fast)),
@@ -354,15 +363,21 @@ impl Agent {
         words
     }
 
-    /// Codex reads Kodosi's note only from its command line, and without `--no-daemon` it works
-    /// in its shared background server, which has the variables of whatever started that server.
-    /// Cursor loads a plugin only from its command line. `OpenCode` reads instructions only from
-    /// its configuration, and `OpenCode` 2 reads that in its shared background server unless it
-    /// runs with `--standalone`, so the configuration goes only to the program that Kodosi starts.
+    /// Codex works through the server of its terminal, which Kodosi starts with the note, so that
+    /// the terminal's chat follows it. Where the host has no such server, Codex reads Kodosi's
+    /// note only from its command line, and without `--no-daemon` it works in its shared
+    /// background server, which has the variables of whatever started that server. Cursor loads
+    /// a plugin only from its command line. `OpenCode` reads instructions only from its
+    /// configuration, and `OpenCode` 2 reads that in its shared background server unless it runs
+    /// with `--standalone`, so the configuration goes only to the program that Kodosi starts.
     #[cfg(feature = "host")]
     pub(crate) fn with_context(self, command: &str, notes: &Notes) -> String {
         let shell = &notes.shell;
         let words = match self {
+            Self::Codex if notes.codex_servers.is_some() => Some(format!(
+                "{command} --remote {}",
+                variable_word(shell, "", crate::chat::CODEX_VARIABLE)
+            )),
             Self::Codex => Some(format!(
                 "{command} --no-daemon -c {}",
                 variable_word(shell, "developer_instructions=", CONTEXT_VARIABLE)
@@ -405,9 +420,25 @@ impl Agent {
         notes: &Notes,
     ) -> bool {
         let has_note = match self {
-            Self::Codex => arguments.iter().any(|argument| {
-                argument.starts_with("developer_instructions=") && argument.contains("Kodosi")
-            }),
+            Self::Codex => {
+                let kodosi_server = |address: &str| {
+                    notes
+                        .codex_servers
+                        .as_deref()
+                        .is_some_and(|start| address.starts_with(start))
+                };
+                let in_line = arguments.iter().any(|argument| {
+                    argument.starts_with("developer_instructions=") && argument.contains("Kodosi")
+                });
+                let on_server = arguments.iter().any(|argument| {
+                    argument
+                        .strip_prefix("--remote=")
+                        .is_some_and(kodosi_server)
+                }) || arguments
+                    .windows(2)
+                    .any(|pair| pair[0] == "--remote" && kodosi_server(&pair[1]));
+                in_line || on_server
+            }
             Self::Cursor if notes.installed.cursor_plugins => cursor_plugin(&notes.folder)
                 .is_none_or(|plugin| {
                     arguments
@@ -494,6 +525,8 @@ pub(crate) struct Notes {
     pub(crate) shell: std::path::PathBuf,
     pub(crate) folder: std::path::PathBuf,
     pub(crate) installed: Installed,
+    /// How the address of each terminal's Codex server starts, when the host gives them.
+    pub(crate) codex_servers: Option<String>,
 }
 
 /// Read when the host looks for agents. A Cursor CLI from before May 2026 ends at

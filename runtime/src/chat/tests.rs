@@ -1301,6 +1301,39 @@ fn the_chat_of_codex_goes_to_the_conversation_that_a_person_goes_to_in_the_termi
     );
 }
 
+/// When Codex resumes a conversation, the server tells the other programs only that the
+/// conversation has no goal now.
+fn codex_resumed(thread: &str) -> String {
+    json!({"k": "note", "m": "thread/goal/cleared", "p": {"threadId": thread}}).to_string()
+}
+
+#[test]
+fn the_chat_of_codex_goes_to_a_conversation_that_codex_resumes_before_a_turn_runs() {
+    let mut play = Play::codex(&[codex!("first")], &[]);
+    let started: Value =
+        serde_json::from_str(codex!("new").lines().next().expect("the start")).expect("a line");
+    let other = started["p"]["thread"].clone();
+    let id = other["id"].as_str().expect("the name").to_owned();
+
+    play.more(&codex_resumed(&id), &[]);
+    assert_eq!(
+        calls(&play, "thread/read")
+            .last()
+            .map(|call| &call["p"]["threadId"]),
+        Some(&json!(id))
+    );
+    play.more(
+        &json!({"k": "reply", "tag": "read", "r": {"thread": other}}).to_string(),
+        &[],
+    );
+    assert_eq!(
+        calls(&play, "thread/resume")
+            .last()
+            .map(|call| &call["p"]["threadId"]),
+        Some(&json!(id))
+    );
+}
+
 #[test]
 fn the_chat_of_codex_stays_when_a_helper_of_codex_works_in_its_own_conversation() {
     let mut play = Play::codex(&[codex!("first")], &[]);
