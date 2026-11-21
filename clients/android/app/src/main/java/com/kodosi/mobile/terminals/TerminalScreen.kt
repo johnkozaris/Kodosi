@@ -1,6 +1,7 @@
 package com.kodosi.mobile.terminals
 
 import android.content.res.Configuration
+import android.view.View
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.EnterExitState
@@ -59,6 +60,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -78,6 +80,7 @@ import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
 import com.kodosi.mobile.canvas.readPickedFile
+import com.kodosi.mobile.chat.TerminalChatView
 import com.kodosi.mobile.runtime.UuidV7
 import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.ui.ActionIcon
@@ -99,6 +102,8 @@ import com.kodosi.mobile.ui.MessageComposer
 import com.kodosi.mobile.ui.ProgressCaption
 import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.ReconnectingNotice
+import com.kodosi.mobile.ui.SegmentOption
+import com.kodosi.mobile.ui.SegmentedPill
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.TextEntryDialog
 import com.kodosi.mobile.ui.bezel
@@ -128,6 +133,9 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var control by remember { mutableStateOf(false) }
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
+    val chats by model.terminals.chatting.collectAsStateWithLifecycle()
+    val chatting = sessionId in chats
+    val chatShown = chatting && session?.isConnected == true
     val news by model.canvas.news.collectAsStateWithLifecycle()
     var composing by rememberSaveable(sessionId) { mutableStateOf(false) }
     val draft = rememberSaveable(sessionId, saver = TextFieldState.Saver) { TextFieldState() }
@@ -149,14 +157,15 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
         }
     }
     LaunchedEffect(session) { connection.refresh() }
-    DisposableEffect(view, preferences.keepScreenOn) {
-        view?.keepScreenOn = preferences.keepScreenOn
-        onDispose { view?.keepScreenOn = false }
+    val window = LocalView.current
+    DisposableEffect(window, preferences.keepScreenOn) {
+        if (preferences.keepScreenOn) ScreenAwake.hold(window)
+        onDispose { if (preferences.keepScreenOn) ScreenAwake.release(window) }
     }
-    LifecycleResumeEffect(composing, view) {
-        connection.inputFocus(!composing)
+    LifecycleResumeEffect(composing, view, chatShown) {
+        connection.inputFocus(!composing && !chatShown)
         val terminal = view
-        terminal?.isFocusableInTouchMode = !composing
+        terminal?.isFocusableInTouchMode = !composing && !chatShown
         val inputFocus = Runnable {
             if (composing) {
                 terminal?.clearFocus()
@@ -165,7 +174,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                 terminal?.requestFocus()
             }
         }
-        terminal?.post(inputFocus)
+        if (!chatShown) terminal?.post(inputFocus)
         onPauseOrDispose {
             terminal?.removeCallbacks(inputFocus)
             terminal?.isFocusableInTouchMode = false
@@ -177,12 +186,12 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val textSize = (if (LocalConfiguration.current.smallestScreenWidthDp >= 600) 14f else 12f) + preferences.textSize
     Column(Modifier.fillMaxSize().background(colors.surface).statusBarsPadding().imePadding()) {
-        if (!(typing && landscape)) {
+        if (!(typing && landscape) || chatShown) {
             Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
                     Header(session, online, model.account::retryConnection, back, rename = { renaming = true })
                 }
-                if (typing && !landscape && !composing) {
+                if (typing && !landscape && !composing && !chatShown) {
                     ActionIcon(
                         AppSymbol.COMPOSE,
                         R.string.compose,
@@ -190,8 +199,24 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         enabled = session?.canControl == true
                     )
                 }
+                if (session != null && (session.chat || chatting)) {
+                    FaceSwitch(chatting) { shown ->
+                        composing = false
+                        focus.clearFocus()
+                        keyboard?.hide()
+                        model.terminals.showChat(shown, sessionId)
+                    }
+                }
                 if (session?.canvas != null) ActionIcon(AppSymbol.CANVAS, R.string.canvas, { canvas(null) })
-                TerminalActions(model, session, view, back, canvas, { renaming = true }, { closing = true })
+                TerminalActions(
+                    model,
+                    session,
+                    view.takeUnless { chatShown },
+                    back,
+                    canvas,
+                    { renaming = true },
+                    { closing = true }
+                )
             }
         }
         news[sessionId]?.let { key ->
@@ -199,152 +224,158 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                 CanvasNotice(terminal, key, open = { canvas(key) }, dismiss = { model.canvas.saw(terminal) })
             }
         }
-        Box(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp)
-                .terminalTile(colors)
-                .clip(RoundedCornerShape(Radius.tile))
-        ) {
-            AndroidView(
-                factory = { context ->
-                    TerminalView(context, connection, scope).also { created ->
-                        created.onControlChanged = { control = it }
-                        created.onClipboardRead = { clipboardAnswer = it }
-                        created.onFailure = { model.notify(model.words.didNotWork) }
-                        view = created
-                    }
-                },
-                update = {
-                    it.fontSize(textSize)
-                    it.onLink = { address -> links.open(address, session?.hostName) }
-                    it.onPastePicture = { uri ->
-                        val target = session
-                        if (target?.canControl == true) {
-                            scope.launch {
-                                model.runAction {
-                                    val file = File(context.cacheDir, "picture-${UuidV7.generate()}")
-                                    try {
-                                        val picture = readPickedFile(context, uri).second
-                                        withContext(Dispatchers.IO) { file.writeBytes(picture) }
-                                        model.terminals.act(
-                                            "session.picture",
-                                            target,
-                                            fields("path" to file.absolutePath)
-                                        )
-                                    } finally {
-                                        withContext(NonCancellable + Dispatchers.IO) { file.delete() }
+        if (chatShown && session != null) {
+            TerminalChatView(model, session, Modifier.weight(1f).fillMaxWidth())
+        } else {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .terminalTile(colors)
+                    .clip(RoundedCornerShape(Radius.tile))
+            ) {
+                AndroidView(
+                    factory = { context ->
+                        TerminalView(context, connection, scope).also { created ->
+                            created.onControlChanged = { control = it }
+                            created.onClipboardRead = { clipboardAnswer = it }
+                            created.onFailure = { model.notify(model.words.didNotWork) }
+                            view = created
+                        }
+                    },
+                    onRelease = { if (view === it) view = null },
+                    update = {
+                        it.fontSize(textSize)
+                        it.onLink = { address -> links.open(address, session?.hostName) }
+                        it.onPastePicture = { uri ->
+                            val target = session
+                            if (target?.canControl == true) {
+                                scope.launch {
+                                    model.runAction {
+                                        val file = File(context.cacheDir, "picture-${UuidV7.generate()}")
+                                        try {
+                                            val picture = readPickedFile(context, uri).second
+                                            withContext(Dispatchers.IO) { file.writeBytes(picture) }
+                                            model.terminals.act(
+                                                "session.picture",
+                                                target,
+                                                fields("path" to file.absolutePath)
+                                            )
+                                        } finally {
+                                            withContext(NonCancellable + Dispatchers.IO) { file.delete() }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                },
-                modifier = Modifier.fillMaxSize().padding(8.dp)
-            )
-            KodosiTheme(dark = true) {
-                if (session == null) {
-                    StateCard(stringResource(R.string.terminal_ended), null, working = false) {
-                        KodosiButton(
-                            stringResource(R.string.back_to_terminals),
-                            onClick = back,
-                            kind = ButtonKind.SECONDARY
+                    },
+                    modifier = Modifier.fillMaxSize().padding(8.dp)
+                )
+                KodosiTheme(dark = true) {
+                    if (session == null) {
+                        StateCard(stringResource(R.string.terminal_ended), null, working = false) {
+                            KodosiButton(
+                                stringResource(R.string.back_to_terminals),
+                                onClick = back,
+                                kind = ButtonKind.SECONDARY
+                            )
+                        }
+                    } else {
+                        val cover = coverOf(session, online, state, openResults[sessionId])
+                        // The app lets a terminal go as soon as its screen starts to leave; the card stays as it was.
+                        val leaving =
+                            LocalNavAnimatedContentScope.current.transition.targetState == EnterExitState.PostExit
+                        val kept = remember(leaving) { cover }
+                        CoverLayer(
+                            if (leaving) kept else cover,
+                            connect = connection::retry,
+                            reconnect = model.account::retryConnection
                         )
                     }
-                } else {
-                    val cover = coverOf(session, online, state, openResults[sessionId])
-                    // The app lets a terminal go as soon as its screen starts to leave; the card stays as it was.
-                    val leaving = LocalNavAnimatedContentScope.current.transition.targetState == EnterExitState.PostExit
-                    val kept = remember(leaving) { cover }
-                    CoverLayer(
-                        if (leaving) kept else cover,
-                        connect = connection::retry,
-                        reconnect = model.account::retryConnection
+                    ReconnectingNotice(
+                        session?.waitsForConnection == true && state == TerminalConnection.State.Rendered,
+                        Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
                     )
-                }
-                ReconnectingNotice(
-                    session?.waitsForConnection == true && state == TerminalConnection.State.Rendered,
-                    Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
-                )
-                clipboardAnswer?.let { answer ->
-                    ConfirmDialog(
-                        session?.name.orEmpty(),
-                        stringResource(
-                            R.string.clipboard_request
-                        ),
-                        stringResource(R.string.approve),
-                        {
-                            answer("")
-                            clipboardAnswer = null
-                        },
-                        {
-                            val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
-                            val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
-                            answer(text)
-                            clipboardAnswer = null
-                        }
-                    )
-                }
-            }
-        }
-        if (composing) {
-            MessageComposer(
-                draft,
-                false,
-                send = {
-                    if (view?.paste(draft.text.toString(), enter = true) == true) {
-                        draft.clearText()
-                        composing = false
-                        focus.clearFocus()
-                        keyboard?.hide()
+                    clipboardAnswer?.let { answer ->
+                        ConfirmDialog(
+                            session?.name.orEmpty(),
+                            stringResource(
+                                R.string.clipboard_request
+                            ),
+                            stringResource(R.string.approve),
+                            {
+                                answer("")
+                                clipboardAnswer = null
+                            },
+                            {
+                                val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                                val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
+                                answer(text)
+                                clipboardAnswer = null
+                            }
+                        )
                     }
-                },
-                enabled = session?.canControl == true && state == TerminalConnection.State.Rendered,
-                focusRequester = composerFocus
-            )
-            Row(Modifier.fillMaxWidth().navigationBarsPadding(), horizontalArrangement = Arrangement.End) {
-                ActionIcon(AppSymbol.KEYBOARD, R.string.keyboard, {
-                    composing = false
-                    view?.showKeyboard()
-                })
-                ActionIcon(AppSymbol.CLOSE, R.string.close, {
-                    composing = false
-                    keyboard?.hide()
-                })
-            }
-        } else if (typing) {
-            KeyRow(view, control) {
-                if (landscape) {
-                    ActionIcon(AppSymbol.COMPOSE, R.string.compose, { composing = true })
-                    ActionIcon(AppSymbol.HIDE_KEYBOARD, R.string.hide_keyboard, { keyboard?.hide() })
-                    TerminalActions(model, session, view, back, canvas, {
-                        renaming = true
-                    }, { closing = true })
                 }
             }
-        } else {
-            Row(
-                Modifier.fillMaxWidth().navigationBarsPadding().padding(10.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                if (session?.needsUser == true && session.agent.isAgent) {
-                    listOf("1", "2", "3").forEach { answer -> KeyCap(answer) { view?.paste(answer, enter = true) } }
-                    Spacer(Modifier.weight(1f))
+            if (composing) {
+                MessageComposer(
+                    draft,
+                    false,
+                    send = {
+                        if (view?.paste(draft.text.toString(), enter = true) == true) {
+                            draft.clearText()
+                            composing = false
+                            focus.clearFocus()
+                            keyboard?.hide()
+                        }
+                    },
+                    enabled = session?.canControl == true && state == TerminalConnection.State.Rendered,
+                    focusRequester = composerFocus
+                )
+                Row(Modifier.fillMaxWidth().navigationBarsPadding(), horizontalArrangement = Arrangement.End) {
+                    ActionIcon(AppSymbol.KEYBOARD, R.string.keyboard, {
+                        composing = false
+                        view?.showKeyboard()
+                    })
+                    ActionIcon(AppSymbol.CLOSE, R.string.close, {
+                        composing = false
+                        keyboard?.hide()
+                    })
                 }
-                ActionIcon(
-                    AppSymbol.COMPOSE,
-                    R.string.compose,
-                    { composing = true },
-                    enabled =
-                        session?.canControl == true
-                )
-                ActionIcon(
-                    AppSymbol.KEYBOARD,
-                    R.string.keyboard,
-                    { view?.showKeyboard() },
-                    enabled = state == TerminalConnection.State.Rendered
-                )
+            } else if (typing) {
+                KeyRow(view, control) {
+                    if (landscape) {
+                        ActionIcon(AppSymbol.COMPOSE, R.string.compose, { composing = true })
+                        ActionIcon(AppSymbol.HIDE_KEYBOARD, R.string.hide_keyboard, { keyboard?.hide() })
+                        TerminalActions(model, session, view, back, canvas, {
+                            renaming = true
+                        }, { closing = true })
+                    }
+                }
+            } else {
+                Row(
+                    Modifier.fillMaxWidth().navigationBarsPadding().padding(10.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    if (session?.needsUser == true && session.agent.isAgent) {
+                        listOf("1", "2", "3").forEach { answer -> KeyCap(answer) { view?.paste(answer, enter = true) } }
+                        Spacer(Modifier.weight(1f))
+                    }
+                    ActionIcon(
+                        AppSymbol.COMPOSE,
+                        R.string.compose,
+                        { composing = true },
+                        enabled =
+                            session?.canControl == true
+                    )
+                    ActionIcon(
+                        AppSymbol.KEYBOARD,
+                        R.string.keyboard,
+                        { view?.showKeyboard() },
+                        enabled = state == TerminalConnection.State.Rendered
+                    )
+                }
             }
         }
     }
@@ -373,6 +404,24 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
             },
             destructive = true
         )
+    }
+}
+
+/**
+ * The screen stays on while a terminal shows, as its screen or as its chat. A terminal that opens
+ * from another one overlaps it while the other leaves, so the screen goes off only after the last.
+ */
+private object ScreenAwake {
+    private var holders = 0
+
+    fun hold(window: View) {
+        holders++
+        window.keepScreenOn = true
+    }
+
+    fun release(window: View) {
+        holders--
+        if (holders == 0) window.keepScreenOn = false
     }
 }
 
@@ -472,16 +521,18 @@ private fun TerminalActions(
                     }
                 })
             }
-            KodosiMenuItem(text = {
-                Text(stringResource(R.string.paste))
-            }, enabled = session?.canControl == true, onClick = {
-                menu = false
-                view?.pasteClipboard()
-            })
-            KodosiMenuItem(text = { Text(stringResource(R.string.select_text)) }, onClick = {
-                menu = false
-                view?.selectAll()
-            })
+            if (view != null) {
+                KodosiMenuItem(text = {
+                    Text(stringResource(R.string.paste))
+                }, enabled = session?.canControl == true, onClick = {
+                    menu = false
+                    view.pasteClipboard()
+                })
+                KodosiMenuItem(text = { Text(stringResource(R.string.select_text)) }, onClick = {
+                    menu = false
+                    view.selectAll()
+                })
+            }
         }
     }
 }
@@ -799,4 +850,16 @@ private fun KeyCap(
             }
         }
     }
+}
+
+@Composable
+private fun FaceSwitch(chatting: Boolean, choose: (Boolean) -> Unit) {
+    SegmentedPill(
+        listOf(
+            SegmentOption(stringResource(R.string.terminal), AppSymbol.TERMINAL),
+            SegmentOption(stringResource(R.string.chat), AppSymbol.CHAT)
+        ),
+        if (chatting) 1 else 0,
+        symbolic = true
+    ) { choose(it == 1) }
 }

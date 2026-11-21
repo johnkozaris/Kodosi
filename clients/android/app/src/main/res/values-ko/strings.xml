@@ -386,4 +386,132 @@
     <string name="agent_effort_high">높음</string>
     <string name="agent_effort_xhigh">매우 높음</string>
     <string name="agent_effort_max">최대</string>
+    <string name="terminal">터미널</string>
+    <string name="chat">채팅</string>
+    <string name="chat_message_agent">%1$s에 메시지</string>
+    <string name="chat_say_instead">또는 대신 할 일을 알려 주세요</string>
+    <string name="chat_allow">허용</string>
+    <string name="chat_deny">거부</string>
+    <string name="chat_always">항상 %1$s</string>
+    <string name="chat_keep_planning">계속 계획하기</string>
+    <string name="chat_approve_ask">승인하고 변경마다 묻기</string>
+    <string name="chat_approve_edits">승인하고 변경 허용</string>
+    <string name="chat_approve_auto">승인하고 안전 검사 사용</string>
+    <string name="chat_approve_alone">승인하고 묻지 않기</string>
+    <string name="chat_approve_helpers">승인하고 서브에이전트에 맡기기</string>
+    <string name="chat_leave_plan">계획 모드 나가기</string>
+    <string name="chat_compacted">대화 압축됨</string>
+    <string name="chat_stopped">중지됨</string>
+    <string name="chat_refused">응답 거부</string>
+    <string name="chat_worked_for">%1$s 동안 작업함</string>
+    <string name="chat_no_agent">이 터미널에서 실행 중인 에이전트가 없어요</string>
+    <string name="chat_show_steps">단계 보기</string>
+    <string name="chat_hide_steps">단계 숨기기</string>
+    <string name="chat_thinking">생각 중</string>
+    <string name="chat_writing">작성 중</string>
+    <string name="chat_compacting">대화 압축 중</string>
+    <string name="chat_latest">최신</string>
+    <string name="chat_context_used">컨텍스트: %1$d%% 사용</string>
+    <string name="chat_show_tasks">작업 보기</string>
+    <string name="chat_hide_tasks">작업 숨기기</string>
+    <string name="chat_takes_next">에이전트는 다음 메시지를 터미널에서 받아요.</string>
+    <string name="chat_in_background">백그라운드</string>
+    <string name="chat_denied">거부됨</string>
+    <string name="chat_stopped_step">중지됨</string>
+    <string name="chat_mode_edits">편집</string>
+    <string name="chat_mode_plan">계획</string>
+    <string name="chat_mode_rules">규칙</string>
+    <string name="chat_running">실행 중</string>
+    <string name="chat_running_subject">%1$s 실행 중</string>
+    <string name="chat_reading">읽는 중</string>
+    <string name="chat_reading_subject">%1$s 읽는 중</string>
+    <string name="chat_changing">수정 중</string>
+    <string name="chat_changing_subject">%1$s 수정 중</string>
+    <string name="chat_writing_subject">%1$s 작성 중</string>
+    <string name="chat_searching">검색 중</string>
+    <string name="chat_searching_subject">%1$s 검색 중</string>
+    <string name="chat_fetching">가져오는 중</string>
+    <string name="chat_fetching_subject">%1$s 가져오는 중</string>
+    <string name="chat_asking_helper">서브에이전트에게 맡기는 중</string>
+    <string name="chat_asking_helper_subject">%1$s 관련해 서브에이전트에게 맡기는 중</string>
+    <string name="chat_planning">계획 중</string>
+    <string name="chat_planning_subject">%1$s 계획 중</string>
+    <string name="chat_using">사용 중</string>
+    <string name="chat_using_subject">%1$s 사용 중</string>
+    <string name="chat_ran">실행함</string>
+    <string name="chat_ran_subject">%1$s 실행함</string>
+    <string name="chat_read">읽음</string>
+    <string name="chat_read_subject">%1$s 읽음</string>
+    <string name="chat_changed">수정함</string>
+    <string name="chat_changed_subject">%1$s 수정함</string>
+    <string name="chat_wrote">작성함</string>
+    <string name="chat_wrote_subject">%1$s 작성함</string>
+    <string name="chat_searched">검색함</string>
+    <string name="chat_searched_subject">%1$s 검색함</string>
+    <string name="chat_fetched">가져옴</string>
+    <string name="chat_fetched_subject">%1$s 가져옴</string>
+    <string name="chat_asked_helper">서브에이전트에게 맡김</string>
+    <string name="chat_asked_helper_subject">%1$s 관련해 서브에이전트에게 맡김</string>
+    <string name="chat_planned">계획함</string>
+    <string name="chat_planned_subject">%1$s 계획함</string>
+    <string name="chat_used">사용함</string>
+    <string name="chat_used_subject">%1$s 사용함</string>
+    <string name="today">오늘</string>
+    <string name="yesterday">어제</string>
+    <string name="chat_usage_used">%1$s: %2$d%% 사용</string>
+    <string name="chat_usage_month">이번 달</string>
+    <string name="chat_usage_week">이번 주</string>
+    <string name="chat_usage_scope_month">%1$s, 이번 달</string>
+    <string name="chat_usage_scope_week">%1$s, 이번 주</string>
+    <plurals name="chat_ran_commands">
+        <item quantity="other">명령 %d개 실행함</item>
+    </plurals>
+    <plurals name="chat_read_files">
+        <item quantity="other">파일 %d개 읽음</item>
+    </plurals>
+    <plurals name="chat_changed_files">
+        <item quantity="other">파일 %d개 수정함</item>
+    </plurals>
+    <plurals name="chat_wrote_files">
+        <item quantity="other">파일 %d개 작성함</item>
+    </plurals>
+    <plurals name="chat_made_searches">
+        <item quantity="other">%d번 검색함</item>
+    </plurals>
+    <plurals name="chat_fetched_pages">
+        <item quantity="other">페이지 %d개 가져옴</item>
+    </plurals>
+    <plurals name="chat_asked_helpers">
+        <item quantity="other">서브에이전트 %d개에게 맡김</item>
+    </plurals>
+    <plurals name="chat_used_skills">
+        <item quantity="other">스킬 %d개 사용함</item>
+    </plurals>
+    <plurals name="chat_asked_questions">
+        <item quantity="other">질문 %d개 함</item>
+    </plurals>
+    <plurals name="chat_made_plans">
+        <item quantity="other">계획 %d개 세움</item>
+    </plurals>
+    <plurals name="chat_used_tools">
+        <item quantity="other">도구 %d개 사용함</item>
+    </plurals>
+    <plurals name="chat_steps">
+        <item quantity="other">%d단계</item>
+    </plurals>
+    <plurals name="chat_count_denied">
+        <item quantity="other">%d개 거부됨</item>
+    </plurals>
+    <plurals name="chat_count_stopped">
+        <item quantity="other">%d개 중지됨</item>
+    </plurals>
+    <plurals name="chat_usage_hours">
+        <item quantity="other">최근 %d시간</item>
+    </plurals>
+    <plurals name="chat_usage_scope_hours">
+        <item quantity="other">%1$s, 최근 %2$d시간</item>
+    </plurals>
+    <plurals name="chat_tasks_done">
+        <item quantity="other">작업: %2$d개 중 %1$d개 완료</item>
+    </plurals>
 </resources>

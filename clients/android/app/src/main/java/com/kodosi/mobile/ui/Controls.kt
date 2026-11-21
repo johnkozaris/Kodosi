@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -49,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -83,6 +85,7 @@ fun KodosiButton(
     }
 }
 
+/** A key stays [down] while the answer that it gave is on its way. */
 @Composable
 fun KodosiButton(
     onClick: () -> Unit,
@@ -90,11 +93,12 @@ fun KodosiButton(
     kind: ButtonKind = ButtonKind.PRIMARY,
     size: ButtonSize = ButtonSize.REGULAR,
     enabled: Boolean = true,
+    down: Boolean = false,
     content: @Composable RowScope.() -> Unit
 ) {
     val colors = KodosiTheme.colors
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
+    val pressed = interaction.collectIsPressedAsState().value || down
     val hovered by interaction.collectIsHoveredAsState()
     val focused by interaction.collectIsFocusedAsState()
     val lit = enabled && (hovered || focused)
@@ -165,10 +169,11 @@ fun KodosiButton(
                     .clickable(
                         interactionSource = interaction,
                         indication = null,
-                        enabled = enabled,
+                        enabled = enabled && !down,
                         role = Role.Button,
                         onClick = onClick
                     )
+                    .semantics { if (down) selected = true }
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
@@ -218,14 +223,55 @@ fun KodosiTextButton(
 @Composable
 fun KodosiSendKey(enabled: Boolean, working: Boolean, onClick: () -> Unit) {
     val colors = KodosiTheme.colors
+    val reduced = reducedMotion()
+    ComposerKey(
+        onClick,
+        enabled = enabled && !working,
+        fill = if (enabled) colors.accent else lerp(colors.lifted, colors.ink, 0.08f),
+        quiet = !enabled,
+        ring = working && reduced
+    ) {
+        AppIcon(
+            AppSymbol.SEND,
+            modifier = Modifier.size(14.dp),
+            description = stringResource(R.string.send),
+            tint = if (enabled) colors.onAccent else colors.inkFaint
+        )
+        if (working && !reduced) {
+            KodosiSpinner(Modifier.matchParentSize())
+        }
+    }
+}
+
+@Composable
+fun KodosiStopKey(onClick: () -> Unit) {
+    val colors = KodosiTheme.colors
+    val label = stringResource(R.string.stop)
+    ComposerKey(onClick, enabled = true, fill = colors.lifted, quiet = true, ring = false) {
+        Box(
+            Modifier.size(9.dp).background(colors.ink, RoundedCornerShape(2.dp))
+                .semantics { contentDescription = label }
+        )
+    }
+}
+
+@Composable
+private fun ComposerKey(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    fill: Color,
+    quiet: Boolean,
+    ring: Boolean,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val colors = KodosiTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
-    val reduced = reducedMotion()
     val scale by animateFloatAsState(
         if (pressed) 0.95f else 1f,
         snappy(),
-        label = "send press"
+        label = "composer key press"
     )
     Box(
         Modifier.size(48.dp).graphicsLayer {
@@ -233,44 +279,16 @@ fun KodosiSendKey(enabled: Boolean, working: Boolean, onClick: () -> Unit) {
             scaleY = scale
         }
             .clip(CircleShape)
-            .clickable(
-                interaction,
-                indication = null,
-                enabled = enabled && !working,
-                role = Role.Button,
-                onClick = onClick
-            ),
+            .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Box(
             Modifier.size(30.dp)
-                .bezel(
-                    colors,
-                    CircleShape,
-                    if (enabled) colors.accent else lerp(colors.lifted, colors.ink, 0.08f),
-                    quiet = !enabled
-                )
-                .border(
-                    1.5.dp,
-                    if (focused || (working && reduced)) {
-                        colors.accentStrong
-                    } else {
-                        Color.Transparent
-                    },
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            AppIcon(
-                AppSymbol.SEND,
-                modifier = Modifier.size(14.dp),
-                description = stringResource(R.string.send),
-                tint = if (enabled) colors.onAccent else colors.inkFaint
-            )
-            if (working && !reduced) {
-                KodosiSpinner(Modifier.matchParentSize())
-            }
-        }
+                .bezel(colors, CircleShape, fill, quiet = quiet)
+                .border(1.5.dp, if (focused || ring) colors.accentStrong else Color.Transparent, CircleShape),
+            contentAlignment = Alignment.Center,
+            content = content
+        )
     }
 }
 

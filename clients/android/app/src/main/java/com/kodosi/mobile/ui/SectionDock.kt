@@ -111,7 +111,7 @@ fun SectionDock(items: List<DockItem>, selection: Int, select: (Int) -> Unit) {
 data class SegmentOption(val title: String, val symbol: AppSymbol? = null)
 
 @Composable
-fun SegmentedPill(options: List<SegmentOption>, selection: Int, select: (Int) -> Unit) {
+fun SegmentedPill(options: List<SegmentOption>, selection: Int, symbolic: Boolean = false, select: (Int) -> Unit) {
     val colors = KodosiTheme.colors
     val haptics = LocalHapticFeedback.current
     PillTrack(faceHeight = 30.dp) { thumb ->
@@ -127,24 +127,30 @@ fun SegmentedPill(options: List<SegmentOption>, selection: Int, select: (Int) ->
                         if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                         select(index)
                     }
-                ),
+                ).then(if (symbolic) Modifier.semantics { contentDescription = option.title } else Modifier),
                 contentAlignment = Alignment.Center
             ) {
                 if (selected) thumb(Modifier.matchParentSize())
                 Row(
-                    Modifier.defaultMinSize(minHeight = 30.dp).padding(horizontal = 12.dp),
+                    Modifier.defaultMinSize(minHeight = 30.dp).padding(horizontal = if (symbolic) 13.dp else 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     option.symbol?.let {
-                        AppIcon(it, Modifier.size(11.dp), tint = if (selected) colors.ink else colors.inkMuted)
+                        AppIcon(
+                            it,
+                            Modifier.size(if (symbolic) 13.dp else 11.dp),
+                            tint = if (selected) colors.ink else colors.inkMuted
+                        )
                     }
-                    Text(
-                        option.title,
-                        style = KodosiType.footnote,
-                        color = if (selected) colors.ink else colors.inkMuted,
-                        maxLines = 1
-                    )
+                    if (!symbolic) {
+                        Text(
+                            option.title,
+                            style = KodosiType.footnote,
+                            color = if (selected) colors.ink else colors.inkMuted,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }

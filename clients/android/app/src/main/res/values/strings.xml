@@ -395,4 +395,149 @@
     <string name="agent_effort_high">High</string>
     <string name="agent_effort_xhigh">Extra high</string>
     <string name="agent_effort_max">Max</string>
+    <string name="terminal">Terminal</string>
+    <string name="chat">Chat</string>
+    <string name="chat_message_agent">Message %1$s</string>
+    <string name="chat_say_instead">Or say what to do instead</string>
+    <string name="chat_allow">Allow</string>
+    <string name="chat_deny">Deny</string>
+    <string name="chat_always">Always %1$s</string>
+    <string name="chat_keep_planning">Keep planning</string>
+    <string name="chat_approve_ask">Approve, and ask before each change</string>
+    <string name="chat_approve_edits">Approve, and allow its edits</string>
+    <string name="chat_approve_auto">Approve, and use the safety check</string>
+    <string name="chat_approve_alone">Approve, and ask nothing</string>
+    <string name="chat_approve_helpers">Approve, and let helpers work alone</string>
+    <string name="chat_leave_plan">Leave plan mode</string>
+    <string name="chat_compacted">compacted</string>
+    <string name="chat_stopped">Stopped</string>
+    <string name="chat_refused">Refused</string>
+    <string name="chat_worked_for">worked for %1$s</string>
+    <string name="chat_no_agent">No agent runs in this terminal</string>
+    <string name="chat_show_steps">Show the steps</string>
+    <string name="chat_hide_steps">Hide the steps</string>
+    <string name="chat_thinking">thinking</string>
+    <string name="chat_writing">writing</string>
+    <string name="chat_compacting">compacting</string>
+    <string name="chat_latest">Latest</string>
+    <string name="chat_context_used">Context: %1$d%% used</string>
+    <string name="chat_show_tasks">Show the tasks</string>
+    <string name="chat_hide_tasks">Hide the tasks</string>
+    <string name="chat_takes_next">The agent takes the next message in its terminal.</string>
+    <string name="chat_in_background">in the background</string>
+    <string name="chat_denied">denied</string>
+    <string name="chat_stopped_step">stopped</string>
+    <string name="chat_mode_edits">Edits</string>
+    <string name="chat_mode_plan">Plan</string>
+    <string name="chat_mode_rules">Rules</string>
+    <string name="chat_running">running</string>
+    <string name="chat_running_subject">running %1$s</string>
+    <string name="chat_reading">reading</string>
+    <string name="chat_reading_subject">reading %1$s</string>
+    <string name="chat_changing">changing</string>
+    <string name="chat_changing_subject">changing %1$s</string>
+    <string name="chat_writing_subject">writing %1$s</string>
+    <string name="chat_searching">searching for</string>
+    <string name="chat_searching_subject">searching for %1$s</string>
+    <string name="chat_fetching">fetching</string>
+    <string name="chat_fetching_subject">fetching %1$s</string>
+    <string name="chat_asking_helper">asking a helper</string>
+    <string name="chat_asking_helper_subject">asking a helper about %1$s</string>
+    <string name="chat_planning">planning</string>
+    <string name="chat_planning_subject">planning %1$s</string>
+    <string name="chat_using">using</string>
+    <string name="chat_using_subject">using %1$s</string>
+    <string name="chat_ran">ran</string>
+    <string name="chat_ran_subject">ran %1$s</string>
+    <string name="chat_read">read</string>
+    <string name="chat_read_subject">read %1$s</string>
+    <string name="chat_changed">changed</string>
+    <string name="chat_changed_subject">changed %1$s</string>
+    <string name="chat_wrote">wrote</string>
+    <string name="chat_wrote_subject">wrote %1$s</string>
+    <string name="chat_searched">searched for</string>
+    <string name="chat_searched_subject">searched for %1$s</string>
+    <string name="chat_fetched">fetched</string>
+    <string name="chat_fetched_subject">fetched %1$s</string>
+    <string name="chat_asked_helper">asked a helper</string>
+    <string name="chat_asked_helper_subject">asked a helper about %1$s</string>
+    <string name="chat_planned">planned</string>
+    <string name="chat_planned_subject">planned %1$s</string>
+    <string name="chat_used">used</string>
+    <string name="chat_used_subject">used %1$s</string>
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="chat_usage_used">%1$s: %2$d%% used</string>
+    <string name="chat_usage_month">This month</string>
+    <string name="chat_usage_week">This week</string>
+    <string name="chat_usage_scope_month">%1$s, this month</string>
+    <string name="chat_usage_scope_week">%1$s, this week</string>
+    <plurals name="chat_ran_commands">
+        <item quantity="one">ran %d command</item>
+        <item quantity="other">ran %d commands</item>
+    </plurals>
+    <plurals name="chat_read_files">
+        <item quantity="one">read %d file</item>
+        <item quantity="other">read %d files</item>
+    </plurals>
+    <plurals name="chat_changed_files">
+        <item quantity="one">changed %d file</item>
+        <item quantity="other">changed %d files</item>
+    </plurals>
+    <plurals name="chat_wrote_files">
+        <item quantity="one">wrote %d file</item>
+        <item quantity="other">wrote %d files</item>
+    </plurals>
+    <plurals name="chat_made_searches">
+        <item quantity="one">made %d search</item>
+        <item quantity="other">made %d searches</item>
+    </plurals>
+    <plurals name="chat_fetched_pages">
+        <item quantity="one">fetched %d page</item>
+        <item quantity="other">fetched %d pages</item>
+    </plurals>
+    <plurals name="chat_asked_helpers">
+        <item quantity="one">asked %d helper</item>
+        <item quantity="other">asked %d helpers</item>
+    </plurals>
+    <plurals name="chat_used_skills">
+        <item quantity="one">used %d skill</item>
+        <item quantity="other">used %d skills</item>
+    </plurals>
+    <plurals name="chat_asked_questions">
+        <item quantity="one">asked %d question</item>
+        <item quantity="other">asked %d questions</item>
+    </plurals>
+    <plurals name="chat_made_plans">
+        <item quantity="one">made %d plan</item>
+        <item quantity="other">made %d plans</item>
+    </plurals>
+    <plurals name="chat_used_tools">
+        <item quantity="one">used %d tool</item>
+        <item quantity="other">used %d tools</item>
+    </plurals>
+    <plurals name="chat_steps">
+        <item quantity="one">%d step</item>
+        <item quantity="other">%d steps</item>
+    </plurals>
+    <plurals name="chat_count_denied">
+        <item quantity="one">%d denied</item>
+        <item quantity="other">%d denied</item>
+    </plurals>
+    <plurals name="chat_count_stopped">
+        <item quantity="one">%d stopped</item>
+        <item quantity="other">%d stopped</item>
+    </plurals>
+    <plurals name="chat_usage_hours">
+        <item quantity="one">Last %d hour</item>
+        <item quantity="other">Last %d hours</item>
+    </plurals>
+    <plurals name="chat_usage_scope_hours">
+        <item quantity="one">%1$s, last %2$d hour</item>
+        <item quantity="other">%1$s, last %2$d hours</item>
+    </plurals>
+    <plurals name="chat_tasks_done">
+        <item quantity="one">Tasks: %1$d of %2$d done</item>
+        <item quantity="other">Tasks: %1$d of %2$d done</item>
+    </plurals>
 </resources>

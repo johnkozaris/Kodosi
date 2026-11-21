@@ -70,7 +70,9 @@ data class RuntimeSession(
     val hidden: Boolean = false,
     val projectId: String? = null,
     val restoredFrom: String? = null,
-    val canvas: Canvas? = null
+    val canvas: Canvas? = null,
+    /** An agent of the terminal reports to the terminal's chat. */
+    val chat: Boolean = false
 ) {
     @Serializable
     enum class Kind {
