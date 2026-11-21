@@ -323,6 +323,14 @@ Item {
                                         && Models.Canvas.isNew(root.sessionId, modelData.key)
                                     readonly property bool closing: hovered
 
+                                    function keepInView(): void {
+                                        if (selected)
+                                            Qt.callLater(() => {
+                                                tabs.forceLayout();
+                                                tabsArea.positionViewAtChild(tab, Flickable.Contain);
+                                            });
+                                    }
+
                                     height: 24
                                     implicitWidth: Math.min(200, tabRow.implicitWidth + 17)
                                     hoverEnabled: true
@@ -369,14 +377,8 @@ Item {
                                     }
                                     onClicked: Models.Canvas.pick(root.sessionId, modelData.key)
                                     T.ContextMenu.onRequested: position => root.openFileMenu(tab.modelData, tab, position)
-                                    onSelectedChanged: {
-                                        if (selected)
-                                            Qt.callLater(tabsArea.positionViewAtChild, tab, Flickable.Contain);
-                                    }
-                                    Component.onCompleted: {
-                                        if (selected)
-                                            Qt.callLater(tabsArea.positionViewAtChild, tab, Flickable.Contain);
-                                    }
+                                    onSelectedChanged: keepInView()
+                                    Component.onCompleted: keepInView()
 
                                     RemoveKey {
                                         x: 5
