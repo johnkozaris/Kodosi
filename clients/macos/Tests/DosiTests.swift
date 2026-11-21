@@ -31,7 +31,7 @@ private func text(_ id: String, _ text: String, live: Bool = false) -> JSONValue
 @Test func `a snapshot keeps earlier pages and a new conversation starts clean`() async throws {
     let commands = CommandSink()
     var sent: [[String: JSONValue]] = []
-    commands.transport = { data in
+    commands.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(command)
         }
@@ -136,7 +136,7 @@ private struct Named {
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(command)
         }

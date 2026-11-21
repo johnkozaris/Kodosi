@@ -10,7 +10,7 @@ private func signedOutApp(prefix: String) throws -> (AppDependencies, SignInReco
     let sent = Box<[String]>([])
     let opened = Box<[URL]>([])
     let raised = Box<Int>(0)
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data), let type = command["type"]?.stringValue {
             sent.value.append([type, command["browser"]?.stringValue].compactMap(\.self).joined(separator: " "))
         }

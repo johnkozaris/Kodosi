@@ -180,7 +180,7 @@ private func reporter(on mac: StandInMac) -> (PresenceReporter, Sent) {
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap, presenceSource: mac.source)
     defer { app.shutdownProcess() }
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(command)
         }

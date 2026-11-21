@@ -11,7 +11,7 @@ struct NewTerminalTests {
 
     init() throws {
         let sent = sent
-        model.commands.transport = { data in
+        model.commands.transport { data in
             RuntimeContract.verify(data)
             sent.append(data)
             return Int32(KODOSI_FFI_OK)

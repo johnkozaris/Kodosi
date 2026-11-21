@@ -32,10 +32,8 @@ import SwiftUI
         }
 
         func show(_ feed: BrowserFeed) {
-            let video = video
-            feed.show(on: self) { [weak feed] sample in
-                Self.enqueue(sample, on: video, feed: feed)
-            }
+            let renderer = VideoRenderer(video.sampleBufferRenderer)
+            feed.show(on: self) { renderer.enqueue($0) }
         }
     }
 
@@ -74,23 +72,28 @@ import SwiftUI
         }
 
         func show(_ feed: BrowserFeed) {
-            let video = video
-            feed.show(on: self) { [weak feed] sample in
-                Self.enqueue(sample, on: video, feed: feed)
-            }
+            let renderer = VideoRenderer(video.sampleBufferRenderer)
+            feed.show(on: self) { renderer.enqueue($0) }
         }
     }
 #endif
 
-@MainActor
-extension VideoSurface {
+/// AVFoundation marks its video renderer as not sendable, yet it takes sample buffers from any
+/// queue, and the frames come on the task of the browser pipes.
+private final class VideoRenderer: @unchecked Sendable {
+    private let renderer: AVSampleBufferVideoRenderer
+
+    init(_ renderer: AVSampleBufferVideoRenderer) {
+        self.renderer = renderer
+    }
+
     /// A display that lost the stream starts again at the next key frame.
-    static func enqueue(_ sample: CMSampleBuffer, on video: AVSampleBufferDisplayLayer, feed: BrowserFeed?) {
-        let renderer = video.sampleBufferRenderer
-        if renderer.status == .failed {
+    func enqueue(_ sample: CMSampleBuffer) -> Bool {
+        let failed = renderer.status == .failed
+        if failed {
             renderer.flush()
-            feed?.restart()
         }
         renderer.enqueue(sample)
+        return !failed
     }
 }

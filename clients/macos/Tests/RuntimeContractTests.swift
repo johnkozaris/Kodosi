@@ -4,6 +4,13 @@ import KodosiDesign
 @testable import KodosiDesktop
 import Testing
 
+extension CommandSink {
+    /// For a test that sends from the main actor alone.
+    func transport(_ answer: @escaping @MainActor (Data) -> Int32?) {
+        transport = { data in MainActor.assumeIsolated { answer(data) } }
+    }
+}
+
 func runtimeEvent(_ type: String, epoch: UInt64 = 1, userId: String? = "owner", fields: [String: JSONValue] = [:]) throws -> RuntimeEvent {
     var value = fields
     value["type"] = .string(type)

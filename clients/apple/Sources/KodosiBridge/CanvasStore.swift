@@ -36,6 +36,7 @@ public final class CanvasStore {
     private static let partBytes = 256 * 1024
 
     private let commands: CommandSink
+    private let browserPipes: BrowserPipes
     private var marks: [String: [String: UInt64]] = [:]
     private var firstSeen: [String: UInt64] = [:]
     public private(set) var picks: [String: String] = [:]
@@ -65,15 +66,17 @@ public final class CanvasStore {
     @ObservationIgnored private var feeds: [String: BrowserFeed] = [:]
     @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
 
-    public init(commands: CommandSink, started: UInt64 = UInt64(Date.now.timeIntervalSince1970 * 1000)) {
+    public init(commands: CommandSink, browserPipes: BrowserPipes = BrowserPipes(),
+                started: UInt64 = UInt64(Date.now.timeIntervalSince1970 * 1000))
+    {
         self.commands = commands
+        self.browserPipes = browserPipes
         self.started = started
     }
 
+    /// The browser pipes give the link its events and open it again after a drop of their own.
     func browser(of session: String) -> DocumentLink {
-        let link = DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey)
-        documents.add(link)
-        return link
+        DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey, claims: browserPipes)
     }
 
     public func document(_ item: CanvasItem, in session: String) -> DocumentLink {

@@ -11,7 +11,7 @@ struct TerminalControllerTests {
 
     init() throws {
         let log = log
-        model.commands.transport = { data in
+        model.commands.transport { data in
             RuntimeContract.verify(data)
             log.append(data)
             return Int32(KODOSI_FFI_OK)

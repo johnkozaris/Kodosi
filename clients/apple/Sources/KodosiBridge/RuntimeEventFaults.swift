@@ -19,9 +19,18 @@ public struct RuntimeEventFaults {
     }
 
     public static func behind(_ drop: RuntimeEventInbox.Drop) {
+        log(dropped(drop, by: "the app fell behind the runtime's events") + ", so it asks for its state again",
+            level: Int32(KODOSI_LOG_WARNING), type: .default)
+    }
+
+    static func browserBehind(_ drop: RuntimeEventInbox.Drop) {
+        log(dropped(drop, by: "the shared browser fell behind its frames") + ", so its pipes start again",
+            level: Int32(KODOSI_LOG_WARNING), type: .default)
+    }
+
+    private static func dropped(_ drop: RuntimeEventInbox.Drop, by fell: String) -> String {
         let milliseconds = drop.behindFor.components.seconds * 1000 + drop.behindFor.components.attoseconds / 1_000_000_000_000_000
-        log("the app fell behind the runtime's events for \(milliseconds) ms and dropped \(drop.events) of them, \(drop.bytes) bytes"
-            + " (\(drop.kinds)), so it asks for its state again", level: Int32(KODOSI_LOG_WARNING), type: .default)
+        return "\(fell) for \(milliseconds) ms and dropped \(drop.events) of them, \(drop.bytes) bytes (\(drop.kinds))"
     }
 
     private static func reason(_ error: any Error) -> String {
