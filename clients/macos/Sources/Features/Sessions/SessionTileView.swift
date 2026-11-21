@@ -17,6 +17,7 @@ struct SessionTileView: View {
     @Environment(\.theme) private var theme
     @Environment(\.terminalAlone) private var alone
     @Environment(\.terminalJoined) private var joinsCanvas
+    @Environment(\.terminalTileVisible) private var tileVisible
     @Environment(\.tileRadius) private var radius
     let session: RuntimeSession
     let isFocused: Bool
@@ -149,27 +150,42 @@ struct SessionTileView: View {
             let manager = deps.terminalManager
             let managed = manager.session(for: session.id)
             let state = manager.renderState(for: session.id)
-            VStack(spacing: 0) {
-                surface(manager: manager, managed: managed, state: state)
-                if let message = manager.inputError(for: session.id) {
-                    HStack(spacing: 8) {
-                        Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
-                        Text(message).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
-                        Spacer()
-                        Button("Dismiss") { manager.clearInputError(for: session.id) }.buttonStyle(.kodosi(.ghost, size: .small))
+            let chatting = deps.workbench.chatting.contains(session.id)
+            ZStack {
+                screen(manager: manager, managed: managed, state: state)
+                    .opacity(chatting ? 0 : 1).allowsHitTesting(!chatting).accessibilityHidden(chatting)
+                    .environment(\.terminalTileVisible, tileVisible && !chatting)
+                if chatting {
+                    TerminalChatView(chat: deps.canvas.chat(session.id), agent: session.agent, me: deps.account.userId) { label in
+                        ChatModelKey(session: session, label: label)
                     }
-                    .padding(.leading, 12).padding(.trailing, 4).frame(height: 34)
-                    .background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
-                    .padding(.top, 5)
-                }
-                if session.programOutside == true, session.kind == .local, !deps.workbench.notedOutside.contains(session.id) {
-                    OutsideNote(session: session) { deps.workbench.notedOutside.insert(session.id) }
-                        .padding(.top, 5)
-                        .transition(.opacity)
+                    .background(theme.colors.terminal)
                 }
             }
-            .animation(theme.motion.soft, value: session.programOutside)
         }
+    }
+
+    private func screen(manager: TerminalSessionManager, managed: ManagedTerminalSession, state: TerminalRenderState) -> some View {
+        VStack(spacing: 0) {
+            surface(manager: manager, managed: managed, state: state)
+            if let message = manager.inputError(for: session.id) {
+                HStack(spacing: 8) {
+                    Circle().fill(theme.colors.caution).frame(width: 6, height: 6)
+                    Text(message).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
+                    Spacer()
+                    Button("Dismiss") { manager.clearInputError(for: session.id) }.buttonStyle(.kodosi(.ghost, size: .small))
+                }
+                .padding(.leading, 12).padding(.trailing, 4).frame(height: 34)
+                .background(theme.colors.cautionSoft, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                .padding(.top, 5)
+            }
+            if session.programOutside == true, session.kind == .local, !deps.workbench.notedOutside.contains(session.id) {
+                OutsideNote(session: session) { deps.workbench.notedOutside.insert(session.id) }
+                    .padding(.top, 5)
+                    .transition(.opacity)
+            }
+        }
+        .animation(theme.motion.soft, value: session.programOutside)
     }
 
     private func surface(manager: TerminalSessionManager, managed: ManagedTerminalSession, state: TerminalRenderState) -> some View {

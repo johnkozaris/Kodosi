@@ -14,6 +14,8 @@ final class TerminalStore {
     @ObservationIgnored private(set) var fresh = false
     @ObservationIgnored private var listing: String?
     private(set) var revision = 0
+    /// The terminals that show their chat in place of their screen.
+    private(set) var chatting: Set<String> = []
     var watchingSessionId: String? {
         didSet {
             guard watchingSessionId != oldValue else { return }
@@ -59,6 +61,7 @@ final class TerminalStore {
         fresh = false
         listing = nil
         watchingSessionId = nil
+        chatting = []
     }
 
     func stale() {
@@ -77,6 +80,18 @@ final class TerminalStore {
     func replacement(of session: RuntimeSession) -> RuntimeSession? {
         guard let owner = session.ownerUserId, let host = session.hostDeviceId else { return nil }
         return sessions.restart(of: session.id, owner: owner, host: host)
+    }
+
+    func showsChat(_ id: String) -> Bool {
+        chatting.contains(id)
+    }
+
+    func showChat(_ shown: Bool, of id: String) {
+        if shown {
+            chatting.insert(id)
+        } else {
+            chatting.remove(id)
+        }
     }
 
     func sign(of session: RuntimeSession) -> StatusSign.Form? {
@@ -119,6 +134,7 @@ final class TerminalStore {
         let ids = Set(received.map(\.id))
         sessions = received
         canvas.observe(received)
+        chatting.formIntersection(ids)
         loaded = true
         for value in received {
             if let old = before[value.id], old.incarnationId != value.incarnationId {

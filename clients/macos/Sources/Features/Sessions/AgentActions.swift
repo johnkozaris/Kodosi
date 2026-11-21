@@ -15,6 +15,8 @@ struct AgentActions: View {
     let live: AgentLive
     let stageId: String
     @Binding var flyout: Flyout?
+    /// A line closes the part when more actions follow it.
+    var divided = true
 
     private var settings: AgentSettings {
         session.programSettings ?? AgentSettings()
@@ -105,7 +107,9 @@ struct AgentActions: View {
                 ) { EmptyView() }
                     .kodosiFlyout(isPresented: flyout == .output) { outputFlyout(output).chromeScope() }
             }
-            PanelMenuDivider()
+            if divided {
+                PanelMenuDivider()
+            }
         }
     }
 
