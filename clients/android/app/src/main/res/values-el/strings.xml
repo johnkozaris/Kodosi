@@ -297,6 +297,7 @@
     <string name="browser_forward">Μπροστά</string>
     <string name="browser_reload">Επαναφόρτωση</string>
     <string name="browser_sleeping">Ο browser είναι σε αδράνεια</string>
+    <string name="browser_undecodable">Αυτή η συσκευή δεν μπορεί να εμφανίσει τη σελίδα</string>
     <string name="wake_browser">Άνοιγμα browser</string>
     <string name="browser_dialog">Η σελίδα ρωτά</string>
     <string name="choose_file">Επιλογή αρχείου</string>

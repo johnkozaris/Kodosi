@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -114,28 +115,23 @@ import kotlin.math.hypot
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
-private enum class BrowserCover { ASLEEP, LOADING }
+private enum class BrowserCover { ASLEEP, UNDECODABLE, LOADING }
 
 @Composable
-fun BrowserScreen(
-    model: AppModel,
-    session: String,
-    browser: CanvasBrowser,
-    opened: Boolean,
-    ask: ((String?) -> Unit)? = null
-) {
+fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask: ((String?) -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val history by model.preferences.browserHistory.collectAsStateWithLifecycle()
-    val feed = remember(session) { BrowserFeed(model.browser, session, scope, opened) }
+    val feed = remember(session) { BrowserFeed(model.browser, session, scope) }
     val window by feed.window.collectAsStateWithLifecycle()
     val icons by feed.icons.collectAsStateWithLifecycle()
     val picture by feed.picture.collectAsStateWithLifecycle()
     val pictureSize by feed.pictureSize.collectAsStateWithLifecycle()
     val reconnecting by feed.reconnecting.collectAsStateWithLifecycle()
     val failure by feed.failure.collectAsStateWithLifecycle()
+    val undecodable by feed.undecodable.collectAsStateWithLifecycle()
     val address = remember { BrowserAddress(browser.tabs.firstOrNull { it.active }?.url.orEmpty()) }
     val addressFocus = remember { FocusRequester() }
     var addressFocused by remember { mutableStateOf(false) }
@@ -171,6 +167,11 @@ fun BrowserScreen(
             feed.input(fields("kind" to "files", "paths" to paths))
             picking = false
         }
+    }
+    val strip = rememberLazyListState()
+    val active = tabs.indexOfFirst { it.active }
+    LaunchedEffect(active, tabs.size, tabs.getOrNull(active)) {
+        if (active >= 0) strip.keepInView(active)
     }
     LaunchedEffect(tabs, feedTabs) {
         tabs.firstOrNull { it.active }?.url?.let(address::follow)
@@ -208,7 +209,7 @@ fun BrowserScreen(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyRow(Modifier.weight(1f), state = strip, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(tabs, key = { it.id }) { tab ->
                     CanvasTab(
                         tab.title.ifBlank { tab.url }.ifBlank { stringResource(R.string.browser) },
@@ -365,6 +366,7 @@ fun BrowserScreen(
                 val fading = fade<Float>()
                 val cover = when {
                     browser.state == "asleep" -> BrowserCover.ASLEEP
+                    undecodable -> BrowserCover.UNDECODABLE
                     !picture -> BrowserCover.LOADING
                     else -> null
                 }
@@ -381,9 +383,15 @@ fun BrowserScreen(
                             AppSymbol.BROWSER
                         ) {
                             KodosiTextButton(onClick = {
+                                model.browser.choose(session)
                                 scope.launch { model.runAction { model.canvas.wake(session) } }
                             }) { Text(stringResource(R.string.wake_browser)) }
                         }
+
+                        BrowserCover.UNDECODABLE -> EmptyState(
+                            stringResource(R.string.browser_undecodable),
+                            symbol = AppSymbol.BROWSER
+                        )
 
                         BrowserCover.LOADING -> Column(
                             Modifier.fillMaxSize().padding(24.dp),

@@ -18,6 +18,9 @@ data class Canvas(
         browser?.let { put("browser", it.changed) }
     }
 
+    fun shownFile(chosen: String?): CanvasItem? =
+        items.firstOrNull { it.key == chosen } ?: items.maxByOrNull { it.changed }
+
     fun openKey(at: String?, closed: Set<String>): String {
         if (at == "browser" || items.any { it.key == at }) return at!!
         val newest = items.maxByOrNull { it.changed }

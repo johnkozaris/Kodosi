@@ -3,10 +3,12 @@ use std::os::raw::c_int;
 use cef::*;
 use shared_browser::{Dialog, DialogKind};
 
+#[cfg(target_os = "macos")]
+use crate::cf::{IOSurfaceGetHeight, IOSurfaceGetWidth};
 use crate::{
     cursor,
     encode::STILL_MS,
-    engine::{self, Capture, Origin, Shared},
+    engine::{self, Capture, Origin, Painting, Shared},
     filters, renderer,
 };
 
@@ -188,7 +190,9 @@ wrap_render_handler! {
                 layer.draw_pixels(pixels, width, height, self.shared.size.get());
             }
             let mut capture = self.shared.capture.borrow_mut();
-            if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab) {
+            if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
+                && capture.takes(width, height, Painting::Memory)
+            {
                 capture.encoder.encode_pixels(pixels, width, height);
                 drawn(capture, dirty_rects, &self.shared);
             }
@@ -213,8 +217,12 @@ wrap_render_handler! {
                 if let Some(layer) = self.shared.layer.borrow_mut().as_mut().filter(|layer| layer.tab == Some(tab)) {
                     layer.draw_surface(surface, self.shared.size.get());
                 }
+                // SAFETY: CEF gives a live IOSurface for the length of the paint call.
+                let (width, height) = unsafe { (IOSurfaceGetWidth(surface), IOSurfaceGetHeight(surface)) };
                 let mut capture = self.shared.capture.borrow_mut();
-                if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab) {
+                if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
+                    && capture.takes(width, height, Painting::Surface)
+                {
                     capture.encoder.encode_surface(surface);
                     drawn(capture, dirty_rects, &self.shared);
                 }

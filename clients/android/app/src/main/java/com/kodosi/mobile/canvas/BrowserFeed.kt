@@ -33,10 +33,9 @@ import kotlinx.serialization.json.contentOrNull
 
 /**
  * A feed does its work on the browser's own thread, after each call of its view and in the order
- * of the calls and of the pipe's events. [opened] tells that a person's act opened the browser on
- * this device.
+ * of the calls and of the pipe's events.
  */
-class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: CoroutineScope, opened: Boolean) :
+class BrowserFeed(private val pipes: BrowserPipes, internal val session: String, scope: CoroutineScope) :
     AutoCloseable {
     val window: StateFlow<JsonObject>
         field = MutableStateFlow(fields())
@@ -50,6 +49,8 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
         field = MutableStateFlow(false)
     val failure: StateFlow<String?>
         field = MutableStateFlow<String?>(null)
+    val undecodable: StateFlow<Boolean>
+        field = MutableStateFlow(false)
     val touches: StateFlow<Long>
         field = MutableStateFlow(0L)
     val copies: SharedFlow<String>
@@ -58,11 +59,12 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
     private val link = pipes.link(session)
     private var joining: Job? = null
     private var active = false
-    private var opening = opened
+    private var open = false
+    private var watching = false
     private var behind = true
     private var last: Long? = null
     private var decoder: BrowserDecoder? = null
-    private var size = fields("width" to 360, "height" to 640, "scale" to 1)
+    private var size: JsonObject? = null
     private var sent: JsonObject? = null
     private var settling: Job? = null
     private var holding = false
@@ -70,19 +72,30 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
     init {
         link.onFrame = ::receive
         link.onNews = ::heard
+        pipes.execute { pipes.follow(this) }
     }
 
     /** A TextureView keeps its last frame after its decoder stops, so only a new surface is without a picture. */
     fun surface(surface: Surface?, width: Int, height: Int, density: Float) = pipes.execute {
         decoder?.close()
         picture.value = false
+        undecodable.value = false
         decoder = surface?.let {
-            BrowserDecoder(it, { shown -> pictureSize.value = shown }) { failed ->
-                pipes.execute { if (decoder === failed) restart() }
-            }
+            BrowserDecoder(
+                it,
+                sized = { shown -> pictureSize.value = shown },
+                refused = { refused -> pipes.execute { if (decoder === refused) refuse() } },
+                lost = { failed -> pipes.execute { if (decoder === failed) restart() } }
+            )
         }
         settle(width, height, density)
         restart()
+    }
+
+    private fun refuse() {
+        decoder?.close()
+        decoder = null
+        undecodable.value = true
     }
 
     fun rendered() = pipes.execute { picture.value = true }
@@ -92,7 +105,9 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
     /**
      * The page takes the shape of the view of the person who acted last, so a new size goes to
      * the host once the view settles, never while a button is held, and one that waits goes
-     * right after the person's act: the act then reaches the page that the person saw.
+     * right after the person's act: the act then reaches the page that the person saw. A pipe
+     * that opens before the view has its size watches when the view has it, as the page takes
+     * the shape of the watch at once.
      */
     private fun settle(width: Int, height: Int, density: Float) {
         if (width <= 0 || height <= 0) return
@@ -102,29 +117,32 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
             "scale" to density
         )
         settling?.cancel()
+        if (open && !watching) {
+            watch()
+            return
+        }
         settling = work.launch {
             delay(SETTLE_MS)
             sendSize()
         }
     }
 
-    /**
-     * The page takes the shape of this device only when a person opened the browser here, at the
-     * first look of the view after the act. A view that only comes back on the screen, or whose pipe
-     * opens again, leaves the page to the device in use, so nobody's page changes shape for a device
-     * that nobody uses.
-     */
     fun show(on: Boolean) = pipes.execute {
         if (active == on) return@execute
         active = on
         if (on) {
             join()
         } else {
-            opening = false
+            open = false
+            watching = false
             joining?.cancel()
             link.detach()
             reconnecting.value = false
         }
+    }
+
+    internal fun chosen() {
+        if (watching) watch()
     }
 
     fun input(value: JsonObject) = pipes.execute {
@@ -141,7 +159,8 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
     }
 
     private fun sendSize() {
-        if (holding || size == sent) return
+        val size = size ?: return
+        if (holding || !watching || size == sent) return
         sent = size
         post(fields("type" to "size", "size" to size))
     }
@@ -167,18 +186,29 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
                 failure.value = null
                 behind = true
                 last = null
-                sent = size
-                post(fields("type" to "watch", "size" to size, "opened" to opening))
-                opening = false
+                open = true
+                watch()
             }
 
             is DocumentLink.News.Lost -> {
+                open = false
+                watching = false
                 failure.value = news.reason
                 reconnecting.value = true
             }
 
-            DocumentLink.News.Closed -> {}
+            DocumentLink.News.Closed -> {
+                open = false
+                watching = false
+            }
         }
+    }
+
+    private fun watch() {
+        val size = size ?: return
+        sent = size
+        watching = true
+        post(fields("type" to "watch", "size" to size, "opened" to pipes.takeChoice(session)))
     }
 
     private fun keepIcons(state: JsonObject) {
@@ -236,6 +266,9 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
 
     override fun close() = pipes.execute {
         active = false
+        open = false
+        watching = false
+        pipes.unfollow(this)
         joining?.cancel()
         link.close()
         decoder?.close()
@@ -249,18 +282,34 @@ class BrowserFeed(private val pipes: BrowserPipes, session: String, scope: Corou
     }
 }
 
+/** The first decoder of the type may refuse the stream's size, and another may take it. */
+internal fun deviceDecoders(size: IntSize): List<String> {
+    val type = MediaFormat.MIMETYPE_VIDEO_AVC
+    val format = MediaFormat.createVideoFormat(type, size.width, size.height)
+    return MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+        .filter { !it.isEncoder && !it.isAlias && type in it.supportedTypes }
+        .sortedWith(compareBy({ !it.getCapabilitiesForType(type).isFormatSupported(format) }, { it.isSoftwareOnly }))
+        .map { it.name }
+}
+
 internal class BrowserDecoder(
     private val surface: Surface,
     private val sized: (IntSize) -> Unit,
-    private val lost: (BrowserDecoder) -> Unit
+    private val refused: (BrowserDecoder) -> Unit,
+    private val lost: (BrowserDecoder) -> Unit,
+    private val decoders: (IntSize) -> List<String> = ::deviceDecoders
 ) : AutoCloseable {
     private val thread = HandlerThread("Kodosi browser decoder").apply { start() }
     private val handler = Handler(thread.looper)
     private val queued = AtomicInteger()
     private var codec: MediaCodec? = null
+    private var name: String? = null
     private var configured: IntSize? = null
     private var closed = false
     private var waiting = true
+    private var showed = false
+    private var start: ByteArray? = null
+    private val failures = mutableMapOf<String, Int>()
     private val buffers = ArrayDeque<Int>()
     private val frames = ArrayDeque<ByteArray>()
 
@@ -270,37 +319,41 @@ internal class BrowserDecoder(
             queued.decrementAndGet()
             return false
         }
-        return handler.post {
-            if (closed || (waiting && !key)) {
-                queued.decrementAndGet()
-                return@post
-            }
-            try {
-                val size = if (key) H264.pictureSize(bytes) else null
-                if (size != null && size != configured) {
-                    reset()
-                    create(size)
-                }
-                checkNotNull(codec)
-                waiting = false
-                frames.addLast(bytes)
-                feed()
-            } catch (_: Exception) {
-                queued.decrementAndGet()
-                reset()
-                lost(this)
-            }
-        }.also { if (!it) queued.decrementAndGet() }
+        return handler.post { take(bytes, key) }.also { if (!it) queued.decrementAndGet() }
     }
 
-    /** The first decoder of the type may refuse the stream's size, and another may take it. */
+    private fun take(bytes: ByteArray, key: Boolean) {
+        if (closed || (waiting && !key)) {
+            queued.decrementAndGet()
+            return
+        }
+        if (key) start = bytes
+        try {
+            val size = if (key) H264.pictureSize(bytes) else null
+            if (size != null && size != configured) {
+                reset()
+                create(size)
+            }
+            checkNotNull(codec)
+            waiting = false
+            frames.addLast(bytes)
+            feed()
+        } catch (_: NoDecoder) {
+            queued.decrementAndGet()
+            refused(this)
+        } catch (_: Exception) {
+            queued.decrementAndGet()
+            fail()
+        }
+    }
+
     private fun create(size: IntSize) {
-        val type = MediaFormat.MIMETYPE_VIDEO_AVC
-        val next = MediaCodecList(MediaCodecList.REGULAR_CODECS)
-            .findDecoderForFormat(MediaFormat.createVideoFormat(type, size.width, size.height))
-            ?.let(MediaCodec::createByCodecName) ?: MediaCodec.createDecoderByType(type)
-        codec = next
+        val chosen = decoders(size).firstOrNull { failures.getOrDefault(it, 0) < TRIES } ?: throw NoDecoder()
+        name = chosen
+        showed = false
         configured = size
+        val next = MediaCodec.createByCodecName(chosen)
+        codec = next
         next.setCallback(
             object : MediaCodec.Callback() {
                 override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
@@ -311,7 +364,12 @@ internal class BrowserDecoder(
 
                 override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
                     if (closed || this@BrowserDecoder.codec != codec) return
-                    runCatching { codec.releaseOutputBuffer(index, info.size > 0) }
+                    runCatching { codec.releaseOutputBuffer(index, info.size > 0) }.onSuccess {
+                        if (info.size > 0 && !showed) {
+                            showed = true
+                            failures.remove(chosen)
+                        }
+                    }
                 }
 
                 override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
@@ -321,17 +379,16 @@ internal class BrowserDecoder(
 
                 override fun onError(codec: MediaCodec, error: MediaCodec.CodecException) {
                     if (closed || this@BrowserDecoder.codec != codec) return
-                    reset()
-                    lost(this@BrowserDecoder)
+                    fail()
                 }
             },
             handler
         )
-        val video = requireNotNull(next.codecInfo.getCapabilitiesForType(type).videoCapabilities)
+        val video = requireNotNull(next.codecInfo.getCapabilitiesForType(TYPE).videoCapabilities)
         val width = (size.width + video.widthAlignment - 1) / video.widthAlignment * video.widthAlignment
         val height = (size.height + video.heightAlignment - 1) / video.heightAlignment * video.heightAlignment
         next.configure(
-            MediaFormat.createVideoFormat(type, width, height).apply {
+            MediaFormat.createVideoFormat(TYPE, width, height).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_FRAME)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
             },
@@ -356,14 +413,29 @@ internal class BrowserDecoder(
                 codec.queueInputBuffer(index, 0, frame.size, System.nanoTime() / 1000, 0)
             }
         } catch (_: Exception) {
-            reset()
-            lost(this)
+            fail()
         }
+    }
+
+    /**
+     * Some decoders fail on each frame, as the emulator's own decoder that may not read the app's
+     * buffers, so one that fails before its first picture has a few tries with the stream's key
+     * frame before the next decoder takes it.
+     */
+    private fun fail() {
+        val failed = name.takeUnless { showed }
+        reset()
+        if (failed != null) {
+            failures[failed] = failures.getOrDefault(failed, 0) + 1
+            start?.let { frame(it, key = true) }
+        }
+        lost(this)
     }
 
     private fun reset() {
         val current = codec
         codec = null
+        name = null
         configured = null
         runCatching { current?.stop() }
         runCatching { current?.release() }
@@ -393,7 +465,11 @@ internal class BrowserDecoder(
         return IntSize(width, height).takeIf { width > 0 && height > 0 }
     }
 
+    private class NoDecoder : Exception()
+
     private companion object {
+        const val TYPE = MediaFormat.MIMETYPE_VIDEO_AVC
+        const val TRIES = 3
         const val MAX_FRAME = 16 * 1024 * 1024
     }
 }

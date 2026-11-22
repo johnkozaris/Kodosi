@@ -136,6 +136,9 @@ public struct CanvasDock: View {
             .appTextStyle(.footnote).fontWeight(.medium)
             .padding(.leading, words == nil ? 7 : 9).padding(.trailing, (words == nil ? 7 : 11) + (closing ? 16 : 0))
             .frame(minWidth: 26).controlHeight(24)
+            // A label fades out where it was, outside its key once the key is narrower, and at the end
+            // of the dock over the add key. The news dot is not clipped, as its ring reaches beyond the key.
+            .clipped()
             .background { Color.clear.matchedGeometryEffect(id: section, in: thumb) }
             .wash(trigger: newest, radius: 12)
             .overlay {
@@ -163,13 +166,18 @@ public struct CanvasDock: View {
             }
         }
         .modifier(CloseMenu(close: close.map { close in { close(section) } }))
-        .overlay(alignment: .trailing) {
-            if closing, let close {
-                RemoveKey(size: 14, title: String(localized: "Close", bundle: .module),
-                          identifier: "\(identifier).close.\(section.rawValue)") { close(section) }
-                    .padding(.trailing, 5)
-                    .transition(.opacity)
+        // As the label, a close key fades out inside its key. A clip leaves its touch target as it is.
+        .overlay {
+            ZStack(alignment: .trailing) {
+                if closing, let close {
+                    RemoveKey(size: 14, title: String(localized: "Close", bundle: .module),
+                              identifier: "\(identifier).close.\(section.rawValue)") { close(section) }
+                        .padding(.trailing, 5)
+                        .transition(.opacity)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .clipped()
         }
         .onHover { inside in
             if inside {

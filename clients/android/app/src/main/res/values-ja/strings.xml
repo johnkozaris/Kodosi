@@ -297,6 +297,7 @@
     <string name="browser_forward">進む</string>
     <string name="browser_reload">再読み込み</string>
     <string name="browser_sleeping">ブラウザはスリープ中です</string>
+    <string name="browser_undecodable">このデバイスではページを表示できません</string>
     <string name="wake_browser">ブラウザを開く</string>
     <string name="browser_dialog">ページからの確認</string>
     <string name="choose_file">ファイルを選択</string>
