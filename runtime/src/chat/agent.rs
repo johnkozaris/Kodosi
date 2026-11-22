@@ -16,6 +16,7 @@ use super::{
     copilot::Copilot,
     state::{Chat, ends_of, start_of},
 };
+use crate::terminal::TerminalFace;
 
 pub(super) trait Agent: Send {
     /// The name that the agent's link gives when it starts to report.
@@ -64,6 +65,11 @@ pub(super) trait Agent: Send {
     /// keeps its conversations in the server of the terminal, outside the terminal's programs.
     fn conversation(&self) -> Option<&str> {
         None
+    }
+
+    /// Where the agent works: in its terminal, which the chat follows, or in the chat itself.
+    fn works_in(&self) -> TerminalFace {
+        TerminalFace::Terminal
     }
 }
 

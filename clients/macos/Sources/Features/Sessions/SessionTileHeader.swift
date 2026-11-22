@@ -60,7 +60,7 @@ struct SessionTileHeader: View {
                 DosiKeys(sessionId: session.id, item: item, question: question).transition(AnyTransition.pop)
             }
             status
-            if session.reportsToChat || deps.workbench.chatting.contains(session.id) {
+            if session.face != nil || face.wrappedValue == .chat {
                 TerminalFaceSwitch(face: face, identifier: "\(stageId).face").transition(AnyTransition.pop)
             }
             AvatarStack(people: viewers, size: 20, limit: 3, ring: theme.colors.terminal)
@@ -78,14 +78,10 @@ struct SessionTileHeader: View {
 
     private var face: Binding<TerminalFace> {
         Binding {
-            deps.workbench.chatting.contains(session.id) ? .chat : .terminal
+            session.shownFace(deps.workbench.faces[session.id])
         } set: { face in
             select()
-            if face == .chat {
-                deps.workbench.chatting.insert(session.id)
-            } else {
-                deps.workbench.chatting.remove(session.id)
-            }
+            deps.workbench.faces[session.id] = FacePick(face, over: session.face)
         }
     }
 

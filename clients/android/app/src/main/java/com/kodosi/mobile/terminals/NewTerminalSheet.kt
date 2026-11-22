@@ -310,7 +310,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                                             prompt.text.toString(),
                                             request.project
                                         )?.let { id ->
-                                            if (inChat) model.terminals.showChat(true, id)
+                                            if (inChat) model.terminals.pick(TerminalFace.CHAT, id, null)
                                             model.preferences.launched(launcher.computer, folder)
                                             dismiss()
                                             started(id)

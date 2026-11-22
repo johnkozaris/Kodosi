@@ -405,7 +405,7 @@ struct AgentLauncher: View {
                     command: command, agent: agent, prompt: first,
                 )
                 if agent?.chat == true, let id {
-                    deps.workbench.chatting.insert(id)
+                    deps.workbench.faces[id] = FacePick(.chat, over: nil)
                 }
                 deps.workbench.launcherDraft = LauncherDraft()
                 started()

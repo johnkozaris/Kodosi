@@ -1154,6 +1154,27 @@ async fn another_agent_in_the_terminal_starts_the_chat_again() {
 }
 
 #[tokio::test]
+async fn the_chat_tells_the_terminal_where_its_agent_works() {
+    let claude = ChatHandle::spawn();
+    assert_eq!(*claude.linked().borrow(), None);
+    assert!(report(&claude, "one", 1, events(record!("text"))).await);
+    assert_eq!(
+        *claude.linked().borrow(),
+        Some(crate::terminal::TerminalFace::Terminal),
+        "Claude Code works in its terminal, and the chat follows it"
+    );
+
+    let antigravity = ChatHandle::spawn();
+    let hello = events(antigravity!("allow")).into_iter().take(2).collect();
+    assert!(report(&antigravity, "one", 1, hello).await);
+    assert_eq!(
+        *antigravity.linked().borrow(),
+        Some(crate::terminal::TerminalFace::Chat),
+        "Antigravity CLI works in the chat, and its terminal holds only its link"
+    );
+}
+
+#[tokio::test]
 async fn reports_of_a_module_that_the_chat_does_not_follow_are_refused() {
     let chat = ChatHandle::spawn();
     assert!(report(&chat, "new", 1, events(record!("text"))).await);

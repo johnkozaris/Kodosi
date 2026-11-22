@@ -1,7 +1,7 @@
 {
   "terminalConnectionProtocolVersion": 26,
   "oldestTerminalConnectionProtocolVersion": 26,
-  "channelProtocolVersion": 16,
+  "channelProtocolVersion": 17,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
     "channel": "each side offers the ALPN protocols kodosi-channel/ with each version from its channelProtocolVersion down to 1, and the host selects the newest that both have; a side whose own version is not the selected one, or that has no selected protocol, closes the channel and shows that the other computer must update Kodosi. The accept frame carries the host's channelProtocolVersion; a host that selected an older version sends only the accept frame and closes, and a viewer whose version differs from it closes the channel and shows which side must update Kodosi"
@@ -121,7 +121,7 @@
       "metadata": {
         "type": 7,
         "direction": "host",
-        "body": "JSON terminal metadata (directory, title, program, account, settings, pending, status, context, connectedUsers, canvas, chat, look); chat is true while an agent of the terminal reports to the terminal's chat; look is dark or light, the look of the host's computer, which every view of the terminal shows; settings is the model, effort, fast mode, permissions and output of the agent in front, as far as the host knows them, and pending a change of them that waits for the end of its turn; maximum 98304 bytes"
+        "body": "JSON terminal metadata (directory, title, program, account, settings, pending, status, context, connectedUsers, canvas, face, look); face is terminal or chat while an agent of the terminal reports to the terminal's chat: chat for an agent that works in the chat, unless it waits for its sign-in in the terminal; look is dark or light, the look of the host's computer, which every view of the terminal shows; settings is the model, effort, fast mode, permissions and output of the agent in front, as far as the host knows them, and pending a change of them that waits for the end of its turn; maximum 98304 bytes"
       },
       "heartbeat": {
         "type": 8,

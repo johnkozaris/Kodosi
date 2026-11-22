@@ -11826,9 +11826,6 @@
                     }
                   ]
                 },
-                "chat": {
-                  "type": "boolean"
-                },
                 "connectedUsers": {
                   "items": {
                     "type": "string"
@@ -11908,6 +11905,23 @@
                 },
                 "direct": {
                   "type": "boolean"
+                },
+                "face": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "const": "terminal"
+                        },
+                        {
+                          "const": "chat"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "hidden": {
                   "type": "boolean"
@@ -17839,7 +17853,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 104,
+  "protocolVersion": 105,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

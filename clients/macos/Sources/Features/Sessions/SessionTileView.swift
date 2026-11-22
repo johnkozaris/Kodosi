@@ -150,7 +150,7 @@ struct SessionTileView: View {
             let manager = deps.terminalManager
             let managed = manager.session(for: session.id)
             let state = manager.renderState(for: session.id)
-            let chatting = deps.workbench.chatting.contains(session.id)
+            let chatting = session.shownFace(deps.workbench.faces[session.id]) == .chat
             ZStack {
                 screen(manager: manager, managed: managed, state: state)
                     .opacity(chatting ? 0 : 1).allowsHitTesting(!chatting).accessibilityHidden(chatting)

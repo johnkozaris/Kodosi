@@ -57,6 +57,23 @@ public enum TerminalLook: String, Decodable, Sendable {
     case dark, light
 }
 
+/// The two faces of a terminal: its screen, and its chat.
+public enum TerminalFace: String, Decodable, Hashable, Sendable {
+    case terminal, chat
+}
+
+/// The face that a person picked for a terminal. It holds while the terminal's own face stays as it
+/// was, so a terminal whose agent goes to the chat, waits for its sign-in or ends shows its own face.
+public struct FacePick: Equatable, Sendable {
+    public let face: TerminalFace
+    public let over: TerminalFace?
+
+    public init(_ face: TerminalFace, over: TerminalFace?) {
+        self.face = face
+        self.over = over
+    }
+}
+
 public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Decodable, Sendable { case local, remote }
     public enum Status: String, Decodable, Sendable { case running, reconnecting, offline, closing }
@@ -83,8 +100,8 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let activity: String?
     public let context: TerminalContext?
     public let canvas: Canvas?
-    /// An agent of the terminal reports to the terminal's chat.
-    public let chat: Bool?
+    /// Where the agent that reports to the terminal's chat works, while one does.
+    public let face: TerminalFace?
     private let look: TerminalLook?
     public let name: String
     public let workingDir: String?
@@ -114,8 +131,13 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
         kind == .local && canControl && prompt == true
     }
 
-    public var reportsToChat: Bool {
-        chat == true
+    /// The face that the apps show: the person's pick while it holds, else where the agent works.
+    public func shownFace(_ pick: FacePick?) -> TerminalFace {
+        pick?.face ?? face ?? .terminal
+    }
+
+    public func keeps(_ pick: FacePick) -> Bool {
+        pick.over == face
     }
 
     public var terminalLook: TerminalLook {

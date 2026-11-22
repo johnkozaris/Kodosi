@@ -23,6 +23,7 @@ use super::{
     diff,
     state::{Chat, ends_of, start_of},
 };
+use crate::terminal::TerminalFace;
 
 /// The JSON-RPC code of the agent's "Authentication required".
 const SIGNED_OUT: i64 = -32000;
@@ -777,6 +778,10 @@ impl Agent for Antigravity {
 
     fn conversation(&self) -> Option<&str> {
         self.session.as_deref()
+    }
+
+    fn works_in(&self) -> TerminalFace {
+        TerminalFace::Chat
     }
 
     fn retry(&mut self) {}

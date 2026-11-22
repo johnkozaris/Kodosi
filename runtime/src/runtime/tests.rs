@@ -3444,7 +3444,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
             }),
             context: None,
             canvas: None,
-            chat: false,
+            face: None,
             look: crate::terminal::TerminalLook::Dark,
         },
     });
@@ -3519,7 +3519,7 @@ async fn a_closed_terminal_keeps_its_title_only_while_the_same_agent_runs_there(
             status: None,
             context: None,
             canvas: None,
-            chat: false,
+            face: None,
             look: crate::terminal::TerminalLook::Dark,
         },
     });

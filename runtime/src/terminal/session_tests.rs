@@ -813,6 +813,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         canvas: canvas.clone(),
         canvas_state: canvas.state(),
         chat_linked: chat.linked(),
+        published_face: None,
         chat,
         host_look: watch::channel(TerminalLook::Dark).1,
         look: TerminalLook::Dark,

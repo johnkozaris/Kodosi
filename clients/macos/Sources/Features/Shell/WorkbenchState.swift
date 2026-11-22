@@ -64,8 +64,8 @@ final class WorkbenchState {
     /// The terminals where the person dismissed the note that their agent, started by hand,
     /// does not see Kodosi.
     var notedOutside: Set<String> = []
-    /// The terminals whose tile shows their chat in place of their screen.
-    var chatting: Set<String> = []
+    /// The faces that the person picked for terminals.
+    var faces: [String: FacePick] = [:]
     var approvalNoticeDismissed = false
     var focusesDeviceCode = false
     var sidebarCollapsed = false {
@@ -305,7 +305,7 @@ final class WorkbenchState {
         dismissedDeviceRequests = []
         dismissedReset = nil
         notedOutside = []
-        chatting = []
+        faces = [:]
         approvalNoticeDismissed = false
         focusesDeviceCode = false
     }
@@ -339,7 +339,7 @@ final class WorkbenchState {
             }
         }
         notedOutside.formIntersection(current.keys)
-        chatting.formIntersection(current.keys)
+        faces = faces.filter { id, pick in current[id]?.keeps(pick) == true }
         canvasesLeftOpen.formIntersection(current.keys)
         closing.formIntersection(current.keys)
         let followed = follow(sessions)

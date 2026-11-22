@@ -64,7 +64,9 @@ own question, and the agent's permissions stay as the provider keeps them. An ag
 does not report has no chat, and its terminal works as before. Antigravity CLI's terminal
 app reports nowhere, but its provider has a server for editors, so the person chooses
 where it opens: its own app in the terminal, or the chat, where that server runs in the
-terminal with a conversation of its own and signs in with its own steps.
+terminal with a conversation of its own and signs in with its own steps. A terminal opens
+on the view where its agent works, on each device: the chat for that conversation, and the
+screen while the agent waits for its sign-in there.
 
 **People and agents are equals in a project.** They read and write the same conversation
 and tasks, and they decide what to do next; nobody assigns work. Only a message that
