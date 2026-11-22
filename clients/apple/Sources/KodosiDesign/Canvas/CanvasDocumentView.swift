@@ -73,28 +73,31 @@ struct CanvasDocumentView: View {
     }
 }
 
-/// A page that a person leaves stays open a while, with its place and its undo. A web page shows
-/// in one view at a time, so a second view of a file at the same moment gets a page of its own,
-/// which closes with that view.
+/// A page that a person leaves stays open a while, with its place and its undo. Each page has a
+/// web process of its own, so at most four pages stay open, and a page off the screen closes first,
+/// the one that left first. A web page shows in one view at a time, so a second view of a file at
+/// the same moment gets a page of its own, which closes with that view.
 @MainActor
 public final class CanvasDocumentPages {
     private static let kept = Duration.seconds(300)
+    private static let mostOpen = 4
 
     private var pages: [String: CanvasDocumentPage] = [:]
     private var held: Set<String> = []
-    private var closing: [String: Task<Void, Never>] = [:]
+    private var waiting: [(place: String, closing: Task<Void, Never>)] = []
 
     public init() {}
 
     fileprivate func enter(_ key: String, in session: String, open: () -> CanvasDocumentPage) -> CanvasDocumentPage {
         let place = "\(session)/\(key)"
         guard held.insert(place).inserted else { return open() }
-        closing.removeValue(forKey: place)?.cancel()
+        stopWaiting(place)
         if let page = pages[place] {
             return page
         }
         let page = open()
         pages[place] = page
+        closeOldest()
         return page
     }
 
@@ -109,11 +112,28 @@ public final class CanvasDocumentPages {
             return
         }
         held.remove(place)
-        closing[place] = Task { [weak self] in
+        waiting.append((place, Task { [weak self] in
             guard await (try? Task.sleep(for: Self.kept)) != nil else { return }
-            self?.closing[place] = nil
-            self?.pages.removeValue(forKey: place)?.close()
+            self?.close(place)
+        }))
+        closeOldest()
+    }
+
+    private func closeOldest() {
+        while pages.count > Self.mostOpen, let oldest = waiting.first {
+            close(oldest.place)
         }
+    }
+
+    private func stopWaiting(_ place: String) {
+        if let index = waiting.firstIndex(where: { $0.place == place }) {
+            waiting.remove(at: index).closing.cancel()
+        }
+    }
+
+    private func close(_ place: String) {
+        stopWaiting(place)
+        pages.removeValue(forKey: place)?.close()
     }
 }
 
