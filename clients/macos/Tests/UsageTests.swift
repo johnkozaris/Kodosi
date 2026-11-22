@@ -30,6 +30,10 @@ private func accounts(_ json: String) throws -> [AccountUsage] {
     try JSONDecoder().decode(AgentUsageReply.self, from: Data(#"{"accounts": \#(json)}"#.utf8)).accounts
 }
 
+private func limit(_ json: String) throws -> UsageLimit {
+    try JSONDecoder().decode(UsageLimit.self, from: Data(json.utf8))
+}
+
 private let session = #"{"hours": 5, "scope": null, "model": null, "used": 1, "level": "normal", "resetsAtMs": null}"#
 private let week = #"{"hours": 168, "scope": null, "model": null, "used": 91, "level": "near", "resetsAtMs": null}"#
 private let fable = #"{"hours": 168, "scope": "Fable", "model": "fable", "used": 100, "level": "reached", "resetsAtMs": null}"#
@@ -47,6 +51,19 @@ private let month = #"{"hours": null, "scope": null, "model": null, "used": 3, "
     #expect(both.last?.headline(for: "opus") == nil)
 }
 
+@Test func `the nearest limit has the worst level, then the most use`() throws {
+    let normal = try limit(#"{"hours": 5, "used": 79, "level": "normal"}"#)
+    let near = try limit(#"{"hours": 5, "used": 70, "level": "near"}"#)
+    #expect(UsageLimit.nearest(of: [normal, near]) == near)
+    let full = try limit(#"{"hours": 5, "used": 100, "level": "near"}"#)
+    let reached = try limit(#"{"hours": 5, "used": 100, "level": "reached"}"#)
+    #expect(UsageLimit.nearest(of: [full, reached]) == reached)
+    let shorter = try limit(#"{"hours": 5, "used": 30, "level": "normal"}"#)
+    let longer = try limit(#"{"hours": 168, "used": 30, "level": "normal"}"#)
+    #expect(UsageLimit.nearest(of: [shorter, longer]) == shorter)
+    #expect(UsageLimit.nearest(of: []) == nil)
+}
+
 @Test func `the panel orders the windows of all accounts from the shortest`() throws {
     let both = try accounts(#"""
     [{"agent": "claude", "account": "default", "readAtMs": 0, "limits": [\#(week), \#(fable)]},
@@ -55,21 +72,23 @@ private let month = #"{"hours": null, "scope": null, "model": null, "used": 3, "
     #expect(UsagePanel.windows(of: both).map(\.id) == ["hours:5", "hours:168", "scope:Fable", "month"])
 }
 
-@Test func `a reset shows the time left in its two largest units, rounded up`() {
+@Test func `a reset shows the time left in its two largest units, rounded up`() throws {
     let english = Locale(identifier: "en_US")
-    let short = { (seconds: Int64) in ResetTime.short(.seconds(seconds), locale: english) }
+    let short = { (seconds: TimeInterval) in ResetTime.short(seconds, locale: english) }
     #expect(short(4 * 86400 + 45 * 60) == "4d 1h")
     #expect(short(5 * 86400) == "5d")
     #expect(short(4 * 3600 + 47 * 60 + 1) == "4h 48m")
     #expect(short(30) == "1m")
-    #expect(ResetTime.spoken(.seconds(4 * 3600 + 48 * 60), locale: english) == "4 hours, 48 minutes")
+    #expect(short(59 * 60 + 30) == "1h")
+    #expect(short(23 * 3600 + 59 * 60 + 30) == "1d")
+    #expect(ResetTime.spoken(4 * 3600 + 48 * 60, locale: english) == "4 hours, 48 minutes")
     let now = Date(timeIntervalSince1970: 1_795_349_410)
-    let resets = UsageLimit(hours: 5, used: 1, level: .normal, resetsAtMs: 1_795_349_470_000)
-    #expect(ResetTime.left(resets, now: now) == .seconds(60))
+    let resets = try limit(#"{"hours": 5, "scope": null, "model": null, "used": 1, "level": "normal", "resetsAtMs": 1795349470000}"#)
+    #expect(ResetTime.left(resets, now: now) == 60)
     #expect(ResetTime.left(resets, now: now.addingTimeInterval(61)) == nil)
 }
 
-@Test func `account rows carry the headline limit of their account`() {
+@Test func `account rows carry the headline limit of their account`() throws {
     let info = AgentInfo(
         agent: "claude", program: "claude", installed: true,
         accounts: [
@@ -79,7 +98,7 @@ private let month = #"{"hours": null, "scope": null, "model": null, "used": 3, "
         ],
         install: "", addsAccounts: true, reportsUsage: true,
     )
-    let limit = UsageLimit(hours: 5, used: 91, level: .near)
-    let rows = LauncherMenu.accounts(info, current: "work") { $0.name == "work" ? limit : nil }
-    #expect(rows.map(\.usage) == [nil, limit, nil])
+    let near = try limit(week)
+    let rows = LauncherMenu.accounts(info, current: "work") { $0.name == "work" ? near : nil }
+    #expect(rows.map(\.usage) == [nil, near, nil])
 }

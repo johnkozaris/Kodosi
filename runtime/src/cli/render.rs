@@ -401,21 +401,21 @@ fn usage(result: &Value, now_ms: u64) -> String {
 }
 
 fn countdown(left_ms: u64) -> String {
-    const HOUR_MS: u64 = 3_600_000;
-    if left_ms >= 24 * HOUR_MS {
-        let hours = left_ms.div_ceil(HOUR_MS);
+    const MINUTE_MS: u64 = 60_000;
+    let minutes = left_ms.div_ceil(MINUTE_MS);
+    if minutes >= 24 * 60 {
+        let hours = left_ms.div_ceil(60 * MINUTE_MS);
         match (hours / 24, hours % 24) {
             (days, 0) => format!("{days}d"),
             (days, hours) => format!("{days}d {hours}h"),
         }
-    } else if left_ms >= HOUR_MS {
-        let minutes = left_ms.div_ceil(60_000);
+    } else if minutes >= 60 {
         match (minutes / 60, minutes % 60) {
             (hours, 0) => format!("{hours}h"),
             (hours, minutes) => format!("{hours}h {minutes}m"),
         }
     } else {
-        format!("{}m", left_ms.div_ceil(60_000))
+        format!("{minutes}m")
     }
 }
 
@@ -883,6 +883,8 @@ mod tests {
             usage(&json!({"accounts": []}), NOW),
             "No signed-in account reports plan limits."
         );
+        assert_eq!(countdown(59 * MINUTE + 30_000), "1h");
+        assert_eq!(countdown((23 * 60 + 59) * MINUTE + 30_000), "1d");
     }
 
     #[test]

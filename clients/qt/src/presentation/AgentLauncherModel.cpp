@@ -26,16 +26,11 @@ QJsonValue nullable(const QString& value)
     return value.isEmpty() ? QJsonValue() : QJsonValue(value);
 }
 
-bool missing(const QVariant& value)
-{
-    return value.isNull() || !value.isValid();
-}
-
 QVariantMap describedLimit(QVariantMap limit)
 {
     const auto scope = limit.value(QStringLiteral("scope")).toString();
     const auto hours = limit.value(QStringLiteral("hours"));
-    const bool monthly = missing(hours);
+    const bool monthly = hours.isNull();
     const int count = hours.toInt();
     auto window = scope;
     if (window.isEmpty()) {
@@ -91,14 +86,14 @@ std::optional<TimeLeft> timeLeft(const QVariantMap& limit, double now)
     constexpr qint64 minute = 60000;
     constexpr qint64 hour = 60 * minute;
     const auto resets = limit.value(QStringLiteral("resetsAtMs"));
-    const auto left = missing(resets) ? 0 : static_cast<qint64>(std::ceil(resets.toDouble() - now));
+    const auto left = resets.isNull() ? 0 : static_cast<qint64>(std::ceil(resets.toDouble() - now));
     if (left <= 0)
         return std::nullopt;
-    if (left >= 24 * hour) {
+    const auto minutes = static_cast<int>((left + minute - 1) / minute);
+    if (minutes >= 24 * 60) {
         const auto hours = static_cast<int>((left + hour - 1) / hour);
         return TimeLeft { hours / 24, hours % 24, 0 };
     }
-    const auto minutes = static_cast<int>((left + minute - 1) / minute);
     return TimeLeft { 0, minutes / 60, minutes % 60 };
 }
 }
@@ -317,7 +312,7 @@ QVariantList AgentLauncherModel::usageSections() const
         const auto order = [](const QVariant& limit) {
             const auto values = limit.toMap();
             const auto hours = values.value(QStringLiteral("hours"));
-            return std::tuple(missing(hours) ? std::numeric_limits<int>::max() : hours.toInt(), values.value(QStringLiteral("scope")).toString());
+            return std::tuple(hours.isNull() ? std::numeric_limits<int>::max() : hours.toInt(), values.value(QStringLiteral("scope")).toString());
         };
         std::ranges::sort(windows, [&order](const QVariant& left, const QVariant& right) { return order(left) < order(right); });
         if (!rows.isEmpty())

@@ -20,6 +20,7 @@ fn claude_rows_keep_their_severity_their_model_and_when_they_reset() {
         {"kind": "weekly_all", "group": "weekly", "percent": 71, "resets_at": "2026-11-26T12:59:59.513299+00:00", "scope": null, "severity": "warning", "is_active": true},
         {"kind": "weekly_scoped", "group": "weekly", "percent": 100, "resets_at": "2026-11-26T12:59:59.513427+00:00", "scope": {"model": {"display_name": "Fable"}, "surface": null}, "severity": "critical", "is_active": false},
         {"kind": "weekly_scoped", "group": "weekly", "percent": 9, "resets_at": "soon", "scope": {"model": {"display_name": "Mythos"}, "surface": null}, "severity": "normal", "is_active": false},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 12, "scope": {"model": {"display_name": "Claude Opus 4.7"}, "surface": null}, "severity": "normal", "is_active": false},
         {"kind": "weekly_scoped", "group": "weekly", "percent": 30, "scope": {"model": null, "surface": {"display_name": "Claude Code"}}, "severity": "normal", "is_active": false},
         {"kind": "weekly_scoped", "group": "weekly", "percent": 50, "scope": {"model": {}}, "severity": "normal", "is_active": false},
         {"kind": "credits", "group": "spend", "percent": 10, "severity": "normal", "is_active": false}
@@ -41,6 +42,10 @@ fn claude_rows_keep_their_severity_their_model_and_when_they_reset() {
             UsageLimit {
                 model: Some("Mythos".to_owned()),
                 ..limit(Some(168), Some("Mythos"), 9, UsageLevel::Normal)
+            },
+            UsageLimit {
+                model: Some("opus".to_owned()),
+                ..limit(Some(168), Some("Claude Opus 4.7"), 12, UsageLevel::Normal)
             },
             limit(Some(168), Some("Claude Code"), 30, UsageLevel::Normal),
         ]
