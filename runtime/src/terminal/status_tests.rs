@@ -314,4 +314,9 @@ fn only_a_running_agent_names_the_live_program() {
         ..report("", ProgramState::Error)
     });
     assert_eq!(records.live_program(), None);
+    records.apply(ProgramStatusReport {
+        app: Some("antigravity".to_owned()),
+        ..report("", ProgramState::Blocked)
+    });
+    assert_eq!(records.live_program(), Some("antigravity"));
 }

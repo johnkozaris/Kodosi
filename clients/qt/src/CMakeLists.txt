@@ -416,6 +416,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/TerminalTile.qml
     RESOURCES
         qml/assets/kodosi-wordmark.png
+        qml/assets/providers/antigravity-dark.svg
         qml/assets/providers/claude-mark.svg
         qml/assets/providers/copilot-dark.svg
         qml/assets/providers/codex-dark.svg

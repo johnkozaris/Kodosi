@@ -284,6 +284,7 @@ internal fun AgentKind.tint(account: Int? = null): Color {
         AgentKind.CURSOR -> listOf(0xFF4E7C8C)
         AgentKind.GEMINI -> listOf(0xFF5579C9)
         AgentKind.OPENCODE -> listOf(0xFF6F6258)
+        AgentKind.ANTIGRAVITY -> listOf(0xFF3D7F5A)
         AgentKind.SHELL -> listOf(0xFF54433A)
     }
     return Color(shades[(account?.takeIf { it > 0 } ?: 0) % shades.size])
@@ -297,6 +298,7 @@ private fun AgentKind.glyph(): Int? = when (this) {
     AgentKind.CURSOR -> R.drawable.provider_cursor
     AgentKind.GEMINI -> R.drawable.provider_gemini
     AgentKind.OPENCODE -> R.drawable.provider_opencode
+    AgentKind.ANTIGRAVITY -> R.drawable.provider_antigravity
     AgentKind.SHELL -> null
 }
 

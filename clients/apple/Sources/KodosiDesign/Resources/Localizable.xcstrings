@@ -4488,6 +4488,58 @@
         }
       }
     },
+    "Edits files and runs safe commands on its own, and asks before what it cannot undo." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bearbeitet Dateien und führt sichere Befehle selbstständig aus und fragt, bevor er etwas tut, das sich nicht rückgängig machen lässt."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Επεξεργάζεται αρχεία και εκτελεί ασφαλείς εντολές μόνος του, και ρωτά πριν από ό,τι δεν αναιρείται."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edita archivos y ejecuta comandos seguros por su cuenta, y pregunta antes de lo que no se puede deshacer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifie les fichiers et exécute les commandes sûres seul, et demande avant ce qui ne peut pas être annulé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica i file ed esegue i comandi sicuri da solo, e chiede prima di ciò che non si può annullare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ファイルの編集と安全なコマンドの実行は自分で行い、元に戻せない操作の前に確認します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일 편집과 안전한 명령 실행은 스스로 하고, 되돌릴 수 없는 작업 전에는 물어봐요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自行编辑文件并运行安全的命令，执行无法撤销的操作前会询问。"
+          }
+        }
+      }
+    },
     "Edits files on its own and asks before it runs commands." : {
       "localizations" : {
         "de" : {

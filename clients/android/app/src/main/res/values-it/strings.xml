@@ -375,6 +375,7 @@
     <string name="agent_auto_check_detail">Un controllo di sicurezza approva ciò che è sicuro e ti chiede il resto. Il controllo consuma token.</string>
     <string name="agent_auto_folder_detail">Lavora da solo in questa cartella e ti chiede il resto.</string>
     <string name="agent_auto_edit_detail">Modifica i file da solo e chiede prima di eseguire comandi.</string>
+    <string name="agent_auto_safe_detail">Modifica i file ed esegue i comandi sicuri da solo, e chiede prima di ciò che non si può annullare.</string>
     <string name="agent_auto_detail">Accetta le proprie azioni, tranne ciò che hai negato.</string>
     <string name="agent_quiet_detail">Mostra meno del suo lavoro.</string>
     <string name="agent_standard_detail">Mostra il suo lavoro come è configurato l\'agente.</string>

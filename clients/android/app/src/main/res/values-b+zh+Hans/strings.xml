@@ -371,6 +371,7 @@
     <string name="agent_auto_check_detail">安全检查会批准安全的操作，其余的会询问你。检查会消耗 token。</string>
     <string name="agent_auto_folder_detail">在此文件夹中自行工作，其余的会询问你。</string>
     <string name="agent_auto_edit_detail">自行编辑文件，运行命令前会询问。</string>
+    <string name="agent_auto_safe_detail">自行编辑文件并运行安全的命令，执行无法撤销的操作前会询问。</string>
     <string name="agent_auto_detail">接受自己的操作，你拒绝的除外。</string>
     <string name="agent_quiet_detail">少显示一些工作过程。</string>
     <string name="agent_standard_detail">按 Agent 的设置显示工作过程。</string>

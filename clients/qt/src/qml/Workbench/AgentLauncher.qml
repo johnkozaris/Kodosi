@@ -155,6 +155,8 @@ ColumnLayout {
             return qsTr("Works in this folder on its own and asks you for the rest.")
         if (agentId === "gemini")
             return qsTr("Edits files on its own and asks before it runs commands.")
+        if (agentId === "antigravity")
+            return qsTr("Edits files and runs safe commands on its own, and asks before what it cannot undo.")
         return qsTr("Accepts its own actions, except what you denied.")
     }
     function outputLabel(id: string): string {

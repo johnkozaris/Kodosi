@@ -53,6 +53,7 @@ QtObject {
         case "cursor": return "#4e7c8c"
         case "gemini": return "#5579c9"
         case "opencode": return "#6f6258"
+        case "antigravity": return "#3d7f5a"
         default: return "#54433a"
         }
     }

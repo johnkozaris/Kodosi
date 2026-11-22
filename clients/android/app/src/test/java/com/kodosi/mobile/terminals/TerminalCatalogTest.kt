@@ -55,6 +55,8 @@ class TerminalCatalogTest {
         assertEquals(AgentKind.COPILOT, AgentKind.named("Copilot CLI"))
         assertEquals(AgentKind.CLAUDE, AgentKind.named("Claude Code"))
         assertEquals(AgentKind.GEMINI, AgentKind.named("Gemini CLI"))
+        assertEquals(AgentKind.ANTIGRAVITY, AgentKind.named("Antigravity CLI"))
+        assertEquals(AgentKind.ANTIGRAVITY, AgentKind.of("agy"))
         assertEquals(AgentKind.SHELL, AgentKind.named("Build helper"))
         assertEquals(AgentKind.SHELL, AgentKind.named(null))
     }

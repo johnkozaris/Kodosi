@@ -354,6 +354,7 @@ fun agentLabel(kind: AgentKind): String = when (kind) {
     AgentKind.CURSOR -> stringResource(R.string.agent_cursor)
     AgentKind.GEMINI -> stringResource(R.string.agent_gemini)
     AgentKind.OPENCODE -> stringResource(R.string.agent_opencode)
+    AgentKind.ANTIGRAVITY -> stringResource(R.string.agent_antigravity)
     AgentKind.SHELL -> stringResource(R.string.agent_shell)
 }
 

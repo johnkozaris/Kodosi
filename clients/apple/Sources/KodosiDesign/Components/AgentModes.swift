@@ -25,6 +25,8 @@ public extension AgentPermissions {
             String(localized: "A safety check approves what is safe and asks you for the rest. The check uses tokens.", bundle: .module)
         case (.auto, .codex): String(localized: "Works in this folder on its own and asks you for the rest.", bundle: .module)
         case (.auto, .gemini): String(localized: "Edits files on its own and asks before it runs commands.", bundle: .module)
+        case (.auto, .antigravity):
+            String(localized: "Edits files and runs safe commands on its own, and asks before what it cannot undo.", bundle: .module)
         case (.auto, _): String(localized: "Accepts its own actions, except what you denied.", bundle: .module)
         case (.unrestricted, _): String(localized: "Never asks, and runs every command as you.", bundle: .module)
         }
