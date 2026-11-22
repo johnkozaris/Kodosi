@@ -68,10 +68,10 @@ final class TerminalNotifications {
         post(title: session.name, body: text, session: session, cue: cue, alert: true)
     }
 
-    func withdrawAlert(_ sessionId: String) {
-        guard let session = current[sessionId] else { return }
+    func withdrawEnded(_ session: RuntimeSession) {
         let identifier = identifier(session)
-        guard alerts.remove(identifier) != nil else { return }
+        guard issued.contains(identifier), !session.attention || (alerts.contains(identifier) && session.waiting == nil) else { return }
+        alerts.remove(identifier)
         issued.remove(identifier)
         driver.remove(identifiers: [identifier])
     }

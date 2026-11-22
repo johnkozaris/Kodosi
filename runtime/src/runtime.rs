@@ -3794,6 +3794,8 @@ impl Runtime {
                     && !self.attention.marked(&key)
                     && !self.watched().contains(&key)
                 {
+                    self.attention.mark_here(&key);
+                    self.publish_catalog();
                     let cue = self.attention.notification_cue(tokio::time::Instant::now());
                     self.emit(json!({"type":"term.notification", "sessionId":id,
                         "runtimeIncarnationId":incarnation, "title":title, "body":body,
