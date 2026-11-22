@@ -423,6 +423,14 @@
     <string name="chat_hide_tasks">Απόκρυψη εργασιών</string>
     <string name="chat_takes_next">Ο agent δέχεται το επόμενο μήνυμα στο τερματικό του.</string>
     <string name="chat_in_background">στο παρασκήνιο</string>
+    <plurals name="chat_helpers">
+        <item quantity="one">%d βοηθός δουλεύει</item>
+        <item quantity="other">%d βοηθοί δουλεύουν</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="one">%d εντολή εκτελείται στο παρασκήνιο</item>
+        <item quantity="other">%d εντολές εκτελούνται στο παρασκήνιο</item>
+    </plurals>
     <string name="chat_denied">απορρίφθηκε</string>
     <string name="chat_stopped_step">σταμάτησε</string>
     <string name="chat_mode_edits">Αλλαγές</string>

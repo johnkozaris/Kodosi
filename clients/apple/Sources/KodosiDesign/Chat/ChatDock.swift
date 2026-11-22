@@ -290,12 +290,6 @@ private struct ChatFactsRow<ModelKey: View>: View {
             if let context = facts.context {
                 ContextMeter(context: context)
             }
-            if full, let limit = UsageLimit.nearest(of: facts.limits) {
-                UsageDial(limit: limit, size: 18)
-            }
-            if full, let cost = facts.cost, cost > 0 {
-                Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
-            }
             if facts.helpers > 0 {
                 Label { Text(verbatim: "\(facts.helpers)") } icon: { Image(systemName: "person.2") }
                     .labelStyle(.titleAndIcon)
@@ -309,6 +303,12 @@ private struct ChatFactsRow<ModelKey: View>: View {
                     .tip(Text("\(facts.background) commands run in the background", bundle: .module))
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text("\(facts.background) commands run in the background", bundle: .module))
+            }
+            if full, let limit = UsageLimit.nearest(of: facts.limits) {
+                UsageDial(limit: limit, size: 18)
+            }
+            if full, let cost = facts.cost, cost > 0 {
+                Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
             }
         }
         .lineLimit(1)

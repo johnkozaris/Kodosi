@@ -346,18 +346,15 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
     public var helpers: Int
     /// Commands that run on after their calls ended.
     public var background: Int
-    /// The models that the agent offers.
-    public var models: [String]
 
     private enum Key: String, CodingKey {
-        case agent, version, model, effort, mode, folder, context, limits, cost, helpers, background, models
+        case agent, version, model, effort, mode, folder, context, limits, cost, helpers, background
     }
 
     public init() {
         limits = []
         helpers = 0
         background = 0
-        models = []
     }
 
     public init(from decoder: any Decoder) throws {
@@ -373,7 +370,6 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
         cost = try fields.decodeIfPresent(Double.self, forKey: .cost)
         helpers = try fields.decodeIfPresent(Int.self, forKey: .helpers) ?? 0
         background = try fields.decodeIfPresent(Int.self, forKey: .background) ?? 0
-        models = try fields.decodeIfPresent([String].self, forKey: .models) ?? []
     }
 }
 

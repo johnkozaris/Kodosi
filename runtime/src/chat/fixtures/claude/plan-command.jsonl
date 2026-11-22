@@ -1,4 +1,4 @@
-{"k":"hello","t":1795287336622,"agent":"claude","session":"16035c0a-c34a-49e4-b3e8-7d2f65037326","version":"2.1.330","model":"claude-sonnet-5-5","cwd":"/home/sam/shop","usage":{"startedAt":1795287336163,"context":{"window":1000000},"rateLimits":[],"cost":{"usd":0}},"models":["default","sonnet","opus","haiku","fable","best","sonnet[1m]","opus[1m]","fable[1m]","opusplan"],"autoOff":false,"bypassOff":false,"bypass":false,"arguments":["claude","--model","sonnet","--effort","low","--dangerously-skip-permissions"]}
+{"k":"hello","t":1795287336622,"agent":"claude","session":"16035c0a-c34a-49e4-b3e8-7d2f65037326","version":"2.1.330","model":"claude-sonnet-5-5","cwd":"/home/sam/shop","usage":{"startedAt":1795287336163,"context":{"window":1000000},"rateLimits":[],"cost":{"usd":0}},"autoOff":false,"bypassOff":false,"bypass":false,"arguments":["claude","--model","sonnet","--effort","low","--dangerously-skip-permissions"]}
 {"k":"measure","t":1795287336934,"context":{"window":1000000},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0}}
 {"k":"did","t":1795287339292,"n":1}
 {"k":"mode","t":1795287339293,"mode":"plan"}

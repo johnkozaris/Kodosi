@@ -163,9 +163,10 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     }
     LaunchedEffect(session) { connection.refresh() }
     val window = LocalView.current
-    DisposableEffect(window, preferences.keepScreenOn) {
-        if (preferences.keepScreenOn) ScreenAwake.hold(window)
-        onDispose { if (preferences.keepScreenOn) ScreenAwake.release(window) }
+    val keepAwake = preferences.keepScreenOn
+    DisposableEffect(window, keepAwake) {
+        if (keepAwake) ScreenAwake.hold(window)
+        onDispose { if (keepAwake) ScreenAwake.release(window) }
     }
     LifecycleResumeEffect(composing, view, chatShown) {
         connection.inputFocus(!composing && !chatShown)

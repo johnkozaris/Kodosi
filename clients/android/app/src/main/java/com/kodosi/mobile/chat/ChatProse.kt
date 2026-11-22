@@ -20,7 +20,6 @@ import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kodosi.mobile.ui.DarkColors
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.rememberWords
@@ -99,7 +98,7 @@ internal sealed interface ProseBlock {
     }
 }
 
-/** An agent's answer. Agents write Markdown: a block of code shows in a terminal tile, a heading stands out. */
+/** An agent's answer. Agents write Markdown: a block of code sinks into a well, a heading stands out. */
 @Composable
 internal fun ChatProse(text: String, live: Boolean, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
@@ -118,12 +117,12 @@ internal fun ChatProse(text: String, live: Boolean, modifier: Modifier = Modifie
                     )
                 }
 
-                is ProseBlock.Code -> TerminalTile(Modifier.fillMaxWidth()) {
+                is ProseBlock.Code -> CodeWell(Modifier.fillMaxWidth()) {
                     SelectionContainer {
                         Text(
                             block.text,
                             style = ChatType.mono,
-                            color = DarkColors.ink,
+                            color = colors.ink,
                             softWrap = false,
                             modifier = Modifier.horizontalScroll(rememberScrollState())
                         )

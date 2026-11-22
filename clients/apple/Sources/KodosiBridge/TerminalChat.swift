@@ -11,7 +11,8 @@ public final class TerminalChat {
     /// The pipe is open and the chat as it is has come.
     public private(set) var linked = false
     public private(set) var failure: String?
-    /// The answers that a person gave on this device, until their questions are gone.
+    /// The answers that a person gave on this device, until their questions are gone or the chat
+    /// comes again.
     public private(set) var answers: [String: ChatAnswer] = [:]
     public var draft = ""
 
@@ -166,7 +167,9 @@ public final class TerminalChat {
         case let .snapshot(snapshot):
             awaitsSnapshot = false
             chat = snapshot
-            answers = answers.filter { answered in snapshot.asks.contains { $0.id == answered.key } }
+            // The host closes a question when it takes its answer, and the pipe loses what an app
+            // sends while it is broken. A question that is still there waits for its answer.
+            answers = [:]
             linked = true
             failure = nil
         case let .update(update):

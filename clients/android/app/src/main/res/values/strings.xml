@@ -431,6 +431,14 @@
     <string name="chat_hide_tasks">Hide the tasks</string>
     <string name="chat_takes_next">The agent takes the next message in its terminal.</string>
     <string name="chat_in_background">in the background</string>
+    <plurals name="chat_helpers">
+        <item quantity="one">%d helper works</item>
+        <item quantity="other">%d helpers work</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="one">%d command runs in the background</item>
+        <item quantity="other">%d commands run in the background</item>
+    </plurals>
     <string name="chat_denied">denied</string>
     <string name="chat_stopped_step">stopped</string>
     <string name="chat_mode_edits">Edits</string>

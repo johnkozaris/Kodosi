@@ -12,7 +12,9 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Stop, answer, file_name, list, now, person, text, words},
+    agent::{
+        Agent, Stop, answer, file_name, list, now, person, shown_rule, stop_open, text, words,
+    },
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -288,14 +290,6 @@ impl Claude {
             facts.version = words(event, "version").or_else(|| facts.version.take());
             facts.model = words(event, "model").or_else(|| facts.model.take());
             facts.folder = words(event, "cwd").or_else(|| facts.folder.take());
-            let models = list(event, "models")
-                .filter_map(Value::as_str)
-                .take(32)
-                .map(|model| start_of(model, MOST_TARGET).to_owned())
-                .collect::<Vec<_>>();
-            if !models.is_empty() {
-                facts.models = models;
-            }
         });
         if let Some(usage) = event.get("usage") {
             measure(chat, usage);
@@ -916,21 +910,28 @@ impl Claude {
 
     /// Claude Code holds a message after a stop in the terminal until a person types there, and
     /// the message waits in the queue with Claude Code's reason. A command that it cannot run ends
-    /// there, as in its terminal.
+    /// there, as in its terminal. A command that ran writes its row before it ends, except one
+    /// such as `/clear` that writes it in the next conversation, so a command still handed then
+    /// is done.
     fn did(&mut self, chat: &mut Chat, event: &Value, at: u64) {
         let (error, drop) = (text(event, "error"), text(event, "drop"));
         let n = event.get("n").and_then(Value::as_u64);
         let Some(index) = self.handed.iter().position(|handed| Some(handed.n) == n) else {
             return;
         };
-        if error.is_empty() && drop.is_empty() {
+        if error.is_empty() && drop.is_empty() && !self.handed[index].text.starts_with('/') {
             return;
         }
         let Some(handed) = self.handed.remove(index) else {
             return;
         };
-        if drop.is_empty() {
-            chat.unqueue(&handed.queued);
+        if !drop.is_empty() {
+            chat.refuse(&handed.queued, start_of(drop, MOST_TARGET).to_owned());
+            self.held = true;
+            return;
+        }
+        chat.unqueue(&handed.queued);
+        if !error.is_empty() {
             chat.push(
                 at,
                 ChatBody::Note {
@@ -940,9 +941,6 @@ impl Claude {
                     },
                 },
             );
-        } else {
-            chat.refuse(&handed.queued, start_of(drop, MOST_TARGET).to_owned());
-            self.held = true;
         }
     }
 
@@ -1069,17 +1067,7 @@ impl Agent for Claude {
         for helper in self.helpers.values_mut() {
             helper.working = false;
         }
-        let open = chat
-            .items()
-            .iter()
-            .filter_map(|item| match &item.body {
-                ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        for item in open {
-            chat.change_tool(&item, |tool| tool.state = ToolState::Stopped);
-        }
+        stop_open(chat);
         self.asked.clear();
         let closed = chat.close_asks(|_| true);
         self.show(chat);
@@ -1442,16 +1430,21 @@ fn always(suggestion: &Value) -> Option<AskAlways> {
             let rule = list(suggestion, "rules").next()?;
             Some(AskAlways::Rule {
                 tool: start_of(text(rule, "toolName"), MOST_TARGET).to_owned(),
-                text: start_of(text(rule, "ruleContent"), MOST_TARGET).to_owned(),
+                text: shown_rule(start_of(text(rule, "ruleContent"), MOST_TARGET)),
             })
         }
         "setMode" => Some(AskAlways::Mode {
             mode: mode(text(suggestion, "mode"))?,
         }),
         "addDirectories" => Some(AskAlways::Folder {
-            path: start_of(
-                list(suggestion, "directories").next()?.as_str()?,
-                MOST_TARGET * 4,
+            name: start_of(
+                file_name(
+                    list(suggestion, "directories")
+                        .next()?
+                        .as_str()?
+                        .trim_end_matches(['/', '\\']),
+                ),
+                MOST_TARGET,
             )
             .to_owned(),
         }),

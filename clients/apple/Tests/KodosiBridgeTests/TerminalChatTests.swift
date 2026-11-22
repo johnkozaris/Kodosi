@@ -153,6 +153,27 @@ import Testing
 }
 
 @MainActor
+@Test func `a question that the host still asks after a break of the pipe takes an answer again`() async throws {
+    let runtime = ChatRuntime()
+    let watching = Task { await runtime.chat.watch() }
+    defer { watching.cancel() }
+    let asking = #"""
+    {"snapshot":{"revision":1,"state":"asking","facts":{},"items":[],"asks":[{"id":"a1","item":"i2","body":{"kind":"permission",
+      "tool":{"name":"Bash","kind":"command","state":"asking","target":"make test"}}}]}}
+    """#
+
+    try await runtime.open()
+    try runtime.send(asking)
+    runtime.chat.answer(try #require(runtime.chat.question), .allow)
+    #expect(runtime.chat.question == nil)
+    try runtime.lose()
+    try runtime.reopen()
+    try runtime.send(asking)
+
+    #expect(runtime.chat.question?.id == "a1")
+}
+
+@MainActor
 private final class ChatRuntime {
     let chat: TerminalChat
     private(set) var pipe: String?

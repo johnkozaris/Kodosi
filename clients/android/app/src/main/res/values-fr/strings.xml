@@ -425,6 +425,16 @@
     <string name="chat_hide_tasks">Masquer les tâches</string>
     <string name="chat_takes_next">L’agent prend le prochain message dans son terminal.</string>
     <string name="chat_in_background">en arrière-plan</string>
+    <plurals name="chat_helpers">
+        <item quantity="one">%d assistant travaille</item>
+        <item quantity="many">%d assistants travaillent</item>
+        <item quantity="other">%d assistants travaillent</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="one">%d commande s’exécute en arrière-plan</item>
+        <item quantity="many">%d commandes s’exécutent en arrière-plan</item>
+        <item quantity="other">%d commandes s’exécutent en arrière-plan</item>
+    </plurals>
     <string name="chat_denied">refusé</string>
     <string name="chat_stopped_step">arrêté</string>
     <string name="chat_mode_edits">Modifications</string>

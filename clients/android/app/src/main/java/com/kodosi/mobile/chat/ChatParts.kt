@@ -43,15 +43,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.StatusForm
-import com.kodosi.mobile.ui.DarkColors
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.LocalPowerSaving
+import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.reducedMotion
 import com.kodosi.mobile.ui.snappy
-import com.kodosi.mobile.ui.terminalTile
+import com.kodosi.mobile.ui.well
 import kotlinx.coroutines.delay
 
 internal object ChatType {
@@ -60,13 +60,11 @@ internal object ChatType {
     val monoCaption = TextStyle(fontFamily = terminal, fontSize = 11.sp, lineHeight = 15.sp)
 }
 
-/** Code and what a command printed stay in a small dark terminal in both appearances. */
+/** Code and what a command printed sink into the chat that shows them. */
 @Composable
-internal fun TerminalTile(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    Box(modifier.terminalTile(DarkColors, TileRadius).padding(horizontal = 10.dp, vertical = 8.dp), content = content)
+internal fun CodeWell(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+    Box(modifier.well(KodosiTheme.colors, RoundedCornerShape(Radius.md)).padding(10.dp), content = content)
 }
-
-internal val TileRadius = 10.dp
 
 @Composable
 internal fun DayCapsule(text: String, modifier: Modifier = Modifier) {

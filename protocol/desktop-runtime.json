@@ -82,13 +82,13 @@
                                           "kind": {
                                             "const": "folder"
                                           },
-                                          "path": {
+                                          "name": {
                                             "type": "string"
                                           }
                                         },
                                         "required": [
                                           "kind",
-                                          "path"
+                                          "name"
                                         ],
                                         "type": "object"
                                       }
@@ -754,12 +754,6 @@
                           "type": "null"
                         }
                       ]
-                    },
-                    "models": {
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
                     },
                     "version": {
                       "anyOf": [
@@ -2164,13 +2158,13 @@
                                                     "kind": {
                                                       "const": "folder"
                                                     },
-                                                    "path": {
+                                                    "name": {
                                                       "type": "string"
                                                     }
                                                   },
                                                   "required": [
                                                     "kind",
-                                                    "path"
+                                                    "name"
                                                   ],
                                                   "type": "object"
                                                 }
@@ -2959,12 +2953,6 @@
                                     "type": "null"
                                   }
                                 ]
-                              },
-                              "models": {
-                                "items": {
-                                  "type": "string"
-                                },
-                                "type": "array"
                               },
                               "version": {
                                 "anyOf": [

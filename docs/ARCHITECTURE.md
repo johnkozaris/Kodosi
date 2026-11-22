@@ -130,8 +130,7 @@ with the terminal's folder and environment, speaks the Agent Client Protocol to 
 editor does, and carries its messages to the same socket of the host. The host turns the
 reports into the chat of the terminal: the messages, the agent's answers, its tool calls,
 the questions that wait for a person, the list that the agent keeps of its work, and the
-facts of the session. A person's message,
-answer or stop goes back the same way.
+facts of the session. A person's message, answer or stop goes back the same way.
 
 The chat reads nothing from the terminal's screen and presses no key there, so a new
 look of the agent does not change it. Each part of a report is optional, and an agent

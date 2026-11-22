@@ -16,7 +16,10 @@ use super::{
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     acp::{SIGN_IN, ask_name},
-    agent::{Agent, Stop, answer, file_name, list, person, text, words},
+    agent::{
+        Agent, Stop, answer, file_name, list, open_items, person, shown_rule, stop_open, text,
+        words,
+    },
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -271,19 +274,6 @@ impl Antigravity {
     fn show_options(&self, chat: &mut Chat) {
         let model = self.model_option();
         let effort = self.effort_option();
-        let models = model.as_ref().map_or_default(|option| {
-            list(option, "options")
-                .flat_map(|entry| {
-                    if entry.get("value").is_some() {
-                        vec![entry]
-                    } else {
-                        list(entry, "options").collect()
-                    }
-                })
-                .filter_map(|entry| words(entry, "value"))
-                .take(64)
-                .collect::<Vec<_>>()
-        });
         chat.change_facts(|facts| {
             facts.model = model
                 .as_ref()
@@ -293,9 +283,6 @@ impl Antigravity {
                 .as_ref()
                 .and_then(|option| words(option, "currentValue"))
                 .or_else(|| facts.effort.take());
-            if !models.is_empty() {
-                facts.models = models;
-            }
         });
     }
 
@@ -484,11 +471,11 @@ impl Antigravity {
             .any(|option| text(option, "kind") == "allow_always")
             .then(|| AskAlways::Rule {
                 tool: tool.name.clone(),
-                text: if tool.target.is_empty() {
-                    tool.name.clone()
+                text: shown_rule(if tool.target.is_empty() {
+                    &tool.name
                 } else {
-                    tool.target.clone()
-                },
+                    &tool.target
+                }),
             });
         chat.ask(ChatAsk {
             id: ask.clone(),
@@ -587,7 +574,7 @@ impl Antigravity {
                 TurnEnd::Failed
             }
         };
-        for item in open(chat) {
+        for item in open_items(chat) {
             chat.change_tool(&item, |tool| {
                 // The agent lets a command that runs go on after its turn, and wakes when it ends.
                 if let (ToolState::Running, Some(ToolDetail::Command { background, .. })) =
@@ -685,12 +672,7 @@ impl Agent for Antigravity {
         self.writing = None;
         self.told = None;
         self.calls.clear();
-        for item in open(chat) {
-            match chat.body(&item).cloned() {
-                Some(ChatBody::Text { text, .. }) => chat.put(&item, answer(&text, false)),
-                _ => chat.change_tool(&item, |tool| tool.state = ToolState::Stopped),
-            }
-        }
+        stop_open(chat);
         self.asked.clear();
         let closed = chat.close_asks(|_| true);
         self.show(chat);
@@ -841,18 +823,6 @@ impl Agent for Antigravity {
                 .collect(),
         )
     }
-}
-
-/// The steps that did not end and the answer that the agent still writes.
-fn open(chat: &Chat) -> Vec<String> {
-    chat.items()
-        .iter()
-        .filter_map(|item| match &item.body {
-            ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
-            ChatBody::Text { live: true, .. } => Some(item.id.clone()),
-            _ => None,
-        })
-        .collect()
 }
 
 /// The agent could not do what the chat asked, in the agent's words.

@@ -73,6 +73,10 @@ Befehl in die Shell des neuen Terminals.
   Branch einen Namen. Kodosi startet das Terminal in einem neuen Git-Worktree. Wenn das
   Terminal endet, entfernt Kodosi den Worktree, sofern sich nichts geändert hat.
   Einstellungen › Terminal legt fest, wo diese Ordner landen.
+- Ein Terminal ist hell oder dunkel wie Kodosi auf dem Computer, der es ausführt, und so
+  zeigt es jedes Gerät. Seine Programme erfahren das Aussehen, und manche folgen ihm, etwa
+  Claude Code mit dem Theme Auto (`/theme`). Damit Terminals dunkel bleiben, während
+  Kodosi hell ist, schalte Terminals dunkel lassen in Einstellungen › Terminal ein.
 
 Ein Terminal ist eine echte Shell auf dem Computer, der es ausführt. Minimieren blendet ein
 Terminal aus und lässt es weiterlaufen; Schließen beendet es und seine Programme. Wenn du das
@@ -118,6 +122,13 @@ auszuschalten, öffne auf diesem Gerät die Einstellungen in Kodosi. Programme m
 Zustand über das
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) oder
 einen Fortschrittsbalken. Ein Programm, das nichts meldet, zeigt keinen Zustand.
+
+Ein Terminal mit Claude Code zeigt sich auch als Chat, ebenso eines mit Codex oder Copilot
+CLI, wenn Kodosi sie startet. Wähle auf einem Mac, iPhone, iPad oder Android-Telefon Chat
+in der Kopfzeile des Terminals. Der Chat zeigt, was du geschrieben hast, was der Agent
+geantwortet und getan hat, und seine Fragen, mit den Antworten als Buttons. Schreib dort
+dem Agent, oder stoppe ihn. Während er fragt, sagen ihm deine Worte, was er stattdessen
+tun soll. Was du im Chat tust, geschieht auch im Terminal.
 
 ## 4. Sehen, was ein Agent zeigt
 
