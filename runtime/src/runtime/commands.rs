@@ -243,6 +243,18 @@ impl Runtime {
                 self.retry_views_now();
                 self.result(command);
             }
+            #[cfg(feature = "host")]
+            Command::Look { look, .. } => {
+                if self.look.change(*look) {
+                    for local in self.local.values_mut() {
+                        local.entry.look = *look;
+                    }
+                    self.publish_catalog();
+                }
+                self.result(command);
+            }
+            #[cfg(not(feature = "host"))]
+            Command::Look { .. } => self.result(command),
             command if command.is_dosi() => self.dosi_command(command)?,
             Command::SeeProject {
                 project_id,
@@ -1067,6 +1079,7 @@ impl Runtime {
         let launcher = Arc::clone(&self.launcher);
         let services = self.services.clone();
         let chat = self.links.room(id);
+        let look = self.look.watch();
         self.creating.insert(id, command.clone());
         self.spawn(async move {
             let result = create_session(
@@ -1074,6 +1087,7 @@ impl Runtime {
                 config,
                 services,
                 chat,
+                look,
                 &launcher,
                 &command,
                 like,
@@ -1696,6 +1710,7 @@ impl Runtime {
                     context: None,
                     canvas: None,
                     chat: false,
+                    look: self.look.now(),
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),
                     kind: SessionKind::Local,
@@ -2147,6 +2162,7 @@ async fn create_session(
     config: Config,
     services: crate::canvas::CanvasServices,
     chat: crate::chat::TerminalChat,
+    look: tokio::sync::watch::Receiver<crate::terminal::TerminalLook>,
     launcher: &Arc<Launcher>,
     command: &Command,
     like: Option<RunningAgent>,
@@ -2238,6 +2254,7 @@ async fn create_session(
         grid,
         crate::canvas::CanvasHandle::spawn(id, &config.data_root, services),
         chat,
+        look,
         crate::terminal::pictures_root(&config.data_root).join(id.to_string()),
         changes,
     )

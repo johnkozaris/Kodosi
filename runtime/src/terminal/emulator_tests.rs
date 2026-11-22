@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{SessionTerminal, TerminalEffect, parse_cwd};
+use super::{SessionTerminal, TerminalEffect, TerminalLook, parse_cwd};
 
 fn reported(raw: &str) -> Option<PathBuf> {
     parse_cwd(raw.as_bytes())
@@ -70,7 +70,7 @@ fn a_report_that_is_no_folder_of_this_host_leaves_the_folder_alone() {
 
 #[test]
 fn a_history_too_large_for_one_snapshot_still_gives_the_screen() {
-    let mut terminal = SessionTerminal::new(100, 1024).expect("terminal");
+    let mut terminal = SessionTerminal::new(100, 1024, TerminalLook::Dark).expect("terminal");
     let line = format!("{}\r\n", "\u{754c}".repeat(512));
     for _ in 0..1200 {
         terminal.process_output(line.as_bytes()).expect("output");
@@ -97,7 +97,7 @@ fn a_history_too_large_for_one_snapshot_still_gives_the_screen() {
 
 #[test]
 fn a_program_that_asks_for_the_terminal_version_is_told_ghostty() {
-    let mut terminal = SessionTerminal::new(24, 80).expect("terminal");
+    let mut terminal = SessionTerminal::new(24, 80, TerminalLook::Dark).expect("terminal");
 
     let output = terminal.process_output(b"\x1b[>q").expect("output");
 
@@ -108,28 +108,78 @@ fn a_program_that_asks_for_the_terminal_version_is_told_ghostty() {
     ));
 }
 
-#[test]
-fn a_program_that_asks_for_the_colors_is_told_the_colors_that_the_apps_draw() {
-    let mut terminal = SessionTerminal::new(24, 80).expect("terminal");
-
-    let output = terminal
-        .process_output(b"\x1b]11;?\x1b\\\x1b]10;?\x1b\\\x1b]4;1;?\x1b\\")
-        .expect("output");
-
-    let replies: Vec<&[u8]> = output
-        .effects
+fn replies(effects: &[TerminalEffect]) -> Vec<&[u8]> {
+    effects
         .iter()
         .filter_map(|effect| match effect {
             TerminalEffect::PtyWrite(reply) => Some(reply.as_slice()),
             _ => None,
         })
-        .collect();
+        .collect()
+}
+
+const ASK_COLORS: &[u8] = b"\x1b]11;?\x1b\\\x1b]10;?\x1b\\\x1b]4;1;?\x1b\\\x1b[?996n";
+
+#[test]
+fn a_program_that_asks_for_the_colors_is_told_the_colors_of_the_look_that_the_apps_draw() {
+    for (look, answers) in [
+        (
+            TerminalLook::Dark,
+            [
+                b"\x1b]11;rgb:0d0d/0b0b/0909\x1b\\".as_slice(),
+                b"\x1b]10;rgb:e8e8/e1e1/d9d9\x1b\\",
+                b"\x1b]4;1;rgb:c4c4/4040/4040\x1b\\",
+                b"\x1b[?997;1n",
+            ],
+        ),
+        (
+            TerminalLook::Light,
+            [
+                b"\x1b]11;rgb:fafa/f6f6/eeee\x1b\\".as_slice(),
+                b"\x1b]10;rgb:2a2a/1d1d/1515\x1b\\",
+                b"\x1b]4;1;rgb:b2b2/3a3a/3232\x1b\\",
+                b"\x1b[?997;2n",
+            ],
+        ),
+    ] {
+        let mut terminal = SessionTerminal::new(24, 80, look).expect("terminal");
+
+        let output = terminal.process_output(ASK_COLORS).expect("output");
+
+        assert_eq!(replies(&output.effects), answers, "{look:?}");
+    }
+}
+
+#[test]
+fn a_new_look_changes_the_answers_and_reaches_only_a_program_that_follows_the_color_scheme() {
+    let mut terminal = SessionTerminal::new(24, 80, TerminalLook::Dark).expect("terminal");
+
     assert_eq!(
-        replies,
-        [
-            b"\x1b]11;rgb:0d0d/0b0b/0909\x1b\\".as_slice(),
-            b"\x1b]10;rgb:e8e8/e1e1/d9d9\x1b\\".as_slice(),
-            b"\x1b]4;1;rgb:c4c4/4040/4040\x1b\\".as_slice(),
-        ]
+        terminal.change_look(TerminalLook::Light).expect("light"),
+        b""
+    );
+    let output = terminal.process_output(ASK_COLORS).expect("output");
+    assert_eq!(
+        replies(&output.effects).first().copied(),
+        Some(b"\x1b]11;rgb:fafa/f6f6/eeee\x1b\\".as_slice())
+    );
+    assert_eq!(
+        replies(&output.effects).last().copied(),
+        Some(b"\x1b[?997;2n".as_slice())
+    );
+
+    terminal.process_output(b"\x1b[?2031h").expect("follow");
+    assert_eq!(
+        terminal.change_look(TerminalLook::Dark).expect("dark"),
+        b"\x1b[?997;1n"
+    );
+    terminal
+        .process_output(b"\x1b[?2031l")
+        .expect("stop following");
+    assert_eq!(
+        terminal
+            .change_look(TerminalLook::Light)
+            .expect("light again"),
+        b""
     );
 }

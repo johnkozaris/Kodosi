@@ -41,6 +41,8 @@ mod changes;
 mod commands;
 mod dosi;
 #[cfg(feature = "host")]
+mod look;
+#[cfg(feature = "host")]
 mod messages;
 mod pipes;
 mod project_seen;
@@ -1150,6 +1152,8 @@ struct Runtime {
     #[cfg(feature = "host")]
     restore: restore::Restore,
     #[cfg(feature = "host")]
+    look: look::HostLook,
+    #[cfg(feature = "host")]
     mentions: messages::Mentions,
     #[cfg(feature = "host")]
     agent_changes: changes::AgentChanges,
@@ -1307,6 +1311,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         #[cfg(feature = "host")]
         restore,
         #[cfg(feature = "host")]
+        look: look::HostLook::load(&config.data_root),
+        #[cfg(feature = "host")]
         mentions: messages::Mentions::default(),
         #[cfg(feature = "host")]
         agent_changes: changes::AgentChanges::default(),
@@ -1451,6 +1457,7 @@ impl Runtime {
                     | Command::Lifecycle { .. }
                     | Command::NetworkChanged { .. }
                     | Command::Resync { .. }
+                    | Command::Look { .. }
             ) {
             Err(Error::Stale)
         } else if let Some(computer) = elsewhere {
@@ -2094,6 +2101,8 @@ impl Runtime {
         remove_pictures(&self.config.data_root).await;
         #[cfg(feature = "host")]
         self.restore.saved().await;
+        #[cfg(feature = "host")]
+        self.look.saved().await;
         self.project_seen.saved().await;
         self.network.shutdown().await;
     }
@@ -3585,6 +3594,7 @@ impl Runtime {
                 None
             },
             chat: live && previous.is_some_and(|entry| entry.chat),
+            look: previous.map_or_default(|entry| entry.look),
             id: remote.id.to_string(),
             incarnation_id: remote.incarnation_id.to_string(),
             kind: SessionKind::Remote,
@@ -3853,6 +3863,7 @@ impl Runtime {
                     entry.context = metadata.context;
                     entry.canvas = metadata.canvas.map(|canvas| *canvas);
                     entry.chat = metadata.chat;
+                    entry.look = metadata.look;
                     self.publish_catalog();
                 }
             }

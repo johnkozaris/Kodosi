@@ -6282,6 +6282,59 @@
               }
             ]
           },
+          "look": {
+            "oneOf": [
+              {
+                "const": "dark"
+              },
+              {
+                "const": "light"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "app.look"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "look"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "requestId": {
             "type": "string"
           },
@@ -11860,6 +11913,16 @@
                     }
                   ]
                 },
+                "look": {
+                  "oneOf": [
+                    {
+                      "const": "dark"
+                    },
+                    {
+                      "const": "light"
+                    }
+                  ]
+                },
                 "message": {
                   "anyOf": [
                     {
@@ -12330,6 +12393,7 @@
                 "prompt",
                 "repository",
                 "working",
+                "look",
                 "id",
                 "incarnationId",
                 "kind",
@@ -17717,7 +17781,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 99,
+  "protocolVersion": 100,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

@@ -39,7 +39,8 @@ pub use types::{
     CellPixels, Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES,
     TERMINAL_INPUT_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
     TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES, TERMINAL_SNAPSHOT_MAX_BYTES,
-    TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry, TerminalSize,
+    TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalLook, TerminalMetadata, TerminalPixelGeometry,
+    TerminalSize,
 };
 
 pub(crate) use types::is_valid_folder;

@@ -57,6 +57,12 @@ hidden terminal keeps its last screen, and its state and alerts come from the ba
 The view in focus sets the size of its terminal. Input from a view is a person's, and
 input from the `kodosi` command gives way while a person types.
 
+A terminal has the look of the computer that hosts it, dark or light, on every device that
+shows it. The app on that computer gives its host the look, and a host without an app keeps
+the last look that it got. Programs learn the look from the host: it answers their questions
+for the colors and the color scheme with the look, and tells a program that asked for it each
+change of the color scheme.
+
 The runtime decides what a terminal shows of its program: whether it works, what it
 waits for and what it does. The program's own report decides, and each client presents
 the result.

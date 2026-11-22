@@ -24,6 +24,7 @@ async fn runs_start_line(shell: PathBuf, arguments: Vec<String>, line: &str, out
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         TerminalChat::alone(),
+        watch::channel(TerminalLook::Dark).1,
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -74,6 +75,7 @@ async fn a_screen_that_a_console_starts_with_stays_in_its_history() {
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
         TerminalChat::alone(),
+        watch::channel(TerminalLook::Dark).1,
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )

@@ -21,7 +21,7 @@ use super::subscribers::Subscribers;
 use super::title::titles_look_same;
 use super::{
     CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, SessionChange, Subscription,
-    TYPING, TerminalPixelGeometry, TerminalSize, agent_asks, someone_typing,
+    TYPING, TerminalLook, TerminalPixelGeometry, TerminalSize, agent_asks, someone_typing,
 };
 use crate::{
     Error, Result,
@@ -157,6 +157,7 @@ impl TerminalSession {
         (size, cell): (TerminalSize, CellPixels),
         canvas: CanvasHandle,
         chat: TerminalChat,
+        host_look: watch::Receiver<TerminalLook>,
         pictures: PathBuf,
         changes: mpsc::Sender<SessionChange>,
     ) -> Result<Self> {
@@ -168,11 +169,12 @@ impl TerminalSession {
             socket: link,
             codex,
         } = chat;
+        let look = *host_look.borrow();
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
             let cwd = directory
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
-            let emulator = SessionTerminalHandle::spawn(size, screen)?;
+            let emulator = SessionTerminalHandle::spawn(size, screen, look)?;
             let variables = kodosi_variables(id, notes.as_deref(), link, codex);
             let environment = variables
                 .iter()
@@ -259,6 +261,8 @@ impl TerminalSession {
             canvas_state,
             chat_linked: chat.linked(),
             chat,
+            host_look,
+            look,
             pictures,
             saving: JoinSet::new(),
             metadata_dirty: false,
@@ -774,6 +778,8 @@ struct LocalActor {
     canvas_state: watch::Receiver<Canvas>,
     chat: ChatHandle,
     chat_linked: watch::Receiver<bool>,
+    host_look: watch::Receiver<TerminalLook>,
+    look: TerminalLook,
     pictures: PathBuf,
     saving: JoinSet<SavedPicture>,
     metadata_dirty: bool,
@@ -834,6 +840,26 @@ impl LocalActor {
             context: self.published_context.clone(),
             canvas: self.canvas.current().map(Box::new),
             chat: *self.chat_linked.borrow(),
+            look: self.look,
+        }
+    }
+
+    async fn follow_look(&mut self) {
+        let look = *self.host_look.borrow();
+        if look == self.look {
+            return;
+        }
+        match self.emulator.change_look(look).await {
+            Ok(report) => {
+                self.look = look;
+                self.metadata_dirty = true;
+                if let Err(error) = self.enqueue(Bytes::from(report), None) {
+                    tracing::warn!(id = %self.id, %error, "the program did not hear the new look");
+                }
+            }
+            Err(error) => {
+                tracing::debug!(id = %self.id, %error, "the terminal takes its new look at a later upkeep");
+            }
         }
     }
 
@@ -1256,6 +1282,7 @@ impl LocalActor {
             self.next_program_check = tokio::time::Instant::now() + Duration::from_secs(1);
             self.observe_foreground();
         }
+        self.follow_look().await;
         self.publish_status();
         self.publish_context();
         self.publish_canvas();

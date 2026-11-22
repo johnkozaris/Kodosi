@@ -2,12 +2,12 @@ use std::{path::PathBuf, str, thread, time::Duration};
 
 use super::{
     status::{BlockedKind, ProgramState, ProgramStatusReport},
-    types::{CellPixels, Checkpoint, TerminalSize, is_valid_folder, snapshot_limits},
+    types::{CellPixels, Checkpoint, TerminalLook, TerminalSize, is_valid_folder, snapshot_limits},
 };
 use crate::{Error, Result};
 use ghostty_vt::{
-    Colors, CompressionProgress, ContextSignal, Effect, ProgramStatusKind, ProgramStatusState,
-    ProgressState, Terminal, TerminalPolicy,
+    ColorScheme, Colors, CompressionProgress, ContextSignal, Effect, ProgramStatusKind,
+    ProgramStatusState, ProgressState, Terminal, TerminalPolicy,
 };
 use tokio::{
     runtime::Builder as TokioRuntimeBuilder,
@@ -86,13 +86,17 @@ enum TerminalCommand {
     PrimaryHistory {
         reply_tx: oneshot::Sender<Result<Vec<u8>>>,
     },
+    Look {
+        look: TerminalLook,
+        reply_tx: oneshot::Sender<Result<Vec<u8>>>,
+    },
     Shutdown {
         reply_tx: oneshot::Sender<Result<()>>,
     },
 }
 
 impl SessionTerminalHandle {
-    pub(super) fn spawn(size: TerminalSize, screen: Vec<u8>) -> Result<Self> {
+    pub(super) fn spawn(size: TerminalSize, screen: Vec<u8>, look: TerminalLook) -> Result<Self> {
         let rows = size.rows();
         let cols = size.cols();
         let (command_tx, command_rx) = tokio_mpsc::channel(TERMINAL_COMMAND_CAPACITY);
@@ -109,7 +113,9 @@ impl SessionTerminalHandle {
                     ))));
                     return;
                 };
-                runtime.block_on(terminal_actor_main(command_rx, rows, cols, screen, init_tx));
+                runtime.block_on(terminal_actor_main(
+                    command_rx, rows, cols, screen, look, init_tx,
+                ));
             })
             .map_err(|error| {
                 Error::Other(format!(
@@ -193,6 +199,11 @@ impl SessionTerminalHandle {
             .await
     }
 
+    pub(super) async fn change_look(&self, look: TerminalLook) -> Result<Vec<u8>> {
+        self.request(|reply_tx| TerminalCommand::Look { look, reply_tx })
+            .await
+    }
+
     pub(super) async fn shutdown(self) -> Result<()> {
         self.request(|reply_tx| TerminalCommand::Shutdown { reply_tx })
             .await
@@ -218,7 +229,7 @@ impl SessionTerminalHandle {
     }
 }
 
-const TERMINAL_COLORS: Colors = Colors {
+const DARK: Colors = Colors {
     foreground: [0xe8, 0xe1, 0xd9],
     background: [0x0d, 0x0b, 0x09],
     cursor: [0xcc, 0x7a, 0x45],
@@ -242,13 +253,38 @@ const TERMINAL_COLORS: Colors = Colors {
     ],
 };
 
+/// White and bright white are mid grays, so that white text stays readable on the light ground.
+const LIGHT: Colors = Colors {
+    foreground: [0x2a, 0x1d, 0x15],
+    background: [0xfa, 0xf6, 0xee],
+    cursor: [0xb8, 0x5a, 0x26],
+    ansi: [
+        [0x2a, 0x1d, 0x15],
+        [0xb2, 0x3a, 0x32],
+        [0x2f, 0x7d, 0x54],
+        [0x7e, 0x5e, 0x12],
+        [0x2e, 0x64, 0xa8],
+        [0x8f, 0x3f, 0x9c],
+        [0x1f, 0x7a, 0x74],
+        [0x7d, 0x6b, 0x5f],
+        [0x5e, 0x4d, 0x42],
+        [0xc4, 0x45, 0x3b],
+        [0x3a, 0x8f, 0x60],
+        [0x94, 0x70, 0x1a],
+        [0x3a, 0x74, 0xbe],
+        [0xa2, 0x4d, 0xb0],
+        [0x2a, 0x8f, 0x88],
+        [0x9a, 0x87, 0x78],
+    ],
+};
+
 struct SessionTerminal {
     terminal: Terminal,
     applied: u64,
 }
 
 impl SessionTerminal {
-    fn new(rows: u16, cols: u16) -> Result<Self> {
+    fn new(rows: u16, cols: u16, look: TerminalLook) -> Result<Self> {
         let mut terminal = Terminal::new(
             cols,
             rows,
@@ -261,17 +297,16 @@ impl SessionTerminal {
         terminal
             .report_version(kodosi_pty::XTVERSION)
             .map_err(terminal_error)?;
-        terminal
-            .set_default_colors(&TERMINAL_COLORS)
-            .map_err(terminal_error)?;
-        Ok(Self {
+        let mut session = Self {
             terminal,
             applied: 0,
-        })
+        };
+        session.take_look(look)?;
+        Ok(session)
     }
 
-    fn showing(rows: u16, cols: u16, screen: &[u8]) -> Result<Self> {
-        let mut session = Self::new(rows, cols)?;
+    fn showing(rows: u16, cols: u16, screen: &[u8], look: TerminalLook) -> Result<Self> {
+        let mut session = Self::new(rows, cols, look)?;
         if screen.is_empty() {
             return Ok(session);
         }
@@ -280,9 +315,27 @@ impl SessionTerminal {
             shown = session.terminal.write(CONSOLE_START);
         }
         if shown.is_err() {
-            session = Self::new(rows, cols)?;
+            session = Self::new(rows, cols, look)?;
         }
         Ok(session)
+    }
+
+    fn take_look(&mut self, look: TerminalLook) -> Result<()> {
+        let (colors, scheme) = match look {
+            TerminalLook::Dark => (&DARK, ColorScheme::Dark),
+            TerminalLook::Light => (&LIGHT, ColorScheme::Light),
+        };
+        self.terminal
+            .set_default_colors(colors)
+            .map_err(terminal_error)?;
+        self.terminal
+            .set_color_scheme(scheme)
+            .map_err(terminal_error)
+    }
+
+    fn change_look(&mut self, look: TerminalLook) -> Result<Vec<u8>> {
+        self.take_look(look)?;
+        self.terminal.color_scheme_report().map_err(terminal_error)
     }
 
     fn process_output(&mut self, bytes: &[u8]) -> Result<ProcessedTerminalOutput> {
@@ -487,9 +540,10 @@ async fn terminal_actor_main(
     rows: u16,
     cols: u16,
     screen: Vec<u8>,
+    look: TerminalLook,
     init_tx: std::sync::mpsc::SyncSender<Result<()>>,
 ) {
-    let terminal = SessionTerminal::showing(rows, cols, &screen);
+    let terminal = SessionTerminal::showing(rows, cols, &screen, look);
     drop(screen);
     let Ok(mut terminal) = terminal else {
         drop(init_tx.send(terminal.map(|_| ())));
@@ -555,6 +609,9 @@ async fn terminal_actor_main(
                     }
                     TerminalCommand::PrimaryHistory { reply_tx } => {
                         drop(reply_tx.send(terminal.terminal.primary_history().map_err(terminal_error)));
+                    }
+                    TerminalCommand::Look { look, reply_tx } => {
+                        drop(reply_tx.send(terminal.change_look(look)));
                     }
                     TerminalCommand::Shutdown { reply_tx } => {
                         drop(terminal);

@@ -194,6 +194,15 @@ impl Default for TerminalSize {
     }
 }
 
+/// Every terminal of a computer has the look of that computer, on every device that shows it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum TerminalLook {
+    #[default]
+    Dark,
+    Light,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalMetadata {
@@ -216,6 +225,7 @@ pub struct TerminalMetadata {
     /// An agent of the terminal reports to the terminal's chat.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub chat: bool,
+    pub look: TerminalLook,
 }
 
 impl TerminalMetadata {
