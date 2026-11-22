@@ -482,10 +482,6 @@
     <string name="today">오늘</string>
     <string name="yesterday">어제</string>
     <string name="chat_usage_used">%1$s: %2$d%% 사용</string>
-    <string name="chat_usage_month">이번 달</string>
-    <string name="chat_usage_week">이번 주</string>
-    <string name="chat_usage_scope_month">%1$s, 이번 달</string>
-    <string name="chat_usage_scope_week">%1$s, 이번 주</string>
     <plurals name="chat_ran_commands">
         <item quantity="other">명령 %d개 실행함</item>
     </plurals>
@@ -527,12 +523,6 @@
     </plurals>
     <plurals name="chat_count_stopped">
         <item quantity="other">%d개 중지됨</item>
-    </plurals>
-    <plurals name="chat_usage_hours">
-        <item quantity="other">최근 %d시간</item>
-    </plurals>
-    <plurals name="chat_usage_scope_hours">
-        <item quantity="other">%1$s, 최근 %2$d시간</item>
     </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="other">작업: %2$d개 중 %1$d개 완료</item>
