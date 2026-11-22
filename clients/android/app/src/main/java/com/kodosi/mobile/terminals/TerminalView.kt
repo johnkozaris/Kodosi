@@ -68,7 +68,6 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
     private val run = StringBuilder()
     private var scrolled = 0f
     private var accent = 0
-    private var look = TerminalLook.DARK
     private var selection: ActionMode? = null
     private var selecting = false
     private var mouseButton = 1
@@ -181,7 +180,6 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
     }
 
     fun look(next: TerminalLook) {
-        look = next
         if (connection.kernel.look(next)) invalidate()
     }
 
@@ -402,9 +400,9 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         val y = row * cellHeight
         var column = 0
         while (column < frame.cols) {
-            val color = background(frame, column, row)
+            val color = frame.background(column, row)
             var end = column + 1
-            while (end < frame.cols && background(frame, end, row) == color) end++
+            while (end < frame.cols && frame.background(end, row) == color) end++
             if (color != 0) {
                 fill.color = color
                 canvas.drawRect(
@@ -420,20 +418,6 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         }
     }
 
-    private fun background(frame: TerminalFrame, column: Int, row: Int): Int =
-        if (frame.style(column, row) and TerminalFrame.Style.SELECTED != 0) {
-            if (look == TerminalLook.LIGHT) LIGHT_SELECTION else DARK_SELECTION
-        } else {
-            frame.background(column, row)
-        }
-
-    private fun foreground(frame: TerminalFrame, column: Int, row: Int): Int =
-        if (look == TerminalLook.LIGHT && frame.style(column, row) and TerminalFrame.Style.SELECTED != 0) {
-            LIGHT_SELECTED_TEXT
-        } else {
-            frame.foreground(column, row)
-        }
-
     private fun drawText(canvas: Canvas, frame: TerminalFrame, row: Int) {
         val y = row * cellHeight + baseline
         var column = 0
@@ -444,13 +428,13 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
                 column++
                 continue
             }
-            val color = foreground(frame, column, row)
+            val color = frame.foreground(column, row)
             val style = frame.style(column, row)
             run.setLength(0)
             run.append(content)
             var end = column + 1
             if (width == 1) {
-                while (end < frame.cols && frame.width(end, row) == 1 && foreground(frame, end, row) == color &&
+                while (end < frame.cols && frame.width(end, row) == 1 && frame.foreground(end, row) == color &&
                     frame.style(end, row) == style
                 ) {
                     run.append(frame.text(end, row) ?: " ")
@@ -635,8 +619,5 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         private const val MODIFIER_META = KeyEvent.META_CTRL_MASK or KeyEvent.META_ALT_MASK
         private const val FONT_SIZE_DP = 12f
         private const val MAX_DELETE = 64
-        private const val DARK_SELECTION = 0xFF5C3825.toInt()
-        private const val LIGHT_SELECTION = 0xFFF0DFCB.toInt()
-        private const val LIGHT_SELECTED_TEXT = 0xFF2A1D15.toInt()
     }
 }

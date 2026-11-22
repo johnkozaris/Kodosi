@@ -47,7 +47,6 @@ enum {
     CELL_UNDERLINE = 1 << 2,
     CELL_STRIKETHROUGH = 1 << 3,
     CELL_OVERLINE = 1 << 4,
-    CELL_SELECTED = 1 << 5,
 };
 
 #define FRAME_HEADER_BYTES 24
@@ -56,6 +55,13 @@ enum {
 #define MAX_VISIBLE_CELLS 1048576
 #define SCROLLBACK_LINES 10000
 #define SCROLLBACK_BYTES (46u * 512u * 1024u)
+#define CONTRAST_BITS 8
+
+typedef struct {
+    uint32_t foreground;
+    uint32_t background;
+    uint32_t shown;
+} Contrast;
 
 typedef struct {
     pthread_mutex_t lock;
@@ -65,6 +71,7 @@ typedef struct {
     uint64_t next_sequence;
     bool admitted;
     bool light;
+    Contrast contrast[1u << CONTRAST_BITS];
     uint8_t *clipboard;
     size_t clipboard_len;
     uint8_t clipboard_kind;
@@ -174,6 +181,10 @@ typedef struct {
     GhosttyColorRgb background;
     GhosttyColorRgb cursor;
     GhosttyColorRgb ansi[16];
+    uint32_t selection_background;
+    // Zero keeps the selected cell's own color.
+    uint32_t selection_foreground;
+    double minimum_contrast;
 } Look;
 
 static const Look DARK = {
@@ -186,6 +197,8 @@ static const Look DARK = {
         {0x8c, 0x7a, 0x6f}, {0xd6, 0x60, 0x60}, {0x6d, 0xcc, 0x85}, {0xd6, 0xb3, 0x5d},
         {0x7d, 0xaa, 0xd9}, {0xc8, 0x8d, 0xd0}, {0x7d, 0xc7, 0xbe}, {0xe8, 0xe1, 0xd9},
     },
+    .selection_background = 0xFF5C3825u,
+    .minimum_contrast = 1.1,
 };
 
 static const Look LIGHT = {
@@ -198,7 +211,17 @@ static const Look LIGHT = {
         {0x5e, 0x4d, 0x42}, {0xc4, 0x45, 0x3b}, {0x3a, 0x8f, 0x60}, {0x94, 0x70, 0x1a},
         {0x3a, 0x74, 0xbe}, {0xa2, 0x4d, 0xb0}, {0x2a, 0x8f, 0x88}, {0x9a, 0x87, 0x78},
     },
+    .selection_background = 0xFFF0DFCBu,
+    .selection_foreground = 0xFF2A1D15u,
+    .minimum_contrast = 3.0,
 };
+
+static const GhosttyColorRgb WHITE = {0xff, 0xff, 0xff};
+static const GhosttyColorRgb BLACK = {0x00, 0x00, 0x00};
+
+static const Look *look_of(bool light) {
+    return light ? &LIGHT : &DARK;
+}
 
 static Kernel *kernel_of(jlong handle) {
     return (Kernel *)(intptr_t)handle;
@@ -206,6 +229,35 @@ static Kernel *kernel_of(jlong handle) {
 
 static uint32_t rgb(GhosttyColorRgb color) {
     return 0xFF000000u | ((uint32_t)color.r << 16) | ((uint32_t)color.g << 8) | color.b;
+}
+
+static GhosttyColorRgb channels(uint32_t color) {
+    return (GhosttyColorRgb){.r = (uint8_t)(color >> 16), .g = (uint8_t)(color >> 8), .b = (uint8_t)color};
+}
+
+// Ghostty's minimum-contrast: a glyph too close to its background turns white or black, whichever stands out
+// more, so that text a program colored for the other look stays readable.
+static uint32_t contrasted(Kernel *kernel, double minimum, uint32_t foreground, uint32_t background) {
+    uint32_t key = (foreground * 0x9E3779B1u) ^ (background * 0x85EBCA77u);
+    Contrast *known = &kernel->contrast[key >> (32 - CONTRAST_BITS)];
+    if (known->foreground != foreground || known->background != background) {
+        const GhosttyColorRgb fg = channels(foreground);
+        const GhosttyColorRgb bg = channels(background);
+        uint32_t shown = foreground;
+        if (ghostty_color_contrast(&fg, &bg) < minimum) {
+            shown = ghostty_color_contrast(&WHITE, &bg) > ghostty_color_contrast(&BLACK, &bg) ? 0xFFFFFFFFu
+                                                                                                : 0xFF000000u;
+        }
+        *known = (Contrast){.foreground = foreground, .background = background, .shown = shown};
+    }
+    return known->shown;
+}
+
+// Box, block, legacy computing and Powerline glyphs draw shapes that continue the backgrounds of the cells around
+// them, so Ghostty leaves their color as it is.
+static bool graphic(uint32_t codepoint) {
+    return (codepoint >= 0x2500 && codepoint <= 0x259F) || (codepoint >= 0x1FB00 && codepoint <= 0x1FBFF) ||
+           (codepoint >= 0x1CC00 && codepoint <= 0x1CEBF) || (codepoint >= 0xE0B0 && codepoint <= 0xE0D7);
 }
 
 static void put16(uint8_t *at, uint16_t value) {
@@ -250,7 +302,7 @@ static GhosttyResult restore_history(GhosttySnapshotDecoder decoder, size_t size
 }
 
 static GhosttyResult paint(GhosttyTerminal terminal, bool light) {
-    const Look *look = light ? &LIGHT : &DARK;
+    const Look *look = look_of(light);
     GhosttyResult result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND, &look->foreground);
     if (result == GHOSTTY_SUCCESS) {
         result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND, &look->background);
@@ -464,6 +516,7 @@ static jint frame(Kernel *kernel, Output *output) {
         return -KERNEL_NOT_READY;
     }
     GhosttyRenderState render = kernel->render;
+    const Look *look = look_of(kernel->light);
     GhosttyResult result = ghostty_render_state_update(render, kernel->terminal);
     uint16_t cols = 0;
     uint16_t rows = 0;
@@ -588,11 +641,20 @@ static jint frame(Kernel *kernel, Output *output) {
             if (style.faint) {
                 fg = (fg & 0x00FFFFFFu) | 0xA0000000u;
             }
-            bool in_selection = selected == GHOSTTY_SUCCESS && index >= selection.start_x && index <= selection.end_x;
+            if (selected == GHOSTTY_SUCCESS && index >= selection.start_x && index <= selection.end_x) {
+                bg = look->selection_background;
+                if (look->selection_foreground != 0) {
+                    fg = look->selection_foreground;
+                }
+            }
+            uint32_t codepoint = 0;
+            if (text_length != 0 && ghostty_cell_get(raw, GHOSTTY_CELL_DATA_CODEPOINT, &codepoint) == GHOSTTY_SUCCESS &&
+                !graphic(codepoint)) {
+                fg = contrasted(kernel, look->minimum_contrast, fg, bg != 0 ? bg : rgb(colors.background));
+            }
             uint16_t flags = (style.bold ? CELL_BOLD : 0) | (style.italic ? CELL_ITALIC : 0) |
                              (style.underline != 0 ? CELL_UNDERLINE : 0) |
-                             (style.strikethrough ? CELL_STRIKETHROUGH : 0) | (style.overline ? CELL_OVERLINE : 0) |
-                             (in_selection ? CELL_SELECTED : 0);
+                             (style.strikethrough ? CELL_STRIKETHROUGH : 0) | (style.overline ? CELL_OVERLINE : 0);
             put32(cell, fg);
             put32(cell + 4, bg);
             put16(cell + 8, flags);
@@ -797,6 +859,7 @@ JNIEXPORT void JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nativeLoo
     Kernel *kernel = kernel_of(handle);
     pthread_mutex_lock(&kernel->lock);
     kernel->light = light;
+    memset(kernel->contrast, 0, sizeof(kernel->contrast));
     if (kernel->admitted) {
         paint(kernel->terminal, kernel->light);
     }
