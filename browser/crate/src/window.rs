@@ -131,6 +131,14 @@ pub(crate) enum Event {
     },
 }
 
+impl Event {
+    /// The engine says each of these once, so a window that is behind gets it later rather than
+    /// never.
+    pub(crate) const fn must_arrive(&self) -> bool {
+        matches!(self, Self::CaptureFailed | Self::Layer(_) | Self::NoLayer)
+    }
+}
+
 #[derive(Clone)]
 pub struct Window {
     driver: Arc<Driver>,
@@ -725,8 +733,11 @@ impl Live {
                 self.capture_failed_at = Some(Instant::now());
             }
             Event::Layer(context) => {
-                self.layer = Layer::Shows(context);
-                self.publish();
+                // A report of the layer that waited for this window can come after its failure.
+                if self.layer != Layer::Missing {
+                    self.layer = Layer::Shows(context);
+                    self.publish();
+                }
             }
             Event::NoLayer => self.take_video(),
             Event::Tabs { tabs, active } => return self.tabs(tabs, active),
@@ -2283,13 +2294,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_view_that_hosts_the_layer_takes_video_when_the_engine_has_no_layer() {
+    async fn a_view_that_hosts_the_layer_takes_video_for_good_when_the_engine_has_no_layer() {
         let mut live = live();
         live.handle(open_tab(5)).await;
         let mut mac = join_from(&mut live, "mac", "ana", true).await;
         watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
-        live.handle(Event::Layer(7)).await;
         live.handle(Event::NoLayer).await;
+        live.handle(Event::Layer(7)).await;
         assert_eq!((live.capturing, live.layering), (Some(5), None));
         assert_eq!(newest(&mac).and_then(|state| state.layer), None);
         live.handle(key_frame()).await;

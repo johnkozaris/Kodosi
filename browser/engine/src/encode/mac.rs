@@ -292,9 +292,6 @@ impl Encoder {
     /// Encodes a picture that CEF drew on the GPU. The surface is CEF's only during this call,
     /// so it is copied into one of the encoder's buffers first.
     pub(crate) fn encode_surface(&mut self, surface: *mut c_void) {
-        if surface.is_null() {
-            return;
-        }
         // SAFETY: CEF gives a live IOSurface for the length of the paint call.
         let (width, height) = unsafe { (IOSurfaceGetWidth(surface), IOSurfaceGetHeight(surface)) };
         let mut source = ptr::null_mut();
