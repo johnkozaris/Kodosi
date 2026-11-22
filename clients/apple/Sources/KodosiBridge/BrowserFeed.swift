@@ -25,6 +25,7 @@ public final class BrowserFeed {
         case state(BrowserWindow)
         /// The surface with this number shows a picture.
         case shown(Int)
+        case sized(CGSize)
     }
 
     private struct Video {
@@ -36,6 +37,7 @@ public final class BrowserFeed {
         var samples = H264Samples()
         var lastFrame: UInt32 = 0
         var holds = Holds.nothing
+        var pictureSize: CGSize?
     }
 
     private nonisolated static let frameHeader = 6
@@ -53,6 +55,10 @@ public final class BrowserFeed {
     public private(set) var window = BrowserWindow()
     public private(set) var icons: [String: CGImage] = [:]
     public private(set) var picture = Picture.waiting
+    /// The size of the pictures that the video shows. While the page takes a new size, the host
+    /// gives that size before the page has drawn in it, so for a moment the pictures still have
+    /// the size before.
+    public private(set) var pictureSize: CGSize?
     public private(set) var failure: String?
     /// Counts each press, key and scroll of a person on this device.
     public private(set) var touches = 0
@@ -333,6 +339,8 @@ public final class BrowserFeed {
             if number == surfaces {
                 picture = .live
             }
+        case let .sized(size):
+            pictureSize = size
         case .news(.open), .news(.closed):
             break
         }
@@ -361,31 +369,37 @@ public final class BrowserFeed {
         let key = header[5] & Self.keyFlag != 0
         let anchor = header[5] & Self.anchorFlag != 0
         post(.ack(id))
-        let (restarts, shown) = video.withLock { video -> (Bool, Heard?) in
+        let (restarts, heard) = video.withLock { video -> (Bool, [Heard]) in
             if video.holds == .stream, id != video.lastFrame &+ 1 {
                 video.holds = .gap
             }
             video.lastFrame = id
             switch video.holds {
             case .nothing where !key:
-                return (false, nil)
+                return (false, [])
             case .gap where !key && !anchor:
-                return (true, nil)
+                return (true, [])
             default:
                 break
             }
-            guard let sample = video.samples.sample(of: message.dropFirst(Self.frameHeader)) else { return (false, nil) }
+            guard let sample = video.samples.sample(of: message.dropFirst(Self.frameHeader)) else { return (false, []) }
             video.holds = .stream
             let going = video.display?(sample) ?? true
-            defer { video.shown = true }
-            return (!going, video.shown ? nil : .shown(video.surface))
+            var heard: [Heard] = []
+            if let size = sample.formatDescription?.presentationDimensions(), size != video.pictureSize {
+                video.pictureSize = size
+                heard.append(.sized(size))
+            }
+            if !video.shown {
+                video.shown = true
+                heard.append(.shown(video.surface))
+            }
+            return (!going, heard)
         }
         if restarts {
             restart()
         }
-        if let shown {
-            tell(shown)
-        }
+        heard.forEach(tell)
     }
 }
 

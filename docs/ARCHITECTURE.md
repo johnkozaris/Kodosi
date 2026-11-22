@@ -55,9 +55,9 @@ another computer is open only while a client shows the terminal or has work for 
 hidden terminal keeps its last screen, and its state and alerts come from the backend.
 
 A terminal has the size of the view where a person acted last: the view that they focused
-or typed in. A view that only changes its size, or whose focus only comes back with its
-connection, leaves the size where it is. Input from a view is a person's, and input from the
-`kodosi` command gives way while a person types.
+or typed in. A view that only changes its size, or whose focus only comes back with the app
+or its connection, leaves the size where it is. Input from a view is a person's, and input
+from the `kodosi` command gives way while a person types.
 
 The runtime decides what a terminal shows of its program: whether it works, what it
 waits for and what it does. The program's own report decides, and each client presents
