@@ -356,7 +356,7 @@ fn a_new_account_gets_a_private_empty_folder() {
     assert_eq!(mode & 0o777, 0o700);
     assert!(accounts::add(home, Agent::Codex, "night shift", &[]).is_err());
     assert!(accounts::add(home, Agent::Codex, "../x", &[]).is_err());
-    assert!(accounts::add(home, Agent::Gemini, "work", &[]).is_err());
+    assert!(accounts::add(home, Agent::Cursor, "work", &[]).is_err());
     assert_eq!(
         accounts::add(
             home,
@@ -630,7 +630,7 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
         Agent::Codex.with_context("codex", &notes),
         "codex --no-daemon -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\""
     );
-    for agent in [Agent::Claude, Agent::Copilot, Agent::Gemini] {
+    for agent in [Agent::Claude, Agent::Copilot] {
         assert_eq!(agent.with_context(agent.program(), &notes), agent.program());
     }
     assert!(!CONTEXT.trim().contains(['"', '%', '\n']));
@@ -1562,7 +1562,7 @@ fn an_agent_folder_comes_from_its_variable_or_the_usual_folder() {
         folder(Agent::Codex, Some("/srv/codex")),
         Some(Path::new("/srv/codex").to_path_buf())
     );
-    assert_eq!(folder(Agent::Gemini, None), None);
+    assert_eq!(folder(Agent::Cursor, None), None);
 }
 
 #[test]
@@ -1707,10 +1707,6 @@ fn a_running_agent_changes_with_its_own_commands() {
         )
         .unwrap(),
         ["/model gpt-6", "/permissions allow-all"]
-    );
-    assert_eq!(
-        lines(Agent::Gemini, settings(Some("pro"), None, None)).unwrap(),
-        ["/model set pro"]
     );
     assert_eq!(
         lines(Agent::Cursor, settings(None, None, Some(Permissions::Ask))).unwrap(),

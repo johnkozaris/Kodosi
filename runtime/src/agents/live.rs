@@ -94,12 +94,7 @@ impl Agent {
     pub(crate) const fn screen_questions(self) -> &'static [&'static str] {
         match self {
             Self::Claude => &CLAUDE_QUESTIONS,
-            Self::Codex
-            | Self::Copilot
-            | Self::Gemini
-            | Self::Cursor
-            | Self::Opencode
-            | Self::Antigravity => &[],
+            Self::Codex | Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity => &[],
         }
     }
 
@@ -124,10 +119,6 @@ impl Agent {
                 permissions: Permissions::ALL.to_vec(),
                 ..AgentLive::default()
             },
-            Self::Gemini => AgentLive {
-                model: true,
-                ..AgentLive::default()
-            },
             Self::Cursor => AgentLive {
                 permissions: vec![Permissions::Ask, Permissions::Unrestricted],
                 ..AgentLive::default()
@@ -148,10 +139,7 @@ impl Agent {
             (Self::Claude, false) => Some("/fast off"),
             (Self::Codex, true) => Some("/model --speed=fast"),
             (Self::Codex, false) => Some("/model --speed=standard"),
-            (
-                Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode | Self::Antigravity,
-                _,
-            ) => None,
+            (Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity, _) => None,
         }
     }
 
@@ -211,9 +199,6 @@ impl Agent {
                 .collect::<Vec<_>>()
                 .join(" ");
                 lines.push((line, part(model.as_ref(), effort.as_ref())));
-            }
-            (Self::Gemini, Some(model), _) => {
-                lines.push((format!("/model set {model}"), part(Some(model), None)));
             }
             (Self::Claude | Self::Copilot | Self::Antigravity, model, effort) => {
                 if let Some(model) = model {
@@ -286,9 +271,7 @@ impl Agent {
                 Some("default" | "standard") => Some(false),
                 _ => None,
             },
-            Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode | Self::Antigravity => {
-                None
-            }
+            Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity => None,
         };
         AgentSettings {
             model,
@@ -325,13 +308,6 @@ impl Agent {
             },
             Self::Copilot if has(&["--yolo", "--allow-all"]) => Some(Permissions::Unrestricted),
             Self::Copilot if has(&["--assisted-approval"]) => Some(Permissions::Auto),
-            Self::Gemini if has(&["--yolo", "-y"]) => Some(Permissions::Unrestricted),
-            Self::Gemini => match value("--approval-mode") {
-                Some("default") => Some(Permissions::Ask),
-                Some("auto_edit") => Some(Permissions::Auto),
-                Some("yolo") => Some(Permissions::Unrestricted),
-                _ => None,
-            },
             Self::Cursor if has(&["--force", "-f", "--yolo"]) => Some(Permissions::Unrestricted),
             Self::Antigravity => match value("--mode") {
                 Some("") => Some(Permissions::Ask),
@@ -368,7 +344,7 @@ impl Agent {
                 Some(settings) if settings.contains(r#""high""#) => Some(Output::Detailed),
                 _ => Some(Output::Standard),
             },
-            Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
+            Self::Copilot | Self::Cursor | Self::Opencode => None,
         }
     }
 }

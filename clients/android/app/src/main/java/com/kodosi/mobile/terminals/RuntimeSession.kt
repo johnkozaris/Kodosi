@@ -138,7 +138,6 @@ enum class AgentKind {
     CODEX,
     COPILOT,
     CURSOR,
-    GEMINI,
     OPENCODE,
     ANTIGRAVITY,
     SHELL

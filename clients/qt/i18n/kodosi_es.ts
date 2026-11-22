@@ -58,10 +58,6 @@
         <translation>Trabaja por su cuenta en esta carpeta y te pregunta por el resto.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Edita archivos por su cuenta y pregunta antes de ejecutar comandos.</translation>
-    </message>
-    <message>
         <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
         <translation>Edita archivos y ejecuta comandos seguros por su cuenta, y pregunta antes de lo que no se puede deshacer.</translation>
     </message>
@@ -327,10 +323,6 @@
     <message>
         <source>Works in this folder on its own and asks you for the rest.</source>
         <translation>Trabaja por su cuenta en esta carpeta y te pregunta por el resto.</translation>
-    </message>
-    <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Edita archivos por su cuenta y pregunta antes de ejecutar comandos.</translation>
     </message>
     <message>
         <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>

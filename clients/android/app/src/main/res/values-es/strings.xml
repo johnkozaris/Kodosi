@@ -399,7 +399,6 @@
     <string name="agent_unrestricted_detail">Nunca pregunta y ejecuta cada comando con tus permisos.</string>
     <string name="agent_auto_check_detail">Una comprobación de seguridad aprueba lo que es seguro y te pregunta por el resto. La comprobación consume tokens.</string>
     <string name="agent_auto_folder_detail">Trabaja por su cuenta en esta carpeta y te pregunta por el resto.</string>
-    <string name="agent_auto_edit_detail">Edita archivos por su cuenta y pregunta antes de ejecutar comandos.</string>
     <string name="agent_auto_safe_detail">Edita archivos y ejecuta comandos seguros por su cuenta, y pregunta antes de lo que no se puede deshacer.</string>
     <string name="agent_auto_detail">Acepta sus propias acciones, salvo lo que hayas denegado.</string>
     <string name="agent_quiet_detail">Muestra menos de su trabajo.</string>

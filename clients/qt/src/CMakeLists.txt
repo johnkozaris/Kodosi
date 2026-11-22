@@ -420,7 +420,6 @@ qt_add_qml_module(kodosi-ui
         qml/assets/providers/copilot-dark.svg
         qml/assets/providers/codex-dark.svg
         qml/assets/providers/cursor-dark.svg
-        qml/assets/providers/gemini-dark.svg
         qml/assets/providers/opencode-dark.svg
 )
 
