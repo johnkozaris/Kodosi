@@ -214,6 +214,9 @@ wrap_render_handler! {
             #[cfg(target_os = "macos")]
             {
                 let surface = info.shared_texture_io_surface;
+                if surface.is_null() {
+                    return;
+                }
                 if let Some(layer) = self.shared.layer.borrow_mut().as_mut().filter(|layer| layer.tab == Some(tab)) {
                     layer.draw_surface(surface, self.shared.size.get());
                 }

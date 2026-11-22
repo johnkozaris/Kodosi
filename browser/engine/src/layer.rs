@@ -243,9 +243,6 @@ impl Layer {
     /// Copies a picture that CEF drew on the GPU. CEF takes its surface back once the paint call
     /// returns, so the layer never shows that surface itself.
     pub(crate) fn draw_surface(&mut self, source: *mut c_void, size: Size) {
-        if source.is_null() {
-            return;
-        }
         // SAFETY: CEF gives a live surface for the length of the paint call.
         let (width, height, bytes) = unsafe {
             (

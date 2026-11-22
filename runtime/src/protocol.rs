@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 98;
+pub const VERSION: u32 = 99;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -881,6 +881,10 @@ pub enum Command {
         client_id: String,
         #[serde(rename = "subscriptionGeneration")]
         subscription_generation: u64,
+        /// The view gives back the focus that it had before its connection came back, which is
+        /// no act of a person, so it takes no size.
+        #[serde(default)]
+        returning: bool,
     },
     #[serde(rename = "session.blur")]
     Blur {
@@ -1753,6 +1757,7 @@ pub fn control_answer(command: &Command, result: Result<()>) -> Option<Value> {
             expected_runtime_incarnation_id,
             client_id,
             subscription_generation,
+            ..
         } => (
             if applied {
                 "term.focusApplied"
