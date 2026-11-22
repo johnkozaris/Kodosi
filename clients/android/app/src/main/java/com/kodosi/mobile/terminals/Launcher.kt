@@ -26,7 +26,8 @@ data class AgentInfo(
     val defaultOutput: AgentOutput,
     val accounts: List<AgentAccount> = emptyList(),
     val reportsUsage: Boolean = false,
-    val fast: Boolean = false
+    val fast: Boolean = false,
+    val chat: Boolean = false
 )
 
 @Serializable
@@ -40,7 +41,8 @@ data class AgentPick(
     val effort: String? = null,
     val permissions: AgentPermissions? = null,
     val output: AgentOutput? = null,
-    val fast: Boolean = false
+    val fast: Boolean = false,
+    val chat: Boolean = false
 ) {
     fun fields(): JsonObject = fields(
         "agent" to agent,
@@ -49,7 +51,8 @@ data class AgentPick(
         "effort" to effort,
         "permissions" to permissions?.let { RuntimeJson.encodeToJsonElement(AgentPermissions.serializer(), it) },
         "output" to output?.let { RuntimeJson.encodeToJsonElement(AgentOutput.serializer(), it) },
-        "fast" to fast
+        "fast" to fast,
+        "chat" to chat
     )
 }
 
@@ -201,7 +204,8 @@ class Launcher(private val commands: CommandSink, val computer: String) {
                 effort ?: "",
                 pick?.permissions?.takeIf(it.permissions::contains) ?: it.defaultPermissions,
                 if (it.outputs.isEmpty()) null else pick?.output?.takeIf(it.outputs::contains) ?: it.defaultOutput,
-                it.fast && pick?.fast == true
+                it.fast && pick?.fast == true,
+                it.chat && pick?.chat == true
             ).fields()
         }
         val words = prompt.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').trim()

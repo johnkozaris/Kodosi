@@ -155,9 +155,11 @@ QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
     const bool fast = info.value(QStringLiteral("fast")).toBool() && saved.value(QStringLiteral("fast")).toBool();
     QVariant start;
     if (info.value(QStringLiteral("installed")).toBool() && account.isValid()) {
+        // This app has no chat view, so an agent that runs in the chat also starts in its terminal app here.
         QVariantMap starting { { QStringLiteral("agent"), agent }, { QStringLiteral("account"), field(account, "name") },
             { QStringLiteral("model"), modelId }, { QStringLiteral("effort"), effortId },
-            { QStringLiteral("permissions"), permissions }, { QStringLiteral("fast"), fast } };
+            { QStringLiteral("permissions"), permissions }, { QStringLiteral("fast"), fast },
+            { QStringLiteral("chat"), false } };
         if (!outputs.isEmpty())
             starting.insert(QStringLiteral("output"), output);
         start = starting;
@@ -166,7 +168,8 @@ QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
         { QStringLiteral("model"), model == models.end() ? QVariant() : *model },
         { QStringLiteral("efforts"), efforts }, { QStringLiteral("effortId"), effortId },
         { QStringLiteral("permissions"), permissions }, { QStringLiteral("output"), output },
-        { QStringLiteral("fast"), fast }, { QStringLiteral("start"), start } };
+        { QStringLiteral("fast"), fast }, { QStringLiteral("chat"), saved.value(QStringLiteral("chat")).toBool() },
+        { QStringLiteral("start"), start } };
 }
 
 bool AgentLauncherModel::addingAccount() const
@@ -333,7 +336,8 @@ void AgentLauncherModel::choose(const QString& kind, const QString& agent, const
         { QStringLiteral("effort"), nullable(shown.value(QStringLiteral("effortId")).toString()) },
         { QStringLiteral("permissions"), shown.value(QStringLiteral("permissions")).toString() },
         { QStringLiteral("output"), shown.value(QStringLiteral("output")).toString() },
-        { QStringLiteral("fast"), shown.value(QStringLiteral("fast")).toBool() } };
+        { QStringLiteral("fast"), shown.value(QStringLiteral("fast")).toBool() },
+        { QStringLiteral("chat"), shown.value(QStringLiteral("chat")).toBool() } };
     pick.insert(kind, kind == QStringLiteral("fast") ? QJsonValue(value.toBool()) : nullable(value.toString()));
     auto picks = m_choice.value(QStringLiteral("picks")).toList();
     const auto saved = std::ranges::find(picks, agent, [](const QVariant& entry) { return field(entry, "agent"); });

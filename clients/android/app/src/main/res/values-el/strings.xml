@@ -362,6 +362,9 @@
     <string name="hide_keyboard">Απόκρυψη πληκτρολογίου</string>
     <string name="agent_permissions">Άδειες</string>
     <string name="agent_output">Λεπτομέρεια</string>
+    <string name="opens_in">Ανοίγει σε</string>
+    <string name="opens_in_terminal_detail">Η δική του εφαρμογή τρέχει στο τερματικό.</string>
+    <string name="opens_in_chat_detail">Δουλεύει στη συνομιλία του τερματικού, σε δική του συζήτηση.</string>
     <string name="agent_ask">Ερώτηση</string>
     <string name="agent_auto">Αυτόματα</string>
     <string name="agent_unrestricted">Απεριόριστα</string>

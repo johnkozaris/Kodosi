@@ -362,6 +362,9 @@
     <string name="hide_keyboard">Tastatur ausblenden</string>
     <string name="agent_permissions">Berechtigungen</string>
     <string name="agent_output">Ausführlichkeit</string>
+    <string name="opens_in">Öffnet in</string>
+    <string name="opens_in_terminal_detail">Seine eigene App läuft im Terminal.</string>
+    <string name="opens_in_chat_detail">Er arbeitet im Chat des Terminals, in einem eigenen Gespräch.</string>
     <string name="agent_ask">Fragen</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Vollzugriff</string>

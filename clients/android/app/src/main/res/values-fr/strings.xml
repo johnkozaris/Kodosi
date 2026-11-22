@@ -364,6 +364,9 @@
     <string name="hide_keyboard">Masquer le clavier</string>
     <string name="agent_permissions">Autorisations</string>
     <string name="agent_output">Verbosité</string>
+    <string name="opens_in">S’ouvre dans</string>
+    <string name="opens_in_terminal_detail">Sa propre app s’exécute dans le terminal.</string>
+    <string name="opens_in_chat_detail">Il travaille dans le chat du terminal, dans sa propre conversation.</string>
     <string name="agent_ask">Demander</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Accès total</string>

@@ -360,6 +360,9 @@
     <string name="hide_keyboard">키보드 숨기기</string>
     <string name="agent_permissions">권한</string>
     <string name="agent_output">상세도</string>
+    <string name="opens_in">여는 곳</string>
+    <string name="opens_in_terminal_detail">자체 앱이 터미널에서 실행됩니다.</string>
+    <string name="opens_in_chat_detail">터미널의 채팅에서 자체 대화로 작업합니다.</string>
     <string name="agent_ask">묻기</string>
     <string name="agent_auto">자동</string>
     <string name="agent_unrestricted">제한 없음</string>

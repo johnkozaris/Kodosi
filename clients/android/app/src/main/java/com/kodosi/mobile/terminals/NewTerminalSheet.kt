@@ -301,6 +301,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                             onClick = {
                                 busy = true
                                 failure = null
+                                val inChat = agent?.chat == true && state.pick?.chat == true
                                 scope.launch {
                                     try {
                                         launcher.start(
@@ -309,6 +310,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                                             prompt.text.toString(),
                                             request.project
                                         )?.let { id ->
+                                            if (inChat) model.terminals.showChat(true, id)
                                             model.preferences.launched(launcher.computer, folder)
                                             dismiss()
                                             started(id)
@@ -486,6 +488,22 @@ private fun LauncherOptions(launcher: Launcher, state: LauncherState, model: App
             enabled = enabled
         )
     }
+    val chat = agent.chat && pick.chat
+    if (agent.chat) {
+        MenuPicker(
+            stringResource(R.string.opens_in),
+            stringResource(if (chat) R.string.chat else R.string.terminal),
+            listOf("terminal" to stringResource(R.string.terminal), "chat" to stringResource(R.string.chat)),
+            leading = { IconTile(if (chat) AppSymbol.CHAT else AppSymbol.TERMINAL, AgentKind.of(agent.agent).tint()) },
+            enabled = enabled,
+            details = mapOf(
+                "terminal" to stringResource(R.string.opens_in_terminal_detail),
+                "chat" to stringResource(R.string.opens_in_chat_detail)
+            )
+        ) {
+            scope.launch { model.runAction { launcher.choose(pick.copy(chat = it == "chat")) } }
+        }
+    }
     val permissions = pick.permissions?.takeIf(agent.permissions::contains) ?: agent.defaultPermissions
     if (agent.permissions.size > 1) {
         MenuPicker(
@@ -500,7 +518,7 @@ private fun LauncherOptions(launcher: Launcher, state: LauncherState, model: App
         }
     }
     val output = pick.output?.takeIf(agent.outputs::contains) ?: agent.defaultOutput
-    if (agent.outputs.isNotEmpty()) {
+    if (agent.outputs.isNotEmpty() && !chat) {
         MenuPicker(
             stringResource(R.string.agent_output),
             output.label(),

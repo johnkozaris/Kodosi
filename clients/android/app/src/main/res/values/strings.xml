@@ -370,6 +370,9 @@
     </plurals>
     <string name="agent_permissions">Permissions</string>
     <string name="agent_output">Verbosity</string>
+    <string name="opens_in">Opens in</string>
+    <string name="opens_in_terminal_detail">Its own app runs in the terminal.</string>
+    <string name="opens_in_chat_detail">It works in the chat of the terminal, in a conversation of its own.</string>
     <string name="agent_ask">Ask</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Unrestricted</string>

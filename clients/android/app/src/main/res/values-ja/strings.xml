@@ -360,6 +360,9 @@
     <string name="hide_keyboard">キーボードを隠す</string>
     <string name="agent_permissions">権限</string>
     <string name="agent_output">詳細度</string>
+    <string name="opens_in">開く場所</string>
+    <string name="opens_in_terminal_detail">専用のアプリがターミナルで動きます。</string>
+    <string name="opens_in_chat_detail">ターミナルのチャットで、専用の会話の中で動きます。</string>
     <string name="agent_ask">確認</string>
     <string name="agent_auto">自動</string>
     <string name="agent_unrestricted">制限なし</string>

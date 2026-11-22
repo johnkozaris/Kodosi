@@ -2,6 +2,8 @@
 //! Those in `fixtures/codex` are the messages of Codex's app-server in real sessions, as the link
 //! gives them to the chat, without the messages that the chat does not read. Those in
 //! `fixtures/copilot` are what the extension sent from real sessions of Copilot CLI 1.0.115.
+//! Those in `fixtures/antigravity` are the messages of `agy acp` 1.5.14 in real sessions, as
+//! `kodosi acp` gives them to the chat.
 //!
 //! The names of private places are replaced. A line with `answer` holds the decision that the
 //! recording gave the agent for a question, which the agent then took.
@@ -9,7 +11,9 @@
 use serde_json::{Value, json};
 
 use super::{
+    acp,
     agent::{Agent, Stop},
+    antigravity::Antigravity,
     claude::Claude,
     codex::Codex,
     copilot::Copilot,
@@ -33,6 +37,12 @@ macro_rules! codex {
 macro_rules! copilot {
     ($name:literal) => {
         include_str!(concat!("fixtures/copilot/", $name, ".jsonl"))
+    };
+}
+
+macro_rules! antigravity {
+    ($name:literal) => {
+        include_str!(concat!("fixtures/antigravity/", $name, ".jsonl"))
     };
 }
 
@@ -115,7 +125,7 @@ impl Play {
                 }
                 None => self.take(&line),
             }
-            if self.agent.name() == Codex::NAME {
+            if matches!(self.agent.name(), Codex::NAME | Antigravity::NAME) {
                 let calls = self.agent.commands(&self.chat);
                 self.calls.extend(calls);
             }
@@ -2347,5 +2357,29 @@ fn copilot_leaves_plan_mode_without_carrying_out_the_plan() {
     });
     assert!(!changed, "the plan was not carried out");
     assert_eq!(play.view.facts.mode, None);
+    assert_eq!(play.view.state, ChatState::Idle);
+}
+
+#[test]
+fn a_signed_out_antigravity_signs_in_with_its_own_steps_in_its_terminal() {
+    let mut play = Play::new(Box::new(Antigravity::default()));
+    play.more(antigravity!("signed-out"), &[]);
+    let new = play
+        .calls
+        .iter()
+        .find(|call| call["m"] == "session/new")
+        .expect("a new session");
+    assert_eq!(new["p"]["cwd"], "/home/ana/work");
+    assert_eq!(
+        new["p"]["_meta"]["antigravity"]["systemPrompt"]["append"],
+        crate::agents::CONTEXT.trim()
+    );
+    assert!(matches!(
+        &play.view.items[..],
+        [ChatItem { body: ChatBody::Note { note: ChatNote::Failed { error, .. } }, .. }]
+            if error == "Authentication required"
+    ));
+    assert!(play.calls.iter().any(|call| call["m"] == acp::SIGN_IN));
+    assert_eq!(play.view.facts.version.as_deref(), Some("1.5.14"));
     assert_eq!(play.view.state, ChatState::Idle);
 }

@@ -318,6 +318,9 @@ struct AgentLauncher: View {
         case let .output(output):
             choosePick { $0.output = output }
             return
+        case let .chat(chat):
+            choosePick { $0.chat = chat }
+            return
         }
         closeMenu()
     }
@@ -397,10 +400,13 @@ struct AgentLauncher: View {
         Task {
             defer { starting = false }
             do {
-                try await deps.createSession(
+                let id = try await deps.createSession(
                     name: generateSessionName(), directory: directory, computer: computer, projectId: projectId,
                     command: command, agent: agent, prompt: first,
                 )
+                if agent?.chat == true, let id {
+                    deps.workbench.chatting.insert(id)
+                }
                 deps.workbench.launcherDraft = LauncherDraft()
                 started()
             } catch {
@@ -447,9 +453,12 @@ private extension AgentLauncher {
     func modesKey(_ info: AgentInfo) -> some View {
         let permissions = plan.permissions
         let output = info.outputs.isEmpty ? info.defaultOutput : plan.output
-        let chosen = ([permissions.label] + (info.outputs.isEmpty ? [] : [output.label])).joined(separator: " · ")
+        let chat = plan.chat
+        let shown = chat ? [String(localized: "Chat")] : info.outputs.isEmpty ? [] : [output.label]
+        let chosen = ([permissions.label] + shown).joined(separator: " · ")
         return PickerKey(
-            title: String(localized: "More"), quiet: permissions == info.defaultPermissions && output == info.defaultOutput,
+            title: String(localized: "More"),
+            quiet: permissions == info.defaultPermissions && output == info.defaultOutput && !chat,
             open: menu == .modes, identifier: "launcher.modes", label: String(localized: "More"), help: chosen,
         ) {
             Image(systemName: "ellipsis").font(.system(size: 9.5, weight: .bold))
@@ -458,7 +467,7 @@ private extension AgentLauncher {
             toggle(.modes)
         }
         .kodosiPopover(isPresented: presented(.modes), alignment: .leading) {
-            LauncherModes(info: info, permissions: permissions, output: output, pick: pick)
+            LauncherModes(info: info, permissions: permissions, output: output, chat: chat, pick: pick)
         }
     }
 

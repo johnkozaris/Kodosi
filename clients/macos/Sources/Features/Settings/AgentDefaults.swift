@@ -32,6 +32,22 @@ struct AgentDefaults: View {
                 )
                 .accessibilityIdentifier("settings.agents.fast")
             }
+            if info.chat {
+                ModeSetting(
+                    title: String(localized: "Opens in"),
+                    detail: plan.chat
+                        ? String(localized: "It works in the chat of the terminal, in a conversation of its own.")
+                        : String(localized: "Its own app runs in the terminal."),
+                    symbol: plan.chat ? "bubble.left.and.text.bubble.right" : "apple.terminal", tint: info.kind.tint,
+                    options: [
+                        SegmentOption(value: false, title: String(localized: "Terminal")),
+                        SegmentOption(value: true, title: String(localized: "Chat")),
+                    ],
+                    current: plan.chat, identifier: "settings.agents.view",
+                ) { chat in
+                    choosePick { $0.chat = chat }
+                }
+            }
             if info.permissions.count > 1 {
                 let permissions = plan.permissions
                 ModeSetting(
@@ -43,7 +59,7 @@ struct AgentDefaults: View {
                     choosePick { $0.permissions = permissions }
                 }
             }
-            if !info.outputs.isEmpty {
+            if !info.outputs.isEmpty, !plan.chat {
                 let output = plan.output
                 ModeSetting(
                     title: String(localized: "Verbosity"), detail: output.detail, symbol: output.symbol, tint: TileTint.graphite,
