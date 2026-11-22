@@ -3796,10 +3796,12 @@ impl Runtime {
                 {
                     self.attention.mark_here(&key);
                     self.publish_catalog();
-                    let cue = self.attention.notification_cue(tokio::time::Instant::now());
-                    self.emit(json!({"type":"term.notification", "sessionId":id,
-                        "runtimeIncarnationId":incarnation, "title":title, "body":body,
-                        "cue":cue}));
+                    if let Some(cue) = self.attention.notification_cue(tokio::time::Instant::now())
+                    {
+                        self.emit(json!({"type":"term.notification", "sessionId":id,
+                            "runtimeIncarnationId":incarnation, "title":title, "body":body,
+                            "cue":cue}));
+                    }
                 }
             }
             #[cfg(feature = "host")]
