@@ -25,7 +25,8 @@ just android-tools-install
 To run the app in the emulator, also install `emulator` and an ARM64 system image.
 
 `just android-build` builds the runtime with cargo-ndk, then the Debug app; Gradle keeps
-its files in `.tools/gradle/`. `just android-run` installs the app on the device or
+its files in `.tools/gradle/` of the main checkout, so that its worktrees share the
+downloads and the daemons. `just android-run` installs the app on the device or
 emulator that `adb` sees and opens it. Debug builds use a
 [local backend](../../docs/DEVELOPMENT.md#run-the-backend) at `127.0.0.1:5180` that signs
 in with the disposable Keycloak of `sign-in/keycloak.sh` at `127.0.0.1:8284`, or the

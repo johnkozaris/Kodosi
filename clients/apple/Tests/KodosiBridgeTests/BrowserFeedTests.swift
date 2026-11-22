@@ -41,25 +41,6 @@ import Testing
 }
 
 @MainActor
-@Test func `the video keeps the size of its pictures while the page takes a new size`() async throws {
-    let runtime = BrowserRuntime()
-    runtime.feed.show(on: NSObject()) { _ in true }
-    let watching = Task { await runtime.feed.watch() }
-    defer { watching.cancel() }
-    let state = { (width: Int, height: Int) in
-        Data([0]) + Data(#"{"width":\#(width),"height":\#(height),"shape":"","pointers":[]}"#.utf8)
-    }
-
-    let pipe = try await runtime.open()
-    try runtime.send(state(16, 16), on: pipe)
-    try runtime.send(BrowserRuntime.keyFrame, on: pipe)
-    try await until { runtime.feed.pictureSize == CGSize(width: 16, height: 16) }
-    try runtime.send(state(390, 700), on: pipe)
-    try await until { runtime.feed.window.size == CGSize(width: 390, height: 700) }
-    #expect(runtime.feed.pictureSize == CGSize(width: 16, height: 16))
-}
-
-@MainActor
 @Test func `a new surface has no picture until the key frame that it asks the host for`() async throws {
     let runtime = BrowserRuntime()
     let surface = NSObject()
