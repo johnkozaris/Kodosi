@@ -52,7 +52,7 @@ public struct CanvasPageView: View {
                     .opacity(shown ? 1 : 0)
                     .overlay { selectionKey(frame) }
                     .task(id: content) {
-                        frame.links.open = { url in openURL(url) }
+                        frame.links.open = openURL
                         frame.links.otherComputer = otherComputer
                         await frame.show(content)
                         withAnimation(theme.motion.fade) { shown = true }
@@ -263,7 +263,7 @@ final class CanvasLinks: NSObject, WKScriptMessageHandler {
     """
     private static let gestureLasts = Duration.seconds(5)
 
-    var open: (URL) -> Void = { _ in }
+    var open = OpenURLAction { _ in .discarded }
     var otherComputer: String?
     var review: (ClickedLink) -> Void = { link in
         #if os(macOS)
