@@ -4,7 +4,7 @@ namespace Kodosi.Push;
 
 internal sealed record PushedTerminal(Guid TerminalId, TerminalStatus Status);
 
-internal sealed record PushAlert(Guid TerminalId, TerminalStatus Status, bool Sound, int Blocked);
+internal sealed record PushAlert(Guid TerminalId, TerminalStatus Status, bool Sound, int Waits);
 
 internal sealed record PushNotice(Guid OwnerId, IReadOnlyList<PushedTerminal> Pushed, PushAlert? Alert = null, string? DeviceId = null);
 
@@ -103,7 +103,7 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
         if (sound) sounded[ownerId] = now;
         Decided(logger, ownerId, terminalId, status.State, sound, reason);
         Remember(ownerId, terminalId, new Pushed(status, now));
-        outbox.Add(new PushNotice(ownerId, Listed(ownerId), new PushAlert(terminalId, status, sound, directory.Blocked(ownerId))));
+        outbox.Add(new PushNotice(ownerId, Listed(ownerId), new PushAlert(terminalId, status, sound, Waits(ownerId))));
     }
 
     private bool Allow(Guid ownerId, DateTimeOffset now)
@@ -114,6 +114,8 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
         times.Enqueue(now);
         return true;
     }
+
+    private int Waits(Guid ownerId) => pushed.GetValueOrDefault(ownerId)?.Values.Count(push => push.Status.State == "blocked") ?? 0;
 
     private List<PushedTerminal> Listed(Guid ownerId) =>
         pushed.TryGetValue(ownerId, out var terminals)
