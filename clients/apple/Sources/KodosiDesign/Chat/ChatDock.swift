@@ -335,7 +335,7 @@ private struct ContextMeter: View {
         let percent = Int((context.used * 100).rounded())
         let level: UsageLevel = context.used > 0.85 ? .reached : context.used >= 0.65 ? .near : .normal
         HStack(spacing: 4) {
-            UsageRing(limit: UsageLimit(hours: nil, scope: nil, used: percent, level: level, headline: false), lineWidth: 1.75)
+            UsageRing(limit: UsageLimit(hours: nil, scope: nil, used: percent, level: level), lineWidth: 1.75)
                 .frame(width: 11, height: 11)
             Text(verbatim: "\(percent)%").foregroundStyle(level == .normal ? theme.colors.inkFaint : level.color(theme.colors))
                 .contentTransition(.numericText(value: Double(percent)))

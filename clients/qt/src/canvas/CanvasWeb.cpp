@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QQmlEngine>
 #include <QtWebEngineCore/QWebEngineUrlRequestInfo>
 #include <QtWebEngineCore/QWebEngineUrlRequestInterceptor>
 #include <QtWebEngineCore/QWebEngineUrlRequestJob>
@@ -151,6 +152,13 @@ public:
             && place != "chrome" && place != "chrome-extension" && place != "qrc");
     }
 };
+
+void guard(QQuickWebEngineProfile* profile)
+{
+    profile->setUrlRequestInterceptor(new RequestGuard(profile));
+    QObject::connect(profile, &QQuickWebEngineProfile::downloadRequested, profile,
+        [](QQuickWebEngineDownloadRequest* download) { download->cancel(); });
+}
 }
 
 CanvasWeb::CanvasWeb(CanvasModel& canvas, QObject* parent)
@@ -173,16 +181,22 @@ void CanvasWeb::registerScheme()
     QWebEngineUrlScheme::registerScheme(views);
 }
 
-QQuickWebEngineProfile* CanvasWeb::profile()
+QQuickWebEngineProfile* CanvasWeb::documentProfile()
 {
-    if (m_profile)
-        return m_profile;
-    m_profile = QQuickWebEngineProfile::defaultProfile();
-    m_profile->installUrlSchemeHandler(scheme, new PageHandler(m_canvas, m_profile));
-    m_profile->installUrlSchemeHandler(documentScheme, new ViewHandler(m_profile));
-    m_profile->setUrlRequestInterceptor(new RequestGuard(m_profile));
-    connect(m_profile, &QQuickWebEngineProfile::downloadRequested, m_profile,
-        [](QQuickWebEngineDownloadRequest* download) { download->cancel(); });
-    return m_profile;
+    if (m_documentProfile)
+        return m_documentProfile;
+    m_documentProfile = QQuickWebEngineProfile::defaultProfile();
+    m_documentProfile->installUrlSchemeHandler(documentScheme, new ViewHandler(m_documentProfile));
+    guard(m_documentProfile);
+    return m_documentProfile;
+}
+
+QQuickWebEngineProfile* CanvasWeb::pageProfile(QObject* view)
+{
+    auto* profile = new QQuickWebEngineProfile(view);
+    QQmlEngine::setObjectOwnership(profile, QQmlEngine::CppOwnership);
+    profile->installUrlSchemeHandler(scheme, new PageHandler(m_canvas, profile));
+    guard(profile);
+    return profile;
 }
 }

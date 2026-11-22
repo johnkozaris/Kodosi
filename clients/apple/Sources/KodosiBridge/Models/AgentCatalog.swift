@@ -132,8 +132,8 @@ public struct AccountUsage: Decodable, Equatable, Sendable {
     public var limits: [UsageLimit]
     public var readAtMs: UInt64
 
-    public var headline: UsageLimit? {
-        limits.first(where: \.headline) ?? limits.first
+    public func headline(for model: String?) -> UsageLimit? {
+        UsageLimit.nearest(of: limits.filter { $0.model == nil || model == nil || $0.model == model })
     }
 
     public var stale: Bool {
@@ -148,20 +148,26 @@ public struct AccountUsage: Decodable, Equatable, Sendable {
 public struct UsageLimit: Decodable, Equatable, Identifiable, Sendable {
     public var hours: Int?
     public var scope: String?
+    public var model: String?
     public var used: Int
     public var level: UsageLevel
-    public var headline: Bool
+    public var resetsAtMs: UInt64?
 
-    public init(hours: Int?, scope: String?, used: Int, level: UsageLevel, headline: Bool) {
+    public init(hours: Int?, scope: String?, model: String? = nil, used: Int, level: UsageLevel, resetsAtMs: UInt64? = nil) {
         self.hours = hours
         self.scope = scope
+        self.model = model
         self.used = used
         self.level = level
-        self.headline = headline
+        self.resetsAtMs = resetsAtMs
     }
 
     public var id: String {
         scope.map { "scope:\($0)" } ?? hours.map { "hours:\($0)" } ?? "month"
+    }
+
+    public var resetsAt: Date? {
+        resetsAtMs.map { Date(timeIntervalSince1970: Double($0) / 1000) }
     }
 
     public var window: String {
@@ -181,9 +187,11 @@ public struct UsageLimit: Decodable, Equatable, Identifiable, Sendable {
         let name = switch (scope, hours) {
         case (nil, nil): String(localized: "This month", bundle: .module)
         case (nil, 168): String(localized: "This week", bundle: .module)
+        case let (nil, hours?) where hours > 24 && hours % 24 == 0: String(localized: "Last \(hours / 24) days", bundle: .module)
         case let (nil, hours?): String(localized: "Last \(hours) hours", bundle: .module)
         case let (scope?, nil): String(localized: "\(scope), this month", bundle: .module)
         case let (scope?, 168): String(localized: "\(scope), this week", bundle: .module)
+        case let (scope?, hours?) where hours > 24 && hours % 24 == 0: String(localized: "\(scope), last \(hours / 24) days", bundle: .module)
         case let (scope?, hours?): String(localized: "\(scope), last \(hours) hours", bundle: .module)
         }
         return String(localized: "\(name): \(used)% used", bundle: .module)
@@ -263,7 +271,7 @@ public struct LaunchPlan {
 
     public func usage(of account: AgentAccount?) -> UsageLimit? {
         guard let info, let account, account.identity != nil else { return nil }
-        return usage[AccountUsage.key(info.agent, account.name)]?.headline
+        return usage[AccountUsage.key(info.agent, account.name)]?.headline(for: modelId)
     }
 
     public func loadsUsage(of account: AgentAccount?) -> Bool {

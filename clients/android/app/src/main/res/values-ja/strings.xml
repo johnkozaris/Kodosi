@@ -291,12 +291,29 @@
     <string name="uploading">ファイルを送信中</string>
     <string name="loading">読み込み中</string>
     <string name="reading_usage">プランの使用量を読み込み中</string>
+    <string name="usage_month">今月</string>
+    <string name="usage_week">今週</string>
+    <string name="usage_scope_month">%1$s、今月</string>
+    <string name="usage_scope_week">%1$s、今週</string>
+    <plurals name="usage_hours">
+        <item quantity="other">過去 %d 時間</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="other">過去 %d 日</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="other">%1$s、過去 %2$d 時間</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="other">%1$s、過去 %2$d 日</item>
+    </plurals>
     <string name="browser_address">検索またはアドレスを入力</string>
     <string name="new_browser_tab">新規タブ</string>
     <string name="browser_back">戻る</string>
     <string name="browser_forward">進む</string>
     <string name="browser_reload">再読み込み</string>
     <string name="browser_sleeping">ブラウザはスリープ中です</string>
+    <string name="browser_undecodable">このデバイスではページを表示できません</string>
     <string name="wake_browser">ブラウザを開く</string>
     <string name="browser_dialog">ページからの確認</string>
     <string name="choose_file">ファイルを選択</string>
@@ -370,7 +387,7 @@
     <string name="agent_unrestricted_detail">確認せずに、すべてのコマンドをあなたの権限で実行します。</string>
     <string name="agent_auto_check_detail">安全チェックが安全な操作を承認し、それ以外は確認します。チェックにはトークンを使います。</string>
     <string name="agent_auto_folder_detail">このフォルダー内では自分で作業し、それ以外は確認します。</string>
-    <string name="agent_auto_edit_detail">ファイルは自分で編集し、コマンドを実行する前に確認します。</string>
+    <string name="agent_auto_safe_detail">ファイルの編集と安全なコマンドの実行は自分で行い、元に戻せない操作の前に確認します。</string>
     <string name="agent_auto_detail">拒否したもの以外の自分の操作を承認します。</string>
     <string name="agent_quiet_detail">作業の表示を減らします。</string>
     <string name="agent_standard_detail">エージェントの設定どおりに作業を表示します。</string>

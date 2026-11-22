@@ -58,8 +58,8 @@
         <translation>이 폴더 안에서는 스스로 작업하고 나머지는 물어봐요.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>파일은 스스로 편집하고 명령을 실행하기 전에 물어봐요.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>파일 편집과 안전한 명령 실행은 스스로 하고, 되돌릴 수 없는 작업 전에는 물어봐요.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -325,8 +325,8 @@
         <translation>이 폴더 안에서는 스스로 작업하고 나머지는 물어봐요.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>파일은 스스로 편집하고 명령을 실행하기 전에 물어봐요.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>파일 편집과 안전한 명령 실행은 스스로 하고, 되돌릴 수 없는 작업 전에는 물어봐요.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -499,12 +499,12 @@
         <translation>공유됨</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>탭 %1개</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>새 탭</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>탭</translation>
     </message>
     <message>
         <source>Close tab</source>
@@ -4355,6 +4355,12 @@
         <translation>이번 주</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>최근 %n일</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>최근 %n시간</numerusform>
@@ -4369,6 +4375,12 @@
         <translation>%1, 이번 주</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1, 최근 %n일</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1, 최근 %n시간</numerusform>
@@ -4381,6 +4393,50 @@
     <message>
         <source>Default</source>
         <translation>기본값</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1일 %2시간</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1일</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1시간 %2분</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1시간</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1분</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n일</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n시간</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n분</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1, %2 후 초기화</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

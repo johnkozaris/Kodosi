@@ -273,7 +273,7 @@ private slots:
         QVERIFY(start(QStringLiteral("claude")).value(QStringLiteral("fast")).toBool());
         QVERIFY(commands.values.last().value(QStringLiteral("change")).toObject().value(QStringLiteral("fast")).toBool());
     }
-    void usageAsksOnceAtATimeAndKeepsTheHeadlineOfEachAccount()
+    void usageAsksOnceAtATimeAndChoosesTheLimitThatCountsForTheModel()
     {
         ProviderCommands commands;
         kodosi::AgentLauncherModel launcher(commands);
@@ -282,29 +282,33 @@ private slots:
         launcher.refreshUsage();
         QCOMPARE(commands.values.size(), 1);
         QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.usage"));
-        const auto limit = [](QJsonValue hours, int used, const QString& level, bool headline) {
-            return QJsonObject { { QStringLiteral("hours"), hours }, { QStringLiteral("scope"), QJsonValue() },
-                { QStringLiteral("used"), used }, { QStringLiteral("level"), level }, { QStringLiteral("headline"), headline } };
+        const auto limit = [](QJsonValue hours, int used, const QString& level, const QString& model = {}) {
+            return QJsonObject { { QStringLiteral("hours"), hours },
+                { QStringLiteral("scope"), model.isEmpty() ? QJsonValue() : QJsonValue(model) },
+                { QStringLiteral("model"), model.isEmpty() ? QJsonValue() : QJsonValue(model.toLower()) },
+                { QStringLiteral("used"), used }, { QStringLiteral("level"), level }, { QStringLiteral("resetsAtMs"), QJsonValue() } };
         };
         const QJsonObject work { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("account"), QStringLiteral("work") },
             { QStringLiteral("readAtMs"), qint64(1792716922000) },
-            { QStringLiteral("limits"), QJsonArray { limit(5, 42, QStringLiteral("normal"), false), limit(168, 85, QStringLiteral("near"), true) } } };
+            { QStringLiteral("limits"), QJsonArray { limit(5, 42, QStringLiteral("normal")), limit(168, 85, QStringLiteral("near")),
+                limit(168, 100, QStringLiteral("reached"), QStringLiteral("Fable")) } } };
         const QJsonObject copilot { { QStringLiteral("agent"), QStringLiteral("copilot") }, { QStringLiteral("account"), QStringLiteral("default") },
-            { QStringLiteral("readAtMs"), qint64(1792716922000) }, { QStringLiteral("limits"), QJsonArray { limit(QJsonValue(), 59, QStringLiteral("normal"), true) } } };
+            { QStringLiteral("readAtMs"), qint64(1792716922000) }, { QStringLiteral("limits"), QJsonArray { limit(QJsonValue(), 59, QStringLiteral("normal")) } } };
         QVERIFY(!launcher.usageRead());
         launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { work, copilot } } }));
         QVERIFY(launcher.usageRead());
         QCOMPARE(changed.size(), 1);
-        const auto headline = [&](const QString& key) {
-            return launcher.usage().value(key).toMap().value(QStringLiteral("headline")).toMap();
+        const auto headline = [&](const QString& key, const QString& model) {
+            return launcher.headline(launcher.usage().value(key).toMap(), model).toMap();
         };
-        QCOMPARE(headline(QStringLiteral("claude/work")).value(QStringLiteral("used")).toInt(), 85);
-        QCOMPARE(headline(QStringLiteral("copilot/default")).value(QStringLiteral("level")).toString(), QStringLiteral("normal"));
+        QCOMPARE(headline(QStringLiteral("claude/work"), QStringLiteral("opus")).value(QStringLiteral("used")).toInt(), 85);
+        QCOMPARE(headline(QStringLiteral("claude/work"), QStringLiteral("fable")).value(QStringLiteral("window")).toString(), QStringLiteral("Fable"));
+        QCOMPARE(headline(QStringLiteral("claude/work"), QString()).value(QStringLiteral("used")).toInt(), 100);
+        QCOMPARE(headline(QStringLiteral("copilot/default"), QStringLiteral("gpt-6")).value(QStringLiteral("window")).toString(), QStringLiteral("month"));
 
         const auto limits = launcher.usage().value(QStringLiteral("claude/work")).toMap().value(QStringLiteral("limits")).toList();
         QCOMPARE(limits.first().toMap().value(QStringLiteral("window")).toString(), QStringLiteral("5h"));
-        QCOMPARE(limits.last().toMap().value(QStringLiteral("spoken")).toString(), QStringLiteral("This week: 85% used"));
-        QCOMPARE(headline(QStringLiteral("copilot/default")).value(QStringLiteral("window")).toString(), QStringLiteral("month"));
+        QCOMPARE(limits.at(1).toMap().value(QStringLiteral("spoken")).toString(), QStringLiteral("This week: 85% used"));
 
         launcher.refreshUsage();
         QCOMPARE(commands.values.size(), 2);
@@ -330,25 +334,49 @@ private slots:
         renamed.insert(QStringLiteral("account"), QStringLiteral("claude-work"));
         auto signedOut = work;
         signedOut.insert(QStringLiteral("account"), QStringLiteral("personal"));
-        signedOut.insert(QStringLiteral("limits"), QJsonArray { limit(5, 97, QStringLiteral("near"), true) });
+        signedOut.insert(QStringLiteral("limits"), QJsonArray { limit(5, 97, QStringLiteral("near")) });
         launcher.refreshUsage();
         launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { renamed, signedOut } } }));
-        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 85);
+        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 100);
         const auto sections = launcher.usageSections();
         QCOMPARE(sections.size(), 1);
         const auto rows = sections.first().toMap().value(QStringLiteral("rows")).toList();
         QCOMPARE(rows.size(), 1);
         QCOMPARE(rows.first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Work"));
-        QCOMPARE(sections.first().toMap().value(QStringLiteral("windows")).toList().size(), 2);
+        QCOMPARE(sections.first().toMap().value(QStringLiteral("windows")).toList().size(), 3);
 
         auto fuller = work;
         fuller.insert(QStringLiteral("account"), QStringLiteral("default"));
-        fuller.insert(QStringLiteral("limits"), QJsonArray { limit(5, 79, QStringLiteral("normal"), true) });
+        fuller.insert(QStringLiteral("limits"), QJsonArray { limit(168, 79, QStringLiteral("normal")), limit(168, 60, QStringLiteral("normal"), QStringLiteral("Fable")) });
         auto warned = renamed;
-        warned.insert(QStringLiteral("limits"), QJsonArray { limit(5, 70, QStringLiteral("near"), true) });
+        warned.insert(QStringLiteral("limits"), QJsonArray { limit(5, 70, QStringLiteral("near")) });
         launcher.refreshUsage();
         launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { fuller, warned } } }));
         QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 70);
+        QStringList windows;
+        for (const auto& window : launcher.usageSections().first().toMap().value(QStringLiteral("windows")).toList())
+            windows.append(window.toMap().value(QStringLiteral("id")).toString());
+        QCOMPARE(windows, QStringList({ QStringLiteral("hours:5"), QStringLiteral("hours:168"), QStringLiteral("scope:Fable") }));
+    }
+    void aResetShowsTheTimeLeftInItsTwoLargestUnitsRoundedUp()
+    {
+        ProviderCommands commands;
+        kodosi::AgentLauncherModel launcher(commands);
+        constexpr double now = 1795349410000;
+        constexpr double minute = 60000;
+        const auto resetting = [](double resets) {
+            return QVariantMap { { QStringLiteral("spoken"), QStringLiteral("This week: 85% used") }, { QStringLiteral("resetsAtMs"), resets } };
+        };
+        QCOMPARE(launcher.resetIn(resetting(now + (4 * 24 * 60 + 45) * minute), now), QStringLiteral("4d 1h"));
+        QCOMPARE(launcher.resetIn(resetting(now + 5 * 24 * 60 * minute), now), QStringLiteral("5d"));
+        QCOMPARE(launcher.resetIn(resetting(now + 287 * minute + 1), now), QStringLiteral("4h 48m"));
+        QCOMPARE(launcher.resetIn(resetting(now + 30000), now), QStringLiteral("1m"));
+        QCOMPARE(launcher.resetIn(resetting(now + 59 * minute + 30000), now), QStringLiteral("1h"));
+        QCOMPARE(launcher.resetIn(resetting(now + (23 * 60 + 59) * minute + 30000), now), QStringLiteral("1d"));
+        QCOMPARE(launcher.resetIn(resetting(now - minute), now), QString());
+        QCOMPARE(launcher.resetIn(QVariantMap { { QStringLiteral("resetsAtMs"), QVariant() } }, now), QString());
+        QCOMPARE(launcher.spokenWithReset(resetting(now + 288 * minute), now), QStringLiteral("This week: 85% used, resets in 4 hours 48 minutes"));
+        QCOMPARE(launcher.spokenWithReset(resetting(now - minute), now), QStringLiteral("This week: 85% used"));
     }
     void aLauncherForAnotherComputerAsksThatComputerAndKeepsItsAnswers()
     {

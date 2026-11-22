@@ -266,19 +266,22 @@ private func marked(_ name: String?, _ at: UInt64) -> JSONValue? {
     #expect(BrowserFeed.viewPoint(CGPoint(x: 1, y: 1), in: .zero, browser: browser) == nil)
 }
 
+private let notes = CanvasItem(key: "notes.txt", name: "notes.txt", kind: .document, view: .text, revision: 1, bytes: 4, changed: 1)
+
 @Test func `a document whose frames break takes its pipe again, and the parts on their way go nowhere`() async throws {
     let commands = CommandSink()
     var sent: [[String: JSONValue]] = []
-    commands.transport = { data in
+    commands.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(command)
         }
         return 0
     }
     let store = CanvasStore(commands: commands)
-    let link = store.browser(of: "01992e43-53db-7040-8e02-f6ebf4149b28")
-    var news: [DocumentLink.News] = []
-    var frames = 0
+    let link = store.document(notes, in: "01992e43-53db-7040-8e02-f6ebf4149b28")
+    // This test gives the pipe its events on the main actor.
+    nonisolated(unsafe) var news: [DocumentLink.News] = []
+    nonisolated(unsafe) var frames = 0
     link.onNews = { news.append($0) }
     link.onFrame = { _ in frames += 1 }
     let opening = Task { try await link.open() }
@@ -310,14 +313,14 @@ private func marked(_ name: String?, _ at: UInt64) -> JSONValue? {
 @Test func `after the app falls behind, an open pipe and a pipe whose answer went missing both start again`() async throws {
     let commands = CommandSink()
     var sent: [[String: JSONValue]] = []
-    commands.transport = { data in
+    commands.transport { data in
         if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(command)
         }
         return 0
     }
     let store = CanvasStore(commands: commands)
-    let open = store.browser(of: "01992e43-53db-7040-8e02-f6ebf4149b28")
+    let open = store.document(notes, in: "01992e43-53db-7040-8e02-f6ebf4149b28")
     let opening = Task { try await open.open() }
     while sent.isEmpty {
         await Task.yield()
@@ -328,7 +331,7 @@ private func marked(_ name: String?, _ at: UInt64) -> JSONValue? {
     ]))
     try await opening.value
     try store.receive(runtimeEvent("document.opened", fields: ["pipe": .string(first)]))
-    let waiting = store.browser(of: "01992e43-53db-7040-8e02-f6ebf4149b29")
+    let waiting = store.document(notes, in: "01992e43-53db-7040-8e02-f6ebf4149b29")
     let registering = Task { try await waiting.open() }
     while sent.count < 2 {
         await Task.yield()
@@ -529,7 +532,7 @@ private func marked(_ name: String?, _ at: UInt64) -> JSONValue? {
 @Test func `settings of the browser read its status while no download runs`() async throws {
     let commands = CommandSink()
     var request: String?
-    commands.transport = { data in
+    commands.transport { data in
         request = (try? JSONDecoder().decode([String: JSONValue].self, from: data))?["requestId"]?.stringValue
         return 0
     }

@@ -31,13 +31,15 @@ Kodosi를 열고 사이드바 아래쪽의 로그인을 선택하세요. Kodosi�
   화살표로 옆 터미널을 고르고(Ctrl+Alt와 화살표), ⌘W로 선택한 터미널을 닫아요. 설정 ›
   단축키에서 모든 키를 보고 바꿀 수 있어요.
 - 에이전트가 없으면 런처가 설치 명령을 보여 줘요.
-- 에이전트는 제한 없음으로 시작해요. 묻지 않고 파일을 바꾸고 명령을 실행해요. 먼저 묻게
+- 에이전트는 제한 없음으로 시작해요. 묻지 않고 파일을 바꾸고 명령을 실행해요. Antigravity
+  CLI는 자체 자동 모드로 시작하고, 되돌릴 수 없는 작업 전에는 물어봐요. 먼저 묻게
   하려면 모델 다음의 더 보기에서 묻기를 고르세요. 거기서 상세도, 즉 Claude Code, Codex,
-  Copilot CLI가 작업을 얼마나 보여 줄지도 고를 수 있고, 처음에는 간결이에요. Copilot CLI는
+  Copilot CLI, Antigravity CLI가 작업을 얼마나 보여 줄지도 고를 수 있고, 처음에는 간결이에요. Copilot CLI는
   상세도를 자기 설정에서만 읽기 때문에, Copilot CLI가 간결로 실행되는 동안 Kodosi가 그
   설정을 바꾸고 끝나면 되돌려 놓아요.
 - Claude Code와 Codex에는 빠른 모드가 있어요. 더 빨리 답하지만 비용이 더 들어요. 모델,
-  추론 수준과 함께 켜세요. 꺼져 있는 동안에는 에이전트가 자기 설정을 그대로 써요.
+  추론 수준과 함께 켜세요. 그 시작에만 적용되므로, 켜지 않으면 에이전트는 빠른 모드 없이
+  시작해요.
 - 새 계정은 `~/.claude-work`처럼 자기만의 로그인 폴더를 가져요. Kodosi는
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`처럼 셸에서 설정한 계정도 찾아요.
 - 프롬프트에서 기다리는 터미널에서는 헤더의 동작 버튼(슬라이더 두 개)에 설치된 에이전트가
@@ -97,9 +99,9 @@ Mac에서는 다른 터미널 앱처럼 터미널의 프로그램이 Kodosi에 �
 체크와 경고는 어느 기기에서든 터미널을 열면 사라져요. 터미널이 기다리기 시작하거나,
 끝나거나, 실패하면 Kodosi가 내가 쓰고 있는 기기에서 한 번 알려 줘요. Kodosi를 쓰고
 있으면 표시로 알려 줘요. 컴퓨터에서 다른 앱을 쓰고 있으면 그 컴퓨터에서 알림을 받아요.
-어느 컴퓨터도 쓰고 있지 않으면 휴대폰에서 받아요. 컴퓨터를 떠날 때 터미널이 아직 나를
-기다리고 있으면 그때 휴대폰으로 알려 줘요. 기다리는 터미널만 소리를 내요. 기기의 알림을
-끄려면 그 기기의 Kodosi에서 설정을 여세요. 프로그램은
+어느 컴퓨터도 쓰고 있지 않으면 휴대폰에서 받아요. 컴퓨터를 떠날 때 아직 열지 않은
+터미널이 나를 기다리고 있으면 그때 휴대폰으로 알려 줘요. 기다리는 터미널만 소리를 내요.
+기기의 알림을 끄려면 그 기기의 Kodosi에서 설정을 여세요. 프로그램은
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)이나
 진행 막대로 상태를 알려요. 아무것도 알리지 않는 프로그램은 상태가 표시되지 않아요.
 
@@ -116,7 +118,7 @@ Claude Code의 터미널은 채팅으로도 보여요. Kodosi가 시작한 Codex
 주는 것으로 캔버스가 열려요. 캔버스의 파일이나 브라우저가 바뀌어도 열리지만, 직접 닫았다면
 열리지 않아요. 직접 열 때만 열리게 하려면 설정 › 일반에서 캔버스 자동으로 열기를 끄세요. Claude
 Code와 Copilot CLI는 직접 시작해도 방법을 알고, Kodosi가 시작한 Codex, Cursor,
-OpenCode도 알아요(OpenCode는 Mac과 Linux에서). 다른
+OpenCode, Antigravity CLI도 알아요(OpenCode는 Mac과 Linux에서). 다른
 에이전트에게는 `kodosi skill canvas`를 읽으라고 하세요. 캔버스에 무언가 있으면 터미널 헤더에
 파일 버튼과 브라우저 버튼이 나오고, 새 소식이 있으면 구리색 점이 붙어요. 하나를 고르면 터미널
 옆에 캔버스가 열려요. 더 넓게를 고르면 캔버스가 스테이지를 쓰고 터미널은 구석에 작게 남아요. 각
@@ -220,7 +222,7 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
   `KODOSI_GITEA_URL` 서버용 `KODOSI_GITEA_TOKEN`을 써요. 자격 증명은 내 컴퓨터에 남아요.
 - 채팅에 `@`와 터미널 이름을 쓰면, Kodosi가 내 이름과 프로젝트를 붙여 그 터미널의 에이전트에게
   메시지를 전달해요. 무엇을 할지는 에이전트가 정해요. Kodosi 터미널의 Claude Code와 Copilot CLI,
-  그리고 Kodosi가 시작한 Codex, Cursor, OpenCode(OpenCode는 Mac과 Linux에서)는
+  그리고 Kodosi가 시작한 Codex, Cursor, OpenCode, Antigravity CLI(OpenCode는 Mac과 Linux에서)는
   Kodosi 안에서 실행된다는 걸 알고, `kodosi skill`은 에이전트가
   참여하는 데 필요한 [skill](../../runtime/skills/kodosi/SKILL.md)을 출력해요. Kodosi
   터미널에서는 명령이 프로젝트를 찾아요. 다른 곳에서는 `--project <name>`을 붙이세요.
@@ -238,7 +240,7 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
 | `kodosi terminal start --directory <repository> --branch <name>` | 전용 worktree의 새 브랜치에서 터미널을 시작해요. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | 내 다른 컴퓨터에서 터미널을 시작해요. 상대 경로 폴더나 `~`로 시작하는 폴더는 그 컴퓨터의 홈에 있어요. 어느 컴퓨터가 온라인인지는 `kodosi devices list`로 볼 수 있어요. |
 | `kodosi agent list` | 에이전트, 그 계정, 지난번 선택을 보여 줘요. |
-| `kodosi agent usage` | 로그인한 Claude Code, Codex, Copilot CLI 계정마다 요금제 한도를 얼마나 썼는지 보여 줘요. |
+| `kodosi agent usage` | 로그인한 Claude Code, Codex, Copilot CLI 계정마다 요금제 한도를 얼마나 썼는지와 각 한도가 언제 초기화되는지 보여 줘요. |
 | `kodosi terminal list` | 터미널을 이름과 ID와 함께 보여 줘요. 둘 중 무엇이든 `<terminal>`로 쓸 수 있어요. |
 | `kodosi terminal read <terminal>` | 화면을 출력해요. `--history`는 스크롤로 넘어간 줄도 더해요. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 보낸 사람과 보낸 곳을 붙여 터미널의 에이전트에게 메시지를 전달해요. |

@@ -14,6 +14,8 @@ use shared_browser::{
     link::{EngineTab, FromEngine, MOST_ICON, ToEngine},
 };
 
+#[cfg(target_os = "macos")]
+use crate::layer::Layer;
 use crate::{
     client,
     encode::{Cleanup, Encoder, REFINE_MS},
@@ -24,6 +26,10 @@ use crate::{
 const REPORT_DELAY_MS: i64 = 50;
 /// How long the browsers may take to close when the engine quits. The host waits longer.
 const QUIT_LIMIT_MS: i64 = 3000;
+/// For this long after the page took a new size, no picture in another size goes to a viewer, and
+/// a page whose own picture in that size did not come shows as it is then: Chromium may draw the
+/// page itself first in memory, with no stand-in before it.
+const SETTLE_LIMIT_MS: i64 = 1000;
 const PAGE_SCALE: f32 = 1.0;
 /// A tab whose page process ends loads its page again, once in this time.
 const RELOAD_WAIT: Duration = Duration::from_mins(1);
@@ -104,7 +110,11 @@ wrap_task! {
 
     impl Task {
         fn execute(&self) {
-            with(Engine::report);
+            with(|engine| {
+                if engine.report_waiting {
+                    engine.report();
+                }
+            });
         }
     }
 }
@@ -137,13 +147,37 @@ wrap_task! {
         fn execute(&self) {
             let browser = with(|engine| {
                 let shared = engine.shared_of(self.window)?;
-                let tab = shared.capture.borrow().as_ref()?.tab;
+                let capturing = shared.capture.borrow().as_ref().map(|capture| capture.tab);
+                let tab = capturing.or_else(|| shared.layer.borrow().as_ref()?.tab)?;
                 engine.browser_of(tab)
             })
             .flatten();
             if let Some(host) = browser.and_then(|browser| browser.host()) {
                 host.invalidate(PaintElementType::VIEW);
             }
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn look_at_stills(window: i64, delay_ms: i64) {
+    let mut task = StillsTaskBuilder::new(window);
+    post_delayed_task(ThreadId::UI, Some(&mut task), delay_ms);
+}
+
+#[cfg(target_os = "macos")]
+wrap_task! {
+    struct StillsTaskBuilder {
+        window: i64,
+    }
+
+    impl Task {
+        fn execute(&self) {
+            with(|engine| {
+                let shared = engine.shared_of(self.window)?;
+                shared.layer.borrow_mut().as_mut()?.looked();
+                Some(())
+            });
         }
     }
 }
@@ -162,6 +196,8 @@ pub(crate) fn with<R>(work: impl FnOnce(&mut Engine) -> R) -> Option<R> {
 pub(crate) struct Shared {
     pub size: Rc<Cell<Size>>,
     pub capture: Rc<RefCell<Option<Capture>>>,
+    #[cfg(target_os = "macos")]
+    pub layer: Rc<RefCell<Option<Layer>>>,
 }
 
 impl Shared {
@@ -169,6 +205,8 @@ impl Shared {
         Self {
             size: Rc::new(Cell::new(size)),
             capture: Rc::default(),
+            #[cfg(target_os = "macos")]
+            layer: Rc::default(),
         }
     }
 }
@@ -178,6 +216,103 @@ pub(crate) struct Capture {
     pub tab: i64,
     pub encoder: Encoder,
     pub cleanup: Cleanup,
+    pub settling: Option<Settling>,
+}
+
+/// The size that the page took, whether Chromium showed its stand-in in that size, and whether the
+/// page's own picture in that size came.
+#[derive(Clone, Copy)]
+pub(crate) struct Settling {
+    size: Size,
+    stood_in: bool,
+    drawn: bool,
+}
+
+/// How Chromium gives a picture of the page, which decides the stand-ins that it shows while the
+/// page takes a new size. Both ways also give the page in its new layout squeezed into the old
+/// size.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Painting {
+    /// In memory, where the page's old picture comes once in the new size first: with a band
+    /// beside it, or a part of it.
+    Memory,
+    /// On a surface of the GPU, where no stand-in comes in the new size.
+    #[cfg(target_os = "macos")]
+    Surface,
+}
+
+impl Capture {
+    /// While the page takes a new size, no stand-in goes to a viewer, so a view keeps the last
+    /// picture until the page's own in the new size, and a view that waits for a key frame gets
+    /// the page's own picture.
+    pub(crate) fn takes(&mut self, width: usize, height: usize, painting: Painting) -> bool {
+        let Some(settling) = self.settling.as_mut() else {
+            return true;
+        };
+        if !drawn_at(settling.size, width, height) {
+            return false;
+        }
+        if !settling.drawn && painting == Painting::Memory && !settling.stood_in {
+            settling.stood_in = true;
+            return false;
+        }
+        settling.drawn = true;
+        true
+    }
+
+    /// A new paint of a page that takes a new size would show the stand-in again.
+    fn waits_for_page(&self) -> bool {
+        self.settling.is_some_and(|settling| !settling.drawn)
+    }
+}
+
+/// Chromium rounds a size in CSS pixels at a scale up to whole pixels.
+fn drawn_at(size: Size, width: usize, height: usize) -> bool {
+    let fits = |points: u32, pixels: usize| {
+        u32::try_from(pixels).is_ok_and(|pixels| {
+            ((f64::from(points) * f64::from(size.scale)).ceil() - f64::from(pixels)).abs() < 0.5
+        })
+    };
+    fits(size.width, width) && fits(size.height, height)
+}
+
+fn settle(window: i64, tab: i64, size: Size) {
+    let mut task = SettleTaskBuilder::new(window, tab, size.width, size.height, size.scale);
+    post_delayed_task(ThreadId::UI, Some(&mut task), SETTLE_LIMIT_MS);
+}
+
+wrap_task! {
+    struct SettleTaskBuilder {
+        window: i64,
+        tab: i64,
+        width: u32,
+        height: u32,
+        scale: f32,
+    }
+
+    impl Task {
+        fn execute(&self) {
+            let size = Size {
+                width: self.width,
+                height: self.height,
+                scale: self.scale,
+            };
+            let browser = with(|engine| {
+                let shared = engine.shared_of(self.window)?;
+                let mut capture = shared.capture.borrow_mut();
+                let capture = capture
+                    .as_mut()
+                    .filter(|capture| capture.tab == self.tab && capture.settling.is_some_and(|settling| settling.size == size))?;
+                let waited = capture.waits_for_page();
+                capture.settling = None;
+                engine.browser_of(self.tab).filter(|_| waited)
+            })
+            .flatten();
+            if let Some(host) = browser.and_then(|browser| browser.host()) {
+                host.invalidate(PaintElementType::VIEW);
+            }
+        }
+    }
 }
 
 /// The encoder codes the last picture again only while the page drew nothing new since `picture`.
@@ -525,6 +660,8 @@ impl Engine {
         };
         known.closing = true;
         known.shared.capture.borrow_mut().take();
+        #[cfg(target_os = "macos")]
+        known.shared.layer.borrow_mut().take();
         let browsers = self.browsers_of(window);
         if browsers.is_empty() {
             self.windows.remove(&window);
@@ -583,6 +720,11 @@ impl Engine {
             .get(&browser)
             .is_some_and(|tab| tab.icon == address)
         {
+            // The host finds the window of an icon by the report of its tab, which waits a moment
+            // after a new tab, and a fast page has its icon sooner.
+            if self.report_waiting {
+                self.report();
+            }
             let png = STANDARD.encode(png);
             self.link.send(&FromEngine::Icon {
                 tab: browser,
@@ -733,6 +875,8 @@ fn run(command: ToEngine) {
         | ToEngine::Recover { .. }
         | ToEngine::Held { .. }
         | ToEngine::Bitrate { .. } => capture(&command),
+        ToEngine::Layer { window, tab } => layer(window, tab),
+        ToEngine::Still { window } => still(window),
         ToEngine::Activate { tab } => activate(tab),
         ToEngine::NewTab {
             window,
@@ -793,7 +937,20 @@ fn open_window(window: i64, address: &str, size: Size) {
 fn resize(window: i64, size: Size) {
     let browsers = with(|engine| {
         let shared = engine.shared_of(window)?;
-        shared.size.set(size);
+        if shared.size.replace(size) != size
+            && let Some(capture) = shared.capture.borrow_mut().as_mut()
+        {
+            capture.settling = Some(Settling {
+                size,
+                stood_in: false,
+                drawn: false,
+            });
+            settle(window, capture.tab, size);
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(layer) = shared.layer.borrow().as_ref() {
+            layer.resize(size);
+        }
         Some(engine.browsers_of(window))
     })
     .flatten()
@@ -822,6 +979,7 @@ fn capture(command: &ToEngine) {
                 tab,
                 encoder,
                 cleanup: Cleanup::default(),
+                settling: None,
             });
             engine.browser_of(tab)
         }
@@ -834,14 +992,18 @@ fn capture(command: &ToEngine) {
             let mut capture = shared.capture.borrow_mut();
             let capture = capture.as_mut()?;
             capture.encoder.want_key();
-            engine.browser_of(capture.tab)
+            engine
+                .browser_of(capture.tab)
+                .filter(|_| !capture.waits_for_page())
         }
         ToEngine::Recover { window } => {
             let shared = engine.shared_of(window)?;
             let mut capture = shared.capture.borrow_mut();
             let capture = capture.as_mut()?;
             capture.encoder.recover();
-            engine.browser_of(capture.tab)
+            engine
+                .browser_of(capture.tab)
+                .filter(|_| !capture.waits_for_page())
         }
         #[cfg(target_os = "macos")]
         ToEngine::Held { window, ref marks } => {
@@ -863,6 +1025,55 @@ fn capture(command: &ToEngine) {
     .flatten();
     if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
         host.invalidate(PaintElementType::VIEW);
+    }
+}
+
+/// The layer shows a tab only while a view hosts it, and keeps its last picture between. A tab
+/// new to the layer draws at once, as a still page draws nothing by itself.
+#[cfg(target_os = "macos")]
+fn layer(window: i64, tab: Option<i64>) {
+    let repaint_tab = with(|engine| {
+        let shared = engine.shared_of(window)?;
+        let mut layer = shared.layer.borrow_mut();
+        if layer.is_none() && tab.is_some() {
+            match Layer::new(window, engine.link().clone()) {
+                Ok(made) => *layer = Some(made),
+                Err(problem) => {
+                    engine.link().send(&FromEngine::NoLayer { window, problem });
+                    return None;
+                }
+            }
+        }
+        layer.as_mut()?.tab = tab;
+        engine.browser_of(tab?)
+    })
+    .flatten();
+    if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
+        host.invalidate(PaintElementType::VIEW);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn still(window: i64) {
+    with(|engine| {
+        let shared = engine.shared_of(window)?;
+        shared.layer.borrow_mut().as_mut()?.want_still();
+        Some(())
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn still(_window: i64) {}
+
+#[cfg(not(target_os = "macos"))]
+fn layer(window: i64, tab: Option<i64>) {
+    if tab.is_some() {
+        with(|engine| {
+            engine.link().send(&FromEngine::NoLayer {
+                window,
+                problem: "only a Mac hosts the layer".to_owned(),
+            });
+        });
     }
 }
 

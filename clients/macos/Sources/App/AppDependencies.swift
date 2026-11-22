@@ -100,7 +100,11 @@ final class AppDependencies {
         presence = PresenceReporter(source: presenceSource) { [commands] state in
             CommandSink.didAcceptSynchronously(commands.send("app.presence", ["state": .string(state.rawValue)]))
         }
-        let canvas = CanvasStore(commands: commands)
+        let inbox = RuntimeEventInbox()
+        self.inbox = inbox
+        let runtime = RuntimeHandle(inbox: inbox)
+        runtimeHandle = runtime
+        let canvas = CanvasStore(commands: commands, browserPipes: runtime.browserPipes)
         self.canvas = canvas
         workbench = WorkbenchState(defaults: defaults, canvas: canvas)
         account = AccountStore(commands: commands, browser: "system")
@@ -108,10 +112,6 @@ final class AppDependencies {
         dosi = DosiStore(commands: commands)
         projects = ProjectStore(commands: commands)
         launcher = LauncherState(commands: commands)
-        let inbox = RuntimeEventInbox()
-        self.inbox = inbox
-        let runtime = RuntimeHandle(inbox: inbox)
-        runtimeHandle = runtime
         let focus = TerminalProcessFocusCoordinator(commands: commands)
         terminalFocus = focus
         terminalManager = TerminalSessionManager(
@@ -148,8 +148,8 @@ final class AppDependencies {
                     }
                 case let .unreadable(error):
                     faults.unreadable(nil, error)
-                case let .behind(events, bytes):
-                    RuntimeEventFaults.behind(events: events, bytes: bytes)
+                case let .behind(drop):
+                    RuntimeEventFaults.behind(drop)
                     catchUp()
                 }
             }

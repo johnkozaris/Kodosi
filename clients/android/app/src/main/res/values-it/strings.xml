@@ -291,12 +291,37 @@
     <string name="uploading">Invio del file</string>
     <string name="loading">Caricamento</string>
     <string name="reading_usage">Lettura dell\'utilizzo del piano</string>
+    <string name="usage_month">Questo mese</string>
+    <string name="usage_week">Questa settimana</string>
+    <string name="usage_scope_month">%1$s, questo mese</string>
+    <string name="usage_scope_week">%1$s, questa settimana</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Ultima %d ora</item>
+        <item quantity="many">Ultime %d ore</item>
+        <item quantity="other">Ultime %d ore</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Ultimo %d giorno</item>
+        <item quantity="many">Ultimi %d giorni</item>
+        <item quantity="other">Ultimi %d giorni</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, ultima %2$d ora</item>
+        <item quantity="many">%1$s, ultime %2$d ore</item>
+        <item quantity="other">%1$s, ultime %2$d ore</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, ultimo %2$d giorno</item>
+        <item quantity="many">%1$s, ultimi %2$d giorni</item>
+        <item quantity="other">%1$s, ultimi %2$d giorni</item>
+    </plurals>
     <string name="browser_address">Cerca o inserisci un indirizzo</string>
     <string name="new_browser_tab">Nuova scheda</string>
     <string name="browser_back">Indietro</string>
     <string name="browser_forward">Avanti</string>
     <string name="browser_reload">Ricarica</string>
     <string name="browser_sleeping">Il browser è in pausa</string>
+    <string name="browser_undecodable">Questo dispositivo non può mostrare la pagina</string>
     <string name="wake_browser">Apri browser</string>
     <string name="browser_dialog">La pagina chiede</string>
     <string name="choose_file">Scegli un file</string>
@@ -374,7 +399,7 @@
     <string name="agent_unrestricted_detail">Non chiede mai ed esegue ogni comando con i tuoi permessi.</string>
     <string name="agent_auto_check_detail">Un controllo di sicurezza approva ciò che è sicuro e ti chiede il resto. Il controllo consuma token.</string>
     <string name="agent_auto_folder_detail">Lavora da solo in questa cartella e ti chiede il resto.</string>
-    <string name="agent_auto_edit_detail">Modifica i file da solo e chiede prima di eseguire comandi.</string>
+    <string name="agent_auto_safe_detail">Modifica i file ed esegue i comandi sicuri da solo, e chiede prima di ciò che non si può annullare.</string>
     <string name="agent_auto_detail">Accetta le proprie azioni, tranne ciò che hai negato.</string>
     <string name="agent_quiet_detail">Mostra meno del suo lavoro.</string>
     <string name="agent_standard_detail">Mostra il suo lavoro come è configurato l\'agente.</string>

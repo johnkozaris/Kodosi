@@ -450,12 +450,16 @@ extension WorkbenchState {
     }
 
     func openCanvas(_ id: String, at section: CanvasSection? = nil) {
-        selectedSessionId = id
-        focusedSessionId = id
-        canvasesLeftOpen.remove(id)
         if let session = known[id] {
             canvas.open(session, at: section)
         }
+        showCanvas(id)
+    }
+
+    func showCanvas(_ id: String) {
+        selectedSessionId = id
+        focusedSessionId = id
+        canvasesLeftOpen.remove(id)
         if known[id].map(canvas.showsSomething) == true {
             canvasSessionId = id
             awaitedCanvas = nil

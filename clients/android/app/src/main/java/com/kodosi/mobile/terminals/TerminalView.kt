@@ -161,6 +161,7 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
     }
 
     fun showKeyboard() {
+        connection.act()
         requestFocus()
         context.getSystemService(InputMethodManager::class.java)?.showSoftInput(this, 0)
     }

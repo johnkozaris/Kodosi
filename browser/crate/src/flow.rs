@@ -25,7 +25,7 @@ const ANCHOR_FLOOR: Duration = Duration::from_millis(250);
 const STEADY: Duration = Duration::from_secs(10);
 const MOST_FALLS: u32 = 3;
 /// A viewer that takes no frame for this long is gone.
-const HOPELESS: Duration = Duration::from_secs(15);
+pub(crate) const HOPELESS: Duration = Duration::from_secs(15);
 /// A frame that comes this much later than the link's own round trip and the stream's bitrate
 /// allow shows that the link is slower than the stream.
 const QUEUE_LIMIT: Duration = Duration::from_millis(40);
@@ -72,6 +72,9 @@ struct Sent {
 struct Seat {
     holds: Holds,
     anchors: bool,
+    /// A view on the browser's own computer is late only for its app's own work, which a lower
+    /// bitrate does not speed up, so its delays never cost the picture its sharpness.
+    local: bool,
     /// Since when the viewer takes each frame.
     going_since: Option<Instant>,
     /// The quick falls in a row, and the time before which the viewer gets no key frame.
@@ -96,10 +99,11 @@ struct Seat {
 }
 
 impl Seat {
-    fn new(anchors: bool, now: Instant) -> Self {
+    fn new(anchors: bool, local: bool, now: Instant) -> Self {
         Self {
             holds: Holds::Nothing,
             anchors,
+            local,
             going_since: None,
             falls: 0,
             key_after: None,
@@ -303,14 +307,18 @@ impl Flow {
         self.seats.is_empty()
     }
 
-    pub(crate) fn seat(&mut self, viewer: &str, anchors: bool, now: Instant) {
+    pub(crate) fn seat(&mut self, viewer: &str, anchors: bool, local: bool, now: Instant) {
         self.forget(viewer);
         if self.seats.is_empty() {
-            self.bitrate = FIRST_BITRATE;
+            self.bitrate = if local {
+                HIGHEST_BITRATE
+            } else {
+                FIRST_BITRATE
+            };
             self.cut_at = None;
         }
         self.seats
-            .insert(viewer.to_owned(), Seat::new(anchors, now));
+            .insert(viewer.to_owned(), Seat::new(anchors, local, now));
     }
 
     pub(crate) const fn bitrate(&self) -> u32 {
@@ -512,11 +520,13 @@ impl Flow {
         let followed = control.filter(|viewer| self.seats.contains_key(*viewer));
         let mut queue = None;
         let mut carried: Option<u64> = None;
+        let mut linked = false;
         for (viewer, seat) in &mut self.seats {
             let fresh = seat.queue.take();
-            if followed.is_some_and(|followed| viewer.as_str() != followed) {
+            if seat.local || followed.is_some_and(|followed| viewer.as_str() != followed) {
                 continue;
             }
+            linked = true;
             if seat.holds == Holds::Stream {
                 queue = queue.max(fresh);
             }
@@ -524,7 +534,9 @@ impl Flow {
                 carried = Some(carried.map_or(rate, |least| least.min(rate)));
             }
         }
-        let mut bitrate = if queue.is_some_and(|queue| queue > QUEUE_LIMIT) {
+        let mut bitrate = if !linked {
+            HIGHEST_BITRATE
+        } else if queue.is_some_and(|queue| queue > QUEUE_LIMIT) {
             self.bitrate / 5 * 4
         } else if queue.is_some_and(|queue| queue < QUEUE_LIMIT / 2)
             && self
@@ -558,7 +570,7 @@ mod tests {
     fn flow_with(viewers: &[&str], now: Instant) -> Flow {
         let mut flow = Flow::new();
         for viewer in viewers {
-            flow.seat(viewer, true, now);
+            flow.seat(viewer, true, false, now);
         }
         flow
     }
@@ -635,8 +647,8 @@ mod tests {
     fn slow_and_fast(mark: Option<u64>, anchors: bool) -> (Flow, Instant) {
         let now = Instant::now();
         let mut flow = Flow::new();
-        flow.seat("slow", anchors, now);
-        flow.seat("fast", true, now);
+        flow.seat("slow", anchors, false, now);
+        flow.seat("fast", true, false, now);
         flow.frame(1, FrameKind::Key, mark, 100, now, none);
         flow.frame(2, FrameKind::Delta, None, 100, after(now, 10), none);
         for viewer in ["slow", "fast"] {
@@ -709,8 +721,8 @@ mod tests {
     fn a_viewer_that_keeps_falling_behind_waits_longer_for_each_key_frame() {
         let now = Instant::now();
         let mut flow = Flow::new();
-        flow.seat("slow", false, now);
-        flow.seat("fast", true, now);
+        flow.seat("slow", false, false, now);
+        flow.seat("fast", true, false, now);
         let full = |viewer: &str| if viewer == "slow" { QUEUED_MOST } else { 0 };
         let mut key_at = 0;
         for (id, extra) in [(1, 0), (3, 1000), (5, 3000)] {
@@ -982,6 +994,63 @@ mod tests {
     }
 
     #[test]
+    fn a_view_on_the_browsers_computer_keeps_the_highest_bitrate_while_its_app_is_late() {
+        let now = Instant::now();
+        let mut flow = Flow::new();
+        flow.seat("mac", true, true, now);
+        assert_eq!(flow.bitrate(), HIGHEST_BITRATE);
+        send(&mut flow, 1, FrameKind::Key, now);
+        flow.ack("mac", 1, after(now, 20));
+        let busy = Link {
+            viewer: "mac",
+            rate: 7_600_000,
+            round: Duration::from_millis(20),
+        };
+        let every = Duration::from_millis(33);
+        let start = after(now, 33);
+        let mut acks = stream(&mut flow, &[busy], 2..=61, 33_000, every, start);
+        assert_eq!(flow.steer(Some("mac"), start + every * 59), None);
+        let end = ack_until(&mut flow, &mut acks, None).unwrap();
+        assert_eq!(flow.steer(None, end + STEER_EVERY), None);
+        assert_eq!(flow.bitrate(), HIGHEST_BITRATE);
+    }
+
+    #[test]
+    fn beside_a_view_on_the_browsers_computer_the_link_of_another_device_in_control_sets_the_bitrate()
+     {
+        let now = Instant::now();
+        let mut flow = Flow::new();
+        flow.seat("mac", true, true, now);
+        flow.seat("phone", true, false, now);
+        send(&mut flow, 1, FrameKind::Key, now);
+        for viewer in ["mac", "phone"] {
+            flow.ack(viewer, 1, after(now, 20));
+        }
+        let round = Duration::from_millis(20);
+        let links = [
+            Link {
+                viewer: "mac",
+                rate: 2_000_000,
+                round,
+            },
+            Link {
+                viewer: "phone",
+                rate: 600_000,
+                round,
+            },
+        ];
+        let every = Duration::from_millis(25);
+        let start = after(now, 25);
+        let mut acks = stream(&mut flow, &links, 2..=13, 25_000, every, start);
+        let looked = start + every * 12;
+        ack_until(&mut flow, &mut acks, Some(looked));
+        assert_eq!(flow.steer(Some("mac"), looked), None);
+        let end = ack_until(&mut flow, &mut acks, None).unwrap();
+        let fitted = flow.steer(Some("phone"), end).unwrap();
+        assert!((450_000..=510_000).contains(&fitted), "{fitted}");
+    }
+
+    #[test]
     fn nobody_steers_a_still_page() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
@@ -1004,10 +1073,10 @@ mod tests {
         let end = ack_until(&mut flow, &mut acks, None).unwrap();
         let fitted = flow.steer(Some("phone"), end).unwrap();
         assert_eq!(flow.bitrate(), fitted);
-        flow.seat("phone", true, end);
+        flow.seat("phone", true, false, end);
         assert_eq!(flow.bitrate(), fitted);
         flow.leave("phone");
-        flow.seat("mac", true, end);
+        flow.seat("mac", true, false, end);
         assert_eq!(flow.bitrate(), FIRST_BITRATE);
     }
 }

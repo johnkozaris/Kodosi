@@ -586,7 +586,7 @@ pub(super) fn plan(
             .as_deref()
             .and_then(|id| efforts(models, model).find(|effort| effort.id == id)),
     };
-    let (permissions, output, fast, words) = modes(info.agent, saved, start)?;
+    let (permissions, output, words) = modes(info.agent, saved, start)?;
     let line = [
         Some(account.command.clone()),
         model.map(|model| model.argument.clone()),
@@ -606,7 +606,8 @@ pub(super) fn plan(
             effort: effort.map(|effort| effort.id.clone()),
             permissions: Some(permissions),
             output: Some(output),
-            fast,
+            // Fast mode costs more, so each start chooses it again.
+            fast: false,
         },
     ))
 }
@@ -615,15 +616,7 @@ fn modes(
     agent: Agent,
     saved: &AgentPick,
     start: &AgentStart,
-) -> Result<
-    (
-        Permissions,
-        Output,
-        bool,
-        impl Iterator<Item = &'static str>,
-    ),
-    String,
-> {
+) -> Result<(Permissions, Output, impl Iterator<Item = &'static str>), String> {
     let label = agent.label();
     let permissions = start
         .permissions
@@ -646,17 +639,15 @@ fn modes(
         )
     })?;
     let fast = start.fast.unwrap_or_else(|| fast_of(agent, saved.fast));
-    let fast_words = if fast {
-        agent
-            .fast_words(true)
-            .ok_or_else(|| format!("{label} has no fast mode."))?
-    } else {
-        &[]
+    // An agent keeps a fast mode that it had turned on, so a start without it says so.
+    let fast_words = match agent.fast_words(fast) {
+        Some(words) => words,
+        None if fast => return Err(format!("{label} has no fast mode.")),
+        None => &[],
     };
     Ok((
         permissions,
         output,
-        fast,
         permission_words
             .iter()
             .chain(output_words)

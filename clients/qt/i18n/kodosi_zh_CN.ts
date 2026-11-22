@@ -58,8 +58,8 @@
         <translation>在此文件夹中自行工作，其余的会询问你。</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>自行编辑文件，运行命令前会询问。</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>自行编辑文件并运行安全的命令，执行无法撤销的操作前会询问。</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -325,8 +325,8 @@
         <translation>在此文件夹中自行工作，其余的会询问你。</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>自行编辑文件，运行命令前会询问。</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>自行编辑文件并运行安全的命令，执行无法撤销的操作前会询问。</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -499,12 +499,12 @@
         <translation>已共享</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 个标签页</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>新标签页</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>标签页</translation>
     </message>
     <message>
         <source>Close tab</source>
@@ -4355,6 +4355,12 @@
         <translation>本周</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>过去 %n 天</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>过去 %n 小时</numerusform>
@@ -4369,6 +4375,12 @@
         <translation>%1，本周</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1，过去 %n 天</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1，过去 %n 小时</numerusform>
@@ -4381,6 +4393,50 @@
     <message>
         <source>Default</source>
         <translation>默认</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1天%2小时</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1天</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1小时%2分钟</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1小时</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1分钟</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n 天</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n 小时</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n 分钟</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1，%2后重置</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

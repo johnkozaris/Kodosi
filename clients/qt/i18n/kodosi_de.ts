@@ -58,8 +58,8 @@
         <translation>Arbeitet in diesem Ordner selbstständig und fragt dich beim Rest.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Bearbeitet Dateien selbstständig und fragt, bevor er Befehle ausführt.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>Bearbeitet Dateien und führt sichere Befehle selbstständig aus und fragt, bevor er etwas tut, das sich nicht rückgängig machen lässt.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -325,8 +325,8 @@
         <translation>Arbeitet in diesem Ordner selbstständig und fragt dich beim Rest.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Bearbeitet Dateien selbstständig und fragt, bevor er Befehle ausführt.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>Bearbeitet Dateien und führt sichere Befehle selbstständig aus und fragt, bevor er etwas tut, das sich nicht rückgängig machen lässt.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -500,12 +500,12 @@
         <translation>Geteilt</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 Tabs</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>Neuer Tab</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Tabs</translation>
     </message>
     <message>
         <source>Close tab</source>
@@ -4368,6 +4368,13 @@
         <translation>Diese Woche</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>Letzter %n Tag</numerusform>
+            <numerusform>Letzte %n Tage</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>Letzte %n Stunde</numerusform>
@@ -4383,6 +4390,13 @@
         <translation>%1, diese Woche</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1, letzter %n Tag</numerusform>
+            <numerusform>%1, letzte %n Tage</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1, letzte %n Stunde</numerusform>
@@ -4396,6 +4410,53 @@
     <message>
         <source>Default</source>
         <translation>Standard</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1d %2h</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1d</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1h %2min</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1h</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1min</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n Tag</numerusform>
+            <numerusform>%n Tage</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n Stunde</numerusform>
+            <numerusform>%n Stunden</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n Minute</numerusform>
+            <numerusform>%n Minuten</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1, noch %2 bis zum Zurücksetzen</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

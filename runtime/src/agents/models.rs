@@ -9,20 +9,19 @@ const RUN_TIME: Duration = Duration::from_secs(10);
 const MAX_OUTPUT: usize = 4 * 1024 * 1024;
 const MAX_MODELS: usize = 500;
 
+pub(super) const CLAUDE_MODELS: [(&str, &str); 4] = [
+    ("fable", "Fable"),
+    ("opus", "Opus"),
+    ("sonnet", "Sonnet"),
+    ("haiku", "Haiku"),
+];
+
 pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
     let program = facts.executable(agent.program());
     let program = program.as_deref();
     let (models, efforts) = match agent {
         Agent::Claude => (
-            fixed(
-                &[
-                    ("fable", "Fable"),
-                    ("opus", "Opus"),
-                    ("sonnet", "Sonnet"),
-                    ("haiku", "Haiku"),
-                ],
-                agent,
-            ),
+            fixed(&CLAUDE_MODELS, agent),
             efforts(run(facts, program, &["--help"]).await.as_deref(), agent),
         ),
         Agent::Codex => codex(run(facts, program, &["debug", "models"]).await.as_deref()),
@@ -37,21 +36,11 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
             cursor(run(facts, program, &["models"]).await.as_deref()),
             Vec::new(),
         ),
-        Agent::Gemini => (
-            fixed(
-                &[
-                    ("pro", "Pro"),
-                    ("flash", "Flash"),
-                    ("flash-lite", "Flash Lite"),
-                ],
-                agent,
-            ),
-            Vec::new(),
-        ),
         Agent::Opencode => (
             opencode(run(facts, program, &["models"]).await.as_deref()),
             Vec::new(),
         ),
+        Agent::Antigravity => antigravity(run(facts, program, &["models"]).await.as_deref()),
     };
     AgentModels { models, efforts }
 }
@@ -153,7 +142,7 @@ pub(super) fn listed_values(help: &str, flag: &str) -> Vec<String> {
         });
     inner.map_or_default(|inner| {
         inner
-            .split(',')
+            .split([',', '|'])
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_owned)
@@ -274,6 +263,57 @@ pub(super) fn opencode(list: Option<&str>) -> Vec<AgentModel> {
         .filter_map(|id| model(id, id, Agent::Opencode, Vec::new()))
         .take(MAX_MODELS)
         .collect()
+}
+
+/// The thinking levels that end the identifiers of Antigravity CLI's models, lowest first.
+const ANTIGRAVITY_LEVELS: [&str; 5] = ["low", "medium", "high", "xhigh", "max"];
+
+/// One model and thinking level on each line, its identifier, a tab and its name, as in
+/// `gemini-4-neon-high` and `Gemini 4 Neon (High)`. The launcher shows each model once with its
+/// levels.
+pub(super) fn antigravity(list: Option<&str>) -> (Vec<AgentModel>, Vec<AgentOption>) {
+    let mut models: Vec<AgentModel> = Vec::new();
+    for line in list.into_iter().flat_map(str::lines) {
+        let line = line.trim();
+        let (id, label) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
+        let slug = id.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-._".contains(&byte)
+        }) && id.contains('-');
+        if !slug {
+            continue;
+        }
+        let (id, level) = match id.rsplit_once('-') {
+            Some((model, level)) if ANTIGRAVITY_LEVELS.contains(&level) => (model, Some(level)),
+            _ => (id, None),
+        };
+        let label = label.trim();
+        let name = level
+            .and_then(|_| label.rsplit_once(" ("))
+            .map_or(label, |(name, _)| name);
+        let level = level.map(str::to_owned);
+        if let Some(known) = models.iter_mut().find(|model| model.id == id) {
+            known.efforts.extend(level);
+        } else if models.len() < MAX_MODELS
+            && let Some(model) = model(id, name, Agent::Antigravity, level.into_iter().collect())
+        {
+            models.push(model);
+        }
+    }
+    let rank = |level: &String| ANTIGRAVITY_LEVELS.iter().position(|known| known == level);
+    for model in &mut models {
+        model.efforts.sort_by_key(rank);
+        model.efforts.dedup();
+    }
+    let efforts = ANTIGRAVITY_LEVELS
+        .iter()
+        .filter(|level| {
+            models
+                .iter()
+                .any(|model| model.efforts.iter().any(|known| known == *level))
+        })
+        .filter_map(|level| effort(Agent::Antigravity, level))
+        .collect();
+    (models, efforts)
 }
 
 pub(super) fn without_escapes(text: &str) -> String {

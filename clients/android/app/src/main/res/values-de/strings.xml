@@ -291,12 +291,33 @@
     <string name="uploading">Datei wird gesendet</string>
     <string name="loading">Wird geladen</string>
     <string name="reading_usage">Liest die Plannutzung</string>
+    <string name="usage_month">Dieser Monat</string>
+    <string name="usage_week">Diese Woche</string>
+    <string name="usage_scope_month">%1$s, dieser Monat</string>
+    <string name="usage_scope_week">%1$s, diese Woche</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Letzte %d Stunde</item>
+        <item quantity="other">Letzte %d Stunden</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Letzter %d Tag</item>
+        <item quantity="other">Letzte %d Tage</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, letzte %2$d Stunde</item>
+        <item quantity="other">%1$s, letzte %2$d Stunden</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, letzter %2$d Tag</item>
+        <item quantity="other">%1$s, letzte %2$d Tage</item>
+    </plurals>
     <string name="browser_address">Suchen oder Adresse eingeben</string>
     <string name="new_browser_tab">Neuer Tab</string>
     <string name="browser_back">Zurück</string>
     <string name="browser_forward">Vorwärts</string>
     <string name="browser_reload">Neu laden</string>
     <string name="browser_sleeping">Der Browser schläft</string>
+    <string name="browser_undecodable">Dieses Gerät kann die Seite nicht anzeigen</string>
     <string name="wake_browser">Browser öffnen</string>
     <string name="browser_dialog">Die Seite fragt</string>
     <string name="choose_file">Datei auswählen</string>
@@ -372,7 +393,7 @@
     <string name="agent_unrestricted_detail">Fragt nie und führt jeden Befehl mit deinen Rechten aus.</string>
     <string name="agent_auto_check_detail">Eine Sicherheitsprüfung erlaubt, was sicher ist, und fragt dich beim Rest. Die Prüfung verbraucht Tokens.</string>
     <string name="agent_auto_folder_detail">Arbeitet in diesem Ordner selbstständig und fragt dich beim Rest.</string>
-    <string name="agent_auto_edit_detail">Bearbeitet Dateien selbstständig und fragt, bevor er Befehle ausführt.</string>
+    <string name="agent_auto_safe_detail">Bearbeitet Dateien und führt sichere Befehle selbstständig aus und fragt, bevor er etwas tut, das sich nicht rückgängig machen lässt.</string>
     <string name="agent_auto_detail">Erlaubt seine eigenen Aktionen, außer dem, was du verboten hast.</string>
     <string name="agent_quiet_detail">Zeigt weniger von seiner Arbeit.</string>
     <string name="agent_standard_detail">Zeigt seine Arbeit so, wie der Agent eingerichtet ist.</string>

@@ -1,19 +1,24 @@
 import Foundation
 @testable import KodosiBridge
 import KodosiKit
+import Synchronization
 import Testing
 
 @MainActor
-@Test func `each copy that the browser sends reaches the pasteboard, also the same words again`() {
-    let feed = CanvasStore(commands: CommandSink()).feed("terminal")
+@Test func `each copy that the browser sends reaches the pasteboard, also the same words again`() async throws {
+    let runtime = BrowserRuntime()
     var copies: [String] = []
-    feed.copied = { copies.append($0) }
+    runtime.feed.copied = { copies.append($0) }
+    let watching = Task { await runtime.feed.watch() }
+    defer { watching.cancel() }
     let copy = Data([0]) + Data(#"{"width":1280,"height":720,"shape":"","pointers":[],"copied":"word"}"#.utf8)
     let later = Data([0]) + Data(#"{"width":1280,"height":720,"shape":"text","pointers":[]}"#.utf8)
 
-    feed.receive(copy)
-    feed.receive(copy)
-    feed.receive(later)
+    let pipe = try await runtime.open()
+    try runtime.send(copy, on: pipe)
+    try runtime.send(copy, on: pipe)
+    try runtime.send(later, on: pipe)
+    try await until { runtime.feed.window.shape == "text" }
 
     #expect(copies == ["word", "word"])
 }
@@ -21,41 +26,61 @@ import Testing
 @MainActor
 @Test func `the page keeps its last picture while the browser joins again, until a new frame replaces it`() async throws {
     let runtime = BrowserRuntime()
-    runtime.feed.show(on: NSObject()) { _ in }
+    runtime.feed.show(on: NSObject()) { _ in true }
     let watching = Task { await runtime.feed.watch() }
     defer { watching.cancel() }
 
     let first = try await runtime.open()
     try runtime.send(BrowserRuntime.keyFrame, on: first)
-    #expect(runtime.feed.picture == .live)
+    try await until { runtime.feed.picture == .live }
     try runtime.lose(first)
     let second = try await runtime.open()
     #expect(runtime.feed.picture == .kept)
     try runtime.send(BrowserRuntime.keyFrame, on: second)
-    #expect(runtime.feed.picture == .live)
+    try await until { runtime.feed.picture == .live }
+}
+
+@MainActor
+@Test func `the video keeps the size of its pictures while the page takes a new size`() async throws {
+    let runtime = BrowserRuntime()
+    runtime.feed.show(on: NSObject()) { _ in true }
+    let watching = Task { await runtime.feed.watch() }
+    defer { watching.cancel() }
+    let state = { (width: Int, height: Int) in
+        Data([0]) + Data(#"{"width":\#(width),"height":\#(height),"shape":"","pointers":[]}"#.utf8)
+    }
+
+    let pipe = try await runtime.open()
+    try runtime.send(state(16, 16), on: pipe)
+    try runtime.send(BrowserRuntime.keyFrame, on: pipe)
+    try await until { runtime.feed.pictureSize == CGSize(width: 16, height: 16) }
+    try runtime.send(state(390, 700), on: pipe)
+    try await until { runtime.feed.window.size == CGSize(width: 390, height: 700) }
+    #expect(runtime.feed.pictureSize == CGSize(width: 16, height: 16))
 }
 
 @MainActor
 @Test func `a new surface has no picture until the key frame that it asks the host for`() async throws {
     let runtime = BrowserRuntime()
     let surface = NSObject()
-    runtime.feed.show(on: surface) { _ in }
+    runtime.feed.show(on: surface) { _ in true }
     let watching = Task { await runtime.feed.watch() }
     defer { watching.cancel() }
 
     try await runtime.send(BrowserRuntime.keyFrame, on: runtime.open())
-    runtime.feed.show(on: surface) { _ in }
+    try await until { runtime.feed.picture == .live }
+    runtime.feed.show(on: surface) { _ in true }
     #expect(runtime.feed.picture == .live)
-    runtime.feed.show(on: NSObject()) { _ in }
+    runtime.feed.show(on: NSObject()) { _ in true }
     #expect(runtime.feed.picture == .waiting)
-    #expect(runtime.messages() == ["ack", "keyframe"])
+    #expect(try await runtime.messages(2) == ["ack", "keyframe"])
 }
 
 @MainActor
 @Test func `a view that the host skipped goes on at an anchor, and one that lost a frame asks for a key frame`() async throws {
     let runtime = BrowserRuntime()
-    var shown = 0
-    runtime.feed.show(on: NSObject()) { _ in shown += 1 }
+    let shown = Shown()
+    runtime.feed.show(on: NSObject()) { _ in shown.add() }
     let watching = Task { await runtime.feed.watch() }
     defer { watching.cancel() }
 
@@ -63,24 +88,72 @@ import Testing
     try runtime.send(BrowserRuntime.keyFrame, on: pipe)
     try runtime.send(BrowserRuntime.frame(4, anchor: true), on: pipe)
     try runtime.send(BrowserRuntime.frame(5), on: pipe)
-    #expect(shown == 3)
     try runtime.send(BrowserRuntime.frame(7), on: pipe)
     try runtime.send(BrowserRuntime.frame(9, anchor: true), on: pipe)
-    #expect(shown == 3)
-    #expect(runtime.messages() == ["ack", "ack", "ack", "ack", "keyframe", "ack"])
+    #expect(try await runtime.messages(6) == ["ack", "ack", "ack", "ack", "keyframe", "ack"])
+    #expect(shown.count == 3)
 }
 
 @MainActor
-@Test func `a view says that a person opened the browser, but not when it joins again after a lost link`() async throws {
+@Test func `a frame is acknowledged and shown while the main actor is busy`() async throws {
     let runtime = BrowserRuntime()
+    let shown = Shown()
+    runtime.feed.show(on: NSObject()) { _ in shown.add() }
     let watching = Task { await runtime.feed.watch() }
     defer { watching.cancel() }
+    let pipe = try await runtime.open()
 
+    try runtime.send(BrowserRuntime.keyFrame, on: pipe)
+    var sent: [String?] = []
+    let deadline = ContinuousClock.now + .seconds(2)
+    while sent.isEmpty || shown.count == 0, ContinuousClock.now < deadline {
+        sent += runtime.messages()
+        usleep(500)
+    }
+
+    #expect(sent == ["ack"])
+    #expect(shown.count == 1)
+}
+
+@MainActor
+@Test func `the page takes the shape of a view only after a person opens the browser there`() async throws {
+    let runtime = BrowserRuntime()
+    var watching = Task { await runtime.feed.watch() }
     let first = try await runtime.open()
-    #expect(runtime.opened == true)
+    #expect(runtime.opened == false)
+    runtime.feed.open()
+    #expect(try await runtime.watched() == true)
     try runtime.lose(first)
     _ = try await runtime.open()
     #expect(runtime.opened == false)
+
+    try await runtime.leave(watching)
+    runtime.feed.open()
+    watching = Task { await runtime.feed.watch() }
+    _ = try await runtime.open()
+    #expect(runtime.opened == true)
+
+    try await runtime.leave(watching)
+    watching = Task { await runtime.feed.watch() }
+    _ = try await runtime.open()
+    #expect(runtime.opened == false)
+    try await runtime.leave(watching)
+}
+
+@MainActor
+@Test func `an agent's show leaves the page where it is, and a person's open takes it to this device`() async throws {
+    let runtime = BrowserRuntime()
+    let session = try BrowserRuntime.terminal()
+    let browser = try #require(session.canvas?.shown(CanvasShown.browserKey))
+    let watching = Task { await runtime.feed.watch() }
+    defer { watching.cancel() }
+    _ = try await runtime.open()
+
+    runtime.store.reveal(browser, in: session)
+    runtime.store.show(.files, in: session)
+    #expect(!runtime.messages().contains("watch"))
+    runtime.store.show(.browser, in: session)
+    #expect(try await runtime.watched() == true)
 }
 
 @Test func `taps in about one place count up as clicks, so two select a word, and a later or farther tap is one click again`() {
@@ -94,6 +167,29 @@ import Testing
     #expect(taps.click(at: CGPoint(x: 300, y: 200), time: 12.2) == 1)
     taps.forget()
     #expect(taps.click(at: CGPoint(x: 300, y: 200), time: 12.3) == 1)
+}
+
+/// Waits for what the feed's view reads, which comes on the main actor after the pipe's task.
+@MainActor
+private func until(_ holds: () -> Bool) async throws {
+    let deadline = ContinuousClock.now + .seconds(2)
+    while !holds() {
+        guard ContinuousClock.now < deadline else { throw ProjectTestFailure.missing("a change of the feed") }
+        try await Task.sleep(for: .milliseconds(2))
+    }
+}
+
+private final class Shown: Sendable {
+    private let shown = Mutex(0)
+
+    var count: Int {
+        shown.withLock { $0 }
+    }
+
+    func add() -> Bool {
+        shown.withLock { $0 += 1 }
+        return true
+    }
 }
 
 @MainActor
@@ -115,11 +211,29 @@ private final class BrowserRuntime {
         return Data(header + start + picture)
     }
 
+    static let terminalId = "01992e43-53db-7040-8e02-f6ebf4149b28"
+
+    /// A terminal whose canvas holds a file and a browser that is awake.
+    static func terminal() throws -> RuntimeSession {
+        let fields: [String: Any] = [
+            "id": terminalId, "incarnationId": "01992e43-53db-7040-8e02-f6ebf4149b29", "kind": "local", "name": "checkout",
+            "isOwner": true, "status": "running", "attention": false, "hidden": false, "working": false,
+            "connectionState": "local", "sharedWith": [Any](),
+            "canvas": [
+                "sequence": 2,
+                "items": [["key": "/tmp/work/plan.md", "name": "plan.md", "kind": "page", "revision": 1, "bytes": 1, "changed": 1]],
+                "browser": ["state": "awake", "changed": 2, "width": 1280, "height": 720],
+            ],
+        ]
+        return try JSONDecoder().decode(RuntimeSession.self, from: JSONSerialization.data(withJSONObject: fields))
+    }
+
     let feed: BrowserFeed
+    let store: CanvasStore
     private(set) var opened: Bool?
     private var pipe: String?
     private let commands = CommandSink()
-    private let store: CanvasStore
+    private let pipes = BrowserPipes()
     private let log = ProjectCommandLog()
     private var sequences: [String: UInt64] = [:]
 
@@ -131,26 +245,39 @@ private final class BrowserRuntime {
             return Int32(KODOSI_FFI_OK)
         }
         commands.setAccount(userId: "user-1", epoch: 1)
-        store = CanvasStore(commands: commands)
-        feed = store.feed("terminal")
+        store = CanvasStore(commands: commands, browserPipes: pipes)
+        feed = store.feed(Self.terminalId)
     }
 
     /// The view opens the pipe once, and the runtime opens it again after each loss.
     func open() async throws -> String {
         if pipe == nil {
             let opening = try await log.next("document.open")
-            try deliver("document.result", ["requestId": opening["requestId"] ?? "", "operation": "document.open"])
+            try commands.receive(Self.event("document.result", ["requestId": opening["requestId"] ?? "", "operation": "document.open"]))
             pipe = try #require(opening["pipe"] as? String)
         }
         let pipe = try #require(pipe)
         sequences[pipe] = 0
         try deliver("document.opened", ["pipe": pipe])
+        opened = try await watched()
+        return pipe
+    }
+
+    /// Whether the next watch of the view says that a person opened the browser.
+    func watched() async throws -> Bool? {
         var sent = try await Self.body(log.next("document.send"))
         while sent?["type"] as? String != "watch" {
             sent = try await Self.body(log.next("document.send"))
         }
-        opened = sent?["opened"] as? Bool
-        return pipe
+        return sent?["opened"] as? Bool
+    }
+
+    /// The view leaves the screen and closes its pipe.
+    func leave(_ watching: Task<Void, Never>) async throws {
+        watching.cancel()
+        await watching.value
+        _ = try await log.next("document.close")
+        pipe = nil
     }
 
     func send(_ frame: Data, on pipe: String) throws {
@@ -171,14 +298,30 @@ private final class BrowserRuntime {
         return messages
     }
 
+    /// The pipe's task sends its acknowledgments on its own time.
+    func messages(_ count: Int) async throws -> [String?] {
+        var messages: [String?] = []
+        while messages.count < count {
+            try await messages.append(Self.message(log.next("document.send")))
+        }
+        return messages
+    }
+
+    /// The events of a pipe go the way that the runtime's callback gives them.
     private func deliver(_ type: String, _ fields: [String: Any]) throws {
+        #expect(try pipes.take(Self.data(type, fields)))
+    }
+
+    private static func data(_ type: String, _ fields: [String: Any]) throws -> Data {
         var payload = fields
         payload["type"] = type
         payload["accountUserId"] = "user-1"
         payload["accountEpoch"] = 1
-        let event = try JSONDecoder().decode(RuntimeEvent.self, from: JSONSerialization.data(withJSONObject: payload))
-        commands.receive(event)
-        store.receive(event)
+        return try JSONSerialization.data(withJSONObject: payload)
+    }
+
+    private static func event(_ type: String, _ fields: [String: Any]) throws -> RuntimeEvent {
+        try JSONDecoder().decode(RuntimeEvent.self, from: data(type, fields))
     }
 
     private static func body(_ command: [String: Any]) -> [String: Any]? {

@@ -782,6 +782,7 @@ void TerminalView::geometryChange(const QRectF& newGeometry, const QRectF& oldGe
 void TerminalView::focusInEvent(QFocusEvent* event)
 {
     QQuickItem::focusInEvent(event);
+    m_focusMovedHere = true;
     sendFocus(true);
     updateBlinkTimer();
     if (event->reason() != Qt::ActiveWindowFocusReason)
@@ -790,6 +791,7 @@ void TerminalView::focusInEvent(QFocusEvent* event)
 
 void TerminalView::focusOutEvent(QFocusEvent* event)
 {
+    m_focusMovedHere = false;
     sendFocus(false);
     m_copyShortcutActive = false;
     m_pasteShortcutKey.reset();
@@ -923,7 +925,10 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
             } else if constexpr (std::is_same_v<T, std::int32_t>) {
                 emit connectionCompleted(value == KODOSI_FFI_OK, value);
                 if (m_attachmentEpoch.load(std::memory_order_acquire) == epoch && value == KODOSI_FFI_OK) {
-                    if (hasActiveFocus() && interactionAvailable()) sendFocus(true);
+                    // A window keeps its focus where nobody is. So a view that attaches again, as when
+                    // its terminal comes back, gives its focus back, and takes the size with it only for
+                    // a person who moved the focus here.
+                    if (hasActiveFocus() && interactionAvailable()) sendFocus(true, !m_focusMovedHere);
                     scheduleResize();
                 }
             } else if constexpr (std::is_same_v<T, TerminalFocusOutcome>) {
@@ -1039,9 +1044,10 @@ void TerminalView::presentFrame(GhosttyTerminalKernel::Frame frame)
     }
 }
 
-void TerminalView::sendFocus(const bool focused)
+void TerminalView::sendFocus(const bool focused, const bool returning)
 {
     m_desiredFocus = focused;
+    m_focusReturning = focused && returning;
     dispatchFocus(
         focused ? FocusOperation::Focus : FocusOperation::Blur);
 }
@@ -1070,6 +1076,9 @@ void TerminalView::dispatchFocus(const FocusOperation operation)
     command += jsonStringBytes(m_subscription.subscriptionId);
     command += QByteArrayLiteral(",\"subscriptionGeneration\":");
     command += QByteArray::number(m_subscription.generation);
+    if (focused && m_focusReturning) {
+        command += QByteArrayLiteral(",\"returning\":true");
+    }
     const auto requestId = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
     if (focused) {
         m_pendingFocusRequestId = requestId;
@@ -1150,7 +1159,9 @@ void TerminalView::handleFocusOutcome(TerminalFocusOutcome outcome)
     }
     m_pendingFocusRequestId.clear();
     m_focusClaimed = outcome.applied;
-    if (!outcome.applied) {
+    if (outcome.applied) {
+        m_focusMovedHere = false;
+    } else {
         emit operationError(
             outcome.reason.isEmpty()
                 ? tr("Kodosi could not focus the terminal.")

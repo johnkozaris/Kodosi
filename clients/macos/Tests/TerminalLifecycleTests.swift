@@ -23,7 +23,7 @@ import Testing
         MainActor.assumeIsolated { renderer = app.terminalManager.session(for: id) }
     }
     var requestId: String?
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data), fields["type"] == .string("session.create") {
             requestId = fields["requestId"]?.stringValue
         }

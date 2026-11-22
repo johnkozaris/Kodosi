@@ -349,8 +349,7 @@ data class UsageLimit(
     val hours: Int? = null,
     val scope: String? = null,
     val used: Int,
-    val level: UsageLevel,
-    val headline: Boolean = false
+    val level: UsageLevel
 ) {
     companion object {
         fun nearest(limits: List<UsageLimit>): UsageLimit? =

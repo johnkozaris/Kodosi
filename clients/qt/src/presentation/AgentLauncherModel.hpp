@@ -57,6 +57,9 @@ public:
     Q_INVOKABLE void loadModels(const QString& agent);
     Q_INVOKABLE void refreshUsage();
     Q_INVOKABLE QString accountTitle(const QString& name, const QString& program) const;
+    Q_INVOKABLE QVariant headline(const QVariantMap& usage, const QString& model) const;
+    Q_INVOKABLE QString resetIn(const QVariantMap& limit, double now) const;
+    Q_INVOKABLE QString spokenWithReset(const QVariantMap& limit, double now) const;
     Q_INVOKABLE void addAccount(const QString& agent, const QString& name);
     Q_INVOKABLE void chooseAgent(const QString& agent);
     Q_INVOKABLE void choose(const QString& kind, const QString& agent, const QVariant& value);

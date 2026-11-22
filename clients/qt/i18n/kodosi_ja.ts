@@ -58,8 +58,8 @@
         <translation>このフォルダー内では自分で作業し、それ以外は確認します。</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>ファイルは自分で編集し、コマンドを実行する前に確認します。</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>ファイルの編集と安全なコマンドの実行は自分で行い、元に戻せない操作の前に確認します。</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -325,8 +325,8 @@
         <translation>このフォルダー内では自分で作業し、それ以外は確認します。</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>ファイルは自分で編集し、コマンドを実行する前に確認します。</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>ファイルの編集と安全なコマンドの実行は自分で行い、元に戻せない操作の前に確認します。</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -499,12 +499,12 @@
         <translation>共有中</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>タブ %1 個</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>新規タブ</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>タブ</translation>
     </message>
     <message>
         <source>Close tab</source>
@@ -4355,6 +4355,12 @@
         <translation>今週</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>過去 %n 日</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>過去 %n 時間</numerusform>
@@ -4369,6 +4375,12 @@
         <translation>%1、今週</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1、過去 %n 日</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1、過去 %n 時間</numerusform>
@@ -4381,6 +4393,50 @@
     <message>
         <source>Default</source>
         <translation>デフォルト</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1日%2時間</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1日</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1時間%2分</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1時間</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1分</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n日</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n時間</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n分</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1、%2後にリセット</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

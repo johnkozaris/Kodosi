@@ -3,9 +3,12 @@ import CoreMedia
 import Foundation
 import ImageIO
 import Observation
+import Synchronization
 
 /// Each frame is acknowledged, so the host keeps the picture as sharp as the link allows and no
-/// queue forms.
+/// queue forms. A frame comes on the task of the browser pipes, where it is acknowledged and
+/// shown, so a busy main thread never looks like a slow link; what a view reads goes to the main
+/// actor in the order of the pipe.
 @MainActor
 @Observable
 public final class BrowserFeed {
@@ -17,16 +20,45 @@ public final class BrowserFeed {
         case kept
     }
 
-    private static let frameHeader = 6
-    private static let messageTag: UInt8 = 0
-    private static let frameTag: UInt8 = 1
-    private static let keyFlag: UInt8 = 1
-    private static let anchorFlag: UInt8 = 2
+    private enum Heard: Sendable {
+        case news(DocumentLink.News)
+        case state(BrowserWindow)
+        /// The surface with this number shows a picture.
+        case shown(Int)
+        case sized(CGSize)
+    }
+
+    private struct Video {
+        var link: DocumentLink?
+        var teller: AsyncStream<Heard>.Continuation?
+        var display: (@Sendable (CMSampleBuffer) -> Bool)?
+        var surface = 0
+        var shown = false
+        var samples = H264Samples()
+        var lastFrame: UInt32 = 0
+        var holds = Holds.nothing
+        var pictureSize: CGSize?
+    }
+
+    private nonisolated static let frameHeader = 6
+    private nonisolated static let messageTag: UInt8 = 0
+    private nonisolated static let frameTag: UInt8 = 1
+    private nonisolated static let keyFlag: UInt8 = 1
+    private nonisolated static let anchorFlag: UInt8 = 2
     private static let settle = Duration.milliseconds(250)
+    #if os(macOS)
+        private static let hostsLayer = NSClassFromString("CALayerHost") != nil
+    #else
+        private static let hostsLayer = false
+    #endif
 
     public private(set) var window = BrowserWindow()
     public private(set) var icons: [String: CGImage] = [:]
     public private(set) var picture = Picture.waiting
+    /// The size of the pictures that the video shows. While the page takes a new size, the host
+    /// gives that size before the page has drawn in it, so for a moment the pictures still have
+    /// the size before.
+    public private(set) var pictureSize: CGSize?
     public private(set) var failure: String?
     /// Counts each press, key and scroll of a person on this device.
     public private(set) var touches = 0
@@ -52,15 +84,17 @@ public final class BrowserFeed {
 
     @ObservationIgnored private let store: CanvasStore
     @ObservationIgnored private let session: String
-    @ObservationIgnored private var link: DocumentLink?
-    @ObservationIgnored private var display: (CMSampleBuffer) -> Void = { _ in }
+    private nonisolated let video = Mutex(Video())
     @ObservationIgnored private weak var surface: AnyObject?
-    @ObservationIgnored private var samples = H264Samples()
-    @ObservationIgnored private var lastFrame: UInt32 = 0
-    @ObservationIgnored private var holds = Holds.nothing
+    @ObservationIgnored private var surfaces = 0
     @ObservationIgnored private var sentSize: BrowserSize?
     @ObservationIgnored private var settling: Task<Void, Never>?
     @ObservationIgnored private var holding = false
+    @ObservationIgnored private var joined = false
+    /// A person opened the browser on this device, and the page did not take the shape of this
+    /// view since: a view that only comes back on the screen, or joins again, leaves the page to
+    /// the device in use.
+    @ObservationIgnored private var opened = false
 
     init(store: CanvasStore, session: String) {
         self.store = store
@@ -69,15 +103,24 @@ public final class BrowserFeed {
 
     /// Only one view at a time watches, until it ends.
     public func watch() async {
-        guard link == nil else { return }
+        guard video.withLock({ $0.link == nil }) else { return }
         let link = store.browser(of: session)
-        self.link = link
-        let (news, teller) = AsyncStream.makeStream(of: DocumentLink.News.self)
+        let (heard, teller) = AsyncStream.makeStream(of: Heard.self)
+        video.withLock { video in
+            video.link = link
+            video.teller = teller
+        }
         link.onFrame = { [weak self] in self?.receive($0) }
-        link.onNews = { teller.yield($0) }
+        link.onNews = { [weak self] in self?.hear($0) }
         defer {
+            video.withLock { video in
+                video.link = nil
+                video.teller = nil
+            }
+            teller.finish()
             link.close()
-            self.link = nil
+            joined = false
+            opened = false
         }
         do {
             try await link.open()
@@ -88,33 +131,54 @@ public final class BrowserFeed {
             }
             return
         }
-        var opened = true
-        for await item in news {
+        for await item in heard {
             switch item {
-            case .open:
-                join(opened: opened)
-                opened = false
-            case let .lost(reason):
-                if picture == .live {
-                    picture = .kept
-                }
-                failure = reason
-            case .closed:
+            case .news(.open):
+                join()
+            case .news(.closed):
                 return
+            default:
+                take(item)
             }
         }
     }
 
+    /// A person opened the browser on this device, so the page takes the shape of this view: at
+    /// once while it watches, or else when it joins.
+    public func open() {
+        opened = true
+        if joined {
+            join()
+        }
+    }
+
     /// A surface that is new to the feed has no picture, so the host sends a key frame at once.
-    public func show(on surface: AnyObject, _ display: @escaping (CMSampleBuffer) -> Void) {
-        self.display = display
-        guard surface !== self.surface else { return }
-        self.surface = surface
-        picture = .waiting
-        restart()
+    /// The display returns false when it lost the stream and waits for a key frame. The page's
+    /// layer is no picture of the surface.
+    public func show(on surface: AnyObject, _ display: @escaping @Sendable (CMSampleBuffer) -> Bool) {
+        let fresh = surface !== self.surface
+        if fresh {
+            self.surface = surface
+            surfaces += 1
+            if window.layer == nil {
+                picture = .waiting
+            }
+        }
+        let number = surfaces
+        video.withLock { video in
+            video.display = display
+            if video.surface != number {
+                video.surface = number
+                video.shown = false
+            }
+        }
+        if fresh {
+            restart()
+        }
     }
 
     public func wake() async {
+        open()
         await run(.wake)
     }
 
@@ -157,11 +221,6 @@ public final class BrowserFeed {
         send(.files(paths))
     }
 
-    public func restart() {
-        holds = .nothing
-        post(.keyframe)
-    }
-
     /// While a button is held, a point beyond the page goes to its nearest edge, so that the page
     /// also gets the rest of the drag and its release.
     public func browserPoint(_ point: CGPoint, in size: CGSize) -> BrowserInput.Point? {
@@ -195,12 +254,14 @@ public final class BrowserFeed {
         return BrowserInput.Point(x: Double(x), y: Double(y))
     }
 
-    private func join(opened: Bool) {
+    private func join() {
         failure = nil
-        holds = .nothing
+        joined = true
+        video.withLock { $0.holds = .nothing }
         let size = currentSize
         sentSize = size
-        post(.watch(size, opened: opened))
+        post(.watch(size, opened: opened, layer: Self.hostsLayer))
+        opened = false
     }
 
     private var currentSize: BrowserSize {
@@ -223,24 +284,64 @@ public final class BrowserFeed {
         post(.size(size))
     }
 
-    private func post(_ message: ToBrowserWindow) {
-        guard let body = try? JSONEncoder().encode(message) else { return }
-        link?.send(Data([Self.messageTag]) + body)
+    private nonisolated func restart() {
+        video.withLock { $0.holds = .nothing }
+        post(.keyframe)
     }
 
-    func receive(_ message: Data) {
+    private nonisolated func post(_ message: ToBrowserWindow) {
+        guard let body = try? JSONEncoder().encode(message) else { return }
+        video.withLock { $0.link }?.send(Data([Self.messageTag]) + body)
+    }
+
+    nonisolated func receive(_ message: Data) {
         switch message.first {
         case Self.frameTag:
             frame(message)
         case Self.messageTag:
             if let state = try? JSONDecoder().decode(BrowserWindow.self, from: message.dropFirst()) {
-                window = state
-                keep(state.icons, of: state.tabs)
-                if let words = state.copied {
-                    copied(words)
-                }
+                tell(.state(state))
             }
         default:
+            break
+        }
+    }
+
+    private nonisolated func hear(_ news: DocumentLink.News) {
+        if case .lost = news {
+            video.withLock { $0.shown = false }
+        }
+        tell(.news(news))
+    }
+
+    private nonisolated func tell(_ heard: Heard) {
+        video.withLock { $0.teller }?.yield(heard)
+    }
+
+    private func take(_ heard: Heard) {
+        switch heard {
+        case let .news(.lost(reason)):
+            joined = false
+            if picture == .live {
+                picture = .kept
+            }
+            failure = reason
+        case let .state(state):
+            window = state
+            if state.layer != nil {
+                picture = .live
+            }
+            keep(state.icons, of: state.tabs)
+            if let words = state.copied {
+                copied(words)
+            }
+        case let .shown(number):
+            if number == surfaces {
+                picture = .live
+            }
+        case let .sized(size):
+            pictureSize = size
+        case .news(.open), .news(.closed):
             break
         }
     }
@@ -261,30 +362,44 @@ public final class BrowserFeed {
 
     /// The host skips frames for a view that falls behind and goes on at an anchor, so only a
     /// delta frame after a gap shows a frame lost on the way, and the decoder needs a key frame.
-    private func frame(_ message: Data) {
+    private nonisolated func frame(_ message: Data) {
         guard message.count > Self.frameHeader else { return }
         let header = [UInt8](message.prefix(Self.frameHeader))
         let id = header[1 ..< 5].reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
         let key = header[5] & Self.keyFlag != 0
         let anchor = header[5] & Self.anchorFlag != 0
         post(.ack(id))
-        if holds == .stream, id != lastFrame &+ 1 {
-            holds = .gap
+        let (restarts, heard) = video.withLock { video -> (Bool, [Heard]) in
+            if video.holds == .stream, id != video.lastFrame &+ 1 {
+                video.holds = .gap
+            }
+            video.lastFrame = id
+            switch video.holds {
+            case .nothing where !key:
+                return (false, [])
+            case .gap where !key && !anchor:
+                return (true, [])
+            default:
+                break
+            }
+            guard let sample = video.samples.sample(of: message.dropFirst(Self.frameHeader)) else { return (false, []) }
+            video.holds = .stream
+            let going = video.display?(sample) ?? true
+            var heard: [Heard] = []
+            if let size = sample.formatDescription?.presentationDimensions(), size != video.pictureSize {
+                video.pictureSize = size
+                heard.append(.sized(size))
+            }
+            if !video.shown {
+                video.shown = true
+                heard.append(.shown(video.surface))
+            }
+            return (!going, heard)
         }
-        lastFrame = id
-        switch holds {
-        case .nothing where !key:
-            return
-        case .gap where !key && !anchor:
+        if restarts {
             restart()
-            return
-        default:
-            break
         }
-        guard let sample = samples.sample(of: message.dropFirst(Self.frameHeader)) else { return }
-        holds = .stream
-        picture = .live
-        display(sample)
+        heard.forEach(tell)
     }
 }
 
@@ -299,7 +414,7 @@ private enum Holds {
 }
 
 private enum ToBrowserWindow: Encodable {
-    case watch(BrowserSize, opened: Bool)
+    case watch(BrowserSize, opened: Bool, layer: Bool)
     case size(BrowserSize)
     case ack(UInt32)
     case keyframe
@@ -308,11 +423,12 @@ private enum ToBrowserWindow: Encodable {
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Field.self)
         switch self {
-        case let .watch(size, opened):
+        case let .watch(size, opened, layer):
             try container.encode("watch", forKey: .type)
             try container.encode(size, forKey: .size)
             try container.encode(true, forKey: .anchors)
             try container.encode(opened, forKey: .opened)
+            try container.encode(layer, forKey: .layer)
         case let .size(size):
             try container.encode("size", forKey: .type)
             try container.encode(size, forKey: .size)
@@ -327,122 +443,11 @@ private enum ToBrowserWindow: Encodable {
         }
     }
 
-    private enum Field: String, CodingKey { case type, size, frame, input, anchors, opened }
+    private enum Field: String, CodingKey { case type, size, frame, input, anchors, opened, layer }
 }
 
 private struct BrowserSize: Encodable, Equatable {
     let width: Int
     let height: Int
     let scale: Double
-}
-
-struct H264Samples {
-    private static let sequenceParameters: UInt8 = 7
-    private static let pictureParameters: UInt8 = 8
-    private static let pictures: Set<UInt8> = [1, 5]
-
-    private var format: CMVideoFormatDescription?
-
-    mutating func sample(of data: Data) -> CMSampleBuffer? {
-        var sequence: Data?
-        var picture: Data?
-        var slices: [Data] = []
-        for unit in Self.units(of: data) {
-            guard let type = unit.first.map({ $0 & 0x1F }) else { continue }
-            if type == Self.sequenceParameters {
-                sequence = unit
-            } else if type == Self.pictureParameters {
-                picture = unit
-            } else if Self.pictures.contains(type) {
-                slices.append(unit)
-            }
-        }
-        if let sequence, let picture {
-            format = Self.format(sequence, picture) ?? format
-        }
-        guard let format, !slices.isEmpty else { return nil }
-        return Self.sample(slices, format)
-    }
-
-    static func units(of data: Data) -> [Data] {
-        let ranges = data.withUnsafeBytes { bytes in
-            var starts: [Int] = []
-            var at = 0
-            while at + 2 < bytes.count {
-                let third = bytes[at + 2]
-                if third > 1 {
-                    at += 3
-                } else if third == 1 {
-                    if bytes[at] == 0, bytes[at + 1] == 0 {
-                        starts.append(at + 3)
-                    }
-                    at += 3
-                } else {
-                    at += 1
-                }
-            }
-            return starts.enumerated().map { index, start in
-                var end = index + 1 < starts.count ? starts[index + 1] - 3 : bytes.count
-                while end > start, index + 1 < starts.count, bytes[end - 1] == 0 {
-                    end -= 1
-                }
-                return start ..< end
-            }
-        }
-        return ranges.map { data[data.startIndex + $0.lowerBound ..< data.startIndex + $0.upperBound] }
-    }
-
-    private static func format(_ sequence: Data, _ picture: Data) -> CMVideoFormatDescription? {
-        let first = [UInt8](sequence)
-        let second = [UInt8](picture)
-        return first.withUnsafeBufferPointer { firstBytes in
-            second.withUnsafeBufferPointer { secondBytes in
-                let sets = [firstBytes.baseAddress!, secondBytes.baseAddress!]
-                let sizes = [first.count, second.count]
-                var format: CMVideoFormatDescription?
-                let status = CMVideoFormatDescriptionCreateFromH264ParameterSets(
-                    allocator: kCFAllocatorDefault, parameterSetCount: 2, parameterSetPointers: sets,
-                    parameterSetSizes: sizes, nalUnitHeaderLength: 4, formatDescriptionOut: &format,
-                )
-                return status == noErr ? format : nil
-            }
-        }
-    }
-
-    private static func sample(_ slices: [Data], _ format: CMVideoFormatDescription) -> CMSampleBuffer? {
-        var size = slices.reduce(0) { $0 + 4 + $1.count }
-        var block: CMBlockBuffer?
-        var status = CMBlockBufferCreateWithMemoryBlock(
-            allocator: kCFAllocatorDefault, memoryBlock: nil, blockLength: size, blockAllocator: kCFAllocatorDefault,
-            customBlockSource: nil, offsetToData: 0, dataLength: size, flags: kCMBlockBufferAssureMemoryNowFlag,
-            blockBufferOut: &block,
-        )
-        guard status == noErr, let block else { return nil }
-        var offset = 0
-        for slice in slices {
-            status = withUnsafeBytes(of: UInt32(slice.count).bigEndian) { length in
-                CMBlockBufferReplaceDataBytes(with: length.baseAddress!, blockBuffer: block, offsetIntoDestination: offset, dataLength: 4)
-            }
-            guard status == noErr else { return nil }
-            status = slice.withUnsafeBytes { bytes in
-                CMBlockBufferReplaceDataBytes(with: bytes.baseAddress!, blockBuffer: block, offsetIntoDestination: offset + 4, dataLength: slice.count)
-            }
-            guard status == noErr else { return nil }
-            offset += 4 + slice.count
-        }
-        var sample: CMSampleBuffer?
-        status = CMSampleBufferCreateReady(
-            allocator: kCFAllocatorDefault, dataBuffer: block, formatDescription: format, sampleCount: 1, sampleTimingEntryCount: 0,
-            sampleTimingArray: nil, sampleSizeEntryCount: 1, sampleSizeArray: &size, sampleBufferOut: &sample,
-        )
-        guard status == noErr, let sample else { return nil }
-        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: true), CFArrayGetCount(attachments) > 0 {
-            let values = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
-            CFDictionarySetValue(
-                values, Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
-                Unmanaged.passUnretained(kCFBooleanTrue).toOpaque(),
-            )
-        }
-        return sample
-    }
 }

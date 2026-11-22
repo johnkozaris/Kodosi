@@ -5,8 +5,8 @@
     <string name="agent_codex" translatable="false">Codex</string>
     <string name="agent_copilot" translatable="false">Copilot</string>
     <string name="agent_cursor" translatable="false">Cursor</string>
-    <string name="agent_gemini" translatable="false">Gemini CLI</string>
     <string name="agent_opencode" translatable="false">OpenCode</string>
+    <string name="agent_antigravity" translatable="false">Antigravity CLI</string>
     <string name="account_changed">Your account changed before that finished.</string>
     <string name="account_deleted">Your Kodosi account is deleted.</string>
     <string name="account_restore_offline">Kodosi cannot connect. Check your connection and try again.</string>
@@ -299,12 +299,33 @@
     <string name="uploading">Sending file</string>
     <string name="loading">Loading</string>
     <string name="reading_usage">Reading plan usage</string>
+    <string name="usage_month">This month</string>
+    <string name="usage_week">This week</string>
+    <string name="usage_scope_month">%1$s, this month</string>
+    <string name="usage_scope_week">%1$s, this week</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Last %d hour</item>
+        <item quantity="other">Last %d hours</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Last %d day</item>
+        <item quantity="other">Last %d days</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, last %2$d hour</item>
+        <item quantity="other">%1$s, last %2$d hours</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, last %2$d day</item>
+        <item quantity="other">%1$s, last %2$d days</item>
+    </plurals>
     <string name="browser_address">Search or enter an address</string>
     <string name="new_browser_tab">New tab</string>
     <string name="browser_back">Go back</string>
     <string name="browser_forward">Go forward</string>
     <string name="browser_reload">Reload</string>
     <string name="browser_sleeping">The browser is asleep</string>
+    <string name="browser_undecodable">This device cannot show the page</string>
     <string name="wake_browser">Open browser</string>
     <string name="browser_dialog">The page asks</string>
     <string name="choose_file">Choose a file</string>
@@ -379,7 +400,7 @@
     <string name="agent_unrestricted_detail">Never asks, and runs every command as you.</string>
     <string name="agent_auto_check_detail">A safety check approves what is safe and asks you for the rest. The check uses tokens.</string>
     <string name="agent_auto_folder_detail">Works in this folder on its own and asks you for the rest.</string>
-    <string name="agent_auto_edit_detail">Edits files on its own and asks before it runs commands.</string>
+    <string name="agent_auto_safe_detail">Edits files and runs safe commands on its own, and asks before what it cannot undo.</string>
     <string name="agent_auto_detail">Accepts its own actions, except what you denied.</string>
     <string name="agent_quiet_detail">Shows less of its work.</string>
     <string name="agent_standard_detail">Shows its work as the agent is set up.</string>

@@ -151,8 +151,8 @@ enum class AgentKind {
     CODEX,
     COPILOT,
     CURSOR,
-    GEMINI,
     OPENCODE,
+    ANTIGRAVITY,
     SHELL
     ;
 
@@ -161,6 +161,7 @@ enum class AgentKind {
     companion object {
         fun of(program: String?): AgentKind = when (program) {
             "cursor-agent" -> CURSOR
+            "agy" -> ANTIGRAVITY
             null -> SHELL
             else -> entries.firstOrNull { it.name.lowercase() == program } ?: SHELL
         }

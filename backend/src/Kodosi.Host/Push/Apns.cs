@@ -106,7 +106,7 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
         json.WritePropertyName("relevance-score");
         json.WriteRawValue(state switch { "blocked" => "1.0", "error" => "0.6", _ => "0.3" });
         // A badge of 0 takes every notification of the app off the phone, the new one too.
-        if (alert.Blocked > 0) json.WriteNumber("badge", alert.Blocked);
+        if (alert.Waits > 0) json.WriteNumber("badge", alert.Waits);
     }
 
     private static (string Key, string? Agent) Alert(TerminalStatus status)
@@ -117,8 +117,8 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
             "codex" => "Codex",
             "copilot" => "Copilot CLI",
             "cursor" => "Cursor",
-            "gemini" => "Gemini CLI",
             "opencode" => "OpenCode",
+            "antigravity" => "Antigravity CLI",
             _ => null,
         };
         var sentence = (status.State, status.Kind) switch

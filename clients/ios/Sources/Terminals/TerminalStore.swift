@@ -34,7 +34,7 @@ final class TerminalStore {
     init(commands: CommandSink, notices: NoticeCenter, runtime: RuntimeHandle) {
         self.commands = commands
         self.notices = notices
-        canvas = CanvasStore(commands: commands)
+        canvas = CanvasStore(commands: commands, browserPipes: runtime.browserPipes)
         let focus = TerminalProcessFocusCoordinator(commands: commands)
         self.focus = focus
         live = TerminalSessionManager(

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -83,9 +84,13 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
         mutableStateOf(canvas?.openKey(initialKey, closed) ?: initialKey ?: "browser")
     }
     var part by rememberSaveable(sessionId) { mutableStateOf(if (selected == "browser") "browser" else "files") }
+
+    // The screen comes again after a rotation, which is no act of the person.
+    var opening by rememberSaveable(sessionId) { mutableStateOf(true) }
     var shelf by rememberSaveable(sessionId) { mutableStateOf(false) }
     var followedShow by rememberSaveable(sessionId) { mutableLongStateOf(canvas?.open?.at ?: 0L) }
-    val item = canvas?.items?.firstOrNull { it.key == selected && part == "files" && !shelf }
+    val shownFile = canvas?.shownFile(selected)
+    val item = shownFile?.takeIf { part == "files" && !shelf }
     var menu by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var actionItem by remember { mutableStateOf<CanvasItem?>(null) }
@@ -179,13 +184,19 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
     }
     LaunchedEffect(sessionId, initialKey) {
         model.preferences.canvasPart(sessionId, part, true)
+        if (opening && part == "browser") model.browser.choose(sessionId)
+        opening = false
         if (initialKey == "browser" && canvas?.browser == null && session?.canControl == true) wakeBrowser()
     }
+    LaunchedEffect(part) {
+        if (part != "browser") model.browser.forget(sessionId)
+    }
+    DisposableEffect(sessionId) { onDispose { model.browser.forget(sessionId) } }
     LaunchedEffect(canvas?.open, canvas?.change) {
         session?.let { terminal ->
             model.canvas.newShow(terminal)?.let { show ->
                 if (show.at > followedShow) {
-                    selected = show.key
+                    if (show.key != "browser") selected = show.key
                     part = if (show.key == "browser") "browser" else "files"
                     model.preferences.canvasPart(sessionId, part, true)
                     shelf = false
@@ -195,13 +206,8 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
             model.canvas.saw(terminal)
         }
     }
-    LaunchedEffect(canvas?.items, canvas?.browser, selected) {
-        if (canvas != null && canvas.items.none { it.key == selected } &&
-            (selected != "browser" || canvas.browser == null)
-        ) {
-            selected = canvas.items.firstOrNull()?.key ?: "browser"
-        }
-    }
+    // A newest file that shows in place of a removed or unchosen one stays when another file changes.
+    LaunchedEffect(item?.key) { item?.let { selected = it.key } }
     val parts = listOfNotNull(
         if (!canvas?.items.isNullOrEmpty() && "files" !in closed) {
             "files" to DockItem(stringResource(R.string.files), AppSymbol.STACK, canvas.items.size)
@@ -220,6 +226,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                 Text(stringResource(R.string.canvas), style = KodosiType.headline)
             } else {
                 SectionDock(parts.map { it.second }, parts.indexOfFirst { it.first == part }) {
+                    if (parts[it].first == "browser") model.browser.choose(sessionId)
                     part = parts[it].first
                 }
             }
@@ -242,6 +249,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                                 adding = false
                                 model.preferences.canvasPart(sessionId, "browser", true)
                                 part = "browser"
+                                model.browser.choose(sessionId)
                                 if (canvas?.browser == null) scope.launch { wakeBrowser() }
                             }
                         )
@@ -297,7 +305,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
             }
         })
         if (part == "files" && !canvas?.items.isNullOrEmpty()) {
-            CanvasFilesBar(canvas.items, selected, shelf, { shelf = !shelf }, choose, remove = { file ->
+            CanvasFilesBar(canvas.items, shownFile?.key.orEmpty(), shelf, { shelf = !shelf }, choose, remove = { file ->
                 scope.launch { model.runAction { model.canvas.remove(sessionId, file.key) } }
             }, actions = actions)
         }

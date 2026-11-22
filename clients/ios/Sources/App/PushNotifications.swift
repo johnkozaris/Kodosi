@@ -96,7 +96,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
     /// with its mark.
     func settle(_ sessions: [RuntimeSession]) {
         let marked = KeptTerminals(Set(sessions.filter(\.attention).map(\.id)))
-        let waiting = TerminalCatalog.needsYou(sessions).count
+        let waiting = TerminalCatalog.unseenWaits(sessions)
         Task {
             let center = UNUserNotificationCenter.current()
             let delivered = await center.deliveredNotifications()

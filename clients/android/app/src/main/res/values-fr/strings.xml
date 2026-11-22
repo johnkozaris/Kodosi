@@ -291,12 +291,37 @@
     <string name="uploading">Envoi du fichier</string>
     <string name="loading">Chargement</string>
     <string name="reading_usage">Lecture de l\'utilisation du forfait</string>
+    <string name="usage_month">Ce mois-ci</string>
+    <string name="usage_week">Cette semaine</string>
+    <string name="usage_scope_month">%1$s, ce mois-ci</string>
+    <string name="usage_scope_week">%1$s, cette semaine</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Dernière %d heure</item>
+        <item quantity="many">Dernières %d heures</item>
+        <item quantity="other">Dernières %d heures</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Dernier %d jour</item>
+        <item quantity="many">Derniers %d jours</item>
+        <item quantity="other">Derniers %d jours</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, dernière %2$d heure</item>
+        <item quantity="many">%1$s, dernières %2$d heures</item>
+        <item quantity="other">%1$s, dernières %2$d heures</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, dernier %2$d jour</item>
+        <item quantity="many">%1$s, derniers %2$d jours</item>
+        <item quantity="other">%1$s, derniers %2$d jours</item>
+    </plurals>
     <string name="browser_address">Rechercher ou saisir une adresse</string>
     <string name="new_browser_tab">Nouvel onglet</string>
     <string name="browser_back">Retour</string>
     <string name="browser_forward">Avancer</string>
     <string name="browser_reload">Actualiser</string>
     <string name="browser_sleeping">Le navigateur est en veille</string>
+    <string name="browser_undecodable">Cet appareil ne peut pas afficher la page</string>
     <string name="wake_browser">Ouvrir le navigateur</string>
     <string name="browser_dialog">La page demande</string>
     <string name="choose_file">Choisir un fichier</string>
@@ -374,7 +399,7 @@
     <string name="agent_unrestricted_detail">Ne demande jamais et exécute chaque commande avec vos droits.</string>
     <string name="agent_auto_check_detail">Un contrôle de sécurité approuve ce qui est sûr et vous demande pour le reste. Le contrôle consomme des jetons.</string>
     <string name="agent_auto_folder_detail">Travaille seul dans ce dossier et vous demande pour le reste.</string>
-    <string name="agent_auto_edit_detail">Modifie les fichiers seul et demande avant d\'exécuter des commandes.</string>
+    <string name="agent_auto_safe_detail">Modifie les fichiers et exécute les commandes sûres seul, et demande avant ce qui ne peut pas être annulé.</string>
     <string name="agent_auto_detail">Accepte ses propres actions, sauf ce que vous avez refusé.</string>
     <string name="agent_quiet_detail">Montre moins de son travail.</string>
     <string name="agent_standard_detail">Montre son travail selon la configuration de l\'agent.</string>

@@ -15,6 +15,7 @@
         private let otherComputer: String?
         private let isSurfaceVisible: Bool
         private let onFocusChange: (Bool) -> Void
+        private let onTap: () -> Void
 
         public init(
             session: TerminalRendererSession,
@@ -27,6 +28,7 @@
             otherComputer: String? = nil,
             isSurfaceVisible: Bool,
             onFocusChange: @escaping (Bool) -> Void,
+            onTap: @escaping () -> Void,
         ) {
             _session = ObservedObject(wrappedValue: session)
             self.sessionName = sessionName
@@ -38,6 +40,7 @@
             self.otherComputer = otherComputer
             self.isSurfaceVisible = isSurfaceVisible
             self.onFocusChange = onFocusChange
+            self.onTap = onTap
         }
 
         public var body: some View {
@@ -52,6 +55,7 @@
                 otherComputer: otherComputer,
                 isSurfaceVisible: isSurfaceVisible,
                 onFocusChange: onFocusChange,
+                onTap: onTap,
             )
         }
     }
@@ -62,7 +66,22 @@
         var allowsFocus = true
         var allowsInput = true
         var requestedFocus = false
+        var onTap: (() -> Void)?
+        private let alongside = TapAlongside()
         private var clipboardPromptOpen = false
+
+        /// A tap is a person's act on the terminal also when the view has the focus already.
+        func hearTaps() {
+            let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+            tap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
+            tap.cancelsTouchesInView = false
+            tap.delegate = alongside
+            addGestureRecognizer(tap)
+        }
+
+        @objc private func tapped() {
+            onTap?()
+        }
 
         func askToShareClipboard(
             sessionName: String,
@@ -98,6 +117,19 @@
         }
     }
 
+    /// The terminal view's own recognizers take the same taps, but a long press that selects text is
+    /// no tap: UIKit would count it as one when the finger lifts within about a second and a half.
+    @MainActor
+    private final class TapAlongside: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(_: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith _: UIGestureRecognizer) -> Bool {
+            true
+        }
+
+        func gestureRecognizer(_: UIGestureRecognizer, shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
+            other is UILongPressGestureRecognizer
+        }
+    }
+
     @MainActor
     private struct TerminalRendererRepresentable: UIViewRepresentable {
         @ObservedObject var session: TerminalRendererSession
@@ -110,9 +142,11 @@
         let otherComputer: String?
         let isSurfaceVisible: Bool
         let onFocusChange: (Bool) -> Void
+        let onTap: () -> Void
 
         func makeUIView(context _: Context) -> TerminalRendererHostedView {
             let view = TerminalRendererHostedView(frame: .zero)
+            view.hearTaps()
             view.delegateProxy.beginViewUpdate()
             configure(view)
             synchronizeFocus(view)
@@ -129,6 +163,7 @@
 
         static func dismantleUIView(_ view: TerminalRendererHostedView, coordinator _: ()) {
             view.onFocusChange = nil
+            view.onTap = nil
             view.onCursorRowChange = nil
             view.delegateProxy.target = nil
             view.delegateProxy.viewportDidResize = nil
@@ -169,6 +204,7 @@
             view.onFocusChange = { focused in
                 onFocusChange(focused)
             }
+            view.onTap = onTap
             view.onCursorRowChange = { [weak cursor = session.cursor] row in
                 cursor?.row = row
             }

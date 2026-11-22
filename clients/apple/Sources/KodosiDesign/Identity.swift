@@ -28,10 +28,12 @@ public enum PersonTint {
 }
 
 public enum AgentKind: String, CaseIterable, Sendable {
-    case claude, codex, copilot, cursor, gemini, opencode, shell
+    case claude, codex, copilot, cursor, opencode, antigravity, shell
 
     public init(program: String?) {
-        self = program.flatMap { $0 == Self.cursor.executable ? .cursor : AgentKind(rawValue: $0) } ?? .shell
+        self = program.flatMap { program in
+            AgentKind(rawValue: program) ?? Self.allCases.first { $0.isAgent && $0.executable == program }
+        } ?? .shell
     }
 
     public init(agentName: String?, program: String? = nil) {
@@ -49,8 +51,8 @@ public enum AgentKind: String, CaseIterable, Sendable {
         case .codex: "ProviderCodex"
         case .copilot: "ProviderCopilot"
         case .cursor: "ProviderCursor"
-        case .gemini: "ProviderGemini"
         case .opencode: "ProviderOpencode"
+        case .antigravity: "ProviderAntigravity"
         case .shell: nil
         }
     }
@@ -60,7 +62,11 @@ public enum AgentKind: String, CaseIterable, Sendable {
     }
 
     public var executable: String {
-        self == .cursor ? "cursor-agent" : rawValue
+        switch self {
+        case .cursor: "cursor-agent"
+        case .antigravity: "agy"
+        case .claude, .codex, .copilot, .opencode, .shell: rawValue
+        }
     }
 
     public var tint: Color {
@@ -69,8 +75,8 @@ public enum AgentKind: String, CaseIterable, Sendable {
         case .codex: hex(0x5F6B7A)
         case .copilot: hex(0x8660D9)
         case .cursor: hex(0x4E7C8C)
-        case .gemini: hex(0x5579C9)
         case .opencode: hex(0x6F6258)
+        case .antigravity: hex(0x3D7F5A)
         case .shell: hex(0x54433A)
         }
     }
@@ -90,7 +96,7 @@ public enum AgentKind: String, CaseIterable, Sendable {
         case .claude: [hex(0xD97757), hex(0xC4301C), hex(0xD38A0F), hex(0x6B3420), hex(0xC9456B)]
         case .codex: [hex(0x5F6B7A), hex(0x2E5A8C), hex(0x2F7D74), hex(0x3A3F4A), hex(0x6E5A7E)]
         case .copilot: [hex(0x8660D9), hex(0x4B3BB0), hex(0xB44BC8), hex(0x5A2F6E), hex(0x5B7BE0)]
-        case .cursor, .gemini, .opencode, .shell: [tint]
+        case .cursor, .opencode, .antigravity, .shell: [tint]
         }
     }
 
@@ -100,8 +106,8 @@ public enum AgentKind: String, CaseIterable, Sendable {
         case .codex: "Codex"
         case .copilot: "Copilot"
         case .cursor: "Cursor"
-        case .gemini: "Gemini CLI"
         case .opencode: "OpenCode"
+        case .antigravity: "Antigravity CLI"
         case .shell: String(localized: "Shell", bundle: .module)
         }
     }

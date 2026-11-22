@@ -62,6 +62,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -531,7 +532,7 @@ private fun UsageReading(usage: JsonObject, limit: JsonObject) {
     }
     val locale = LocalConfiguration.current.locales[0]
     val percent = remember(used, locale) { NumberFormat.getPercentInstance(locale).format(used / 100.0) }
-    ListLine(usage.string("account").orEmpty(), subtitle = limit.string("scope"), leading = {
+    ListLine(usage.string("account").orEmpty(), subtitle = usageWindow(limit), leading = {
         Canvas(Modifier.size(26.dp)) {
             val stroke = Stroke(2.dp.toPx(), cap = StrokeCap.Round)
             drawArc(colors.ink.copy(alpha = 0.12f), -90f, 360f, false, style = stroke)
@@ -539,6 +540,31 @@ private fun UsageReading(usage: JsonObject, limit: JsonObject) {
         }
     }) { Text(percent, style = KodosiType.mono, color = tint) }
 }
+
+@Composable
+private fun usageWindow(limit: JsonObject): String {
+    val scope = limit.string("scope")
+    val hours = limit.number("hours")?.toInt()
+    val days = hours?.takeIf { it > DAY_HOURS && it % DAY_HOURS == 0 }?.div(DAY_HOURS)
+    return if (scope == null) {
+        when {
+            hours == null -> stringResource(R.string.usage_month)
+            hours == WEEK_HOURS -> stringResource(R.string.usage_week)
+            days != null -> pluralStringResource(R.plurals.usage_days, days, days)
+            else -> pluralStringResource(R.plurals.usage_hours, hours, hours)
+        }
+    } else {
+        when {
+            hours == null -> stringResource(R.string.usage_scope_month, scope)
+            hours == WEEK_HOURS -> stringResource(R.string.usage_scope_week, scope)
+            days != null -> pluralStringResource(R.plurals.usage_scope_days, days, scope, days)
+            else -> pluralStringResource(R.plurals.usage_scope_hours, hours, scope, hours)
+        }
+    }
+}
+
+private const val DAY_HOURS = 24
+private const val WEEK_HOURS = 7 * DAY_HOURS
 
 @Composable
 private fun FolderChoices(

@@ -32,7 +32,11 @@ interface TerminalRuntime {
     fun input(sessionId: String, incarnationId: String, link: TerminalLink, bytes: ByteArray): Int
 }
 
-class RuntimeHandle :
+/**
+ * An event that names one of the app's open browser pipes goes to [browserEvents], for the browser's
+ * own thread, and every other event to [events]. The runtime's threads ask [namesBrowserPipe].
+ */
+class RuntimeHandle(private val namesBrowserPipe: (ByteArray) -> Boolean = { false }) :
     RuntimeCallbacks,
     TerminalRuntime {
     sealed interface Start {
@@ -44,6 +48,7 @@ class RuntimeHandle :
     }
 
     val events = RuntimeEventInbox()
+    val browserEvents = RuntimeEventInbox()
 
     @Volatile
     private var handle = 0L
@@ -70,6 +75,7 @@ class RuntimeHandle :
         links.clear()
         if (current != 0L) NativeRuntime.stop(current)
         events.close()
+        browserEvents.close()
     }
 
     fun send(json: ByteArray): Int? = handle.takeIf { it != 0L }?.let { NativeRuntime.sendCommand(it, json) }
@@ -101,7 +107,7 @@ class RuntimeHandle :
     private fun link(sessionId: String, subscriptionId: String, generation: Long): TerminalLink? =
         links[sessionId]?.takeIf { it.subscriptionId == subscriptionId && it.generation == generation }
 
-    override fun onEvent(json: ByteArray) = events.push(json)
+    override fun onEvent(json: ByteArray) = (if (namesBrowserPipe(json)) browserEvents else events).push(json)
 
     override fun onTerminalData(
         sessionId: String,

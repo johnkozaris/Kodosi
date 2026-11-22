@@ -14,8 +14,8 @@ const QList<KnownAgent>& knownAgents()
 {
     static const QList<KnownAgent> agents { { QStringLiteral("claude"), QStringLiteral("Claude Code") },
         { QStringLiteral("codex"), QStringLiteral("Codex") }, { QStringLiteral("copilot"), QStringLiteral("Copilot") },
-        { QStringLiteral("cursor"), QStringLiteral("Cursor") }, { QStringLiteral("gemini"), QStringLiteral("Gemini CLI") },
-        { QStringLiteral("opencode"), QStringLiteral("OpenCode") } };
+        { QStringLiteral("cursor"), QStringLiteral("Cursor") }, { QStringLiteral("opencode"), QStringLiteral("OpenCode") },
+        { QStringLiteral("antigravity"), QStringLiteral("Antigravity CLI") } };
     return agents;
 }
 const QList<std::pair<QString, bool>>& viewerDefaults()

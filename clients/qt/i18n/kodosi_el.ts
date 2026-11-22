@@ -58,8 +58,8 @@
         <translation>Δουλεύει μόνος του σε αυτόν τον φάκελο και σας ρωτά για τα υπόλοιπα.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>Επεξεργάζεται αρχεία και εκτελεί ασφαλείς εντολές μόνος του, και ρωτά πριν από ό,τι δεν αναιρείται.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -325,8 +325,8 @@
         <translation>Δουλεύει μόνος του σε αυτόν τον φάκελο και σας ρωτά για τα υπόλοιπα.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>Επεξεργάζεται αρχεία και εκτελεί ασφαλείς εντολές μόνος του, και ρωτά πριν από ό,τι δεν αναιρείται.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -500,12 +500,12 @@
         <translation>Κοινόχρηστο</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 καρτέλες</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>Νέα καρτέλα</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Καρτέλες</translation>
     </message>
     <message>
         <source>Close tab</source>
@@ -4368,6 +4368,13 @@
         <translation>Αυτή η εβδομάδα</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>Τελευταία %n ημέρα</numerusform>
+            <numerusform>Τελευταίες %n ημέρες</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>Τελευταία %n ώρα</numerusform>
@@ -4383,6 +4390,13 @@
         <translation>%1, αυτή την εβδομάδα</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1, τελευταία %n ημέρα</numerusform>
+            <numerusform>%1, τελευταίες %n ημέρες</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1, τελευταία %n ώρα</numerusform>
@@ -4396,6 +4410,53 @@
     <message>
         <source>Default</source>
         <translation>Προεπιλογή</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1 η %2 ώ</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1 η</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1 ώ %2 λ</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1 ώ</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1 λ</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n ημέρα</numerusform>
+            <numerusform>%n ημέρες</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n ώρα</numerusform>
+            <numerusform>%n ώρες</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n λεπτό</numerusform>
+            <numerusform>%n λεπτά</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1, ανανεώνεται σε %2</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

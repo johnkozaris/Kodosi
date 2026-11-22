@@ -32,13 +32,15 @@ the shell of the new terminal.
   Windows), ⌥⌘ with an arrow selects the one beside it (Ctrl+Alt with an arrow), and ⌘W
   closes the selected terminal. Settings › Shortcuts lists every key and changes it.
 - If an agent is missing, the launcher shows its install command.
-- Agents start unrestricted: they change files and run commands without asking you. For an
+- Agents start unrestricted: they change files and run commands without asking you.
+  Antigravity CLI starts in its own auto mode, which asks before what it cannot undo. For an
   agent that asks first, choose Ask under More, after the model. There you also choose the
-  verbosity, how much of their work Claude Code, Codex and Copilot CLI show; they start
-  at Quiet. Copilot CLI takes its verbosity only from its own settings, so Kodosi changes
-  them while Copilot CLI runs at Quiet and puts them back after.
+  verbosity, how much of their work Claude Code, Codex, Copilot CLI and Antigravity CLI
+  show; they start at Quiet. Copilot CLI takes its verbosity only from its own settings, so
+  Kodosi changes them while Copilot CLI runs at Quiet and puts them back after.
 - Claude Code and Codex have a fast mode, which answers faster and costs more. Turn it on
-  with the model and effort. While it is off, the agent keeps its own setting.
+  with the model and effort. It holds for that start only, so an agent starts without it
+  unless you turn it on.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -104,9 +106,9 @@ The check and the warning go away when you open the terminal on any of your devi
 When one of your terminals starts to wait, finishes or fails, Kodosi tells you once, on the
 device that you use. In Kodosi, you get the sign. At your computer in another app, you get
 a notification there. When you use none of your computers, you get it on your phone. A
-terminal that still waits for you when you leave your computer tells your phone then. Only
-a terminal that waits makes a sound. To turn the notifications of a device off, open
-Settings in Kodosi on that device. Programs report their state with the
+terminal that still waits for you and that you did not open tells your phone when you leave
+your computer. Only a terminal that waits makes a sound. To turn the notifications of a
+device off, open Settings in Kodosi on that device. Programs report their state with the
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) or a
 progress bar. A program that reports nothing shows no state.
 
@@ -124,9 +126,9 @@ presentation or the app that it runs on the canvas of its terminal, and use a br
 you share with it. The canvas opens with what the agent shows while you look at its
 terminal, and when a file on it or the browser changes, unless you closed it. To open it
 only yourself, turn off Open the canvas by itself in Settings › General. Claude Code and
-Copilot CLI know how, also when you start them yourself, and so do Codex, Cursor and
-OpenCode when Kodosi starts them (OpenCode on a Mac or Linux); tell another agent to read
-`kodosi skill canvas`. When the canvas has something,
+Copilot CLI know how, also when you start them yourself, and so do Codex, Cursor, OpenCode
+and Antigravity CLI when Kodosi starts them (OpenCode on a Mac or Linux); tell another agent
+to read `kodosi skill canvas`. When the canvas has something,
 the terminal's header shows a key for its files and one for its browser, with a copper dot
 for news. Select one to open the canvas beside the terminal; More room gives the canvas
 the stage and keeps the terminal small in its corner. Close a part with the × on its key,
@@ -237,8 +239,9 @@ invite friends when you want.
   `KODOSI_GITEA_URL`. Your credentials stay on your computer.
 - Write `@` and the name of a terminal in the chat, and Kodosi gives the agent in that
   terminal your message with your name and the project; the agent decides what to do with it.
-  Claude Code and Copilot CLI in a Kodosi terminal, and Codex, Cursor and OpenCode when
-  Kodosi starts them (OpenCode on a Mac or Linux), know that they run in Kodosi, and
+  Claude Code and Copilot CLI in a Kodosi terminal, and Codex, Cursor, OpenCode and
+  Antigravity CLI when Kodosi starts them (OpenCode on a Mac or Linux), know that they run
+  in Kodosi, and
   `kodosi skill` prints the [skill](../runtime/skills/kodosi/SKILL.md) that lets an agent
   take part. In a Kodosi
   terminal, the command finds the project; elsewhere, add `--project <name>`.
@@ -257,7 +260,7 @@ does.
 | `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch, in its own worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Starts a terminal on another of your computers. A relative folder, or one that starts with `~`, is in your home there. `kodosi devices list` shows which computers are online. |
 | `kodosi agent list` | Shows the agents, their accounts and your last choice. |
-| `kodosi agent usage` | Shows how much of the plan limits each signed-in Claude Code, Codex and Copilot CLI account has used. |
+| `kodosi agent usage` | Shows how much of the plan limits each signed-in Claude Code, Codex and Copilot CLI account has used, and when each limit resets. |
 | `kodosi terminal list` | Shows your terminals with their names and IDs. Give either one as `<terminal>`. |
 | `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Gives the agent in a terminal a message, with who sends it and from where. |

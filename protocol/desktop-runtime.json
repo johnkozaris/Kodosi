@@ -663,9 +663,6 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
-                          "headline": {
-                            "type": "boolean"
-                          },
                           "hours": {
                             "anyOf": [
                               {
@@ -690,6 +687,27 @@
                               }
                             ]
                           },
+                          "model": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "resetsAtMs": {
+                            "anyOf": [
+                              {
+                                "format": "u64",
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "scope": {
                             "anyOf": [
                               {
@@ -708,9 +726,10 @@
                         "required": [
                           "hours",
                           "scope",
+                          "model",
                           "used",
                           "level",
-                          "headline"
+                          "resetsAtMs"
                         ],
                         "type": "object"
                       },
@@ -2838,9 +2857,6 @@
                                 "items": {
                                   "additionalProperties": false,
                                   "properties": {
-                                    "headline": {
-                                      "type": "boolean"
-                                    },
                                     "hours": {
                                       "anyOf": [
                                         {
@@ -2865,6 +2881,27 @@
                                         }
                                       ]
                                     },
+                                    "model": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "resetsAtMs": {
+                                      "anyOf": [
+                                        {
+                                          "format": "u64",
+                                          "type": "integer"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
                                     "scope": {
                                       "anyOf": [
                                         {
@@ -2883,9 +2920,10 @@
                                   "required": [
                                     "hours",
                                     "scope",
+                                    "model",
                                     "used",
                                     "level",
-                                    "headline"
+                                    "resetsAtMs"
                                   ],
                                   "type": "object"
                                 },
@@ -4998,10 +5036,10 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
+                        "const": "opencode"
                       },
                       {
-                        "const": "opencode"
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -5451,10 +5489,10 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
+                        "const": "opencode"
                       },
                       {
-                        "const": "opencode"
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -8521,10 +8559,10 @@
                 "const": "cursor"
               },
               {
-                "const": "gemini"
+                "const": "opencode"
               },
               {
-                "const": "opencode"
+                "const": "antigravity"
               }
             ]
           },
@@ -8628,10 +8666,10 @@
                 "const": "cursor"
               },
               {
-                "const": "gemini"
+                "const": "opencode"
               },
               {
-                "const": "opencode"
+                "const": "antigravity"
               }
             ]
           },
@@ -8704,10 +8742,10 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
+                            "const": "opencode"
                           },
                           {
-                            "const": "opencode"
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -8753,10 +8791,10 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
+                        "const": "opencode"
                       },
                       {
-                        "const": "opencode"
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -9399,10 +9437,10 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
+                            "const": "opencode"
                           },
                           {
-                            "const": "opencode"
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -9448,10 +9486,10 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
+                        "const": "opencode"
                       },
                       {
-                        "const": "opencode"
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -9825,6 +9863,9 @@
           },
           "requestId": {
             "type": "string"
+          },
+          "returning": {
+            "type": "boolean"
           },
           "sessionId": {
             "type": "string"
@@ -14708,10 +14749,10 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
+                              "const": "opencode"
                             },
                             {
-                              "const": "opencode"
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -14827,10 +14868,10 @@
                                 "const": "cursor"
                               },
                               {
-                                "const": "gemini"
+                                "const": "opencode"
                               },
                               {
-                                "const": "opencode"
+                                "const": "antigravity"
                               }
                             ]
                           },
@@ -14868,10 +14909,10 @@
                                   "const": "cursor"
                                 },
                                 {
-                                  "const": "gemini"
+                                  "const": "opencode"
                                 },
                                 {
-                                  "const": "opencode"
+                                  "const": "antigravity"
                                 }
                               ]
                             },
@@ -15037,10 +15078,10 @@
                                 "const": "cursor"
                               },
                               {
-                                "const": "gemini"
+                                "const": "opencode"
                               },
                               {
-                                "const": "opencode"
+                                "const": "antigravity"
                               }
                             ]
                           },
@@ -15078,10 +15119,10 @@
                                   "const": "cursor"
                                 },
                                 {
-                                  "const": "gemini"
+                                  "const": "opencode"
                                 },
                                 {
-                                  "const": "opencode"
+                                  "const": "antigravity"
                                 }
                               ]
                             },
@@ -15288,10 +15329,10 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
+                              "const": "opencode"
                             },
                             {
-                              "const": "opencode"
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -15299,9 +15340,6 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
-                              "headline": {
-                                "type": "boolean"
-                              },
                               "hours": {
                                 "anyOf": [
                                   {
@@ -15326,6 +15364,27 @@
                                   }
                                 ]
                               },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "resetsAtMs": {
+                                "anyOf": [
+                                  {
+                                    "format": "u64",
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "scope": {
                                 "anyOf": [
                                   {
@@ -15344,9 +15403,10 @@
                             "required": [
                               "hours",
                               "scope",
+                              "model",
                               "used",
                               "level",
-                              "headline"
+                              "resetsAtMs"
                             ],
                             "type": "object"
                           },
@@ -15505,10 +15565,10 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
+                            "const": "opencode"
                           },
                           {
-                            "const": "opencode"
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -15546,10 +15606,10 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
+                              "const": "opencode"
                             },
                             {
-                              "const": "opencode"
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -16020,10 +16080,10 @@
                           "const": "cursor"
                         },
                         {
-                          "const": "gemini"
+                          "const": "opencode"
                         },
                         {
-                          "const": "opencode"
+                          "const": "antigravity"
                         }
                       ]
                     },
@@ -16556,10 +16616,10 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
+                            "const": "opencode"
                           },
                           {
-                            "const": "opencode"
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -16597,10 +16657,10 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
+                              "const": "opencode"
                             },
                             {
-                              "const": "opencode"
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -17769,7 +17829,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 100,
+  "protocolVersion": 104,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

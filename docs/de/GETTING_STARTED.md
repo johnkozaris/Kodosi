@@ -35,14 +35,15 @@ Befehl in die Shell des neuen Terminals.
   ändert sie.
 - Fehlt ein Agent, zeigt der Launcher seinen Installationsbefehl.
 - Agents starten mit Vollzugriff: Sie ändern Dateien und führen Befehle aus, ohne dich zu
-  fragen. Soll ein Agent zuerst fragen, wähle Fragen unter Mehr, nach dem Modell. Dort wählst
-  du auch die Ausführlichkeit, also wie viel ihrer Arbeit Claude Code, Codex und Copilot CLI
-  zeigen; sie beginnen bei Knapp. Copilot CLI liest seine Ausführlichkeit nur aus seinen
+  fragen. Antigravity CLI startet in seinem eigenen Auto-Modus, der fragt, bevor er etwas
+  tut, das sich nicht rückgängig machen lässt. Soll ein Agent zuerst fragen, wähle Fragen
+  unter Mehr, nach dem Modell. Dort wählst du auch die Ausführlichkeit, also wie viel ihrer
+  Arbeit Claude Code, Codex, Copilot CLI und Antigravity CLI zeigen; sie beginnen bei Knapp. Copilot CLI liest seine Ausführlichkeit nur aus seinen
   eigenen Einstellungen, deshalb ändert Kodosi diese, solange Copilot CLI mit Knapp läuft,
   und stellt sie danach zurück.
 - Claude Code und Codex haben einen Schnellmodus, der schneller antwortet und mehr kostet.
-  Schalte ihn bei Modell und Denkaufwand ein. Solange er aus ist, behält der Agent seine
-  eigene Einstellung.
+  Schalte ihn bei Modell und Denkaufwand ein. Er gilt nur für diesen Start, also startet ein
+  Agent ohne ihn, solange du ihn nicht einschaltest.
 - Ein neues Konto bekommt seinen eigenen Anmeldeordner, zum Beispiel `~/.claude-work`.
   Kodosi findet auch die Konten, die deine Shell einrichtet, etwa
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -115,10 +116,10 @@ Haken und Warnzeichen verschwinden, wenn du das Terminal auf irgendeinem deiner 
 sagt Kodosi es dir einmal, auf dem Gerät, das du nutzt. In Kodosi bekommst du das Zeichen.
 Bist du an deinem Computer in einer anderen App, bekommst du dort eine Mitteilung. Nutzt du
 keinen deiner Computer, bekommst du sie auf deinem Telefon. Ein Terminal, das noch auf
-dich wartet, wenn du deinen Computer verlässt, sagt es dir dann auf deinem Telefon. Nur
-ein Terminal, das wartet, gibt einen Ton aus. Um die Mitteilungen eines Geräts
-auszuschalten, öffne auf diesem Gerät die Einstellungen in Kodosi. Programme melden ihren
-Zustand über das
+dich wartet und das du nicht geöffnet hast, sagt es dir auf deinem Telefon, sobald du
+deinen Computer verlässt. Nur ein Terminal, das wartet, gibt einen Ton aus. Um die
+Mitteilungen eines Geräts auszuschalten, öffne auf diesem Gerät die Einstellungen in
+Kodosi. Programme melden ihren Zustand über das
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) oder
 einen Fortschrittsbalken. Ein Programm, das nichts meldet, zeigt keinen Zustand.
 
@@ -137,7 +138,7 @@ Browser nutzen, den du mit ihm teilst. Das Canvas öffnet sich mit dem, was der 
 während du sein Terminal ansiehst, und wenn sich eine Datei darauf oder der Browser ändert,
 außer du hast es geschlossen. Um es nur selbst zu öffnen, schalte Canvas automatisch öffnen in
 Einstellungen › Allgemein aus. Claude Code und Copilot CLI wissen, wie das geht, auch wenn du
-sie selbst startest, und ebenso Codex, Cursor und OpenCode, wenn Kodosi sie startet (OpenCode
+sie selbst startest, und ebenso Codex, Cursor, OpenCode und Antigravity CLI, wenn Kodosi sie startet (OpenCode
 auf einem Mac oder unter Linux); einem anderen Agent sagst du, er soll `kodosi skill canvas`
 lesen. Hat das Canvas etwas, zeigt die Kopfzeile des Terminals einen
 Button für seine Dateien und einen für seinen Browser, mit einem kupferfarbenen Punkt für Neues.
@@ -259,8 +260,8 @@ teile eines hinein, und lade Freunde ein, wenn du möchtest.
   Server in `KODOSI_GITEA_URL`. Deine Zugangsdaten bleiben auf deinem Computer.
 - Schreib `@` und den Namen eines Terminals in den Chat, und Kodosi gibt dem Agent in diesem
   Terminal deine Nachricht mit deinem Namen und dem Projekt; der Agent entscheidet, was er damit
-  tut. Claude Code und Copilot CLI in einem Kodosi-Terminal sowie Codex, Cursor und
-  OpenCode, wenn Kodosi sie startet (OpenCode auf einem Mac oder unter Linux), wissen, dass sie
+  tut. Claude Code und Copilot CLI in einem Kodosi-Terminal sowie Codex, Cursor,
+  OpenCode und Antigravity CLI, wenn Kodosi sie startet (OpenCode auf einem Mac oder unter Linux), wissen, dass sie
   in Kodosi laufen, und `kodosi skill` gibt den
   [Skill](../../runtime/skills/kodosi/SKILL.md) aus, mit dem ein Agent mitmacht. In einem
   Kodosi-Terminal findet der Befehl das Projekt; anderswo ergänzt du `--project <name>`.
@@ -279,7 +280,7 @@ tut.
 | `kodosi terminal start --directory <repository> --branch <name>` | Startet ein Terminal auf einem neuen Branch, in seinem eigenen Worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Startet ein Terminal auf einem anderen deiner Computer. Ein relativer Ordner oder einer, der mit `~` beginnt, liegt dort in deinem Home-Verzeichnis. `kodosi devices list` zeigt, welche Computer online sind. |
 | `kodosi agent list` | Zeigt die Agents, ihre Konten und deine letzte Wahl. |
-| `kodosi agent usage` | Zeigt, wie viel der Tariflimits jedes angemeldete Konto von Claude Code, Codex und Copilot CLI verbraucht hat. |
+| `kodosi agent usage` | Zeigt, wie viel der Tariflimits jedes angemeldete Konto von Claude Code, Codex und Copilot CLI verbraucht hat und wann jedes Limit zurückgesetzt wird. |
 | `kodosi terminal list` | Zeigt deine Terminals mit ihren Namen und IDs. Gib eines davon als `<terminal>` an. |
 | `kodosi terminal read <terminal>` | Gibt den Bildschirm aus. `--history` fügt die Zeilen hinzu, die weggescrollt sind. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Gibt dem Agent in einem Terminal eine Nachricht, mit Absender und Herkunft. |

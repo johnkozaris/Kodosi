@@ -6,6 +6,7 @@ import com.kodosi.mobile.AndroidWords
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.Ffi
 import com.kodosi.mobile.runtime.RuntimeEvent
+import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.TerminalLink
 import com.kodosi.mobile.runtime.TerminalRuntime
 import java.nio.ByteBuffer
@@ -18,8 +19,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,6 +65,32 @@ class TerminalConnectionTest {
         }
     }
 
+    @Test
+    fun aFocusThatComesBackTakesNoSizeUntilAPersonTouchesTheTerminal() = runBlocking {
+        Fixture().use { fixture ->
+            val link = withTimeout(5_000) { fixture.runtime.connections.receive() }
+            assertEquals(Ffi.OK, install(link))
+            fixture.runtime.succeed(link)
+            val opened = withTimeout(5_000) { fixture.focuses.receive() }
+            assertFalse(opened.returning)
+            link.onControl(applied(opened))
+
+            fixture.connection.act()
+            val touched = withTimeout(5_000) { fixture.focuses.receive() }
+            assertFalse(touched.returning)
+            link.onControl(applied(touched))
+
+            fixture.connection.show(false)
+            fixture.connection.show(true)
+            val back = withTimeout(5_000) { fixture.focuses.receive() }
+            assertTrue(back.returning)
+            fixture.connection.act()
+            assertTrue(fixture.focuses.tryReceive().isFailure)
+            link.onControl(applied(back))
+            assertFalse(withTimeout(5_000) { fixture.focuses.receive() }.returning)
+        }
+    }
+
     private fun install(link: TerminalLink): Int {
         val context = InstrumentationRegistry.getInstrumentation().context
         val bytes = context.assets.open("visual-checkpoint.snapshot").use { it.readBytes() }
@@ -68,11 +98,26 @@ class TerminalConnectionTest {
         return link.onCheckpoint(7, 2, 8, false, checkpoint)
     }
 
+    private fun applied(focus: Focus) =
+        """{"type":"term.focusApplied","requestId":"${focus.requestId}"}""".encodeToByteArray()
+
+    private class Focus(command: JsonObject) {
+        val requestId = (command["requestId"] as JsonPrimitive).content
+        val returning = (command["returning"] as? JsonPrimitive)?.content == "true"
+    }
+
     private class Fixture : AutoCloseable {
         val runtime = InputRuntime()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val focuses = Channel<Focus>(Channel.UNLIMITED)
         private val words = AndroidWords(InstrumentationRegistry.getInstrumentation().targetContext)
-        private val commands = CommandSink(words).apply { transport = { Ffi.OK } }
+        private val commands = CommandSink(words).apply {
+            transport = { bytes ->
+                val command = RuntimeJson.parseToJsonElement(bytes.decodeToString()) as JsonObject
+                if ((command["type"] as JsonPrimitive).content == "session.focus") focuses.trySend(Focus(command))
+                Ffi.OK
+            }
+        }
         private val store = TerminalStore(commands).apply {
             receive(
                 RuntimeEvent.parse(

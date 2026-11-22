@@ -291,12 +291,33 @@
     <string name="uploading">Αποστολή αρχείου</string>
     <string name="loading">Φόρτωση</string>
     <string name="reading_usage">Διαβάζει τη χρήση του πλάνου</string>
+    <string name="usage_month">Αυτός ο μήνας</string>
+    <string name="usage_week">Αυτή η εβδομάδα</string>
+    <string name="usage_scope_month">%1$s, αυτόν τον μήνα</string>
+    <string name="usage_scope_week">%1$s, αυτή την εβδομάδα</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Τελευταία %d ώρα</item>
+        <item quantity="other">Τελευταίες %d ώρες</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Τελευταία %d ημέρα</item>
+        <item quantity="other">Τελευταίες %d ημέρες</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, τελευταία %2$d ώρα</item>
+        <item quantity="other">%1$s, τελευταίες %2$d ώρες</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, τελευταία %2$d ημέρα</item>
+        <item quantity="other">%1$s, τελευταίες %2$d ημέρες</item>
+    </plurals>
     <string name="browser_address">Αναζήτηση ή εισαγωγή διεύθυνσης</string>
     <string name="new_browser_tab">Νέα καρτέλα</string>
     <string name="browser_back">Πίσω</string>
     <string name="browser_forward">Μπροστά</string>
     <string name="browser_reload">Επαναφόρτωση</string>
     <string name="browser_sleeping">Ο browser είναι σε αδράνεια</string>
+    <string name="browser_undecodable">Αυτή η συσκευή δεν μπορεί να εμφανίσει τη σελίδα</string>
     <string name="wake_browser">Άνοιγμα browser</string>
     <string name="browser_dialog">Η σελίδα ρωτά</string>
     <string name="choose_file">Επιλογή αρχείου</string>
@@ -372,7 +393,7 @@
     <string name="agent_unrestricted_detail">Δεν ρωτά ποτέ και εκτελεί κάθε εντολή με τα δικαιώματά σας.</string>
     <string name="agent_auto_check_detail">Ένας έλεγχος ασφαλείας εγκρίνει ό,τι είναι ασφαλές και σας ρωτά για τα υπόλοιπα. Ο έλεγχος καταναλώνει tokens.</string>
     <string name="agent_auto_folder_detail">Δουλεύει μόνος του σε αυτόν τον φάκελο και σας ρωτά για τα υπόλοιπα.</string>
-    <string name="agent_auto_edit_detail">Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές.</string>
+    <string name="agent_auto_safe_detail">Επεξεργάζεται αρχεία και εκτελεί ασφαλείς εντολές μόνος του, και ρωτά πριν από ό,τι δεν αναιρείται.</string>
     <string name="agent_auto_detail">Εγκρίνει τις ενέργειές του, εκτός από όσα έχετε απαγορεύσει.</string>
     <string name="agent_quiet_detail">Δείχνει λιγότερα από τη δουλειά του.</string>
     <string name="agent_standard_detail">Δείχνει τη δουλειά του όπως είναι ρυθμισμένος ο agent.</string>

@@ -79,6 +79,7 @@ public:
     Q_INVOKABLE void showShelf(const QString& sessionId, bool shown);
     Q_INVOKABLE void openBrowser(const QString& sessionId);
     Q_INVOKABLE [[nodiscard]] bool opensBrowser(const QString& sessionId) const;
+    [[nodiscard]] bool takeChoice(const QString& sessionId);
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
     Q_INVOKABLE void saw(const QString& sessionId, const QString& key);
     QList<News> news(const QString& sessionId);
@@ -114,6 +115,7 @@ public:
 signals:
     void changed();
     void browserChanged();
+    void browserChosen(const QString& sessionId);
     void loaded(const QString& sessionId, const QString& key);
     void failed(const QString& sessionId, const QString& key, const QString& message);
     void copyReady(const QString& name, const QByteArray& content);
@@ -189,6 +191,7 @@ private:
     QSet<QString> m_shut;
     quint64 m_started = 0;
     QSet<QString> m_opening;
+    QSet<QString> m_chosen;
     QSet<QString> m_shelves;
     QHash<QString, Stored> m_stored;
     QStringList m_storedOrder;
@@ -219,6 +222,8 @@ private:
     [[nodiscard]] QVariantMap item(const QString& sessionId, const QString& key) const;
     [[nodiscard]] int publish(const QString& sessionId, const QString& key);
     void observe();
+    void display(const QString& sessionId, const QString& section);
+    void choose(const QString& sessionId);
     void settle(const QString& sessionId);
     void touch();
     bool upload(const QString& sessionId, const QUrl& file, bool forPage);

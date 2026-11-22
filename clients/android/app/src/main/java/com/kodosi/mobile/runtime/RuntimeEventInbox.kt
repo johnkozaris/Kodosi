@@ -77,6 +77,6 @@ class RuntimeEventInbox(private val maxBytes: Long = MAX_BYTES, private val maxC
 
     private companion object {
         const val MAX_BYTES = 64L * 1024 * 1024
-        const val MAX_COUNT = 256
+        const val MAX_COUNT = 4096
     }
 }

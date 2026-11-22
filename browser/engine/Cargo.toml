@@ -4,7 +4,7 @@ license = "Apache-2.0"
 name = "kodosi-browser"
 publish = false
 rust-version = "1.100.0"
-version = "0.1.3"
+version = "0.2.0"
 
 [[bin]]
 name = "kodosi-browser"
@@ -31,6 +31,7 @@ tokio-tungstenite = "0.30.0"
 cef = { version = "=156.6.0", default-features = false, features = ["sandbox"] }
 objc2 = "0.6.5"
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSApplication", "NSEvent", "NSResponder"] }
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["CFCGTypes", "objc2"] }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 openh264 = "0.9.10"
