@@ -2798,9 +2798,16 @@ fn antigravity_keeps_its_own_mode_when_the_account_has_no_auto_mode() {
 }
 
 #[test]
-fn antigravity_takes_the_model_and_then_the_thinking_level_of_its_line() {
+fn antigravity_takes_the_mode_the_model_and_then_the_thinking_level_of_its_line() {
     let play = Play::antigravity(antigravity!("choices"), &[]);
 
+    assert_eq!(
+        calls(&play, "session/set_mode")
+            .iter()
+            .map(|call| call["p"]["modeId"].as_str().unwrap_or_default())
+            .collect::<Vec<_>>(),
+        ["plan"]
+    );
     assert_eq!(
         calls(&play, "session/set_config_option")
             .iter()
@@ -2814,7 +2821,7 @@ fn antigravity_takes_the_model_and_then_the_thinking_level_of_its_line() {
     );
     let facts = &play.view.facts;
     assert_eq!(
-        (facts.model.as_deref(), facts.effort.as_deref()),
-        (Some("gemini-4-neon"), Some("xhigh"))
+        (facts.model.as_deref(), facts.effort.as_deref(), facts.mode),
+        (Some("gemini-4-neon"), Some("xhigh"), Some(ChatMode::Plan))
     );
 }

@@ -58,8 +58,6 @@ pub(super) struct Antigravity {
     /// The modes and the models that the session offers.
     modes: Vec<String>,
     models: Vec<String>,
-    /// The thinking level of the terminal's line waits for the model that it chose.
-    choosing: bool,
     /// The first question of the agent's own question that is open, which the agent also writes
     /// as its answer.
     questioned: Option<String>,
@@ -186,13 +184,14 @@ impl Antigravity {
                 self.starting = false;
                 self.finish_writing(chat);
                 self.took(chat, result);
-                self.choose();
+                self.choose(result);
             }
             ("session", None) => self.not_started(chat, name, event, at),
             ("prompt", result) => self.end_turn(chat, result, event, at),
             ("mode" | "option", Some(result)) => {
                 self.took(chat, result);
-                if self.choosing {
+                // The thinking levels that the session offers follow its model.
+                if name == "model" {
                     self.choose_effort();
                 }
             }
@@ -228,16 +227,19 @@ impl Antigravity {
         self.session = None;
     }
 
-    /// The model, the thinking level and the mode that the terminal's line chose, where the
+    /// The mode, the model and the thinking level that the terminal's line chose, where the
     /// session has another and offers them. A mode that the agent does not offer to this account,
     /// such as its auto mode, leaves the session in its own mode, as the agent's terminal app does.
-    fn choose(&mut self) {
+    /// The thinking level waits for the session's answer to the model.
+    fn choose(&mut self, result: &Value) {
         let Some(session) = self.session.clone() else {
             return;
         };
         if let Some(mode) = self.start.get("mode").and_then(Value::as_str) {
             let mode = if mode.is_empty() { "default" } else { mode };
-            if self.modes.iter().any(|offered| offered == mode) {
+            if result.pointer("/modes/currentModeId") != Some(&json!(mode))
+                && self.modes.iter().any(|offered| offered == mode)
+            {
                 self.call(
                     "mode",
                     "session/set_mode",
@@ -245,21 +247,17 @@ impl Antigravity {
                 );
             }
         }
-        let model = words(&self.start, "model");
-        if let (Some(model), Some(option)) = (model, self.model_option())
+        if let (Some(model), Some(option)) = (words(&self.start, "model"), self.model_option())
             && text(&option, "currentValue") != model
             && (offers(&option, &model) || self.models.contains(&model))
         {
-            self.set(&session, &option, &model);
-            // The thinking levels that the session offers follow its model.
-            self.choosing = true;
+            self.set("option:model", &session, &option, &model);
             return;
         }
         self.choose_effort();
     }
 
     fn choose_effort(&mut self) {
-        self.choosing = false;
         if let (Some(session), Some(effort), Some(option)) = (
             self.session.clone(),
             words(&self.start, "effort"),
@@ -267,13 +265,13 @@ impl Antigravity {
         ) && text(&option, "currentValue") != effort
             && offers(&option, &effort)
         {
-            self.set(&session, &option, &effort);
+            self.set("option:effort", &session, &option, &effort);
         }
     }
 
-    fn set(&mut self, session: &str, option: &Value, value: &str) {
+    fn set(&mut self, tag: &str, session: &str, option: &Value, value: &str) {
         self.call(
-            "option",
+            tag,
             "session/set_config_option",
             json!({"sessionId": session, "configId": text(option, "id"), "value": value}),
         );
@@ -707,11 +705,7 @@ impl Antigravity {
         if let (Some(option), Some(session), false) =
             (option, self.session.clone(), value.trim().is_empty())
         {
-            self.call(
-                "option",
-                "session/set_config_option",
-                json!({"sessionId": session, "configId": text(&option, "id"), "value": value.trim()}),
-            );
+            self.set("option", &session, &option, value.trim());
             return;
         }
         chat.queue(line.to_owned(), None);
