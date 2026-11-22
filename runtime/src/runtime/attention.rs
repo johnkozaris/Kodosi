@@ -23,8 +23,8 @@ const SEEN_AGAIN: Duration = Duration::from_secs(10);
 pub(super) struct Attention {
     kept: HashMap<String, Kept>,
     reported: HashMap<String, Reported>,
-    /// A bell, or a title spinner that stops, marks a terminal for the apps of this device only:
-    /// the status carries only the mark of a state.
+    /// A bell, a title spinner that stops or a program's own notification marks a terminal for
+    /// the apps of this device only: the status carries only the mark of a state.
     local: HashSet<String>,
     spinning: HashMap<String, bool>,
     started: Vec<(String, Waiting)>,

@@ -143,8 +143,10 @@ bool TerminalNotifications::current(const Context& context) const
     const auto session = m_sessions.session(context.sessionId);
     if (!m_sessions.hasAuthoritativeSnapshot() || !session)
         return false;
+    if (!m_sessions.attention().contains(context.sessionId))
+        return false;
     if (context.origin == Origin::Mark)
-        return m_sessions.attention().contains(context.sessionId) && m_sessions.waiting(context.sessionId);
+        return m_sessions.waiting(context.sessionId);
     return session->kind == QStringLiteral("local") && session->incarnationId == context.runtimeIncarnationId;
 }
 

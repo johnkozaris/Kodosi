@@ -108,19 +108,26 @@ struct BrowserPicture: View {
     let feed: BrowserFeed
     let blank: Bool
 
-    /// The width to the height of what the view shows. The video has the shape of its pictures,
-    /// as a page that takes a new size draws in it only after the host gives the size.
-    private var pageRatio: CGFloat? {
-        let shape = feed.window.layer == nil ? feed.pictureSize ?? feed.window.size : feed.window.size
-        return shape.width > 0 && shape.height > 0 ? shape.width / shape.height : nil
+    /// A video alone fills the view, and the display fits each picture in its own shape at once: a
+    /// view that took the shape from the layout lagged the pictures by a frame, and while the page
+    /// takes a new size its pictures still have the size before.
+    private var layerRatio: CGFloat? {
+        feed.window.layer == nil ? nil : Self.ratio(of: feed.window.size)
+    }
+
+    private static func ratio(of size: CGSize) -> CGFloat? {
+        size.width > 0 && size.height > 0 ? size.width / size.height : nil
     }
 
     var body: some View {
-        BrowserVideoView(feed: feed)
-            .aspectRatio(pageRatio, contentMode: .fit)
-            .opacity(feed.picture != .waiting && !blank ? 1 : 0)
-            .grayscale(browser.state == .awake ? 0 : 1)
-            .animation(theme.motion.fade, value: browser.state)
+        GeometryReader { area in
+            BrowserVideoView(feed: feed)
+                .aspectRatio(layerRatio ?? Self.ratio(of: area.size), contentMode: .fit)
+                .frame(width: area.size.width, height: area.size.height)
+        }
+        .opacity(feed.picture != .waiting && !blank ? 1 : 0)
+        .grayscale(browser.state == .awake ? 0 : 1)
+        .animation(theme.motion.fade, value: browser.state)
         #if os(macOS)
             if let layer = feed.window.layer, !blank {
                 BrowserLayerView(context: layer, page: feed.window.size)
