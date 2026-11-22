@@ -1742,10 +1742,10 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
+                        "const": "opencode"
                       },
                       {
-                        "const": "opencode"
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -2195,10 +2195,10 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
+                        "const": "opencode"
                       },
                       {
-                        "const": "opencode"
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -5212,10 +5212,10 @@
                 "const": "cursor"
               },
               {
-                "const": "gemini"
+                "const": "opencode"
               },
               {
-                "const": "opencode"
+                "const": "antigravity"
               }
             ]
           },
@@ -5319,10 +5319,10 @@
                 "const": "cursor"
               },
               {
-                "const": "gemini"
+                "const": "opencode"
               },
               {
-                "const": "opencode"
+                "const": "antigravity"
               }
             ]
           },
@@ -5395,10 +5395,10 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
+                            "const": "opencode"
                           },
                           {
-                            "const": "opencode"
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -5444,10 +5444,10 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
+                        "const": "opencode"
                       },
                       {
-                        "const": "opencode"
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -6090,10 +6090,10 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
+                            "const": "opencode"
                           },
                           {
-                            "const": "opencode"
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -6139,10 +6139,10 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
+                        "const": "opencode"
                       },
                       {
-                        "const": "opencode"
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -11388,10 +11388,10 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
+                              "const": "opencode"
                             },
                             {
-                              "const": "opencode"
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -11507,10 +11507,10 @@
                                 "const": "cursor"
                               },
                               {
-                                "const": "gemini"
+                                "const": "opencode"
                               },
                               {
-                                "const": "opencode"
+                                "const": "antigravity"
                               }
                             ]
                           },
@@ -11548,10 +11548,10 @@
                                   "const": "cursor"
                                 },
                                 {
-                                  "const": "gemini"
+                                  "const": "opencode"
                                 },
                                 {
-                                  "const": "opencode"
+                                  "const": "antigravity"
                                 }
                               ]
                             },
@@ -11717,10 +11717,10 @@
                                 "const": "cursor"
                               },
                               {
-                                "const": "gemini"
+                                "const": "opencode"
                               },
                               {
-                                "const": "opencode"
+                                "const": "antigravity"
                               }
                             ]
                           },
@@ -11758,10 +11758,10 @@
                                   "const": "cursor"
                                 },
                                 {
-                                  "const": "gemini"
+                                  "const": "opencode"
                                 },
                                 {
-                                  "const": "opencode"
+                                  "const": "antigravity"
                                 }
                               ]
                             },
@@ -11968,10 +11968,10 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
+                              "const": "opencode"
                             },
                             {
-                              "const": "opencode"
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -12204,10 +12204,10 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
+                            "const": "opencode"
                           },
                           {
-                            "const": "opencode"
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -12245,10 +12245,10 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
+                              "const": "opencode"
                             },
                             {
-                              "const": "opencode"
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -12719,10 +12719,10 @@
                           "const": "cursor"
                         },
                         {
-                          "const": "gemini"
+                          "const": "opencode"
                         },
                         {
-                          "const": "opencode"
+                          "const": "antigravity"
                         }
                       ]
                     },
@@ -13255,10 +13255,10 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
+                            "const": "opencode"
                           },
                           {
-                            "const": "opencode"
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -13296,10 +13296,10 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
+                              "const": "opencode"
                             },
                             {
-                              "const": "opencode"
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -14468,7 +14468,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 102,
+  "protocolVersion": 103,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

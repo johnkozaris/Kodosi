@@ -393,7 +393,7 @@
     <string name="agent_unrestricted_detail">Δεν ρωτά ποτέ και εκτελεί κάθε εντολή με τα δικαιώματά σας.</string>
     <string name="agent_auto_check_detail">Ένας έλεγχος ασφαλείας εγκρίνει ό,τι είναι ασφαλές και σας ρωτά για τα υπόλοιπα. Ο έλεγχος καταναλώνει tokens.</string>
     <string name="agent_auto_folder_detail">Δουλεύει μόνος του σε αυτόν τον φάκελο και σας ρωτά για τα υπόλοιπα.</string>
-    <string name="agent_auto_edit_detail">Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές.</string>
+    <string name="agent_auto_safe_detail">Επεξεργάζεται αρχεία και εκτελεί ασφαλείς εντολές μόνος του, και ρωτά πριν από ό,τι δεν αναιρείται.</string>
     <string name="agent_auto_detail">Εγκρίνει τις ενέργειές του, εκτός από όσα έχετε απαγορεύσει.</string>
     <string name="agent_quiet_detail">Δείχνει λιγότερα από τη δουλειά του.</string>
     <string name="agent_standard_detail">Δείχνει τη δουλειά του όπως είναι ρυθμισμένος ο agent.</string>

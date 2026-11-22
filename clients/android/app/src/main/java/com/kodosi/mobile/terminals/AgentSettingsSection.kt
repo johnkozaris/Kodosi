@@ -184,7 +184,7 @@ internal fun AgentPermissions.detail(agent: AgentKind): String = stringResource(
         AgentPermissions.AUTO -> when (agent) {
             AgentKind.CLAUDE, AgentKind.COPILOT -> R.string.agent_auto_check_detail
             AgentKind.CODEX -> R.string.agent_auto_folder_detail
-            AgentKind.GEMINI -> R.string.agent_auto_edit_detail
+            AgentKind.ANTIGRAVITY -> R.string.agent_auto_safe_detail
             else -> R.string.agent_auto_detail
         }
     }

@@ -63,15 +63,14 @@ fn program_identity(arguments: &[String]) -> Option<&'static str> {
         "claude" => Some("claude"),
         "copilot" => Some("copilot"),
         "codex" | "codex.js" => Some("codex"),
-        "gemini" => Some("gemini"),
         "opencode" => Some("opencode"),
+        "agy" => Some("antigravity"),
         "cursor-agent" | "agent" if basename == "cursor-agent" || candidate.contains("cursor") => {
             Some("cursor")
         }
         _ if candidate.contains("@anthropic-ai/claude-code/") => Some("claude"),
         _ if candidate.contains("@github/copilot/") => Some("copilot"),
         _ if candidate.contains("@openai/codex/") => Some("codex"),
-        _ if candidate.contains("@google/gemini-cli/") => Some("gemini"),
         _ => None,
     }
 }
@@ -109,13 +108,7 @@ mod tests {
                 Some("codex"),
             ),
             (vec!["/opt/bin/cursor-agent"], Some("cursor")),
-            (
-                vec![
-                    "node",
-                    "/opt/lib/node_modules/@google/gemini-cli/dist/index.js",
-                ],
-                Some("gemini"),
-            ),
+            (vec!["/home/ana/.local/bin/agy"], Some("antigravity")),
             (
                 vec!["node", "/opt/lib/node_modules/opencode-ai/bin/opencode"],
                 Some("opencode"),
