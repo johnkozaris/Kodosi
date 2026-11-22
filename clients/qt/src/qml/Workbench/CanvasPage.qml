@@ -31,7 +31,7 @@ WebEngineView {
         });
     }
 
-    profile: Models.CanvasWeb.profile
+    profile: Models.CanvasWeb.pageProfile(root)
     backgroundColor: KodosiTheme.sheet
     settings.javascriptCanOpenWindows: false
     settings.javascriptCanAccessClipboard: false
