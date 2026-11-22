@@ -94,7 +94,6 @@ public struct UsageDial: View {
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                     .padding(size * 0.15)
-                    .contentTransition(.numericText(value: Double(limit.used)))
                     .animation(theme.motion.snappy, value: limit.used)
             }
         }
@@ -117,7 +116,6 @@ public struct UsagePercent: View {
         Text(verbatim: "\(limit.used)%")
             .appTextStyle(.monoCaption)
             .foregroundStyle(limit.level == .normal ? theme.colors.inkFaint : limit.level.color(theme.colors))
-            .contentTransition(.numericText(value: Double(limit.used)))
             .animation(theme.motion.snappy, value: limit.used)
     }
 }

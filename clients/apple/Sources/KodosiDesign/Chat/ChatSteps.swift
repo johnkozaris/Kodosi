@@ -30,7 +30,6 @@ struct ChatWork: View {
                     }
                     .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .contentTransition(.numericText())
                     ForEach(ChatWords.setbacks(ended).filter { $0.state != .failed }, id: \.state) { setback in
                         Text(verbatim: setback.words).appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint).lineLimit(1).fixedSize()
                     }

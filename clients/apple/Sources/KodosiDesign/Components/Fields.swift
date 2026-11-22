@@ -100,7 +100,6 @@ public struct KodosiStepper: View {
                 value = max(range.lowerBound, value - step)
             }.disabled(value <= range.lowerBound)
             Text(value.formatted()).appTextStyle(.subhead).monospacedDigit()
-                .contentTransition(.numericText(value: Double(value)))
                 .foregroundStyle(theme.colors.ink)
                 .frame(minWidth: 52)
             IconButton(title: "Increase", bundle: .module, symbol: "plus", identifier: "stepper.increase", size: 26) {
