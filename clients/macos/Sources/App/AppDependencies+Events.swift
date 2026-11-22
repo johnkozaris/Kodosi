@@ -169,6 +169,8 @@ extension AppDependencies {
         }
         let awaySeconds: UInt64 = try event.value("awaySeconds")
         presence.connected(awaySeconds: TimeInterval(awaySeconds))
+        reportedLook = nil
+        reportLook()
         appState = .ready
         restoreAsked = false
         refresh()

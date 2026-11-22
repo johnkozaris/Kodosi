@@ -16,7 +16,7 @@ struct FirstPrompt: View {
         layout {
             HStack(alignment: .top, spacing: 8) {
                 Text(verbatim: "❯").foregroundStyle(theme.colors.accent).accessibilityHidden(true)
-                Text(verbatim: agent.program).foregroundStyle(agent.kind.tint.mix(with: .white, by: 0.35))
+                Text(verbatim: agent.program).foregroundStyle(agent.kind.commandInk(in: theme))
             }
             .fixedSize()
             TextField("First prompt", text: $prompt, prompt: Text("Type a task").foregroundStyle(theme.colors.inkFaint), axis: .vertical)

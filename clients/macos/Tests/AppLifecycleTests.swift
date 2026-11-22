@@ -95,13 +95,13 @@ import Testing
         return 0
     }
     try app.receive(runtimeReady(epoch: 0, userId: nil))
-    #expect(sent == ["app.presence", "session.list", "session.visible"])
+    #expect(sent == ["app.presence", "app.look", "session.list", "session.visible"])
     try app.receive(runtimeEvent("auth.finalizing", epoch: 0, userId: nil))
     app.refresh()
-    #expect(sent == ["app.presence", "session.list", "session.visible", "session.list"])
+    #expect(sent == ["app.presence", "app.look", "session.list", "session.visible", "session.list"])
     try app.receive(runtimeEvent("auth.required", epoch: 0, userId: nil, fields: ["reason": .string("signedOut")]))
     app.refresh()
-    #expect(sent.filter { $0 != "session.list" } == ["app.presence", "session.visible", "session.restore"])
+    #expect(sent.filter { $0 != "session.list" } == ["app.presence", "app.look", "session.visible", "session.restore"])
     #expect(app.errorMessage == nil)
     try app.receive(runtimeEvent("auth.ready", fields: ["userId": .string("owner")]))
     sent.removeAll()

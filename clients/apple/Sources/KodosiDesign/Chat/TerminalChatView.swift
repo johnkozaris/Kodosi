@@ -2,13 +2,11 @@ import KodosiBridge
 import SwiftUI
 
 /// The chat of a terminal in the place of its screen. It is a conversation of Kodosi, as a
-/// project's, so it takes the app's appearance where the screen of a terminal is always dark.
-/// `me` is the account of this app: the messages of other people show their names. `modelKey`
-/// gets the agent's model and effort, and the app makes them the key of its action that changes
-/// them.
+/// project's, in the look of what holds it: a terminal's tile or the app. `me` is the account of
+/// this app: the messages of other people show their names. `modelKey` gets the agent's model and
+/// effort, and the app makes them the key of its action that changes them.
 public struct TerminalChatView<ModelKey: View>: View {
     @Environment(\.theme) private var theme
-    @Environment(\.chromeTheme) private var chrome
     let chat: TerminalChat
     let agent: AgentKind
     let me: String?
@@ -28,9 +26,9 @@ public struct TerminalChatView<ModelKey: View>: View {
 
     private var ground: Color {
         #if os(iOS)
-            (chrome ?? theme).colors.surface
+            theme.colors.surface
         #else
-            (chrome ?? theme).colors.sheet
+            theme.colors.sheet
         #endif
     }
 
@@ -41,7 +39,6 @@ public struct TerminalChatView<ModelKey: View>: View {
                 .layoutPriority(1)
         }
         .background(ground)
-        .chromeScope()
         .task { await chat.watch() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat")

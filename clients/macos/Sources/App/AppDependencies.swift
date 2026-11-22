@@ -25,6 +25,10 @@ final class AppDependencies {
     var inviteCopies = 0
     @ObservationIgnored var projectWorkspaces: [String: ProjectWorkspace] = [:]
     var reportedVisible: VisibleReport?
+    var systemDark = false
+    var themePreference = ThemePreference.system
+    @ObservationIgnored var reportedLook: TerminalLook?
+    @ObservationIgnored var appearanceWatch: NSKeyValueObservation?
     var restoreAsked = false
     var hostForeground = false
     var isFront: () -> Bool = { NSApp?.isActive == true }
@@ -231,6 +235,7 @@ final class AppDependencies {
         account.endSignIn()
         terminalNotifications.clear()
         presence.disconnected()
+        reportedLook = nil
         activationTasks.values.forEach { $0.cancel() }
         activationTasks.removeAll()
         for session in sessions {

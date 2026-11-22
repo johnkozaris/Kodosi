@@ -117,6 +117,7 @@ private struct TerminalScreenContent: View {
                             addingFile = true
                         },
                 )
+                .terminalScope(session.terminalLook)
             }
         }
         .background(theme.colors.surface)
@@ -290,12 +291,18 @@ private struct TerminalScreenContent: View {
                         .allowsHitTesting(false)
                 }
             }
-            .terminalScope()
+            .terminalScope(look(of: session))
             .animation(theme.motion.soft, value: liveKey)
             .animation(theme.motion.spring, value: waitsForConnection(session))
             .animation(theme.motion.soft, value: controller.sizeNote)
             .animation(theme.motion.spring, value: controller.picture == nil)
             .animation(theme.motion.spring, value: arrival)
+    }
+
+    /// The screen is the terminal's, and the chat face, full screen without a tile, is the app's.
+    private func look(of session: RuntimeSession?) -> TerminalLook {
+        guard let session, !(chatting && session.isConnected) else { return theme.isDark ? .dark : .light }
+        return session.terminalLook
     }
 
     private func waitsForConnection(_ session: RuntimeSession?) -> Bool {

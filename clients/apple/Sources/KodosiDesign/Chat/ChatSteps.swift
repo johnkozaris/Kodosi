@@ -258,23 +258,13 @@ struct ChatStepDetail: View {
     }
 }
 
-/// Code that a step ran and what it printed, in a small terminal: dark in both appearances, as
-/// terminals are. What a command printed starts at its end, where a result or a fault is.
+/// Code that a step ran and what it printed, sunk into the chat that shows it. What a command
+/// printed starts at its end, where a result or a fault is.
 struct CodeTile: View {
+    @Environment(\.theme) private var theme
     let text: String
     var output = ""
     var most: CGFloat = 180
-
-    var body: some View {
-        CodeTileFace(text: text, output: output, most: most).terminalScope()
-    }
-}
-
-private struct CodeTileFace: View {
-    @Environment(\.theme) private var theme
-    let text: String
-    let output: String
-    let most: CGFloat
 
     var body: some View {
         ScrollView {
@@ -291,21 +281,12 @@ private struct CodeTileFace: View {
         }
         .defaultScrollAnchor(output.isEmpty ? .top : .bottom)
         .frame(maxHeight: most).fixedSize(horizontal: false, vertical: true)
-        .background(theme.colors.terminal, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+        .well(Radius.md)
     }
 }
 
-/// The lines of a change to a file, as the agent sends them, in a small terminal.
+/// The lines of a change to a file, as the agent sends them, sunk into the chat that shows them.
 struct ChangeLines: View {
-    let lines: [ChangeLine]
-    let most: Int
-
-    var body: some View {
-        ChangeLinesFace(lines: lines, most: most).terminalScope()
-    }
-}
-
-private struct ChangeLinesFace: View {
     @Environment(\.theme) private var theme
     let lines: [ChangeLine]
     let most: Int
@@ -327,6 +308,6 @@ private struct ChangeLinesFace: View {
         .textSelection(.enabled)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(theme.colors.terminal, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+        .well(Radius.md)
     }
 }

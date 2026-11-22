@@ -53,7 +53,7 @@ struct SessionTileView: View {
             .background {
                 if !joinsCanvas {
                     UnevenRoundedRectangle(topLeadingRadius: radius, topTrailingRadius: radius, style: .continuous)
-                        .fill(theme.colors.raised.opacity(lit ? 0.75 : 0.45))
+                        .fill(theme.colors.band.mix(with: theme.colors.terminal, by: lit ? 0.15 : 0.5))
                 }
             }
             .contentShape(Rectangle()).onTapGesture(perform: select)

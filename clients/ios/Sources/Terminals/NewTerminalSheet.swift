@@ -136,7 +136,6 @@ struct NewTerminalSheet: View {
                 }
                 if let agent {
                     FirstPrompt(agent: agent, prompt: $draft.prompt, typing: $typing)
-                        .terminalScope()
                         .transition(.opacity)
                 }
                 if let projectId = draft.projectId, let project = model.projects.project(projectId) {

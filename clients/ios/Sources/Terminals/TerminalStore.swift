@@ -40,7 +40,7 @@ final class TerminalStore {
         live = TerminalSessionManager(
             runtimeHandle: runtime,
             commandSink: commands,
-            style: { TerminalAppearance.style },
+            style: { TerminalAppearance.style(look: $0) },
             onFocusResult: { sessionId, incarnation, requestId, accepted in
                 focus.applyResult(sessionId: sessionId, runtimeIncarnationId: incarnation, requestId: requestId, accepted: accepted)
             },

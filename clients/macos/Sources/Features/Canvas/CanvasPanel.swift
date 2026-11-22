@@ -45,6 +45,7 @@ struct CanvasStage<Terminal: View>: View {
     @Environment(\.theme) private var theme
     @Environment(\.tileRadius) private var radius
     let canvas: RuntimeSession?
+    let look: TerminalLook
     let front: String?
     @Binding var wide: Bool
     @Binding var width: CGFloat?
@@ -55,10 +56,11 @@ struct CanvasStage<Terminal: View>: View {
     @State private var shown: String?
     @State private var shownFront: String?
 
-    init(canvas: RuntimeSession?, front: String?, wide: Binding<Bool>, width: Binding<CGFloat?>, tab: CGRect? = nil,
-         always: Bool = false, hide: @escaping () -> Void, @ContentBuilder terminal: () -> Terminal)
+    init(canvas: RuntimeSession?, look: TerminalLook, front: String?, wide: Binding<Bool>, width: Binding<CGFloat?>,
+         tab: CGRect? = nil, always: Bool = false, hide: @escaping () -> Void, @ContentBuilder terminal: () -> Terminal)
     {
         self.canvas = canvas
+        self.look = look
         self.front = front
         _wide = wide
         _width = width
@@ -80,13 +82,13 @@ struct CanvasStage<Terminal: View>: View {
             let seam = zoomed ? 0 : size.width - pair.panel
             ZStack(alignment: .trailing) {
                 if open || always {
-                    CanvasBody(seam: seam, depth: beside && !zoomed ? CanvasBody.waist : 0, radius: radius, tab: tab)
+                    CanvasBody(look: look, seam: seam, depth: beside && !zoomed ? CanvasBody.waist : 0, radius: radius, tab: tab)
                         .transition(.modifier(active: Grow(part: tile.width / max(size.width, 1)), identity: Grow(part: 1)))
                 }
                 terminal
                     .environment(\.terminalJoined, open || always)
                     .transformEnvironment(\.terminalInteractionEnabled) { $0 = $0 && !zoomed }
-                    .modifier(ZoomedOut(part: zoomed ? 1 : 0, zoom: zoom, radius: radius,
+                    .modifier(ZoomedOut(part: zoomed ? 1 : 0, look: look, zoom: zoom, radius: radius,
                                         offset: CGSize(width: size.width - Self.corner - tile.width, height: -Self.corner),
                                         name: canvas?.name ?? "") { wide = false })
                     .padding(.trailing, beside ? pair.panel : 0)
@@ -100,7 +102,9 @@ struct CanvasStage<Terminal: View>: View {
                         .zIndex(1)
                 }
                 if beside, !zoomed {
-                    CanvasHandle(width: $width, current: pair.panel, widest: max(CanvasPair.narrowest, size.width - CanvasPair.narrowest)) {
+                    CanvasHandle(look: look, width: $width, current: pair.panel,
+                                 widest: max(CanvasPair.narrowest, size.width - CanvasPair.narrowest))
+                    {
                         wide = true
                     }
                     .padding(.trailing, pair.panel - CanvasHandle.reach / 2)
@@ -183,7 +187,7 @@ struct CanvasPanel: View {
             .chromeScope()
             .padding(.top, 3).padding([.horizontal, .bottom], 5)
         }
-        .terminalScope()
+        .terminalScope(session.terminalLook)
         .onHover { hovered = $0 }
         .animation(theme.motion.hover, value: hovered)
         .onChange(of: current, initial: true) { _, current in
@@ -361,6 +365,7 @@ private struct Grow: ViewModifier {
 private struct ZoomedOut: ViewModifier, Animatable {
     @Environment(\.theme) private var theme
     var part: Double
+    let look: TerminalLook
     let zoom: CGFloat
     let radius: CGFloat
     let offset: CGSize
@@ -381,7 +386,7 @@ private struct ZoomedOut: ViewModifier, Animatable {
             .accessibilityHidden(away)
             .background {
                 if away {
-                    CanvasBody(seam: .greatestFiniteMagnitude, depth: 0, radius: radius)
+                    CanvasBody(look: look, seam: .greatestFiniteMagnitude, depth: 0, radius: radius)
                 }
             }
             .overlay {
@@ -433,6 +438,7 @@ struct CanvasHandle: View {
     static let reach: CGFloat = 12
 
     @Environment(\.theme) private var theme
+    let look: TerminalLook
     @Binding var width: CGFloat?
     let current: CGFloat
     let widest: CGFloat
@@ -441,7 +447,7 @@ struct CanvasHandle: View {
     @State private var hovered = false
 
     var body: some View {
-        Capsule().fill(theme.colors.inkFaint.opacity(hovered || start != nil ? 0.7 : 0))
+        Capsule().fill(AppTheme(look: look).colors.inkFaint.opacity(hovered || start != nil ? 0.7 : 0))
             .frame(width: 3, height: 34)
             .frame(width: Self.reach).frame(maxHeight: .infinity)
             .padding(.top, CanvasBody.band)
@@ -455,7 +461,6 @@ struct CanvasHandle: View {
                 width = min(max(from - value.translation.width, CanvasPair.narrowest), widest)
             }.onEnded { _ in start = nil })
             .onTapGesture(count: 2, perform: widen)
-            .terminalScope()
             .accessibilityHidden(true)
     }
 }

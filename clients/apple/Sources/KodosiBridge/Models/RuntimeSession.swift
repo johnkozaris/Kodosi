@@ -51,6 +51,12 @@ public struct TerminalPlace: Decodable, Equatable, Sendable {
     public let name: String
 }
 
+/// The look of the terminals of a computer. Its programs pick their colors from it, so every
+/// device draws the computer's terminals in it.
+public enum TerminalLook: String, Decodable, Sendable {
+    case dark, light
+}
+
 public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public enum Kind: String, Decodable, Sendable { case local, remote }
     public enum Status: String, Decodable, Sendable { case running, reconnecting, offline, closing }
@@ -79,6 +85,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let canvas: Canvas?
     /// An agent of the terminal reports to the terminal's chat.
     public let chat: Bool?
+    private let look: TerminalLook?
     public let name: String
     public let workingDir: String?
     public let ownerUserId: String?
@@ -109,6 +116,10 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var reportsToChat: Bool {
         chat == true
+    }
+
+    public var terminalLook: TerminalLook {
+        look ?? .dark
     }
 
     public var needsUser: Bool {

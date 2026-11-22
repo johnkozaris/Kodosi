@@ -21,6 +21,11 @@ struct TilingStage: View {
         }
     }
 
+    /// A canvas goes with its terminal, which stays selected while the canvas closes.
+    private var canvasLook: TerminalLook {
+        (canvasSession ?? workbench.selectedSessionId.flatMap(deps.session))?.terminalLook ?? .dark
+    }
+
     var body: some View {
         if presentedSessionIds.isEmpty {
             StageOverview().transition(.opacity)
@@ -29,7 +34,7 @@ struct TilingStage: View {
                 }
         } else {
             let alone = workbench.focusedSessionId != nil || presentedSessionIds.count == 1
-            CanvasStage(canvas: canvasSession, front: workbench.focusedSessionId, wide: $workbench.canvasWide,
+            CanvasStage(canvas: canvasSession, look: canvasLook, front: workbench.focusedSessionId, wide: $workbench.canvasWide,
                         width: $workbench.canvasWidth)
             {
                 workbench.canvasSessionId.map(deps.canvas.closeCanvas)
@@ -56,7 +61,7 @@ struct TilingStage: View {
                         .opacity(visible ? 1 : 0).allowsHitTesting(visible).accessibilityHidden(!visible)
                         .environment(\.terminalTileVisible, visible)
                         .environment(\.terminalAlone, alone)
-                        .terminalScope()
+                        .terminalScope(session.terminalLook)
                         .overlay {
                             RoundedRectangle(cornerRadius: Radius.tile, style: .continuous)
                                 .strokeBorder(theme.colors.accent, lineWidth: 2)
