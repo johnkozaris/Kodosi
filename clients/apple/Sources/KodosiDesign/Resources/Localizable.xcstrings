@@ -4540,58 +4540,6 @@
         }
       }
     },
-    "Edits files on its own and asks before it runs commands." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bearbeitet Dateien selbstständig und fragt, bevor er Befehle ausführt."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edita archivos por su cuenta y pregunta antes de ejecutar comandos."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modifie les fichiers seul et demande avant d'exécuter des commandes."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modifica i file da solo e chiede prima di eseguire comandi."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ファイルは自分で編集し、コマンドを実行する前に確認します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "파일은 스스로 편집하고 명령을 실행하기 전에 물어봐요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自行编辑文件，运行命令前会询问。"
-          }
-        }
-      }
-    },
     "Failed" : {
       "localizations" : {
         "de" : {

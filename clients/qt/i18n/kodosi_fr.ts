@@ -58,10 +58,6 @@
         <translation>Travaille seul dans ce dossier et vous demande pour le reste.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Modifie les fichiers seul et demande avant d&apos;exécuter des commandes.</translation>
-    </message>
-    <message>
         <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
         <translation>Modifie les fichiers et exécute les commandes sûres seul, et demande avant ce qui ne peut pas être annulé.</translation>
     </message>
@@ -327,10 +323,6 @@
     <message>
         <source>Works in this folder on its own and asks you for the rest.</source>
         <translation>Travaille seul dans ce dossier et vous demande pour le reste.</translation>
-    </message>
-    <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Modifie les fichiers seul et demande avant d&apos;exécuter des commandes.</translation>
     </message>
     <message>
         <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>

@@ -58,10 +58,6 @@
         <translation>在此文件夹中自行工作，其余的会询问你。</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>自行编辑文件，运行命令前会询问。</translation>
-    </message>
-    <message>
         <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
         <translation>自行编辑文件并运行安全的命令，执行无法撤销的操作前会询问。</translation>
     </message>
@@ -327,10 +323,6 @@
     <message>
         <source>Works in this folder on its own and asks you for the rest.</source>
         <translation>在此文件夹中自行工作，其余的会询问你。</translation>
-    </message>
-    <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>自行编辑文件，运行命令前会询问。</translation>
     </message>
     <message>
         <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>

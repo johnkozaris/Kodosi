@@ -5022,9 +5022,6 @@
                         "const": "cursor"
                       },
                       {
-                        "const": "gemini"
-                      },
-                      {
                         "const": "opencode"
                       },
                       {
@@ -5486,9 +5483,6 @@
                       },
                       {
                         "const": "cursor"
-                      },
-                      {
-                        "const": "gemini"
                       },
                       {
                         "const": "opencode"
@@ -8571,9 +8565,6 @@
                 "const": "cursor"
               },
               {
-                "const": "gemini"
-              },
-              {
                 "const": "opencode"
               },
               {
@@ -8681,9 +8672,6 @@
                 "const": "cursor"
               },
               {
-                "const": "gemini"
-              },
-              {
                 "const": "opencode"
               },
               {
@@ -8760,9 +8748,6 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
-                          },
-                          {
                             "const": "opencode"
                           },
                           {
@@ -8810,9 +8795,6 @@
                       },
                       {
                         "const": "cursor"
-                      },
-                      {
-                        "const": "gemini"
                       },
                       {
                         "const": "opencode"
@@ -9464,9 +9446,6 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
-                          },
-                          {
                             "const": "opencode"
                           },
                           {
@@ -9514,9 +9493,6 @@
                       },
                       {
                         "const": "cursor"
-                      },
-                      {
-                        "const": "gemini"
                       },
                       {
                         "const": "opencode"
@@ -14782,9 +14758,6 @@
                               "const": "cursor"
                             },
                             {
-                              "const": "gemini"
-                            },
-                            {
                               "const": "opencode"
                             },
                             {
@@ -14908,9 +14881,6 @@
                                 "const": "cursor"
                               },
                               {
-                                "const": "gemini"
-                              },
-                              {
                                 "const": "opencode"
                               },
                               {
@@ -14950,9 +14920,6 @@
                                 },
                                 {
                                   "const": "cursor"
-                                },
-                                {
-                                  "const": "gemini"
                                 },
                                 {
                                   "const": "opencode"
@@ -15128,9 +15095,6 @@
                                 "const": "cursor"
                               },
                               {
-                                "const": "gemini"
-                              },
-                              {
                                 "const": "opencode"
                               },
                               {
@@ -15170,9 +15134,6 @@
                                 },
                                 {
                                   "const": "cursor"
-                                },
-                                {
-                                  "const": "gemini"
                                 },
                                 {
                                   "const": "opencode"
@@ -15387,9 +15348,6 @@
                             },
                             {
                               "const": "cursor"
-                            },
-                            {
-                              "const": "gemini"
                             },
                             {
                               "const": "opencode"
@@ -15609,9 +15567,6 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
-                          },
-                          {
                             "const": "opencode"
                           },
                           {
@@ -15651,9 +15606,6 @@
                             },
                             {
                               "const": "cursor"
-                            },
-                            {
-                              "const": "gemini"
                             },
                             {
                               "const": "opencode"
@@ -16132,9 +16084,6 @@
                         },
                         {
                           "const": "cursor"
-                        },
-                        {
-                          "const": "gemini"
                         },
                         {
                           "const": "opencode"
@@ -16673,9 +16622,6 @@
                             "const": "cursor"
                           },
                           {
-                            "const": "gemini"
-                          },
-                          {
                             "const": "opencode"
                           },
                           {
@@ -16715,9 +16661,6 @@
                             },
                             {
                               "const": "cursor"
-                            },
-                            {
-                              "const": "gemini"
                             },
                             {
                               "const": "opencode"

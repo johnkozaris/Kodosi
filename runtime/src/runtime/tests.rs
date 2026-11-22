@@ -3910,7 +3910,7 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
         line(Agent::Claude, "claude", None).unwrap(),
         "claude --resume"
     );
-    assert_eq!(line(Agent::Gemini, "gemini", Some(id)), None);
+    assert_eq!(line(Agent::Cursor, "cursor-agent", Some(id)), None);
     let zsh = crate::agents::Notes {
         shell: "/bin/zsh".into(),
         ..crate::agents::Notes::default()

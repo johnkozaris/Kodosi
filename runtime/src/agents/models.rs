@@ -37,17 +37,6 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
             cursor(run(facts, program, &["models"]).await.as_deref()),
             Vec::new(),
         ),
-        Agent::Gemini => (
-            fixed(
-                &[
-                    ("pro", "Pro"),
-                    ("flash", "Flash"),
-                    ("flash-lite", "Flash Lite"),
-                ],
-                agent,
-            ),
-            Vec::new(),
-        ),
         Agent::Opencode => (
             opencode(run(facts, program, &["models"]).await.as_deref()),
             Vec::new(),

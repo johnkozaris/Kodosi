@@ -37,18 +37,16 @@ pub enum Agent {
     Codex,
     Copilot,
     Cursor,
-    Gemini,
     Opencode,
     Antigravity,
 }
 
 impl Agent {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 6] = [
         Self::Claude,
         Self::Codex,
         Self::Copilot,
         Self::Cursor,
-        Self::Gemini,
         Self::Opencode,
         Self::Antigravity,
     ];
@@ -59,7 +57,6 @@ impl Agent {
             Self::Codex => "codex",
             Self::Copilot => "copilot",
             Self::Cursor => "cursor",
-            Self::Gemini => "gemini",
             Self::Opencode => "opencode",
             Self::Antigravity => "antigravity",
         }
@@ -75,7 +72,6 @@ impl Agent {
             Self::Codex => "codex",
             Self::Copilot => "copilot",
             Self::Cursor => "cursor-agent",
-            Self::Gemini => "gemini",
             Self::Opencode => "opencode",
             Self::Antigravity => "agy",
         }
@@ -87,7 +83,6 @@ impl Agent {
             Self::Codex => "Codex",
             Self::Copilot => "Copilot CLI",
             Self::Cursor => "Cursor",
-            Self::Gemini => "Gemini CLI",
             Self::Opencode => "OpenCode",
             Self::Antigravity => "Antigravity CLI",
         }
@@ -96,7 +91,7 @@ impl Agent {
     #[cfg(feature = "host")]
     pub(crate) const fn prompt_flag(self) -> Option<&'static str> {
         match self {
-            Self::Copilot | Self::Gemini | Self::Antigravity => Some("-i"),
+            Self::Copilot | Self::Antigravity => Some("-i"),
             Self::Opencode => Some("--prompt"),
             Self::Claude | Self::Codex | Self::Cursor => None,
         }
@@ -105,7 +100,7 @@ impl Agent {
     #[cfg(feature = "host")]
     pub(crate) const fn model_flag(self) -> &'static str {
         match self {
-            Self::Codex | Self::Gemini => "-m",
+            Self::Codex => "-m",
             Self::Claude | Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity => {
                 "--model"
             }
@@ -118,7 +113,7 @@ impl Agent {
             Self::Claude | Self::Antigravity => Some(("--effort", "")),
             Self::Codex => Some(("-c", "model_reasoning_effort=")),
             Self::Copilot => Some(("--reasoning-effort", "")),
-            Self::Cursor | Self::Gemini | Self::Opencode => None,
+            Self::Cursor | Self::Opencode => None,
         }
     }
 
@@ -140,9 +135,7 @@ impl Agent {
             }
             (Self::Copilot | Self::Cursor | Self::Opencode, Permissions::Ask) => Some(&[]),
             (Self::Copilot, Permissions::Auto) => Some(&["--assisted-approval"]),
-            (Self::Copilot | Self::Gemini, Permissions::Unrestricted) => Some(&["--yolo"]),
-            (Self::Gemini, Permissions::Ask) => Some(&["--approval-mode", "default"]),
-            (Self::Gemini, Permissions::Auto) => Some(&["--approval-mode", "auto_edit"]),
+            (Self::Copilot, Permissions::Unrestricted) => Some(&["--yolo"]),
             (Self::Cursor, Permissions::Unrestricted) => Some(&["--force"]),
             (Self::Opencode, Permissions::Auto) => Some(&["--auto"]),
             (Self::Antigravity, Permissions::Ask) => Some(&["--mode="]),
@@ -185,8 +178,7 @@ impl Agent {
             ]),
             (Self::Antigravity, Output::Quiet) => Some(&["--settings", ANTIGRAVITY_QUIET]),
             (Self::Antigravity, Output::Detailed) => Some(&["--settings", ANTIGRAVITY_DETAILED]),
-            (Self::Copilot, Output::Detailed)
-            | (Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
+            (Self::Copilot, Output::Detailed) | (Self::Cursor | Self::Opencode, _) => None,
         }
     }
 
@@ -200,10 +192,7 @@ impl Agent {
             (Self::Claude, false) => Some(&["--fast-mode", "off"]),
             (Self::Codex, true) => Some(&["-c", "service_tier=fast"]),
             (Self::Codex, false) => Some(&["-c", "service_tier=default"]),
-            (
-                Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode | Self::Antigravity,
-                _,
-            ) => None,
+            (Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity, _) => None,
         }
     }
 
@@ -302,11 +291,6 @@ impl Agent {
                 ("--allow-all-paths", None, Permissions),
                 ("--allow-all-urls", None, Permissions),
                 ("--assisted-approval", None, Permissions),
-            ],
-            Self::Gemini => &[
-                ("--approval-mode", Some(""), Permissions),
-                ("--yolo", None, Permissions),
-                ("-y", None, Permissions),
             ],
             Self::Cursor => &[
                 ("--force", None, Permissions),
@@ -441,7 +425,7 @@ impl Agent {
             }
             Self::Antigravity => antigravity_folder(&notes.folder)
                 .map(|folder| format!("{command} --add-dir {}", as_shell_word(shell, &folder))),
-            Self::Claude | Self::Cursor | Self::Gemini | Self::Opencode => None,
+            Self::Claude | Self::Cursor | Self::Opencode => None,
         };
         words.unwrap_or_else(|| command.to_owned())
     }
@@ -500,7 +484,7 @@ impl Agent {
                     .windows(2)
                     .any(|pair| pair[0] == "--add-dir" && pair[1] == folder)
             }),
-            Self::Claude | Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => true,
+            Self::Claude | Self::Copilot | Self::Cursor | Self::Opencode => true,
         };
         !has_note && !arguments.is_empty()
     }
@@ -511,7 +495,7 @@ impl Agent {
             Self::Claude => Some((".claude", "CLAUDE_CONFIG_DIR")),
             Self::Codex => Some((".codex", "CODEX_HOME")),
             Self::Copilot => Some((".copilot", "COPILOT_HOME")),
-            Self::Cursor | Self::Gemini | Self::Opencode | Self::Antigravity => None,
+            Self::Cursor | Self::Opencode | Self::Antigravity => None,
         }
     }
 

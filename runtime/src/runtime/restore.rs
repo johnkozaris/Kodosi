@@ -416,7 +416,7 @@ pub(super) fn resume_line(
         (Agent::Codex, Some(id)) => format!("resume {id}"),
         (Agent::Claude | Agent::Copilot, None) => "--resume".to_owned(),
         (Agent::Codex, None) => "resume".to_owned(),
-        (Agent::Cursor | Agent::Gemini | Agent::Opencode | Agent::Antigravity, _) => return None,
+        (Agent::Cursor | Agent::Opencode | Agent::Antigravity, _) => return None,
     };
     Some(format!("{command} {resume}"))
 }
