@@ -7,6 +7,11 @@ enum TerminalCatalog {
         sessions.filter { $0.needsUser && $0.canCall }
     }
 
+    /// The badge counts the waits that still have their notification, as each push does.
+    static func unseenWaits(_ sessions: [RuntimeSession]) -> Int {
+        sessions.count { $0.isOwner && $0.needsUser && $0.attention }
+    }
+
     static func newTerminal(on computer: SessionComputerGroup, online: [String]) -> NewTerminalRequest? {
         guard computer.owner == nil, let id = computer.computerId, online.contains(id) else { return nil }
         return NewTerminalRequest(computer: id)

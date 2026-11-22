@@ -20,6 +20,20 @@ struct TerminalCatalogTests {
         #expect(computers.flatMap(\.sessions).map(\.id) == ["notes", "build", "review"])
     }
 
+    @Test func `the badge counts only your waits that you did not see`() throws {
+        func marked(_ entry: [String: Any]) -> [String: Any] {
+            entry.merging(["attention": true]) { $1 }
+        }
+        let all = try sessions([
+            marked(terminalEntry("unseen", state: "blocked")),
+            terminalEntry("seen", state: "blocked"),
+            marked(terminalEntry("finished", state: "done")),
+            marked(terminalEntry("friends", state: "blocked", owner: false)),
+        ])
+        #expect(TerminalCatalog.needsYou(all).map(\.id) == ["unseen", "seen", "friends"])
+        #expect(TerminalCatalog.unseenWaits(all) == 1)
+    }
+
     @Test func `a friends terminal that waits counts only while you have it open`() throws {
         let all = try sessions([
             terminalEntry("closed", state: "blocked", owner: false, host: "Lab", connection: "offline"),
