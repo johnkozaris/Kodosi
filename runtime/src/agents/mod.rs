@@ -138,7 +138,7 @@ impl Agent {
             (Self::Copilot, Permissions::Unrestricted) => Some(&["--yolo"]),
             (Self::Cursor, Permissions::Unrestricted) => Some(&["--force"]),
             (Self::Opencode, Permissions::Auto) => Some(&["--auto"]),
-            (Self::Antigravity, Permissions::Ask) => Some(&["--mode="]),
+            (Self::Antigravity, Permissions::Ask) => Some(&["--settings", ANTIGRAVITY_ASK]),
             (Self::Antigravity, Permissions::Auto) => Some(&["--mode", "auto"]),
             (Self::Antigravity, Permissions::Unrestricted) => {
                 Some(&["--dangerously-skip-permissions"])
@@ -296,11 +296,10 @@ impl Agent {
                 ("--dangerously-skip-permissions", None, Permissions),
             ],
             Self::Antigravity => &[
-                ("--mode=", None, Permissions),
                 ("--mode", Some(""), Permissions),
                 ("--dangerously-skip-permissions", None, Permissions),
                 ("--sandbox", None, Permissions),
-                ("--settings", Some(r#"{"verbosity""#), Output),
+                ("--settings", Some("{"), Output),
             ],
         }
     }
@@ -382,8 +381,9 @@ impl Agent {
     /// a plugin only from its command line. `OpenCode` reads instructions only from its
     /// configuration, and `OpenCode` 2 reads that in its shared background server unless it runs
     /// with `--standalone`, so the configuration goes only to the program that Kodosi starts.
-    /// Antigravity CLI loads a plugin only from its own folders or from a folder that its command
-    /// line adds to the workspace.
+    /// Antigravity CLI loads a plugin only from its own folders or from a folder that its line adds
+    /// to its workspace, and it takes the first folder there as the one where it works, so it gets
+    /// no note.
     #[cfg(feature = "host")]
     pub(crate) fn with_context(self, command: &str, notes: &Notes) -> String {
         let shell = &notes.shell;
@@ -416,9 +416,7 @@ impl Agent {
                     format!("env {config} {command}{standalone}")
                 })
             }
-            Self::Antigravity => antigravity_folder(&notes.folder)
-                .map(|folder| format!("{command} --add-dir {}", as_shell_word(shell, &folder))),
-            Self::Claude | Self::Cursor | Self::Opencode => None,
+            Self::Claude | Self::Cursor | Self::Opencode | Self::Antigravity => None,
         };
         words.unwrap_or_else(|| command.to_owned())
     }
@@ -472,12 +470,9 @@ impl Agent {
                 opencode_config(&notes.folder)
                     .is_none_or(|config| variable == Some(config.as_str()))
             }
-            Self::Antigravity => antigravity_folder(&notes.folder).is_none_or(|folder| {
-                arguments
-                    .windows(2)
-                    .any(|pair| pair[0] == "--add-dir" && pair[1] == folder)
-            }),
-            Self::Claude | Self::Copilot | Self::Cursor | Self::Opencode => true,
+            Self::Claude | Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity => {
+                true
+            }
         };
         !has_note && !arguments.is_empty()
     }
@@ -531,8 +526,10 @@ const OPENCODE_CONFIG: &str = "OPENCODE_CONFIG_CONTENT";
 const CLAUDE_QUIET: &str = r#"{"viewMode":"focus","tui":"fullscreen","showThinkingSummaries":false,"spinnerTipsEnabled":false,"showTurnDuration":false,"prefersReducedMotion":true,"feedbackSurveyRate":0,"promptSuggestionEnabled":false}"#;
 #[cfg(feature = "host")]
 const CLAUDE_DETAILED: &str = r#"{"viewMode":"verbose","showThinkingSummaries":true}"#;
-/// Antigravity CLI takes only its last `--settings`, and `verbosity` comes first, because a running
-/// agent's output is read from the start of these settings.
+/// Antigravity CLI has no `--mode` for its mode that asks: with `--mode=` it starts in the
+/// account's own default, which is auto where Google offers auto.
+#[cfg(feature = "host")]
+const ANTIGRAVITY_ASK: &str = r#"{"agentMode":""}"#;
 #[cfg(feature = "host")]
 const ANTIGRAVITY_QUIET: &str =
     r#"{"verbosity":"low","showTips":false,"showFeedbackSurvey":false}"#;
@@ -555,8 +552,6 @@ const COPILOT_PLUGIN: &str = "copilot";
 /// Copilot names an extension of a plugin by the plugin's name and the extension's folder.
 #[cfg(feature = "host")]
 const COPILOT_EXTENSION: &str = "plugin:kodosi:kodosi";
-#[cfg(feature = "host")]
-const ANTIGRAVITY_FOLDER: &str = "antigravity";
 #[cfg(feature = "host")]
 const NOTE: &str = "kodosi.md";
 
@@ -616,7 +611,6 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
         crate::PRODUCT_VERSION
     );
     let cursor = folder.join(CURSOR_PLUGIN);
-    let antigravity = antigravity_plugin(folder);
     let skills = |plugin: &Path| {
         let skills = plugin.join("skills");
         [
@@ -663,10 +657,7 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
             cursor.join(".cursor-plugin").join("plugin.json"),
             manifest.clone(),
         ),
-        (
-            folder.join(COPILOT_PLUGIN).join("plugin.json"),
-            manifest.clone(),
-        ),
+        (folder.join(COPILOT_PLUGIN).join("plugin.json"), manifest),
         (
             folder
                 .join(COPILOT_PLUGIN)
@@ -679,16 +670,10 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
             cursor.join("rules").join("kodosi.mdc"),
             format!("---\nalwaysApply: true\n---\n\n{}\n", CONTEXT.trim()),
         ),
-        (antigravity.join("plugin.json"), manifest),
-        (
-            antigravity.join("rules").join("AGENTS.md"),
-            format!("{}\n", CONTEXT.trim()),
-        ),
     ]
     .into_iter()
     .chain(skills(&plugin))
-    .chain(skills(&cursor))
-    .chain(skills(&antigravity));
+    .chain(skills(&cursor));
     for (file, text) in files {
         if std::fs::read_to_string(&file).is_ok_and(|current| current == text) {
             continue;
@@ -822,23 +807,33 @@ fn cursor_plugin(notes: &Path) -> Option<String> {
     plugin.to_str().map(str::to_owned)
 }
 
-/// The folder that Antigravity CLI adds to its workspace, with Kodosi's plugin in it.
+/// Antigravity CLI takes only its last `--settings`, so the settings of its permissions and of its
+/// output go to it as one object.
 #[cfg(feature = "host")]
-fn antigravity_folder(notes: &Path) -> Option<String> {
-    antigravity_plugin(notes)
-        .join("plugin.json")
-        .is_file()
-        .then(|| notes.join(ANTIGRAVITY_FOLDER).to_str().map(str::to_owned))
-        .flatten()
-}
-
-#[cfg(feature = "host")]
-fn antigravity_plugin(notes: &Path) -> std::path::PathBuf {
-    notes
-        .join(ANTIGRAVITY_FOLDER)
-        .join(".agents")
-        .join("plugins")
-        .join("kodosi")
+fn one_settings(words: Vec<String>) -> Vec<String> {
+    if words.iter().filter(|word| *word == "--settings").count() < 2 {
+        return words;
+    }
+    let mut merged = serde_json::Map::new();
+    let mut kept = Vec::with_capacity(words.len());
+    let mut words = words.into_iter();
+    while let Some(word) = words.next() {
+        if word == "--settings"
+            && let Some(value) = words.next()
+        {
+            match serde_json::from_str(&value) {
+                Ok(serde_json::Value::Object(settings)) => merged.extend(settings),
+                _ => kept.extend([word, value]),
+            }
+        } else {
+            kept.push(word);
+        }
+    }
+    if !merged.is_empty() {
+        kept.push("--settings".to_owned());
+        kept.push(serde_json::Value::Object(merged).to_string());
+    }
+    kept
 }
 
 #[cfg(feature = "host")]

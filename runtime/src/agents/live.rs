@@ -310,9 +310,13 @@ impl Agent {
             Self::Copilot if has(&["--assisted-approval"]) => Some(Permissions::Auto),
             Self::Cursor if has(&["--force", "-f", "--yolo"]) => Some(Permissions::Unrestricted),
             Self::Antigravity => match value("--mode") {
-                Some("") => Some(Permissions::Ask),
                 Some("auto") => Some(Permissions::Auto),
-                _ => None,
+                Some(_) => None,
+                None => match antigravity_setting(arguments, "agentMode").as_deref() {
+                    Some("") => Some(Permissions::Ask),
+                    Some("auto") => Some(Permissions::Auto),
+                    _ => None,
+                },
             },
             Self::Opencode if has(&["--auto"]) => Some(Permissions::Auto),
             Self::Opencode if has(&["--yolo", "--dangerously-skip-permissions"]) => None,
@@ -339,14 +343,22 @@ impl Agent {
                     Some(Output::Standard)
                 }
             }
-            Self::Antigravity => match last_value(arguments, "--settings", r#"{"verbosity""#) {
-                Some(settings) if settings.contains(r#""low""#) => Some(Output::Quiet),
-                Some(settings) if settings.contains(r#""high""#) => Some(Output::Detailed),
+            Self::Antigravity => match antigravity_setting(arguments, "verbosity").as_deref() {
+                Some("low") => Some(Output::Quiet),
+                Some("high") => Some(Output::Detailed),
                 _ => Some(Output::Standard),
             },
             Self::Copilot | Self::Cursor | Self::Opencode => None,
         }
     }
+}
+
+/// A setting of the last `--settings` of Antigravity CLI's line, the only one that it takes.
+#[cfg(feature = "host")]
+fn antigravity_setting(arguments: &[String], name: &str) -> Option<String> {
+    let settings = last_value(arguments, "--settings", "{")?;
+    let settings = serde_json::from_str::<serde_json::Value>(settings).ok()?;
+    settings.get(name)?.as_str().map(str::to_owned)
 }
 
 #[cfg(feature = "host")]
