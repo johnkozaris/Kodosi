@@ -122,7 +122,6 @@ struct TerminalSizeNote: View {
             Text(note)
                 .appTextStyle(.footnote)
                 .foregroundStyle(theme.colors.ink)
-                .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
             Button("Resize here", action: resize)
