@@ -207,49 +207,47 @@ fn a_programs_notification_sounds_where_its_person_can_be_and_only_lists_where_n
     assert_eq!(noted(Presence::Away, nowhere, 90_000), Cue::List);
 }
 
-fn seen_in(attention: &mut Attention, id: &str, wait: Waiting, start: Instant) {
+fn starts(attention: &mut Attention, id: &str, start: Instant) {
     attention.observe(id, None, true, false, start);
-    attention.observe(id, Some(wait), true, true, start);
-    assert!(!attention.settle(after(start, 2000), &BTreeSet::new()));
+    attention.observe(id, Some(Waiting::Blocked), true, false, start);
+    assert!(attention.settle(after(start, 2000), &nobody()));
+    attention.take_started();
 }
 
 #[test]
-fn a_wait_that_its_person_saw_follows_the_person_who_leaves() {
+fn a_mark_calls_once_on_a_device_however_often_its_person_comes_and_goes() {
     let mut attention = Attention::default();
     let start = Instant::now();
-    let (waits, done, answered) = (ID, "done", "answered");
-    seen_in(&mut attention, waits, Waiting::Blocked, start);
-    seen_in(&mut attention, done, Waiting::Done, start);
-    seen_in(&mut attention, answered, Waiting::Blocked, start);
-    attention.observe(answered, None, true, false, after(start, 3000));
+    let (sign_only, told) = (ID, "told");
     let app = Uuid::now_v7();
     attention.present(app, Presence::Kodosi, CancellationToken::new());
     assert!(!attention.left());
+    starts(&mut attention, sign_only, start);
+    assert_eq!(attention.call(sign_only, Waiting::Blocked, start), None);
+    attention.present(app, Presence::Here, CancellationToken::new());
+    starts(&mut attention, told, after(start, 3000));
+    assert_eq!(
+        attention.call(told, Waiting::Blocked, after(start, 5000)),
+        Some(Cue::Sound)
+    );
 
     attention.present(app, Presence::Idle, CancellationToken::new());
     assert!(attention.left());
-    assert!(attention.mark_seen_waits(&BTreeSet::new()));
-    assert!(attention.marked(waits));
-    assert!(!attention.marked(done) && !attention.marked(answered));
     assert_eq!(
-        attention.call_waits(after(start, 4000)),
-        [(waits.to_owned(), Cue::Sound)]
+        attention.call_waits(after(start, 40_000)),
+        [(sign_only.to_owned(), Cue::Sound)]
     );
-    assert_eq!(attention.call_waits(after(start, 5000)), Vec::new());
-    assert!(!attention.left());
-
-    attention.hear_elsewhere(Elsewhere {
-        kodosi: false,
-        here: true,
-    });
-    assert!(!attention.left());
-    attention.present(app, Presence::Away, CancellationToken::new());
-    attention.hear_elsewhere(Elsewhere::default());
-    assert!(attention.left());
-    assert_eq!(
-        attention.call_waits(after(start, 6000)),
-        [(waits.to_owned(), Cue::List)]
-    );
+    for (back, away) in [
+        (Presence::Here, Presence::Away),
+        (Presence::Kodosi, Presence::Idle),
+    ] {
+        attention.present(app, back, CancellationToken::new());
+        assert!(!attention.left());
+        attention.present(app, away, CancellationToken::new());
+        assert!(attention.left());
+        assert_eq!(attention.call_waits(after(start, 80_000)), Vec::new());
+    }
+    assert!(attention.marked(sign_only) && attention.marked(told));
 }
 
 #[test]

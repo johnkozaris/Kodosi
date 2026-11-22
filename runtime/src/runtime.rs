@@ -1591,14 +1591,10 @@ impl Runtime {
         }
     }
 
-    /// The marks go to the terminal list and the status first, so that an app has the state that
-    /// a call is about.
-    fn leave(&mut self, watched: &BTreeSet<String>) {
+    fn leave(&mut self) {
         if !self.attention.left() {
             return;
         }
-        self.attention.mark_seen_waits(watched);
-        self.publish_catalog();
         let now = tokio::time::Instant::now();
         for (id, cue) in self.attention.call_waits(now) {
             self.emit(json!({"type":"term.attention", "sessionId":id, "cue":cue}));
@@ -1629,8 +1625,8 @@ impl Runtime {
         if let Some(presence) = self.attention.changed_presence() {
             self.network.inner.link.present(presence);
         }
+        self.leave();
         let watched = self.watched();
-        self.leave(&watched);
         let now = tokio::time::Instant::now();
         let ended = self.attention.look(&watched);
         if self.attention.settle(now, &watched) || ended {
@@ -3039,8 +3035,7 @@ impl Runtime {
             match serde_json::from_value::<crate::network::Elsewhere>(event.event) {
                 Ok(elsewhere) if heard => {
                     self.attention.hear_elsewhere(elsewhere);
-                    let watched = self.watched();
-                    self.leave(&watched);
+                    self.leave();
                 }
                 Ok(_) => self.attention.lose_elsewhere(),
                 Err(error) => tracing::warn!(%error, "a presence notice was unreadable"),

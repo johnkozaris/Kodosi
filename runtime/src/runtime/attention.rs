@@ -40,7 +40,6 @@ pub(super) struct Attention {
 struct Kept {
     wait: Option<Waiting>,
     since: Instant,
-    calls: bool,
     look: Look,
 }
 
@@ -52,7 +51,7 @@ enum Look {
     Settling,
     Seen,
     Marked {
-        called_absent: bool,
+        called: bool,
     },
 }
 
@@ -74,7 +73,7 @@ struct Reported {
     wait: Option<Waiting>,
     marked: bool,
     told: Option<Instant>,
-    called_absent: bool,
+    called: bool,
 }
 
 struct Client {
@@ -112,7 +111,7 @@ impl Attention {
         now: Instant,
     ) {
         match self.kept.get_mut(id) {
-            Some(kept) if kept.wait == wait => kept.calls = calls,
+            Some(kept) if kept.wait == wait => {}
             Some(kept) => {
                 let look = if wait.is_none() || !calls {
                     Look::Quiet
@@ -124,7 +123,6 @@ impl Attention {
                 *kept = Kept {
                     wait,
                     since: now,
-                    calls,
                     look,
                 };
             }
@@ -134,7 +132,6 @@ impl Attention {
                     Kept {
                         wait,
                         since: now,
-                        calls,
                         look: Look::Quiet,
                     },
                 );
@@ -154,9 +151,7 @@ impl Attention {
             if watched.contains(id) {
                 kept.look = Look::Seen;
             } else {
-                kept.look = Look::Marked {
-                    called_absent: false,
-                };
+                kept.look = Look::Marked { called: false };
                 self.started.push((id.clone(), wait));
                 started = true;
             }
@@ -214,8 +209,7 @@ impl Attention {
             .reported
             .get(id)
             .filter(|before| marked && before.marked && before.wait == wait);
-        let (told, called_absent) =
-            before.map_or((None, false), |before| (before.told, before.called_absent));
+        let (told, called) = before.map_or((None, false), |before| (before.told, before.called));
         if let Some(wait) = wait.filter(|_| marked && before.is_none() && live) {
             self.started.push((id.to_owned(), wait));
         }
@@ -225,7 +219,7 @@ impl Attention {
                 wait,
                 marked,
                 told,
-                called_absent,
+                called,
             },
         );
     }
@@ -326,18 +320,6 @@ impl Attention {
     pub(super) fn left(&mut self) -> bool {
         let present = self.person_present();
         let was = std::mem::replace(&mut self.present, present);
-        if present && !was {
-            for kept in self.kept.values_mut() {
-                if kept.marked() {
-                    kept.look = Look::Marked {
-                        called_absent: false,
-                    };
-                }
-            }
-            for reported in self.reported.values_mut() {
-                reported.called_absent = false;
-            }
-        }
         was && !present
     }
 
@@ -357,26 +339,7 @@ impl Attention {
         self.listed = None;
     }
 
-    /// A wait that its person saw and did not answer tells the person again when the person
-    /// stops using every device.
-    pub(super) fn mark_seen_waits(&mut self, watched: &BTreeSet<String>) -> bool {
-        let mut marked = false;
-        for (id, kept) in &mut self.kept {
-            if kept.wait == Some(Waiting::Blocked)
-                && kept.calls
-                && kept.look == Look::Seen
-                && !watched.contains(id)
-            {
-                kept.look = Look::Marked {
-                    called_absent: false,
-                };
-                marked = true;
-            }
-        }
-        marked
-    }
-
-    /// The waits that the person leaves behind call again, each once in an absence.
+    /// A wait that showed only its sign while its person used Kodosi calls when the person leaves.
     pub(super) fn call_waits(&mut self, now: Instant) -> Vec<(String, Cue)> {
         let Some(can_be_here) = self.shows() else {
             return Vec::new();
@@ -384,21 +347,14 @@ impl Attention {
         let blocked = Some(Waiting::Blocked);
         let mut waits = Vec::new();
         for (id, kept) in &mut self.kept {
-            if kept.wait == blocked
-                && kept.look
-                    == (Look::Marked {
-                        called_absent: false,
-                    })
-            {
-                kept.look = Look::Marked {
-                    called_absent: true,
-                };
+            if kept.wait == blocked && kept.look == (Look::Marked { called: false }) {
+                kept.look = Look::Marked { called: true };
                 waits.push(id.clone());
             }
         }
         for (id, reported) in &mut self.reported {
-            if reported.wait == blocked && reported.marked && !reported.called_absent {
-                reported.called_absent = true;
+            if reported.wait == blocked && reported.marked && !reported.called {
+                reported.called = true;
                 waits.push(id.clone());
             }
         }
@@ -426,15 +382,11 @@ impl Attention {
             return None;
         }
         let can_be_here = self.shows()?;
-        if !self.person_present() {
-            if let Some(kept) = self.kept.get_mut(id).filter(|kept| kept.marked()) {
-                kept.look = Look::Marked {
-                    called_absent: true,
-                };
-            }
-            if let Some(reported) = self.reported.get_mut(id) {
-                reported.called_absent = true;
-            }
+        if let Some(kept) = self.kept.get_mut(id).filter(|kept| kept.marked()) {
+            kept.look = Look::Marked { called: true };
+        }
+        if let Some(reported) = self.reported.get_mut(id) {
+            reported.called = true;
         }
         Some(self.cue(can_be_here, wait == Waiting::Blocked, now))
     }
