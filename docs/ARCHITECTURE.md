@@ -75,10 +75,11 @@ uses another app on a computer, the runtime of that computer shows a notificatio
 person who uses none of the devices, the backend sends a push notification to the phones,
 with a sound only for a terminal that waits. It waits a short time first, and a computer
 whose screen is still on shows its notification before, so that a person who only gave no
-input for a while can answer there. A terminal that still waits when its owner stops using
-every device gets its mark again and tells the owner again. When the owner looks at the
-terminal on one device, its host removes the mark, and the notification leaves every
-device.
+input for a while can answer there. A wait that still has its mark when its owner stops
+using every device goes to the phones then, and a computer that did not show it yet shows
+it. Each device shows a mark once. When the owner looks at the terminal on one device, its
+host removes the mark, the notification leaves every device, and that state does not tell
+the owner again.
 
 A device can call another computer of the same person. The call is an end-to-end
 encrypted channel like a view, but to the host itself, which answers the launcher's
