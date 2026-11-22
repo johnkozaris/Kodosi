@@ -504,13 +504,11 @@ async fn relay(
     let (events, waiting) = mpsc::channel::<Value>(MOST_WAITING);
     let (commands_in, mut commands) = mpsc::channel::<Value>(MOST_WAITING);
     let (decided, mut decisions) = mpsc::channel::<(Value, Value)>(MOST_WAITING);
-    let posting = tokio::spawn(post(Arc::clone(&link), waiting, lost.clone()));
+    let posting = tokio::spawn(post(Arc::clone(&link), waiting, decided, lost.clone()));
     let polling = tokio::spawn(poll(Arc::clone(&link), commands_in, lost.clone()));
     let mut relay = Relay {
         server,
-        link,
         events,
-        decided,
         open: Open::default(),
     };
     relay.open.show();
@@ -569,9 +567,7 @@ async fn relay(
 
 struct Relay {
     server: Server,
-    link: Arc<Link>,
     events: mpsc::Sender<Value>,
-    decided: mpsc::Sender<(Value, Value)>,
     open: Open,
 }
 
@@ -595,16 +591,8 @@ impl Relay {
 
     async fn heard(&mut self, message: &Value, typed: &mut Typed) -> Option<Ended> {
         let heard = hear(&mut self.open, message);
-        if let Some(id) = heard.ask
-            && let Some(ask) = ask_name(&id)
-        {
-            self.open.requests.insert(ask.clone());
-            tokio::spawn(wait_for_decision(
-                Arc::clone(&self.link),
-                id,
-                ask,
-                self.decided.clone(),
-            ));
+        if let Some(ask) = heard.ask.as_ref().and_then(ask_name) {
+            self.open.requests.insert(ask);
         }
         if let Some(id) = heard.refuse {
             let refusal = json!({
@@ -768,7 +756,13 @@ fn call(open: &mut Open, command: &Value) -> Value {
 }
 
 /// Gives the chat what the server says, in order. A chat that no longer follows this link ends it.
-async fn post(link: Arc<Link>, mut waiting: mpsc::Receiver<Value>, lost: CancellationToken) {
+/// The chat has a request of the server before the link waits for a person's decision of it.
+async fn post(
+    link: Arc<Link>,
+    mut waiting: mpsc::Receiver<Value>,
+    decided: mpsc::Sender<(Value, Value)>,
+    lost: CancellationToken,
+) {
     let mut batch = 1u64;
     while let Some(first) = waiting.recv().await {
         let mut events = vec![first];
@@ -778,6 +772,11 @@ async fn post(link: Arc<Link>, mut waiting: mpsc::Receiver<Value>, lost: Cancell
                 Err(_) => break,
             }
         }
+        let requests = events
+            .iter()
+            .filter(|event| event["k"] == "request")
+            .filter_map(|event| Some((event["id"].clone(), ask_name(&event["id"])?)))
+            .collect::<Vec<_>>();
         batch += 1;
         let heard = link
             .call("/v1/events", json!({"batch": batch, "events": events}))
@@ -785,6 +784,14 @@ async fn post(link: Arc<Link>, mut waiting: mpsc::Receiver<Value>, lost: Cancell
         if !heard.is_ok_and(|(status, _)| status == 204) {
             lost.cancel();
             return;
+        }
+        for (id, ask) in requests {
+            tokio::spawn(wait_for_decision(
+                Arc::clone(&link),
+                id,
+                ask,
+                decided.clone(),
+            ));
         }
     }
 }
