@@ -330,6 +330,7 @@
 "macOS lets only apps with Full Disk Access read the sign-ins of {name}.": "macOS では、フルディスクアクセスを持つアプリだけが {name} のサインイン情報を読み取れます。",
 "{computer} is offline.": "{computer} はオフラインです。",
 "{computer} is online.": "{computer} はオンラインです。",
+"{name} could not be moved to the trash, so it stays in its folder.": "{name} をゴミ箱に入れられなかったため、元のフォルダに残っています。",
 "{name} could not be read.": "{name} を読み込めませんでした。",
 "{name} could not be saved.": "{name} を保存できませんでした。",
 "{name} did not give Kodosi the key of its sign-ins.": "{name} がサインイン情報の鍵を Kodosi に渡しませんでした。",

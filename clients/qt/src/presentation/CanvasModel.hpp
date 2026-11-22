@@ -87,6 +87,8 @@ public:
     Q_INVOKABLE void closeCanvas(const QString& sessionId);
     [[nodiscard]] bool isShut(const QString& sessionId) const;
     Q_INVOKABLE void remove(const QString& sessionId, const QString& key);
+    Q_INVOKABLE void removeAll(const QString& sessionId);
+    Q_INVOKABLE void trash(const QString& sessionId, const QString& key);
     Q_INVOKABLE [[nodiscard]] QString question(const QString& sessionId, const QString& key, const QString& words) const;
     Q_INVOKABLE void follow(const QString& sessionId, const QUrl& link);
 

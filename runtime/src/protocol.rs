@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 104;
+pub const VERSION: u32 = 105;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;

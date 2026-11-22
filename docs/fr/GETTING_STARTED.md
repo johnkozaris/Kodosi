@@ -161,6 +161,9 @@ change, avec Ouvrir.
   cellule du même fichier y mène directement.
 - Sélectionnez des mots sur une page ou dans un document, puis Poser une question. Kodosi tape
   le fichier et les mots dans le terminal, et vous écrivez la question.
+- Faites un clic droit sur l'onglet d'un fichier, ou touchez-le longuement sur un téléphone,
+  pour enregistrer une copie, retirer le fichier ou tous les fichiers du canvas, ou placer
+  le fichier dans la corbeille de l'ordinateur où tourne le terminal.
 - Cliquez et tapez dans le navigateur partagé comme dans le vôtre. L'agent voit les mêmes
   pages et les mêmes connexions, et sa prochaine commande lui indique que vous avez utilisé le
   navigateur. Après 10 minutes sans utilisation, le navigateur s'endort, et il rouvre sa

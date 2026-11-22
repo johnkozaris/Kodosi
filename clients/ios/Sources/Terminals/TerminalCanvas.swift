@@ -213,7 +213,19 @@ struct CanvasScreen: View {
         if session.canControl, session.agent.isAgent {
             Button(session.askTitle, systemImage: "text.bubble") { ask(about: .item(item), words: nil, in: session) }
         }
+        Divider()
         Button("Remove from Canvas", systemImage: "xmark", role: .destructive) { remove([item.key], from: session) }
+        if (session.canvas?.files.count ?? 0) > 1 {
+            Button("Remove All from Canvas", systemImage: "xmark", role: .destructive) {
+                perform { try await store.removeAll(in: session.id) }
+            }
+        }
+        if !item.missing {
+            Divider()
+            Button("Move to Trash", systemImage: "trash", role: .destructive) {
+                perform { try await store.trash(item, in: session.id) }
+            }
+        }
     }
 
     private func ask(_ current: CanvasShown, in session: RuntimeSession) -> CanvasAsk? {
@@ -265,9 +277,13 @@ struct CanvasScreen: View {
     }
 
     private func remove(_ keys: [String], from session: RuntimeSession) {
+        perform { try await store.remove(keys, in: session.id) }
+    }
+
+    private func perform(_ work: @escaping () async throws -> Void) {
         Task {
             do {
-                try await store.remove(keys, in: session.id)
+                try await work()
             } catch { model.notices.show(error) }
         }
     }

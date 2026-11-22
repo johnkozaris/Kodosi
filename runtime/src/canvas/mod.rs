@@ -209,8 +209,13 @@ pub enum CanvasRequest {
         revision: u64,
         offset: u64,
     },
+    /// No key takes every file off.
     Remove {
         keys: Vec<String>,
+    },
+    /// The file goes to the trash of the terminal's computer, and off the canvas.
+    Trash {
+        key: String,
     },
     Attach {
         upload: String,
@@ -320,7 +325,7 @@ impl CanvasBrowser {
 impl CanvasRequest {
     pub(crate) fn is_valid(&self) -> bool {
         match self {
-            Self::Read { key, .. } => bounded(key, MOST_KEY),
+            Self::Read { key, .. } | Self::Trash { key } => bounded(key, MOST_KEY),
             Self::Remove { keys } => {
                 keys.len() <= MOST_ITEMS && keys.iter().all(|key| bounded(key, MOST_KEY))
             }

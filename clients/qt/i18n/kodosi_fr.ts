@@ -717,6 +717,14 @@
         <translation>Retirer du canvas</translation>
     </message>
     <message>
+        <source>Remove all from canvas</source>
+        <translation>Tout retirer du canvas</translation>
+    </message>
+    <message>
+        <source>Move to trash</source>
+        <translation>Placer dans la corbeille</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>Le fichier est introuvable</translation>
     </message>

@@ -132,6 +132,7 @@ impl CanvasHandle {
             folder: current_folder,
             own_jobs: jobs.downgrade(),
             sharing,
+            documents: services.documents.clone(),
             browsers: services.browsers,
             agent_browser: services.agent_browser,
             browser: None,
@@ -348,6 +349,7 @@ struct Actor {
     folder: watch::Receiver<PathBuf>,
     own_jobs: mpsc::WeakSender<Job>,
     sharing: watch::Receiver<bool>,
+    documents: DocumentHost,
     browsers: BrowserHost,
     agent_browser: PathBuf,
     browser: Option<(Arc<Browser>, watch::Receiver<CanvasBrowser>)>,
@@ -650,6 +652,10 @@ impl Actor {
                 self.publish();
                 drop(reply.send(Ok(CanvasAnswer::Done)));
             }
+            CanvasRequest::Trash { key } => {
+                let answer = self.trash(key).await;
+                drop(reply.send(answer));
+            }
             CanvasRequest::Attach {
                 upload,
                 name,
@@ -679,6 +685,27 @@ impl Actor {
                 tokio::spawn(async move { drop(reply.send(browser.act(action).await)) });
             }
         }
+    }
+
+    /// The file leaves the canvas first, so its views go before its document closes.
+    async fn trash(&mut self, key: String) -> Result<CanvasAnswer, Text> {
+        let (path, name) = self
+            .files
+            .take(&key)
+            .ok_or_else(|| text!("This item is no longer on the canvas."))?;
+        self.publish();
+        self.documents.close_for_removal(&path).await;
+        let moved = tokio::task::spawn_blocking(move || kodosi_os::fs::move_to_trash(&path))
+            .await
+            .unwrap_or_else(|stopped| Err(std::io::Error::other(stopped)));
+        if let Err(problem) = moved {
+            tracing::warn!(%problem, "a file of the canvas did not go to the trash");
+            return Err(text!(
+                "{name} could not be moved to the trash, so it stays in its folder.",
+                name = &name
+            ));
+        }
+        Ok(CanvasAnswer::Done)
     }
 
     async fn attach(&mut self, part: Part<'_>) -> Result<CanvasAnswer, Text> {

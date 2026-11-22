@@ -153,6 +153,9 @@ terminale, e un banner indica cosa l'agente mostra o cambia, con Apri.
   a una slide o a una cella dello stesso file porta lì.
 - Seleziona delle parole in una pagina o in un documento, poi scegli «Fai una domanda su questo». Kodosi scrive
   il file e le parole nel terminale, e tu scrivi la domanda.
+- Fai clic destro sulla scheda di un file, o tienila premuta su un telefono, per salvare una
+  copia, rimuovere il file o tutti i file dal canvas, o spostare il file nel cestino del
+  computer su cui gira il terminale.
 - Clicca e scrivi nel browser condiviso come nel tuo. L'agente vede le stesse pagine e gli
   stessi accessi, e il suo prossimo comando gli dice che hai usato il browser. Dopo 10 minuti
   senza uso il browser va in sospensione, e riapre la sua ultima pagina quando lo guardi o

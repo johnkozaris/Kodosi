@@ -286,6 +286,8 @@
     <string name="save_copy">Guardar una copia…</string>
     <string name="ask_about_this">Preguntar sobre esto</string>
     <string name="remove_from_canvas">Quitar del lienzo</string>
+    <string name="remove_all_from_canvas">Quitar todo del lienzo</string>
+    <string name="move_to_trash">Mover a la papelera</string>
     <string name="file_too_large">El lienzo admite archivos de hasta 32 MB.</string>
     <string name="file_unavailable">Este archivo no está disponible.</string>
     <string name="uploading">Enviando archivo</string>

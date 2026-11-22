@@ -433,6 +433,15 @@ public final class CanvasStore {
         _ = try await ask(session, .object(["type": .string("remove"), "keys": .array(keys.map(JSONValue.string))]))
     }
 
+    /// To the canvas, no key names every file.
+    public func removeAll(in session: String) async throws {
+        try await remove([], in: session)
+    }
+
+    public func trash(_ item: CanvasItem, in session: String) async throws {
+        _ = try await ask(session, .object(["type": .string("trash"), "key": .string(item.key)]))
+    }
+
     private func ask(_ session: String, _ request: JSONValue) async throws -> Answer {
         let event = try await commands.request("canvas.request", ["sessionId": .string(session), "request": request])
         return try event.value("answer", as: Answer.self)

@@ -99,6 +99,23 @@ pub fn open_file_beneath(parent: &File, name: &str) -> io::Result<File> {
     Ok(file)
 }
 
+#[cfg(any(target_os = "macos", target_os = "linux", windows))]
+pub fn move_to_trash(path: &Path) -> io::Result<()> {
+    #[cfg(target_os = "macos")]
+    let trash = {
+        let mut trash = trash::TrashContext::default();
+        // Finder's way makes macOS ask the person to let Kodosi control Finder.
+        trash::macos::TrashContextExtMacos::set_delete_method(
+            &mut trash,
+            trash::macos::DeleteMethod::NsFileManager,
+        );
+        trash
+    };
+    #[cfg(not(target_os = "macos"))]
+    let trash = trash::TrashContext::default();
+    trash.delete(path).map_err(io::Error::other)
+}
+
 pub fn path_from_file_url(host: &str, path: &str) -> Option<PathBuf> {
     imp::path_from_file_url(host, path)
 }

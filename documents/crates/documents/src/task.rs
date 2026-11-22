@@ -43,6 +43,7 @@ pub(crate) enum Command {
     },
     Input(Input),
     Close {
+        reason: ClosedReason,
         done: oneshot::Sender<()>,
     },
 }
@@ -259,9 +260,9 @@ impl Task {
                     }
                     effects.extend(self.document.step(input));
                 }
-                Command::Close { done } => {
+                Command::Close { reason, done } => {
                     self.run_effects(std::mem::take(&mut effects)).await;
-                    self.finish(ClosedReason::Failed).await;
+                    self.finish(reason).await;
                     let _sent = done.send(());
                     return true;
                 }

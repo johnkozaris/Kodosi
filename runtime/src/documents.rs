@@ -77,6 +77,10 @@ impl DocumentHost {
     pub(crate) async fn close(&self) {
         self.documents.close().await;
     }
+
+    pub(crate) async fn close_for_removal(&self, path: &Path) {
+        self.documents.close_for_removal(path).await;
+    }
 }
 
 fn ends_of(mut pipe: documents::Pipe) -> PipeEnds {

@@ -330,6 +330,7 @@
 "macOS lets only apps with Full Disk Access read the sign-ins of {name}.": "macOS 只允许拥有“完全磁盘访问权限”的应用读取 {name} 的登录信息。",
 "{computer} is offline.": "{computer} 已离线。",
 "{computer} is online.": "{computer} 已上线。",
+"{name} could not be moved to the trash, so it stays in its folder.": "无法将 {name} 移到回收站，它仍在原来的文件夹中。",
 "{name} could not be read.": "无法读取 {name}。",
 "{name} could not be saved.": "无法保存 {name}。",
 "{name} did not give Kodosi the key of its sign-ins.": "{name} 没有把它登录信息的密钥交给 Kodosi。",

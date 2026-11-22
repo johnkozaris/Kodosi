@@ -1,7 +1,7 @@
 {
   "terminalConnectionProtocolVersion": 26,
   "oldestTerminalConnectionProtocolVersion": 26,
-  "channelProtocolVersion": 16,
+  "channelProtocolVersion": 17,
   "compatibilityPolicy": {
     "deviceConnection": "the server admits each device whose hello protocolVersion is from oldestTerminalConnectionProtocolVersion to terminalConnectionProtocolVersion; it refuses others with refused, reason version",
     "channel": "each side offers the ALPN protocols kodosi-channel/ with each version from its channelProtocolVersion down to 1, and the host selects the newest that both have; a side whose own version is not the selected one, or that has no selected protocol, closes the channel and shows that the other computer must update Kodosi. The accept frame carries the host's channelProtocolVersion; a host that selected an older version sends only the accept frame and closes, and a viewer whose version differs from it closes the channel and shows which side must update Kodosi"
@@ -149,7 +149,7 @@
         "direction": "viewer",
         "body": "requestId:16 bytes, JSON control (resize, focus, message, interrupt, close, canvas, agent, seen); at most 32768 bytes of JSON",
         "agent": "a change of the agent in front: change, with the model, effort, fast mode, permissions or output to change; the host accepts it at once and types the agent's own commands when the agent waits for its next prompt",
-        "canvas": "a request to the canvas of the terminal (read, remove, picture, input, act); the host answers it with controlValue, or with controlResult when it refuses",
+        "canvas": "a request to the canvas of the terminal (read, remove, trash, attach, act); the host answers it with controlValue, or with controlResult when it refuses",
         "seen": "the person of the viewer looks at the terminal: an app in the state kodosi shows it; the viewer sends it when the status of the terminal has attention, and the host ends the attention only for a device of the terminal's owner"
       },
       "refresh": {
