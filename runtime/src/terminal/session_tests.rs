@@ -1416,6 +1416,27 @@ async fn a_result_stays_after_its_program_ends() {
 }
 
 #[tokio::test]
+async fn a_program_that_reports_a_wait_sends_no_notification_of_its_own_while_it_runs() {
+    let (session, mut changes, _root) = shell(
+        "set -m; /bin/sh -c \"printf '\\033]7501;state=done\\007\\033]777;notify;Agent;Waits\\007'; sleep 1\"; /bin/sh -c \"printf '\\033]777;notify;Backup;Finished\\007'\"; exec /bin/cat",
+    )
+    .await;
+    let titles = tokio::time::timeout(Duration::from_secs(5), async {
+        let mut titles = Vec::new();
+        while titles.last().map(String::as_str) != Some("Backup") {
+            if let Some(SessionChange::Notification { title, .. }) = changes.recv().await {
+                titles.push(title);
+            }
+        }
+        titles
+    })
+    .await
+    .expect("the notification of a program that reports nothing");
+    assert_eq!(titles, ["Backup"]);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
 async fn directory_tracking_follows_cd_without_shell_integration() {
     let (session, mut changes, root) = shell("mkdir nested; cd nested; exec /bin/cat").await;
     let expected = kodosi_os::fs::canonicalize(root.path())
