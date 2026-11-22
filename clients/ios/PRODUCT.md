@@ -14,6 +14,8 @@ terminal with friends and reading provider conversations stay on the computer.
 - **The terminal has the room.** The person types either in the terminal, with a row of
   the keys that a phone lacks, or in a composer that sends its text as one paste. The
   phone sets the size of a terminal only while it has focus.
+- **Screen or chat.** A terminal shows as its screen, with the keys, or as its chat, and
+  the person chooses the view.
 - **The canvas is full screen.** It never opens by itself: a banner names what the agent
   showed or changed.
 - **Dosi runs on a computer.** The person writes to Dosi on one of their computers, and

@@ -45,7 +45,7 @@ public struct DosiFace: View {
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
         ZStack {
-            shape.fill(theme.colors.terminal)
+            shape.fill(AppTheme.dark.colors.terminal)
             shape.strokeBorder(
                 LinearGradient(colors: [.white.opacity(0.18), .clear, .black.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing),
                 lineWidth: max(0.5, size * 0.03),

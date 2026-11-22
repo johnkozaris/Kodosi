@@ -7,13 +7,13 @@ Item {
 
     property var limit: null
     property real lineWidth: 2
-    property bool onTerminal: false
+    property Look look: KodosiTheme.look
     property bool loading: false
     readonly property real used: limit ? Math.max(0, Math.min(100, limit.used)) / 100 : 0
     readonly property color tone: !limit ? "transparent"
-        : limit.level === "reached" ? (onTerminal ? KodosiTheme.terminalDanger : KodosiTheme.danger)
-        : limit.level === "near" ? (onTerminal ? KodosiTheme.terminalCaution : KodosiTheme.caution)
-        : onTerminal ? KodosiTheme.terminalInkMuted : KodosiTheme.inkMuted
+        : limit.level === "reached" ? look.danger
+        : limit.level === "near" ? look.caution
+        : look.inkMuted
     property real drawn: 0
 
     implicitWidth: 14
@@ -30,7 +30,7 @@ Item {
         preferredRendererType: Shape.CurveRenderer
 
         ShapePath {
-            strokeColor: KodosiTheme.alpha(root.onTerminal ? KodosiTheme.terminalInk : KodosiTheme.ink, root.limit ? 0.12 : 0.24)
+            strokeColor: KodosiTheme.alpha(root.look.ink, root.limit ? 0.12 : 0.24)
             strokeWidth: root.lineWidth
             strokeStyle: root.limit || root.loading ? ShapePath.SolidLine : ShapePath.DashLine
             dashPattern: [1.1, 1.5]
@@ -67,7 +67,7 @@ Item {
         preferredRendererType: Shape.CurveRenderer
 
         ShapePath {
-            strokeColor: root.onTerminal ? KodosiTheme.terminalInkMuted : KodosiTheme.inkMuted
+            strokeColor: root.look.inkMuted
             strokeWidth: root.lineWidth
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap

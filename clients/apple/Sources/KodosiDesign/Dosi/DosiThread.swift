@@ -78,7 +78,6 @@ public struct DosiThread: View {
     let listening: Bool
     @State private var following = true
     @State private var viewport: CGFloat = 0
-    @State private var phase = ScrollPhase.idle
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var thinking = false
 
@@ -135,24 +134,9 @@ public struct DosiThread: View {
                     Color.clear.frame(height: 1).id("latest")
                 }
             }
-            .scrollPosition($position)
-            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            .followsEnd($following, position: $position, viewport: $viewport)
             .scrollIndicators(.automatic)
-            .onScrollGeometryChange(for: ScrollGeometry.self) { $0 } action: { old, new in
-                viewport = new.containerSize.height
-                let end = max(0, new.contentSize.height - new.containerSize.height)
-                let offset = new.contentOffset.y + new.contentInsets.top
-                if new.contentSize != old.contentSize || new.containerSize != old.containerSize || new.contentInsets != old.contentInsets {
-                    if following, abs(offset - end) > 0.5 {
-                        withTransaction(\.disablesAnimations, true) { position.scrollTo(y: end) }
-                    }
-                } else if offset >= end - 40 {
-                    following = true
-                } else if old.contentOffset.y - new.contentOffset.y > ([.tracking, .interacting, .decelerating].contains(phase) ? 0.5 : 8) {
-                    following = false
-                }
-            }
-            .onScrollPhaseChange { _, new in phase = new }
+            .scrollDismissesKeyboard(.interactively)
             .task(id: place.dosi.pending) {
                 guard place.dosi.pending else {
                     thinking = false
@@ -180,12 +164,10 @@ public struct DosiThread: View {
             .overlay(alignment: .bottom) {
                 ZStack {
                     if !following {
-                        Button {
+                        LatestKey {
                             following = true
                             withAnimation(theme.motion.soft) { proxy.scrollTo("latest", anchor: .bottom) }
-                        } label: { Label { Text("Latest", bundle: .module) } icon: { Image(systemName: "arrow.down") } }
-                            .buttonStyle(.kodosi(.secondary, size: .small)).padding(8)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
                     }
                 }
                 .animation(theme.motion.spring, value: following)
@@ -203,12 +185,12 @@ struct DosiRowView: View {
     var body: some View {
         switch row.kind {
         case let .divider(label):
-            DosiDivider(label: label).padding(.top, 14).padding(.bottom, 2)
+            LabeledDivider(label: label).padding(.top, 14).padding(.bottom, 2)
         case let .item(item):
             if case let .person(text) = item.body {
                 let computer = place.dosi.waiting(item)
                 VStack(alignment: .trailing, spacing: 4) {
-                    DosiPersonBubble(text: text)
+                    PersonBubble(text: text)
                     if let computer {
                         DosiWaiting(item: item, computer: computer).transition(AnyTransition.rise)
                     }
@@ -252,7 +234,7 @@ struct DosiItemContent: View {
     var body: some View {
         switch item.body {
         case let .text(text, live):
-            DosiProse(text: text, live: live)
+            AgentProse(text: text, live: live)
         case let .reasoning(text, live, seconds):
             DosiThought(text: text, live: live, seconds: seconds)
         case let .tool(tool):
@@ -269,7 +251,7 @@ struct DosiItemContent: View {
     }
 }
 
-struct DosiDivider: View {
+struct LabeledDivider: View {
     @Environment(\.theme) private var theme
     let label: String
 

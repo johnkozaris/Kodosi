@@ -3905,6 +3905,10 @@
         <translation>다크</translation>
     </message>
     <message>
+        <source>Keep terminals dark</source>
+        <translation>터미널 항상 다크로 유지</translation>
+    </message>
+    <message>
         <source>Title</source>
         <translation>제목</translation>
     </message>

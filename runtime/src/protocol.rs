@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 103;
+pub const VERSION: u32 = 104;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -452,6 +452,14 @@ pub enum Command {
     Resync {
         #[serde(rename = "requestId")]
         request_id: String,
+    },
+    /// The app of a computer that hosts terminals sends it at its start and on each change of
+    /// the look that it gives them.
+    #[serde(rename = "app.look")]
+    Look {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        look: crate::terminal::TerminalLook,
     },
     #[serde(rename = "session.openRemote")]
     OpenRemote {
@@ -992,6 +1000,10 @@ pub struct SessionEntry {
     pub context: Option<crate::terminal::TerminalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canvas: Option<crate::canvas::Canvas>,
+    /// An agent of the terminal reports to the terminal's chat, which the pipe `chat` carries.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub chat: bool,
+    pub look: crate::terminal::TerminalLook,
     pub id: String,
     pub incarnation_id: String,
     pub kind: SessionKind,
@@ -1992,6 +2004,7 @@ impl Command {
             Self::Lifecycle { .. } => "app.lifecycle",
             Self::NetworkChanged { .. } => "app.network",
             Self::Resync { .. } => "app.resync",
+            Self::Look { .. } => "app.look",
             Self::Read { .. } => "session.read",
             Self::Show { .. } => "session.show",
             Self::OpenRemote { .. } => "session.openRemote",
@@ -2137,6 +2150,7 @@ impl Command {
             | Self::Lifecycle { request_id, .. }
             | Self::NetworkChanged { request_id }
             | Self::Resync { request_id }
+            | Self::Look { request_id, .. }
             | Self::Read { request_id, .. }
             | Self::Show { request_id, .. }
             | Self::OpenRemote { request_id, .. }
@@ -3113,6 +3127,7 @@ pub(crate) mod tests {
             json!({"type":"app.lifecycle","requestId":ID,"state":"background"}),
             json!({"type":"app.network","requestId":ID}),
             json!({"type":"app.resync","requestId":ID}),
+            json!({"type":"app.look","requestId":ID,"look":"light"}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachProject","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"projectId":null}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),
@@ -3195,7 +3210,7 @@ pub(crate) mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 80);
+        assert_eq!(kinds.len(), 81);
     }
 
     #[test]

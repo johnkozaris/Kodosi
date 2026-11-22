@@ -63,16 +63,16 @@ KDialog {
                 implicitWidth: 80
                 implicitHeight: 48
                 radius: KodosiTheme.radiusMd
-                color: KodosiTheme.terminal
+                color: KodosiTheme.terminalLook.terminal
                 border.width: 1
-                border.color: KodosiTheme.terminalHairline
+                border.color: KodosiTheme.terminalLook.hairline
 
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     x: 12
                     spacing: 6
-                    KIcon { width: 10; height: 10; anchors.verticalCenter: parent.verticalCenter; name: "chevron-down"; rotation: -90; color: KodosiTheme.inkFaint }
-                    CursorBlock { width: 7; height: 13; blinks: true }
+                    KIcon { width: 10; height: 10; anchors.verticalCenter: parent.verticalCenter; name: "chevron-down"; rotation: -90; color: KodosiTheme.terminalLook.inkFaint }
+                    CursorBlock { width: 7; height: 13; blinks: true; color: KodosiTheme.terminalLook.accent }
                 }
             }
             Rectangle { implicitWidth: 18; implicitHeight: 2; radius: 1; color: KodosiTheme.hairline }

@@ -408,7 +408,31 @@ fn claude(report: &Value) -> Vec<UsageLimit> {
         .collect()
 }
 
-fn codex(result: &Value) -> Vec<UsageLimit> {
+/// The windows that a session of Claude Code reports while it runs.
+pub(crate) fn claude_session(windows: &Value) -> Vec<UsageLimit> {
+    windows
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|window| {
+            let hours = match window.get("kind")?.as_str()? {
+                "five_hour" => SESSION_HOURS,
+                "seven_day" => WEEK_HOURS,
+                _ => return None,
+            };
+            limit(
+                Some(hours),
+                window.get("percentUsed")?.as_f64()?,
+                false,
+                false,
+            )
+        })
+        .collect()
+}
+
+/// The windows that Codex reports for its account, which its app-server also reports while a
+/// session runs.
+pub(crate) fn codex(result: &Value) -> Vec<UsageLimit> {
     let Some(snapshot) = result.get("rateLimits") else {
         return Vec::new();
     };

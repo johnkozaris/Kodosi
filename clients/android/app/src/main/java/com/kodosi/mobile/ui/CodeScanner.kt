@@ -124,7 +124,7 @@ fun CodeScanDialog(words: CodeScanWords, accepts: (String) -> String?, found: (S
                     Box(
                         Modifier.fillMaxWidth().weight(
                             1f
-                        ).clip(RoundedCornerShape(Radius.xl)).background(colors.terminal)
+                        ).clip(RoundedCornerShape(Radius.xl)).background(DarkColors.terminal)
                     ) {
                         if (camera == true) {
                             CameraReader(

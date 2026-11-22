@@ -63,7 +63,8 @@ struct DosiComposer: View {
                         return .handled
                     }
                 if stops {
-                    StopKey { model.dosi.stop() }
+                    StopKey(size: 34) { model.dosi.stop() }
+                        .accessibilityIdentifier("dosi.stop")
                         .disabled(dosi.state == .stopping)
                         .transition(AnyTransition.pop)
                 } else {
@@ -140,22 +141,5 @@ private struct DosiComputerMenu: View {
 
     private func name(_ computer: DosiComputer, away: Bool) -> Text {
         away ? Text("\(computer.name) is offline") : Text(verbatim: computer.name)
-    }
-}
-
-private struct StopKey: View {
-    @Environment(\.theme) private var theme
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            RoundedRectangle(cornerRadius: 2.5, style: .continuous).fill(theme.colors.ink).frame(width: 10, height: 10)
-                .frame(width: 34, height: 34)
-                .background { BezelBackground(shape: Circle(), fill: theme.buttonFace(), bezel: .quiet) }
-                .touchTarget()
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(Text("Stop"))
-        .accessibilityIdentifier("dosi.stop")
     }
 }

@@ -59,6 +59,12 @@ or typed in. A view that only changes its size, or whose focus only comes back w
 or its connection, leaves the size where it is. Input from a view is a person's, and input
 from the `kodosi` command gives way while a person types.
 
+A terminal has the look of the computer that hosts it, dark or light, on every device that
+shows it. The app on that computer gives its host the look, and a host without an app keeps
+the last look that it got. Programs learn the look from the host: it answers their questions
+for the colors and the color scheme with the look, and tells a program that asked for it each
+change of the color scheme.
+
 The runtime decides what a terminal shows of its program: whether it works, what it
 waits for and what it does. The program's own report decides, and each client presents
 the result.
@@ -111,6 +117,25 @@ terminal, and the `kodosi` command sends such a line to an agent on any computer
 of a running agent's model, effort, fast mode or permissions is also typed, as the agent's
 own command. The host types only while the agent can take it: not while it waits for a
 person, and not while a person types there.
+
+## Chat
+
+The chat is a second view of a terminal, beside its screen. An agent can report what it
+does to the host through the agent's own interface for add-ons. For Claude Code that is a
+module in Kodosi's plugin, which reaches a socket of the host that the terminal names in
+its environment. For Codex it is Codex's app server: a Codex that connects to the address
+that the terminal names gets a server that the host starts with Codex's own program, and
+the host follows that server as a second client. For Copilot CLI it is an extension in a
+plugin of Kodosi's, which Kodosi's start line of Copilot names. The host turns the reports
+into the chat of the terminal: the messages, the agent's answers, its tool calls, the
+questions that wait for a person, the list that the agent keeps of its work, and the facts
+of the session. A person's message, answer or stop goes back the same way.
+
+The chat reads nothing from the terminal's screen and presses no key there, so a new
+look of the agent does not change it. Each part of a report is optional, and an agent
+that does not report has no chat while its terminal works as before. The chat is content
+of the terminal: it travels on a pipe of the terminal's encrypted channel, as the canvas
+does, and each client gets the chat as it is and then each change.
 
 ## Canvas
 

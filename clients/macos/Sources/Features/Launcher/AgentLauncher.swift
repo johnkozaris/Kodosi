@@ -47,7 +47,7 @@ struct AgentLauncher: View {
     }
 
     private var ink: AppTheme.Colors {
-        theme.isDark ? theme.colors : AppTheme.dark.colors
+        AppTheme(look: deps.terminalLook).colors
     }
 
     private var choice: AgentChoice {
@@ -122,7 +122,7 @@ struct AgentLauncher: View {
             .frame(width: Self.width)
             .clipShape(shape)
             .background {
-                shape.fill(TerminalInk.body)
+                shape.fill(ink.terminal)
                     .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.16), radius: 12, x: 3, y: 7)
             }
             .overlay { shape.strokeBorder(theme.colors.hairline.opacity(theme.isDark ? 0.7 : 0.9), lineWidth: 0.5).allowsHitTesting(false) }
@@ -150,7 +150,7 @@ struct AgentLauncher: View {
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: Self.bandHeight, maxHeight: Self.bandHeight, alignment: .bottomLeading)
-            .background(TerminalInk.band)
+            .background(ink.band)
             LauncherCommandLine(
                 info: info, prompt: Bindable(deps.workbench).launcherDraft.prompt, hint: hint, focus: focus + focusRequest, submit: start,
             ) {
@@ -168,11 +168,11 @@ struct AgentLauncher: View {
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 18)
             .frame(maxWidth: .infinity, minHeight: centered ? 124 : 92, alignment: .topLeading)
-            .background(TerminalInk.body)
+            .background(ink.terminal)
             .contentShape(Rectangle())
             .onTapGesture { focusRequest += 1 }
         }
-        .terminalScope()
+        .terminalScope(deps.terminalLook)
     }
 
     private var place: some View {

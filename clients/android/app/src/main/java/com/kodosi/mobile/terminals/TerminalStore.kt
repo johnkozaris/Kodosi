@@ -28,6 +28,10 @@ class TerminalStore(private val commands: CommandSink) {
 
     val openResults: StateFlow<Map<String, OpenResult>>
         field = MutableStateFlow(emptyMap())
+
+    /** The terminals that show their chat in place of their screen. */
+    val chatting: StateFlow<Set<String>>
+        field = MutableStateFlow(emptySet())
     private val opening = HashMap<String, Any>()
     private var listing: String? = null
     private var watching: String? = null
@@ -42,6 +46,7 @@ class TerminalStore(private val commands: CommandSink) {
     fun reset() {
         state.value = TerminalsState()
         openResults.value = emptyMap()
+        chatting.value = emptySet()
         opening.clear()
         listing = null
         watching = null
@@ -100,6 +105,10 @@ class TerminalStore(private val commands: CommandSink) {
         return result
     }
 
+    fun showChat(shown: Boolean, sessionId: String) {
+        chatting.update { if (shown) it + sessionId else it - sessionId }
+    }
+
     fun disconnect(sessionId: String) {
         opening.remove(sessionId)
         openResults.update { it - sessionId }
@@ -124,6 +133,7 @@ class TerminalStore(private val commands: CommandSink) {
             throw InvalidEvent("a terminal list repeats a terminal")
         }
         state.update { it.copy(sessions = received, loaded = true) }
+        chatting.update { shown -> shown.filterTo(mutableSetOf()) { id -> received.any { it.id == id } } }
     }
 
     private fun settleList(event: RuntimeEvent) {

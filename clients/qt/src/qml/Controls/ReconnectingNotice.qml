@@ -6,6 +6,7 @@ Item {
     id: root
 
     property bool shown
+    property Look look: KodosiTheme.look
 
     implicitWidth: row.implicitWidth + 26
     implicitHeight: 34
@@ -25,8 +26,8 @@ Item {
     Raised {
         anchors.fill: parent
         radius: height / 2
-        fill: KodosiTheme.terminalLifted
-        dark: true
+        look: root.look
+        fill: root.look.lifted
         elevation: 2
     }
     RowLayout {
@@ -41,7 +42,7 @@ Item {
             id: label
 
             text: qsTr("Reconnecting")
-            color: KodosiTheme.terminalInk
+            color: root.look.ink
         }
     }
 }

@@ -8,6 +8,7 @@ Item {
     id: root
 
     required property string sessionId
+    required property Look look
     property real radius: KodosiTheme.radiusTile
     readonly property var touch: Models.Dosi.touches[sessionId] || ({})
     readonly property int count: touch.count || 0
@@ -39,7 +40,7 @@ Item {
             radius: root.radius
             color: "transparent"
             border.width: 1.5
-            border.color: KodosiTheme.glowAmber
+            border.color: root.look.glowAmber
         }
     }
     SequentialAnimation {
@@ -71,8 +72,8 @@ Item {
         Raised {
             anchors.fill: parent
             radius: KodosiTheme.radiusLg
-            fill: KodosiTheme.terminalLifted
-            dark: true
+            look: root.look
+            fill: root.look.lifted
             elevation: 2
         }
         Row {
@@ -91,7 +92,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(implicitWidth, 220)
                 text: root.touch.said || ""
-                color: KodosiTheme.terminalInk
+                color: root.look.ink
                 font.family: "monospace"
                 font.pixelSize: KodosiTheme.fontCaption
                 elide: Text.ElideMiddle

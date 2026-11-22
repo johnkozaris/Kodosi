@@ -81,8 +81,8 @@ Item {
 
     Squircle {
         anchors.fill: parent
-        lightColor: KodosiTheme.terminal
-        darkColor: KodosiTheme.terminal
+        lightColor: KodosiTheme.darkLook.terminal
+        darkColor: KodosiTheme.darkLook.terminal
         rimLight: 0.18
         rimShade: 0.3
         shadow: KodosiTheme.isDark ? 0.45 : 0.2

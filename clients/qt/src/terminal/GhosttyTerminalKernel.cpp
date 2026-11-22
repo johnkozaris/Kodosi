@@ -836,31 +836,30 @@ GhosttyResult restoreSnapshotHistory(const GhosttySnapshotDecoder decoder, const
     }
 }
 
-constexpr GhosttyColorRgb terminalForeground {0xe8, 0xe1, 0xd9};
-constexpr GhosttyColorRgb terminalBackground {0x0d, 0x0b, 0x09};
-constexpr GhosttyColorRgb terminalCursor {0xcc, 0x7a, 0x45};
-constexpr std::array<GhosttyColorRgb, 16> terminalAnsiColors {{
-    {0x1a, 0x16, 0x13}, {0xc4, 0x40, 0x40}, {0x52, 0xb3, 0x6b}, {0xc4, 0x99, 0x3d},
-    {0x5d, 0x8e, 0xc7}, {0xb0, 0x6d, 0xba}, {0x5d, 0xaf, 0xa6}, {0xc4, 0xb8, 0xa8},
-    {0x8c, 0x7a, 0x6f}, {0xd6, 0x60, 0x60}, {0x6d, 0xcc, 0x85}, {0xd6, 0xb3, 0x5d},
-    {0x7d, 0xaa, 0xd9}, {0xc8, 0x8d, 0xd0}, {0x7d, 0xc7, 0xbe}, {0xe8, 0xe1, 0xd9},
-}};
-
-GhosttyResult applyColors(const GhosttyTerminal terminal)
+GhosttyColorRgb ghosttyColor(const TerminalRgb color)
 {
-    auto result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND, &terminalForeground);
+    return {color.red, color.green, color.blue};
+}
+
+GhosttyResult applyColors(const GhosttyTerminal terminal, const TerminalLook look)
+{
+    const auto& colors = terminalColors(look);
+    const auto foreground = ghosttyColor(colors.foreground);
+    const auto background = ghosttyColor(colors.background);
+    const auto cursor = ghosttyColor(colors.cursor);
+    auto result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND, &foreground);
     if (result == GHOSTTY_SUCCESS) {
-        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND, &terminalBackground);
+        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND, &background);
     }
     if (result == GHOSTTY_SUCCESS) {
-        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &terminalCursor);
+        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &cursor);
     }
     std::array<GhosttyColorRgb, 256> palette {};
     if (result == GHOSTTY_SUCCESS) {
         result = ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLOR_PALETTE_DEFAULT, palette.data());
     }
     if (result == GHOSTTY_SUCCESS) {
-        std::ranges::copy(terminalAnsiColors, palette.begin());
+        std::ranges::transform(colors.ansi, palette.begin(), ghosttyColor);
         result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_PALETTE, palette.data());
     }
     return result;
@@ -915,7 +914,7 @@ GhosttyTerminalKernel::ConfigureResult applySettings(
         return std::unexpected(
             ghosttyFailure(QStringLiteral("scrollback line limit"), result));
     }
-    result = applyColors(terminal);
+    result = applyColors(terminal, settings.look);
     if (result != GHOSTTY_SUCCESS) {
         return std::unexpected(ghosttyFailure(QStringLiteral("terminal colors"), result));
     }
@@ -2320,8 +2319,9 @@ GhosttyTerminalKernel::ConfigureResult GhosttyTerminalKernel::configure(
     const auto scrollbackChanged =
         settings.scrollbackLines != m_impl->settings.scrollbackLines
         || settings.scrollbackBytes != m_impl->settings.scrollbackBytes;
+    const auto lookChanged = settings.look != m_impl->settings.look;
     if (m_impl->admitted && !m_impl->failed) {
-        if (scrollbackChanged
+        if ((scrollbackChanged || lookChanged)
             && (m_impl->viewportRevision == std::numeric_limits<std::uint64_t>::max()
                 || m_impl->displayRevision
                     == std::numeric_limits<std::uint64_t>::max())) {
@@ -2335,14 +2335,16 @@ GhosttyTerminalKernel::ConfigureResult GhosttyTerminalKernel::configure(
             m_impl->failed = true;
             return std::unexpected(std::move(configured.error()));
         }
-        if (scrollbackChanged) {
-            const auto selectionResult = m_impl->refreshSelection();
-            if (selectionResult != GHOSTTY_SUCCESS) {
-                m_impl->failed = true;
-                return std::unexpected(
-                    ghosttyFailure(QStringLiteral("selection refresh"), selectionResult));
+        if (scrollbackChanged || lookChanged) {
+            if (scrollbackChanged) {
+                const auto selectionResult = m_impl->refreshSelection();
+                if (selectionResult != GHOSTTY_SUCCESS) {
+                    m_impl->failed = true;
+                    return std::unexpected(
+                        ghosttyFailure(QStringLiteral("selection refresh"), selectionResult));
+                }
+                ++m_impl->viewportRevision;
             }
-            ++m_impl->viewportRevision;
             ++m_impl->displayRevision;
             auto nextFrame = m_impl->captureFrame();
             if (!nextFrame) {

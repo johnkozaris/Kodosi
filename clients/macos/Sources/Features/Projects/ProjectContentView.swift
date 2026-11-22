@@ -129,8 +129,9 @@ private struct ProjectTerminals: View {
     @ContentBuilder
     private func pair(_ current: RuntimeSession) -> some View {
         let open = workspace.showsCanvas && deps.canvas.showsSomething(current)
-        CanvasStage(canvas: open ? current : nil, front: current.id, wide: $workspace.canvasWide,
-                    width: $workspace.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true)
+        CanvasStage(canvas: open ? current : nil, look: current.terminalLook, front: current.id, wide: $workspace.canvasWide,
+                    width: $workspace.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true,
+                    chat: current.isConnected && deps.workbench.chatting.contains(current.id))
         {
             deps.canvas.closeCanvas(current.id)
             workspace.showsCanvas = false
@@ -141,7 +142,7 @@ private struct ProjectTerminals: View {
                 .transformEnvironment(\.terminalInteractionEnabled) { $0 = $0 && interactive }
                 .id(current.id)
                 .transition(.identity)
-                .terminalScope()
+                .terminalScope(current.terminalLook)
         }
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { stageFrame = $0 }
         .padding([.horizontal, .bottom], 6)
@@ -172,11 +173,11 @@ private struct ProjectTerminals: View {
     private func tabChip(_ session: RuntimeSession, selected: Bool) -> some View {
         Button { open(session) } label: {
             TabLabel(session: session, selected: selected)
-                .modifier(TabScope(terminal: selected))
+                .modifier(TabScope(look: selected ? session.terminalLook : nil))
                 .background {
                     if selected {
                         TabPill()
-                            .terminalScope()
+                            .terminalScope(session.terminalLook)
                             .matchedGeometryEffect(id: "tab", in: tab)
                             .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { frame in
                                 withAnimation(tabFrame == nil ? nil : theme.motion.snappy) { tabFrame = frame }
@@ -305,11 +306,11 @@ private struct TabPill: View {
 }
 
 private struct TabScope: ViewModifier {
-    let terminal: Bool
+    let look: TerminalLook?
 
     func body(content: Content) -> some View {
-        if terminal {
-            content.terminalScope()
+        if let look {
+            content.terminalScope(look)
         } else {
             content
         }

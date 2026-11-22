@@ -3917,6 +3917,10 @@
         <translation>Scuro</translation>
     </message>
     <message>
+        <source>Keep terminals dark</source>
+        <translation>Mantieni i terminali scuri</translation>
+    </message>
+    <message>
         <source>Title</source>
         <translation>Titolo</translation>
     </message>

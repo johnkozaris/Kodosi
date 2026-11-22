@@ -20,15 +20,16 @@ Button {
     property bool compact: false
     property bool large: false
     property bool working: false
-    property bool onTerminal: false
+    property Look terminalLook: null
+    readonly property Look look: terminalLook ?? KodosiTheme.look
     readonly property real radius: compact ? KodosiTheme.radiusSm : large ? KodosiTheme.radiusTile : KodosiTheme.radiusMd
     readonly property bool lit: hovered && enabled
-    readonly property color ink: onTerminal ? KodosiTheme.terminalInk : KodosiTheme.ink
-    readonly property color foreground: !enabled ? (onTerminal ? KodosiTheme.terminalInkFaint : KodosiTheme.inkFaint)
-        : variant === KButton.Primary ? KodosiTheme.accentInk
-        : variant === KButton.Tinted ? KodosiTheme.accentStrong
-        : variant === KButton.Danger ? KodosiTheme.danger
-        : variant === KButton.Ghost && !hovered ? (onTerminal ? KodosiTheme.terminalInkMuted : KodosiTheme.inkMuted)
+    readonly property color ink: look.ink
+    readonly property color foreground: !enabled ? look.inkFaint
+        : variant === KButton.Primary ? look.accentInk
+        : variant === KButton.Tinted ? look.accentStrong
+        : variant === KButton.Danger ? look.danger
+        : variant === KButton.Ghost && !hovered ? look.inkMuted
         : ink
 
     activeFocusOnTab: true
@@ -79,14 +80,15 @@ Button {
         Bezel {
             anchors.fill: parent
             visible: root.variant !== KButton.Ghost
+            look: root.look
             radius: root.radius
             quiet: root.variant !== KButton.Primary || !root.enabled
             pressed: root.pressed && root.enabled
-            fill: !root.enabled ? KodosiTheme.buttonFace(false)
-                : root.variant === KButton.Primary ? (root.lit ? KodosiTheme.accentHover : KodosiTheme.accent)
-                : root.variant === KButton.Tinted ? KodosiTheme.mix(KodosiTheme.accentSoft, KodosiTheme.accent, root.lit ? 0.14 : 0)
-                : root.variant === KButton.Danger ? KodosiTheme.mix(KodosiTheme.dangerSoft, KodosiTheme.danger, root.lit ? 0.14 : 0)
-                : KodosiTheme.buttonFace(root.lit)
+            fill: !root.enabled ? root.look.buttonFace(false)
+                : root.variant === KButton.Primary ? (root.lit ? root.look.accentHover : root.look.accent)
+                : root.variant === KButton.Tinted ? KodosiTheme.mix(root.look.accentSoft, root.look.accent, root.lit ? 0.14 : 0)
+                : root.variant === KButton.Danger ? KodosiTheme.mix(root.look.dangerSoft, root.look.danger, root.lit ? 0.14 : 0)
+                : root.look.buttonFace(root.lit)
         }
         Rectangle {
             anchors.fill: parent
@@ -102,7 +104,6 @@ Button {
         objectName: "control.keyboardFocus"
         Accessible.id: objectName
         active: root.visualFocus && root.enabled
-        color: root.variant === KButton.Primary ? KodosiTheme.accentInk
-            : root.onTerminal ? KodosiTheme.terminalAccentStrong : KodosiTheme.accentStrong
+        color: root.variant === KButton.Primary ? root.look.accentInk : root.look.accentStrong
     }
 }

@@ -1,3 +1,4 @@
+import KodosiBridge
 import SwiftUI
 
 struct ShadowSpec {
@@ -171,8 +172,9 @@ public extension View {
         background(WellBackground(shape: Capsule(), fill: fill))
     }
 
-    func terminalScope() -> some View {
-        modifier(TerminalScope())
+    /// What is part of a terminal takes the terminal's look, whatever the app's appearance is.
+    func terminalScope(_ look: TerminalLook) -> some View {
+        modifier(TerminalScope(look: look))
     }
 
     func chromeScope() -> some View {
@@ -187,12 +189,14 @@ public extension View {
 private struct TerminalScope: ViewModifier {
     @Environment(\.theme) private var theme
     @Environment(\.chromeTheme) private var chrome
+    let look: TerminalLook
 
     func body(content: Content) -> some View {
+        let scoped = AppTheme(look: look).reducingMotion(theme.motion.reduced)
         content
             .environment(\.chromeTheme, chrome ?? theme)
-            .environment(\.theme, theme.isDark ? theme : AppTheme.dark.reducingMotion(theme.motion.reduced))
-            .environment(\.colorScheme, .dark)
+            .environment(\.theme, scoped)
+            .environment(\.colorScheme, scoped.isDark ? .dark : .light)
     }
 }
 

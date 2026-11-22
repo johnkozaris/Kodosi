@@ -4,17 +4,17 @@ import QtQuick
 Item {
     id: root
 
+    property Look look: KodosiTheme.look
     property real radius: KodosiTheme.radiusMd
-    property color fill: KodosiTheme.accent
+    property color fill: look.accent
     property bool quiet: false
     property bool pressed: false
     property color face: pressed ? KodosiTheme.mix(fill, "#000000", 0.08) : fill
 
-    property bool dark: KodosiTheme.isDark
     readonly property real hair: Screen.devicePixelRatio >= 2 ? 0.5 : 1
-    readonly property real ring: !dark && !quiet ? hair : 0
-    readonly property color light: Qt.rgba(1, 1, 1, dark ? (quiet ? 0.06 : 0.05) : (quiet ? 0.35 : 0.22))
-    readonly property color shade: Qt.rgba(0, 0, 0, dark ? 0.2 : 0)
+    readonly property real ring: !look.dark && !quiet ? hair : 0
+    readonly property color light: Qt.rgba(1, 1, 1, look.dark ? (quiet ? 0.06 : 0.05) : (quiet ? 0.35 : 0.22))
+    readonly property color shade: Qt.rgba(0, 0, 0, look.dark ? 0.2 : 0)
 
     Behavior on face { ColorAnimation { duration: KodosiTheme.motionHover } }
 
@@ -24,16 +24,16 @@ Item {
         width: root.width + 1
         height: root.height
         radius: root.radius + 0.5
-        color: KodosiTheme.shadow
-        opacity: root.dark ? (root.quiet ? 0.1 : 0.17) : (root.quiet ? 0.05 : 0.12)
+        color: root.look.shadow
+        opacity: root.look.dark ? (root.quiet ? 0.1 : 0.17) : (root.quiet ? 0.05 : 0.12)
     }
     Rectangle {
         y: 1
         width: root.width
         height: root.height
         radius: root.radius
-        color: KodosiTheme.shadow
-        opacity: root.dark ? (root.quiet ? 0.21 : 0.35) : (root.quiet ? 0.12 : 0.3)
+        color: root.look.shadow
+        opacity: root.look.dark ? (root.quiet ? 0.21 : 0.35) : (root.quiet ? 0.12 : 0.3)
     }
     Rectangle {
         x: root.quiet ? -root.hair : 0
@@ -41,9 +41,9 @@ Item {
         width: root.width - x * 2
         height: root.height - x * 2
         radius: root.radius - x
-        visible: !root.dark
+        visible: !root.look.dark
         color: root.quiet
-            ? KodosiTheme.alpha(KodosiTheme.shadow, 0.22)
+            ? KodosiTheme.alpha(root.look.shadow, 0.22)
             : Qt.tint(root.face, Qt.rgba(0, 0, 0, 0.18))
     }
     Rectangle {

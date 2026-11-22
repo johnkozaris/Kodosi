@@ -18,6 +18,7 @@ public:
         QColor selectionForeground {22, 14, 10};
         QColor preeditBackground {219, 138, 98};
         QColor preeditForeground {22, 14, 10};
+        double minimumContrast = 1.0;
 
         bool operator==(const Palette&) const = default;
     };
@@ -40,6 +41,7 @@ public:
         bool operator==(const Options&) const = default;
     };
 
+    [[nodiscard]] static Palette palette(TerminalLook look);
     [[nodiscard]] static QSizeF logicalSize(
         const TerminalFrame& frame,
         const QFont& font,

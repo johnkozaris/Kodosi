@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest/QTest>
 
@@ -55,6 +56,7 @@ private slots:
     void invalidStoredDataFallsBackSilently();
     void followsLiveSystemSchemeAfterUnsettingOverride();
     void reducedMotionIsKeptAndTheSystemChoiceWins();
+    void terminalsFollowTheAppearanceUnlessTheyAreKeptDark();
 };
 
 void AppearanceModelTest::persistsPreferenceAndAppliesStyleOverride()
@@ -194,6 +196,42 @@ void AppearanceModelTest::reducedMotionIsKeptAndTheSystemChoiceWins()
     QVERIFY(reloaded.reduceMotion());
     reloaded.injectSystemReducedMotionForTesting(false);
     QVERIFY(!reloaded.reduceMotion());
+}
+
+void AppearanceModelTest::terminalsFollowTheAppearanceUnlessTheyAreKeptDark()
+{
+    QTemporaryDir directory(
+        QDir::current().filePath(QStringLiteral("appearance-terminals-XXXXXX")));
+    QVERIFY(directory.isValid());
+    FakeStyle style;
+    {
+        kodosi::AppearanceModel model(
+            settingsFor(directory),
+            style.hooks());
+        QSignalSpy changes(&model, &kodosi::AppearanceModel::terminalLookChanged);
+        QCOMPARE(model.terminalLook(), QStringLiteral("light"));
+        model.injectSystemColorSchemeForTesting(Qt::ColorScheme::Dark);
+        QCOMPARE(model.terminalLook(), QStringLiteral("dark"));
+        QCOMPARE(changes.count(), 1);
+        QVERIFY(model.setKeepsTerminalsDark(true));
+        model.injectSystemColorSchemeForTesting(Qt::ColorScheme::Light);
+        QVERIFY(!model.dark());
+        QCOMPARE(model.terminalLook(), QStringLiteral("dark"));
+    }
+
+    kodosi::AppearanceModel reloaded(
+        settingsFor(directory),
+        style.hooks());
+    QVERIFY(reloaded.keepsTerminalsDark());
+    QCOMPARE(reloaded.terminalLook(), QStringLiteral("dark"));
+    QSignalSpy changes(&reloaded, &kodosi::AppearanceModel::terminalLookChanged);
+    QVERIFY(reloaded.setKeepsTerminalsDark(false));
+    QCOMPARE(reloaded.terminalLook(), QStringLiteral("light"));
+    QCOMPARE(changes.count(), 1);
+    QVERIFY(reloaded.setPreference(
+        static_cast<int>(kodosi::AppearanceModel::Preference::Dark)));
+    QCOMPARE(reloaded.terminalLook(), QStringLiteral("dark"));
+    QCOMPARE(changes.count(), 2);
 }
 
 QTEST_GUILESS_MAIN(AppearanceModelTest)

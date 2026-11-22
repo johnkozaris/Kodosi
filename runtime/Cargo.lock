@@ -2005,6 +2005,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "ghostty-vt",
+ "httparse",
  "if-addrs",
  "kodosi-os",
  "kodosi-pty",

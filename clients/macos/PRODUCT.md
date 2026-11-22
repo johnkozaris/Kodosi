@@ -14,6 +14,9 @@ follows it.
   Agent and the + of a folder open a terminal without it.
 - **A terminal's header holds its actions.** They start an agent or change the running
   one, share the terminal, open its canvas and rename it.
+- **The screen and the chat are two views of a terminal.** The header switches between
+  them, the screen stays live while the chat shows, and the model of the agent changes
+  from either.
 - **The canvas opens beside its terminal.** It can take the stage while the terminal
   stays live in its corner.
 - **A project keeps its conversation beside its work:** its terminals, tasks and

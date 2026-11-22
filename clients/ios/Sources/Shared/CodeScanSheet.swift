@@ -76,7 +76,7 @@ struct CodeScanView: View {
 
     private var viewfinder: some View {
         ZStack {
-            theme.colors.terminal
+            AppTheme.dark.colors.terminal
             if camera == .ready {
                 CodeScanner(accepts: scan.accepts, found: scan.found) {
                     otherCode = true

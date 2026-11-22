@@ -217,6 +217,12 @@ pub struct Colors {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorScheme {
+    Dark,
+    Light,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     OutOfMemory,
     InvalidValue,
@@ -241,6 +247,7 @@ struct CallbackState {
     effects: Vec<Effect>,
     size: GhosttySizeReportSize,
     version: &'static str,
+    color_scheme: ColorScheme,
     poisoned: bool,
     #[cfg(test)]
     panic_next: bool,
@@ -338,6 +345,7 @@ impl Terminal {
                     cell_height: 0,
                 },
                 version: "",
+                color_scheme: ColorScheme::Dark,
                 poisoned: false,
                 #[cfg(test)]
                 panic_next: false,
@@ -512,6 +520,16 @@ impl Terminal {
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_XTVERSION,
             xtversion_callback as *const c_void,
         )
+    }
+
+    pub fn set_color_scheme(&mut self, scheme: ColorScheme) -> Result<(), Error> {
+        self.ensure_healthy()?;
+        self.callbacks.color_scheme = scheme;
+        Ok(())
+    }
+
+    pub const fn color_scheme(&self) -> ColorScheme {
+        self.callbacks.color_scheme
     }
 
     pub fn keep_scrollback_on_resize(&mut self) -> Result<(), Error> {
@@ -1463,7 +1481,11 @@ unsafe extern "C" fn color_scheme_callback(
             return false;
         }
 
-        unsafe { *out_scheme = GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_DARK };
+        let scheme = match state.color_scheme {
+            ColorScheme::Dark => GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_DARK,
+            ColorScheme::Light => GhosttyColorScheme_GHOSTTY_COLOR_SCHEME_LIGHT,
+        };
+        unsafe { *out_scheme = scheme };
         true
     })
 }

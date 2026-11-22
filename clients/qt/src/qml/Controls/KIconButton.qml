@@ -10,9 +10,10 @@ AbstractButton {
     property bool active: false
     property bool open: false
     property bool destructive: false
-    property bool onTerminal: false
-    property color glyphColor: onTerminal ? KodosiTheme.terminalInkMuted : KodosiTheme.inkMuted
-    readonly property color ink: onTerminal ? KodosiTheme.terminalInk : KodosiTheme.ink
+    property Look terminalLook: null
+    readonly property Look look: terminalLook ?? KodosiTheme.look
+    property color glyphColor: look.inkMuted
+    readonly property color ink: look.ink
     readonly property bool lit: hovered && enabled
     readonly property real radius: Math.min(KodosiTheme.radiusMd, size * 0.32)
 
@@ -35,9 +36,9 @@ AbstractButton {
             height: width
             name: root.glyph
             strokeWidth: 1.9
-            color: !root.enabled ? (root.onTerminal ? KodosiTheme.mix(KodosiTheme.terminalInkFaint, KodosiTheme.terminal, 0.35) : KodosiTheme.mix(KodosiTheme.inkFaint, KodosiTheme.surface, 0.35))
-                : root.lit && root.destructive ? KodosiTheme.danger
-                : root.active ? (root.onTerminal ? KodosiTheme.terminalAccentStrong : KodosiTheme.accentStrong)
+            color: !root.enabled ? KodosiTheme.mix(root.look.inkFaint, root.terminalLook ? root.look.terminal : root.look.surface, 0.35)
+                : root.lit && root.destructive ? root.look.danger
+                : root.active ? root.look.accentStrong
                 : root.lit || root.open ? root.ink
                 : root.glyphColor
         }
@@ -46,8 +47,8 @@ AbstractButton {
         Raised {
             anchors.fill: parent
             radius: root.radius
-            fill: root.onTerminal ? KodosiTheme.terminalLifted : KodosiTheme.raised
-            dark: root.onTerminal || KodosiTheme.isDark
+            look: root.look
+            fill: root.terminalLook ? root.look.lifted : root.look.raised
             opacity: root.active || root.open ? 1 : 0
             visible: opacity > 0
 
@@ -57,10 +58,10 @@ AbstractButton {
             anchors.fill: parent
             radius: root.radius
             quiet: true
-            dark: root.onTerminal || KodosiTheme.isDark
+            look: root.look
             pressed: root.pressed
-            fill: root.lit && root.destructive ? KodosiTheme.dangerSoft
-                : root.onTerminal ? KodosiTheme.mix(KodosiTheme.terminalLifted, KodosiTheme.terminalInk, 0.1) : KodosiTheme.buttonFace(true)
+            fill: root.lit && root.destructive ? root.look.dangerSoft
+                : root.terminalLook ? KodosiTheme.mix(root.look.lifted, root.look.ink, 0.1) : root.look.buttonFace(true)
             opacity: root.lit && !root.active && !root.open ? 1 : 0
             visible: opacity > 0
 
@@ -71,7 +72,7 @@ AbstractButton {
             radius: root.radius
             color: "transparent"
             border.width: root.visualFocus ? 1.5 : 0
-            border.color: KodosiTheme.accentStrong
+            border.color: root.look.accentStrong
         }
     }
 }

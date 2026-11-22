@@ -10,9 +10,13 @@ import android.util.Log
 class RuntimeEventFaults {
     private var last: String? = null
 
-    /** A fault that repeats with each new event goes into the log once. */
-    fun unreadable(type: String?, reason: String) {
-        val fault = "the app could not read ${type?.let { "the event $it" } ?: "an event"}: $reason"
+    fun unreadable(type: String?, reason: String) =
+        once("the app could not read ${type?.let { "the event $it" } ?: "an event"}: $reason")
+
+    fun unreadableChatFrame(reason: String) = once("the app could not read a frame of a terminal's chat: $reason")
+
+    /** A fault that repeats with each new event or frame goes into the log once. */
+    private fun once(fault: String) {
         if (fault == last) return
         last = fault
         write(Log.ERROR, Ffi.LOG_ERROR, fault)

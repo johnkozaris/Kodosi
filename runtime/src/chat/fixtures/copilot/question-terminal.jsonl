@@ -1,0 +1,19 @@
+{"k":"did","t":1795273843657,"n":3}
+{"k":"event","type":"user.message","data":{"content":"Use your ask_user tool to ask me which drink to add to the price list, with the choices tea, juice and water. Then only tell me my choice.","messageId":"723ab569-57a3-44d2-ac3d-369fe64b1f93"},"id":"82fe49ef-c376-44f2-a997-e94f46586839","at":1795273843686}
+{"k":"event","type":"assistant.turn_start","data":{"turnId":"0"},"id":"4209d12d-c241-4bd5-94c4-28c499b83cb9","at":1795273843690}
+{"k":"event","type":"session.usage_info","data":{"tokenLimit":922000,"currentTokens":24658},"id":"984d68cf-d0fd-4402-a69d-d3fb366146f2","at":1795273843693}
+{"k":"event","type":"assistant.message","data":{"messageId":"f0176ea9-80f6-41c6-ab38-bc9d9c060bc3","content":"","toolRequests":[{"toolCallId":"call_ToNcdAkqkyVLQk1YcYIKvFgN","name":"ask_user","arguments":{"message":"Which drink should I add to the price list?","requestedSchema":{"properties":{"drink":{"type":"string","title":"Drink","enum":["tea","juice","water"],"default":"tea"}}}},"type":"function","intentionSummary":"Which drink should I add to the price list?","toolTitle":"Asking user"}]},"id":"f377ee43-52e1-4039-94c1-d01112b313c3","at":1795273845889}
+{"k":"event","type":"tool.execution_start","data":{"toolCallId":"call_ToNcdAkqkyVLQk1YcYIKvFgN","toolName":"ask_user","arguments":{"message":"Which drink should I add to the price list?","requestedSchema":{"properties":{"drink":{"type":"string","title":"Drink","enum":["tea","juice","water"],"default":"tea"}}}},"toolTitle":"Asking user"},"id":"39064e32-e059-49da-b679-ee5608668bf6","at":1795273845890}
+{"k":"ask","t":1795273845928,"ask":"mwqjmq1y-2","form":{"message":"Which drink should I add to the price list?","requestedSchema":{"type":"object","properties":{"drink":{"type":"string","title":"Drink","enum":["tea","juice","water"],"default":"tea"}}}}}
+{"k":"event","type":"elicitation.requested","data":{"requestId":"b4dc1c0c-e03b-44e5-bd20-52384fa7fe3c","toolCallId":"call_ToNcdAkqkyVLQk1YcYIKvFgN"},"id":"62d47faf-7fdb-4937-88b6-4773a2fb2fa8","at":1795273845890}
+{"k":"event","type":"elicitation.completed","data":{"requestId":"b4dc1c0c-e03b-44e5-bd20-52384fa7fe3c","action":"accept","content":{"drink":"tea"}},"id":"05258ae9-9996-4b60-9da0-ad65b9c057ed","at":1795273846008}
+{"k":"event","type":"tool.execution_complete","data":{"toolCallId":"call_ToNcdAkqkyVLQk1YcYIKvFgN","success":true,"result":{"content":"User responded: tea","detailedContent":"User responded:\nDrink: tea"}},"id":"75c21eb9-3871-4317-a544-f47aa8ef42c4","at":1795273846008}
+{"k":"event","type":"assistant.turn_end","data":{"turnId":"0"},"id":"f83d4566-fc3d-457c-a960-a20e3cf37e99","at":1795273846014}
+{"k":"event","type":"assistant.turn_start","data":{"turnId":"1"},"id":"39a03c82-0d12-4a5e-992f-9417da44ae6e","at":1795273846014}
+{"k":"event","type":"session.usage_info","data":{"tokenLimit":922000,"currentTokens":24758},"id":"c65a8504-2e16-4bb8-8a0a-2fb446e629c2","at":1795273846018}
+{"k":"event","type":"assistant.message_start","data":{"messageId":"724a960f-0a49-4417-8314-d93c49e216e9","phase":"final_answer"},"id":"61749ef9-8782-49ad-97ec-d07c49e8f45e","at":1795273848888}
+{"k":"event","type":"assistant.message_delta","data":{"messageId":"724a960f-0a49-4417-8314-d93c49e216e9","deltaContent":"tea"},"id":"1b861197-0379-498c-894b-8a7d494bb563","at":1795273848889}
+{"k":"event","type":"assistant.message","data":{"messageId":"724a960f-0a49-4417-8314-d93c49e216e9","content":"tea","toolRequests":[],"phase":"final_answer"},"id":"cc7f3657-1547-4a14-b70f-a12a28cae22b","at":1795273848943}
+{"k":"event","type":"assistant.turn_end","data":{"turnId":"1"},"id":"05e3cff0-ccef-4d67-a168-880ebf72f294","at":1795273848943}
+{"k":"event","type":"assistant.idle","data":{},"id":"8a6bc4fc-1bd9-4751-8fef-8ab50eafdb98","at":1795273848961}
+{"k":"event","type":"session.idle","data":{},"id":"2f0f7405-501d-49e8-b06f-c460672a84c5","at":1795273848964}

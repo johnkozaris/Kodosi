@@ -23,6 +23,12 @@ impl Endpoint {
         checked(role)?;
         imp::Endpoint::new(namespace, role).map(Self)
     }
+
+    /// The path of the endpoint's socket file.
+    #[cfg(unix)]
+    pub fn socket(&self) -> &std::path::Path {
+        self.0.socket()
+    }
 }
 
 #[cfg(unix)]

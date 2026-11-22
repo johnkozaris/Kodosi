@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kodosi.mobile.terminals.TerminalLook
 
 @Immutable
 data class KodosiColors(
@@ -102,7 +103,7 @@ val LightColors = KodosiColors(
     raised = Color(0xFFFEFBF5),
     lifted = Color(0xFFFFFDF9),
     well = Color(0xFFE8E0D2),
-    terminal = Color(0xFF0D0B09),
+    terminal = Color(0xFFFAF6EE),
     band = Color(0xFF221A16),
     hairline = Color(0xFFD9CCBA),
     ink = Color(0xFF25160E),
@@ -123,6 +124,8 @@ val LightColors = KodosiColors(
     lowlight = Color(0x0F4F3017),
     shadow = Color(0xFF2E1F0F)
 )
+
+val TerminalLook.colors: KodosiColors get() = if (this == TerminalLook.LIGHT) LightColors else DarkColors
 
 object Radius {
     val xs = 6.dp

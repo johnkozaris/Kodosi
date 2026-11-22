@@ -21,7 +21,7 @@ struct LauncherCommandLine<Folder: View, Choices: View>: View {
             if let info {
                 if info.installed {
                     Text(verbatim: info.program)
-                        .foregroundStyle(info.kind.tint.mix(with: .white, by: 0.35))
+                        .foregroundStyle(info.kind.commandInk(in: theme))
                         .frame(height: 26)
                     choices()
                 } else {
@@ -120,7 +120,7 @@ struct AgentTabs: View {
             .background {
                 if selected {
                     TabShape(radius: 9, flare: 8)
-                        .fill(TerminalInk.body)
+                        .fill(theme.colors.terminal)
                         .matchedGeometryEffect(id: "tab", in: tab)
                 }
             }

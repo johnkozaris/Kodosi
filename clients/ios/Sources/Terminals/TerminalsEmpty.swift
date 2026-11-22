@@ -21,7 +21,7 @@ struct TerminalsEmpty: View {
 private struct TerminalsArt: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            ArtTile().terminalScope()
+            ArtTile()
             AgentMark(kind: .claude, size: 34, activity: .working)
                 .padding(4)
                 .offset(x: 14, y: 14)

@@ -75,15 +75,10 @@ struct DosiComposer: View {
     @ContentBuilder
     private var action: some View {
         if stops {
-            Button { deps.dosi.stop() } label: {
-                RoundedRectangle(cornerRadius: 2, style: .continuous).fill(theme.colors.ink).frame(width: 9, height: 9)
-                    .frame(width: 30, height: 30)
-                    .background { BezelBackground(shape: Circle(), fill: theme.buttonFace(), bezel: .quiet) }
-            }
-            .buttonStyle(PressScaleStyle())
-            .tip(deps.settings.shortcuts.keys(for: .stopDosi).first.map { Text("Stop (\($0.label))") } ?? Text("Stop"))
-            .accessibilityLabel(Text("Stop")).accessibilityIdentifier("dosi.stop")
-            .transition(AnyTransition.pop)
+            StopKey { deps.dosi.stop() }
+                .tip(deps.settings.shortcuts.keys(for: .stopDosi).first.map { Text("Stop (\($0.label))") } ?? Text("Stop"))
+                .accessibilityIdentifier("dosi.stop")
+                .transition(AnyTransition.pop)
         } else {
             Button { deps.sendToDosi() } label: {
                 Image(systemName: "arrow.up").font(.system(size: 13, weight: .bold))

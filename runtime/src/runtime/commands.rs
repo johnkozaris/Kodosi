@@ -243,6 +243,18 @@ impl Runtime {
                 self.retry_views_now();
                 self.result(command);
             }
+            #[cfg(feature = "host")]
+            Command::Look { look, .. } => {
+                if self.look.change(*look) {
+                    for local in self.local.values_mut() {
+                        local.entry.look = *look;
+                    }
+                    self.publish_catalog();
+                }
+                self.result(command);
+            }
+            #[cfg(not(feature = "host"))]
+            Command::Look { .. } => self.result(command),
             command if command.is_dosi() => self.dosi_command(command)?,
             Command::SeeProject {
                 project_id,
@@ -839,12 +851,16 @@ impl Runtime {
             return Err(Error::Invalid("expected a command to run".to_owned()));
         };
         self.job_capacity()?;
-        let terminal = self
+        let (terminal, folder) = self
             .local
             .get(&id)
-            .ok_or_else(|| Error::Text(run_on_host()))?
-            .terminal
-            .clone();
+            .map(|local| {
+                (
+                    local.terminal.clone(),
+                    local.entry.working_dir.clone().map(PathBuf::from),
+                )
+            })
+            .ok_or_else(|| Error::Text(run_on_host()))?;
         let launcher = Arc::clone(&self.launcher);
         let (line, agent) = (line.clone(), agent.clone());
         let command = command.clone();
@@ -854,6 +870,9 @@ impl Runtime {
                     (Some(line), None) => (line, None),
                     (None, Some(agent)) => {
                         let launch = launcher.line(&agent).await.map_err(Error::Invalid)?;
+                        if let (Some(home), Some(folder)) = (launch.copilot_home, folder) {
+                            allow_copilot_link(home, folder).await;
+                        }
                         (launch.line, launch.quiet_settings)
                     }
                     _ => {
@@ -1059,12 +1078,16 @@ impl Runtime {
         let changes = self.changes.clone();
         let launcher = Arc::clone(&self.launcher);
         let services = self.services.clone();
+        let chat = self.links.room(id);
+        let look = self.look.watch();
         self.creating.insert(id, command.clone());
         self.spawn(async move {
             let result = create_session(
                 id,
                 config,
                 services,
+                chat,
+                look,
                 &launcher,
                 &command,
                 like,
@@ -1685,6 +1708,8 @@ impl Runtime {
                     activity: None,
                     context: None,
                     canvas: None,
+                    chat: false,
+                    look: self.look.now(),
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),
                     kind: SessionKind::Local,
@@ -2079,6 +2104,7 @@ async fn start_line(
                 .collect::<Vec<_>>()
                 .join(" "),
             quiet_settings: None,
+            copilot_home: None,
         }));
     };
     let launch = launcher.line(agent).await.map_err(Error::Invalid)?;
@@ -2090,6 +2116,7 @@ async fn start_line(
             .collect::<Vec<_>>()
             .join(" "),
         quiet_settings: launch.quiet_settings,
+        copilot_home: launch.copilot_home,
     }))
 }
 
@@ -2133,6 +2160,8 @@ async fn create_session(
     id: Uuid,
     config: Config,
     services: crate::canvas::CanvasServices,
+    chat: crate::chat::TerminalChat,
+    look: tokio::sync::watch::Receiver<crate::terminal::TerminalLook>,
     launcher: &Arc<Launcher>,
     command: &Command,
     like: Option<RunningAgent>,
@@ -2223,6 +2252,8 @@ async fn create_session(
         screen,
         grid,
         crate::canvas::CanvasHandle::spawn(id, &config.data_root, services),
+        chat,
+        look,
         crate::terminal::pictures_root(&config.data_root).join(id.to_string()),
         changes,
     )
@@ -2240,6 +2271,9 @@ async fn create_session(
         if let Some(settings) = start.quiet_settings.or(quiet_settings) {
             launcher.hold_quiet(id, settings).await;
         }
+        if let Some(home) = start.copilot_home {
+            allow_copilot_link(home, directory.clone()).await;
+        }
         terminal.start(start.line)?;
     }
     Ok(StartedSession {
@@ -2248,6 +2282,17 @@ async fn create_session(
         directory,
         worktree,
     })
+}
+
+/// Without the answer in Copilot's file, Copilot asks the person once in the terminal.
+#[cfg(feature = "host")]
+pub(super) async fn allow_copilot_link(home: PathBuf, folder: PathBuf) {
+    let allowed =
+        tokio::task::spawn_blocking(move || crate::agents::allow_copilot_link(&home, &folder))
+            .await;
+    if let Ok(Err(error)) = allowed {
+        tracing::warn!(%error, "Copilot will ask before its chat can answer its questions");
+    }
 }
 
 #[cfg(feature = "host")]

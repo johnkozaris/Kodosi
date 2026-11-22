@@ -3905,6 +3905,10 @@
         <translation>ダーク</translation>
     </message>
     <message>
+        <source>Keep terminals dark</source>
+        <translation>ターミナルを常にダークにする</translation>
+    </message>
+    <message>
         <source>Title</source>
         <translation>タイトル</translation>
     </message>

@@ -16,7 +16,6 @@ struct TerminalSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             TerminalPreview(family: TerminalAppearance.fontFamily, size: CGFloat(size.points), lineHeight: 1.1, blinks: false)
-                .terminalScope()
             ListGroup(footer: "Larger text gives a terminal fewer columns while you type in it here.") {
                 ListRow(String(localized: "Appearance"), symbol: "circle.lefthalf.filled", tint: TileTint.graphite) {
                     SegmentedPill(selection: $themePreference, options: [
@@ -44,7 +43,7 @@ struct TerminalSection: View {
         .sensoryFeedback(.selection, trigger: themePreference)
         .sensoryFeedback(.selection, trigger: textSize)
         .sensoryFeedback(.selection, trigger: summaryFirst)
-        .onChange(of: textSize) { _, _ in model.terminals.live.applyStyle(TerminalAppearance.style) }
+        .onChange(of: textSize) { _, _ in model.terminals.live.restyle() }
         .onChange(of: keepScreenOn) { _, _ in ScreenAwake.update() }
     }
 }
