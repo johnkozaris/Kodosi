@@ -62,8 +62,8 @@ public enum TerminalFace: String, Decodable, Hashable, Sendable {
     case terminal, chat
 }
 
-/// The face that a person picked for a terminal. It holds while the terminal's own face stays as it
-/// was, so a terminal whose agent goes to the chat, waits for its sign-in or ends shows its own face.
+/// The face that a person picked for a terminal. It holds until the terminal's agent reports another
+/// face, so a terminal whose agent goes to the chat or waits for its sign-in shows its own face.
 public struct FacePick: Equatable, Sendable {
     public let face: TerminalFace
     public let over: TerminalFace?
@@ -137,7 +137,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     }
 
     public func keeps(_ pick: FacePick) -> Bool {
-        pick.over == face
+        face == nil || pick.over == face
     }
 
     public var terminalLook: TerminalLook {

@@ -138,9 +138,9 @@ person's message, answer or stop goes back the same way.
 
 The host also tells each client where the agent of a chat works: in its terminal, or in the
 chat for the conversation of Antigravity CLI, except while that agent waits for its sign-in
-in the terminal. Each app shows that view first. A view that a person picks holds while
-the terminal's own view stays as it was, so a terminal whose agent ends or signs in shows
-its own view again.
+in the terminal. Each app shows that view first. A view that a person picks holds until
+the agent reports another view, so a terminal whose agent waits for its sign-in shows the
+terminal again.
 
 The chat reads nothing from the terminal's screen and presses no key there, so a new
 look of the agent does not change it. Each part of a report is optional, and an agent

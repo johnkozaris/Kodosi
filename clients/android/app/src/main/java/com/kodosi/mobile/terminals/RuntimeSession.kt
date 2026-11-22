@@ -79,7 +79,7 @@ data class RuntimeSession(
     /** The face that the apps show: the person's pick while it holds, else where the agent works. */
     fun shownFace(pick: FacePick?): TerminalFace = pick?.face ?: face ?: TerminalFace.TERMINAL
 
-    fun keeps(pick: FacePick): Boolean = pick.over == face
+    fun keeps(pick: FacePick): Boolean = face == null || pick.over == face
 
     @Serializable
     enum class Kind {
@@ -153,8 +153,8 @@ enum class TerminalFace {
 }
 
 /**
- * The face that a person picked for a terminal. It holds while the terminal's own face stays as it
- * was, so a terminal whose agent goes to the chat, waits for its sign-in or ends shows its own face.
+ * The face that a person picked for a terminal. It holds until the terminal's agent reports another
+ * face, so a terminal whose agent goes to the chat or waits for its sign-in shows its own face.
  */
 data class FacePick(val face: TerminalFace, val over: TerminalFace?)
 
