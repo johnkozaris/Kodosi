@@ -291,6 +291,22 @@
     <string name="uploading">파일을 보내는 중</string>
     <string name="loading">불러오는 중</string>
     <string name="reading_usage">플랜 사용량을 읽는 중</string>
+    <string name="usage_month">이번 달</string>
+    <string name="usage_week">이번 주</string>
+    <string name="usage_scope_month">%1$s, 이번 달</string>
+    <string name="usage_scope_week">%1$s, 이번 주</string>
+    <plurals name="usage_hours">
+        <item quantity="other">최근 %d시간</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="other">최근 %d일</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="other">%1$s, 최근 %2$d시간</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="other">%1$s, 최근 %2$d일</item>
+    </plurals>
     <string name="browser_address">검색 또는 주소 입력</string>
     <string name="new_browser_tab">새 탭</string>
     <string name="browser_back">뒤로</string>

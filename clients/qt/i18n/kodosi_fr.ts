@@ -4364,6 +4364,13 @@
         <translation>Cette semaine</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>Dernier %n jour</numerusform>
+            <numerusform>Derniers %n jours</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>Dernière %n heure</numerusform>
@@ -4379,6 +4386,13 @@
         <translation>%1, cette semaine</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1, dernier %n jour</numerusform>
+            <numerusform>%1, derniers %n jours</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1, dernière %n heure</numerusform>
@@ -4392,6 +4406,53 @@
     <message>
         <source>Default</source>
         <translation>Par défaut</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1j %2h</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1j</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1h %2min</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1h</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1min</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n jour</numerusform>
+            <numerusform>%n jours</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n heure</numerusform>
+            <numerusform>%n heures</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n minute</numerusform>
+            <numerusform>%n minutes</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1, se réinitialise dans %2</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

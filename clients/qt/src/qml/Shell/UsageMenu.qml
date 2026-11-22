@@ -10,12 +10,15 @@ KMenu {
 
     readonly property var sections: Models.Launcher.usageSections
     readonly property real dial: 26
+    readonly property real column: 44
+    property double now: Date.now()
 
     signal startRequested(string agent, string account)
 
     title: qsTr("Provider Usage")
-    width: 284
+    width: 308
     available: Models.Launcher.usageAvailable
+    onAboutToShow: now = Date.now()
     mark: Component {
         UsageRing {
             width: 14
@@ -99,7 +102,7 @@ KMenu {
                             delegate: PlainLabel {
                                 required property var modelData
 
-                                width: root.dial + 6
+                                width: root.column
                                 horizontalAlignment: Text.AlignHCenter
                                 text: modelData.window
                                 color: KodosiTheme.inkFaint
@@ -122,13 +125,13 @@ KMenu {
                         readonly property bool stale: !!usage && Date.now() - usage.readAtMs > 60000
 
                         width: section.width
-                        height: 38
+                        height: section.modelData.windows.length > 0 ? 50 : 38
                         hoverEnabled: true
                         activeFocusOnTab: true
                         objectName: "sidebar.usage." + section.modelData.agent + "." + modelData.name
                         Accessible.role: Accessible.Button
                         Accessible.name: [modelData.title, Models.DesktopSettings.agentLabel(section.modelData.agent)]
-                            .concat(usage ? usage.limits.map(limit => limit.spoken) : []).join(", ")
+                            .concat(usage ? usage.limits.map(limit => Models.Launcher.spokenWithReset(limit, root.now)) : []).join(", ")
                         Accessible.description: qsTr("Opens the launcher with this account")
                         ToolTip.visible: hovered
                         ToolTip.text: modelData.identity
@@ -184,16 +187,32 @@ KMenu {
                                         required property var modelData
                                         readonly property var limit: account.usage && modelData
                                             ? account.usage.limits.find(entry => entry.id === modelData.id) ?? null : null
+                                        readonly property string reset: slot.limit ? Models.Launcher.resetIn(slot.limit, root.now) : ""
 
-                                        width: root.dial + 6
-                                        height: root.dial
+                                        width: root.column
+                                        height: slot.modelData ? root.dial + 16 : root.dial
 
                                         UsageDial {
-                                            anchors.centerIn: parent
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            anchors.top: parent.top
                                             visible: slot.limit !== null || !account.usage
                                             limit: slot.limit
                                             loading: !account.usage && Models.Launcher.loadingUsage
                                             size: root.dial
+                                        }
+                                        PlainLabel {
+                                            anchors.bottom: parent.bottom
+                                            width: parent.width
+                                            visible: slot.reset.length > 0
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: slot.reset
+                                            color: KodosiTheme.inkFaint
+                                            font.pixelSize: KodosiTheme.fontCaption2
+                                            font.weight: Font.Medium
+                                            font.features: { "tnum": 1 }
+                                            fontSizeMode: Text.HorizontalFit
+                                            minimumPixelSize: Math.round(KodosiTheme.fontCaption2 * 0.75)
+                                            elide: Text.ElideRight
                                         }
                                     }
                                 }

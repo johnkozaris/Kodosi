@@ -291,6 +291,22 @@
     <string name="uploading">ファイルを送信中</string>
     <string name="loading">読み込み中</string>
     <string name="reading_usage">プランの使用量を読み込み中</string>
+    <string name="usage_month">今月</string>
+    <string name="usage_week">今週</string>
+    <string name="usage_scope_month">%1$s、今月</string>
+    <string name="usage_scope_week">%1$s、今週</string>
+    <plurals name="usage_hours">
+        <item quantity="other">過去 %d 時間</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="other">過去 %d 日</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="other">%1$s、過去 %2$d 時間</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="other">%1$s、過去 %2$d 日</item>
+    </plurals>
     <string name="browser_address">検索またはアドレスを入力</string>
     <string name="new_browser_tab">新規タブ</string>
     <string name="browser_back">戻る</string>

@@ -119,6 +119,13 @@
 <context>
     <name>kodosi::AgentLauncherModel</name>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>Last %n day</numerusform>
+            <numerusform>Last %n days</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>Last %n hour</numerusform>
@@ -126,10 +133,38 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1, last %n day</numerusform>
+            <numerusform>%1, last %n days</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1, last %n hour</numerusform>
             <numerusform>%1, last %n hours</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n day</numerusform>
+            <numerusform>%n days</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n hour</numerusform>
+            <numerusform>%n hours</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n minute</numerusform>
+            <numerusform>%n minutes</numerusform>
         </translation>
     </message>
 </context>

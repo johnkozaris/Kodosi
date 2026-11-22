@@ -11979,9 +11979,6 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
-                              "headline": {
-                                "type": "boolean"
-                              },
                               "hours": {
                                 "anyOf": [
                                   {
@@ -12006,6 +12003,27 @@
                                   }
                                 ]
                               },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "resetsAtMs": {
+                                "anyOf": [
+                                  {
+                                    "format": "u64",
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "scope": {
                                 "anyOf": [
                                   {
@@ -12024,9 +12042,10 @@
                             "required": [
                               "hours",
                               "scope",
+                              "model",
                               "used",
                               "level",
-                              "headline"
+                              "resetsAtMs"
                             ],
                             "type": "object"
                           },
@@ -14449,7 +14468,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 99,
+  "protocolVersion": 102,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

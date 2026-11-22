@@ -9,7 +9,7 @@ struct UsageMenuRow: View {
     @State private var hovered = false
 
     private var nearest: UsageLimit? {
-        UsageLimit.nearest(of: launcher.usageAccounts.compactMap { launcher.usage(of: $0.info.agent, account: $0.account.name)?.headline })
+        UsageLimit.nearest(of: launcher.usageAccounts.flatMap { launcher.usage(of: $0.info.agent, account: $0.account.name)?.limits ?? [] })
     }
 
     var body: some View {
@@ -54,14 +54,18 @@ struct UsagePanel: View {
     let start: (AgentInfo, AgentAccount) -> Void
 
     private static let dial: CGFloat = 26
+    private static let column: CGFloat = 44
 
     private struct Section: Identifiable {
         let info: AgentInfo
         var rows: [(account: AgentAccount, usage: AccountUsage?)] = []
-        var windows: [UsageLimit] = []
 
         var id: String {
             info.agent
+        }
+
+        var windows: [UsageLimit] {
+            UsagePanel.windows(of: rows.compactMap(\.usage))
         }
     }
 
@@ -73,13 +77,17 @@ struct UsagePanel: View {
             if sections.last?.info.agent != info.agent {
                 sections.append(Section(info: info))
             }
-            let last = sections.count - 1
-            sections[last].rows.append((account, usage))
-            for limit in usage?.limits ?? [] where !sections[last].windows.contains(where: { $0.id == limit.id }) {
-                sections[last].windows.append(limit)
-            }
+            sections[sections.count - 1].rows.append((account, usage))
         }
         return sections
+    }
+
+    static func windows(of usages: [AccountUsage]) -> [UsageLimit] {
+        var windows: [UsageLimit] = []
+        for limit in usages.flatMap(\.limits) where !windows.contains(where: { $0.id == limit.id }) {
+            windows.append(limit)
+        }
+        return windows.sorted { ($0.hours ?? .max, $0.scope ?? "") < ($1.hours ?? .max, $1.scope ?? "") }
     }
 
     var body: some View {
@@ -94,11 +102,12 @@ struct UsagePanel: View {
                 if index > 0 {
                     Rectangle().fill(theme.colors.hairline).frame(height: 1).padding(.horizontal, 8).padding(.vertical, 4)
                 }
-                header(section)
+                let windows = section.windows
+                header(section, windows: windows)
                 ForEach(section.rows, id: \.account.name) { row in
                     UsageAccountRow(
-                        info: section.info, account: row.account, usage: row.usage, windows: section.windows, dial: Self.dial,
-                        loading: row.usage == nil && launcher.loadingUsage,
+                        info: section.info, account: row.account, usage: row.usage, windows: windows, dial: Self.dial,
+                        column: Self.column, loading: row.usage == nil && launcher.loadingUsage,
                     ) {
                         start(section.info, row.account)
                     }
@@ -106,24 +115,24 @@ struct UsagePanel: View {
             }
         }
         .padding(6)
-        .frame(width: 272)
+        .frame(width: 296)
         .animation(theme.motion.spring, value: sections.map(\.id))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Provider Usage"))
         .accessibilityIdentifier("sidebar.usage.panel")
     }
 
-    private func header(_ section: Section) -> some View {
+    private func header(_ section: Section, windows: [UsageLimit]) -> some View {
         HStack(spacing: 8) {
             AgentMark(kind: section.info.kind, size: 15, activity: .awake)
             Text(verbatim: section.info.kind.label).appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
             Spacer(minLength: 8)
             HStack(spacing: 0) {
-                ForEach(section.windows) { limit in
+                ForEach(windows) { limit in
                     Text(verbatim: limit.window)
                         .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                         .lineLimit(1).minimumScaleFactor(0.8)
-                        .frame(width: Self.dial + 6)
+                        .frame(width: Self.column)
                 }
             }
         }
@@ -139,6 +148,7 @@ private struct UsageAccountRow: View {
     let usage: AccountUsage?
     let windows: [UsageLimit]
     let dial: CGFloat
+    let column: CGFloat
     let loading: Bool
     let start: () -> Void
     @State private var hovered = false
@@ -157,26 +167,24 @@ private struct UsageAccountRow: View {
                 Spacer(minLength: 10)
                 HStack(spacing: 0) {
                     ForEach(windows) { window in
-                        Group {
-                            if let usage {
-                                if let limit = usage.limits.first(where: { $0.id == window.id }) {
-                                    UsageDial(limit: limit, size: dial)
-                                } else {
-                                    Color.clear.frame(width: dial, height: dial)
-                                }
+                        let limit = usage?.limits.first { $0.id == window.id }
+                        VStack(spacing: 2) {
+                            if usage == nil || limit != nil {
+                                UsageDial(limit: limit, size: dial, loading: loading)
                             } else {
-                                UsageDial(limit: nil, size: dial, loading: loading)
+                                Color.clear.frame(width: dial, height: dial)
                             }
+                            UsageReset(limit: limit)
                         }
-                        .frame(width: dial + 6)
+                        .frame(width: column)
                     }
                     if windows.isEmpty {
-                        UsageDial(limit: nil, size: dial, loading: loading).frame(width: dial + 6)
+                        UsageDial(limit: nil, size: dial, loading: loading).frame(width: column)
                     }
                 }
             }
             .opacity(usage?.stale == true ? 0.55 : 1)
-            .padding(.horizontal, 8).frame(height: 38)
+            .padding(.horizontal, 8).frame(height: windows.isEmpty ? 38 : 50)
             .background {
                 RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
                     .fill(hovered ? theme.colors.raised.mix(with: theme.colors.ink, by: 0.06) : .clear)
@@ -188,7 +196,7 @@ private struct UsageAccountRow: View {
         .animation(theme.motion.hover, value: hovered)
         .tip(verbatim: account.identity ?? title)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: ([title, info.kind.label] + (usage?.limits.map(\.spoken) ?? [])).joined(separator: ", ")))
+        .accessibilityLabel(Text(verbatim: ([title, info.kind.label] + (usage?.limits.map(\.spokenWithReset) ?? [])).joined(separator: ", ")))
         .accessibilityHint(Text("Opens the launcher with this account"))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { start() }

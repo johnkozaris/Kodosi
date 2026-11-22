@@ -268,7 +268,7 @@ tut.
 | `kodosi terminal start --directory <repository> --branch <name>` | Startet ein Terminal auf einem neuen Branch, in seinem eigenen Worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Startet ein Terminal auf einem anderen deiner Computer. Ein relativer Ordner oder einer, der mit `~` beginnt, liegt dort in deinem Home-Verzeichnis. `kodosi devices list` zeigt, welche Computer online sind. |
 | `kodosi agent list` | Zeigt die Agents, ihre Konten und deine letzte Wahl. |
-| `kodosi agent usage` | Zeigt, wie viel der Tariflimits jedes angemeldete Konto von Claude Code, Codex und Copilot CLI verbraucht hat. |
+| `kodosi agent usage` | Zeigt, wie viel der Tariflimits jedes angemeldete Konto von Claude Code, Codex und Copilot CLI verbraucht hat und wann jedes Limit zurückgesetzt wird. |
 | `kodosi terminal list` | Zeigt deine Terminals mit ihren Namen und IDs. Gib eines davon als `<terminal>` an. |
 | `kodosi terminal read <terminal>` | Gibt den Bildschirm aus. `--history` fügt die Zeilen hinzu, die weggescrollt sind. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Gibt dem Agent in einem Terminal eine Nachricht, mit Absender und Herkunft. |
