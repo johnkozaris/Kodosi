@@ -2,12 +2,14 @@ using System.Threading.Channels;
 
 namespace Kodosi.Push;
 
-internal sealed partial class PushNotices(TerminalAlerts alerts, PushDelivery delivery, PushSettings settings, TimeProvider clock,
-    ILogger<PushNotices> logger) : BackgroundService
+internal sealed partial class PushNotices(TerminalAlerts alerts, PushDelivery delivery, PushRecords records, PushSettings settings,
+    TimeProvider clock, ILogger<PushNotices> logger) : BackgroundService
 {
     private const int MostQueued = 1024;
     private const int MostSending = 8;
     private static readonly TimeSpan Tick = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan SaveRetry = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan LastSave = TimeSpan.FromSeconds(5);
     private readonly Channel<PushNotice>[] lanes = [.. Enumerable.Range(0, MostSending).Select(_ => Channel.CreateBounded<PushNotice>(
         new BoundedChannelOptions(MostQueued / MostSending) { SingleReader = true, SingleWriter = true }))];
 
@@ -17,7 +19,8 @@ internal sealed partial class PushNotices(TerminalAlerts alerts, PushDelivery de
         alerts.Follow();
         try
         {
-            await Task.WhenAll([QueueAsync(stoppingToken), .. lanes.Select(lane => SendAsync(lane, stoppingToken))]);
+            alerts.Restore(await records.LoadAsync(stoppingToken));
+            await Task.WhenAll([QueueAsync(stoppingToken), KeepAsync(stoppingToken), .. lanes.Select(lane => SendAsync(lane, stoppingToken))]);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -25,7 +28,38 @@ internal sealed partial class PushNotices(TerminalAlerts alerts, PushDelivery de
         finally
         {
             alerts.Unfollow();
+            using var stopping = new CancellationTokenSource(LastSave, clock);
+            try
+            {
+                await SaveAsync(stopping.Token);
+            }
+            catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+            {
+            }
         }
+    }
+
+    private async Task KeepAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(Tick, clock);
+        while (await timer.WaitForNextTickAsync(ct))
+            if (!await SaveAsync(ct)) await Task.Delay(SaveRetry, clock, ct);
+    }
+
+    private async Task<bool> SaveAsync(CancellationToken ct)
+    {
+        var unsaved = alerts.TakeUnsaved();
+        if (unsaved.Count == 0) return true;
+        var saved = false;
+        try
+        {
+            saved = await records.SaveAsync(unsaved, ct);
+        }
+        finally
+        {
+            if (!saved) alerts.SaveLater(unsaved);
+        }
+        return saved;
     }
 
     private async Task QueueAsync(CancellationToken ct)

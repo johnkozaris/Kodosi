@@ -38,6 +38,7 @@ builder.Services.AddHttpClient(nameof(AccountDeletionFeed), client => client.Tim
 builder.Services.AddHostedService<AccountDeletionFeed>();
 builder.Services.AddSingleton<TerminalAlerts>();
 builder.Services.AddSingleton<PushDelivery>();
+builder.Services.AddSingleton<PushRecords>();
 builder.Services.AddHostedService<PushNotices>();
 builder.Services.AddHttpClient(nameof(Apns), client => client.Timeout = TimeSpan.FromSeconds(15)).RemoveAllLoggers();
 builder.Services.AddHttpClient(nameof(Fcm), client => client.Timeout = TimeSpan.FromSeconds(15)).RemoveAllLoggers();

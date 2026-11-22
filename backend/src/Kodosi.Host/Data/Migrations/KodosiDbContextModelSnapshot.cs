@@ -17,7 +17,7 @@ namespace Kodosi.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.13")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -623,6 +623,35 @@ namespace Kodosi.Data.Migrations
                     b.ToTable("session_members", (string)null);
                 });
 
+            modelBuilder.Entity("Kodosi.Data.TerminalPush", b =>
+                {
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Account")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Program")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("SessionId");
+
+                    b.ToTable("terminal_pushes", (string)null);
+                });
+
             modelBuilder.Entity("Kodosi.Data.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -903,6 +932,15 @@ namespace Kodosi.Data.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Kodosi.Data.TerminalPush", b =>
+                {
+                    b.HasOne("Kodosi.Data.Session", null)
+                        .WithOne()
+                        .HasForeignKey("Kodosi.Data.TerminalPush", "SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 #pragma warning restore 612, 618
