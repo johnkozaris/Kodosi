@@ -8,7 +8,7 @@
 //! never talks to the agent's provider: the agent's own program does.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::{self, Read as _, Write as _},
     path::{Path, PathBuf},
     process::Stdio,
@@ -40,8 +40,10 @@ const MOST_BATCH: usize = 64;
 const MOST_WAITING: usize = 256;
 /// The JSON-RPC code of a method that the other side does not have.
 const NO_METHOD: i64 = -32601;
-/// What Kodosi's chat calls on the terminal's side itself.
+/// What Kodosi's chat calls on the terminal's side itself: the agent's own sign-in, and the
+/// state of an agent that asked the person a question in its answer and waits for the next message.
 pub(super) const SIGN_IN: &str = "kodosi/signIn";
+pub(super) const ASKING: &str = "kodosi/asking";
 
 /// The choices of the session that the line of the terminal gives. The chat's adapter makes them.
 pub(crate) struct Choices {
@@ -416,8 +418,10 @@ struct Open {
     calls: HashMap<u64, String>,
     /// The calls that send a person's message, which end with their turn.
     prompts: Vec<u64>,
-    /// The requests of the server that wait for a person, true for a question.
-    requests: HashMap<String, bool>,
+    /// The requests of the server that wait for a person.
+    requests: HashSet<String>,
+    /// The agent asked the person a question and waits for the next message.
+    asking: bool,
     made: u64,
     shown: Option<&'static str>,
 }
@@ -429,16 +433,14 @@ impl Open {
 
     /// Tells the terminal what the agent does, as an agent in a terminal reports it itself.
     fn show(&mut self) {
-        let state = if let Some(question) = self.requests.values().copied().max() {
-            if question {
-                "state=blocked:kind=question"
-            } else {
-                "state=blocked:kind=permission"
-            }
-        } else if self.prompts.is_empty() {
-            "state=idle"
-        } else {
+        let state = if !self.requests.is_empty() {
+            "state=blocked:kind=permission"
+        } else if !self.prompts.is_empty() {
             "state=working"
+        } else if self.asking {
+            "state=blocked:kind=question"
+        } else {
+            "state=idle"
         };
         if self.shown == Some(state) {
             return;
@@ -549,6 +551,7 @@ async fn relay(
     drop(tokio::time::timeout(END, posting).await);
     open.prompts.clear();
     open.requests.clear();
+    open.asking = false;
     open.show();
     Ok(match ended {
         Ended::Code(0) => Ended::Code(code),
@@ -584,10 +587,10 @@ impl Relay {
 
     async fn heard(&mut self, message: &Value, typed: &mut Typed) -> Option<Ended> {
         let heard = hear(&mut self.open, message);
-        if let Some((id, question)) = heard.ask
+        if let Some(id) = heard.ask
             && let Some(ask) = ask_name(&id)
         {
-            self.open.requests.insert(ask.clone(), question);
+            self.open.requests.insert(ask.clone());
             tokio::spawn(wait_for_decision(
                 Arc::clone(&self.link),
                 id,
@@ -624,6 +627,10 @@ impl Relay {
                 Ended::SignIn
             });
         }
+        if command["m"] == ASKING {
+            self.open.asking = true;
+            return None;
+        }
         let message = call(&mut self.open, command);
         self.say(&message).await
     }
@@ -641,8 +648,8 @@ impl Relay {
 #[derive(Default)]
 struct Heard {
     event: Option<Value>,
-    /// A request for a person's decision, true for a question.
-    ask: Option<(Value, bool)>,
+    /// A request for a person's decision.
+    ask: Option<Value>,
     /// A request for something that Kodosi does not offer.
     refuse: Option<Value>,
     /// The session began, so the terminal can take messages.
@@ -654,15 +661,11 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
     match (message.get("method"), message.get("id")) {
         (Some(method), Some(id)) => {
             if method == "session/request_permission" {
-                let question = params
-                    .pointer("/toolCall/toolCallId")
-                    .and_then(Value::as_str)
-                    .is_some_and(|call| call.starts_with("interaction_"));
                 Heard {
                     event: Some(
                         json!({"k": "request", "t": now(), "id": id, "m": method, "p": params}),
                     ),
-                    ask: Some((id.clone(), question)),
+                    ask: Some(id.clone()),
                     ..Heard::default()
                 }
             } else {
@@ -715,6 +718,7 @@ fn call(open: &mut Open, command: &Value) -> Value {
     let tag = command["tag"].as_str().unwrap_or_default().to_owned();
     if command["m"] == "session/prompt" {
         open.prompts.push(open.made);
+        open.asking = false;
     }
     open.calls.insert(open.made, tag);
     message["id"] = json!(open.made);

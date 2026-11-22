@@ -15,7 +15,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    acp::{SIGN_IN, ask_name},
+    acp::{ASKING, SIGN_IN, ask_name},
     agent::{
         Agent, Stop, answer, file_name, list, open_items, person, shown_rule, stop_open, text,
         words,
@@ -26,8 +26,9 @@ use super::{
 
 /// The JSON-RPC code of the agent's "Authentication required".
 const SIGNED_OUT: i64 = -32000;
-/// The start of the name of a call that is the agent's own question to the person.
-const QUESTION: &str = "interaction_";
+/// The agent's tool that asks the person. The agent writes the question and ends its turn, and
+/// the person's next message is the answer.
+const ASK_QUESTION: &str = "ask_question";
 const MOST_ITEMS: usize = 2048;
 
 #[derive(Default)]
@@ -54,6 +55,14 @@ pub(super) struct Antigravity {
     said: Option<(String, Option<ChatPerson>)>,
     /// The session's options, such as its model and thinking level, as the agent gave them last.
     options: Vec<Value>,
+    /// The modes and the models that the session offers.
+    modes: Vec<String>,
+    models: Vec<String>,
+    /// The thinking level of the terminal's line waits for the model that it chose.
+    choosing: bool,
+    /// The first question of the agent's own question that is open, which the agent also writes
+    /// as its answer.
+    questioned: Option<String>,
     now: Option<ChatNow>,
 }
 
@@ -83,9 +92,10 @@ struct Handed {
 
 struct Asked {
     item: String,
-    /// The answers that the agent offers, each with its name and kind.
+    /// The answers that the agent offers before a call, each with its name and kind.
     options: Vec<Value>,
-    question: bool,
+    /// The questions of the agent's own question, which the person's next message answers.
+    questions: Vec<String>,
 }
 
 impl Antigravity {
@@ -180,7 +190,12 @@ impl Antigravity {
             }
             ("session", None) => self.not_started(chat, name, event, at),
             ("prompt", result) => self.end_turn(chat, result, event, at),
-            ("mode" | "option", Some(result)) => self.took(chat, result),
+            ("mode" | "option", Some(result)) => {
+                self.took(chat, result);
+                if self.choosing {
+                    self.choose_effort();
+                }
+            }
             ("mode" | "option", None) => failed(chat, event, at),
             _ => {}
         }
@@ -214,33 +229,54 @@ impl Antigravity {
     }
 
     /// The model, the thinking level and the mode that the terminal's line chose, where the
-    /// session has another.
+    /// session has another and offers them. A mode that the agent does not offer to this account,
+    /// such as its auto mode, leaves the session in its own mode, as the agent's terminal app does.
     fn choose(&mut self) {
         let Some(session) = self.session.clone() else {
             return;
         };
         if let Some(mode) = self.start.get("mode").and_then(Value::as_str) {
             let mode = if mode.is_empty() { "default" } else { mode };
-            self.call(
-                "mode",
-                "session/set_mode",
-                json!({"sessionId": session, "modeId": mode}),
-            );
-        }
-        for (wanted, option) in [
-            ("model", self.model_option()),
-            ("effort", self.effort_option()),
-        ] {
-            if let (Some(value), Some(option)) = (words(&self.start, wanted), option)
-                && text(&option, "currentValue") != value
-            {
+            if self.modes.iter().any(|offered| offered == mode) {
                 self.call(
-                    "option",
-                    "session/set_config_option",
-                    json!({"sessionId": session, "configId": text(&option, "id"), "value": value}),
+                    "mode",
+                    "session/set_mode",
+                    json!({"sessionId": session, "modeId": mode}),
                 );
             }
         }
+        let model = words(&self.start, "model");
+        if let (Some(model), Some(option)) = (model, self.model_option())
+            && text(&option, "currentValue") != model
+            && (offers(&option, &model) || self.models.contains(&model))
+        {
+            self.set(&session, &option, &model);
+            // The thinking levels that the session offers follow its model.
+            self.choosing = true;
+            return;
+        }
+        self.choose_effort();
+    }
+
+    fn choose_effort(&mut self) {
+        self.choosing = false;
+        if let (Some(session), Some(effort), Some(option)) = (
+            self.session.clone(),
+            words(&self.start, "effort"),
+            self.effort_option(),
+        ) && text(&option, "currentValue") != effort
+            && offers(&option, &effort)
+        {
+            self.set(&session, &option, &effort);
+        }
+    }
+
+    fn set(&mut self, session: &str, option: &Value, value: &str) {
+        self.call(
+            "option",
+            "session/set_config_option",
+            json!({"sessionId": session, "configId": text(option, "id"), "value": value}),
+        );
     }
 
     fn model_option(&self) -> Option<Value> {
@@ -257,8 +293,14 @@ impl Antigravity {
             .cloned()
     }
 
-    /// What an answer of the session tells of its mode and its options.
+    /// What an answer of the session tells of its modes, its models and its options.
     fn took(&mut self, chat: &mut Chat, result: &Value) {
+        if let Some(modes) = result.pointer("/modes/availableModes") {
+            self.modes = list_of(modes, "id");
+        }
+        if let Some(models) = result.pointer("/models/availableModels") {
+            self.models = list_of(models, "modelId");
+        }
         if let Some(options) = result.get("configOptions").and_then(Value::as_array) {
             self.options.clone_from(options);
             self.show_options(chat);
@@ -307,6 +349,7 @@ impl Antigravity {
             chat.unqueue(queued);
         }
         self.told = None;
+        self.answer_questions(chat, &handed.text);
         chat.push(at, person(&handed.text, handed.by));
     }
 
@@ -391,6 +434,13 @@ impl Antigravity {
         let Some(more) = content_text(update) else {
             return;
         };
+        if self
+            .questioned
+            .take_if(|question| more.contains(question.as_str()))
+            .is_some()
+        {
+            return;
+        }
         self.told = None;
         if self.turn.is_some() {
             self.now = Some(ChatNow::Writing);
@@ -416,7 +466,22 @@ impl Antigravity {
         self.told = None;
         self.finish_writing(chat);
         let item = self.item_of(chat, &id, update, at);
-        chat.change_tool(&item, |tool| news(tool, update));
+        let stopped = self.turn.as_ref().is_some_and(|turn| turn.stopped);
+        let asking = self.asked.contains_key(&question_of(&id));
+        chat.change_tool(&item, |tool| {
+            news(tool, update);
+            if stopped && tool.state == ToolState::Failed {
+                tool.state = ToolState::Stopped;
+            } else if asking && tool.state.is_open() {
+                tool.state = ToolState::Asking;
+            }
+        });
+        if text(update, "name") == ASK_QUESTION
+            && self.turn.is_some()
+            && chat.tool(&item).is_some_and(|tool| tool.state.is_open())
+        {
+            self.question(chat, &id, &item, update);
+        }
         if self.turn.is_some() && chat.tool(&item).is_some_and(|tool| tool.state.is_open()) {
             self.now = Some(ChatNow::Tool { item });
         }
@@ -441,7 +506,7 @@ impl Antigravity {
         item
     }
 
-    /// The agent asks before a call, or asks the person a question with the same request.
+    /// The agent asks before a call.
     fn request(&mut self, chat: &mut Chat, event: &Value) {
         let params = event.get("p").unwrap_or(&Value::Null);
         let Some(ask) = event.get("id").and_then(ask_name) else {
@@ -454,10 +519,6 @@ impl Antigravity {
             .collect::<Vec<_>>();
         let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
         self.finish_writing(chat);
-        if text(call, "toolCallId").starts_with(QUESTION) {
-            self.question(chat, ask, call, options, at);
-            return;
-        }
         let item = self.item_of(chat, text(call, "toolCallId"), call, at);
         chat.change_tool(&item, |tool| {
             news(tool, call);
@@ -491,70 +552,91 @@ impl Antigravity {
             Asked {
                 item,
                 options,
-                question: false,
+                questions: Vec::new(),
             },
         );
     }
 
-    /// The agent's own question with fixed answers. The chat keeps it as a step of its own.
-    fn question(
-        &mut self,
-        chat: &mut Chat,
-        ask: String,
-        call: &Value,
-        options: Vec<Value>,
-        at: u64,
-    ) {
-        let question = ChatQuestion {
-            question: start_of(
-                words(call, "title").as_deref().unwrap_or_default(),
-                MOST_TARGET * 2,
-            )
-            .to_owned(),
-            header: String::new(),
-            options: options
-                .iter()
-                .map(|option| ChatOption {
-                    label: start_of(text(option, "name"), MOST_TARGET).to_owned(),
-                    description: String::new(),
-                })
-                .collect(),
-            multiple: false,
-        };
-        if question.options.is_empty() {
+    /// The agent's own question, with the answers that it offers. The chat sends the chosen
+    /// answers as the next message, and the terminal shows that the agent waits for a person.
+    fn question(&mut self, chat: &mut Chat, id: &str, item: &str, update: &Value) {
+        let ask = question_of(id);
+        if self.asked.contains_key(&ask) {
             return;
         }
-        let item = chat.push(
-            at,
-            ChatBody::Tool {
-                tool: Box::new(ChatTool {
-                    name: "ask_question".to_owned(),
-                    kind: ToolKind::Question,
-                    state: ToolState::Asking,
-                    target: question.question.clone(),
-                    detail: Some(ToolDetail::Question {
-                        questions: vec![question.clone()],
-                        answers: Vec::new(),
-                    }),
-                    ms: None,
-                }),
-            },
-        );
+        let input = update.get("rawInput").unwrap_or(&Value::Null);
+        let questions = list(input, "questions")
+            .take(8)
+            .filter_map(|entry| {
+                Some(ChatQuestion {
+                    question: start_of(&words(entry, "question")?, MOST_TARGET * 2).to_owned(),
+                    header: String::new(),
+                    options: list(entry, "options")
+                        .take(16)
+                        .filter_map(Value::as_str)
+                        .map(|label| ChatOption {
+                            label: start_of(label, MOST_TARGET).to_owned(),
+                            description: String::new(),
+                        })
+                        .collect(),
+                    multiple: entry.get("is_multi_select").and_then(Value::as_bool) == Some(true),
+                })
+            })
+            .filter(|question| !question.options.is_empty())
+            .collect::<Vec<_>>();
+        let Some(first) = questions.first().map(|question| question.question.clone()) else {
+            return;
+        };
+        chat.change_tool(item, |tool| {
+            tool.kind = ToolKind::Question;
+            tool.state = ToolState::Asking;
+            first.clone_into(&mut tool.target);
+            tool.detail = Some(ToolDetail::Question {
+                questions: questions.clone(),
+                answers: Vec::new(),
+            });
+        });
         chat.ask(ChatAsk {
             id: ask.clone(),
-            item: Some(item.clone()),
+            item: Some(item.to_owned()),
             body: AskBody::Question {
-                questions: vec![question],
+                questions: questions.clone(),
             },
         });
+        self.questioned = Some(first);
+        self.calls.push_back(json!({"m": ASKING}));
         self.asked.insert(
             ask,
             Asked {
-                item,
-                options,
-                question: true,
+                item: item.to_owned(),
+                options: Vec::new(),
+                questions: questions
+                    .into_iter()
+                    .map(|question| question.question)
+                    .collect(),
             },
         );
+    }
+
+    /// The person's message answers the agent's own questions that are open.
+    fn answer_questions(&mut self, chat: &mut Chat, words: &str) {
+        let open = self
+            .asked
+            .iter()
+            .filter(|(_, asked)| !asked.questions.is_empty())
+            .map(|(ask, asked)| (ask.clone(), asked.item.clone()))
+            .collect::<Vec<_>>();
+        for (ask, item) in open {
+            self.asked.remove(&ask);
+            chat.close_asks(|open| open.id == ask);
+            chat.change_tool(&item, |tool| {
+                tool.state = ToolState::Done;
+                if let Some(ToolDetail::Question { answers, .. }) = &mut tool.detail {
+                    *answers = vec![start_of(words, MOST_TARGET).to_owned()];
+                }
+            });
+        }
+        self.questioned = None;
     }
 
     fn end_turn(&mut self, chat: &mut Chat, result: Option<&Value>, event: &Value, at: u64) {
@@ -574,7 +656,17 @@ impl Antigravity {
                 TurnEnd::Failed
             }
         };
-        for item in open_items(chat) {
+        self.questioned = None;
+        let asking = self
+            .asked
+            .values()
+            .filter(|asked| !asked.questions.is_empty())
+            .map(|asked| asked.item.clone())
+            .collect::<Vec<_>>();
+        for item in open_items(chat)
+            .into_iter()
+            .filter(|item| !asking.contains(item))
+        {
             chat.change_tool(&item, |tool| {
                 // The agent lets a command that runs go on after its turn, and wakes when it ends.
                 if let (ToolState::Running, Some(ToolDetail::Command { background, .. })) =
@@ -594,8 +686,9 @@ impl Antigravity {
                 ms: at.saturating_sub(turn.at),
             },
         );
-        self.asked.clear();
-        chat.close_asks(|_| true);
+        self.asked.retain(|_, asked| !asked.questions.is_empty());
+        let open = self.asked.keys().cloned().collect::<Vec<_>>();
+        chat.close_asks(|ask| !open.contains(&ask.id));
     }
 
     /// A line typed into the terminal. The agent's own commands that change the session go to
@@ -707,6 +800,14 @@ impl Agent for Antigravity {
         by: Option<&ChatPerson>,
     ) -> Option<Value> {
         let asked = self.asked.get(ask)?;
+        if !asked.questions.is_empty() {
+            let ChatAnswer::Answers { answers } = answer else {
+                return Some(json!({"answers": []}));
+            };
+            let said = answers_words(&asked.questions, answers)?;
+            self.said = Some((said, by.cloned()));
+            return Some(json!({"answers": answers}));
+        }
         let chosen = |kind: &str| {
             asked
                 .options
@@ -715,20 +816,10 @@ impl Agent for Antigravity {
                 .and_then(|option| option.get("optionId"))
                 .cloned()
         };
-        let option = match (asked.question, answer) {
-            (true, ChatAnswer::Answers { answers }) => {
-                let label = answers.first()?.first()?;
-                asked
-                    .options
-                    .iter()
-                    .find(|option| text(option, "name") == label)
-                    .and_then(|option| option.get("optionId"))
-                    .cloned()?
-            }
-            (true, _) => return Some(json!({"outcome": {"outcome": "cancelled"}})),
-            (false, ChatAnswer::Allow) => chosen("allow_once")?,
-            (false, ChatAnswer::Always) => chosen("allow_always")?,
-            (false, ChatAnswer::Deny { text }) => {
+        let option = match answer {
+            ChatAnswer::Allow => chosen("allow_once")?,
+            ChatAnswer::Always => chosen("allow_always")?,
+            ChatAnswer::Deny { text } => {
                 self.said = text
                     .as_deref()
                     .map(str::trim)
@@ -736,7 +827,7 @@ impl Agent for Antigravity {
                     .map(|words| (words.to_owned(), by.cloned()));
                 chosen("reject_once")?
             }
-            (false, _) => return None,
+            ChatAnswer::Answers { .. } | ChatAnswer::Plan { .. } => return None,
         };
         Some(json!({"outcome": {"outcome": "selected", "optionId": option}}))
     }
@@ -746,22 +837,32 @@ impl Agent for Antigravity {
             return true;
         };
         chat.close_asks(|open| open.id == ask);
+        if !asked.questions.is_empty() {
+            let chosen = list(decision, "answers")
+                .flat_map(|labels| list_of(labels, ""))
+                .collect::<Vec<_>>();
+            chat.change_tool(&asked.item, |tool| {
+                tool.state = if chosen.is_empty() {
+                    ToolState::Stopped
+                } else {
+                    ToolState::Done
+                };
+                if let Some(ToolDetail::Question { answers, .. }) = &mut tool.detail {
+                    *answers = chosen;
+                }
+            });
+            self.questioned = None;
+            self.show(chat);
+            return false;
+        }
         let chosen = decision.pointer("/outcome/optionId");
-        let option = asked
+        let refused = asked
             .options
             .iter()
-            .find(|option| Some(&option["optionId"]) == chosen);
-        let refused = option.is_none_or(|option| text(option, "kind").starts_with("reject"));
-        let label = option.map(|option| text(option, "name").to_owned());
+            .find(|option| Some(&option["optionId"]) == chosen)
+            .is_none_or(|option| text(option, "kind").starts_with("reject"));
         chat.change_tool(&asked.item, |tool| {
-            if asked.question {
-                tool.state = ToolState::Done;
-                if let (Some(ToolDetail::Question { answers, .. }), Some(label)) =
-                    (&mut tool.detail, label)
-                {
-                    *answers = vec![label];
-                }
-            } else if tool.state == ToolState::Asking {
+            if tool.state == ToolState::Asking {
                 tool.state = if refused {
                     ToolState::Denied
                 } else {
@@ -774,10 +875,16 @@ impl Agent for Antigravity {
     }
 
     /// The calls of the adapter, then the next message when the agent can start it: the session
-    /// began, no turn runs and no question is open.
+    /// began, no turn runs and no request of the agent waits. The agent's own question waits for
+    /// that message.
     fn commands(&mut self, chat: &Chat) -> Vec<Value> {
         let mut commands = self.calls.drain(..).collect::<Vec<_>>();
-        let ready = self.linked && !self.starting && self.turn.is_none() && chat.asks().is_empty();
+        let waits = chat.asks().iter().any(|ask| {
+            self.asked
+                .get(&ask.id)
+                .is_none_or(|asked| asked.questions.is_empty())
+        });
+        let ready = self.linked && !self.starting && self.turn.is_none() && !waits;
         let (true, Some(session)) = (ready, self.session.clone()) else {
             return commands;
         };
@@ -850,6 +957,66 @@ fn failed(chat: &mut Chat, event: &Value, at: u64) {
     );
 }
 
+/// The name of the chat's question for the agent's own question in a call.
+fn question_of(call: &str) -> String {
+    format!("q{call}")
+}
+
+/// The texts of a list: the field `key` of each entry, or each entry itself for no key.
+fn list_of(entries: &Value, key: &str) -> Vec<String> {
+    entries
+        .as_array()
+        .into_iter()
+        .flatten()
+        .take(64)
+        .filter_map(|entry| {
+            if key.is_empty() {
+                entry
+                    .as_str()
+                    .map(|text| start_of(text, MOST_TARGET).to_owned())
+            } else {
+                words(entry, key)
+            }
+        })
+        .collect()
+}
+
+/// The option of the session offers this value, also in a group of its values.
+fn offers(option: &Value, value: &str) -> bool {
+    list(option, "options")
+        .flat_map(|entry| {
+            if entry.get("value").is_some() {
+                vec![entry]
+            } else {
+                list(entry, "options").collect()
+            }
+        })
+        .any(|entry| text(entry, "value") == value)
+}
+
+/// The message that answers the agent's own question: the chosen answers of one question, or a
+/// line for each question that has answers.
+fn answers_words(questions: &[String], answers: &[Vec<String>]) -> Option<String> {
+    if let ([_], [chosen]) = (questions, answers) {
+        return Some(chosen.join(", ")).filter(|words| !words.is_empty());
+    }
+    let lines = questions
+        .iter()
+        .zip(answers)
+        .filter(|(_, chosen)| !chosen.is_empty())
+        .map(|(question, chosen)| format!("{question} {}", chosen.join(", ")))
+        .collect::<Vec<_>>();
+    (!lines.is_empty()).then(|| lines.join("\n"))
+}
+
+/// What a command printed, without the times and the exit code that the agent writes above it.
+fn command_output(printed: &str) -> String {
+    let printed = printed
+        .split_once("\nCommand output:\n")
+        .map_or(printed, |(_, output)| output);
+    printed.replace("\r\n", "\n").trim_end().to_owned()
+}
+
 /// The text of a message's content, which can come in pieces.
 fn content_text(update: &Value) -> Option<&str> {
     let content = update.get("content")?;
@@ -866,15 +1033,8 @@ fn described(update: &Value) -> ChatTool {
         "fetch" => ToolKind::Web,
         _ => ToolKind::Other,
     };
-    // The agent names a call in its title, as in "Running run_command" or "Run invoke_subagent?".
-    let title = text(update, "title");
-    let named = title
-        .strip_prefix("Running ")
-        .or_else(|| title.strip_prefix("Run "))
-        .map(|name| name.trim_end_matches('?'))
-        .filter(|name| !name.is_empty() && !name.contains(char::is_whitespace));
     ChatTool {
-        name: named.unwrap_or_else(|| text(update, "kind")).to_owned(),
+        name: words(update, "name").unwrap_or_else(|| text(update, "kind").to_owned()),
         kind,
         state: ToolState::Preparing,
         target: String::new(),
@@ -887,34 +1047,37 @@ fn described(update: &Value) -> ChatTool {
     }
 }
 
-/// The fields that a tool call's news gives: its state, its subject and what it did.
+/// The fields that a tool call's news gives: its state, its subject and what it did. A refused
+/// call stays refused when the agent then calls it failed, and a command that exits with an error
+/// failed although the agent completed the call.
 fn news(tool: &mut ChatTool, update: &Value) {
+    let input = update.get("rawInput").unwrap_or(&Value::Null);
+    let output = update.get("rawOutput").unwrap_or(&Value::Null);
+    let exited = output.get("exit_code").and_then(Value::as_i64);
     tool.state = match text(update, "status") {
         "pending" => ToolState::Preparing,
         "in_progress" => ToolState::Running,
+        "completed" if exited.is_some_and(|code| code != 0) => ToolState::Failed,
         "completed" => ToolState::Done,
+        "failed" if tool.state == ToolState::Denied => ToolState::Denied,
         "failed" => ToolState::Failed,
         _ => tool.state,
     };
-    let input = update.get("rawInput").unwrap_or(&Value::Null);
-    let output = update.get("rawOutput").unwrap_or(&Value::Null);
-    let command = ["CommandLine", "commandLine", "command_line", "command"]
-        .iter()
-        .find_map(|key| words(input, key));
+    let command = words(input, "CommandLine");
     let place = list(update, "locations")
         .find_map(|location| words(location, "path"))
         .map(|path| file_name(&path).to_owned());
-    let subject = command.clone().or(place).or_else(|| {
-        ["Query", "query", "Pattern", "pattern", "Url", "url"]
-            .iter()
-            .find_map(|key| words(input, key))
-    });
-    if let Some(subject) = subject.or_else(|| words(update, "title")) {
+    let subject = command
+        .clone()
+        .or(place)
+        .or_else(|| words(input, "query"))
+        .or_else(|| words(update, "title"));
+    if let Some(subject) = subject {
         start_of(&subject, MOST_TARGET).clone_into(&mut tool.target);
     }
-    let printed = ["combinedOutput", "combined_output", "output"]
-        .iter()
-        .find_map(|key| output.get(key).and_then(Value::as_str))
+    let printed = output
+        .get("output")
+        .and_then(Value::as_str)
         .map(str::to_owned)
         .or_else(|| {
             let texts = list(update, "content")
@@ -922,7 +1085,8 @@ fn news(tool: &mut ChatTool, update: &Value) {
                 .filter_map(|content| content.pointer("/content/text").and_then(Value::as_str))
                 .collect::<Vec<_>>();
             (!texts.is_empty()).then(|| texts.join("\n"))
-        });
+        })
+        .map(|printed| command_output(&printed));
     let change = list(update, "content")
         .filter(|content| text(content, "type") == "diff")
         .map(|content| {

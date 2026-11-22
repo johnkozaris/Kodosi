@@ -2,11 +2,13 @@
 //! Those in `fixtures/codex` are the messages of Codex's app-server in real sessions, as the link
 //! gives them to the chat, without the messages that the chat does not read. Those in
 //! `fixtures/copilot` are what the extension sent from real sessions of Copilot CLI 1.0.115.
-//! Those in `fixtures/antigravity` are the messages of `agy acp` 1.5.14 in real sessions, as
-//! `kodosi acp` gives them to the chat.
+//! Those in `fixtures/antigravity` are the messages of `agy acp` 1.5.14 as `kodosi acp` gives them
+//! to the chat: signed out, and in sessions whose model was a local stand-in of the Gemini API
+//! (`GOOGLE_GEMINI_BASE_URL`) that answered with written calls and words.
 //!
 //! The names of private places are replaced. A line with `answer` holds the decision that the
-//! recording gave the agent for a question, which the agent then took.
+//! recording gave the agent for a question, which the agent then took. A line with `prompt` is a
+//! message that a person sent in the chat, and a line with `stop` is a person's stop.
 
 use serde_json::{Value, json};
 
@@ -89,6 +91,15 @@ impl Play {
         play
     }
 
+    /// Plays a record of Antigravity CLI's server from its start. Each question gets the next of
+    /// `answers`, and the person who answers is Sam.
+    fn antigravity(record: &str, answers: &[ChatAnswer]) -> Self {
+        let mut play = Self::new(Box::new(Antigravity::default()));
+        play.answers_by = Some(sam());
+        play.more(record, answers);
+        play
+    }
+
     /// Plays records of Copilot after the start of its extension.
     fn copilot(records: &[&str], answers: &[ChatAnswer]) -> Self {
         let mut play = Self::new(Box::new(Copilot::default()));
@@ -112,6 +123,12 @@ impl Play {
         let mut answers = answers.iter();
         for line in record.lines() {
             let line: Value = serde_json::from_str(line).expect("a line of the record");
+            if let Some(text) = line.get("prompt").and_then(Value::as_str) {
+                self.chat.queue(text.to_owned(), self.answers_by.clone());
+            }
+            if line.get("stop").is_some() {
+                self.stop();
+            }
             match line.get("answer") {
                 Some(recorded) => {
                     let ask = recorded["ask"].as_str().expect("the question");
@@ -123,7 +140,8 @@ impl Play {
                     assert_eq!(decision, recorded["decision"]);
                     self.agent.answered(&mut self.chat, ask, &decision);
                 }
-                None => self.take(&line),
+                None if line.get("k").is_some() => self.take(&line),
+                None => {}
             }
             if matches!(self.agent.name(), Codex::NAME | Antigravity::NAME) {
                 let calls = self.agent.commands(&self.chat);
@@ -132,6 +150,20 @@ impl Play {
             self.follow();
         }
         assert!(answers.next().is_none(), "an answer had no question");
+    }
+
+    /// A person stops the turn in the chat, as the chat's room passes it on.
+    fn stop(&mut self) {
+        match self.agent.stop(&self.chat) {
+            Stop::Command(command) => self.calls.push(command),
+            Stop::Decisions(decisions) => {
+                for (ask, decision) in decisions {
+                    self.agent.answered(&mut self.chat, &ask, &decision);
+                }
+                self.calls.extend(self.agent.commands(&self.chat));
+            }
+            Stop::Nothing => {}
+        }
     }
 
     fn take(&mut self, event: &Value) {
@@ -1150,7 +1182,7 @@ fn sam() -> ChatPerson {
     }
 }
 
-/// The calls of the play to one method of Codex's app-server.
+/// The calls of the play to one method of the agent's server.
 fn calls<'a>(play: &'a Play, method: &str) -> Vec<&'a Value> {
     play.calls
         .iter()
@@ -2501,16 +2533,23 @@ fn copilot_leaves_plan_mode_without_carrying_out_the_plan() {
     assert_eq!(play.view.state, ChatState::Idle);
 }
 
+/// The lines of a record before its first line with `mark`, and the lines from there.
+fn split_at(record: &str, mark: &str) -> (String, String) {
+    let at = record
+        .lines()
+        .position(|line| line.contains(mark))
+        .expect("the mark");
+    let lines = record.lines().collect::<Vec<_>>();
+    (lines[..at].join("\n"), lines[at..].join("\n"))
+}
+
 #[test]
 fn a_signed_out_antigravity_signs_in_with_its_own_steps_in_its_terminal() {
-    let mut play = Play::new(Box::new(Antigravity::default()));
-    play.more(antigravity!("signed-out"), &[]);
-    let new = play
-        .calls
-        .iter()
-        .find(|call| call["m"] == "session/new")
-        .expect("a new session");
-    assert_eq!(new["p"]["cwd"], "/home/ana/work");
+    let play = Play::antigravity(antigravity!("signed-out"), &[]);
+
+    let new = calls(&play, "session/new");
+    assert_eq!(new.len(), 1);
+    assert_eq!(new[0]["p"]["cwd"], "/home/ana/work");
     assert!(matches!(
         &play.view.items[..],
         [ChatItem {
@@ -2520,7 +2559,262 @@ fn a_signed_out_antigravity_signs_in_with_its_own_steps_in_its_terminal() {
             ..
         }]
     ));
-    assert!(play.calls.iter().any(|call| call["m"] == acp::SIGN_IN));
+    assert_eq!(calls(&play, acp::SIGN_IN).len(), 1);
     assert_eq!(play.view.facts.version.as_deref(), Some("1.5.14"));
     assert_eq!(play.view.state, ChatState::Idle);
+}
+
+#[test]
+fn a_person_allows_a_command_and_a_file_of_antigravity_in_the_chat() {
+    let (before, after) = split_at(antigravity!("allow"), "\"answer\"");
+    let mut play = Play::antigravity(&before, &[]);
+
+    assert_eq!(play.view.state, ChatState::Asking);
+    let [ask] = play.view.asks.as_slice() else {
+        panic!("one question");
+    };
+    let AskBody::Permission { tool, always, .. } = &ask.body else {
+        panic!("a permission");
+    };
+    assert_eq!(
+        (tool.name.as_str(), tool.target.as_str(), tool.state),
+        ("run_command", "ls", ToolState::Asking)
+    );
+    assert_eq!(*always, None, "the agent offers to allow only this call");
+
+    play.more(&after, &[ChatAnswer::Allow, ChatAnswer::Allow]);
+
+    let [command, write] = play.tools()[..] else {
+        panic!("two calls");
+    };
+    assert_eq!(command.state, ToolState::Done);
+    assert!(
+        matches!(&command.detail, Some(ToolDetail::Command { output, .. }) if output == "a.txt"),
+        "the output without the agent's times and exit code: {:?}",
+        command.detail
+    );
+    assert_eq!(
+        (write.kind, write.target.as_str(), write.state),
+        (ToolKind::Write, "notes.txt", ToolState::Done)
+    );
+    assert!(matches!(
+        &write.detail,
+        Some(ToolDetail::Change { path, added: 1, removed: 0, .. }) if path == "/home/ana/work/notes.txt"
+    ));
+    assert_eq!(play.answers(), ["I listed the files and wrote notes.txt."]);
+    assert_eq!(play.ends(), [TurnEnd::Done]);
+    assert_eq!(play.view.state, ChatState::Idle);
+    let facts = &play.view.facts;
+    assert_eq!(
+        (facts.model.as_deref(), facts.effort.as_deref(), facts.mode),
+        (Some("gemini-3.1-pro"), Some("low"), Some(ChatMode::Ask))
+    );
+}
+
+#[test]
+fn a_command_of_antigravity_that_exits_with_an_error_failed() {
+    let play = Play::antigravity(
+        antigravity!("work"),
+        &[ChatAnswer::Allow, ChatAnswer::Allow],
+    );
+
+    let [read, edit, command] = play.tools()[..] else {
+        panic!("three calls");
+    };
+    assert_eq!(
+        (read.kind, read.target.as_str(), read.state),
+        (ToolKind::Read, "a.txt", ToolState::Done)
+    );
+    assert!(matches!(
+        &edit.detail,
+        Some(ToolDetail::Change {
+            added: 1,
+            removed: 1,
+            ..
+        })
+    ));
+    assert_eq!(command.state, ToolState::Failed);
+    assert!(matches!(
+        &command.detail,
+        Some(ToolDetail::Command { output, .. }) if output == "cat: missing.txt: No such file or directory"
+    ));
+}
+
+#[test]
+fn a_refusal_with_words_ends_the_turn_of_antigravity_and_the_words_are_its_next_message() {
+    let words = "Do not remove it. Say only: skipped";
+    let play = Play::antigravity(
+        antigravity!("refuse"),
+        &[ChatAnswer::Deny {
+            text: Some(words.to_owned()),
+        }],
+    );
+
+    assert_eq!(
+        play.tools().last().map(|tool| tool.state),
+        Some(ToolState::Denied),
+        "the agent calls a refused call failed"
+    );
+    assert_eq!(play.ends(), [TurnEnd::Done, TurnEnd::Done]);
+    let sent = calls(&play, "session/prompt");
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[1]["p"]["prompt"][0]["text"], words);
+    assert!(matches!(
+        play.view.items.iter().rev().find_map(|item| match &item.body {
+            ChatBody::Person { text, by } => Some((text.as_str(), by.clone())),
+            _ => None,
+        }),
+        Some((said, Some(by))) if said == words && by == sam()
+    ));
+    assert_eq!(play.answers(), ["I did not remove it."]);
+}
+
+#[test]
+fn antigravity_asks_its_own_question_in_the_chat_and_the_answer_is_its_next_message() {
+    let (before, after) = split_at(antigravity!("question"), "\"answer\"");
+    let mut play = Play::antigravity(&before, &[]);
+
+    assert_eq!(play.view.state, ChatState::Asking);
+    let [ask] = play.view.asks.as_slice() else {
+        panic!("one question");
+    };
+    let AskBody::Question { questions } = &ask.body else {
+        panic!("a question");
+    };
+    assert_eq!(questions[0].question, "Which language should I use?");
+    assert_eq!(
+        questions[0]
+            .options
+            .iter()
+            .map(|option| option.label.as_str())
+            .collect::<Vec<_>>(),
+        ["(Recommended) Rust", "Go"]
+    );
+    assert_eq!(
+        play.answers(),
+        Vec::<&str>::new(),
+        "the agent's own words of the question show once, as the question"
+    );
+    assert_eq!(calls(&play, acp::ASKING).len(), 1);
+
+    let rust = vec![vec!["(Recommended) Rust".to_owned()]];
+    play.more(&after, &[ChatAnswer::Answers { answers: rust }]);
+
+    assert_eq!(play.view.asks, []);
+    let sent = calls(&play, "session/prompt");
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[1]["p"]["prompt"][0]["text"], "(Recommended) Rust");
+    let question = play.tools()[0];
+    assert_eq!(question.state, ToolState::Done);
+    assert!(matches!(
+        &question.detail,
+        Some(ToolDetail::Question { answers, .. }) if answers == &["(Recommended) Rust"]
+    ));
+    assert_eq!(play.answers(), ["I will use Rust."]);
+    assert_eq!(play.view.state, ChatState::Idle);
+}
+
+#[test]
+fn a_message_in_the_chat_answers_the_open_question_of_antigravity() {
+    let (before, after) = split_at(antigravity!("question"), "\"answer\"");
+    let mut play = Play::antigravity(&before, &[]);
+    play.chat.queue("Use Go.".to_owned(), Some(sam()));
+
+    let sent = play.agent.commands(&play.chat);
+    assert!(
+        matches!(&sent[..], [prompt] if prompt["p"]["prompt"][0]["text"] == "Use Go."),
+        "an open question holds no message: {sent:?}"
+    );
+    let completed = after
+        .lines()
+        .nth(1)
+        .expect("the agent's news of its question");
+    play.more(completed, &[]);
+
+    assert_eq!(play.view.asks, []);
+    assert!(matches!(
+        &play.tools()[0].detail,
+        Some(ToolDetail::Question { answers, .. }) if answers == &["Use Go."]
+    ));
+}
+
+#[test]
+fn a_stop_ends_the_turn_of_antigravity_and_its_command() {
+    let play = Play::antigravity(antigravity!("stop"), &[]);
+
+    assert_eq!(calls(&play, "session/cancel").len(), 1);
+    assert_eq!(
+        play.tools().last().map(|tool| tool.state),
+        Some(ToolState::Stopped),
+        "the agent calls a stopped call failed"
+    );
+    assert_eq!(play.ends(), [TurnEnd::Stopped]);
+    assert_eq!(play.view.facts.mode, Some(ChatMode::Unrestricted));
+}
+
+#[test]
+fn a_restored_antigravity_loads_its_conversation_with_its_history() {
+    let play = Play::antigravity(antigravity!("load"), &[]);
+
+    let load = calls(&play, "session/load");
+    assert_eq!(load.len(), 1);
+    let session = load[0]["p"]["sessionId"]
+        .as_str()
+        .expect("the conversation");
+    assert_eq!(play.agent.conversation(), Some(session));
+    assert_eq!(
+        play.people(),
+        ["Change a.txt to two, then read missing.txt."]
+    );
+    assert_eq!(
+        play.tools()
+            .iter()
+            .map(|tool| (tool.name.as_str(), tool.state))
+            .collect::<Vec<_>>(),
+        [
+            ("read_file", ToolState::Done),
+            ("edit_file", ToolState::Done),
+            ("run_command", ToolState::Failed)
+        ]
+    );
+    assert_eq!(play.answers(), ["a.txt now says two."]);
+}
+
+#[test]
+fn antigravity_keeps_its_own_mode_when_the_account_has_no_auto_mode() {
+    let play = Play::antigravity(antigravity!("auto"), &[]);
+
+    assert_eq!(calls(&play, "session/set_mode"), Vec::<&Value>::new());
+    assert_eq!(play.view.facts.mode, Some(ChatMode::Ask));
+    assert!(
+        !play
+            .view
+            .items
+            .iter()
+            .any(|item| matches!(item.body, ChatBody::Note { .. })),
+        "the missing mode is no failure"
+    );
+    assert_eq!(play.answers(), ["Hello."]);
+}
+
+#[test]
+fn antigravity_takes_the_model_and_then_the_thinking_level_of_its_line() {
+    let play = Play::antigravity(antigravity!("choices"), &[]);
+
+    assert_eq!(
+        calls(&play, "session/set_config_option")
+            .iter()
+            .map(|call| (
+                call["p"]["configId"].as_str().unwrap_or_default(),
+                call["p"]["value"].as_str().unwrap_or_default()
+            ))
+            .collect::<Vec<_>>(),
+        [("model", "gemini-4-neon"), ("thought_level", "xhigh")],
+        "the first model offers no xhigh, so the level waits for the model"
+    );
+    let facts = &play.view.facts;
+    assert_eq!(
+        (facts.model.as_deref(), facts.effort.as_deref()),
+        (Some("gemini-4-neon"), Some("xhigh"))
+    );
 }
