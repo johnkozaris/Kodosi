@@ -225,7 +225,7 @@ pub(crate) async fn shown_conversation(
         Agent::Claude => resume::claude_conversation(&root, group),
         Agent::Codex => codex::conversation(&root, group, folder.as_deref()),
         Agent::Copilot => resume::copilot_conversation(&root, group),
-        Agent::Cursor | Agent::Gemini | Agent::Opencode => None,
+        Agent::Cursor | Agent::Opencode | Agent::Antigravity => None,
     })
     .await
     .ok()

@@ -23,8 +23,8 @@ nonisolated struct TerminalAlert: Equatable {
         case "codex": "Codex"
         case "copilot": "Copilot CLI"
         case "cursor": "Cursor"
-        case "gemini": "Gemini CLI"
         case "opencode": "OpenCode"
+        case "antigravity": "Antigravity CLI"
         default: nil
         }
     }

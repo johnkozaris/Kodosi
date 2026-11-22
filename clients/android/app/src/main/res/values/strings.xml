@@ -5,8 +5,8 @@
     <string name="agent_codex" translatable="false">Codex</string>
     <string name="agent_copilot" translatable="false">Copilot</string>
     <string name="agent_cursor" translatable="false">Cursor</string>
-    <string name="agent_gemini" translatable="false">Gemini CLI</string>
     <string name="agent_opencode" translatable="false">OpenCode</string>
+    <string name="agent_antigravity" translatable="false">Antigravity CLI</string>
     <string name="account_changed">Your account changed before that finished.</string>
     <string name="account_deleted">Your Kodosi account is deleted.</string>
     <string name="account_restore_offline">Kodosi cannot connect. Check your connection and try again.</string>
@@ -400,7 +400,7 @@
     <string name="agent_unrestricted_detail">Never asks, and runs every command as you.</string>
     <string name="agent_auto_check_detail">A safety check approves what is safe and asks you for the rest. The check uses tokens.</string>
     <string name="agent_auto_folder_detail">Works in this folder on its own and asks you for the rest.</string>
-    <string name="agent_auto_edit_detail">Edits files on its own and asks before it runs commands.</string>
+    <string name="agent_auto_safe_detail">Edits files and runs safe commands on its own, and asks before what it cannot undo.</string>
     <string name="agent_auto_detail">Accepts its own actions, except what you denied.</string>
     <string name="agent_quiet_detail">Shows less of its work.</string>
     <string name="agent_standard_detail">Shows its work as the agent is set up.</string>

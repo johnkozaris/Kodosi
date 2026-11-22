@@ -58,8 +58,8 @@
         <translation>이 폴더 안에서는 스스로 작업하고 나머지는 물어봐요.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>파일은 스스로 편집하고 명령을 실행하기 전에 물어봐요.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>파일 편집과 안전한 명령 실행은 스스로 하고, 되돌릴 수 없는 작업 전에는 물어봐요.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -325,8 +325,8 @@
         <translation>이 폴더 안에서는 스스로 작업하고 나머지는 물어봐요.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>파일은 스스로 편집하고 명령을 실행하기 전에 물어봐요.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>파일 편집과 안전한 명령 실행은 스스로 하고, 되돌릴 수 없는 작업 전에는 물어봐요.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
