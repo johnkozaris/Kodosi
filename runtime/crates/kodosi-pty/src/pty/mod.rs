@@ -65,6 +65,7 @@ fn program_identity(arguments: &[String]) -> Option<&'static str> {
         "codex" | "codex.js" => Some("codex"),
         "gemini" => Some("gemini"),
         "opencode" => Some("opencode"),
+        "agy" => Some("antigravity"),
         "cursor-agent" | "agent" if basename == "cursor-agent" || candidate.contains("cursor") => {
             Some("cursor")
         }
@@ -109,6 +110,7 @@ mod tests {
                 Some("codex"),
             ),
             (vec!["/opt/bin/cursor-agent"], Some("cursor")),
+            (vec!["/home/ana/.local/bin/agy"], Some("antigravity")),
             (
                 vec![
                     "node",

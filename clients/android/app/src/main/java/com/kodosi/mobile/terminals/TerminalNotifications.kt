@@ -157,6 +157,7 @@ class TerminalNotifications(private val application: Context, private val prefer
             AgentKind.CURSOR -> R.string.agent_cursor
             AgentKind.GEMINI -> R.string.agent_gemini
             AgentKind.OPENCODE -> R.string.agent_opencode
+            AgentKind.ANTIGRAVITY -> R.string.agent_antigravity
             AgentKind.SHELL -> null
         }?.let(context::getString)
         val computer = terminal?.computerName

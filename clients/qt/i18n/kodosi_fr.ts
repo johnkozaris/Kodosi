@@ -62,6 +62,10 @@
         <translation>Modifie les fichiers seul et demande avant d&apos;exécuter des commandes.</translation>
     </message>
     <message>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>Modifie les fichiers et exécute les commandes sûres seul, et demande avant ce qui ne peut pas être annulé.</translation>
+    </message>
+    <message>
         <source>Accepts its own actions, except what you denied.</source>
         <translation>Accepte ses propres actions, sauf ce que vous avez refusé.</translation>
     </message>
@@ -327,6 +331,10 @@
     <message>
         <source>Edits files on its own and asks before it runs commands.</source>
         <translation>Modifie les fichiers seul et demande avant d&apos;exécuter des commandes.</translation>
+    </message>
+    <message>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>Modifie les fichiers et exécute les commandes sûres seul, et demande avant ce qui ne peut pas être annulé.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>

@@ -33,9 +33,10 @@ la shell del terminal nuevo.
   el terminal seleccionado. Ajustes › Atajos muestra todas las teclas y las cambia.
 - Si falta un agente, el lanzador muestra su comando de instalación.
 - Los agentes empiezan con Acceso total: cambian archivos y ejecutan comandos sin
-  preguntarte. Para que un agente pregunte antes, elige Preguntar en Más, el botón que sigue
+  preguntarte. Antigravity CLI empieza en su propio modo automático, que pregunta antes de lo
+  que no se puede deshacer. Para que un agente pregunte antes, elige Preguntar en Más, el botón que sigue
   al modelo. Ahí también eliges la verbosidad, cuánto de su trabajo muestran Claude Code,
-  Codex y Copilot CLI; empiezan en Breve. Copilot CLI solo toma su verbosidad de sus propios
+  Codex, Copilot CLI y Antigravity CLI; empiezan en Breve. Copilot CLI solo toma su verbosidad de sus propios
   ajustes, así que Kodosi los cambia mientras Copilot CLI se ejecuta en Breve y después los
   restablece.
 - Claude Code y Codex tienen un modo rápido, que responde más rápido y cuesta más. Actívalo
@@ -117,8 +118,8 @@ una presentación o la app que ejecuta en el lienzo de su terminal, y usar un na
 compartes con él. El lienzo se abre con lo que muestra el agente mientras miras su terminal, y
 cuando cambia un archivo del lienzo o el navegador, salvo que lo hayas cerrado. Para abrirlo
 solo tú, desactiva Abrir el lienzo automáticamente en Ajustes › General. Claude Code y Copilot
-CLI saben cómo, también cuando los inicias tú, y también Codex, Cursor y OpenCode cuando
-los inicia Kodosi (OpenCode en un Mac o en Linux); a otro
+CLI saben cómo, también cuando los inicias tú, y también Codex, Cursor, OpenCode y Antigravity
+CLI cuando los inicia Kodosi (OpenCode en un Mac o en Linux); a otro
 agente, dile que lea `kodosi skill canvas`. Cuando el lienzo tiene algo, la cabecera del
 terminal muestra un botón para sus archivos y otro para su navegador, con un punto cobrizo
 cuando hay novedades. Selecciona uno para abrir el lienzo junto al terminal; Más espacio le da
@@ -235,7 +236,7 @@ en él, e invita a amigos cuando quieras.
   `KODOSI_GITEA_URL`. Tus credenciales se quedan en tu ordenador.
 - Escribe `@` y el nombre de un terminal en el chat, y Kodosi le da al agente de ese terminal
   tu mensaje con tu nombre y el proyecto; el agente decide qué hacer con él. Claude Code y Copilot
-  CLI en un terminal de Kodosi, y Codex, Cursor y OpenCode cuando los inicia
+  CLI en un terminal de Kodosi, y Codex, Cursor, OpenCode y Antigravity CLI cuando los inicia
   Kodosi (OpenCode en un Mac o en Linux), saben que se ejecutan en Kodosi,
   y `kodosi skill` imprime la [skill](../../runtime/skills/kodosi/SKILL.md) que permite a un
   agente participar. En un terminal de Kodosi, el comando encuentra el proyecto; en otro sitio,

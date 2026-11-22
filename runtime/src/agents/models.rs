@@ -52,6 +52,16 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
             opencode(run(facts, program, &["models"]).await.as_deref()),
             Vec::new(),
         ),
+        Agent::Antigravity => {
+            let (list, help) = tokio::join!(
+                run(facts, program, &["models"]),
+                run(facts, program, &["--help"])
+            );
+            (
+                antigravity(list.as_deref()),
+                efforts(help.as_deref(), agent),
+            )
+        }
     };
     AgentModels { models, efforts }
 }
@@ -153,7 +163,7 @@ pub(super) fn listed_values(help: &str, flag: &str) -> Vec<String> {
         });
     inner.map_or_default(|inner| {
         inner
-            .split(',')
+            .split([',', '|'])
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_owned)
@@ -272,6 +282,23 @@ pub(super) fn opencode(list: Option<&str>) -> Vec<AgentModel> {
         .map(str::trim)
         .filter(|line| line.contains('/') && !line.contains(char::is_whitespace))
         .filter_map(|id| model(id, id, Agent::Opencode, Vec::new()))
+        .take(MAX_MODELS)
+        .collect()
+}
+
+/// One model on each line, its identifier first and then its name, if any.
+pub(super) fn antigravity(list: Option<&str>) -> Vec<AgentModel> {
+    list.into_iter()
+        .flat_map(str::lines)
+        .filter_map(|line| {
+            let line = line.trim();
+            let (id, label) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
+            let slug = id.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-._".contains(&byte)
+            }) && id.contains('-');
+            slug.then(|| model(id, label, Agent::Antigravity, Vec::new()))
+                .flatten()
+        })
         .take(MAX_MODELS)
         .collect()
 }

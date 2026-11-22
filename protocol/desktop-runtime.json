@@ -1746,6 +1746,9 @@
                       },
                       {
                         "const": "opencode"
+                      },
+                      {
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -2199,6 +2202,9 @@
                       },
                       {
                         "const": "opencode"
+                      },
+                      {
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -5216,6 +5222,9 @@
               },
               {
                 "const": "opencode"
+              },
+              {
+                "const": "antigravity"
               }
             ]
           },
@@ -5323,6 +5332,9 @@
               },
               {
                 "const": "opencode"
+              },
+              {
+                "const": "antigravity"
               }
             ]
           },
@@ -5399,6 +5411,9 @@
                           },
                           {
                             "const": "opencode"
+                          },
+                          {
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -5448,6 +5463,9 @@
                       },
                       {
                         "const": "opencode"
+                      },
+                      {
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -6094,6 +6112,9 @@
                           },
                           {
                             "const": "opencode"
+                          },
+                          {
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -6143,6 +6164,9 @@
                       },
                       {
                         "const": "opencode"
+                      },
+                      {
+                        "const": "antigravity"
                       }
                     ]
                   },
@@ -11389,6 +11413,9 @@
                             },
                             {
                               "const": "opencode"
+                            },
+                            {
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -11508,6 +11535,9 @@
                               },
                               {
                                 "const": "opencode"
+                              },
+                              {
+                                "const": "antigravity"
                               }
                             ]
                           },
@@ -11549,6 +11579,9 @@
                                 },
                                 {
                                   "const": "opencode"
+                                },
+                                {
+                                  "const": "antigravity"
                                 }
                               ]
                             },
@@ -11718,6 +11751,9 @@
                               },
                               {
                                 "const": "opencode"
+                              },
+                              {
+                                "const": "antigravity"
                               }
                             ]
                           },
@@ -11759,6 +11795,9 @@
                                 },
                                 {
                                   "const": "opencode"
+                                },
+                                {
+                                  "const": "antigravity"
                                 }
                               ]
                             },
@@ -11969,6 +12008,9 @@
                             },
                             {
                               "const": "opencode"
+                            },
+                            {
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -12186,6 +12228,9 @@
                           },
                           {
                             "const": "opencode"
+                          },
+                          {
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -12227,6 +12272,9 @@
                             },
                             {
                               "const": "opencode"
+                            },
+                            {
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -12701,6 +12749,9 @@
                         },
                         {
                           "const": "opencode"
+                        },
+                        {
+                          "const": "antigravity"
                         }
                       ]
                     },
@@ -13237,6 +13288,9 @@
                           },
                           {
                             "const": "opencode"
+                          },
+                          {
+                            "const": "antigravity"
                           }
                         ]
                       },
@@ -13278,6 +13332,9 @@
                             },
                             {
                               "const": "opencode"
+                            },
+                            {
+                              "const": "antigravity"
                             }
                           ]
                         },
@@ -14446,7 +14503,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 98,
+  "protocolVersion": 101,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

@@ -155,7 +155,7 @@ impl Process {
             ],
             Agent::Codex => &["app-server"],
             Agent::Copilot => &["--server", "--stdio", "--no-auto-update"],
-            Agent::Cursor | Agent::Gemini | Agent::Opencode => {
+            Agent::Cursor | Agent::Gemini | Agent::Opencode | Agent::Antigravity => {
                 return Err(format!("{} reports no plan usage.", agent.label()));
             }
         };
@@ -209,7 +209,7 @@ impl Process {
             Agent::Claude => self.claude().await,
             Agent::Codex => self.codex().await,
             Agent::Copilot => self.copilot().await,
-            Agent::Cursor | Agent::Gemini | Agent::Opencode => Ok(Vec::new()),
+            Agent::Cursor | Agent::Gemini | Agent::Opencode | Agent::Antigravity => Ok(Vec::new()),
         }
     }
 

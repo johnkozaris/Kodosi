@@ -372,6 +372,7 @@
     <string name="agent_auto_check_detail">安全チェックが安全な操作を承認し、それ以外は確認します。チェックにはトークンを使います。</string>
     <string name="agent_auto_folder_detail">このフォルダー内では自分で作業し、それ以外は確認します。</string>
     <string name="agent_auto_edit_detail">ファイルは自分で編集し、コマンドを実行する前に確認します。</string>
+    <string name="agent_auto_safe_detail">ファイルの編集と安全なコマンドの実行は自分で行い、元に戻せない操作の前に確認します。</string>
     <string name="agent_auto_detail">拒否したもの以外の自分の操作を承認します。</string>
     <string name="agent_quiet_detail">作業の表示を減らします。</string>
     <string name="agent_standard_detail">エージェントの設定どおりに作業を表示します。</string>

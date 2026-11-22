@@ -20,7 +20,7 @@
 - 侧边栏中文件夹的 + 按钮会用该文件夹中运行的 Agent 再打开一个终端，账户和选择都相同；如果没有 Agent 在运行，则打开普通终端。
 - 按键与 Ghostty 一致。⌘1 到 ⌘9 选择终端（Linux 和 Windows 上为 Alt+1 到 Alt+9），⌥⌘ 加方向键选择相邻的终端（Ctrl+Alt 加方向键），⌘W 关闭所选终端。“设置 › 快捷键”列出了所有按键，并可以修改。
 - 如果缺少某个 Agent，启动器会显示它的安装命令。
-- Agent 启动时为“不受限制”：会直接修改文件、运行命令，不会先询问你。若想让某个 Agent 先询问，在模型后面的“更多”中选择“询问”。在那里还可以选择“详细程度”，即 Claude Code、Codex 和 Copilot CLI 显示多少工作内容，开始时为“简洁”。Copilot CLI 只从自己的设置中读取详细程度，因此在 Copilot CLI 以“简洁”运行期间，Kodosi 会修改它的设置，结束后再改回来。
+- Agent 启动时为“不受限制”：会直接修改文件、运行命令，不会先询问你。Antigravity CLI 则以它自己的自动模式启动，执行无法撤销的操作前会询问。若想让某个 Agent 先询问，在模型后面的“更多”中选择“询问”。在那里还可以选择“详细程度”，即 Claude Code、Codex、Copilot CLI 和 Antigravity CLI 显示多少工作内容，开始时为“简洁”。Copilot CLI 只从自己的设置中读取详细程度，因此在 Copilot CLI 以“简洁”运行期间，Kodosi 会修改它的设置，结束后再改回来。
 - Claude Code 和 Codex 有“快速模式”，回答更快，但费用更高。可在模型和推理强度旁边打开。它只对那一次启动有效，所以除非你打开它，Agent 启动时都不使用快速模式。
 - 新账号有自己的登录文件夹，例如 `~/.claude-work`。Kodosi 也会找到你在 shell 中设置的账号，例如 `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`。
 - 在停在提示符处的终端里，标题栏中的操作按钮（两个滑块）会列出已安装的 Agent。选择一个，即可按你上次的选择启动它。
@@ -49,7 +49,7 @@
 
 ## 4. 查看 Agent 展示的内容
 
-Agent 可以在其终端的画布上给你展示页面、Markdown、图片、PDF、文档、表格、演示文稿或它运行的应用，也可以使用与你共享的浏览器。当你查看它的终端时，画布会随 Agent 展示的内容打开；画布上的文件或浏览器有变化时也会打开，除非你已将它关闭。若只想自己打开画布，请在“设置 › 常规”中关闭“自动打开画布”。Claude Code 和 Copilot CLI 即使由你自己启动也知道该怎么做，由 Kodosi 启动的 Codex、Cursor 和 OpenCode 也一样（OpenCode 限 Mac 和 Linux）；对于其他 Agent，让它读取 `kodosi skill canvas` 即可。画布上有内容时，终端标题栏会显示文件按钮和浏览器按钮，有新内容时会带一个铜色圆点。选择其中一个，即可在终端旁打开画布；“更多空间”会把舞台交给画布，终端则缩小在角落里。用按钮上的 × 关闭某一部分，用 + 再次打开。操作按钮中的“打开浏览器”会在 Agent 使用之前打开浏览器，“添加文件…”会把文件放到画布上并放入终端的文件夹；你也可以把文件拖放到画布上。在 iPhone 上，画布按钮位于终端的栏中；Agent 展示或更改内容时，会出现一条横幅，点按“打开”即可查看。
+Agent 可以在其终端的画布上给你展示页面、Markdown、图片、PDF、文档、表格、演示文稿或它运行的应用，也可以使用与你共享的浏览器。当你查看它的终端时，画布会随 Agent 展示的内容打开；画布上的文件或浏览器有变化时也会打开，除非你已将它关闭。若只想自己打开画布，请在“设置 › 常规”中关闭“自动打开画布”。Claude Code 和 Copilot CLI 即使由你自己启动也知道该怎么做，由 Kodosi 启动的 Codex、Cursor、OpenCode 和 Antigravity CLI 也一样（OpenCode 限 Mac 和 Linux）；对于其他 Agent，让它读取 `kodosi skill canvas` 即可。画布上有内容时，终端标题栏会显示文件按钮和浏览器按钮，有新内容时会带一个铜色圆点。选择其中一个，即可在终端旁打开画布；“更多空间”会把舞台交给画布，终端则缩小在角落里。用按钮上的 × 关闭某一部分，用 + 再次打开。操作按钮中的“打开浏览器”会在 Agent 使用之前打开浏览器，“添加文件…”会把文件放到画布上并放入终端的文件夹；你也可以把文件拖放到画布上。在 iPhone 上，画布按钮位于终端的栏中；Agent 展示或更改内容时，会出现一条横幅，点按“打开”即可查看。
 
 - 文档、表格、演示文稿、PDF 或文本文件都是实时的：你、终端里的人和 Agent 可以同时编辑，它仍然是其文件夹中的普通文件。文档有修订记录时，它的栏中会出现一个接受或拒绝修订的按钮。“设置 › 文档”可以开启或关闭每种查看器，选择以页面还是以适应画布的文本显示文档，并在 Kodosi 为深色时让页面也变暗。
 - 页面不联网。页面、文档、表格、演示文稿和 PDF 中的链接会按与终端链接相同的规则，在你自己的浏览器中打开。在可以编辑的地方，按住 ⌘ 点按链接（Linux 和 Windows 上为 Ctrl+点按）；在其他地方，点按即可打开，在 iPhone 上轻点即可。指向同一文件中某张幻灯片或某个单元格的链接会直接跳转过去。
@@ -100,7 +100,7 @@ Dosi 头像旁的那一行会告诉你 Dosi 何时在工作、何时已回答、
 - 所有成员都可以使用共享终端，也可以共享自己的终端。后来加入的人也会获得这些终端和完整的对话。文件留在各个终端所在的电脑上。
 - 你可以发布任务供人认领，认领、放弃认领，带着结果关闭任务，或重新打开任务。
 - 关联 GitHub 或 Gitea 仓库，即可把 Issue 变成任务；当你修改这样的任务时，Kodosi 会同步修改对应的 Issue。GitHub 使用你的 `gh` 登录或 Git credential helper，Gitea 使用 credential helper，或为 `KODOSI_GITEA_URL` 中的服务器使用 `KODOSI_GITEA_TOKEN`。你的凭据留在你的电脑上。
-- 在聊天中输入 `@` 和终端名称，Kodosi 会把你的消息连同你的名字和项目交给那个终端里的 Agent；如何处理由 Agent 决定。Kodosi 终端中的 Claude Code 和 Copilot CLI，以及由 Kodosi 启动的 Codex、Cursor 和 OpenCode（OpenCode 限 Mac 和 Linux），都知道自己运行在 Kodosi 中，`kodosi skill` 会输出让 Agent 参与协作的 [skill](../../runtime/skills/kodosi/SKILL.md)。在 Kodosi 终端中，这条命令会自动找到项目；在其他地方，请加上 `--project <name>`。
+- 在聊天中输入 `@` 和终端名称，Kodosi 会把你的消息连同你的名字和项目交给那个终端里的 Agent；如何处理由 Agent 决定。Kodosi 终端中的 Claude Code 和 Copilot CLI，以及由 Kodosi 启动的 Codex、Cursor、OpenCode 和 Antigravity CLI（OpenCode 限 Mac 和 Linux），都知道自己运行在 Kodosi 中，`kodosi skill` 会输出让 Agent 参与协作的 [skill](../../runtime/skills/kodosi/SKILL.md)。在 Kodosi 终端中，这条命令会自动找到项目；在其他地方，请加上 `--project <name>`。
 - 你可以删除你或你的 Agent 写的消息，每个人都会在那里看到有一条消息已被删除。“清空聊天”会在你的所有设备上清空到目前为止的对话；其他人仍会保留。
 
 ## 8. 使用命令行

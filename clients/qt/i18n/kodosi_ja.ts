@@ -62,6 +62,10 @@
         <translation>ファイルは自分で編集し、コマンドを実行する前に確認します。</translation>
     </message>
     <message>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>ファイルの編集と安全なコマンドの実行は自分で行い、元に戻せない操作の前に確認します。</translation>
+    </message>
+    <message>
         <source>Accepts its own actions, except what you denied.</source>
         <translation>拒否したもの以外の自分の操作を承認します。</translation>
     </message>
@@ -327,6 +331,10 @@
     <message>
         <source>Edits files on its own and asks before it runs commands.</source>
         <translation>ファイルは自分で編集し、コマンドを実行する前に確認します。</translation>
+    </message>
+    <message>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>ファイルの編集と安全なコマンドの実行は自分で行い、元に戻せない操作の前に確認します。</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>

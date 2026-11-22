@@ -37,16 +37,18 @@ pub enum Agent {
     Cursor,
     Gemini,
     Opencode,
+    Antigravity,
 }
 
 impl Agent {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Claude,
         Self::Codex,
         Self::Copilot,
         Self::Cursor,
         Self::Gemini,
         Self::Opencode,
+        Self::Antigravity,
     ];
 
     pub const fn name(self) -> &'static str {
@@ -57,6 +59,7 @@ impl Agent {
             Self::Cursor => "cursor",
             Self::Gemini => "gemini",
             Self::Opencode => "opencode",
+            Self::Antigravity => "antigravity",
         }
     }
 
@@ -72,6 +75,7 @@ impl Agent {
             Self::Cursor => "cursor-agent",
             Self::Gemini => "gemini",
             Self::Opencode => "opencode",
+            Self::Antigravity => "agy",
         }
     }
 
@@ -83,13 +87,14 @@ impl Agent {
             Self::Cursor => "Cursor",
             Self::Gemini => "Gemini CLI",
             Self::Opencode => "OpenCode",
+            Self::Antigravity => "Antigravity CLI",
         }
     }
 
     #[cfg(feature = "host")]
     pub(crate) const fn prompt_flag(self) -> Option<&'static str> {
         match self {
-            Self::Copilot | Self::Gemini => Some("-i"),
+            Self::Copilot | Self::Gemini | Self::Antigravity => Some("-i"),
             Self::Opencode => Some("--prompt"),
             Self::Claude | Self::Codex | Self::Cursor => None,
         }
@@ -99,14 +104,16 @@ impl Agent {
     pub(crate) const fn model_flag(self) -> &'static str {
         match self {
             Self::Codex | Self::Gemini => "-m",
-            Self::Claude | Self::Copilot | Self::Cursor | Self::Opencode => "--model",
+            Self::Claude | Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity => {
+                "--model"
+            }
         }
     }
 
     #[cfg(feature = "host")]
     pub(crate) const fn effort_flag(self) -> Option<(&'static str, &'static str)> {
         match self {
-            Self::Claude => Some(("--effort", "")),
+            Self::Claude | Self::Antigravity => Some(("--effort", "")),
             Self::Codex => Some(("-c", "model_reasoning_effort=")),
             Self::Copilot => Some(("--reasoning-effort", "")),
             Self::Cursor | Self::Gemini | Self::Opencode => None,
@@ -136,6 +143,11 @@ impl Agent {
             (Self::Gemini, Permissions::Auto) => Some(&["--approval-mode", "auto_edit"]),
             (Self::Cursor, Permissions::Unrestricted) => Some(&["--force"]),
             (Self::Opencode, Permissions::Auto) => Some(&["--auto"]),
+            (Self::Antigravity, Permissions::Ask) => Some(&["--mode="]),
+            (Self::Antigravity, Permissions::Auto) => Some(&["--mode", "auto"]),
+            (Self::Antigravity, Permissions::Unrestricted) => {
+                Some(&["--dangerously-skip-permissions"])
+            }
             (Self::Cursor, Permissions::Auto) | (Self::Opencode, Permissions::Unrestricted) => None,
         }
     }
@@ -169,6 +181,8 @@ impl Agent {
                 "-c",
                 "model_reasoning_summary=detailed",
             ]),
+            (Self::Antigravity, Output::Quiet) => Some(&["--settings", ANTIGRAVITY_QUIET]),
+            (Self::Antigravity, Output::Detailed) => Some(&["--settings", ANTIGRAVITY_DETAILED]),
             (Self::Copilot, Output::Detailed)
             | (Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
         }
@@ -184,7 +198,10 @@ impl Agent {
             (Self::Claude, false) => Some(&["--fast-mode", "off"]),
             (Self::Codex, true) => Some(&["-c", "service_tier=fast"]),
             (Self::Codex, false) => Some(&["-c", "service_tier=default"]),
-            (Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
+            (
+                Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode | Self::Antigravity,
+                _,
+            ) => None,
         }
     }
 
@@ -201,9 +218,13 @@ impl Agent {
             .collect()
     }
 
+    /// Antigravity CLI starts in its own default mode, which is auto. Kodosi turns its checks off
+    /// only when a person chooses that.
     #[cfg(feature = "host")]
     pub(crate) fn default_permissions(self) -> Permissions {
-        if self.permission_words(Permissions::Unrestricted).is_some() {
+        if self == Self::Antigravity {
+            Permissions::Auto
+        } else if self.permission_words(Permissions::Unrestricted).is_some() {
             Permissions::Unrestricted
         } else {
             Permissions::Ask
@@ -288,6 +309,13 @@ impl Agent {
                 ("--yolo", None, Permissions),
                 ("--dangerously-skip-permissions", None, Permissions),
             ],
+            Self::Antigravity => &[
+                ("--mode=", None, Permissions),
+                ("--mode", Some(""), Permissions),
+                ("--dangerously-skip-permissions", None, Permissions),
+                ("--sandbox", None, Permissions),
+                ("--settings", Some(r#"{"verbosity""#), Output),
+            ],
         }
     }
 
@@ -357,6 +385,8 @@ impl Agent {
     /// Cursor loads a plugin only from its command line. `OpenCode` reads instructions only from
     /// its configuration, and `OpenCode` 2 reads that in its shared background server unless it
     /// runs with `--standalone`, so the configuration goes only to the program that Kodosi starts.
+    /// Antigravity CLI loads a plugin only from its own folders or from a folder that its command
+    /// line adds to the workspace.
     #[cfg(feature = "host")]
     pub(crate) fn with_context(self, command: &str, notes: &Notes) -> String {
         let shell = &notes.shell;
@@ -378,6 +408,8 @@ impl Agent {
                     format!("env {config} {command}{standalone}")
                 })
             }
+            Self::Antigravity => antigravity_folder(&notes.folder)
+                .map(|folder| format!("{command} --add-dir {}", as_shell_word(shell, &folder))),
             Self::Claude | Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
         };
         words.unwrap_or_else(|| command.to_owned())
@@ -416,6 +448,11 @@ impl Agent {
                 opencode_config(&notes.folder)
                     .is_none_or(|config| variable == Some(config.as_str()))
             }
+            Self::Antigravity => antigravity_folder(&notes.folder).is_none_or(|folder| {
+                arguments
+                    .windows(2)
+                    .any(|pair| pair[0] == "--add-dir" && pair[1] == folder)
+            }),
             Self::Claude | Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => true,
         };
         !has_note && !arguments.is_empty()
@@ -427,7 +464,7 @@ impl Agent {
             Self::Claude => Some((".claude", "CLAUDE_CONFIG_DIR")),
             Self::Codex => Some((".codex", "CODEX_HOME")),
             Self::Copilot => Some((".copilot", "COPILOT_HOME")),
-            Self::Cursor | Self::Gemini | Self::Opencode => None,
+            Self::Cursor | Self::Gemini | Self::Opencode | Self::Antigravity => None,
         }
     }
 
@@ -470,6 +507,13 @@ const OPENCODE_CONFIG: &str = "OPENCODE_CONFIG_CONTENT";
 const CLAUDE_QUIET: &str = r#"{"viewMode":"focus","tui":"fullscreen","showThinkingSummaries":false,"spinnerTipsEnabled":false,"showTurnDuration":false,"prefersReducedMotion":true,"feedbackSurveyRate":0,"promptSuggestionEnabled":false}"#;
 #[cfg(feature = "host")]
 const CLAUDE_DETAILED: &str = r#"{"viewMode":"verbose","showThinkingSummaries":true}"#;
+/// Antigravity CLI takes only its last `--settings`, and `verbosity` comes first, because a running
+/// agent's output is read from the start of these settings.
+#[cfg(feature = "host")]
+const ANTIGRAVITY_QUIET: &str =
+    r#"{"verbosity":"low","showTips":false,"showFeedbackSurvey":false}"#;
+#[cfg(feature = "host")]
+const ANTIGRAVITY_DETAILED: &str = r#"{"verbosity":"high","showThinking":true}"#;
 #[cfg(feature = "host")]
 pub(crate) const SKILL: &str = include_str!("../../skills/kodosi/SKILL.md");
 #[cfg(feature = "host")]
@@ -482,6 +526,8 @@ pub(crate) const PAGE: &str = include_str!("../../skills/kodosi-canvas/assets/pa
 const PLUGIN: &str = "plugin";
 #[cfg(feature = "host")]
 const CURSOR_PLUGIN: &str = "cursor";
+#[cfg(feature = "host")]
+const ANTIGRAVITY_FOLDER: &str = "antigravity";
 #[cfg(feature = "host")]
 const NOTE: &str = "kodosi.md";
 
@@ -533,6 +579,7 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
         crate::PRODUCT_VERSION
     );
     let cursor = folder.join(CURSOR_PLUGIN);
+    let antigravity = antigravity_plugin(folder);
     let skills = |plugin: &Path| {
         let skills = plugin.join("skills");
         [
@@ -571,15 +618,24 @@ pub(crate) fn write_notes(folder: &Path) -> std::io::Result<()> {
             plugin.join("hooks").join("hooks.json"),
             CLAUDE_HOOKS.to_owned(),
         ),
-        (cursor.join(".cursor-plugin").join("plugin.json"), manifest),
+        (
+            cursor.join(".cursor-plugin").join("plugin.json"),
+            manifest.clone(),
+        ),
         (
             cursor.join("rules").join("kodosi.mdc"),
             format!("---\nalwaysApply: true\n---\n\n{}\n", CONTEXT.trim()),
         ),
+        (antigravity.join("plugin.json"), manifest),
+        (
+            antigravity.join("rules").join("AGENTS.md"),
+            format!("{}\n", CONTEXT.trim()),
+        ),
     ]
     .into_iter()
     .chain(skills(&plugin))
-    .chain(skills(&cursor));
+    .chain(skills(&cursor))
+    .chain(skills(&antigravity));
     for (file, text) in files {
         if std::fs::read_to_string(&file).is_ok_and(|current| current == text) {
             continue;
@@ -637,6 +693,25 @@ fn cursor_plugin(notes: &Path) -> Option<String> {
         return None;
     }
     plugin.to_str().map(str::to_owned)
+}
+
+/// The folder that Antigravity CLI adds to its workspace, with Kodosi's plugin in it.
+#[cfg(feature = "host")]
+fn antigravity_folder(notes: &Path) -> Option<String> {
+    antigravity_plugin(notes)
+        .join("plugin.json")
+        .is_file()
+        .then(|| notes.join(ANTIGRAVITY_FOLDER).to_str().map(str::to_owned))
+        .flatten()
+}
+
+#[cfg(feature = "host")]
+fn antigravity_plugin(notes: &Path) -> std::path::PathBuf {
+    notes
+        .join(ANTIGRAVITY_FOLDER)
+        .join(".agents")
+        .join("plugins")
+        .join("kodosi")
 }
 
 #[cfg(feature = "host")]
