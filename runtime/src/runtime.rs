@@ -798,12 +798,13 @@ impl TerminalTarget {
         &self,
         connection: Uuid,
         focused: bool,
+        returning: bool,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
             #[cfg(feature = "host")]
-            Self::Local(terminal) => Box::pin(terminal.focus(connection, focused)),
+            Self::Local(terminal) => Box::pin(terminal.focus(connection, focused, returning)),
             Self::Remote(terminal) => {
-                let result = terminal.control(Some(connection), TerminalControl::Focus { focused });
+                let result = terminal.focus(connection, focused, returning);
                 Box::pin(async move { result.await.map(|_| ()) })
             }
         }

@@ -532,7 +532,7 @@ private slots:
     void terminalViewCancelsLinkReleaseOutsideBounds();
     void terminalViewCopySelectionStillUsesHostClipboard();
     void terminalViewRetriesRevocationBlurBeforeRefocus();
-    void terminalViewTakesNoFocusWhenItsTerminalComesBack();
+    void terminalViewGivesItsFocusBackWithoutTheSizeWhenItsTerminalComesBack();
     void terminalViewLeavesWithoutWaitingForABusyBlur();
     void terminalViewSendsItsSizeOnlyWhileItMayResize();
     void terminalViewWaitsQuietlyForItsConnection();
@@ -3691,7 +3691,7 @@ void TerminalKernelTest::terminalViewRetriesRevocationBlurBeforeRefocus()
         }));
 }
 
-void TerminalKernelTest::terminalViewTakesNoFocusWhenItsTerminalComesBack()
+void TerminalKernelTest::terminalViewGivesItsFocusBackWithoutTheSizeWhenItsTerminalComesBack()
 {
     kodosi::TerminalSessionRegistry registry;
     FakeTerminalDispatcher dispatcher;
@@ -3738,9 +3738,10 @@ void TerminalKernelTest::terminalViewTakesNoFocusWhenItsTerminalComesBack()
     };
     QVERIFY(view.attach(registry, dispatcher, second, QStringLiteral("next-incarnation")));
     makeTerminalReady(registry, second);
-    QTest::qWait(40);
+    QTRY_COMPARE(focuses().size(), 2);
     QVERIFY(view.hasActiveFocus());
-    QCOMPARE(focuses().size(), 1);
+    QVERIFY(!focuses().first().toObject().contains(QStringLiteral("returning")));
+    QCOMPARE(focuses().last().toObject().value(QStringLiteral("returning")).toBool(), true);
     window.hide();
 }
 

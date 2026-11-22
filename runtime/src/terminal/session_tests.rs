@@ -284,7 +284,7 @@ async fn the_focused_view_owns_the_size_and_brings_its_size_with_focus() {
     let small = TerminalSize::new(18, 60).expect("size");
     let large = TerminalSize::new(30, 100).expect("size");
     session
-        .focus(first.connection_id, true)
+        .focus(first.connection_id, true, false)
         .await
         .expect("focus first");
     session
@@ -298,7 +298,7 @@ async fn the_focused_view_owns_the_size_and_brings_its_size_with_focus() {
             .is_err()
     );
     session
-        .focus(second.connection_id, true)
+        .focus(second.connection_id, true, false)
         .await
         .expect("focus second");
     let cut = session
@@ -389,6 +389,69 @@ async fn a_focused_view_takes_its_size_back_when_the_view_that_took_it_leaves() 
 }
 
 #[tokio::test]
+async fn a_focus_that_comes_back_with_its_connection_or_from_another_device_takes_no_size() {
+    let (session, _changes, _root) = shell("exec /bin/cat").await;
+    let used = session.subscribe().await.expect("used");
+    let back = session.subscribe().await.expect("back");
+    let size = |rows, cols| TerminalSize::new(rows, cols).expect("size");
+    session
+        .focus(used.connection_id, true, false)
+        .await
+        .expect("focus");
+    session
+        .resize(used.connection_id, size(18, 60), None, false)
+        .await
+        .expect("the view in use sets the size");
+    assert!(
+        session
+            .resize(back.connection_id, size(30, 100), None, false)
+            .await
+            .is_err()
+    );
+    session
+        .focus(back.connection_id, true, true)
+        .await
+        .expect("focus back");
+
+    let phone = Uuid::now_v7();
+    let authorization = CancellationToken::new();
+    let (reply, refused) = oneshot::channel();
+    session
+        .host_requests
+        .send(HostRequest::Control {
+            connection_id: phone,
+            control: TerminalControl::Resize {
+                rows: 40,
+                cols: 120,
+                width_pixels: 0,
+                height_pixels: 0,
+                cell_width_pixels: 0,
+                cell_height_pixels: 0,
+                claim: false,
+            },
+            authorization: authorization.clone(),
+            reply,
+        })
+        .await
+        .expect("host request");
+    assert!(refused.await.expect("control reply").is_err());
+    remote_control(
+        &session,
+        phone,
+        &authorization,
+        TerminalControl::Focus { focused: true },
+    )
+    .await;
+
+    let cut = session
+        .checkpoint(used.connection_id)
+        .await
+        .expect("checkpoint");
+    assert_eq!(cut.checkpoint.size(), size(18, 60));
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
 async fn the_focused_view_that_took_the_size_last_takes_it_back() {
     let (session, _changes, _root) = shell("exec /bin/cat").await;
     let first = session.subscribe().await.expect("first");
@@ -403,7 +466,7 @@ async fn the_focused_view_that_took_the_size_last_takes_it_back() {
         (&blurred, 40, 90),
     ] {
         session
-            .focus(view.connection_id, true)
+            .focus(view.connection_id, true, false)
             .await
             .expect("focus");
         session
@@ -412,7 +475,7 @@ async fn the_focused_view_that_took_the_size_last_takes_it_back() {
             .expect("the focused view sets the size");
     }
     session
-        .focus(blurred.connection_id, false)
+        .focus(blurred.connection_id, false, false)
         .await
         .expect("blur");
     session
@@ -435,7 +498,7 @@ async fn a_focused_view_that_only_changes_its_size_leaves_the_size_with_the_view
     let used = session.subscribe().await.expect("view in use");
     let size = |rows, cols| TerminalSize::new(rows, cols).expect("size");
     session
-        .focus(away.connection_id, true)
+        .focus(away.connection_id, true, false)
         .await
         .expect("focus");
     session
@@ -443,7 +506,7 @@ async fn a_focused_view_that_only_changes_its_size_leaves_the_size_with_the_view
         .await
         .expect("size of the focused view");
     session
-        .focus(used.connection_id, true)
+        .focus(used.connection_id, true, false)
         .await
         .expect("a person focuses the other view");
     session
@@ -472,7 +535,7 @@ async fn keys_bring_the_size_of_the_view_that_types() {
     let size = |rows, cols| TerminalSize::new(rows, cols).expect("size");
     for (view, rows, cols) in [(&typing, 18, 60), (&other, 30, 100)] {
         session
-            .focus(view.connection_id, true)
+            .focus(view.connection_id, true, false)
             .await
             .expect("focus");
         session
@@ -524,12 +587,12 @@ async fn dropping_a_view_releases_aggregated_focus_without_explicit_unsubscribe(
     std::fs::write(root.path().join("ready"), b"").expect("release fixture output");
     wait_text(&mut observer, b"READY").await;
     session
-        .focus(first.connection_id, true)
+        .focus(first.connection_id, true, false)
         .await
         .expect("focus first");
     wait_text(&mut observer, b"\x1b[I").await;
     session
-        .focus(second.connection_id, true)
+        .focus(second.connection_id, true, false)
         .await
         .expect("focus second");
     drop(first);

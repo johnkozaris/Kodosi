@@ -6541,6 +6541,9 @@
           "requestId": {
             "type": "string"
           },
+          "returning": {
+            "type": "boolean"
+          },
           "sessionId": {
             "type": "string"
           },
