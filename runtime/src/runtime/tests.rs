@@ -3057,7 +3057,7 @@ fn reports_presence(
 
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_program_notification_shows_where_nobody_looks_and_not_over_a_state_mark() {
+async fn a_program_notification_marks_and_shows_where_nobody_looks_and_not_over_a_state_mark() {
     use crate::{
         protocol::Cue,
         terminal::{ProgramState, Waiting},
@@ -3083,9 +3083,11 @@ async fn a_program_notification_shows_where_nobody_looks_and_not_over_a_state_ma
     let app = (client, &lifetime);
 
     assert_eq!(noted(&mut runtime), [Cue::List]);
+    assert!(runtime.entries()[0].attention);
     reports_presence(&mut runtime, app, Presence::Kodosi);
     assert_eq!(noted(&mut runtime), [Cue::Sound]);
     show(&mut runtime, client, &lifetime, &[id]);
+    assert!(!runtime.entries()[0].attention);
     assert_eq!(noted(&mut runtime), []);
     reports_presence(&mut runtime, app, Presence::Here);
     assert_eq!(noted(&mut runtime), [Cue::Banner]);
@@ -3098,7 +3100,10 @@ async fn a_program_notification_shows_where_nobody_looks_and_not_over_a_state_ma
     assert_eq!(noted(&mut runtime), []);
     runtime.change(SessionChange::Seen { id });
     assert_eq!(*mark.borrow(), None);
+    assert!(runtime.entries()[0].attention);
+    reports_presence(&mut runtime, app, Presence::Kodosi);
     assert!(!runtime.entries()[0].attention);
+    assert_eq!(*mark.borrow(), None);
     terminal.close().await.unwrap();
     drop(terminal);
 }

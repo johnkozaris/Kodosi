@@ -246,6 +246,35 @@ private func awaitNotification(_ condition: () -> Bool) async {
     #expect(driver.posted.last?.identifier == driver.posted.first?.identifier)
 }
 
+@Test func `a program's own notification leaves when the mark of its terminal ends`() async throws {
+    let driver = NotificationDriver()
+    let defaults = try #require(EphemeralUserDefaults(prefix: "ProgramNotificationMark"))
+    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
+    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap, notificationDriver: driver)
+    defer { app.shutdownProcess() }
+    app.commandSink.transport = { _ in 0 }
+    let id = UUIDv7.generate()
+    let incarnation = UUIDv7.generate()
+    func list(_ name: String, marked: Bool) throws {
+        try app.receive(runtimeEvent("sessions.snapshot", fields: ["sessions": .array([.object([
+            "id": .string(id), "incarnationId": .string(incarnation), "kind": .string("local"),
+            "name": .string(name), "isOwner": .bool(true), "status": .string("running"), "attention": .bool(marked),
+            "hidden": .bool(false), "working": .bool(false), "connectionState": .string("local"), "sharedWith": .array([]),
+        ])])]))
+    }
+    try app.receive(runtimeReady())
+    try list("Backup", marked: true)
+    try app.receive(runtimeEvent("term.notification", fields: [
+        "sessionId": .string(id), "runtimeIncarnationId": .string(incarnation), "body": .string("Finished"), "cue": .string("banner"),
+    ]))
+    await awaitNotification { driver.posted.count == 1 }
+    let posted = try #require(driver.posted.first)
+    try list("Nightly backup", marked: true)
+    #expect(driver.withdrawn.isEmpty)
+    try list("Nightly backup", marked: false)
+    #expect(driver.withdrawn == [posted.identifier])
+}
+
 @Test func `kodosi show opens the window that the person closed`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "ShowTerminal"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)

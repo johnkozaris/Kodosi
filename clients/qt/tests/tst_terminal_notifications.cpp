@@ -41,6 +41,7 @@ private slots:
     void aCallIsPostedAsItsCueSaysAndReplacedPerTerminal();
     void aCallLeavesWhenItsMarkOrWaitEndsOrTheTerminalGoes();
     void programNotificationsShareTheKeyOfTheirTerminal();
+    void aProgramNotificationLeavesWhenTheMarkOfItsTerminalEnds();
     void ignoresRemoteOrStaleProgramNotifications();
     void aClickAlwaysRequestsItsTerminal();
     void turnedOffItPostsNothingAndWithdrawsWhatItShows();
@@ -57,6 +58,12 @@ QJsonObject waiting(int number, const QString& state, bool marked, const QString
     if (!message.isEmpty())
         status.insert(QStringLiteral("message"), message);
     entry.insert(QStringLiteral("programStatus"), status);
+    return entry;
+}
+
+QJsonObject marked(QJsonObject entry)
+{
+    entry.insert(QStringLiteral("attention"), true);
     return entry;
 }
 
@@ -146,7 +153,7 @@ void TerminalNotificationsTest::aCallLeavesWhenItsMarkOrWaitEndsOrTheTerminalGoe
 void TerminalNotificationsTest::programNotificationsShareTheKeyOfTheirTerminal()
 {
     Fixture fixture;
-    fixture.sessions.apply(test::snapshot({ test::session(1) }));
+    fixture.sessions.apply(test::snapshot({ marked(test::session(1)) }));
     fixture.notifications.apply(programNotification(test::id(101), QStringLiteral("Compiling")));
     fixture.notifications.apply(programNotification(test::id(101), QStringLiteral("Tests passed"), QStringLiteral("sound")));
     QCOMPARE(fixture.driver.posted.size(), 2);
@@ -158,20 +165,36 @@ void TerminalNotificationsTest::programNotificationsShareTheKeyOfTheirTerminal()
     QVERIFY(fixture.driver.withdrawn.isEmpty());
 }
 
+void TerminalNotificationsTest::aProgramNotificationLeavesWhenTheMarkOfItsTerminalEnds()
+{
+    Fixture fixture;
+    fixture.sessions.apply(test::snapshot({ test::session(1) }));
+    fixture.notifications.apply(programNotification(test::id(101), QStringLiteral("Unmarked")));
+    QVERIFY(fixture.driver.posted.isEmpty());
+
+    fixture.sessions.apply(test::snapshot({ marked(test::session(1)) }));
+    fixture.notifications.apply(programNotification(test::id(101), QStringLiteral("Finished")));
+    QCOMPARE(fixture.driver.posted.size(), 1);
+    fixture.sessions.apply(test::snapshot({ marked(test::session(1)) }));
+    QVERIFY(fixture.driver.withdrawn.isEmpty());
+    fixture.sessions.apply(test::snapshot({ test::session(1) }));
+    QCOMPARE(fixture.driver.withdrawn, QVector<QString> { fixture.driver.posted.constFirst().key });
+}
+
 void TerminalNotificationsTest::ignoresRemoteOrStaleProgramNotifications()
 {
     Fixture fixture;
-    fixture.sessions.apply(test::snapshot({ test::session(1, true) }));
+    fixture.sessions.apply(test::snapshot({ marked(test::session(1, true)) }));
     fixture.notifications.apply(programNotification(test::id(101), QStringLiteral("Remote")));
     QVERIFY(fixture.driver.posted.isEmpty());
 
-    fixture.sessions.apply(test::snapshot({ test::session(1) }));
+    fixture.sessions.apply(test::snapshot({ marked(test::session(1)) }));
     fixture.notifications.apply(programNotification(QStringLiteral("stale"), QStringLiteral("Old")));
     QVERIFY(fixture.driver.posted.isEmpty());
     fixture.notifications.apply(programNotification(test::id(101), QStringLiteral("Current")));
     QCOMPARE(fixture.driver.posted.size(), 1);
 
-    auto restarted = test::session(1);
+    auto restarted = marked(test::session(1));
     restarted.insert(QStringLiteral("incarnationId"), test::id(102));
     fixture.sessions.apply(test::snapshot({ restarted }));
     QCOMPARE(fixture.driver.withdrawn, QVector<QString> { fixture.driver.posted.constFirst().key });
