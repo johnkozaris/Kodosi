@@ -971,8 +971,9 @@ void TerminalView::drainGuiEvents(const std::uint64_t epoch)
                 emit connectionCompleted(value == KODOSI_FFI_OK, value);
                 if (m_attachmentEpoch.load(std::memory_order_acquire) == epoch && value == KODOSI_FFI_OK) {
                     // A window keeps its focus where nobody is. So a view that attaches again, as when
-                    // its terminal comes back, takes the focus only for a person who moved it here.
-                    if (m_focusMovedHere && hasActiveFocus() && interactionAvailable()) sendFocus(true);
+                    // its terminal comes back, gives its focus back, and takes the size with it only for
+                    // a person who moved the focus here.
+                    if (hasActiveFocus() && interactionAvailable()) sendFocus(true, !m_focusMovedHere);
                     scheduleResize();
                 }
             } else if constexpr (std::is_same_v<T, TerminalFocusOutcome>) {
@@ -1088,9 +1089,10 @@ void TerminalView::presentFrame(GhosttyTerminalKernel::Frame frame)
     }
 }
 
-void TerminalView::sendFocus(const bool focused)
+void TerminalView::sendFocus(const bool focused, const bool returning)
 {
     m_desiredFocus = focused;
+    m_focusReturning = focused && returning;
     dispatchFocus(
         focused ? FocusOperation::Focus : FocusOperation::Blur);
 }
@@ -1119,6 +1121,9 @@ void TerminalView::dispatchFocus(const FocusOperation operation)
     command += jsonStringBytes(m_subscription.subscriptionId);
     command += QByteArrayLiteral(",\"subscriptionGeneration\":");
     command += QByteArray::number(m_subscription.generation);
+    if (focused && m_focusReturning) {
+        command += QByteArrayLiteral(",\"returning\":true");
+    }
     const auto requestId = QUuid::createUuidV7().toString(QUuid::WithoutBraces);
     if (focused) {
         m_pendingFocusRequestId = requestId;

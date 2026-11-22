@@ -836,6 +836,54 @@ async fn a_focused_view_claims_the_size_only_when_a_person_acts_there() {
 }
 
 #[tokio::test]
+async fn a_focus_that_a_view_gives_back_after_it_attached_again_claims_no_size() {
+    let (terminal, mut view, mut requests, updates, _changes) = start().await;
+    let id = view.connection_id;
+    let focused = terminal.control(Some(id), TerminalControl::Focus { focused: true });
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    focused.await.expect("focus");
+    set_size(
+        &terminal,
+        id,
+        resize(10, 40, false),
+        &mut requests,
+        &updates,
+        &mut view,
+    )
+    .await;
+    let resized = terminal.control(Some(id), resize(12, 50, false));
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Resize {
+            rows: 12,
+            cols: 50,
+            claim: false,
+            ..
+        }
+    ));
+    resized.await.expect("the host decides");
+    host_size(&updates, &mut view, 30, 100).await;
+    let blurred = terminal.control(Some(id), TerminalControl::Focus { focused: false });
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: false }
+    ));
+    blurred.await.expect("blur");
+    let back = terminal.focus(id, true, true);
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    back.await.expect("focus back");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(requests.try_recv().is_err());
+    terminal.disconnect();
+}
+
+#[tokio::test]
 async fn a_focus_that_an_app_gives_back_after_a_reconnect_claims_no_size() {
     let (terminal, mut view, mut requests, updates, mut changes) = start().await;
     let id = view.connection_id;

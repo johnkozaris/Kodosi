@@ -86,6 +86,9 @@ struct QueuedControl {
     control: TerminalControl,
     reply: Option<oneshot::Sender<Result<Value>>>,
     budget: Option<OwnedSemaphorePermit>,
+    /// A focus that its view gives back after the view's connection came back, which claims no
+    /// size.
+    returning: bool,
 }
 
 impl RemoteTerminal {
@@ -257,6 +260,7 @@ impl RemoteTerminal {
             },
             reply,
             budget: Some(budget),
+            returning: false,
         }))
     }
 
@@ -264,6 +268,28 @@ impl RemoteTerminal {
         &self,
         connection: Option<Uuid>,
         control: TerminalControl,
+    ) -> impl Future<Output = Result<Value>> + Send + use<> {
+        self.send_control(connection, control, false)
+    }
+
+    pub(crate) fn focus(
+        &self,
+        connection: Uuid,
+        focused: bool,
+        returning: bool,
+    ) -> impl Future<Output = Result<Value>> + Send + use<> {
+        self.send_control(
+            Some(connection),
+            TerminalControl::Focus { focused },
+            returning,
+        )
+    }
+
+    fn send_control(
+        &self,
+        connection: Option<Uuid>,
+        control: TerminalControl,
+        returning: bool,
     ) -> impl Future<Output = Result<Value>> + Send + use<> {
         let (reply, result) = oneshot::channel();
         let admission = if matches!(control, TerminalControl::Input { .. }) {
@@ -276,6 +302,7 @@ impl RemoteTerminal {
                 control,
                 reply: Some(reply),
                 budget: None,
+                returning,
             }))
         };
         wait_for(admission, result, CONTROL_TIMEOUT)
@@ -1022,9 +1049,9 @@ impl RemoteActor {
                 }
             }
             (Some(id), TerminalControl::Focus { focused }) => {
-                let focused = *focused;
+                let (focused, returning) = (*focused, queued.returning);
                 self.queued.push_back(queued);
-                self.view_focused(id, focused);
+                self.view_focused(id, focused, returning);
                 return Ok(());
             }
             (None, TerminalControl::Input { .. })
@@ -1041,7 +1068,7 @@ impl RemoteActor {
         Ok(())
     }
 
-    fn view_focused(&mut self, id: Uuid, focused: bool) {
+    fn view_focused(&mut self, id: Uuid, focused: bool, returning: bool) {
         if !focused {
             if self.link == Link::Lost {
                 self.returning.insert(id);
@@ -1049,7 +1076,7 @@ impl RemoteActor {
             self.claiming.take_if(|claiming| *claiming == id);
             return;
         }
-        if self.returning.remove(&id) {
+        if self.returning.remove(&id) || returning {
             return;
         }
         match self.claim(id) {
@@ -1068,6 +1095,7 @@ impl RemoteActor {
             control,
             reply: None,
             budget: None,
+            returning: false,
         })
     }
 
@@ -1213,6 +1241,7 @@ impl RemoteActor {
                 control,
                 reply: None,
                 budget: None,
+                returning: false,
             });
         }
     }

@@ -89,6 +89,7 @@ enum Request {
     Focus {
         connection: Uuid,
         focused: bool,
+        returning: bool,
         reply: oneshot::Sender<Result<()>>,
     },
     Interrupt(oneshot::Sender<Result<()>>),
@@ -378,12 +379,14 @@ impl TerminalSession {
         &self,
         connection: Uuid,
         focused: bool,
+        returning: bool,
     ) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         await_reply(
             self.send(Request::Focus {
                 connection,
                 focused,
+                returning,
                 reply,
             }),
             response,
@@ -1043,11 +1046,15 @@ impl LocalActor {
         Ok(())
     }
 
+    /// A focus takes the size only as a person's act: a view that gives its focus back after its
+    /// connection came back takes none, and another device's runtime claims the size with the
+    /// resize of the view where its person acted.
     async fn focus_view(
         &mut self,
         controller: Controller,
         authorization: CancellationToken,
         focused: bool,
+        acted: bool,
     ) -> (Result<()>, bool) {
         if let Err(error) = self
             .set_focus(controller, Some(authorization.clone()), focused)
@@ -1055,11 +1062,7 @@ impl LocalActor {
         {
             return (Err(error), false);
         }
-        // A device tells its focus again when its connection comes back. So its focus brings only
-        // a size that it asked for, and its runtime claims the size for a view that did not ask.
-        let acts =
-            matches!(controller, Controller::Local(_)) || self.requested.contains_key(&controller);
-        if !focused || !acts {
+        if !focused || !acted {
             return (Ok(()), false);
         }
         match self.acted(controller, authorization).await {
@@ -1554,6 +1557,7 @@ impl LocalActor {
             Request::Focus {
                 connection,
                 focused,
+                returning,
                 reply,
             } => {
                 if reply.is_closed() {
@@ -1561,8 +1565,13 @@ impl LocalActor {
                 }
                 let (result, diverged) = match self.subscribers.authorization(connection) {
                     Ok(authorization) => {
-                        self.focus_view(Controller::Local(connection), authorization, focused)
-                            .await
+                        self.focus_view(
+                            Controller::Local(connection),
+                            authorization,
+                            focused,
+                            !returning,
+                        )
+                        .await
                     }
                     Err(error) => (Err(error), false),
                 };
@@ -1946,7 +1955,12 @@ impl LocalActor {
             }
             TerminalControl::Focus { focused } => {
                 let (result, diverged) = self
-                    .focus_view(Controller::Remote(connection_id), authorization, focused)
+                    .focus_view(
+                        Controller::Remote(connection_id),
+                        authorization,
+                        focused,
+                        false,
+                    )
                     .await;
                 fatal = diverged
                     || result
