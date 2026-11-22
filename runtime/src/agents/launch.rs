@@ -598,7 +598,7 @@ pub(super) fn plan(
     .flatten()
     .collect::<Vec<_>>();
     Ok((
-        start_line(&account.command, chosen, &chose, chat, shell),
+        start_line(info.agent, &account.command, chosen, &chose, chat, shell),
         AgentPick {
             agent: info.agent,
             account: Some(account.name.clone()),
@@ -612,9 +612,11 @@ pub(super) fn plan(
     ))
 }
 
-/// In the chat, Kodosi's `acp` gives the session the choices of the line, and only the agent's
-/// server takes its own words for no permissions. The terminal app's output has no chat.
+/// In the chat, Kodosi's `acp` gives the session the choices of the line, where the empty mode is
+/// the agent's mode that asks, and only the agent's server takes its own words for no
+/// permissions. The terminal app's output has no chat.
 fn start_line(
+    agent: Agent,
     command: &str,
     chosen: Vec<String>,
     chose: &Modes,
@@ -628,10 +630,10 @@ fn start_line(
             .collect::<Vec<_>>()
     };
     let words = if chat {
-        let (server, session) = if chose.permissions == Permissions::Unrestricted {
-            (chose.permission_words, &[][..])
-        } else {
-            (&[][..], chose.permission_words)
+        let (session, server): (&[&str], &[&str]) = match chose.permissions {
+            Permissions::Ask => (&["--mode="], &[]),
+            Permissions::Auto => (&["--mode", "auto"], &[]),
+            Permissions::Unrestricted => (&[], chose.permission_words),
         };
         std::iter::once("kodosi acp".to_owned())
             .chain(chosen)
@@ -640,11 +642,21 @@ fn start_line(
             .chain(quoted(server))
             .collect::<Vec<_>>()
     } else {
+        let modes = chose
+            .permission_words
+            .iter()
+            .chain(chose.output_words)
+            .chain(chose.fast_words)
+            .map(|word| (*word).to_owned())
+            .collect::<Vec<_>>();
+        let modes = if agent == Agent::Antigravity {
+            super::one_settings(modes)
+        } else {
+            modes
+        };
         std::iter::once(command.to_owned())
             .chain(chosen)
-            .chain(quoted(chose.permission_words))
-            .chain(quoted(chose.output_words))
-            .chain(quoted(chose.fast_words))
+            .chain(modes.iter().map(|word| as_shell_word(shell, word)))
             .collect::<Vec<_>>()
     };
     words.join(" ")

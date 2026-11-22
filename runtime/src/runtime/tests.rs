@@ -3864,11 +3864,10 @@ fn a_restored_server_of_the_chat_loads_its_conversation_again() {
             "--",
             "agy",
             "acp",
-            "--add-dir",
-            "/n/antigravity"
+            "--dangerously-skip-permissions"
         ])
         .unwrap(),
-        format!("kodosi acp --resume {id} --mode auto -- agy acp --add-dir /n/antigravity")
+        format!("kodosi acp --resume {id} --mode auto -- agy acp --dangerously-skip-permissions")
     );
     assert_eq!(
         line(&[

@@ -660,7 +660,7 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
         Agent::Codex.with_context("codex", &served),
         "codex --remote \"$KODOSI_CODEX_SERVER\""
     );
-    for agent in [Agent::Claude, Agent::Copilot] {
+    for agent in [Agent::Claude, Agent::Copilot, Agent::Antigravity] {
         assert_eq!(agent.with_context(agent.program(), &notes), agent.program());
     }
     assert!(!CONTEXT.trim().contains(['"', '%', '\n']));
@@ -867,54 +867,6 @@ fn cursor_and_opencode_get_the_note_only_in_the_line_that_kodosi_types_where_the
 }
 
 #[test]
-fn antigravity_gets_the_note_from_the_folder_that_its_line_adds() {
-    let root = tempfile::tempdir().unwrap();
-    let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
-    let folder = root.join("data root").join("agents");
-    write_notes(&folder).unwrap();
-    let bin = root.join("bin");
-    fs::create_dir(&bin).unwrap();
-    kodosi_os::process::write_program(&bin.join("agy"), "#!/bin/sh\nprintf '%s\\0' \"$@\"\n")
-        .unwrap();
-    let notes = Notes {
-        shell: "/bin/sh".into(),
-        folder: folder.clone(),
-        installed: Installed::default(),
-        codex_servers: None,
-    };
-    let line = Agent::Antigravity.with_context("agy --mode auto", &notes);
-    let printed = std::process::Command::new("/bin/sh")
-        .arg("-c")
-        .arg(&line)
-        .env_clear()
-        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
-        .output()
-        .unwrap();
-    let arguments = String::from_utf8(printed.stdout)
-        .unwrap()
-        .split_terminator('\0')
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
-    let added = folder.join("antigravity");
-    assert_eq!(
-        arguments,
-        ["--mode", "auto", "--add-dir", added.to_str().unwrap()]
-    );
-    let arguments = [vec!["agy".to_owned()], arguments].concat();
-    assert!(!Agent::Antigravity.started_without_note(&arguments, None, &notes));
-    assert!(Agent::Antigravity.started_without_note(
-        &["agy".to_owned(), "--mode=".to_owned()],
-        None,
-        &notes
-    ));
-    let nothing = Notes {
-        folder: root.join("nothing"),
-        ..notes
-    };
-    assert_eq!(Agent::Antigravity.with_context("agy", &nothing), "agy");
-}
-
-#[test]
 fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
     let folder = tempfile::tempdir().unwrap();
     let notes = kodosi_os::fs::canonicalize(folder.path())
@@ -935,22 +887,14 @@ fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
         format!("---\napplyTo: \"**\"\n---\n\n{}\n", CONTEXT.trim())
     );
     let plugin = notes.join("plugin");
-    let antigravity = notes
-        .join("antigravity")
-        .join(".agents")
-        .join("plugins")
-        .join("kodosi");
     for (root, manifest) in [
-        (plugin.clone(), plugin.join(".claude-plugin")),
-        (
-            notes.join("cursor"),
-            notes.join("cursor").join(".cursor-plugin"),
-        ),
-        (antigravity.clone(), antigravity.clone()),
+        (plugin.clone(), ".claude-plugin"),
+        (notes.join("cursor"), ".cursor-plugin"),
     ] {
-        let manifest: serde_json::Value =
-            serde_json::from_str(&fs::read_to_string(manifest.join("plugin.json")).unwrap())
-                .unwrap();
+        let manifest: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(root.join(manifest).join("plugin.json")).unwrap(),
+        )
+        .unwrap();
         assert_eq!(manifest["name"], "kodosi");
         let skills = root.join("skills");
         for (skill, text) in [
@@ -968,10 +912,6 @@ fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
     assert_eq!(
         hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"],
         "kodosi skill context"
-    );
-    assert_eq!(
-        fs::read_to_string(antigravity.join("rules").join("AGENTS.md")).unwrap(),
-        format!("{}\n", CONTEXT.trim())
     );
     assert_eq!(plugin_dir(&notes).as_deref(), plugin.to_str());
     assert!(
@@ -1429,7 +1369,7 @@ fn antigravity_in_the_chat_runs_its_server_with_the_choices_of_the_session() {
             false
         )
     );
-    let arguments = "kodosi acp --mode= -- agy acp --add-dir /notes/antigravity"
+    let arguments = "kodosi acp --mode= -- agy acp"
         .split(' ')
         .map(str::to_owned)
         .collect::<Vec<_>>();
@@ -1456,7 +1396,21 @@ fn antigravity_starts_in_its_own_auto_mode_unless_a_person_chooses() {
             Some(Output::Standard)
         )
         .unwrap(),
-        ("agy --mode=".to_owned(), Some(Permissions::Ask))
+        (
+            r#"agy --settings '{"agentMode":""}'"#.to_owned(),
+            Some(Permissions::Ask)
+        )
+    );
+    assert_eq!(
+        line(
+            Agent::Antigravity,
+            Some(Permissions::Ask),
+            None,
+            Some(Output::Quiet)
+        )
+        .unwrap()
+        .0,
+        r#"agy --settings '{"agentMode":"","showFeedbackSurvey":false,"showTips":false,"verbosity":"low"}'"#
     );
     assert_eq!(
         line(
@@ -2107,29 +2061,6 @@ fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
             .chosen(&arguments, &AgentSettings::default(), true)
             .join(" "),
         r#"--model opus --effort high --permission-mode manual --settings '{"viewMode":"verbose"}'"#
-    );
-}
-
-#[test]
-fn a_restart_keeps_the_empty_mode_that_asks_in_antigravity() {
-    let arguments = ["agy", "--model", "gemini-4-hydrogen", "--mode="].map(str::to_owned);
-    assert_eq!(
-        Agent::Antigravity
-            .chosen(&arguments, &AgentSettings::default(), true)
-            .join(" "),
-        "--model gemini-4-hydrogen --mode="
-    );
-    assert_eq!(
-        Agent::Antigravity.started_with(&arguments).permissions,
-        Some(Permissions::Ask)
-    );
-    let auto = AgentSettings {
-        permissions: Some(Permissions::Auto),
-        ..AgentSettings::default()
-    };
-    assert_eq!(
-        Agent::Antigravity.chosen(&arguments, &auto, true).join(" "),
-        "--model gemini-4-hydrogen --mode auto"
     );
 }
 

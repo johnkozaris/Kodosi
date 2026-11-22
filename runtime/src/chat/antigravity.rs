@@ -119,8 +119,7 @@ impl Antigravity {
     }
 
     /// The parameters that each start of a session carries: the folder, and no servers of tools
-    /// of Kodosi. Kodosi's note comes with its plugin, in the folder that the server's line adds,
-    /// as in the agent's terminal app.
+    /// of Kodosi. The session gets no note of Kodosi, as in the agent's terminal app.
     fn session_params(&self, mut params: Value) -> Value {
         params["cwd"] = json!(self.folder);
         params["mcpServers"] = json!([]);
