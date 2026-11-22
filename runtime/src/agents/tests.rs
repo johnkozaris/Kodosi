@@ -985,6 +985,7 @@ fn claude_with_accounts() -> AgentInfo {
         default_permissions: Agent::Claude.default_permissions(),
         default_output: Agent::Claude.default_output(),
         fast: true,
+        chat: false,
     }
 }
 
@@ -1024,6 +1025,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         permissions: Some(Permissions::Unrestricted),
         output: Some(Output::Standard),
         fast: false,
+        chat: false,
     };
     let start = |account: Option<&str>, model: Option<&str>, effort: Option<&str>| AgentStart {
         agent: Agent::Claude,
@@ -1033,6 +1035,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
         permissions: None,
         output: None,
         fast: None,
+        chat: None,
     };
     let plan =
         |info: &AgentInfo, models: Option<&AgentModels>, saved: &AgentPick, start: &AgentStart| {
@@ -1137,6 +1140,7 @@ fn a_terminal_like_a_running_agent_takes_what_its_host_knows_of_it() {
             permissions,
             output: None,
             fast: None,
+            chat: None,
         }
     };
     let running = Some(settings(Some("opus"), Some("low"), Some(Permissions::Auto)));
@@ -1260,6 +1264,7 @@ fn installed(agent: Agent) -> AgentInfo {
         default_permissions: agent.default_permissions(),
         default_output: agent.default_output(),
         fast: agent.has_fast(),
+        chat: agent.runs_in_chat(),
     }
 }
 
@@ -1277,6 +1282,7 @@ fn line(
         permissions: saved,
         output: None,
         fast: false,
+        chat: false,
     };
     let start = AgentStart {
         agent,
@@ -1286,6 +1292,7 @@ fn line(
         permissions,
         output,
         fast: None,
+        chat: None,
     };
     plan(
         &installed(agent),
@@ -1351,6 +1358,68 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
 }
 
 #[test]
+fn antigravity_in_the_chat_runs_its_server_with_the_choices_of_the_session() {
+    let chat = |saved: bool, chat: Option<bool>, permissions: Permissions| {
+        let saved = AgentPick {
+            agent: Agent::Antigravity,
+            account: None,
+            model: None,
+            effort: None,
+            permissions: None,
+            output: Some(Output::Detailed),
+            fast: false,
+            chat: saved,
+        };
+        let start = AgentStart {
+            agent: Agent::Antigravity,
+            account: None,
+            model: None,
+            effort: None,
+            permissions: Some(permissions),
+            output: None,
+            fast: None,
+            chat,
+        };
+        plan(
+            &installed(Agent::Antigravity),
+            None,
+            &saved,
+            &start,
+            Path::new("/bin/zsh"),
+        )
+        .map(|(line, pick)| (line, pick.chat))
+        .unwrap()
+    };
+    assert_eq!(
+        chat(false, Some(true), Permissions::Ask),
+        ("kodosi acp --mode= -- agy acp".to_owned(), true)
+    );
+    assert_eq!(
+        chat(true, None, Permissions::Auto),
+        ("kodosi acp --mode auto -- agy acp".to_owned(), true)
+    );
+    assert_eq!(
+        chat(false, Some(true), Permissions::Unrestricted).0,
+        "kodosi acp -- agy acp --dangerously-skip-permissions"
+    );
+    assert_eq!(
+        chat(true, Some(false), Permissions::Auto),
+        (
+            format!("agy --mode auto --settings '{ANTIGRAVITY_DETAILED}'"),
+            false
+        )
+    );
+    let arguments = "kodosi acp --mode= -- agy acp --add-dir /notes/antigravity"
+        .split(' ')
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        Agent::Antigravity.started_with(&arguments).permissions,
+        Some(Permissions::Ask)
+    );
+}
+
+#[test]
 fn antigravity_starts_in_its_own_auto_mode_unless_a_person_chooses() {
     assert_eq!(
         line(Agent::Antigravity, None, None, None).unwrap(),
@@ -1393,6 +1462,7 @@ fn an_agent_starts_fast_when_chosen_and_else_with_its_own_setting() {
             permissions: Some(Permissions::Ask),
             output: None,
             fast: saved,
+            chat: false,
         };
         let start = AgentStart {
             agent,
@@ -1402,6 +1472,7 @@ fn an_agent_starts_fast_when_chosen_and_else_with_its_own_setting() {
             permissions: None,
             output: Some(Output::Standard),
             fast,
+            chat: None,
         };
         plan(
             &installed(agent),
@@ -1482,6 +1553,7 @@ fn a_running_agent_shows_each_permissions_output_and_fast_mode_that_kodosi_start
                         permissions: Some(permissions),
                         output: Some(output),
                         fast,
+                        chat: None,
                     };
                     let saved = AgentPick {
                         agent,
@@ -1491,6 +1563,7 @@ fn a_running_agent_shows_each_permissions_output_and_fast_mode_that_kodosi_start
                         permissions: None,
                         output: None,
                         fast: false,
+                        chat: false,
                     };
                     let (line, _) = plan(&installed(agent), None, &saved, &start, shell).unwrap();
                     let notes = Notes {
@@ -1521,6 +1594,7 @@ async fn the_launch_choice_survives_a_restart() {
         permissions: Some(Permissions::Auto),
         output: Some(Output::Detailed),
         fast: true,
+        chat: false,
     };
     let launcher = Arc::new(Launcher::load(
         root.path(),

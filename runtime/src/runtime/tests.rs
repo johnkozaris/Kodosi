@@ -5570,6 +5570,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
         permissions: Some(Permissions::Ask),
         output: Some(crate::agents::Output::Standard),
         fast: false,
+        chat: false,
     }));
     let folder = |name: &str| {
         let folder = root.join(name);

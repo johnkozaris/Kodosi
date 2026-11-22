@@ -108,19 +108,19 @@ enum Action {
         arguments: Vec<String>,
     },
     #[command(
-        about = "Run an agent's server for programs (ACP) in this terminal, and show its session in the terminal's chat: kodosi acp -- agy acp."
+        about = "Run an agent's server for programs (ACP) in this terminal, and show its conversation in the terminal's chat: kodosi acp -- agy acp."
     )]
     Acp {
-        /// The model of the session.
+        /// The agent's model.
         #[arg(long)]
         model: Option<String>,
-        /// The thinking level of the session.
+        /// The agent's thinking level.
         #[arg(long)]
         effort: Option<String>,
-        /// The agent's mode of the session, such as auto. An empty mode is the agent's default.
+        /// The agent's own mode, such as auto. An empty mode is the agent's default.
         #[arg(long)]
         mode: Option<String>,
-        /// The session to go on with.
+        /// The conversation to go on with.
         #[arg(long)]
         resume: Option<String>,
         /// The agent's server and its arguments, after --.
@@ -142,6 +142,7 @@ const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where t
 const LIVE_PERMISSIONS: &str = "How the agent asks before it acts: ask, auto or unrestricted, as far as the agent can change it while it runs";
 const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed for Claude Code and Codex, and quiet or standard for Copilot CLI. It starts with your last choice, else quiet";
 const FAST: &str = "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off for the agent's own setting. It starts with your last choice";
+const CHAT: &str = "Antigravity CLI in the chat of the terminal, in a conversation of its own, on macOS and Linux: on, or off for its own app in the terminal. It starts with your last choice";
 const LIVE_FAST: &str =
     "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off";
 
@@ -267,6 +268,8 @@ enum TerminalAction {
         output: Option<String>,
         #[arg(long, requires = "agent", help = FAST, value_parser = on_off())]
         fast: Option<bool>,
+        #[arg(long, requires = "agent", help = CHAT, value_parser = on_off())]
+        chat: Option<bool>,
         /// The agent's first prompt.
         #[arg(long, requires = "agent")]
         prompt: Option<String>,
@@ -293,6 +296,8 @@ enum TerminalAction {
         output: Option<String>,
         #[arg(long, help = FAST, value_parser = on_off())]
         fast: Option<bool>,
+        #[arg(long, help = CHAT, value_parser = on_off())]
+        chat: Option<bool>,
     },
     /// Start a terminal that resumes a saved conversation of Claude Code or Copilot CLI.
     Resume {
@@ -972,6 +977,7 @@ async fn terminal_command(
             permissions,
             output,
             fast,
+            chat,
             prompt,
         } => {
             let agent = agent
@@ -982,7 +988,7 @@ async fn terminal_command(
                         [model.as_deref(), effort.as_deref()],
                         permissions.as_deref(),
                         output.as_deref(),
-                        fast,
+                        [fast, chat],
                     )
                 })
                 .transpose()?;
@@ -1043,6 +1049,7 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             permissions,
             output,
             fast,
+            chat,
         } => {
             let agent = agent_start(
                 &agent,
@@ -1050,7 +1057,7 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
                 [model.as_deref(), effort.as_deref()],
                 permissions.as_deref(),
                 output.as_deref(),
-                fast,
+                [fast, chat],
             )?;
             (terminal, "session.run", false, json!({"agent":agent}))
         }
@@ -1496,10 +1503,10 @@ fn agent_start(
     [model, effort]: [Option<&str>; 2],
     permissions: Option<&str>,
     output: Option<&str>,
-    fast: Option<bool>,
+    [fast, chat]: [Option<bool>; 2],
 ) -> Result<Value> {
     Ok(
-        json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort,"permissions":permissions,"output":output,"fast":fast}),
+        json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort,"permissions":permissions,"output":output,"fast":fast,"chat":chat}),
     )
 }
 

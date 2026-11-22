@@ -49,6 +49,11 @@ pub enum Transfer {
 
 fn program_identity(arguments: &[String]) -> Option<&'static str> {
     let executable = Path::new(arguments.first()?).file_name()?.to_str()?;
+    // `kodosi acp -- <agent>` runs the agent's server for the terminal's chat.
+    if executable == "kodosi" && arguments.get(1).is_some_and(|action| action == "acp") {
+        let agent = arguments.iter().position(|argument| argument == "--")?;
+        return program_identity(&arguments[agent + 1..]);
+    }
     let candidate = if matches!(executable, "node" | "bun" | "deno") {
         arguments
             .iter()
@@ -122,6 +127,11 @@ mod tests {
                 vec!["node", "/opt/lib/node_modules/opencode-ai/bin/opencode"],
                 Some("opencode"),
             ),
+            (
+                vec!["kodosi", "acp", "--mode=", "--", "agy", "acp"],
+                Some("antigravity"),
+            ),
+            (vec!["kodosi", "acp", "--", "/bin/zsh"], None),
             (vec!["/bin/zsh", "-c", "claude"], None),
             (vec!["/usr/bin/printf", "claude"], None),
             (vec!["node"], None),

@@ -74,6 +74,7 @@ impl RunningAgent {
             fast: pending
                 .fast
                 .or_else(|| known.then(|| settings.fast.unwrap_or_default())),
+            chat: None,
         }
     }
 }
@@ -395,6 +396,7 @@ impl AgentChoice {
                 permissions: None,
                 output: None,
                 fast: false,
+                chat: false,
             })
     }
 
@@ -586,44 +588,79 @@ pub(super) fn plan(
             .as_deref()
             .and_then(|id| efforts(models, model).find(|effort| effort.id == id)),
     };
-    let (permissions, output, fast, words) = modes(info.agent, saved, start)?;
-    let line = [
-        Some(account.command.clone()),
+    let chose = modes(info.agent, saved, start)?;
+    let chat = info.chat && start.chat.unwrap_or(saved.chat);
+    let chosen = [
         model.map(|model| model.argument.clone()),
         effort.map(|effort| effort.argument.clone()),
     ]
     .into_iter()
     .flatten()
-    .chain(words.map(|word| as_shell_word(shell, word)))
-    .collect::<Vec<_>>()
-    .join(" ");
+    .collect::<Vec<_>>();
     Ok((
-        line,
+        start_line(&account.command, chosen, &chose, chat, shell),
         AgentPick {
             agent: info.agent,
             account: Some(account.name.clone()),
             model: model.map(|model| model.id.clone()),
             effort: effort.map(|effort| effort.id.clone()),
-            permissions: Some(permissions),
-            output: Some(output),
-            fast,
+            permissions: Some(chose.permissions),
+            output: Some(chose.output),
+            fast: chose.fast,
+            chat,
         },
     ))
 }
 
-fn modes(
-    agent: Agent,
-    saved: &AgentPick,
-    start: &AgentStart,
-) -> Result<
-    (
-        Permissions,
-        Output,
-        bool,
-        impl Iterator<Item = &'static str>,
-    ),
-    String,
-> {
+/// In the chat, Kodosi's `acp` gives the session the choices of the line, and only the agent's
+/// server takes its own words for no permissions. The terminal app's output has no chat.
+fn start_line(
+    command: &str,
+    chosen: Vec<String>,
+    chose: &Modes,
+    chat: bool,
+    shell: &Path,
+) -> String {
+    let quoted = |words: &[&str]| {
+        words
+            .iter()
+            .map(|word| as_shell_word(shell, word))
+            .collect::<Vec<_>>()
+    };
+    let words = if chat {
+        let (server, session) = if chose.permissions == Permissions::Unrestricted {
+            (chose.permission_words, &[][..])
+        } else {
+            (&[][..], chose.permission_words)
+        };
+        std::iter::once("kodosi acp".to_owned())
+            .chain(chosen)
+            .chain(quoted(session))
+            .chain(["--".to_owned(), command.to_owned(), "acp".to_owned()])
+            .chain(quoted(server))
+            .collect::<Vec<_>>()
+    } else {
+        std::iter::once(command.to_owned())
+            .chain(chosen)
+            .chain(quoted(chose.permission_words))
+            .chain(quoted(chose.output_words))
+            .chain(quoted(chose.fast_words))
+            .collect::<Vec<_>>()
+    };
+    words.join(" ")
+}
+
+/// The modes of a start, and the agent's words for each.
+struct Modes {
+    permissions: Permissions,
+    output: Output,
+    fast: bool,
+    permission_words: &'static [&'static str],
+    output_words: &'static [&'static str],
+    fast_words: &'static [&'static str],
+}
+
+fn modes(agent: Agent, saved: &AgentPick, start: &AgentStart) -> Result<Modes, String> {
     let label = agent.label();
     let permissions = start
         .permissions
@@ -653,14 +690,12 @@ fn modes(
     } else {
         &[]
     };
-    Ok((
+    Ok(Modes {
         permissions,
         output,
         fast,
-        permission_words
-            .iter()
-            .chain(output_words)
-            .chain(fast_words)
-            .copied(),
-    ))
+        permission_words,
+        output_words,
+        fast_words,
+    })
 }

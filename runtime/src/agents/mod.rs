@@ -207,6 +207,13 @@ impl Agent {
         }
     }
 
+    /// Antigravity CLI's terminal app reports to no chat, so its chat has a session of its own
+    /// that `kodosi acp` runs in the terminal, where the chat's link reaches a socket file.
+    #[cfg(feature = "host")]
+    pub(crate) const fn runs_in_chat(self) -> bool {
+        cfg!(unix) && matches!(self, Self::Antigravity)
+    }
+
     #[cfg(feature = "host")]
     pub(crate) const fn has_fast(self) -> bool {
         self.fast_words(true).is_some()
@@ -943,6 +950,8 @@ pub struct AgentInfo {
     pub default_permissions: Permissions,
     pub default_output: Output,
     pub fast: bool,
+    /// The agent also runs in the chat of its terminal, in a session of its own.
+    pub chat: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -1066,6 +1075,8 @@ pub struct AgentPick {
     pub output: Option<Output>,
     #[serde(default)]
     pub fast: bool,
+    #[serde(default)]
+    pub chat: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -1084,6 +1095,9 @@ pub struct AgentStart {
     pub output: Option<Output>,
     #[serde(default)]
     pub fast: Option<bool>,
+    /// Starts the agent in the chat of its terminal, in a session of its own.
+    #[serde(default)]
+    pub chat: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
