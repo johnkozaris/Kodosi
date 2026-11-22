@@ -1321,9 +1321,8 @@ impl Runtime {
                 let (size, geometry) = identity.geometry()?;
                 Ok(target.resize(connection, size, Some(geometry), false))
             }
-            Command::Focus { .. } | Command::Blur { .. } => {
-                Ok(target.focus(connection, matches!(command, Command::Focus { .. })))
-            }
+            Command::Focus { returning, .. } => Ok(target.focus(connection, true, *returning)),
+            Command::Blur { .. } => Ok(target.focus(connection, false, false)),
             _ => Err(Error::Invalid("expected terminal control".to_owned())),
         }
     }

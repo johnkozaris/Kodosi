@@ -6517,6 +6517,9 @@
           "requestId": {
             "type": "string"
           },
+          "returning": {
+            "type": "boolean"
+          },
           "sessionId": {
             "type": "string"
           },
@@ -14446,7 +14449,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 98,
+  "protocolVersion": 99,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

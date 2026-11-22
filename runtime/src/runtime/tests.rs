@@ -606,6 +606,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
                 expected_runtime_incarnation_id: incarnation.to_string(),
                 client_id: Uuid::now_v7().to_string(),
                 subscription_generation: 1,
+                returning: false,
             },
         })
         .unwrap_err();
