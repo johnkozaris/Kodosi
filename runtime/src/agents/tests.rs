@@ -497,18 +497,40 @@ fn copilot_cursor_opencode_and_antigravity_lists_become_models() {
             "--model 'openrouter/x[1m]'"
         ]
     );
+    let (models, efforts) = antigravity(Some(
+        "Fetching available models...\ngemini-4-neon-high\tGemini 4 Neon (High)\ngemini-4-neon-xhigh\tGemini 4 Neon (XHigh)\ngemini-4-neon-low\tGemini 4 Neon (Low)\ngemini-3.1-pro-low\tGemini 3.1 Pro (Low)\ngemini-3.1-pro-high\tGemini 3.1 Pro (High)\nError: try again\n",
+    ));
     assert_eq!(
-        antigravity(Some(
-            "Fetching available models...\ngemini-4-hydrogen\ngemini-3.8-flash-high Gemini 3.8 Flash (High)\nError: try again\nclaude-opus-5-5\n"
-        ))
-        .iter()
-        .map(|model| (model.id.as_str(), model.label.as_str()))
-        .collect::<Vec<_>>(),
+        models
+            .iter()
+            .map(|model| (
+                model.id.as_str(),
+                model.label.as_str(),
+                model.argument.as_str(),
+                model.efforts.join(" ")
+            ))
+            .collect::<Vec<_>>(),
         [
-            ("gemini-4-hydrogen", "gemini-4-hydrogen"),
-            ("gemini-3.8-flash-high", "Gemini 3.8 Flash (High)"),
-            ("claude-opus-5-5", "claude-opus-5-5")
+            (
+                "gemini-4-neon",
+                "Gemini 4 Neon",
+                "--model gemini-4-neon",
+                "low high xhigh".to_owned()
+            ),
+            (
+                "gemini-3.1-pro",
+                "Gemini 3.1 Pro",
+                "--model gemini-3.1-pro",
+                "low high".to_owned()
+            )
         ]
+    );
+    assert_eq!(
+        efforts
+            .iter()
+            .map(|effort| effort.argument.as_str())
+            .collect::<Vec<_>>(),
+        ["--effort low", "--effort high", "--effort xhigh"]
     );
 }
 

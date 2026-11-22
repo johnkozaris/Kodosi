@@ -41,16 +41,7 @@ pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
             opencode(run(facts, program, &["models"]).await.as_deref()),
             Vec::new(),
         ),
-        Agent::Antigravity => {
-            let (list, help) = tokio::join!(
-                run(facts, program, &["models"]),
-                run(facts, program, &["--help"])
-            );
-            (
-                antigravity(list.as_deref()),
-                efforts(help.as_deref(), agent),
-            )
-        }
+        Agent::Antigravity => antigravity(run(facts, program, &["models"]).await.as_deref()),
     };
     AgentModels { models, efforts }
 }
@@ -275,21 +266,55 @@ pub(super) fn opencode(list: Option<&str>) -> Vec<AgentModel> {
         .collect()
 }
 
-/// One model on each line, its identifier first and then its name, if any.
-pub(super) fn antigravity(list: Option<&str>) -> Vec<AgentModel> {
-    list.into_iter()
-        .flat_map(str::lines)
-        .filter_map(|line| {
-            let line = line.trim();
-            let (id, label) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
-            let slug = id.bytes().all(|byte| {
-                byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-._".contains(&byte)
-            }) && id.contains('-');
-            slug.then(|| model(id, label, Agent::Antigravity, Vec::new()))
-                .flatten()
+/// The thinking levels that end the identifiers of Antigravity CLI's models, lowest first.
+const ANTIGRAVITY_LEVELS: [&str; 5] = ["low", "medium", "high", "xhigh", "max"];
+
+/// One model and thinking level on each line, its identifier, a tab and its name, as in
+/// `gemini-4-neon-high` and `Gemini 4 Neon (High)`. The launcher shows each model once with its
+/// levels.
+pub(super) fn antigravity(list: Option<&str>) -> (Vec<AgentModel>, Vec<AgentOption>) {
+    let mut models: Vec<AgentModel> = Vec::new();
+    for line in list.into_iter().flat_map(str::lines) {
+        let line = line.trim();
+        let (id, label) = line.split_once(char::is_whitespace).unwrap_or((line, ""));
+        let slug = id.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-._".contains(&byte)
+        }) && id.contains('-');
+        if !slug {
+            continue;
+        }
+        let (id, level) = match id.rsplit_once('-') {
+            Some((model, level)) if ANTIGRAVITY_LEVELS.contains(&level) => (model, Some(level)),
+            _ => (id, None),
+        };
+        let label = label.trim();
+        let name = level
+            .and_then(|_| label.rsplit_once(" ("))
+            .map_or(label, |(name, _)| name);
+        let level = level.map(str::to_owned);
+        if let Some(known) = models.iter_mut().find(|model| model.id == id) {
+            known.efforts.extend(level);
+        } else if models.len() < MAX_MODELS
+            && let Some(model) = model(id, name, Agent::Antigravity, level.into_iter().collect())
+        {
+            models.push(model);
+        }
+    }
+    let rank = |level: &String| ANTIGRAVITY_LEVELS.iter().position(|known| known == level);
+    for model in &mut models {
+        model.efforts.sort_by_key(rank);
+        model.efforts.dedup();
+    }
+    let efforts = ANTIGRAVITY_LEVELS
+        .iter()
+        .filter(|level| {
+            models
+                .iter()
+                .any(|model| model.efforts.iter().any(|known| known == *level))
         })
-        .take(MAX_MODELS)
-        .collect()
+        .filter_map(|level| effort(Agent::Antigravity, level))
+        .collect();
+    (models, efforts)
 }
 
 pub(super) fn without_escapes(text: &str) -> String {
