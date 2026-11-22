@@ -11,7 +11,7 @@ extension AppDependencies {
               let cell = terminalCell(scale: scale),
               let grid = Self.startGrid(
                   room: room, tiles: workbench.focusedSessionId == nil ? workbench.stagedSessionIds.count + 1 : 1,
-                  scale: scale, cell: cell, style: KodosiTerminalStyle.make(settings: settings.terminalSettings),
+                  scale: scale, cell: cell, style: KodosiTerminalStyle.make(settings: settings.terminalSettings, look: terminalLook),
               )
         else { return nil }
         return .object([

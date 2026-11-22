@@ -1,4 +1,3298 @@
 {
+  "chat": {
+    "frames": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "snapshot": {
+              "additionalProperties": false,
+              "properties": {
+                "asks": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "body": {
+                        "oneOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "always": {
+                                "anyOf": [
+                                  {
+                                    "oneOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "kind": {
+                                            "const": "rule"
+                                          },
+                                          "text": {
+                                            "type": "string"
+                                          },
+                                          "tool": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "tool",
+                                          "text"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "kind": {
+                                            "const": "mode"
+                                          },
+                                          "mode": {
+                                            "oneOf": [
+                                              {
+                                                "const": "ask"
+                                              },
+                                              {
+                                                "const": "edits"
+                                              },
+                                              {
+                                                "const": "plan"
+                                              },
+                                              {
+                                                "const": "auto"
+                                              },
+                                              {
+                                                "const": "rules"
+                                              },
+                                              {
+                                                "const": "unrestricted"
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "mode"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "kind": {
+                                            "const": "folder"
+                                          },
+                                          "name": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "name"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "helper": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "const": "permission"
+                              },
+                              "tool": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "detail": {
+                                    "anyOf": [
+                                      {
+                                        "oneOf": [
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "background": {
+                                                "type": "boolean"
+                                              },
+                                              "command": {
+                                                "type": "string"
+                                              },
+                                              "kind": {
+                                                "const": "command"
+                                              },
+                                              "output": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "command"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "added": {
+                                                "format": "u32",
+                                                "type": "integer"
+                                              },
+                                              "kind": {
+                                                "const": "change"
+                                              },
+                                              "lines": {
+                                                "items": {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "sign": {
+                                                      "oneOf": [
+                                                        {
+                                                          "const": "same"
+                                                        },
+                                                        {
+                                                          "const": "added"
+                                                        },
+                                                        {
+                                                          "const": "removed"
+                                                        }
+                                                      ]
+                                                    },
+                                                    "text": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "sign",
+                                                    "text"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                "type": "array"
+                                              },
+                                              "path": {
+                                                "type": "string"
+                                              },
+                                              "removed": {
+                                                "format": "u32",
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "path",
+                                              "added",
+                                              "removed",
+                                              "lines"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "kind": {
+                                                "const": "output"
+                                              },
+                                              "text": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "text"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "answers": {
+                                                "items": {
+                                                  "type": "string"
+                                                },
+                                                "type": "array"
+                                              },
+                                              "kind": {
+                                                "const": "question"
+                                              },
+                                              "questions": {
+                                                "items": {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "header": {
+                                                      "type": "string"
+                                                    },
+                                                    "multiple": {
+                                                      "type": "boolean"
+                                                    },
+                                                    "options": {
+                                                      "items": {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "description": {
+                                                            "type": "string"
+                                                          },
+                                                          "label": {
+                                                            "type": "string"
+                                                          }
+                                                        },
+                                                        "required": [
+                                                          "label"
+                                                        ],
+                                                        "type": "object"
+                                                      },
+                                                      "type": "array"
+                                                    },
+                                                    "question": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "question",
+                                                    "options"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                "type": "array"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "questions"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "kind": {
+                                                "const": "plan"
+                                              },
+                                              "text": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "text"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "doing": {
+                                                "anyOf": [
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "kind": {
+                                                        "oneOf": [
+                                                          {
+                                                            "const": "command"
+                                                          },
+                                                          {
+                                                            "const": "read"
+                                                          },
+                                                          {
+                                                            "const": "edit"
+                                                          },
+                                                          {
+                                                            "const": "write"
+                                                          },
+                                                          {
+                                                            "const": "search"
+                                                          },
+                                                          {
+                                                            "const": "web"
+                                                          },
+                                                          {
+                                                            "const": "agent"
+                                                          },
+                                                          {
+                                                            "const": "skill"
+                                                          },
+                                                          {
+                                                            "const": "question"
+                                                          },
+                                                          {
+                                                            "const": "plan"
+                                                          },
+                                                          {
+                                                            "const": "other"
+                                                          }
+                                                        ]
+                                                      },
+                                                      "target": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "type": "null"
+                                                  }
+                                                ]
+                                              },
+                                              "kind": {
+                                                "const": "agent"
+                                              },
+                                              "name": {
+                                                "type": "string"
+                                              },
+                                              "said": {
+                                                "type": "string"
+                                              },
+                                              "steps": {
+                                                "format": "u32",
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "steps"
+                                            ],
+                                            "type": "object"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "kind": {
+                                    "oneOf": [
+                                      {
+                                        "const": "command"
+                                      },
+                                      {
+                                        "const": "read"
+                                      },
+                                      {
+                                        "const": "edit"
+                                      },
+                                      {
+                                        "const": "write"
+                                      },
+                                      {
+                                        "const": "search"
+                                      },
+                                      {
+                                        "const": "web"
+                                      },
+                                      {
+                                        "const": "agent"
+                                      },
+                                      {
+                                        "const": "skill"
+                                      },
+                                      {
+                                        "const": "question"
+                                      },
+                                      {
+                                        "const": "plan"
+                                      },
+                                      {
+                                        "const": "other"
+                                      }
+                                    ]
+                                  },
+                                  "ms": {
+                                    "anyOf": [
+                                      {
+                                        "format": "u64",
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "oneOf": [
+                                      {
+                                        "const": "preparing"
+                                      },
+                                      {
+                                        "const": "asking"
+                                      },
+                                      {
+                                        "const": "running"
+                                      },
+                                      {
+                                        "const": "done"
+                                      },
+                                      {
+                                        "const": "failed"
+                                      },
+                                      {
+                                        "const": "denied"
+                                      },
+                                      {
+                                        "const": "stopped"
+                                      }
+                                    ]
+                                  },
+                                  "target": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "kind",
+                                  "state"
+                                ],
+                                "type": "object"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "tool"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "const": "question"
+                              },
+                              "questions": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "header": {
+                                      "type": "string"
+                                    },
+                                    "multiple": {
+                                      "type": "boolean"
+                                    },
+                                    "options": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "description": {
+                                            "type": "string"
+                                          },
+                                          "label": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "label"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "question": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "question",
+                                    "options"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "questions"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "choices": {
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "const": "go"
+                                    },
+                                    {
+                                      "const": "ask"
+                                    },
+                                    {
+                                      "const": "edits"
+                                    },
+                                    {
+                                      "const": "auto"
+                                    },
+                                    {
+                                      "const": "alone"
+                                    },
+                                    {
+                                      "const": "helpers"
+                                    },
+                                    {
+                                      "const": "leave"
+                                    }
+                                  ]
+                                },
+                                "type": "array"
+                              },
+                              "kind": {
+                                "const": "plan"
+                              },
+                              "text": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "text",
+                              "choices"
+                            ],
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "item": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "body"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "facts": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "agent": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "background": {
+                      "format": "u32",
+                      "type": "integer"
+                    },
+                    "context": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "tokens": {
+                              "format": "u64",
+                              "type": "integer"
+                            },
+                            "window": {
+                              "format": "u64",
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "tokens",
+                            "window"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cost": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "effort": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "folder": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "helpers": {
+                      "format": "u32",
+                      "type": "integer"
+                    },
+                    "limits": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "hours": {
+                            "anyOf": [
+                              {
+                                "format": "u32",
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "level": {
+                            "oneOf": [
+                              {
+                                "const": "normal"
+                              },
+                              {
+                                "const": "near"
+                              },
+                              {
+                                "const": "reached"
+                              }
+                            ]
+                          },
+                          "model": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "resetsAtMs": {
+                            "anyOf": [
+                              {
+                                "format": "u64",
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "scope": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "used": {
+                            "format": "u8",
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "hours",
+                          "scope",
+                          "model",
+                          "used",
+                          "level",
+                          "resetsAtMs"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "mode": {
+                      "anyOf": [
+                        {
+                          "oneOf": [
+                            {
+                              "const": "ask"
+                            },
+                            {
+                              "const": "edits"
+                            },
+                            {
+                              "const": "plan"
+                            },
+                            {
+                              "const": "auto"
+                            },
+                            {
+                              "const": "rules"
+                            },
+                            {
+                              "const": "unrestricted"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "model": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                },
+                "items": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "at": {
+                        "format": "u64",
+                        "type": "integer"
+                      },
+                      "body": {
+                        "oneOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "by": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "kind": {
+                                "const": "person"
+                              },
+                              "text": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "text"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "const": "text"
+                              },
+                              "live": {
+                                "type": "boolean"
+                              },
+                              "text": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "text"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "const": "tool"
+                              },
+                              "tool": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "detail": {
+                                    "anyOf": [
+                                      {
+                                        "oneOf": [
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "background": {
+                                                "type": "boolean"
+                                              },
+                                              "command": {
+                                                "type": "string"
+                                              },
+                                              "kind": {
+                                                "const": "command"
+                                              },
+                                              "output": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "command"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "added": {
+                                                "format": "u32",
+                                                "type": "integer"
+                                              },
+                                              "kind": {
+                                                "const": "change"
+                                              },
+                                              "lines": {
+                                                "items": {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "sign": {
+                                                      "oneOf": [
+                                                        {
+                                                          "const": "same"
+                                                        },
+                                                        {
+                                                          "const": "added"
+                                                        },
+                                                        {
+                                                          "const": "removed"
+                                                        }
+                                                      ]
+                                                    },
+                                                    "text": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "sign",
+                                                    "text"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                "type": "array"
+                                              },
+                                              "path": {
+                                                "type": "string"
+                                              },
+                                              "removed": {
+                                                "format": "u32",
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "path",
+                                              "added",
+                                              "removed",
+                                              "lines"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "kind": {
+                                                "const": "output"
+                                              },
+                                              "text": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "text"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "answers": {
+                                                "items": {
+                                                  "type": "string"
+                                                },
+                                                "type": "array"
+                                              },
+                                              "kind": {
+                                                "const": "question"
+                                              },
+                                              "questions": {
+                                                "items": {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "header": {
+                                                      "type": "string"
+                                                    },
+                                                    "multiple": {
+                                                      "type": "boolean"
+                                                    },
+                                                    "options": {
+                                                      "items": {
+                                                        "additionalProperties": false,
+                                                        "properties": {
+                                                          "description": {
+                                                            "type": "string"
+                                                          },
+                                                          "label": {
+                                                            "type": "string"
+                                                          }
+                                                        },
+                                                        "required": [
+                                                          "label"
+                                                        ],
+                                                        "type": "object"
+                                                      },
+                                                      "type": "array"
+                                                    },
+                                                    "question": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "question",
+                                                    "options"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                "type": "array"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "questions"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "kind": {
+                                                "const": "plan"
+                                              },
+                                              "text": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "text"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "doing": {
+                                                "anyOf": [
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "kind": {
+                                                        "oneOf": [
+                                                          {
+                                                            "const": "command"
+                                                          },
+                                                          {
+                                                            "const": "read"
+                                                          },
+                                                          {
+                                                            "const": "edit"
+                                                          },
+                                                          {
+                                                            "const": "write"
+                                                          },
+                                                          {
+                                                            "const": "search"
+                                                          },
+                                                          {
+                                                            "const": "web"
+                                                          },
+                                                          {
+                                                            "const": "agent"
+                                                          },
+                                                          {
+                                                            "const": "skill"
+                                                          },
+                                                          {
+                                                            "const": "question"
+                                                          },
+                                                          {
+                                                            "const": "plan"
+                                                          },
+                                                          {
+                                                            "const": "other"
+                                                          }
+                                                        ]
+                                                      },
+                                                      "target": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "type": "null"
+                                                  }
+                                                ]
+                                              },
+                                              "kind": {
+                                                "const": "agent"
+                                              },
+                                              "name": {
+                                                "type": "string"
+                                              },
+                                              "said": {
+                                                "type": "string"
+                                              },
+                                              "steps": {
+                                                "format": "u32",
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "steps"
+                                            ],
+                                            "type": "object"
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "kind": {
+                                    "oneOf": [
+                                      {
+                                        "const": "command"
+                                      },
+                                      {
+                                        "const": "read"
+                                      },
+                                      {
+                                        "const": "edit"
+                                      },
+                                      {
+                                        "const": "write"
+                                      },
+                                      {
+                                        "const": "search"
+                                      },
+                                      {
+                                        "const": "web"
+                                      },
+                                      {
+                                        "const": "agent"
+                                      },
+                                      {
+                                        "const": "skill"
+                                      },
+                                      {
+                                        "const": "question"
+                                      },
+                                      {
+                                        "const": "plan"
+                                      },
+                                      {
+                                        "const": "other"
+                                      }
+                                    ]
+                                  },
+                                  "ms": {
+                                    "anyOf": [
+                                      {
+                                        "format": "u64",
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "oneOf": [
+                                      {
+                                        "const": "preparing"
+                                      },
+                                      {
+                                        "const": "asking"
+                                      },
+                                      {
+                                        "const": "running"
+                                      },
+                                      {
+                                        "const": "done"
+                                      },
+                                      {
+                                        "const": "failed"
+                                      },
+                                      {
+                                        "const": "denied"
+                                      },
+                                      {
+                                        "const": "stopped"
+                                      }
+                                    ]
+                                  },
+                                  "target": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "kind",
+                                  "state"
+                                ],
+                                "type": "object"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "tool"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "end": {
+                                "oneOf": [
+                                  {
+                                    "const": "done"
+                                  },
+                                  {
+                                    "const": "stopped"
+                                  },
+                                  {
+                                    "const": "failed"
+                                  },
+                                  {
+                                    "const": "refused"
+                                  }
+                                ]
+                              },
+                              "kind": {
+                                "const": "turn"
+                              },
+                              "ms": {
+                                "format": "u64",
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "end",
+                              "ms"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "const": "note"
+                              },
+                              "note": {
+                                "oneOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "compacted"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "error": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "const": "failed"
+                                      },
+                                      "text": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "error"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "note"
+                            ],
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "at",
+                      "body"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "now": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "thinking"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "writing"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "item": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "const": "tool"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "item"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "const": "compacting"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "queued": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "by": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "refused": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "text"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "revision": {
+                  "format": "u64",
+                  "type": "integer"
+                },
+                "state": {
+                  "oneOf": [
+                    {
+                      "const": "away"
+                    },
+                    {
+                      "const": "idle"
+                    },
+                    {
+                      "const": "working"
+                    },
+                    {
+                      "const": "asking"
+                    }
+                  ]
+                },
+                "tasks": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "state": {
+                        "oneOf": [
+                          {
+                            "const": "pending"
+                          },
+                          {
+                            "const": "working"
+                          },
+                          {
+                            "const": "done"
+                          }
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "state"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "revision",
+                "state",
+                "facts",
+                "items"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "snapshot"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "update": {
+              "additionalProperties": false,
+              "properties": {
+                "changes": {
+                  "items": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "item"
+                          },
+                          "item": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "at": {
+                                "format": "u64",
+                                "type": "integer"
+                              },
+                              "body": {
+                                "oneOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "by": {
+                                        "anyOf": [
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "id": {
+                                                "type": "string"
+                                              },
+                                              "name": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "name"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "kind": {
+                                        "const": "person"
+                                      },
+                                      "text": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "text"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "text"
+                                      },
+                                      "live": {
+                                        "type": "boolean"
+                                      },
+                                      "text": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "text"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "tool"
+                                      },
+                                      "tool": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "detail": {
+                                            "anyOf": [
+                                              {
+                                                "oneOf": [
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "background": {
+                                                        "type": "boolean"
+                                                      },
+                                                      "command": {
+                                                        "type": "string"
+                                                      },
+                                                      "kind": {
+                                                        "const": "command"
+                                                      },
+                                                      "output": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "command"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "added": {
+                                                        "format": "u32",
+                                                        "type": "integer"
+                                                      },
+                                                      "kind": {
+                                                        "const": "change"
+                                                      },
+                                                      "lines": {
+                                                        "items": {
+                                                          "additionalProperties": false,
+                                                          "properties": {
+                                                            "sign": {
+                                                              "oneOf": [
+                                                                {
+                                                                  "const": "same"
+                                                                },
+                                                                {
+                                                                  "const": "added"
+                                                                },
+                                                                {
+                                                                  "const": "removed"
+                                                                }
+                                                              ]
+                                                            },
+                                                            "text": {
+                                                              "type": "string"
+                                                            }
+                                                          },
+                                                          "required": [
+                                                            "sign",
+                                                            "text"
+                                                          ],
+                                                          "type": "object"
+                                                        },
+                                                        "type": "array"
+                                                      },
+                                                      "path": {
+                                                        "type": "string"
+                                                      },
+                                                      "removed": {
+                                                        "format": "u32",
+                                                        "type": "integer"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "path",
+                                                      "added",
+                                                      "removed",
+                                                      "lines"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "kind": {
+                                                        "const": "output"
+                                                      },
+                                                      "text": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "text"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "answers": {
+                                                        "items": {
+                                                          "type": "string"
+                                                        },
+                                                        "type": "array"
+                                                      },
+                                                      "kind": {
+                                                        "const": "question"
+                                                      },
+                                                      "questions": {
+                                                        "items": {
+                                                          "additionalProperties": false,
+                                                          "properties": {
+                                                            "header": {
+                                                              "type": "string"
+                                                            },
+                                                            "multiple": {
+                                                              "type": "boolean"
+                                                            },
+                                                            "options": {
+                                                              "items": {
+                                                                "additionalProperties": false,
+                                                                "properties": {
+                                                                  "description": {
+                                                                    "type": "string"
+                                                                  },
+                                                                  "label": {
+                                                                    "type": "string"
+                                                                  }
+                                                                },
+                                                                "required": [
+                                                                  "label"
+                                                                ],
+                                                                "type": "object"
+                                                              },
+                                                              "type": "array"
+                                                            },
+                                                            "question": {
+                                                              "type": "string"
+                                                            }
+                                                          },
+                                                          "required": [
+                                                            "question",
+                                                            "options"
+                                                          ],
+                                                          "type": "object"
+                                                        },
+                                                        "type": "array"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "questions"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "kind": {
+                                                        "const": "plan"
+                                                      },
+                                                      "text": {
+                                                        "type": "string"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "text"
+                                                    ],
+                                                    "type": "object"
+                                                  },
+                                                  {
+                                                    "additionalProperties": false,
+                                                    "properties": {
+                                                      "doing": {
+                                                        "anyOf": [
+                                                          {
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                              "kind": {
+                                                                "oneOf": [
+                                                                  {
+                                                                    "const": "command"
+                                                                  },
+                                                                  {
+                                                                    "const": "read"
+                                                                  },
+                                                                  {
+                                                                    "const": "edit"
+                                                                  },
+                                                                  {
+                                                                    "const": "write"
+                                                                  },
+                                                                  {
+                                                                    "const": "search"
+                                                                  },
+                                                                  {
+                                                                    "const": "web"
+                                                                  },
+                                                                  {
+                                                                    "const": "agent"
+                                                                  },
+                                                                  {
+                                                                    "const": "skill"
+                                                                  },
+                                                                  {
+                                                                    "const": "question"
+                                                                  },
+                                                                  {
+                                                                    "const": "plan"
+                                                                  },
+                                                                  {
+                                                                    "const": "other"
+                                                                  }
+                                                                ]
+                                                              },
+                                                              "target": {
+                                                                "type": "string"
+                                                              }
+                                                            },
+                                                            "required": [
+                                                              "kind"
+                                                            ],
+                                                            "type": "object"
+                                                          },
+                                                          {
+                                                            "type": "null"
+                                                          }
+                                                        ]
+                                                      },
+                                                      "kind": {
+                                                        "const": "agent"
+                                                      },
+                                                      "name": {
+                                                        "type": "string"
+                                                      },
+                                                      "said": {
+                                                        "type": "string"
+                                                      },
+                                                      "steps": {
+                                                        "format": "u32",
+                                                        "type": "integer"
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "steps"
+                                                    ],
+                                                    "type": "object"
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "kind": {
+                                            "oneOf": [
+                                              {
+                                                "const": "command"
+                                              },
+                                              {
+                                                "const": "read"
+                                              },
+                                              {
+                                                "const": "edit"
+                                              },
+                                              {
+                                                "const": "write"
+                                              },
+                                              {
+                                                "const": "search"
+                                              },
+                                              {
+                                                "const": "web"
+                                              },
+                                              {
+                                                "const": "agent"
+                                              },
+                                              {
+                                                "const": "skill"
+                                              },
+                                              {
+                                                "const": "question"
+                                              },
+                                              {
+                                                "const": "plan"
+                                              },
+                                              {
+                                                "const": "other"
+                                              }
+                                            ]
+                                          },
+                                          "ms": {
+                                            "anyOf": [
+                                              {
+                                                "format": "u64",
+                                                "type": "integer"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "name": {
+                                            "type": "string"
+                                          },
+                                          "state": {
+                                            "oneOf": [
+                                              {
+                                                "const": "preparing"
+                                              },
+                                              {
+                                                "const": "asking"
+                                              },
+                                              {
+                                                "const": "running"
+                                              },
+                                              {
+                                                "const": "done"
+                                              },
+                                              {
+                                                "const": "failed"
+                                              },
+                                              {
+                                                "const": "denied"
+                                              },
+                                              {
+                                                "const": "stopped"
+                                              }
+                                            ]
+                                          },
+                                          "target": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "name",
+                                          "kind",
+                                          "state"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "tool"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "end": {
+                                        "oneOf": [
+                                          {
+                                            "const": "done"
+                                          },
+                                          {
+                                            "const": "stopped"
+                                          },
+                                          {
+                                            "const": "failed"
+                                          },
+                                          {
+                                            "const": "refused"
+                                          }
+                                        ]
+                                      },
+                                      "kind": {
+                                        "const": "turn"
+                                      },
+                                      "ms": {
+                                        "format": "u64",
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "end",
+                                      "ms"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "note"
+                                      },
+                                      "note": {
+                                        "oneOf": [
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "kind": {
+                                                "const": "compacted"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "error": {
+                                                "type": "string"
+                                              },
+                                              "kind": {
+                                                "const": "failed"
+                                              },
+                                              "text": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "error"
+                                            ],
+                                            "type": "object"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "note"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ]
+                              },
+                              "id": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "at",
+                              "body"
+                            ],
+                            "type": "object"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "item"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "text"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "id",
+                          "text"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "remove"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "id"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "asks": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "body": {
+                                  "oneOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "always": {
+                                          "anyOf": [
+                                            {
+                                              "oneOf": [
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "kind": {
+                                                      "const": "rule"
+                                                    },
+                                                    "text": {
+                                                      "type": "string"
+                                                    },
+                                                    "tool": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "kind",
+                                                    "tool",
+                                                    "text"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "kind": {
+                                                      "const": "mode"
+                                                    },
+                                                    "mode": {
+                                                      "oneOf": [
+                                                        {
+                                                          "const": "ask"
+                                                        },
+                                                        {
+                                                          "const": "edits"
+                                                        },
+                                                        {
+                                                          "const": "plan"
+                                                        },
+                                                        {
+                                                          "const": "auto"
+                                                        },
+                                                        {
+                                                          "const": "rules"
+                                                        },
+                                                        {
+                                                          "const": "unrestricted"
+                                                        }
+                                                      ]
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "kind",
+                                                    "mode"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "kind": {
+                                                      "const": "folder"
+                                                    },
+                                                    "name": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "kind",
+                                                    "name"
+                                                  ],
+                                                  "type": "object"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "helper": {
+                                          "type": "string"
+                                        },
+                                        "kind": {
+                                          "const": "permission"
+                                        },
+                                        "tool": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "detail": {
+                                              "anyOf": [
+                                                {
+                                                  "oneOf": [
+                                                    {
+                                                      "additionalProperties": false,
+                                                      "properties": {
+                                                        "background": {
+                                                          "type": "boolean"
+                                                        },
+                                                        "command": {
+                                                          "type": "string"
+                                                        },
+                                                        "kind": {
+                                                          "const": "command"
+                                                        },
+                                                        "output": {
+                                                          "type": "string"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "kind",
+                                                        "command"
+                                                      ],
+                                                      "type": "object"
+                                                    },
+                                                    {
+                                                      "additionalProperties": false,
+                                                      "properties": {
+                                                        "added": {
+                                                          "format": "u32",
+                                                          "type": "integer"
+                                                        },
+                                                        "kind": {
+                                                          "const": "change"
+                                                        },
+                                                        "lines": {
+                                                          "items": {
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                              "sign": {
+                                                                "oneOf": [
+                                                                  {
+                                                                    "const": "same"
+                                                                  },
+                                                                  {
+                                                                    "const": "added"
+                                                                  },
+                                                                  {
+                                                                    "const": "removed"
+                                                                  }
+                                                                ]
+                                                              },
+                                                              "text": {
+                                                                "type": "string"
+                                                              }
+                                                            },
+                                                            "required": [
+                                                              "sign",
+                                                              "text"
+                                                            ],
+                                                            "type": "object"
+                                                          },
+                                                          "type": "array"
+                                                        },
+                                                        "path": {
+                                                          "type": "string"
+                                                        },
+                                                        "removed": {
+                                                          "format": "u32",
+                                                          "type": "integer"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "kind",
+                                                        "path",
+                                                        "added",
+                                                        "removed",
+                                                        "lines"
+                                                      ],
+                                                      "type": "object"
+                                                    },
+                                                    {
+                                                      "additionalProperties": false,
+                                                      "properties": {
+                                                        "kind": {
+                                                          "const": "output"
+                                                        },
+                                                        "text": {
+                                                          "type": "string"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "kind",
+                                                        "text"
+                                                      ],
+                                                      "type": "object"
+                                                    },
+                                                    {
+                                                      "additionalProperties": false,
+                                                      "properties": {
+                                                        "answers": {
+                                                          "items": {
+                                                            "type": "string"
+                                                          },
+                                                          "type": "array"
+                                                        },
+                                                        "kind": {
+                                                          "const": "question"
+                                                        },
+                                                        "questions": {
+                                                          "items": {
+                                                            "additionalProperties": false,
+                                                            "properties": {
+                                                              "header": {
+                                                                "type": "string"
+                                                              },
+                                                              "multiple": {
+                                                                "type": "boolean"
+                                                              },
+                                                              "options": {
+                                                                "items": {
+                                                                  "additionalProperties": false,
+                                                                  "properties": {
+                                                                    "description": {
+                                                                      "type": "string"
+                                                                    },
+                                                                    "label": {
+                                                                      "type": "string"
+                                                                    }
+                                                                  },
+                                                                  "required": [
+                                                                    "label"
+                                                                  ],
+                                                                  "type": "object"
+                                                                },
+                                                                "type": "array"
+                                                              },
+                                                              "question": {
+                                                                "type": "string"
+                                                              }
+                                                            },
+                                                            "required": [
+                                                              "question",
+                                                              "options"
+                                                            ],
+                                                            "type": "object"
+                                                          },
+                                                          "type": "array"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "kind",
+                                                        "questions"
+                                                      ],
+                                                      "type": "object"
+                                                    },
+                                                    {
+                                                      "additionalProperties": false,
+                                                      "properties": {
+                                                        "kind": {
+                                                          "const": "plan"
+                                                        },
+                                                        "text": {
+                                                          "type": "string"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "kind",
+                                                        "text"
+                                                      ],
+                                                      "type": "object"
+                                                    },
+                                                    {
+                                                      "additionalProperties": false,
+                                                      "properties": {
+                                                        "doing": {
+                                                          "anyOf": [
+                                                            {
+                                                              "additionalProperties": false,
+                                                              "properties": {
+                                                                "kind": {
+                                                                  "oneOf": [
+                                                                    {
+                                                                      "const": "command"
+                                                                    },
+                                                                    {
+                                                                      "const": "read"
+                                                                    },
+                                                                    {
+                                                                      "const": "edit"
+                                                                    },
+                                                                    {
+                                                                      "const": "write"
+                                                                    },
+                                                                    {
+                                                                      "const": "search"
+                                                                    },
+                                                                    {
+                                                                      "const": "web"
+                                                                    },
+                                                                    {
+                                                                      "const": "agent"
+                                                                    },
+                                                                    {
+                                                                      "const": "skill"
+                                                                    },
+                                                                    {
+                                                                      "const": "question"
+                                                                    },
+                                                                    {
+                                                                      "const": "plan"
+                                                                    },
+                                                                    {
+                                                                      "const": "other"
+                                                                    }
+                                                                  ]
+                                                                },
+                                                                "target": {
+                                                                  "type": "string"
+                                                                }
+                                                              },
+                                                              "required": [
+                                                                "kind"
+                                                              ],
+                                                              "type": "object"
+                                                            },
+                                                            {
+                                                              "type": "null"
+                                                            }
+                                                          ]
+                                                        },
+                                                        "kind": {
+                                                          "const": "agent"
+                                                        },
+                                                        "name": {
+                                                          "type": "string"
+                                                        },
+                                                        "said": {
+                                                          "type": "string"
+                                                        },
+                                                        "steps": {
+                                                          "format": "u32",
+                                                          "type": "integer"
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "kind",
+                                                        "steps"
+                                                      ],
+                                                      "type": "object"
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "kind": {
+                                              "oneOf": [
+                                                {
+                                                  "const": "command"
+                                                },
+                                                {
+                                                  "const": "read"
+                                                },
+                                                {
+                                                  "const": "edit"
+                                                },
+                                                {
+                                                  "const": "write"
+                                                },
+                                                {
+                                                  "const": "search"
+                                                },
+                                                {
+                                                  "const": "web"
+                                                },
+                                                {
+                                                  "const": "agent"
+                                                },
+                                                {
+                                                  "const": "skill"
+                                                },
+                                                {
+                                                  "const": "question"
+                                                },
+                                                {
+                                                  "const": "plan"
+                                                },
+                                                {
+                                                  "const": "other"
+                                                }
+                                              ]
+                                            },
+                                            "ms": {
+                                              "anyOf": [
+                                                {
+                                                  "format": "u64",
+                                                  "type": "integer"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            },
+                                            "state": {
+                                              "oneOf": [
+                                                {
+                                                  "const": "preparing"
+                                                },
+                                                {
+                                                  "const": "asking"
+                                                },
+                                                {
+                                                  "const": "running"
+                                                },
+                                                {
+                                                  "const": "done"
+                                                },
+                                                {
+                                                  "const": "failed"
+                                                },
+                                                {
+                                                  "const": "denied"
+                                                },
+                                                {
+                                                  "const": "stopped"
+                                                }
+                                              ]
+                                            },
+                                            "target": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "name",
+                                            "kind",
+                                            "state"
+                                          ],
+                                          "type": "object"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "tool"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "kind": {
+                                          "const": "question"
+                                        },
+                                        "questions": {
+                                          "items": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "header": {
+                                                "type": "string"
+                                              },
+                                              "multiple": {
+                                                "type": "boolean"
+                                              },
+                                              "options": {
+                                                "items": {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "description": {
+                                                      "type": "string"
+                                                    },
+                                                    "label": {
+                                                      "type": "string"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "label"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                "type": "array"
+                                              },
+                                              "question": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "question",
+                                              "options"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          "type": "array"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "questions"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "choices": {
+                                          "items": {
+                                            "oneOf": [
+                                              {
+                                                "const": "go"
+                                              },
+                                              {
+                                                "const": "ask"
+                                              },
+                                              {
+                                                "const": "edits"
+                                              },
+                                              {
+                                                "const": "auto"
+                                              },
+                                              {
+                                                "const": "alone"
+                                              },
+                                              {
+                                                "const": "helpers"
+                                              },
+                                              {
+                                                "const": "leave"
+                                              }
+                                            ]
+                                          },
+                                          "type": "array"
+                                        },
+                                        "kind": {
+                                          "const": "plan"
+                                        },
+                                        "text": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "text",
+                                        "choices"
+                                      ],
+                                      "type": "object"
+                                    }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string"
+                                },
+                                "item": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "body"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "change": {
+                            "const": "asks"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "asks"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "queued"
+                          },
+                          "queued": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "by": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "name"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string"
+                                },
+                                "refused": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "text"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "queued"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "tasks"
+                          },
+                          "tasks": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "state": {
+                                  "oneOf": [
+                                    {
+                                      "const": "pending"
+                                    },
+                                    {
+                                      "const": "working"
+                                    },
+                                    {
+                                      "const": "done"
+                                    }
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "state"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "tasks"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "facts"
+                          },
+                          "facts": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "agent": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "background": {
+                                "format": "u32",
+                                "type": "integer"
+                              },
+                              "context": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "tokens": {
+                                        "format": "u64",
+                                        "type": "integer"
+                                      },
+                                      "window": {
+                                        "format": "u64",
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "tokens",
+                                      "window"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "cost": {
+                                "anyOf": [
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "effort": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "folder": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "helpers": {
+                                "format": "u32",
+                                "type": "integer"
+                              },
+                              "limits": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "hours": {
+                                      "anyOf": [
+                                        {
+                                          "format": "u32",
+                                          "type": "integer"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "level": {
+                                      "oneOf": [
+                                        {
+                                          "const": "normal"
+                                        },
+                                        {
+                                          "const": "near"
+                                        },
+                                        {
+                                          "const": "reached"
+                                        }
+                                      ]
+                                    },
+                                    "model": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "resetsAtMs": {
+                                      "anyOf": [
+                                        {
+                                          "format": "u64",
+                                          "type": "integer"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "scope": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "used": {
+                                      "format": "u8",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "hours",
+                                    "scope",
+                                    "model",
+                                    "used",
+                                    "level",
+                                    "resetsAtMs"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "mode": {
+                                "anyOf": [
+                                  {
+                                    "oneOf": [
+                                      {
+                                        "const": "ask"
+                                      },
+                                      {
+                                        "const": "edits"
+                                      },
+                                      {
+                                        "const": "plan"
+                                      },
+                                      {
+                                        "const": "auto"
+                                      },
+                                      {
+                                        "const": "rules"
+                                      },
+                                      {
+                                        "const": "unrestricted"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "version": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [],
+                            "type": "object"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "facts"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "state"
+                          },
+                          "now": {
+                            "anyOf": [
+                              {
+                                "oneOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "thinking"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "writing"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "item": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "const": "tool"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "item"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "kind": {
+                                        "const": "compacting"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "type": "object"
+                                  }
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "oneOf": [
+                              {
+                                "const": "away"
+                              },
+                              {
+                                "const": "idle"
+                              },
+                              {
+                                "const": "working"
+                              },
+                              {
+                                "const": "asking"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "state"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "reset"
+                          }
+                        },
+                        "required": [
+                          "change"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                },
+                "revision": {
+                  "format": "u64",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "revision",
+                "changes"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "update"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "pipe": "chat",
+    "requests": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "send"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "unqueue"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "do",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "answer": {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "allow"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "always"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "deny"
+                    },
+                    "text": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "answers": {
+                      "items": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "type": "array"
+                    },
+                    "kind": {
+                      "const": "answers"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "answers"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "choice": {
+                      "oneOf": [
+                        {
+                          "const": "go"
+                        },
+                        {
+                          "const": "ask"
+                        },
+                        {
+                          "const": "edits"
+                        },
+                        {
+                          "const": "auto"
+                        },
+                        {
+                          "const": "alone"
+                        },
+                        {
+                          "const": "helpers"
+                        },
+                        {
+                          "const": "leave"
+                        }
+                      ]
+                    },
+                    "kind": {
+                      "const": "plan"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "choice"
+                  ],
+                  "type": "object"
+                }
+              ]
+            },
+            "ask": {
+              "type": "string"
+            },
+            "do": {
+              "const": "answer"
+            }
+          },
+          "required": [
+            "do",
+            "ask",
+            "answer"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "do": {
+              "const": "stop"
+            }
+          },
+          "required": [
+            "do"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
   "commands": {
     "oneOf": [
       {
@@ -2984,6 +6278,59 @@
           "accountEpoch",
           "type",
           "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "look": {
+            "oneOf": [
+              {
+                "const": "dark"
+              },
+              {
+                "const": "light"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "app.look"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId",
+          "look"
         ],
         "type": "object"
       },
@@ -8470,6 +11817,9 @@
                     }
                   ]
                 },
+                "chat": {
+                  "type": "boolean"
+                },
                 "connectedUsers": {
                   "items": {
                     "type": "string"
@@ -8589,6 +11939,16 @@
                     },
                     {
                       "const": "remote"
+                    }
+                  ]
+                },
+                "look": {
+                  "oneOf": [
+                    {
+                      "const": "dark"
+                    },
+                    {
+                      "const": "light"
                     }
                   ]
                 },
@@ -9062,6 +12422,7 @@
                 "prompt",
                 "repository",
                 "working",
+                "look",
                 "id",
                 "incarnationId",
                 "kind",
@@ -14468,7 +17829,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 103,
+  "protocolVersion": 104,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

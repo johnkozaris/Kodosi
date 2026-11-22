@@ -13,6 +13,7 @@ Item {
     required property string sessionId
     property bool wide: false
     property var session: Models.Sessions.presentationForSession(sessionId)
+    readonly property Look look: KodosiTheme.lookNamed(session.look)
     readonly property var canvas: session.canvas || null
     readonly property var files: canvas ? canvas.items || [] : []
     readonly property string currentKey: Models.Canvas.revision >= 0 && canvas ? Models.Canvas.current(sessionId) : ""
@@ -209,7 +210,7 @@ Item {
                     visible: !!root.current && root.session.canControl === true && root.agent
                     glyph: "chat"
                     size: 26
-                    onTerminal: true
+                    terminalLook: root.look
                     Accessible.name: qsTr("Ask %1 about this").arg(Models.DesktopSettings.agentLabel(root.session.program))
                     objectName: "canvas.ask"
                     onClicked: root.ask(root.currentKey)
@@ -217,7 +218,7 @@ Item {
                 KIconButton {
                     glyph: "focus"
                     size: 26
-                    onTerminal: true
+                    terminalLook: root.look
                     active: root.wide
                     Accessible.name: root.wide ? qsTr("Side by side") : qsTr("More room")
                     objectName: "canvas.wide"
@@ -226,7 +227,7 @@ Item {
                 KIconButton {
                     glyph: "sidebar"
                     size: 26
-                    onTerminal: true
+                    terminalLook: root.look
                     Accessible.name: qsTr("Hide canvas")
                     objectName: "canvas.hide"
                     onClicked: root.hide()

@@ -180,6 +180,10 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         invalidate()
     }
 
+    fun look(next: TerminalLook) {
+        if (connection.kernel.look(next)) invalidate()
+    }
+
     fun paste(content: String, enter: Boolean = false): Boolean {
         val bytes = connection.kernel.encodePaste(content) ?: return false
         val end = if (enter) connection.kernel.encodeKey(TerminalKernel.Key.ENTER) ?: return false else byteArrayOf()
@@ -366,11 +370,7 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
     }
 
     override fun onDraw(canvas: Canvas) {
-        val frame = connection.kernel.frame()
-        if (frame == null) {
-            canvas.drawColor(TERMINAL_BACKGROUND)
-            return
-        }
+        val frame = connection.kernel.frame() ?: return
         canvas.drawColor(frame.background)
         val images = connection.kernel.images()
         canvas.withTranslation(0f, -top(frame).toFloat()) {
@@ -401,9 +401,9 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         val y = row * cellHeight
         var column = 0
         while (column < frame.cols) {
-            val color = background(frame, column, row)
+            val color = frame.background(column, row)
             var end = column + 1
-            while (end < frame.cols && background(frame, end, row) == color) end++
+            while (end < frame.cols && frame.background(end, row) == color) end++
             if (color != 0) {
                 fill.color = color
                 canvas.drawRect(
@@ -418,13 +418,6 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
             column = end
         }
     }
-
-    private fun background(frame: TerminalFrame, column: Int, row: Int): Int =
-        if (frame.style(column, row) and TerminalFrame.Style.SELECTED != 0) {
-            0xFF5C3825.toInt()
-        } else {
-            frame.background(column, row)
-        }
 
     private fun drawText(canvas: Canvas, frame: TerminalFrame, row: Int) {
         val y = row * cellHeight + baseline
@@ -627,6 +620,5 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         private const val MODIFIER_META = KeyEvent.META_CTRL_MASK or KeyEvent.META_ALT_MASK
         private const val FONT_SIZE_DP = 12f
         private const val MAX_DELETE = 64
-        private const val TERMINAL_BACKGROUND = 0xFF0D0B09.toInt()
     }
 }

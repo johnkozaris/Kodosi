@@ -446,6 +446,7 @@ Item {
                                                 readonly property var session: Models.Sessions.sessions.find(item => item.id === sessionId) || ({})
                                                 readonly property bool selected: root.shownTerminal === sessionId && terminal.active
                                                 readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
+                                                readonly property Look look: KodosiTheme.lookNamed(session.look)
 
                                                 height: 28
                                                 implicitWidth: tabRow.implicitWidth + 20
@@ -490,17 +491,17 @@ Item {
                                                         AgentMark { program: tab.session.program || ""; size: 18; asleep: !tab.selected; session: tab.session }
                                                         PlainLabel {
                                                             text: tab.session.name || qsTr("Terminal")
-                                                            color: tab.selected ? KodosiTheme.terminalInk : tab.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                                            color: tab.selected ? tab.look.ink : tab.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
                                                             font.pixelSize: KodosiTheme.fontFootnote
                                                             font.weight: Font.Medium
                                                         }
-                                                        AvatarStack { visible: tab.viewers.length > 0; userIds: tab.viewers; size: 16; limit: 2; ring: tab.selected ? KodosiTheme.terminalBandSelected : KodosiTheme.well }
-                                                        StatusSign { session: tab.session; unseen: Models.Sessions.attention.indexOf(tab.sessionId) >= 0 && !tab.selected; size: 12 }
+                                                        AvatarStack { visible: tab.viewers.length > 0; userIds: tab.viewers; size: 16; limit: 2; look: tab.selected ? tab.look : KodosiTheme.look; ring: tab.selected ? tab.look.bandSelected : KodosiTheme.well }
+                                                        StatusSign { session: tab.session; look: tab.selected ? tab.look : KodosiTheme.look; unseen: Models.Sessions.attention.indexOf(tab.sessionId) >= 0 && !tab.selected; size: 12 }
                                                     }
                                                 }
                                                 background: Rectangle {
                                                     radius: height / 2
-                                                    color: KodosiTheme.terminalBandSelected
+                                                    color: tab.look.bandSelected
                                                     visible: tab.selected
                                                 }
                                                 onClicked: Models.SessionActions.activateInProject(sessionId)
@@ -567,6 +568,7 @@ Item {
 
                                 readonly property var shown: Models.Sessions.sessions.find(item => item.id === root.shownTerminal) || ({})
 
+                                look: KodosiTheme.lookNamed(shown.look)
                                 anchors.fill: parent
                                 anchors.leftMargin: 6
                                 anchors.rightMargin: 6

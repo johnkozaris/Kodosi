@@ -31,7 +31,7 @@ pub(crate) use picture::pictures_root;
 pub use picture::{Picture, PictureFormat, TERMINAL_PICTURE_MAX_BYTES};
 pub(crate) use remote::RemoteTerminal;
 #[cfg(feature = "host")]
-pub(crate) use session::TerminalSession;
+pub(crate) use session::{TerminalSession, pipe};
 pub use status::{BlockedKind, ProgramState, ProgramStatus, Waiting};
 pub use subscribers::{ControlFrame, DataFrame, Frame, RefreshRetry, Subscription};
 pub(crate) use title::{title_spins, title_words};
@@ -39,7 +39,8 @@ pub use types::{
     CellPixels, Checkpoint, TERMINAL_CHECKPOINT_SCHEMA_VERSION, TERMINAL_IMAGE_STORAGE_MAX_BYTES,
     TERMINAL_INPUT_MAX_BYTES, TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES,
     TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES, TERMINAL_SNAPSHOT_MAX_BYTES,
-    TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalMetadata, TerminalPixelGeometry, TerminalSize,
+    TERMINAL_SNAPSHOT_TEXT_MAX_BYTES, TerminalLook, TerminalMetadata, TerminalPixelGeometry,
+    TerminalSize,
 };
 
 pub(crate) use types::is_valid_folder;
@@ -123,6 +124,10 @@ pub(crate) enum SessionChange {
     },
     #[cfg(feature = "host")]
     Canvas {
+        id: Uuid,
+    },
+    #[cfg(feature = "host")]
+    Chat {
         id: Uuid,
     },
     #[cfg(feature = "host")]

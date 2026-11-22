@@ -81,6 +81,11 @@ public enum AgentKind: String, CaseIterable, Sendable {
         }
     }
 
+    /// The tint of the command's name as a terminal of the theme's look prints it.
+    public func commandInk(in theme: AppTheme) -> Color {
+        theme.isDark ? tint.mix(with: .white, by: 0.35) : tint.mix(with: .black, by: 0.2)
+    }
+
     public func tint(account place: Int?) -> Color {
         guard let place, place > 0 else { return tint }
         return shades[place % shades.count]

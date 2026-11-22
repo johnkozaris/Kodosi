@@ -93,7 +93,7 @@ class TerminalKernelTest {
             assertTrue(kernel.scroll(-1))
             assertEquals("two", line(requireNotNull(kernel.frame()), 1))
             kernel.select(0, 1, word = true)
-            assertNotEquals(0, requireNotNull(kernel.frame()).style(0, 1) and TerminalFrame.Style.SELECTED)
+            assertNotEquals(0, requireNotNull(kernel.frame()).background(0, 1))
         }
     }
 

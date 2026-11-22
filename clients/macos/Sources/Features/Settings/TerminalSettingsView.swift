@@ -1,5 +1,6 @@
 import CoreText
 import KodosiDesign
+import KodosiTerminalSessions
 import SwiftUI
 
 struct TerminalSettingsView: View {
@@ -22,10 +23,11 @@ struct TerminalSettingsView: View {
     }
 
     var body: some View {
+        @Bindable var settings = deps.settings
         VStack(alignment: .leading, spacing: 22) {
             TerminalPreview(family: draft.fontFamily, size: CGFloat(draft.fontSize), lineHeight: draft.lineHeight,
                             cursor: draft.cursorStyle.preview, blinks: draft.cursorBlink)
-                .terminalScope()
+                .terminalScope(deps.terminalLook)
             ListGroup {
                 ListRow(String(localized: "Appearance"), symbol: "circle.lefthalf.filled", tint: TileTint.graphite) {
                     SegmentedPill(selection: $themePreference, options: [
@@ -34,6 +36,14 @@ struct TerminalSettingsView: View {
                         SegmentOption(value: ThemePreference.dark.rawValue, title: String(localized: "Dark"), symbol: "moon"),
                     ], compact: true, identifier: "settings.appearance")
                 }
+                Toggle(isOn: $settings.keepsTerminalsDark) {
+                    HStack(spacing: 12) {
+                        IconTile(symbol: "apple.terminal", tint: TileTint.graphite, size: 28)
+                        Text("Keep terminals dark")
+                    }
+                }
+                .padding(.horizontal, 14).frame(minHeight: 52)
+                .accessibilityIdentifier("settings.terminal.keepDark")
                 ListRow(String(localized: "Title"), symbol: "text.alignleft", tint: TileTint.blue) {
                     SegmentedPill(selection: $summaryFirst, options: [
                         SegmentOption(value: false, title: String(localized: "Name")),
@@ -93,7 +103,7 @@ struct TerminalSettingsView: View {
                     Button("Revert") { draft = deps.settings.terminalSettings }.buttonStyle(.kodosi(.ghost))
                     Button("Apply to all terminals") {
                         draft = deps.settings.commitTerminalSettings(draft)
-                        deps.terminalManager.applySettings(draft)
+                        deps.terminalManager.restyle()
                     }
                     .buttonStyle(.kodosi(.primary))
                     .accessibilityIdentifier("settings.terminal.apply")

@@ -100,7 +100,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "#"
             textFormat: Text.PlainText
-            color: root.dimmed ? KodosiTheme.alpha(KodosiTheme.terminalCaution, 0.7) : KodosiTheme.terminalCaution
+            color: root.dimmed ? KodosiTheme.alpha(KodosiTheme.darkLook.caution, 0.7) : KodosiTheme.darkLook.caution
             font.pixelSize: Math.max(1, Math.round(root.size * 0.46))
             font.weight: Font.Black
         }

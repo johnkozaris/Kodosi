@@ -64,6 +64,7 @@ public final class CanvasStore {
     @ObservationIgnored private var storedOrder: [Stored] = []
     @ObservationIgnored private var reading: [Stored: Task<(UInt64, Data), any Error>] = [:]
     @ObservationIgnored private var feeds: [String: BrowserFeed] = [:]
+    @ObservationIgnored private var chats: [String: TerminalChat] = [:]
     @ObservationIgnored private let documents = NSHashTable<DocumentLink>.weakObjects()
 
     public init(commands: CommandSink, browserPipes: BrowserPipes = BrowserPipes(),
@@ -77,6 +78,24 @@ public final class CanvasStore {
     /// The browser pipes give the link its events and open it again after a drop of their own.
     func browser(of session: String) -> DocumentLink {
         DocumentLink(commands: commands, session: session, key: CanvasShown.browserKey, claims: browserPipes)
+    }
+
+    func chatLink(of session: String) -> DocumentLink {
+        let link = DocumentLink(commands: commands, session: session, key: Self.chatKey)
+        documents.add(link)
+        return link
+    }
+
+    private static let chatKey = "chat"
+
+    /// The chat of a terminal stays while the terminal does, with what a person writes there.
+    public func chat(_ session: String) -> TerminalChat {
+        if let chat = chats[session] {
+            return chat
+        }
+        let chat = TerminalChat(store: self, session: session)
+        chats[session] = chat
+        return chat
     }
 
     public func document(_ item: CanvasItem, in session: String) -> DocumentLink {
@@ -126,6 +145,7 @@ public final class CanvasStore {
         shelves.formIntersection(ids)
         let browsing = Set(sessions.filter { $0.canvas?.browser != nil }.map(\.id))
         feeds = feeds.filter { browsing.contains($0.key) }
+        chats = chats.filter { ids.contains($0.key) }
         for key in stored.keys where !ids.contains(key.session) {
             forget(key)
         }

@@ -36,25 +36,26 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
+/** The models that the agent offers on its computer, with their levels of effort. */
+internal class AgentModels(
+    val models: List<AgentModel>?,
+    val efforts: List<String>,
+    val failure: String?,
+    val retry: () -> Unit
+) {
+    fun levels(model: String?): List<String> =
+        models?.firstOrNull { it.id == model }?.efforts?.takeIf { it.isNotEmpty() } ?: efforts
+}
+
 @Composable
-internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
-    val live = session.programLive ?: return
-    val readsModels = session.isOwner && session.hostDeviceId != null && (live.model || live.effort)
-    if (!readsModels && !live.fast && live.permissions.isEmpty()) return
-    val settings = session.programSettings ?: AgentSettings()
-    val pending = session.programPending ?: AgentSettings()
-    val currentModel = pending.model ?: settings.model
-    val currentEffort = if (pending.model != null) pending.effort else pending.effort ?: settings.effort
-    val currentFast = pending.fast ?: settings.fast ?: false
-    val currentPermissions = pending.permissions ?: settings.permissions
-    val scope = rememberCoroutineScope()
+internal fun rememberAgentModels(model: AppModel, session: RuntimeSession, load: Boolean): AgentModels {
+    val reads = load && session.isOwner && session.hostDeviceId != null
     var models by remember(session.id, session.program) { mutableStateOf<List<AgentModel>?>(null) }
     var efforts by remember(session.id, session.program) { mutableStateOf(emptyList<String>()) }
     var failure by remember(session.id, session.program) { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
-    var changing by remember { mutableStateOf(false) }
-    LaunchedEffect(session.id, session.program, readsModels, attempt) {
-        if (!readsModels) return@LaunchedEffect
+    LaunchedEffect(session.id, session.program, reads, attempt) {
+        if (!reads) return@LaunchedEffect
         failure = null
         try {
             val result = model.commands.request(
@@ -69,6 +70,33 @@ internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
             failure = error.localizedMessage ?: model.words.didNotWork
         }
     }
+    return AgentModels(models.takeIf { reads }, efforts, failure.takeIf { reads }) { attempt++ }
+}
+
+internal fun RuntimeSession.changesAgent(): Boolean {
+    val live = programLive ?: return false
+    return canControl && (readsModels(live) || live.fast || live.permissions.isNotEmpty())
+}
+
+/** Only the owner's computer tells the models of its agents. */
+private fun RuntimeSession.readsModels(live: AgentLive) = isOwner && hostDeviceId != null && (live.model || live.effort)
+
+@Composable
+internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
+    val live = session.programLive ?: return
+    if (!session.changesAgent()) return
+    val readsModels = session.readsModels(live)
+    val settings = session.programSettings ?: AgentSettings()
+    val pending = session.programPending ?: AgentSettings()
+    val currentModel = pending.model ?: settings.model
+    val currentEffort = if (pending.model != null) pending.effort else pending.effort ?: settings.effort
+    val currentFast = pending.fast ?: settings.fast ?: false
+    val currentPermissions = pending.permissions ?: settings.permissions
+    val scope = rememberCoroutineScope()
+    val loaded = rememberAgentModels(model, session, readsModels)
+    val models = loaded.models
+    var failure by remember(session.id, session.program) { mutableStateOf<String?>(null) }
+    var changing by remember { mutableStateOf(false) }
     val change: (AgentSettings) -> Unit = { choice ->
         changing = true
         scope.launch {
@@ -94,7 +122,7 @@ internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
         if (waits) stringResource(R.string.agent_after_turn, value) else value
 
     ListLine(agentLabel(session.agent), leading = { AgentMark(session.agent, 24.dp, account = session.programAccount) })
-    if (readsModels && models == null && failure == null) {
+    if (readsModels && models == null && loaded.failure == null) {
         ProgressCaption(stringResource(R.string.loading))
     }
     if (live.model && !models.isNullOrEmpty()) {
@@ -110,7 +138,7 @@ internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
             enabled = !changing && session.canControl
         ) { if (it != currentModel) change(AgentSettings(model = it)) }
     }
-    val levels = models?.firstOrNull { it.id == currentModel }?.efforts?.takeIf { it.isNotEmpty() } ?: efforts
+    val levels = loaded.levels(currentModel)
     if (live.effort && levels.isNotEmpty()) {
         MenuPicker(
             stringResource(R.string.effort),
@@ -155,11 +183,11 @@ internal fun AgentSettingsSection(model: AppModel, session: RuntimeSession) {
             color = KodosiTheme.colors.inkMuted
         )
     }
-    failure?.let {
+    (failure ?: loaded.failure)?.let {
         Column(Modifier.padding(horizontal = 16.dp)) {
             ErrorNote(it)
             if (readsModels && models == null) {
-                KodosiTextButton(onClick = { attempt++ }) { Text(stringResource(R.string.try_again)) }
+                KodosiTextButton(onClick = loaded.retry) { Text(stringResource(R.string.try_again)) }
             }
         }
     }

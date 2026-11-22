@@ -17,6 +17,10 @@ device, and let a friend or another agent step into the same work.
   process on the computer that hosts it.
 - **Attention.** A terminal shows what its program reports: working, waiting for a
   person, done or failed. Kodosi tells the person when a terminal needs them.
+- **Chat.** A terminal with an agent also shows as a chat, a second view of the same
+  terminal: what the person wrote, what the agent answered and did, and its questions
+  with their answers as keys. The person goes between the screen and the chat, and what
+  happens in one shows in the other.
 - **Sharing.** A person shares a terminal with friends or with a project, and everyone
   it is shared with gets full control.
 - **Projects.** A project holds a conversation, tasks, repositories and terminals from
@@ -45,9 +49,19 @@ ends what the two share.
 prompts, permissions, settings, memory and conversations stay with the provider. Kodosi
 starts an agent by typing its command into a shell, tells it in a short note that it runs
 in Kodosi, and gives it the `kodosi` command and skills. The agent decides when to use
-them. Kodosi reads no provider credentials. The one exception to settings is a quiet
-Copilot CLI, which takes its display only from its saved settings: Kodosi changes those
-while it runs and puts them back after.
+them. Kodosi reads no provider credentials. Copilot CLI is the one exception to settings.
+A quiet Copilot takes its display only from its saved settings, so Kodosi changes those
+while it runs and puts them back after. Copilot loads Kodosi's extension for the chat
+only with its experimental features, which Copilot then keeps on, and only after a person
+allowed the extension, which Kodosi does for each folder where it starts Copilot.
+
+**The chat is a view of the terminal.** The agent runs in its terminal as before, and the
+chat shows that session. The agent reports its work through the interface that its
+provider has for add-ons, and a person's message, answer or stop goes back the same way.
+Kodosi does not read the screen for the chat and presses no key there, so a new look of
+the agent does not break it. An answer in the chat is the person's answer to the agent's
+own question, and the agent's permissions stay as the provider keeps them. An agent that
+does not report has no chat, and its terminal works as before.
 
 **People and agents are equals in a project.** They read and write the same conversation
 and tasks, and they decide what to do next; nobody assigns work. Only a message that

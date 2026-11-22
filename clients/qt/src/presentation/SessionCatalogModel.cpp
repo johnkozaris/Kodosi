@@ -360,7 +360,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("ownerName"), s->ownerName }, { QStringLiteral("projectId"), s->projectId },
         { QStringLiteral("projectName"), s->projectName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("stalled"), !local && s->stalled },
-        { QStringLiteral("direct"), !local && s->direct },
+        { QStringLiteral("direct"), !local && s->direct }, { QStringLiteral("look"), s->look },
         { QStringLiteral("isOwner"), s->isOwner },
         { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
         { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden },
@@ -446,6 +446,10 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (!direct.isUndefined() && !direct.isBool())
         return std::nullopt;
     s.direct = direct.toBool();
+    const auto look = o.value(QStringLiteral("look"));
+    if (!look.isUndefined() && look != QJsonValue(QStringLiteral("dark")) && look != QJsonValue(QStringLiteral("light")))
+        return std::nullopt;
+    s.look = look.toString(QStringLiteral("dark"));
     const auto reported = o.value(QStringLiteral("programStatus"));
     if (!reported.isUndefined() && !reported.isNull()) {
         if (!reported.isObject())

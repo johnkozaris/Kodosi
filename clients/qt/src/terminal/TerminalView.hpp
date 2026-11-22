@@ -65,10 +65,7 @@ class TerminalView : public QQuickItem {
     Q_PROPERTY(int cursorStyle READ cursorStyle WRITE setCursorStyle NOTIFY cursorStyleChanged FINAL)
     Q_PROPERTY(bool cursorBlink READ cursorBlink WRITE setCursorBlink NOTIFY cursorBlinkChanged FINAL)
     Q_PROPERTY(int scrollbackLines READ scrollbackLines WRITE setScrollbackLines NOTIFY scrollbackLinesChanged FINAL)
-    Q_PROPERTY(QColor selectionBackground READ selectionBackground WRITE setSelectionBackground NOTIFY selectionBackgroundChanged FINAL)
-    Q_PROPERTY(QColor selectionForeground READ selectionForeground WRITE setSelectionForeground NOTIFY selectionForegroundChanged FINAL)
-    Q_PROPERTY(QColor preeditBackground READ preeditBackground WRITE setPreeditBackground NOTIFY preeditBackgroundChanged FINAL)
-    Q_PROPERTY(QColor preeditForeground READ preeditForeground WRITE setPreeditForeground NOTIFY preeditForegroundChanged FINAL)
+    Q_PROPERTY(bool dark READ dark WRITE setDark NOTIFY darkChanged FINAL)
     Q_PROPERTY(bool terminalReady READ terminalReady NOTIFY terminalReadyChanged FINAL)
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY frameChanged FINAL)
     Q_PROPERTY(
@@ -93,10 +90,7 @@ public:
     [[nodiscard]] int cursorStyle() const noexcept;
     [[nodiscard]] bool cursorBlink() const noexcept;
     [[nodiscard]] int scrollbackLines() const noexcept;
-    [[nodiscard]] QColor selectionBackground() const;
-    [[nodiscard]] QColor selectionForeground() const;
-    [[nodiscard]] QColor preeditBackground() const;
-    [[nodiscard]] QColor preeditForeground() const;
+    [[nodiscard]] bool dark() const noexcept;
     [[nodiscard]] qreal viewportScale() const;
     [[nodiscard]] QSizeF gridSize() const;
     [[nodiscard]] bool terminalReady() const noexcept;
@@ -117,10 +111,7 @@ public:
     void setCursorStyle(int style);
     void setCursorBlink(bool enabled);
     void setScrollbackLines(int lines);
-    void setSelectionBackground(const QColor& color);
-    void setSelectionForeground(const QColor& color);
-    void setPreeditBackground(const QColor& color);
-    void setPreeditForeground(const QColor& color);
+    void setDark(bool dark);
     void setTerminalInteraction(bool canSendInput, bool canResize);
     void setAsksBeforeClipboardRead(bool asks);
     void setOtherComputer(const QString& computer);
@@ -144,10 +135,7 @@ signals:
     void cursorStyleChanged();
     void cursorBlinkChanged();
     void scrollbackLinesChanged();
-    void selectionBackgroundChanged();
-    void selectionForegroundChanged();
-    void preeditBackgroundChanged();
-    void preeditForegroundChanged();
+    void darkChanged();
     void terminalReadyChanged();
     void asksBeforeClipboardReadChanged();
     void otherComputerChanged();
@@ -216,7 +204,8 @@ private:
     TerminalCursorStyle m_cursorStyle = TerminalCursorStyle::Block;
     bool m_cursorBlink = false;
     int m_scrollbackLines = 10'000;
-    TerminalRasterizer::Palette m_palette;
+    TerminalLook m_look = TerminalLook::Dark;
+    TerminalRasterizer::Palette m_palette = TerminalRasterizer::palette(TerminalLook::Dark);
     QTimer m_cursorBlinkTimer;
     QTimer m_historyCompressionTimer;
     QTimer m_imageAnimationTimer;

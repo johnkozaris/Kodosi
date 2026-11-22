@@ -54,10 +54,11 @@ public final class TerminalSessionManager {
     var resizeNotesBySession: [String: String] = [:]
     private var runtimeIncarnationsBySession: [String: String] = [:]
     private var resizeAuthorityBySession: [String: Bool] = [:]
+    private var looksBySession: [String: TerminalLook] = [:]
 
     let runtimeHandle: RuntimeHandle
     private let commandSink: CommandSink
-    private let style: @MainActor () -> TerminalStyle
+    private let style: @MainActor (TerminalLook) -> TerminalStyle
     let beep: @MainActor () -> Void
     let onFocusResult: @MainActor (String, String, String, Bool) -> Void
     private let disconnectTerminal: Disconnect
@@ -66,7 +67,7 @@ public final class TerminalSessionManager {
     public init(
         runtimeHandle: RuntimeHandle,
         commandSink: CommandSink,
-        style: @escaping @MainActor () -> TerminalStyle,
+        style: @escaping @MainActor (TerminalLook) -> TerminalStyle,
         disconnectTerminal: Disconnect? = nil,
         beep: @escaping @MainActor () -> Void = {},
         onFocusResult: @escaping @MainActor (String, String, String, Bool) -> Void = { _, _, _, _ in },
@@ -85,10 +86,15 @@ public final class TerminalSessionManager {
         self.onFocusResult = onFocusResult
     }
 
-    public func applyStyle(_ style: TerminalStyle) {
-        for managed in sessions.values {
-            managed.renderer.setStyle(style)
+    /// Each terminal takes the style that the app gives its look now.
+    public func restyle() {
+        for (sessionId, managed) in sessions {
+            managed.renderer.setStyle(style(look(of: sessionId)))
         }
+    }
+
+    private func look(of sessionId: String) -> TerminalLook {
+        looksBySession[sessionId] ?? .dark
     }
 
     public func session(for sessionId: String) -> ManagedTerminalSession {
@@ -111,6 +117,7 @@ public final class TerminalSessionManager {
             liveSessionIds: Set(visible.map(\.id)),
             runtimeIncarnations: Dictionary(uniqueKeysWithValues: visible.map { ($0.id, $0.incarnationId) }),
             resizeAuthority: Dictionary(uniqueKeysWithValues: visible.map { ($0.id, $0.canControl) }),
+            looks: Dictionary(uniqueKeysWithValues: visible.map { ($0.id, $0.terminalLook) }),
         )
     }
 
@@ -118,7 +125,16 @@ public final class TerminalSessionManager {
         liveSessionIds: Set<String>,
         runtimeIncarnations: [String: String] = [:],
         resizeAuthority: [String: Bool] = [:],
+        looks: [String: TerminalLook] = [:],
     ) {
+        let previousLooks = looksBySession
+        looksBySession = looks
+        for (sessionId, managed) in sessions where liveSessionIds.contains(sessionId) {
+            let current = look(of: sessionId)
+            if current != previousLooks[sessionId] ?? .dark {
+                managed.renderer.setStyle(style(current))
+            }
+        }
         let replacedSessionIds: Set<String> = Set(sessions.compactMap { sessionId, managed -> String? in
             guard let incarnation = runtimeIncarnations[sessionId],
                   incarnation != managed.runtimeIncarnationId
@@ -250,7 +266,7 @@ public final class TerminalSessionManager {
             guard token.isActive else { return }
             self?.pastePicture(picture, sessionId: sessionId)
         }
-        renderer.setStyle(style())
+        renderer.setStyle(style(look(of: sessionId)))
         renderStateBySession[sessionId] = .connecting
 
         return ManagedTerminalSession(

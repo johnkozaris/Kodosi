@@ -1,5 +1,6 @@
 package com.kodosi.mobile.canvas
 
+import com.kodosi.mobile.chat.TerminalChat
 import com.kodosi.mobile.runtime.CommandSink
 import com.kodosi.mobile.runtime.RuntimeEvent
 import com.kodosi.mobile.runtime.RuntimeFailure
@@ -21,6 +22,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
 
     private val cache = LinkedHashMap<Cached, ByteArray>(16, 0.75f, true)
     private val links = mutableSetOf<DocumentLink>()
+    private val chats = mutableMapOf<String, TerminalChat>()
     private val opened = mutableMapOf<String, Long>()
     private val started = System.currentTimeMillis()
     private var observed: List<RuntimeSession>? = null
@@ -28,8 +30,12 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         field = MutableStateFlow<Map<String, String>>(emptyMap())
     private var generation = 0
 
+    var unreadableChatFrame: (String) -> Unit = {}
+
     fun reset() {
         generation++
+        chats.values.forEach(TerminalChat::close)
+        chats.clear()
         links.toList().forEach(DocumentLink::close)
         cache.clear()
         opened.clear()
@@ -43,6 +49,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         val present = sessions.map { it.id }.toSet()
         cache.keys.removeAll { it.session !in present }
         opened.keys.retainAll(present)
+        chats.entries.removeAll { (session, chat) -> (session !in present).also { gone -> if (gone) chat.close() } }
         news.value = sessions.mapNotNull { session ->
             val show = session.canvas?.latestNotice ?: return@mapNotNull null
             if (show.at > (opened[session.id] ?: started)) session.id to show.key else null
@@ -69,6 +76,10 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         links.remove(it)
     }
         .also { links.add(it) }
+
+    /** The chat of a terminal stays while the terminal does, with what a person writes there. */
+    fun chat(session: String): TerminalChat =
+        chats.getOrPut(session) { TerminalChat(this, session) { unreadableChatFrame(it) } }
 
     suspend fun ask(session: String, request: JsonObject): JsonObject =
         commands.request("canvas.request", fields("sessionId" to session, "request" to request)).value("answer")

@@ -66,6 +66,10 @@ final class DesktopSettings {
         didSet { defaults.set(opensCanvas, forKey: Self.opensCanvasKey) }
     }
 
+    var keepsTerminalsDark = false {
+        didSet { defaults.set(keepsTerminalsDark, forKey: Self.keepsTerminalsDarkKey) }
+    }
+
     var terminalCell: TerminalCell? {
         didSet { defaults.set(try? JSONEncoder().encode(terminalCell), forKey: Self.terminalCellKey) }
     }
@@ -84,6 +88,7 @@ final class DesktopSettings {
 
     private static let keepRunningKey = "app.keepRunning"
     private static let opensCanvasKey = "canvas.opensItself"
+    private static let keepsTerminalsDarkKey = "terminal.keepsDark"
     private static let terminalCellKey = "terminal.cell"
     private static let shortcutsKey = "app.shortcuts"
 
@@ -145,6 +150,7 @@ final class DesktopSettings {
         branchFolder = d.string(forKey: "session.branchFolder")
         keepRunning = d.object(forKey: Self.keepRunningKey) == nil || d.bool(forKey: Self.keepRunningKey)
         opensCanvas = d.object(forKey: Self.opensCanvasKey) == nil || d.bool(forKey: Self.opensCanvasKey)
+        keepsTerminalsDark = d.bool(forKey: Self.keepsTerminalsDarkKey)
         terminalCell = d.data(forKey: Self.terminalCellKey).flatMap { try? JSONDecoder().decode(TerminalCell.self, from: $0) }
         shortcuts = d.data(forKey: Self.shortcutsKey).flatMap { try? JSONDecoder().decode(ShortcutTable.self, from: $0) } ?? ShortcutTable()
     }

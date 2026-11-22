@@ -25,6 +25,7 @@ Item {
     property bool zoomed: false
     required property string sessionId
     property var session: ({})
+    readonly property Look look: KodosiTheme.lookNamed(session.look)
     readonly property string sessionName: session.name || qsTr("Terminal")
     readonly property bool shareable: session.kind === "local" && session.isOwner === true
     readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
@@ -134,7 +135,7 @@ Item {
         anchors.fill: parent
         visible: !root.joined
         radius: KodosiTheme.radiusTile
-        fill: KodosiTheme.terminal
+        fill: root.look.terminal
         rim: false
     }
     ColumnLayout {
@@ -146,7 +147,7 @@ Item {
             Layout.preferredHeight: root.joined ? 38 : 36
             topLeftRadius: KodosiTheme.radiusTile
             topRightRadius: KodosiTheme.radiusTile
-            color: root.joined ? "transparent" : root.active ? KodosiTheme.terminalBandSelected : KodosiTheme.terminalBand
+            color: root.joined ? "transparent" : root.active ? root.look.bandSelected : root.look.band
 
             TapHandler { onTapped: root.select() }
             TerminalDragSource {
@@ -193,12 +194,12 @@ Item {
                     background: Rectangle {
                         radius: KodosiTheme.radiusXs
                         color: nameButton.hovered && nameButton.enabled
-                            ? KodosiTheme.mix(KodosiTheme.terminalLifted, KodosiTheme.terminalInk, 0.1) : "transparent"
+                            ? KodosiTheme.mix(root.look.lifted, root.look.ink, 0.1) : "transparent"
                         Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                     }
                     contentItem: PlainLabel {
                         text: root.sessionName
-                        color: KodosiTheme.terminalInk
+                        color: root.look.ink
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                         verticalAlignment: Text.AlignVCenter
@@ -209,7 +210,9 @@ Item {
                     visible: root.renaming
                     compact: true
                     leftPadding: 8
-                    color: KodosiTheme.terminalInk
+                    color: root.look.ink
+                    selectionColor: root.look.accent
+                    selectedTextColor: root.look.accentInk
                     objectName: root.objectName + ".nameField"
                     Accessible.id: objectName
                     Accessible.name: qsTr("Terminal name")
@@ -232,9 +235,9 @@ Item {
 
                     background: Rectangle {
                         radius: KodosiTheme.radiusXs
-                        color: KodosiTheme.terminalWell
+                        color: root.look.well
                         border.width: 1
-                        border.color: KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.75)
+                        border.color: KodosiTheme.alpha(root.look.accent, 0.75)
                     }
                 }
                 RowLayout {
@@ -261,12 +264,12 @@ Item {
                         visible: location.host.length > 0
                         name: "laptop"
                         strokeWidth: 2.2
-                        color: KodosiTheme.terminalInkMuted
+                        color: root.look.inkMuted
                     }
                     PlainLabel {
                         visible: location.host.length > 0
                         text: location.host
-                        color: KodosiTheme.terminalInkMuted
+                        color: root.look.inkMuted
                         font.pixelSize: KodosiTheme.fontCaption
                         font.weight: Font.Medium
                     }
@@ -278,7 +281,7 @@ Item {
                         visible: location.host.length > 0 && location.place.length > 0
                         name: "chevron-compact-right"
                         strokeWidth: 2.2
-                        color: KodosiTheme.terminalInkFaint
+                        color: root.look.inkFaint
                     }
                     KIcon {
                         Layout.preferredWidth: 11
@@ -286,13 +289,13 @@ Item {
                         visible: location.place.length > 0
                         name: location.placeGlyph
                         strokeWidth: 2.2
-                        color: KodosiTheme.mix(KodosiTheme.terminalInk, KodosiTheme.terminalInkMuted, 0.35)
+                        color: KodosiTheme.mix(root.look.ink, root.look.inkMuted, 0.35)
                     }
                     PlainLabel {
                         Layout.fillWidth: true
                         visible: location.place.length > 0
                         text: location.place
-                        color: KodosiTheme.mix(KodosiTheme.terminalInk, KodosiTheme.terminalInkMuted, 0.35)
+                        color: KodosiTheme.mix(root.look.ink, root.look.inkMuted, 0.35)
                         font.pixelSize: KodosiTheme.fontCaption
                         font.weight: Font.Medium
                         elide: Text.ElideMiddle
@@ -301,18 +304,19 @@ Item {
                 ActivityLine {
                     Layout.fillWidth: true
                     session: root.session
-                    color: KodosiTheme.terminalInkMuted
+                    color: root.look.inkMuted
                 }
                 DosiKeys {
                     sessionId: root.sessionId
                 }
                 StatusSign {
                     session: root.session
+                    look: root.look
                     size: 12
                 }
                 PlainLabel {
                     Accessible.id: objectName
-                    color: root.away || root.unreachable ? KodosiTheme.terminalCaution : KodosiTheme.terminalInkFaint
+                    color: root.away || root.unreachable ? root.look.caution : root.look.inkFaint
                     font.pixelSize: KodosiTheme.fontCaption
                     objectName: root.objectName + ".state"
                     text: root.remoteState
@@ -322,7 +326,7 @@ Item {
                     Accessible.id: objectName
                     compact: true
                     objectName: root.objectName + ".state.retry"
-                    onTerminal: true
+                    terminalLook: root.look
                     opacity: tileHover.hovered || root.active && !root.joined ? 1 : 0.35
                     text: qsTr("Try again")
                     variant: KButton.Ghost
@@ -334,7 +338,7 @@ Item {
                     Accessible.id: objectName
                     Layout.fillWidth: true
                     Layout.maximumWidth: Math.ceil(implicitWidth)
-                    color: KodosiTheme.terminalInkFaint
+                    color: root.look.inkFaint
                     elide: Text.ElideRight
                     font.pixelSize: KodosiTheme.fontCaption
                     objectName: root.objectName + ".notice"
@@ -346,7 +350,8 @@ Item {
                     userIds: root.viewers
                     size: 20
                     limit: 3
-                    ring: KodosiTheme.terminalBand
+                    look: root.look
+                    ring: root.look.band
                 }
                 CanvasDock {
                     sessionId: root.sessionId
@@ -384,14 +389,14 @@ Item {
                                 height: 14
                                 name: "sliders"
                                 strokeWidth: 1.9
-                                color: KodosiTheme.terminalAccentStrong
+                                color: root.look.accentStrong
                             }
                         }
                         background: Rectangle {
                             radius: KodosiTheme.radiusXs
-                            color: actionsKey.hovered || actionsMenu.visible ? KodosiTheme.terminalAccentSoft : "transparent"
+                            color: actionsKey.hovered || actionsMenu.visible ? root.look.accentSoft : "transparent"
                             border.width: actionsKey.visualFocus ? 1.5 : 0
-                            border.color: KodosiTheme.terminalAccentStrong
+                            border.color: root.look.accentStrong
 
                             Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                         }
@@ -568,9 +573,9 @@ Item {
                     KIconButton {
                         glyph: "warning"
                         size: 26
-                        onTerminal: true
+                        terminalLook: root.look
                         visible: root.terminalOperationError.length > 0
-                        glyphColor: KodosiTheme.caution
+                        glyphColor: root.look.caution
                         Accessible.name: qsTr("Terminal action failed")
                         onClicked: operationFailure.open()
                     }
@@ -579,7 +584,7 @@ Item {
                         Accessible.name: qsTr("Minimize")
                         glyph: "minus"
                         size: 26
-                        onTerminal: true
+                        terminalLook: root.look
                         visible: !root.canvasOpen
                         objectName: root.objectName + ".minimize"
                         onClicked: Models.SessionActions.minimize(root.sessionId)
@@ -589,7 +594,7 @@ Item {
                         Accessible.name: root.zoomed ? qsTr("Return to tiles") : qsTr("Zoom")
                         glyph: "focus"
                         size: 26
-                        onTerminal: true
+                        terminalLook: root.look
                         active: root.zoomed
                         objectName: root.objectName + ".focus"
                         visible: !root.projectEmbedded && !root.canvasOpen
@@ -604,7 +609,7 @@ Item {
                         Accessible.name: qsTr("Close terminal")
                         glyph: "close"
                         size: 26
-                        onTerminal: true
+                        terminalLook: root.look
                         destructive: true
                         objectName: root.objectName + ".close"
                         onClicked: closeConfirmation.ask(root.sessionId, root.sessionName)
@@ -634,11 +639,8 @@ Item {
                 fontPixelSize: Models.DesktopSettings.fontSize
                 lineHeight: Models.DesktopSettings.lineHeight
                 objectName: root.objectName + ".terminal"
-                preeditBackground: KodosiTheme.terminalAccent
-                preeditForeground: "#160e0a"
+                dark: root.look.dark
                 scrollbackLines: Models.DesktopSettings.scrollbackLines
-                selectionBackground: KodosiTheme.terminalAccent
-                selectionForeground: "#160e0a"
 
                 onFocused: root.select()
                 onContextMenuRequested: (x, y) => {
@@ -657,6 +659,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: 10
+                look: root.look
                 shown: root.waitsForConnection && terminal.terminalReady
                 objectName: root.objectName + ".reconnecting"
             }
@@ -685,8 +688,8 @@ Item {
                 Raised {
                     anchors.fill: parent
                     radius: height / 2
-                    fill: KodosiTheme.terminalLifted
-                    dark: true
+                    look: root.look
+                    fill: root.look.lifted
                     elevation: 2
                 }
                 RowLayout {
@@ -697,13 +700,13 @@ Item {
 
                     ProgressRing {
                         progress: pictureCard.shown ? (pictureCard.shown.arrived ? 1 : pictureCard.shown.fraction) : 0
-                        track: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.22)
+                        track: KodosiTheme.alpha(root.look.ink, 0.22)
                     }
-                    PlainLabel { text: pictureCard.label; color: KodosiTheme.terminalInk }
+                    PlainLabel { text: pictureCard.label; color: root.look.ink }
                     RollingText {
                         visible: pictureCard.shown && !pictureCard.shown.arrived
                         text: pictureCard.percent
-                        color: KodosiTheme.terminalInkMuted
+                        color: root.look.inkMuted
                     }
                 }
             }
@@ -723,7 +726,7 @@ Item {
             }
             Rectangle {
                 anchors.fill: parent
-                color: KodosiTheme.terminal
+                color: root.look.terminal
                 visible: !terminal.terminalReady || root.terminalError.length > 0
 
                 ColumnLayout {
@@ -737,14 +740,14 @@ Item {
                         Layout.preferredHeight: 22
                         visible: root.connectingLong
                         blinks: visible
-                        color: KodosiTheme.terminalAccent
+                        color: root.look.accent
                     }
                     ShimmerText {
                         Layout.alignment: Qt.AlignHCenter
                         visible: root.connectingLong
                         text: qsTr("Connecting")
                         active: visible
-                        color: KodosiTheme.terminalInk
+                        color: root.look.ink
                         font.pixelSize: KodosiTheme.fontHeadline
                         font.weight: Font.DemiBold
                         Accessible.ignored: false
@@ -752,7 +755,7 @@ Item {
                     }
                     PlainLabel {
                         Layout.fillWidth: true
-                        color: KodosiTheme.terminalInk
+                        color: root.look.ink
                         font.pixelSize: KodosiTheme.fontHeadline
                         font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignHCenter
@@ -762,7 +765,7 @@ Item {
                     }
                     PlainLabel {
                         Layout.fillWidth: true
-                        color: KodosiTheme.terminalInkMuted
+                        color: root.look.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote
                         horizontalAlignment: Text.AlignHCenter
                         text: qsTr("The terminal opens when its computer is back.")
@@ -776,7 +779,7 @@ Item {
 
                         PlainLabel {
                             Layout.fillWidth: true
-                            color: KodosiTheme.terminalInk
+                            color: root.look.ink
                             font.pixelSize: KodosiTheme.fontHeadline
                             font.weight: Font.DemiBold
                             horizontalAlignment: Text.AlignHCenter
@@ -785,7 +788,7 @@ Item {
                         }
                         PlainLabel {
                             Layout.fillWidth: true
-                            color: KodosiTheme.terminalInkMuted
+                            color: root.look.inkMuted
                             font.pixelSize: KodosiTheme.fontFootnote
                             horizontalAlignment: Text.AlignHCenter
                             text: qsTr("The terminal opens when the connection is back.")
@@ -795,6 +798,7 @@ Item {
                             Accessible.id: objectName
                             Layout.alignment: Qt.AlignHCenter
                             objectName: root.objectName + ".unreachable.retry"
+                            terminalLook: root.look
                             text: qsTr("Try again")
                             variant: KButton.Primary
 
@@ -803,7 +807,7 @@ Item {
                     }
                     PlainLabel {
                         Layout.fillWidth: true
-                        color: KodosiTheme.terminalInk
+                        color: root.look.ink
                         font.pixelSize: KodosiTheme.fontHeadline
                         font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignHCenter
@@ -812,7 +816,7 @@ Item {
                     }
                     PlainLabel {
                         Layout.fillWidth: true
-                        color: KodosiTheme.terminalInkMuted
+                        color: root.look.inkMuted
                         font.pixelSize: KodosiTheme.fontFootnote
                         horizontalAlignment: Text.AlignHCenter
                         text: root.terminalError
@@ -823,6 +827,7 @@ Item {
                         Accessible.id: objectName
                         Layout.alignment: Qt.AlignHCenter
                         objectName: root.objectName + ".retry"
+                        terminalLook: root.look
                         text: qsTr("Try again")
                         variant: KButton.Primary
                         visible: root.terminalError.length > 0
@@ -857,7 +862,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: KodosiTheme.radiusSm
-                color: KodosiTheme.terminalRaised
+                color: root.look.raised
             }
             RowLayout {
                 id: outsideRow
@@ -873,7 +878,7 @@ Item {
                     Accessible.id: objectName
                     text: qsTr("%1 started by hand doesn't see Kodosi. Start it from Kodosi next time.")
                         .arg(Models.DesktopSettings.agentLabel(root.session.program || ""))
-                    color: KodosiTheme.terminalInkMuted
+                    color: root.look.inkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                     wrapMode: Text.WordWrap
                     maximumLineCount: 2
@@ -885,7 +890,7 @@ Item {
                     Accessible.name: qsTr("Dismiss")
                     glyph: "close"
                     size: 22
-                    onTerminal: true
+                    terminalLook: root.look
                     onClicked: Models.DesktopState.noteOutside(root.sessionId)
                 }
             }
@@ -897,13 +902,14 @@ Item {
         radius: KodosiTheme.radiusTile
         color: "transparent"
         border.width: 1
-        border.color: root.ringed ? KodosiTheme.mix(KodosiTheme.terminalAccent, KodosiTheme.terminalHairline, 0.55) : KodosiTheme.alpha(KodosiTheme.terminalHairline, 0.8)
+        border.color: root.ringed ? KodosiTheme.mix(root.look.accent, root.look.hairline, 0.55) : KodosiTheme.alpha(root.look.hairline, 0.8)
 
         Behavior on border.color { ColorAnimation { duration: KodosiTheme.motionFade } }
     }
     DosiTouch {
         anchors.fill: parent
         sessionId: root.sessionId
+        look: root.look
     }
     TerminalDropArea {
         anchors.fill: parent
@@ -924,7 +930,7 @@ Item {
         id: veil
         anchors.fill: parent
         radius: KodosiTheme.radiusTile
-        color: KodosiTheme.terminalAccent
+        color: root.look.accent
         opacity: 0
         visible: opacity > 0
         transformOrigin: Item.TopLeft
@@ -949,8 +955,8 @@ Item {
         Raised {
             anchors.fill: parent
             radius: KodosiTheme.radiusLg
-            fill: KodosiTheme.terminalLifted
-            dark: true
+            look: root.look
+            fill: root.look.lifted
             elevation: 2
         }
         RowLayout {
@@ -962,8 +968,8 @@ Item {
             PersonAvatar { name: Identity.personName(root.joinedUser); key: root.joinedUser; size: 26 }
             ColumnLayout {
                 spacing: 1
-                PlainLabel { text: qsTr("%1 joined").arg(Identity.personName(root.joinedUser)); color: KodosiTheme.terminalInk; font.weight: Font.DemiBold }
-                PlainLabel { text: qsTr("Full control"); color: KodosiTheme.terminalInkMuted; font.pixelSize: KodosiTheme.fontCaption }
+                PlainLabel { text: qsTr("%1 joined").arg(Identity.personName(root.joinedUser)); color: root.look.ink; font.weight: Font.DemiBold }
+                PlainLabel { text: qsTr("Full control"); color: root.look.inkMuted; font.pixelSize: KodosiTheme.fontCaption }
             }
         }
         SequentialAnimation {

@@ -181,13 +181,14 @@ fun Modifier.groundBackdrop(colors: KodosiColors): Modifier = drawWithCache {
     }
 }
 
-fun Modifier.terminalTile(colors: KodosiColors, radius: Dp = Radius.tile): Modifier {
+/** The shadow falls on the ground of [colors]; the body and its edge have the terminal's own [look]. */
+fun Modifier.terminalTile(colors: KodosiColors, radius: Dp = Radius.tile, look: KodosiColors = colors): Modifier {
     val shape = RoundedCornerShape(radius)
     return dropShadow(
         shape,
         Shadow(10.dp, colors.shadow.copy(alpha = if (colors.isDark) 0.5f else 0.14f), offset = DpOffset(3.dp, 6.dp))
-    ).background(colors.terminal, shape)
-        .border(0.5.dp, colors.hairline.copy(alpha = 0.7f), shape)
+    ).background(look.terminal, shape)
+        .border(0.5.dp, look.hairline.copy(alpha = 0.7f), shape)
 }
 
 private val groundGrain by lazy {

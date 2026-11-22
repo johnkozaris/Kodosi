@@ -33,7 +33,6 @@ class TerminalFrame(
         const val UNDERLINE = 1 shl 2
         const val STRIKETHROUGH = 1 shl 3
         const val OVERLINE = 1 shl 4
-        const val SELECTED = 1 shl 5
     }
 
     private fun index(column: Int, row: Int) = row * cols + column

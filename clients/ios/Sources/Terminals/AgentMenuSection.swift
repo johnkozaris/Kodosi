@@ -94,7 +94,6 @@ struct AgentMenuSection: View {
                     Text("\(agent.label) also keeps the model, effort and fast mode the next time it starts.")
                 }
             }
-            .task(id: session.program) { await launcher?.loadModels(agent.rawValue) }
         }
     }
 
@@ -117,5 +116,27 @@ struct AgentMenuSection: View {
                 model.terminals.changeAgent(change(picked), in: session)
             }
         })
+    }
+}
+
+extension View {
+    /// A menu makes its content only when it opens, so the key that opens it loads the models
+    /// of the agent.
+    func loadsAgentModels(of session: RuntimeSession) -> some View {
+        modifier(AgentModelsLoader(session: session))
+    }
+}
+
+private struct AgentModelsLoader: ViewModifier {
+    @Environment(AppModel.self) private var model
+    let session: RuntimeSession
+
+    func body(content: Content) -> some View {
+        content.task(id: session.program) {
+            guard session.isOwner, session.canControl, let host = session.hostDeviceId else { return }
+            let launcher = model.launcher(for: host)
+            await launcher.refresh()
+            await launcher.loadModels(AgentKind(program: session.program).rawValue)
+        }
     }
 }

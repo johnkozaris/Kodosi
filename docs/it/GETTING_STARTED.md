@@ -68,6 +68,10 @@ comando nella shell del nuovo terminale.
   Kodosi avvia il terminale in un nuovo worktree Git. Quando il terminale termina, Kodosi
   rimuove il worktree se non è cambiato nulla. Impostazioni › Terminale stabilisce dove vanno
   queste cartelle.
+- Un terminale è chiaro o scuro come Kodosi sul computer che lo esegue, su ogni
+  dispositivo che lo mostra. I suoi programmi conoscono l'aspetto, e alcuni lo seguono,
+  come Claude Code con il tema su Auto (`/theme`). Per tenere scuri i terminali mentre
+  Kodosi è chiaro, attiva Mantieni i terminali scuri in Impostazioni › Terminale.
 
 Un terminale è una shell vera sul computer che lo esegue. Riduci a icona nasconde un terminale
 e lo lascia in esecuzione; Chiudi lo termina insieme ai suoi programmi. Quando chiudi la
@@ -111,6 +115,13 @@ suono. Per disattivare le notifiche di un dispositivo, apri Impostazioni in Kodo
 dispositivo. I programmi comunicano il loro stato con il
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) o con
 una barra di avanzamento. Un programma che non comunica nulla non mostra uno stato.
+
+Un terminale con Claude Code si vede anche come chat, come uno con Codex o Copilot CLI
+quando li avvia Kodosi. Su un Mac, un iPhone, un iPad o un telefono Android, seleziona
+Chat nell'intestazione del terminale. La chat mostra cosa hai scritto, cosa l'agente ha
+risposto e fatto, e le sue domande, con le risposte come pulsanti. Lì puoi scrivere
+all'agente o fermarlo. Mentre chiede, le parole che scrivi gli dicono cosa fare invece.
+Ciò che fai nella chat avviene anche nel terminale.
 
 ## 4. Guarda cosa mostra un agente
 

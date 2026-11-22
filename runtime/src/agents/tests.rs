@@ -652,6 +652,14 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
         Agent::Codex.with_context("codex", &notes),
         "codex --no-daemon -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\""
     );
+    let served = Notes {
+        codex_servers: Some("unix:///tmp/kodosi-501-a/codex-".to_owned()),
+        ..notes.clone()
+    };
+    assert_eq!(
+        Agent::Codex.with_context("codex", &served),
+        "codex --remote \"$KODOSI_CODEX_SERVER\""
+    );
     for agent in [Agent::Claude, Agent::Copilot, Agent::Antigravity] {
         assert_eq!(agent.with_context(agent.program(), &notes), agent.program());
     }
@@ -673,8 +681,89 @@ fn only_a_codex_that_a_person_started_by_hand_misses_kodosi_s_note() {
         &notes
     ));
     assert!(!Agent::Codex.started_without_note(&[], None, &notes));
+    let served = Notes {
+        codex_servers: Some("unix:///tmp/kodosi-501-a/codex-".to_owned()),
+        ..Notes::default()
+    };
+    assert!(!Agent::Codex.started_without_note(
+        &words("codex --remote unix:///tmp/kodosi-501-a/codex-0123456789abcdef.sock"),
+        None,
+        &served
+    ));
+    assert!(!Agent::Codex.started_without_note(
+        &words("codex --remote=unix:///tmp/kodosi-501-a/codex-0123456789abcdef.sock"),
+        None,
+        &served
+    ));
+    assert!(Agent::Codex.started_without_note(
+        &words("codex --remote ws://127.0.0.1:4500"),
+        None,
+        &served
+    ));
     assert!(!Agent::Claude.started_without_note(&words("claude"), None, &notes));
     assert!(!Agent::Copilot.started_without_note(&words("copilot"), None, &notes));
+}
+
+#[cfg(unix)]
+#[test]
+fn copilot_starts_with_kodosi_s_extension_and_kodosi_allows_it_for_the_folder() {
+    let root = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let folder = root.join("data root").join("agents");
+    write_notes(&folder).unwrap();
+    let bin = root.join("bin");
+    fs::create_dir(&bin).unwrap();
+    kodosi_os::process::write_program(&bin.join("copilot"), "#!/bin/sh\nprintf '%s\\0' \"$@\"\n")
+        .unwrap();
+    let notes = Notes {
+        shell: "/bin/sh".into(),
+        folder: folder.clone(),
+        ..Notes::default()
+    };
+    let printed = std::process::Command::new("/bin/sh")
+        .arg("-c")
+        .arg(Agent::Copilot.with_context("copilot", &notes))
+        .env_clear()
+        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
+        .output()
+        .unwrap();
+    let words = String::from_utf8(printed.stdout).unwrap();
+    let plugin = folder.join("copilot");
+    assert_eq!(
+        words.split_terminator('\0').collect::<Vec<_>>(),
+        ["--plugin-dir", plugin.to_str().unwrap(), "--experimental"]
+    );
+    assert!(
+        plugin
+            .join("extensions")
+            .join("kodosi")
+            .join("extension.mjs")
+            .is_file()
+    );
+
+    let home = root.join("home").join(".copilot");
+    let repository = root.join("shop");
+    fs::create_dir_all(repository.join(".git")).unwrap();
+    fs::create_dir_all(repository.join("src")).unwrap();
+    fs::create_dir_all(&home).unwrap();
+    fs::write(
+        home.join("permissions-config.json"),
+        r#"{"locations": {"/elsewhere": {"tool_approvals": [{"kind": "write"}]}}}"#,
+    )
+    .unwrap();
+    allow_copilot_link(&home, &repository.join("src")).unwrap();
+    allow_copilot_link(&home, &repository.join("src")).unwrap();
+    let saved: serde_json::Value =
+        serde_json::from_slice(&fs::read(home.join("permissions-config.json")).unwrap()).unwrap();
+    assert_eq!(
+        saved["locations"][repository.to_str().unwrap()]["tool_approvals"],
+        serde_json::json!([{"kind": "extension-permission-access", "extensionName": "plugin:kodosi:kodosi"}]),
+        "once, for the repository of the folder"
+    );
+    assert_eq!(
+        saved["locations"]["/elsewhere"]["tool_approvals"],
+        serde_json::json!([{"kind": "write"}])
+    );
 }
 
 #[cfg(unix)]
@@ -712,6 +801,7 @@ fn cursor_and_opencode_get_the_note_only_in_the_line_that_kodosi_types_where_the
             cursor_plugins,
             opencode_version,
         },
+        codex_servers: None,
     };
 
     let cursor = Agent::Cursor.with_context("cursor-agent --force", &notes(true, None));
@@ -1551,6 +1641,7 @@ fn a_running_agent_keeps_the_model_and_effort_of_its_arguments() {
                 .map(|argument| (*argument).to_owned())
                 .collect::<Vec<_>>(),
             &AgentSettings::default(),
+            true,
         )
     };
     assert_eq!(
@@ -1899,7 +1990,7 @@ fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
         ..AgentSettings::default()
     };
     assert_eq!(
-        Agent::Claude.chosen(&arguments, &changed).join(" "),
+        Agent::Claude.chosen(&arguments, &changed, true).join(" "),
         format!("--model sonnet --permission-mode manual --settings '{CLAUDE_QUIET}'"),
         "a new model starts at its own effort"
     );
@@ -1909,12 +2000,12 @@ fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
         ..AgentSettings::default()
     };
     assert_eq!(
-        Agent::Claude.chosen(&arguments, &effort).join(" "),
+        Agent::Claude.chosen(&arguments, &effort, true).join(" "),
         r#"--model opus --effort low --settings '{"viewMode":"verbose"}' --dangerously-skip-permissions"#
     );
     assert_eq!(
         Agent::Claude
-            .chosen(&arguments, &AgentSettings::default())
+            .chosen(&arguments, &AgentSettings::default(), true)
             .join(" "),
         r#"--model opus --effort high --permission-mode manual --settings '{"viewMode":"verbose"}'"#
     );
@@ -1929,17 +2020,17 @@ fn a_restart_keeps_the_fast_mode_that_the_agent_started_with_or_that_kodosi_chan
     let claude = ["claude", "--settings", CLAUDE_QUIET, "--fast-mode", "on"].map(str::to_owned);
     assert_eq!(
         Agent::Claude
-            .chosen(&claude, &AgentSettings::default())
+            .chosen(&claude, &AgentSettings::default(), true)
             .join(" "),
         format!("--settings '{CLAUDE_QUIET}' --fast-mode on")
     );
     assert_eq!(
-        Agent::Claude.chosen(&claude, &fast(false)).join(" "),
+        Agent::Claude.chosen(&claude, &fast(false), true).join(" "),
         format!("--settings '{CLAUDE_QUIET}' --fast-mode off")
     );
     assert_eq!(
         Agent::Claude
-            .chosen(&["claude".to_owned()], &fast(true))
+            .chosen(&["claude".to_owned()], &fast(true), true)
             .join(" "),
         "--fast-mode on",
         "a fast mode that Kodosi turned on while the agent ran is added"
@@ -1954,12 +2045,12 @@ fn a_restart_keeps_the_fast_mode_that_the_agent_started_with_or_that_kodosi_chan
     .map(str::to_owned);
     assert_eq!(
         Agent::Codex
-            .chosen(&codex, &AgentSettings::default())
+            .chosen(&codex, &AgentSettings::default(), true)
             .join(" "),
         "-c hide_agent_reasoning=true -c service_tier=fast"
     );
     assert_eq!(
-        Agent::Codex.chosen(&codex, &fast(false)).join(" "),
+        Agent::Codex.chosen(&codex, &fast(false), true).join(" "),
         "-c hide_agent_reasoning=true -c service_tier=default"
     );
 }

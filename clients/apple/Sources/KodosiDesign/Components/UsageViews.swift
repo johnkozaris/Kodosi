@@ -1,8 +1,7 @@
 import KodosiBridge
-import KodosiDesign
 import SwiftUI
 
-extension UsageLevel {
+public extension UsageLevel {
     func color(_ colors: AppTheme.Colors) -> Color {
         switch self {
         case .normal: colors.inkMuted
@@ -12,18 +11,24 @@ extension UsageLevel {
     }
 }
 
-struct UsageRing: View {
+public struct UsageRing: View {
     @Environment(\.theme) private var theme
     let limit: UsageLimit?
     var lineWidth: CGFloat = 2
     var loading = false
     @State private var drawn = 0.0
 
+    public init(limit: UsageLimit?, lineWidth: CGFloat = 2, loading: Bool = false) {
+        self.limit = limit
+        self.lineWidth = lineWidth
+        self.loading = loading
+    }
+
     private var fraction: Double {
         Double(limit?.used ?? 0) / 100
     }
 
-    var body: some View {
+    public var body: some View {
         ZStack {
             Circle().inset(by: lineWidth / 2).stroke(
                 theme.colors.ink.opacity(limit == nil ? 0.24 : 0.12),
@@ -67,13 +72,19 @@ private struct LoadingArc: View {
     }
 }
 
-struct UsageDial: View {
+public struct UsageDial: View {
     @Environment(\.theme) private var theme
     let limit: UsageLimit?
     var size: CGFloat = 26
     var loading = false
 
-    var body: some View {
+    public init(limit: UsageLimit?, size: CGFloat = 26, loading: Bool = false) {
+        self.limit = limit
+        self.size = size
+        self.loading = loading
+    }
+
+    public var body: some View {
         ZStack {
             UsageRing(limit: limit, lineWidth: max(1.75, size * 0.085), loading: loading)
             if let limit {
@@ -90,60 +101,19 @@ struct UsageDial: View {
         .frame(width: size, height: size)
         .squash(trigger: limit?.level, when: limit.map { $0.level != .normal } ?? false)
         .accessibilityElement()
-        .accessibilityLabel(Text(verbatim: limit?.spoken ?? (loading ? String(localized: "Loading") : String(localized: "Not read yet"))))
+        .accessibilityLabel(limit.map { Text(verbatim: $0.spoken) } ?? (loading ? Text("Loading", bundle: .module) : Text("Not read yet", bundle: .module)))
     }
 }
 
-enum ResetTime {
-    static func left(_ limit: UsageLimit, now: Date = .now) -> TimeInterval? {
-        guard let resets = limit.resetsAt, resets > now else { return nil }
-        return resets.timeIntervalSince(now)
-    }
-
-    static func short(_ left: TimeInterval, locale: Locale = .autoupdatingCurrent) -> String {
-        format(left, width: .narrow, locale: locale)
-    }
-
-    static func spoken(_ left: TimeInterval, locale: Locale = .autoupdatingCurrent) -> String {
-        format(left, width: .wide, locale: locale)
-    }
-
-    private static func format(_ left: TimeInterval, width: Duration.UnitsFormatStyle.UnitWidth, locale: Locale) -> String {
-        let minutes = max(1, (left / 60).rounded(.up))
-        let (rounded, units): (TimeInterval, Set<Duration.UnitsFormatStyle.Unit>) = switch minutes {
-        case (24 * 60)...: ((left / 3600).rounded(.up) * 3600, [.days, .hours])
-        case 60...: (minutes * 60, [.hours, .minutes])
-        default: (minutes * 60, [.minutes])
-        }
-        return Duration.seconds(rounded).formatted(.units(allowed: units, width: width).locale(locale))
-    }
-}
-
-struct UsageReset: View {
-    @Environment(\.theme) private var theme
-    let limit: UsageLimit?
-
-    var body: some View {
-        Text(verbatim: limit.flatMap { ResetTime.left($0) }.map { ResetTime.short($0) } ?? "")
-            .appTextStyle(.caption2).monospacedDigit()
-            .foregroundStyle(theme.colors.inkFaint)
-            .lineLimit(1).minimumScaleFactor(0.75)
-            .frame(height: 12)
-    }
-}
-
-extension UsageLimit {
-    var spokenWithReset: String {
-        guard let left = ResetTime.left(self) else { return spoken }
-        return String(localized: "\(spoken), resets in \(ResetTime.spoken(left))")
-    }
-}
-
-struct UsagePercent: View {
+public struct UsagePercent: View {
     @Environment(\.theme) private var theme
     let limit: UsageLimit
 
-    var body: some View {
+    public init(limit: UsageLimit) {
+        self.limit = limit
+    }
+
+    public var body: some View {
         Text(verbatim: "\(limit.used)%")
             .appTextStyle(.monoCaption)
             .foregroundStyle(limit.level == .normal ? theme.colors.inkFaint : limit.level.color(theme.colors))

@@ -6,6 +6,7 @@ import QtQuick
 TextEdit {
     id: root
 
+    property Look look: KodosiTheme.terminalLook
     property string hint: ""
     property bool clearsOnEscape: true
     property bool holds: true
@@ -21,9 +22,9 @@ TextEdit {
         blink.restart()
     }
 
-    color: KodosiTheme.terminalInk
-    selectionColor: KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.35)
-    selectedTextColor: KodosiTheme.terminalInk
+    color: root.look.ink
+    selectionColor: KodosiTheme.alpha(root.look.accent, 0.35)
+    selectedTextColor: root.look.ink
     font.family: "monospace"
     font.pixelSize: KodosiTheme.fontBody
     font.weight: Font.Medium
@@ -81,7 +82,7 @@ TextEdit {
         visible: root.length === 0
         text: root.hint
         textFormat: Text.PlainText
-        color: KodosiTheme.terminalInkFaint
+        color: root.look.inkFaint
         font: root.font
     }
 
@@ -95,16 +96,16 @@ TextEdit {
             anchors.bottomMargin: 1
             radius: 1.5
             visible: !root.activeFocus || root.lit
-            color: root.activeFocus ? KodosiTheme.terminalAccent : "transparent"
+            color: root.activeFocus ? root.look.accent : "transparent"
             border.width: root.activeFocus ? 0 : 1.5
-            border.color: KodosiTheme.alpha(KodosiTheme.terminalAccent, 0.85)
+            border.color: KodosiTheme.alpha(root.look.accent, 0.85)
         }
         Text {
             visible: root.activeFocus && root.lit
             text: root.cursorPosition < root.length ? root.getText(root.cursorPosition, root.cursorPosition + 1)
                 : root.length === 0 ? root.hint.charAt(0) : ""
             textFormat: Text.PlainText
-            color: KodosiTheme.terminal
+            color: root.look.terminal
             font: root.font
         }
     }

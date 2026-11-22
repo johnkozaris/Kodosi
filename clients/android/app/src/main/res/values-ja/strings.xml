@@ -403,4 +403,138 @@
     <string name="agent_effort_high">高</string>
     <string name="agent_effort_xhigh">最高</string>
     <string name="agent_effort_max">最大</string>
+    <string name="terminal">ターミナル</string>
+    <string name="chat">チャット</string>
+    <string name="chat_message_agent">%1$s にメッセージ</string>
+    <string name="chat_say_instead">または、代わりにどうするかを伝える</string>
+    <string name="chat_allow">許可</string>
+    <string name="chat_deny">拒否</string>
+    <string name="chat_always">常に %1$s</string>
+    <string name="chat_keep_planning">計画を続ける</string>
+    <string name="chat_approve_ask">承認して、変更ごとに確認</string>
+    <string name="chat_approve_edits">承認して、変更を許可</string>
+    <string name="chat_approve_auto">承認して、安全チェックを使う</string>
+    <string name="chat_approve_alone">承認して、確認なしで進める</string>
+    <string name="chat_approve_helpers">承認して、サブエージェントに任せる</string>
+    <string name="chat_leave_plan">計画モードを終了</string>
+    <string name="chat_compacted">会話を圧縮</string>
+    <string name="chat_stopped">停止済み</string>
+    <string name="chat_refused">応答拒否</string>
+    <string name="chat_worked_for">%1$s 作業</string>
+    <string name="chat_no_agent">このターミナルではエージェントが動いていません</string>
+    <string name="chat_show_steps">ステップを表示</string>
+    <string name="chat_hide_steps">ステップを非表示</string>
+    <string name="chat_thinking">思考中</string>
+    <string name="chat_writing">書き込み中</string>
+    <string name="chat_compacting">会話を圧縮中</string>
+    <string name="chat_latest">最新</string>
+    <string name="chat_context_used">コンテキスト：%1$d%% 使用</string>
+    <string name="chat_show_tasks">タスクを表示</string>
+    <string name="chat_hide_tasks">タスクを非表示</string>
+    <string name="chat_takes_next">エージェントは次のメッセージをターミナルで受け取ります。</string>
+    <string name="chat_in_background">バックグラウンド</string>
+    <plurals name="chat_helpers">
+        <item quantity="other">%d 個のサブエージェントが作業中</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="other">%d 個のコマンドがバックグラウンドで実行中</item>
+    </plurals>
+    <string name="chat_denied">拒否</string>
+    <string name="chat_stopped_step">停止</string>
+    <string name="chat_mode_edits">編集</string>
+    <string name="chat_mode_plan">計画</string>
+    <string name="chat_mode_rules">ルール</string>
+    <string name="chat_running">実行中</string>
+    <string name="chat_running_subject">%1$s を実行中</string>
+    <string name="chat_reading">読み込み中</string>
+    <string name="chat_reading_subject">%1$s を読み込み中</string>
+    <string name="chat_changing">変更中</string>
+    <string name="chat_changing_subject">%1$s を変更中</string>
+    <string name="chat_writing_subject">%1$s を書き込み中</string>
+    <string name="chat_searching">検索中</string>
+    <string name="chat_searching_subject">%1$s を検索中</string>
+    <string name="chat_fetching">取得中</string>
+    <string name="chat_fetching_subject">%1$s を取得中</string>
+    <string name="chat_asking_helper">サブエージェントに依頼中</string>
+    <string name="chat_asking_helper_subject">%1$s についてサブエージェントに依頼中</string>
+    <string name="chat_planning">計画中</string>
+    <string name="chat_planning_subject">%1$s を計画中</string>
+    <string name="chat_using">使用中</string>
+    <string name="chat_using_subject">%1$s を使用中</string>
+    <string name="chat_ran">実行済み</string>
+    <string name="chat_ran_subject">%1$s を実行</string>
+    <string name="chat_read">読み込み済み</string>
+    <string name="chat_read_subject">%1$s を読み込み</string>
+    <string name="chat_changed">変更済み</string>
+    <string name="chat_changed_subject">%1$s を変更</string>
+    <string name="chat_wrote">書き込み済み</string>
+    <string name="chat_wrote_subject">%1$s を書き込み</string>
+    <string name="chat_searched">検索済み</string>
+    <string name="chat_searched_subject">%1$s を検索</string>
+    <string name="chat_fetched">取得済み</string>
+    <string name="chat_fetched_subject">%1$s を取得</string>
+    <string name="chat_asked_helper">サブエージェントに依頼済み</string>
+    <string name="chat_asked_helper_subject">%1$s についてサブエージェントに依頼</string>
+    <string name="chat_planned">計画済み</string>
+    <string name="chat_planned_subject">%1$s を計画</string>
+    <string name="chat_used">使用済み</string>
+    <string name="chat_used_subject">%1$s を使用</string>
+    <string name="today">今日</string>
+    <string name="yesterday">昨日</string>
+    <string name="chat_usage_used">%1$s：%2$d%% 使用</string>
+    <string name="chat_usage_month">今月</string>
+    <string name="chat_usage_week">今週</string>
+    <string name="chat_usage_scope_month">%1$s、今月</string>
+    <string name="chat_usage_scope_week">%1$s、今週</string>
+    <plurals name="chat_ran_commands">
+        <item quantity="other">コマンドを %d 回実行</item>
+    </plurals>
+    <plurals name="chat_read_files">
+        <item quantity="other">ファイルを %d 件読み込み</item>
+    </plurals>
+    <plurals name="chat_changed_files">
+        <item quantity="other">ファイルを %d 件変更</item>
+    </plurals>
+    <plurals name="chat_wrote_files">
+        <item quantity="other">ファイルを %d 件書き込み</item>
+    </plurals>
+    <plurals name="chat_made_searches">
+        <item quantity="other">%d 回検索</item>
+    </plurals>
+    <plurals name="chat_fetched_pages">
+        <item quantity="other">ページを %d 件取得</item>
+    </plurals>
+    <plurals name="chat_asked_helpers">
+        <item quantity="other">サブエージェント %d 個に依頼</item>
+    </plurals>
+    <plurals name="chat_used_skills">
+        <item quantity="other">スキルを %d 個使用</item>
+    </plurals>
+    <plurals name="chat_asked_questions">
+        <item quantity="other">%d 件質問</item>
+    </plurals>
+    <plurals name="chat_made_plans">
+        <item quantity="other">計画を %d 件作成</item>
+    </plurals>
+    <plurals name="chat_used_tools">
+        <item quantity="other">ツールを %d 個使用</item>
+    </plurals>
+    <plurals name="chat_steps">
+        <item quantity="other">%d ステップ</item>
+    </plurals>
+    <plurals name="chat_count_denied">
+        <item quantity="other">%d 件拒否</item>
+    </plurals>
+    <plurals name="chat_count_stopped">
+        <item quantity="other">%d 件停止</item>
+    </plurals>
+    <plurals name="chat_usage_hours">
+        <item quantity="other">過去 %d 時間</item>
+    </plurals>
+    <plurals name="chat_usage_scope_hours">
+        <item quantity="other">%1$s、過去 %2$d 時間</item>
+    </plurals>
+    <plurals name="chat_tasks_done">
+        <item quantity="other">タスク: %2$d 件中 %1$d 件完了</item>
+    </plurals>
 </resources>

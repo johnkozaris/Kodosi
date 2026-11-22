@@ -1,6 +1,11 @@
 package com.kodosi.mobile.ui
 
-import androidx.compose.foundation.border
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -20,9 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,13 +38,14 @@ fun MessageComposer(
     busy: Boolean,
     send: () -> Unit,
     enabled: Boolean = true,
-    focusRequester: FocusRequester? = null
+    focusRequester: FocusRequester? = null,
+    placeholder: String = stringResource(R.string.write_message),
+    stop: (() -> Unit)? = null
 ) {
     val colors = KodosiTheme.colors
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(20.dp)
-    val label = stringResource(R.string.write_message)
     Row(
         Modifier.fillMaxWidth().padding(10.dp)
             .raised(
@@ -50,7 +54,6 @@ fun MessageComposer(
                 fill = colors.lifted,
                 elevation = if (focused) Elevation.LIFTED else Elevation.RESTING
             )
-            .border(1.5.dp, if (focused) lerp(colors.accent, colors.lifted, 0.5f) else Color.Transparent, shape)
             .padding(5.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -63,15 +66,30 @@ fun MessageComposer(
             cursorBrush = SolidColor(colors.accent),
             modifier = Modifier.weight(1f)
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-                .padding(horizontal = 12.dp, vertical = 11.dp).semantics { contentDescription = label },
+                .padding(horizontal = 12.dp, vertical = 11.dp).semantics { contentDescription = placeholder },
             enabled = enabled,
             decorator = { input ->
                 Box {
-                    if (draft.text.isEmpty()) Text(label, style = KodosiType.body, color = colors.inkMuted)
+                    if (draft.text.isEmpty()) Text(placeholder, style = KodosiType.body, color = colors.inkMuted)
                     input()
                 }
             }
         )
-        KodosiSendKey(enabled && !busy && draft.text.isNotBlank(), busy, send)
+        val fading = fade<Float>()
+        val popping = snappy<Float>()
+        AnimatedContent(
+            stop != null && draft.text.isBlank(),
+            transitionSpec = {
+                (fadeIn(fading) + scaleIn(popping, initialScale = 0.9f)) togetherWith
+                    (fadeOut(fading) + scaleOut(popping, targetScale = 0.9f))
+            },
+            label = "composer key"
+        ) { stops ->
+            if (stops && stop != null) {
+                KodosiStopKey(stop)
+            } else {
+                KodosiSendKey(enabled && !busy && draft.text.isNotBlank(), busy, send)
+            }
+        }
     }
 }

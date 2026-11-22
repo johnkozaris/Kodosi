@@ -73,7 +73,7 @@ version.workspace = true
 
 [features]
 default = ["host"]
-host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:rusqlite", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
+host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:httparse", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:rusqlite", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
 
 [dependencies]
 ghostty-vt = { path = "crates/ghostty-vt" }
@@ -109,6 +109,7 @@ unicode-properties = { version = "0.1.5", default-features = false, features = [
 uuid = { workspace = true }
 zeroize = { workspace = true }
 clap = { version = "4.6.7", features = ["derive"], optional = true }
+httparse = { version = "1.10.1", optional = true }
 pulldown-cmark = { version = "=0.13.6", default-features = false, features = ["html"], optional = true }
 
 [build-dependencies]

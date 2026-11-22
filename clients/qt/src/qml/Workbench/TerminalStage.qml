@@ -262,6 +262,7 @@ Item {
                                         id: pair
 
                                         anchors.fill: parent
+                                        look: terminalTile.look
                                         canvasSessionId: cell.canvasId
                                         wide: Models.DesktopState.canvasWide
                                         chosenWidth: Models.DesktopState.canvasWidth
