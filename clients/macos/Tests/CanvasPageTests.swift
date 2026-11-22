@@ -8,7 +8,10 @@ import WebKit
 @Test func `a canvas page opens the links that a person clicks in it, not those that its scripts click`() async throws {
     let frame = CanvasFrame()
     var opened: [String] = []
-    frame.links.open = { opened.append($0.absoluteString) }
+    frame.links.open = OpenURLAction { url in
+        opened.append(url.absoluteString)
+        return .handled
+    }
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240), styleMask: [.titled], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     window.contentView = NSHostingView(rootView: WebView(frame.page))
@@ -27,6 +30,29 @@ import WebKit
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(opened == ["https://example.com/person"])
+}
+
+@Test func `a canvas page ends its web view and its scripts when its view leaves`() async throws {
+    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240), styleMask: [.titled], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    defer { window.close() }
+    window.contentView = NSHostingView(rootView: CanvasPageView(key: "page", frames: CanvasFrames(), content: Data("<p>A page</p>".utf8),
+                                                                otherComputer: nil))
+    weak var page: WKWebView?
+    weak var scripts: WKUserContentController?
+    for _ in 0 ..< 500 where page?.url == nil {
+        window.contentView?.layoutSubtreeIfNeeded()
+        page = webView(in: window.contentView)
+        scripts = page?.configuration.userContentController
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    try #require(page?.url != nil)
+    window.contentView = nil
+    for _ in 0 ..< 500 where page != nil || scripts != nil {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(page == nil)
+    #expect(scripts == nil)
 }
 
 private func show(_ html: String, in frame: CanvasFrame, window: NSWindow) async throws {

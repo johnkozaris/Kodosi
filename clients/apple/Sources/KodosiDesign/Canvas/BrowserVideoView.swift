@@ -108,10 +108,11 @@ struct BrowserPicture: View {
     let feed: BrowserFeed
     let blank: Bool
 
-    /// The page's width to its height, once the page has a size.
+    /// The width to the height of what the view shows. The video has the shape of its pictures,
+    /// as a page that takes a new size draws in it only after the host gives the size.
     private var pageRatio: CGFloat? {
-        let page = feed.window.size
-        return page.width > 0 && page.height > 0 ? page.width / page.height : nil
+        let shape = feed.window.layer == nil ? feed.pictureSize ?? feed.window.size : feed.window.size
+        return shape.width > 0 && shape.height > 0 ? shape.width / shape.height : nil
     }
 
     var body: some View {

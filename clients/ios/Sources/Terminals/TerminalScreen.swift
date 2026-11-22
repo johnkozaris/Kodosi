@@ -311,6 +311,7 @@ private struct TerminalScreenContent: View {
                                     controller.focusTerminal()
                                 }
                             },
+                            onTap: controller.tapped,
                         )
                     }
                     .onDisappear { keyboard.terminalGone() }

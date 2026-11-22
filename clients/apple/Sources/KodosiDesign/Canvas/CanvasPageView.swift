@@ -52,7 +52,7 @@ public struct CanvasPageView: View {
                     .opacity(shown ? 1 : 0)
                     .overlay { selectionKey(frame) }
                     .task(id: content) {
-                        frame.links.open = { url in openURL(url) }
+                        frame.links.open = openURL
                         frame.links.otherComputer = otherComputer
                         await frame.show(content)
                         withAnimation(theme.motion.fade) { shown = true }
@@ -179,6 +179,7 @@ final class CanvasFrame {
     private(set) var selection: CanvasSelection?
     @ObservationIgnored private let document = CanvasDocument()
     @ObservationIgnored private let watcher = SelectionWatcher()
+    @ObservationIgnored private let scripts: WKUserContentController
     @ObservationIgnored private var shown = 0
 
     init() {
@@ -187,16 +188,22 @@ final class CanvasFrame {
         configuration.urlSchemeHandlers[URLScheme(Self.scheme)!] = CanvasSchemeHandler(document: document)
         configuration.upgradeKnownHostsToHTTPS = false
         let world = WKContentWorld.world(name: Self.world)
-        configuration.userContentController.addUserScript(WKUserScript(source: Self.watch, injectionTime: .atDocumentEnd,
-                                                                       forMainFrameOnly: true, in: world))
-        configuration.userContentController.add(watcher, contentWorld: world, name: "selection")
-        links.watch(configuration.userContentController)
+        scripts = configuration.userContentController
+        scripts.addUserScript(WKUserScript(source: Self.watch, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: world))
+        scripts.add(watcher, contentWorld: world, name: "selection")
+        links.watch(scripts)
         page = WebPage(configuration: configuration, navigationDecider: CanvasNavigation(links: links))
         watcher.seen = { [weak self] selection in
             if self?.selection != selection {
                 self?.selection = selection
             }
         }
+    }
+
+    /// WebKit keeps a content controller that has a message handler, and each handler with what it
+    /// holds, after the page ends.
+    isolated deinit {
+        scripts.removeAllScriptMessageHandlers()
     }
 
     func show(_ content: Data) async {
@@ -263,7 +270,7 @@ final class CanvasLinks: NSObject, WKScriptMessageHandler {
     """
     private static let gestureLasts = Duration.seconds(5)
 
-    var open: (URL) -> Void = { _ in }
+    var open = OpenURLAction { _ in .discarded }
     var otherComputer: String?
     var review: (ClickedLink) -> Void = { link in
         #if os(macOS)

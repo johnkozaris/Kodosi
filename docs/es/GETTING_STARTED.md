@@ -104,10 +104,10 @@ La marca de verificación y la advertencia desaparecen cuando abres el terminal 
 de tus dispositivos. Cuando uno de tus terminales empieza a esperar, termina o falla, Kodosi
 te avisa una vez, en el dispositivo que usas. En Kodosi, ves la señal. En tu ordenador, en
 otra app, recibes allí una notificación. Cuando no usas ninguno de tus ordenadores, la
-recibes en tu teléfono. Un terminal que aún te espera cuando te alejas de tu ordenador te
-avisa entonces en tu teléfono. Solo un terminal que espera emite un sonido. Para desactivar
-las notificaciones de un dispositivo, abre Ajustes en Kodosi en ese dispositivo. Los
-programas indican su estado con el
+recibes en tu teléfono. Un terminal que aún te espera y que no has abierto te avisa en tu
+teléfono cuando te alejas de tu ordenador. Solo un terminal que espera emite un sonido. Para
+desactivar las notificaciones de un dispositivo, abre Ajustes en Kodosi en ese dispositivo.
+Los programas indican su estado con el
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) o con
 una barra de progreso. Un programa que no indica nada no muestra estado.
 

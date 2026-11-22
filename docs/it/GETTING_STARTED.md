@@ -105,9 +105,9 @@ La spunta e l'avviso spariscono quando apri il terminale su uno qualsiasi dei tu
 dispositivi. Quando uno dei tuoi terminali inizia ad attendere, finisce o non riesce, Kodosi
 ti avvisa una volta, sul dispositivo che usi. In Kodosi, vedi il segnale. Al tuo computer,
 in un'altra app, ricevi lì una notifica. Quando non usi nessuno dei tuoi computer, la ricevi
-sul tuo telefono. Un terminale che ti attende ancora quando ti allontani dal tuo computer ti
-avvisa in quel momento sul tuo telefono. Solo un terminale che attende emette un suono. Per
-disattivare le notifiche di un dispositivo, apri Impostazioni in Kodosi su quel
+sul tuo telefono. Un terminale che ti attende ancora e che non hai aperto ti avvisa sul tuo
+telefono quando ti allontani dal tuo computer. Solo un terminale che attende emette un
+suono. Per disattivare le notifiche di un dispositivo, apri Impostazioni in Kodosi su quel
 dispositivo. I programmi comunicano il loro stato con il
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) o con
 una barra di avanzamento. Un programma che non comunica nulla non mostra uno stato.

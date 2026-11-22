@@ -38,7 +38,7 @@ struct CanvasDocumentView: View {
                                        preferences: viewers.preferences(for: view))
                 }
             }
-            page?.links.open = { url in openURL(url) }
+            page?.links.open = openURL
             page?.links.otherComputer = otherComputer
             page?.restyle(look)
             page?.prefer(viewers.preferences(for: view))
@@ -73,28 +73,31 @@ struct CanvasDocumentView: View {
     }
 }
 
-/// A page that a person leaves stays open a while, with its place and its undo. A web page shows
-/// in one view at a time, so a second view of a file at the same moment gets a page of its own,
-/// which closes with that view.
+/// A page that a person leaves stays open a while, with its place and its undo. Each page has a
+/// web process of its own, so at most four pages stay open, and a page off the screen closes first,
+/// the one that left first. A web page shows in one view at a time, so a second view of a file at
+/// the same moment gets a page of its own, which closes with that view.
 @MainActor
 public final class CanvasDocumentPages {
     private static let kept = Duration.seconds(300)
+    private static let mostOpen = 4
 
     private var pages: [String: CanvasDocumentPage] = [:]
     private var held: Set<String> = []
-    private var closing: [String: Task<Void, Never>] = [:]
+    private var waiting: [(place: String, closing: Task<Void, Never>)] = []
 
     public init() {}
 
     fileprivate func enter(_ key: String, in session: String, open: () -> CanvasDocumentPage) -> CanvasDocumentPage {
         let place = "\(session)/\(key)"
         guard held.insert(place).inserted else { return open() }
-        closing.removeValue(forKey: place)?.cancel()
+        stopWaiting(place)
         if let page = pages[place] {
             return page
         }
         let page = open()
         pages[place] = page
+        closeOldest()
         return page
     }
 
@@ -109,11 +112,28 @@ public final class CanvasDocumentPages {
             return
         }
         held.remove(place)
-        closing[place] = Task { [weak self] in
+        waiting.append((place, Task { [weak self] in
             guard await (try? Task.sleep(for: Self.kept)) != nil else { return }
-            self?.closing[place] = nil
-            self?.pages.removeValue(forKey: place)?.close()
+            self?.close(place)
+        }))
+        closeOldest()
+    }
+
+    private func closeOldest() {
+        while pages.count > Self.mostOpen, let oldest = waiting.first {
+            close(oldest.place)
         }
+    }
+
+    private func stopWaiting(_ place: String) {
+        if let index = waiting.firstIndex(where: { $0.place == place }) {
+            waiting.remove(at: index).closing.cancel()
+        }
+    }
+
+    private func close(_ place: String) {
+        stopWaiting(place)
+        pages.removeValue(forKey: place)?.close()
     }
 }
 
@@ -128,6 +148,7 @@ final class CanvasDocumentPage {
     @ObservationIgnored let links = CanvasLinks()
     @ObservationIgnored private let link: DocumentLink
     @ObservationIgnored private let messages = PageMessages()
+    @ObservationIgnored private let scripts: WKUserContentController
     @ObservationIgnored private let view: CanvasItem.View
     @ObservationIgnored private var look: [String: String]
     @ObservationIgnored private var preferences: [String: Bool]
@@ -147,9 +168,10 @@ final class CanvasDocumentPage {
         configuration.websiteDataStore = .nonPersistent()
         configuration.urlSchemeHandlers[URLScheme(Self.scheme)!] = ViewBundleHandler()
         configuration.upgradeKnownHostsToHTTPS = false
-        configuration.userContentController.add(messages, contentWorld: .page, name: "document")
-        configuration.userContentController.add(messages, contentWorld: .page, name: "ready")
-        links.watch(configuration.userContentController)
+        scripts = configuration.userContentController
+        scripts.add(messages, contentWorld: .page, name: "document")
+        scripts.add(messages, contentWorld: .page, name: "ready")
+        links.watch(scripts)
         page = WebPage(configuration: configuration, navigationDecider: DocumentNavigation(links: links))
         let (stream, inbound) = AsyncStream.makeStream(of: Inbound.self)
         self.inbound = inbound
@@ -165,6 +187,12 @@ final class CanvasDocumentPage {
             },
             Task { [weak self] in await self?.stayOpen() },
         ]
+    }
+
+    /// WebKit keeps a content controller that has a message handler, and each handler with what it
+    /// holds, after the page ends.
+    isolated deinit {
+        scripts.removeAllScriptMessageHandlers()
     }
 
     func restyle(_ look: [String: String]) {

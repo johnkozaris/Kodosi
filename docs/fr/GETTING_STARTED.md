@@ -109,10 +109,10 @@ lequel de vos appareils. Quand l'un de vos terminaux se met à attendre, termine
 échoue, Kodosi vous prévient une fois, sur l'appareil que vous utilisez. Dans Kodosi, vous
 voyez le signe. Devant votre ordinateur, dans une autre app, vous recevez une notification
 sur cet ordinateur. Quand vous n'utilisez aucun de vos ordinateurs, vous la recevez sur
-votre téléphone. Un terminal qui vous attend encore quand vous quittez votre ordinateur vous
-prévient alors sur votre téléphone. Seul un terminal qui attend émet un son. Pour désactiver
-les notifications d'un appareil, ouvrez les Réglages de Kodosi sur cet appareil. Les
-programmes indiquent leur état avec le
+votre téléphone. Un terminal qui vous attend encore et que vous n'avez pas ouvert vous
+prévient sur votre téléphone quand vous quittez votre ordinateur. Seul un terminal qui
+attend émet un son. Pour désactiver les notifications d'un appareil, ouvrez les Réglages
+de Kodosi sur cet appareil. Les programmes indiquent leur état avec le
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) ou une
 barre de progression. Un programme qui n'indique rien n'affiche pas d'état.
 

@@ -67,6 +67,13 @@ class TerminalConnection(
     private var focus: String? = null
     private var focused = false
     private var focusRetried = false
+
+    /**
+     * A person opened or touched the terminal here, and the terminal has not taken that focus yet.
+     * A focus that only comes back with the app or the connection takes no size.
+     */
+    private var acted = true
+    private var focusReturning = false
     private var viewport: Viewport? = null
     private var sizedTo: Viewport? = null
     private var resizing: Job? = null
@@ -105,6 +112,12 @@ class TerminalConnection(
     fun inputFocus(on: Boolean) {
         acceptsFocus = on
         if (on) refresh() else blur()
+    }
+
+    /** A person touched the terminal here, so its focus goes again as their act, which takes its size. */
+    fun act() {
+        acted = true
+        if (focused && focus == null) requestFocus() else refresh()
     }
 
     fun setViewport(next: Viewport) {
@@ -215,7 +228,12 @@ class TerminalConnection(
         val current = link ?: return
         val request = UuidV7.generate()
         focus = request
-        val result = commands.send("session.focus", identity(current) + mapOf("requestId" to JsonPrimitive(request)))
+        focusReturning = !acted
+        val returning = if (focusReturning) mapOf("returning" to JsonPrimitive(true)) else emptyMap()
+        val result = commands.send(
+            "session.focus",
+            identity(current) + mapOf("requestId" to JsonPrimitive(request)) + returning
+        )
         if (result != Ffi.OK) focus = null
     }
 
@@ -295,6 +313,8 @@ class TerminalConnection(
                 if (type == "term.focusApplied") {
                     focused = true
                     focusRetried = false
+                    // A person touched the terminal while the focus that came back was on its way.
+                    if (focusReturning && acted) requestFocus() else acted = false
                     scheduleResize()
                 } else if (!focusRetried) {
                     focusRetried = true

@@ -32,7 +32,8 @@ const SLEEP_AFTER: Duration = Duration::from_mins(10);
 const RETRY_CAPTURE: Duration = Duration::from_secs(1);
 /// How long a new size of the page waits for the page to take the last press, release or scroll.
 const ANSWER_LIMIT: Duration = Duration::from_secs(1);
-const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
+/// A phone on its side gives the browser a view lower than 200 points.
+const SIZES: std::ops::RangeInclusive<u32> = 100..=4096;
 /// Chrome keeps its window at least this wide.
 const NARROWEST: u32 = 500;
 /// The longer and the shorter side of the largest picture that the encoder takes: `VideoToolbox`
@@ -2139,6 +2140,25 @@ mod tests {
                 width: 1280,
                 height: 800,
                 scale: 2.0,
+            })
+        );
+    }
+
+    #[test]
+    fn a_phone_on_its_side_gets_a_page_of_its_own_shape() {
+        assert_eq!(
+            fitted(
+                Size {
+                    width: 914,
+                    height: 182,
+                    scale: 2.625,
+                },
+                [],
+            ),
+            Some(Size {
+                width: 914,
+                height: 182,
+                scale: 2.625,
             })
         );
     }
