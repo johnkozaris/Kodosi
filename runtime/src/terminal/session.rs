@@ -876,16 +876,16 @@ impl LocalActor {
     /// Where the agent that reports to the chat works. An agent of the chat waits for its sign-in
     /// in the terminal, where its own steps ask the person.
     fn face(&self) -> Option<TerminalFace> {
-        let signs_in = self
-            .status
-            .summary()
-            .is_some_and(|status| status.kind == Some(BlockedKind::Auth));
-        self.chat_linked.borrow().map(|face| {
-            if signs_in {
-                TerminalFace::Terminal
-            } else {
-                face
-            }
+        let face = (*self.chat_linked.borrow())?;
+        let signs_in = face == TerminalFace::Chat
+            && self
+                .status
+                .summary()
+                .is_some_and(|status| status.kind == Some(BlockedKind::Auth));
+        Some(if signs_in {
+            TerminalFace::Terminal
+        } else {
+            face
         })
     }
 

@@ -179,10 +179,10 @@ their terminal views to stderr.
 
 An agent's link to the chat is in `runtime/links/`, and for Antigravity CLI it is
 `kodosi acp` in the runtime. After a change there, or after a new release of the agent, run
-the agent in a terminal of an isolated host and look at its chat in the app. For Claude Code, `claude plugin validate` on the plugin in the data root
-checks the module against the installed version. The records that the chat's tests play
-are from real sessions: record a new one with the agent, and replace the names of private
-places.
+the agent in a terminal of an isolated host and look at its chat in the app. For Claude
+Code, `claude plugin validate` on the plugin in the data root checks the module against the
+installed version. The records that the chat's tests play are from real sessions: record a
+new one with the agent, and replace the names of private places.
 
 ## Data formats
 

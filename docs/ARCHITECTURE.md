@@ -127,13 +127,14 @@ its environment. For Codex it is Codex's app server: a Codex that connects to th
 that the terminal names gets a server that the host starts with Codex's own program, and
 the host follows that server as a second client. For Copilot CLI it is an extension in a
 plugin of Kodosi's, which Kodosi's start line of Copilot names. Antigravity CLI's terminal
-app has no such interface, so the chat of Antigravity CLI is a conversation of its own:
-`kodosi acp -- agy acp` runs the person's own server of Antigravity CLI in the terminal,
-with the terminal's folder and environment, speaks the Agent Client Protocol to it as an
-editor does, and carries its messages to the same socket of the host. The host turns the
-reports into the chat of the terminal: the messages, the agent's answers, its tool calls,
-the questions that wait for a person, the list that the agent keeps of its work, and the
-facts of the session. A person's message, answer or stop goes back the same way.
+app has no such interface. For its chat, `kodosi acp -- agy acp` runs the person's own
+server of Antigravity CLI in the terminal, with the terminal's folder and environment,
+speaks the Agent Client Protocol to it as an editor does, and carries its messages to the
+same socket of the host. Kodosi does not start this chat, because Google does not support
+agy inside another application on personal plans. The host turns the reports into the chat
+of the terminal: the messages, the agent's answers, its tool calls, the questions that wait
+for a person, the list that the agent keeps of its work, and the facts of the session. A
+person's message, answer or stop goes back the same way.
 
 The host also tells each client where the agent of a chat works: in its terminal, or in the
 chat for the conversation of Antigravity CLI, except while that agent waits for its sign-in
