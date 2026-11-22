@@ -2715,27 +2715,33 @@ fn antigravity_asks_its_own_question_in_the_chat_and_the_answer_is_its_next_mess
 }
 
 #[test]
-fn a_message_in_the_chat_answers_the_open_question_of_antigravity() {
-    let (before, after) = split_at(antigravity!("question"), "\"answer\"");
+fn a_message_in_the_chat_answers_the_open_question_of_antigravity_once() {
+    let (before, after) = split_at(antigravity!("question-by-message"), "\"prompt\":\"Rust\"");
     let mut play = Play::antigravity(&before, &[]);
-    play.chat.queue("Use Go.".to_owned(), Some(sam()));
+    assert_eq!(play.view.state, ChatState::Asking);
 
-    let sent = play.agent.commands(&play.chat);
-    assert!(
-        matches!(&sent[..], [prompt] if prompt["p"]["prompt"][0]["text"] == "Use Go."),
-        "an open question holds no message: {sent:?}"
-    );
-    let completed = after
-        .lines()
-        .nth(1)
-        .expect("the agent's news of its question");
-    play.more(completed, &[]);
+    play.more(&after, &[]);
 
     assert_eq!(play.view.asks, []);
+    assert_eq!(
+        calls(&play, acp::ASKING).len(),
+        1,
+        "the agent's news of the question that it takes asks nothing again"
+    );
+    let [question, write] = play.tools()[..] else {
+        panic!("two calls");
+    };
+    assert_eq!(question.state, ToolState::Done);
     assert!(matches!(
-        &play.tools()[0].detail,
-        Some(ToolDetail::Question { answers, .. }) if answers == &["Use Go."]
+        &question.detail,
+        Some(ToolDetail::Question { answers, .. }) if answers == &["Rust"]
     ));
+    assert_eq!(
+        (write.target.as_str(), write.state),
+        ("tool.rs", ToolState::Done)
+    );
+    assert_eq!(play.answers(), ["I wrote tool.rs in Rust."]);
+    assert_eq!(play.view.state, ChatState::Idle);
 }
 
 #[test]

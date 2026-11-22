@@ -474,9 +474,12 @@ impl Antigravity {
                 tool.state = ToolState::Asking;
             }
         });
+        // The agent gives news of its question again when it takes the answer.
         if text(update, "name") == ASK_QUESTION
             && self.turn.is_some()
-            && chat.tool(&item).is_some_and(|tool| tool.state.is_open())
+            && chat
+                .tool(&item)
+                .is_some_and(|tool| tool.state.is_open() && !has_answers(tool))
         {
             self.question(chat, &id, &item, update);
         }
@@ -949,6 +952,10 @@ fn failed(chat: &mut Chat, event: &Value, at: u64) {
             },
         },
     );
+}
+
+fn has_answers(tool: &ChatTool) -> bool {
+    matches!(&tool.detail, Some(ToolDetail::Question { answers, .. }) if !answers.is_empty())
 }
 
 /// The name of the chat's question for the agent's own question in a call.
