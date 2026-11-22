@@ -578,6 +578,7 @@ const COPILOT_PLUGIN: &str = "copilot";
 /// Copilot names an extension of a plugin by the plugin's name and the extension's folder.
 #[cfg(feature = "host")]
 const COPILOT_EXTENSION: &str = "plugin:kodosi:kodosi";
+#[cfg(feature = "host")]
 const ANTIGRAVITY_FOLDER: &str = "antigravity";
 #[cfg(feature = "host")]
 const NOTE: &str = "kodosi.md";
