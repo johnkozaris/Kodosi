@@ -685,6 +685,10 @@ impl Agent for Antigravity {
         self.linked
     }
 
+    fn conversation(&self) -> Option<&str> {
+        self.session.as_deref()
+    }
+
     fn retry(&mut self) {}
 
     fn has(&self, queued: &str) -> bool {

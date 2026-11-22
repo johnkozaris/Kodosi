@@ -2160,7 +2160,8 @@ impl Runtime {
         let mut asking = Vec::new();
         for (id, local) in &mut self.local {
             let Some(program) = local.entry.program.clone().filter(|program| {
-                crate::agents::Agent::named(program).is_some_and(|agent| agent.home().is_some())
+                crate::agents::Agent::named(program)
+                    .is_some_and(|agent| agent.home().is_some() || agent.runs_in_chat())
             }) else {
                 continue;
             };

@@ -129,6 +129,10 @@ in der Kopfzeile des Terminals. Der Chat zeigt, was du geschrieben hast, was der
 geantwortet und getan hat, und seine Fragen, mit den Antworten als Buttons. Schreib dort
 dem Agent, oder stoppe ihn. Während er fragt, sagen ihm deine Worte, was er stattdessen
 tun soll. Was du im Chat tust, geschieht auch im Terminal.
+Antigravity CLI öffnet sich in seiner eigenen App im Terminal oder im Chat, wenn sein
+Terminal auf einem Mac oder einem Linux-Computer läuft: Wähle Öffnet in unter Mehr im
+Launcher. Im Chat arbeitet es in einem eigenen Gespräch, das nur dort zu sehen ist, und
+es meldet sich mit seinen eigenen Schritten im Terminal an.
 
 ## 4. Sehen, was ein Agent zeigt
 

@@ -127,6 +127,10 @@ Android, choisissez Chat dans l'en-tête du terminal. Le chat montre ce que vous
 Écrivez-y à l'agent, ou arrêtez-le. Pendant qu'il demande, les mots que vous écrivez lui
 disent quoi faire à la place. Ce que vous faites dans le chat se passe aussi dans le
 terminal.
+Antigravity CLI s'ouvre dans sa propre app dans le terminal, ou dans le chat quand son
+terminal tourne sur un Mac ou un ordinateur Linux : choisissez S’ouvre dans, dans Plus, dans
+le lanceur. Dans le chat, il travaille dans sa propre conversation, visible seulement là,
+et il se connecte avec ses propres étapes dans le terminal.
 
 ## 4. Voir ce que montre un agent
 
