@@ -408,17 +408,11 @@ pub enum PlanChoice {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AskAlways {
     /// Calls that match this rule, such as a command.
-    Rule {
-        tool: String,
-        text: String,
-    },
+    Rule { tool: String, text: String },
     /// Each call that this permission mode allows, until the session ends.
-    Mode {
-        mode: ChatMode,
-    },
-    Folder {
-        path: String,
-    },
+    Mode { mode: ChatMode },
+    /// A folder that the agent may also work in.
+    Folder { name: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -508,9 +502,6 @@ pub struct ChatFacts {
     /// Commands that run on after their calls ended.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub background: u32,
-    /// The models that the agent offers.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub models: Vec<String>,
 }
 
 #[expect(
@@ -550,7 +541,9 @@ pub enum ChatMode {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "do", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ChatRequest {
-    /// A message for the agent. It waits in the queue while the agent works.
+    /// A message for the agent. It waits in the queue while the agent works. Of a message that is
+    /// longer than the chat takes, such as a pasted log, the agent gets the start and the end,
+    /// where a person's question usually is.
     Send {
         text: String,
     },

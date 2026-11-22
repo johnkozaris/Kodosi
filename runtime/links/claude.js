@@ -17,7 +17,10 @@ const FAILURES = 3
 const HISTORY = 120
 const HISTORY_PART = 20
 const ASKED = 64
+// The host takes at most 8 MiB in a request, and a character of the JSON takes up to three bytes there.
+const MOST_BATCH = 2 * 1024 * 1024
 const pending = []
+const early = []
 const drained = []
 const moved = []
 const asked = new Map()
@@ -27,6 +30,7 @@ let terminal = ''
 let turn = ''
 let stopping = false
 let sending = false
+let greeting = false
 let failures = 0
 let batch = 0
 let asks = 0
@@ -54,7 +58,18 @@ function flush($) {
   }
   sending = true
   batch += 1
-  send($, batch, pending.splice(0))
+  send($, batch, nextBatch())
+}
+
+function nextBatch() {
+  let size = 0
+  let count = 0
+  while (count < pending.length) {
+    size += JSON.stringify(pending[count]).length
+    if (count > 0 && size > MOST_BATCH) break
+    count += 1
+  }
+  return pending.splice(0, count)
 }
 
 function send($, number, events) {
@@ -76,7 +91,12 @@ function send($, number, events) {
 
 function tell($, kind, fields) {
   if (!socket) return
-  pending.push({ k: kind, t: Date.now(), ...fields })
+  const event = { k: kind, t: Date.now(), ...fields }
+  if (greeting) {
+    early.push(event)
+    return
+  }
+  pending.push(event)
   flush($)
 }
 
@@ -156,7 +176,10 @@ function earlier(rows) {
   return out
 }
 
+// The host follows the module from its hello, so what happens while the module reads the session waits
+// until the hello and the history are out. The host knows each row of the history by its id.
 async function hello($) {
+  greeting = true
   const facts = { agent: 'claude' }
   let rows = []
   try {
@@ -165,8 +188,6 @@ async function hello($) {
     facts.model = await $.session.model()
     facts.cwd = await $.session.cwd()
     facts.usage = await $.session.usage()
-    const model = (await $.config.list()).find(row => row.key === 'model')
-    facts.models = model && model.options ? model.options : []
     Object.assign(facts, await modesOff($))
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
@@ -174,8 +195,11 @@ async function hello($) {
   }
   facts.mode = mode || undefined
   facts.bypass = bypass
+  greeting = false
   tell($, 'hello', facts)
   for (let at = 0; at < rows.length; at += HISTORY_PART) tell($, 'history', { rows: rows.slice(at, at + HISTORY_PART) })
+  pending.push(...early.splice(0))
+  flush($)
 }
 
 // Claude Code's own end of a turn lets a command of the turn run on in the background. Its record comes
@@ -253,10 +277,11 @@ async function ask($, body) {
 export function register(on) {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    socket = e.isInteractive ? (await $.env.get('KODOSI_AGENT_LINK')) || '' : ''
-    terminal = (await $.env.get('KODOSI_SESSION_ID')) || ''
-    if (!terminal) socket = ''
-    if (!socket) return started
+    const link = e.isInteractive ? (await $.env.get('KODOSI_AGENT_LINK')) || '' : ''
+    const id = link ? (await $.env.get('KODOSI_SESSION_ID')) || '' : ''
+    if (!id) return started
+    terminal = id
+    socket = link
     failures = 0
     await hello($)
     listen($)

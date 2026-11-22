@@ -321,8 +321,8 @@ enum class TaskState {
 
 /**
  * [agent] is the agent's name as the terminal's program has it, [cost] what the agent estimates
- * that the conversation cost in US dollars, [helpers] the helpers that work now, [background] the
- * commands that run on after their calls ended, and [models] the models that the agent offers.
+ * that the conversation cost in US dollars, [helpers] the helpers that work now, and [background]
+ * the commands that run on after their calls ended.
  */
 @Serializable
 data class ChatFacts(
@@ -336,8 +336,7 @@ data class ChatFacts(
     val limits: List<UsageLimit> = emptyList(),
     val cost: Double? = null,
     val helpers: Int = 0,
-    val background: Int = 0,
-    val models: List<String> = emptyList()
+    val background: Int = 0
 )
 
 @Serializable
@@ -452,9 +451,10 @@ sealed interface AskAlways {
     @SerialName("mode")
     data class Mode(val mode: ChatMode) : AskAlways
 
+    /** A folder that the agent may also work in. */
     @Serializable
     @SerialName("folder")
-    data class Folder(val path: String) : AskAlways
+    data class Folder(val name: String) : AskAlways
 }
 
 /** When the agent asks before it acts. */

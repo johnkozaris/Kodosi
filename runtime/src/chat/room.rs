@@ -14,7 +14,7 @@ use tokio::{
 use super::{
     ChatFrame, ChatPerson, ChatRequest, MOST_MESSAGE,
     agent::{self, Agent, Stop},
-    state::Chat,
+    state::{Chat, ends_of},
 };
 use crate::{
     canvas::{PIPE_QUEUE, PipeEnds},
@@ -61,6 +61,9 @@ pub(super) enum Job {
     },
     Gone {
         link: String,
+    },
+    Conversation {
+        reply: oneshot::Sender<Option<String>>,
     },
 }
 
@@ -110,6 +113,14 @@ impl ChatHandle {
     /// True while an agent of the terminal reports to the chat.
     pub(crate) fn linked(&self) -> watch::Receiver<bool> {
         self.linked.clone()
+    }
+
+    /// The conversation that the agent of the chat shows, when the chat follows one that only the
+    /// chat knows.
+    pub(crate) async fn conversation(&self) -> Option<String> {
+        let (reply, conversation) = oneshot::channel();
+        self.jobs.send(Job::Conversation { reply }).await.ok()?;
+        conversation.await.ok().flatten()
     }
 
     /// Opens the chat for a view of `person`, who is named `name`.
@@ -241,6 +252,15 @@ impl Room {
                     self.gone = Some(Instant::now());
                 }
             }
+            Job::Conversation { reply } => {
+                let conversation = self
+                    .agent
+                    .as_ref()
+                    .filter(|agent| agent.is_linked())
+                    .and_then(|agent| agent.conversation())
+                    .map(str::to_owned);
+                drop(reply.send(conversation));
+            }
         }
     }
 
@@ -256,6 +276,7 @@ impl Room {
                 return;
             };
             self.lose();
+            self.chat.reset();
             self.agent = Some(agent);
         }
         self.link = Some(link);
@@ -307,14 +328,14 @@ impl Room {
         match request {
             ChatRequest::Send { text } => {
                 let text = text.trim();
-                if text.is_empty() || text.len() > MOST_MESSAGE || !agent.is_linked() {
+                if text.is_empty() || !agent.is_linked() {
                     return;
                 }
                 let by = self
                     .viewers
                     .get(&viewer)
                     .map(|viewer| viewer.person.clone());
-                if self.chat.queue(text.to_owned(), by).is_some() {
+                if self.chat.queue(ends_of(text, MOST_MESSAGE), by).is_some() {
                     agent.retry();
                 }
             }

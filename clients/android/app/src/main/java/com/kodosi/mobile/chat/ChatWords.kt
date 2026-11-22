@@ -2,6 +2,8 @@ package com.kodosi.mobile.chat
 
 import android.icu.text.ListFormatter
 import android.icu.text.MeasureFormat
+import android.icu.text.NumberFormat
+import android.icu.util.Currency
 import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import android.text.format.DateUtils
@@ -67,14 +69,6 @@ internal object ChatWords {
             return if (version.isEmpty()) model.label else "${model.label} ${version.joinToString(".")}"
         }
         return id
-    }
-
-    /** A rule for an absolute path names only its folder, with the pattern that follows it. */
-    fun ruleWords(rule: String): String {
-        if (!rule.startsWith("/") && !rule.startsWith("~")) return rule
-        val parts = rule.split('/').filter { it.isNotEmpty() }
-        val folder = parts.indexOfLast { part -> part.none { it in "*?[" } }
-        return if (folder < 0) rule else parts.drop(folder).joinToString("/")
     }
 
     /** A command and a path read in the letters of a terminal. */
@@ -229,6 +223,18 @@ internal object ChatWords {
                 (seconds % 60).takeIf { it > 0 || seconds == 0L }?.let { Measure(it, MeasureUnit.SECOND) }
             )
             MeasureFormat.getInstance(locale, MeasureFormat.FormatWidth.NARROW).formatMeasures(*parts.toTypedArray())
+        }
+    }
+
+    @Composable
+    fun cost(dollars: Double): String {
+        val locale = locale()
+        return remember(dollars, locale) {
+            NumberFormat.getCurrencyInstance(locale).apply {
+                currency = Currency.getInstance("USD")
+                minimumFractionDigits = 2
+                maximumFractionDigits = 2
+            }.format(dollars)
         }
     }
 

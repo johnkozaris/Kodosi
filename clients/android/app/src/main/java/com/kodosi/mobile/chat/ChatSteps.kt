@@ -31,7 +31,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -46,7 +45,6 @@ import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.StatusForm
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
-import com.kodosi.mobile.ui.DarkColors
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.Unfolding
@@ -226,8 +224,7 @@ private fun StepDetail(tool: ChatTool, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         when (val detail = tool.detail) {
             is ChatToolDetail.Command -> {
-                if (detail.command != tool.target) Printed(detail.command, DarkColors.ink)
-                if (detail.output.isNotEmpty()) Printed(detail.output, DarkColors.inkMuted, fromEnd = true)
+                if (detail.command != tool.target || detail.output.isNotEmpty()) Printed(detail.command, detail.output)
                 if (detail.background) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AppIcon(AppSymbol.REFRESH, Modifier.size(10.dp), tint = colors.inkFaint)
@@ -260,7 +257,7 @@ private fun StepDetail(tool: ChatTool, modifier: Modifier = Modifier) {
                 ChangeLines(detail.lines, most = 40)
             }
 
-            is ChatToolDetail.Output -> Printed(detail.text, DarkColors.inkMuted)
+            is ChatToolDetail.Output -> Printed("", detail.text)
 
             is ChatToolDetail.Question -> SelectionContainer {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -319,26 +316,34 @@ private fun StepDetail(tool: ChatTool, modifier: Modifier = Modifier) {
     }
 }
 
-/** A long text moves in its tile. What a command printed starts at its end, where a result or a fault is. */
+/** Code that a step ran and what it printed. What a command printed starts at its end, where a result or a fault is. */
 @Composable
-private fun Printed(text: String, color: Color, fromEnd: Boolean = false) {
-    TerminalTile(Modifier.fillMaxWidth()) {
-        Box(Modifier.heightIn(max = 180.dp).verticalScroll(rememberScrollState(), reverseScrolling = fromEnd)) {
-            SelectionContainer { Text(text, style = ChatType.mono, color = color) }
+private fun Printed(text: String, output: String) {
+    val colors = KodosiTheme.colors
+    val scroll = rememberScrollState()
+    CodeWell(Modifier.fillMaxWidth()) {
+        Box(Modifier.heightIn(max = 180.dp).verticalScroll(scroll, reverseScrolling = output.isNotEmpty())) {
+            SelectionContainer {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (text.isNotEmpty()) Text(text, style = ChatType.mono, color = colors.ink)
+                    if (output.isNotEmpty()) Text(output, style = ChatType.mono, color = colors.inkMuted)
+                }
+            }
         }
     }
 }
 
 @Composable
 internal fun ChangeLines(lines: List<ChangeLine>, most: Int, modifier: Modifier = Modifier) {
-    TerminalTile(modifier.fillMaxWidth()) {
+    val colors = KodosiTheme.colors
+    CodeWell(modifier.fillMaxWidth()) {
         SelectionContainer {
             Column {
                 lines.take(most).forEach { line ->
                     val color = when (line.sign) {
-                        ChangeSign.ADDED -> DarkColors.ready
-                        ChangeSign.REMOVED -> DarkColors.danger
-                        ChangeSign.SAME -> DarkColors.inkFaint
+                        ChangeSign.ADDED -> colors.ready
+                        ChangeSign.REMOVED -> colors.danger
+                        ChangeSign.SAME -> colors.inkFaint
                     }
                     Row {
                         Text(
@@ -360,7 +365,7 @@ internal fun ChangeLines(lines: List<ChangeLine>, most: Int, modifier: Modifier 
                         )
                     }
                 }
-                if (lines.size > most) Text("…", style = ChatType.mono, color = DarkColors.inkFaint)
+                if (lines.size > most) Text("…", style = ChatType.mono, color = colors.inkFaint)
             }
         }
     }

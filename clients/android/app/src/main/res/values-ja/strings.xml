@@ -416,6 +416,12 @@
     <string name="chat_hide_tasks">タスクを非表示</string>
     <string name="chat_takes_next">エージェントは次のメッセージをターミナルで受け取ります。</string>
     <string name="chat_in_background">バックグラウンド</string>
+    <plurals name="chat_helpers">
+        <item quantity="other">%d 個のサブエージェントが作業中</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="other">%d 個のコマンドがバックグラウンドで実行中</item>
+    </plurals>
     <string name="chat_denied">拒否</string>
     <string name="chat_stopped_step">停止</string>
     <string name="chat_mode_edits">編集</string>

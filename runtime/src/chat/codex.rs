@@ -14,7 +14,10 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Stop, answer, file_name, list, person, plan_command, text, words},
+    agent::{
+        Agent, Stop, answer, file_name, list, open_items, person, plan_command, shown_rule,
+        stop_open, text, words,
+    },
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -151,7 +154,6 @@ impl Codex {
                 ..super::ChatFacts::default()
             };
         });
-        self.call("models", "model/list", &json!({}));
         self.call("modes", "collaborationMode/list", &json!({}));
         self.call("limits", "account/rateLimits/read", &Value::Null);
         self.call("loaded", "thread/loaded/list", &json!({}));
@@ -164,14 +166,6 @@ impl Codex {
             .unwrap_or_else(|| (text(event, "tag"), ""));
         let result = event.get("r").filter(|result| !result.is_null());
         match (tag, result) {
-            ("models", Some(result)) => {
-                let models = list(result, "data")
-                    .filter(|model| model.get("hidden").and_then(Value::as_bool) != Some(true))
-                    .filter_map(|model| words(model, "id"))
-                    .take(32)
-                    .collect::<Vec<_>>();
-                chat.change_facts(|facts| facts.models = models);
-            }
             ("limits", Some(result)) => limits(chat, result),
             ("modes", Some(result)) => {
                 self.plan_mode = list(result, "data")
@@ -746,7 +740,7 @@ impl Codex {
         .filter(|text| !text.is_empty())
         .map(|text| AskAlways::Rule {
             tool: tool.name.clone(),
-            text,
+            text: shown_rule(&text),
         });
         chat.ask(ChatAsk {
             id: ask.clone(),
@@ -845,7 +839,7 @@ impl Codex {
             "failed" => TurnEnd::Failed,
             _ => TurnEnd::Done,
         };
-        let open = open(chat);
+        let open = open_items(chat);
         for item in &open {
             match chat.body(item).cloned() {
                 Some(ChatBody::Text { text, .. }) => chat.put(item, answer(&text, false)),
@@ -982,6 +976,10 @@ impl Agent for Codex {
 
     fn is_linked(&self) -> bool {
         self.linked
+    }
+
+    fn conversation(&self) -> Option<&str> {
+        self.thread.as_deref()
     }
 
     fn retry(&mut self) {
@@ -1210,27 +1208,6 @@ impl Agent for Codex {
             "p": {"threadId": thread, "turnId": id},
         }))
     }
-}
-
-/// The answer that the agent wrote and each call that did not end stay as far as they came.
-fn stop_open(chat: &mut Chat) {
-    for item in open(chat) {
-        match chat.body(&item).cloned() {
-            Some(ChatBody::Text { text, .. }) => chat.put(&item, answer(&text, false)),
-            _ => chat.change_tool(&item, |tool| tool.state = ToolState::Stopped),
-        }
-    }
-}
-
-fn open(chat: &Chat) -> Vec<String> {
-    chat.items()
-        .iter()
-        .filter_map(|item| match &item.body {
-            ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
-            ChatBody::Text { live: true, .. } => Some(item.id.clone()),
-            _ => None,
-        })
-        .collect()
 }
 
 /// What a conversation tells of the agent that works in it.

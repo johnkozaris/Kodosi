@@ -416,6 +416,12 @@
     <string name="chat_hide_tasks">隐藏任务</string>
     <string name="chat_takes_next">Agent 会在它的终端中接收下一条消息。</string>
     <string name="chat_in_background">后台</string>
+    <plurals name="chat_helpers">
+        <item quantity="other">%d 个助手正在工作</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="other">%d 条命令正在后台运行</item>
+    </plurals>
     <string name="chat_denied">已拒绝</string>
     <string name="chat_stopped_step">已停止</string>
     <string name="chat_mode_edits">编辑</string>

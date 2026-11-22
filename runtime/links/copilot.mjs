@@ -15,6 +15,8 @@ const QUICK_MS = 200
 const FAILURES = 3
 const HISTORY = 400
 const HISTORY_PART = 40
+// The host takes at most 8 MiB in a request, and a character of the JSON takes up to three bytes there.
+const MOST_BATCH = 2 * 1024 * 1024
 // The events that the chat reads, with the fields that it reads. The others, such as the system prompt, the
 // pieces of a tool call or the model's encrypted reasoning, would only cost time.
 const READ = {
@@ -86,7 +88,18 @@ function flush() {
   }
   sending = true
   batch += 1
-  send(batch, pending.splice(0))
+  send(batch, nextBatch())
+}
+
+function nextBatch() {
+  let size = 0
+  let count = 0
+  while (count < pending.length) {
+    size += JSON.stringify(pending[count]).length
+    if (count > 0 && size > MOST_BATCH) break
+    count += 1
+  }
+  return pending.splice(0, count)
 }
 
 function send(number, events) {
@@ -178,15 +191,6 @@ async function hello(early) {
     facts.mode = typeof mode === 'string' ? mode : mode && mode.mode
   } catch (error) {
     facts.mode = undefined
-  }
-  try {
-    const models = await session.rpc.model.list()
-    facts.models = (models && Array.isArray(models.list) ? models.list : [])
-      .map(model => (typeof model === 'string' ? model : model && model.id))
-      .filter(id => typeof id === 'string')
-      .slice(0, 32)
-  } catch (error) {
-    facts.models = []
   }
   let earlier = []
   try {

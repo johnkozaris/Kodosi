@@ -64,7 +64,6 @@ import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
-import com.kodosi.mobile.ui.DarkColors
 import com.kodosi.mobile.ui.Elevation
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiTheme
@@ -176,8 +175,8 @@ private fun PermissionBody(tool: ChatTool, whole: String?) {
     val change = tool.detail as? ChatToolDetail.Change
     Column(Modifier.verticalScroll(rememberScrollState())) {
         if (whole != null) {
-            TerminalTile(Modifier.fillMaxWidth()) {
-                SelectionContainer { Text(whole, style = ChatType.mono, color = DarkColors.ink) }
+            CodeWell(Modifier.fillMaxWidth()) {
+                SelectionContainer { Text(whole, style = ChatType.mono, color = KodosiTheme.colors.ink) }
             }
         } else if (change != null && change.lines.isNotEmpty()) {
             ChangeLines(change.lines, most = 40)
@@ -206,9 +205,9 @@ private fun PermissionKeys(chat: TerminalChat, view: ChatView, ask: ChatAsk, alw
             AnnotatedString(stringResource(R.string.chat_deny))
         )
         val (offer, monospaced) = when (always) {
-            is AskAlways.Rule -> ChatWords.ruleWords(always.text) to true
+            is AskAlways.Rule -> always.text to true
             is AskAlways.Mode -> ChatWords.mode(always.mode) to false
-            is AskAlways.Folder -> ChatWords.lastName(always.path) to true
+            is AskAlways.Folder -> always.name to true
             null -> null to false
         }
         if (offer != null) {

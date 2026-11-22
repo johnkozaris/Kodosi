@@ -153,9 +153,9 @@ private struct ChatPermission: View {
 
     private var offer: String? {
         switch always {
-        case let .rule(_, text): Self.short(text)
+        case let .rule(_, text): text
         case let .mode(mode): ChatWords.mode(mode)
-        case let .folder(path): HostPath.folderName(path)
+        case let .folder(name): name
         case nil: nil
         }
     }
@@ -166,14 +166,6 @@ private struct ChatPermission: View {
             return false
         }
         return true
-    }
-
-    /// A rule for an absolute path names only its folder, with the pattern that follows it.
-    private static func short(_ rule: String) -> String {
-        guard rule.hasPrefix("/") || rule.hasPrefix("~") else { return rule }
-        let parts = rule.split(separator: "/")
-        guard let folder = parts.lastIndex(where: { !$0.contains(where: { "*?[".contains($0) }) }) else { return rule }
-        return parts[folder...].joined(separator: "/")
     }
 }
 

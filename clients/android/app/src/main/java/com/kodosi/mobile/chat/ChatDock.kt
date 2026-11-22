@@ -17,6 +17,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -53,6 +54,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -299,10 +301,12 @@ private fun TaskLine(task: ChatTask) {
 @Composable
 private fun FactsRow(facts: ChatFacts, models: KnownModels, modelKey: @Composable (String) -> Unit) {
     val colors = KodosiTheme.colors
-    Row(
+    FlowRow(
         Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 12.dp).heightIn(min = 36.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.Center,
+        itemVerticalAlignment = Alignment.CenterVertically,
+        maxLines = 1
     ) {
         facts.model?.let { modelKey(models.label(it)) }
         facts.effort?.let { effort ->
@@ -320,7 +324,39 @@ private fun FactsRow(facts: ChatFacts, models: KnownModels, modelKey: @Composabl
             }
         }
         facts.context?.let { ContextMeter(it) }
+        if (facts.helpers > 0) {
+            Count(
+                AppSymbol.FRIENDS,
+                facts.helpers,
+                pluralStringResource(R.plurals.chat_helpers, facts.helpers, facts.helpers)
+            )
+        }
+        if (facts.background > 0) {
+            Count(
+                AppSymbol.REFRESH,
+                facts.background,
+                pluralStringResource(R.plurals.chat_background_commands, facts.background, facts.background)
+            )
+        }
         UsageLimit.nearest(facts.limits)?.let { UsageDial(it) }
+        facts.cost?.takeIf { it > 0 }?.let {
+            Text(ChatWords.cost(it), style = KodosiType.caption, color = colors.inkFaint, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun Count(symbol: AppSymbol, count: Int, words: String) {
+    val colors = KodosiTheme.colors
+    Tipped(words) {
+        Row(
+            Modifier.clearAndSetSemantics { contentDescription = words },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppIcon(symbol, Modifier.size(11.dp), tint = colors.inkFaint)
+            Spacer(Modifier.width(3.dp))
+            Text("$count", style = KodosiType.caption, color = colors.inkFaint, maxLines = 1)
+        }
     }
 }
 
