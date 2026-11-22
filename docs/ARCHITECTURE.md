@@ -145,17 +145,19 @@ its own version of that link.
 
 A device looks at the browser only while it is on its screen. The Mac app on the browser's
 own computer gets the page as the browser draws it: the browser puts each picture in a Core
-Animation layer, and the window server draws that layer into the app's window. For the other
-devices, the engine encodes the page as video while one looks, and one picture serves every
-device that looks. The host decides for each view which of the two it gets. The page
-takes the size of the device in use: the one that acted last, or another device of the
-same person once they open the browser there. It takes the pixels of the sharpest view, as
-far as the host's encoder takes them, and a page that stays still is coded again until it
-is sharp. A device that falls behind misses frames rather than see an ever older page, and
-goes on at a key frame, or on a Mac host at a small frame that refers only to pictures that
-every device said it has. The frames, and the clicks and keys that come back, travel on
-the terminal's encrypted channel. The agent drives its window with agent-browser through a
-port that the host serves, where it sees only the tabs of its own terminal.
+Animation layer, and the window server draws that layer into the app's window. For the
+other devices, the engine encodes the page as video while one looks, and one picture serves
+every device that looks. The host decides for each view which of the two it gets. The page
+takes the size of the device in use: the one that acted last, or another device of the same
+person once they open the browser there. It takes the pixels of the sharpest view, as far
+as the host's encoder takes them, and a page that stays still is coded again until it is
+sharp. While the page takes a new size, each device keeps its last picture until the page
+has drawn at that size, as Chromium first shows stand-ins for it. A device that falls
+behind misses frames rather than see an ever older page, and goes on at a key frame, or on
+a Mac host at a small frame that refers only to pictures that every device said it has. The
+frames, and the clicks and keys that come back, travel on the terminal's encrypted channel.
+The agent drives its window with agent-browser through a port that the host serves, where
+it sees only the tabs of its own terminal.
 
 A person's private terminals share one kept browser profile. A shared terminal has a
 profile of its own, which goes with the terminal.
