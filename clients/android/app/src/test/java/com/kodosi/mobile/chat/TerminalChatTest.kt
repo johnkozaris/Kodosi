@@ -192,6 +192,23 @@ class TerminalChatTest {
         )
     }
 
+    @Test
+    fun aQuestionThatTheHostStillAsksAfterABreakOfThePipeTakesAnAnswerAgain() = runTest {
+        watch()
+        val asking =
+            """{"snapshot":{"revision":1,"state":"asking","facts":{},"items":[],"asks":[{"id":"a1","item":"i2",
+              "body":{"kind":"permission","tool":{"name":"Bash","kind":"command","state":"asking",
+                "target":"make test"}}}]}}"""
+        send(asking)
+        chat.answer(chat.view.value.question!!, ChatAnswer.Allow)
+        assertNull(chat.view.value.question)
+        store.receive(event("document.lost", """"pipe":"$pipe""""))
+        opened()
+        send(asking)
+
+        assertEquals("a1", chat.view.value.question?.id)
+    }
+
     private fun TestScope.watch() {
         backgroundScope.launch { chat.watch() }
         runCurrent()
