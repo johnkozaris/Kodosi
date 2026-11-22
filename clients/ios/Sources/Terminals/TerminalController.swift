@@ -179,6 +179,12 @@ final class TerminalController {
         refresh()
     }
 
+    /// A tap that comes while the terminal cannot take the focus is no act for a later focus.
+    func tapped() {
+        guard canType else { return }
+        focusTerminal()
+    }
+
     func resizeHere() {
         releaseFocus()
         focusTerminal()
