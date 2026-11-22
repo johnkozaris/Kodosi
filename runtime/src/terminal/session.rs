@@ -47,6 +47,9 @@ const LINE_STARTS_WITHIN: Duration = if kodosi_pty::CONSOLE_HOST {
     Duration::from_secs(2)
 };
 const PROMPT_QUIET: Duration = Duration::from_millis(300);
+/// The time that the program of a line that Kodosi typed takes to start, so its agent shows then
+/// and not only at the next look of each second.
+const PROGRAM_STARTS: Duration = Duration::from_millis(200);
 const BUSY_UPKEEP: Duration = Duration::from_millis(20);
 const IDLE_UPKEEP: Duration = Duration::from_millis(250);
 const BUSY_AFTER_OUTPUT: Duration = Duration::from_secs(1);
@@ -1261,6 +1264,7 @@ impl LocalActor {
             self.line_ended();
         } else {
             self.typed_line = Some(TypedLine::now());
+            self.next_program_check = tokio::time::Instant::now() + PROGRAM_STARTS;
         }
         self.queue.extend(early);
     }
