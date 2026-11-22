@@ -69,6 +69,7 @@ import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
 import com.kodosi.mobile.terminals.agentLabel
 import com.kodosi.mobile.terminals.effortLabel
+import com.kodosi.mobile.terminals.usageWindow
 import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
@@ -404,21 +405,7 @@ private fun ContextMeter(context: ChatContext) {
 @Composable
 private fun UsageDial(limit: UsageLimit) {
     val colors = KodosiTheme.colors
-    val name = when {
-        limit.scope != null && limit.hours == null -> stringResource(R.string.chat_usage_scope_month, limit.scope)
-
-        limit.scope != null && limit.hours == 168 -> stringResource(R.string.chat_usage_scope_week, limit.scope)
-
-        limit.scope != null ->
-            pluralStringResource(R.plurals.chat_usage_scope_hours, limit.hours ?: 0, limit.scope, limit.hours ?: 0)
-
-        limit.hours == null -> stringResource(R.string.chat_usage_month)
-
-        limit.hours == 168 -> stringResource(R.string.chat_usage_week)
-
-        else -> pluralStringResource(R.plurals.chat_usage_hours, limit.hours, limit.hours)
-    }
-    Tipped(stringResource(R.string.chat_usage_used, name, limit.used)) {
+    Tipped(stringResource(R.string.chat_usage_used, usageWindow(limit.hours, limit.scope), limit.used)) {
         Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
             UsageRing(limit.used / 100f, limit.level, Modifier.size(18.dp))
             Text(
