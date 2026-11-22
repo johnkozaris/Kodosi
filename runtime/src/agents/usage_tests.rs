@@ -2,37 +2,47 @@ use serde_json::json;
 
 use super::*;
 
-fn limit(
-    hours: Option<u32>,
-    scope: Option<&str>,
-    used: u8,
-    level: UsageLevel,
-    headline: bool,
-) -> UsageLimit {
+fn limit(hours: Option<u32>, scope: Option<&str>, used: u8, level: UsageLevel) -> UsageLimit {
     UsageLimit {
         hours,
         scope: scope.map(str::to_owned),
+        model: None,
         used,
         level,
-        headline,
+        resets_at_ms: None,
     }
 }
 
 #[test]
-fn claude_rows_keep_their_severity_and_the_worst_one_leads() {
+fn claude_rows_keep_their_severity_their_model_and_when_they_reset() {
     let report = json!({"rate_limits": {"limits": [
         {"kind": "session", "group": "session", "percent": 42.4, "resets_at": null, "scope": null, "severity": "normal", "is_active": false},
-        {"kind": "weekly_all", "group": "weekly", "percent": 71, "resets_at": "2026-10-29T13:00:00+00:00", "scope": null, "severity": "warning", "is_active": true},
-        {"kind": "weekly_scoped", "group": "weekly", "percent": 100, "scope": {"model": {"display_name": "Fable"}, "surface": null}, "severity": "critical", "is_active": false},
+        {"kind": "weekly_all", "group": "weekly", "percent": 71, "resets_at": "2026-11-26T12:59:59.513299+00:00", "scope": null, "severity": "warning", "is_active": true},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 100, "resets_at": "2026-11-26T12:59:59.513427+00:00", "scope": {"model": {"display_name": "Fable"}, "surface": null}, "severity": "critical", "is_active": false},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 9, "resets_at": "soon", "scope": {"model": {"display_name": "Mythos"}, "surface": null}, "severity": "normal", "is_active": false},
+        {"kind": "weekly_scoped", "group": "weekly", "percent": 30, "scope": {"model": null, "surface": {"display_name": "Claude Code"}}, "severity": "normal", "is_active": false},
         {"kind": "weekly_scoped", "group": "weekly", "percent": 50, "scope": {"model": {}}, "severity": "normal", "is_active": false},
         {"kind": "credits", "group": "spend", "percent": 10, "severity": "normal", "is_active": false}
     ], "extra_usage": null}});
+    let resets = Some(1_795_697_999_513);
     assert_eq!(
-        headlined(claude(&report)),
+        claude(&report),
         vec![
-            limit(Some(5), None, 42, UsageLevel::Normal, false),
-            limit(Some(168), None, 71, UsageLevel::Near, false),
-            limit(Some(168), Some("Fable"), 100, UsageLevel::Reached, true),
+            limit(Some(5), None, 42, UsageLevel::Normal),
+            UsageLimit {
+                resets_at_ms: resets,
+                ..limit(Some(168), None, 71, UsageLevel::Near)
+            },
+            UsageLimit {
+                model: Some("fable".to_owned()),
+                resets_at_ms: resets,
+                ..limit(Some(168), Some("Fable"), 100, UsageLevel::Reached)
+            },
+            UsageLimit {
+                model: Some("Mythos".to_owned()),
+                ..limit(Some(168), Some("Mythos"), 9, UsageLevel::Normal)
+            },
+            limit(Some(168), Some("Claude Code"), 30, UsageLevel::Normal),
         ]
     );
 }
@@ -48,20 +58,23 @@ fn a_claude_account_without_plan_limits_reports_none() {
 
 #[test]
 fn codex_windows_are_named_by_their_length() {
-    let week = json!({"rateLimits": {"primary": {"usedPercent": 12, "windowDurationMins": 10080, "resetsAt": 1_793_321_722}, "secondary": null, "planType": "prolite"}});
+    let month = json!({"rateLimits": {"primary": {"usedPercent": 8, "windowDurationMins": 43200, "resetsAt": 1_795_848_074}, "secondary": null, "planType": "free"}});
     assert_eq!(
-        headlined(codex(&week)),
-        vec![limit(Some(168), None, 12, UsageLevel::Normal, true)]
+        codex(&month),
+        vec![UsageLimit {
+            resets_at_ms: Some(1_795_848_074_000),
+            ..limit(Some(720), None, 8, UsageLevel::Normal)
+        }]
     );
     let both = json!({"rateLimits": {
         "primary": {"usedPercent": 42, "windowDurationMins": 300},
-        "secondary": {"usedPercent": 85, "windowDurationMins": 10080}
+        "secondary": {"usedPercent": 85, "windowDurationMins": 10080, "resetsAt": null}
     }});
     assert_eq!(
-        headlined(codex(&both)),
+        codex(&both),
         vec![
-            limit(Some(5), None, 42, UsageLevel::Normal, false),
-            limit(Some(168), None, 85, UsageLevel::Near, true),
+            limit(Some(5), None, 42, UsageLevel::Normal),
+            limit(Some(168), None, 85, UsageLevel::Near),
         ]
     );
     let unnamed =
@@ -77,48 +90,52 @@ fn copilot_counts_the_premium_requests_of_the_month() {
             "premium_interactions": {
                 "isUnlimitedEntitlement": unlimited,
                 "remainingPercentage": remaining,
-                "usageAllowedWithExhaustedQuota": overage
+                "usageAllowedWithExhaustedQuota": overage,
+                "resetDate": "2026-12-01T00:00:00.000Z"
             }
         }})
     };
+    let month = |used: u8, level: UsageLevel| UsageLimit {
+        resets_at_ms: Some(1_796_083_200_000),
+        ..limit(None, None, used, level)
+    };
     assert_eq!(
         copilot(&quota(41.4, false, false)),
-        vec![limit(None, None, 59, UsageLevel::Normal, false)]
+        vec![month(59, UsageLevel::Normal)]
     );
     assert_eq!(
         copilot(&quota(0.0, false, true)),
-        vec![limit(None, None, 100, UsageLevel::Near, false)]
+        vec![month(100, UsageLevel::Near)]
     );
     assert_eq!(
         copilot(&quota(0.0, false, false)),
-        vec![limit(None, None, 100, UsageLevel::Reached, false)]
+        vec![month(100, UsageLevel::Reached)]
     );
     assert_eq!(copilot(&quota(0.0, true, false)), Vec::new());
 }
 
 #[test]
-fn the_headline_is_the_worst_level_then_the_most_used_then_the_first() {
-    use UsageLevel::{Near, Normal, Reached};
-
-    let headlines = |limits: &[(u8, UsageLevel)]| {
-        headlined(
-            limits
-                .iter()
-                .map(|(used, level)| limit(Some(5), None, *used, *level, false))
-                .collect(),
-        )
-        .iter()
-        .map(|limit| limit.headline)
-        .collect::<Vec<_>>()
+fn a_reset_shows_only_when_it_comes_after_the_life_of_the_reading() {
+    let now = 1_795_349_410_376;
+    let resetting = |resets: u64| UsageLimit {
+        resets_at_ms: Some(resets),
+        ..limit(None, None, 71, UsageLevel::Normal)
     };
     assert_eq!(
-        headlines(&[(30, Normal), (30, Normal), (10, Normal)]),
-        [true, false, false]
+        upcoming(
+            vec![
+                resetting(now - 4 * 60_000),
+                resetting(now + 300),
+                resetting(now + 60_000),
+                resetting(now + 60_001)
+            ],
+            now
+        )
+        .iter()
+        .map(|limit| limit.resets_at_ms)
+        .collect::<Vec<_>>(),
+        [None, None, None, Some(now + 60_001)]
     );
-    assert_eq!(headlines(&[(10, Normal), (90, Near)]), [false, true]);
-    assert_eq!(headlines(&[(78, Normal), (70, Near)]), [false, true]);
-    assert_eq!(headlines(&[(100, Reached), (100, Near)]), [true, false]);
-    assert_eq!(headlines(&[]), Vec::<bool>::new());
 }
 
 #[test]
@@ -144,7 +161,7 @@ fn program(folder: &Path, name: &str, script: &str) -> Runner {
 const CLAUDE: &str = r#"
 case "$*" in "--safe-mode -p /usage --output-format stream-json --verbose --no-session-persistence") ;; *) exit 3 ;; esac
 printf '%s\n' '{"type":"system","subtype":"init"}' 'not json'
-printf '{"type":"assistant","usage_report":{"rate_limits":{"limits":[{"kind":"weekly_scoped","group":"weekly","percent":7,"scope":{"model":{"display_name":"%s"}},"severity":"normal","is_active":true}]}}}\n' "${CLAUDE_CONFIG_DIR:-unset}"
+printf '{"type":"assistant","usage_report":{"rate_limits":{"limits":[{"kind":"weekly_scoped","group":"weekly","percent":7,"resets_at":"2099-01-01T00:00:00Z","scope":{"model":{"display_name":"%s"}},"severity":"normal","is_active":true}]}}}\n' "${CLAUDE_CONFIG_DIR:-unset}"
 printf '%s\n' '{"type":"result","subtype":"success"}'
 "#;
 
@@ -153,20 +170,19 @@ printf '%s\n' '{"type":"result","subtype":"success"}'
 async fn claude_reports_the_usage_of_the_account_folder_it_is_given() {
     let root = tempfile::tempdir().unwrap();
     let mut runner = program(root.path(), "claude", CLAUDE);
+    let folder = |name: &str| UsageLimit {
+        model: Some(name.to_owned()),
+        resets_at_ms: Some(4_070_908_800_000),
+        ..limit(Some(168), Some(name), 7, UsageLevel::Normal)
+    };
     assert_eq!(
         read(Agent::Claude, &runner, root.path()).await.unwrap(),
-        vec![limit(Some(168), Some("unset"), 7, UsageLevel::Normal, true)]
+        vec![folder("unset")]
     );
     runner.variables = vec![("CLAUDE_CONFIG_DIR".to_owned(), "/w/.claude-work".to_owned())];
     assert_eq!(
         read(Agent::Claude, &runner, root.path()).await.unwrap(),
-        vec![limit(
-            Some(168),
-            Some("/w/.claude-work"),
-            7,
-            UsageLevel::Normal,
-            true
-        )]
+        vec![folder("/w/.claude-work")]
     );
 }
 
@@ -207,8 +223,8 @@ done
     assert_eq!(
         read(Agent::Codex, &runner, root.path()).await.unwrap(),
         vec![
-            limit(Some(5), None, 42, UsageLevel::Normal, true),
-            limit(Some(168), None, 18, UsageLevel::Normal, false),
+            limit(Some(5), None, 42, UsageLevel::Normal),
+            limit(Some(168), None, 18, UsageLevel::Normal),
         ]
     );
 }
@@ -250,7 +266,7 @@ async fn copilot_answers_in_framed_messages() {
         r#"
 [ "$*" = "--server --stdio --no-auto-update" ] || exit 3
 event='{"jsonrpc":"2.0","method":"session.event","params":{}}'
-answer='{"jsonrpc":"2.0","id":1,"result":{"quotaSnapshots":{"premium_interactions":{"isUnlimitedEntitlement":false,"remainingPercentage":41.4,"usageAllowedWithExhaustedQuota":true}}}}'
+answer='{"jsonrpc":"2.0","id":1,"result":{"quotaSnapshots":{"premium_interactions":{"isUnlimitedEntitlement":false,"remainingPercentage":41.4,"usageAllowedWithExhaustedQuota":true,"resetDate":"2001-01-01T00:00:00.000Z"}}}}'
 printf 'Content-Length: %s\r\n\r\n%s' "${#event}" "$event"
 printf 'Content-Type: application/json\r\nContent-Length: %s\r\n\r\n%s' "${#answer}" "$answer"
 cat >/dev/null
@@ -258,6 +274,6 @@ cat >/dev/null
     );
     assert_eq!(
         read(Agent::Copilot, &runner, root.path()).await.unwrap(),
-        vec![limit(None, None, 59, UsageLevel::Normal, true)]
+        vec![limit(None, None, 59, UsageLevel::Normal)]
     );
 }

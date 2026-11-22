@@ -291,6 +291,26 @@
     <string name="uploading">Αποστολή αρχείου</string>
     <string name="loading">Φόρτωση</string>
     <string name="reading_usage">Διαβάζει τη χρήση του πλάνου</string>
+    <string name="usage_month">Αυτός ο μήνας</string>
+    <string name="usage_week">Αυτή η εβδομάδα</string>
+    <string name="usage_scope_month">%1$s, αυτόν τον μήνα</string>
+    <string name="usage_scope_week">%1$s, αυτή την εβδομάδα</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Τελευταία %d ώρα</item>
+        <item quantity="other">Τελευταίες %d ώρες</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Τελευταία %d ημέρα</item>
+        <item quantity="other">Τελευταίες %d ημέρες</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, τελευταία %2$d ώρα</item>
+        <item quantity="other">%1$s, τελευταίες %2$d ώρες</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, τελευταία %2$d ημέρα</item>
+        <item quantity="other">%1$s, τελευταίες %2$d ημέρες</item>
+    </plurals>
     <string name="browser_address">Αναζήτηση ή εισαγωγή διεύθυνσης</string>
     <string name="new_browser_tab">Νέα καρτέλα</string>
     <string name="browser_back">Πίσω</string>

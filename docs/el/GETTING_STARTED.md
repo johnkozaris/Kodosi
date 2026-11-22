@@ -276,7 +276,7 @@ browser τους πηγαίνουν απευθείας ανάμεσά τους �
 | `kodosi terminal start --directory <repository> --branch <name>` | Ξεκινά ένα τερματικό σε νέο branch, στο δικό του worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Ξεκινά ένα τερματικό σε άλλον από τους υπολογιστές σας. Ένας σχετικός φάκελος, ή ένας που αρχίζει με `~`, είναι στον αρχικό σας κατάλογο εκεί. Το `kodosi devices list` δείχνει ποιοι υπολογιστές είναι σε σύνδεση. |
 | `kodosi agent list` | Δείχνει τους agents, τους λογαριασμούς τους και την τελευταία σας επιλογή. |
-| `kodosi agent usage` | Δείχνει πόσο από τα όρια του προγράμματος έχει χρησιμοποιήσει κάθε συνδεδεμένος λογαριασμός Claude Code, Codex και Copilot CLI. |
+| `kodosi agent usage` | Δείχνει πόσο από τα όρια του προγράμματος έχει χρησιμοποιήσει κάθε συνδεδεμένος λογαριασμός Claude Code, Codex και Copilot CLI, και πότε ανανεώνεται κάθε όριο. |
 | `kodosi terminal list` | Δείχνει τα τερματικά σας με τα ονόματα και τα αναγνωριστικά τους. Δώστε ένα από τα δύο ως `<terminal>`. |
 | `kodosi terminal read <terminal>` | Τυπώνει την οθόνη. Το `--history` προσθέτει τις γραμμές που κύλησαν εκτός. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Δίνει στον agent ενός τερματικού ένα μήνυμα, με το ποιος το στέλνει και από πού. |

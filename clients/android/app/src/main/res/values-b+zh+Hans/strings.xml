@@ -291,6 +291,22 @@
     <string name="uploading">正在发送文件</string>
     <string name="loading">正在加载</string>
     <string name="reading_usage">正在读取套餐用量</string>
+    <string name="usage_month">本月</string>
+    <string name="usage_week">本周</string>
+    <string name="usage_scope_month">%1$s，本月</string>
+    <string name="usage_scope_week">%1$s，本周</string>
+    <plurals name="usage_hours">
+        <item quantity="other">过去 %d 小时</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="other">过去 %d 天</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="other">%1$s，过去 %2$d 小时</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="other">%1$s，过去 %2$d 天</item>
+    </plurals>
     <string name="browser_address">搜索或输入网址</string>
     <string name="new_browser_tab">新标签页</string>
     <string name="browser_back">后退</string>

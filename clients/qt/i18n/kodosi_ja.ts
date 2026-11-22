@@ -4359,6 +4359,12 @@
         <translation>今週</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>過去 %n 日</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>過去 %n 時間</numerusform>
@@ -4373,6 +4379,12 @@
         <translation>%1、今週</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1、過去 %n 日</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1、過去 %n 時間</numerusform>
@@ -4385,6 +4397,50 @@
     <message>
         <source>Default</source>
         <translation>デフォルト</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1日%2時間</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1日</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1時間%2分</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1時間</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1分</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n日</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n時間</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n分</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1、%2後にリセット</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

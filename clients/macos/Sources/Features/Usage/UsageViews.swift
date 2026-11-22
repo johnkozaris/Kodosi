@@ -94,6 +94,52 @@ struct UsageDial: View {
     }
 }
 
+enum ResetTime {
+    static func left(_ limit: UsageLimit, now: Date = .now) -> Duration? {
+        guard let resets = limit.resetsAt, resets > now else { return nil }
+        return .seconds(resets.timeIntervalSince(now))
+    }
+
+    static func short(_ left: Duration, locale: Locale = .autoupdatingCurrent) -> String {
+        format(left, width: .narrow, locale: locale)
+    }
+
+    static func spoken(_ left: Duration, locale: Locale = .autoupdatingCurrent) -> String {
+        format(left, width: .wide, locale: locale)
+    }
+
+    private static func format(_ left: Duration, width: Duration.UnitsFormatStyle.UnitWidth, locale: Locale) -> String {
+        let seconds = Double(left.components.seconds) + Double(left.components.attoseconds) / 1e18
+        let (step, units): (Double, Set<Duration.UnitsFormatStyle.Unit>) = switch seconds {
+        case 86400...: (3600, [.days, .hours])
+        case 3600...: (60, [.hours, .minutes])
+        default: (60, [.minutes])
+        }
+        let rounded = Duration.seconds(Int64(max(1, (seconds / step).rounded(.up)) * step))
+        return rounded.formatted(.units(allowed: units, width: width).locale(locale))
+    }
+}
+
+struct UsageReset: View {
+    @Environment(\.theme) private var theme
+    let limit: UsageLimit?
+
+    var body: some View {
+        Text(verbatim: limit.flatMap { ResetTime.left($0) }.map { ResetTime.short($0) } ?? "")
+            .appTextStyle(.caption2).monospacedDigit()
+            .foregroundStyle(theme.colors.inkFaint)
+            .lineLimit(1).minimumScaleFactor(0.75)
+            .frame(height: 12)
+    }
+}
+
+extension UsageLimit {
+    var spokenWithReset: String {
+        guard let left = ResetTime.left(self) else { return spoken }
+        return String(localized: "\(spoken), resets in \(ResetTime.spoken(left))")
+    }
+}
+
 struct UsagePercent: View {
     @Environment(\.theme) private var theme
     let limit: UsageLimit

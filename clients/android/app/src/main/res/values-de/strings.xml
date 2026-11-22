@@ -291,6 +291,26 @@
     <string name="uploading">Datei wird gesendet</string>
     <string name="loading">Wird geladen</string>
     <string name="reading_usage">Liest die Plannutzung</string>
+    <string name="usage_month">Dieser Monat</string>
+    <string name="usage_week">Diese Woche</string>
+    <string name="usage_scope_month">%1$s, dieser Monat</string>
+    <string name="usage_scope_week">%1$s, diese Woche</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Letzte %d Stunde</item>
+        <item quantity="other">Letzte %d Stunden</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Letzter %d Tag</item>
+        <item quantity="other">Letzte %d Tage</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, letzte %2$d Stunde</item>
+        <item quantity="other">%1$s, letzte %2$d Stunden</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, letzter %2$d Tag</item>
+        <item quantity="other">%1$s, letzte %2$d Tage</item>
+    </plurals>
     <string name="browser_address">Suchen oder Adresse eingeben</string>
     <string name="new_browser_tab">Neuer Tab</string>
     <string name="browser_back">Zurück</string>

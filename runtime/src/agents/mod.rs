@@ -972,9 +972,12 @@ pub struct UsageLimit {
     /// The length of a rolling window; none for a calendar month.
     pub hours: Option<u32>,
     pub scope: Option<String>,
+    /// The id of the one model whose use the limit counts, or the provider's name of a model
+    /// that the agent does not list; none when the limit counts every model.
+    pub model: Option<String>,
     pub used: u8,
     pub level: UsageLevel,
-    pub headline: bool,
+    pub resets_at_ms: Option<u64>,
 }
 
 #[derive(

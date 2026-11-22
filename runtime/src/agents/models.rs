@@ -9,20 +9,19 @@ const RUN_TIME: Duration = Duration::from_secs(10);
 const MAX_OUTPUT: usize = 4 * 1024 * 1024;
 const MAX_MODELS: usize = 500;
 
+pub(super) const CLAUDE_MODELS: [(&str, &str); 4] = [
+    ("fable", "Fable"),
+    ("opus", "Opus"),
+    ("sonnet", "Sonnet"),
+    ("haiku", "Haiku"),
+];
+
 pub(super) async fn models(facts: &Facts, agent: Agent) -> AgentModels {
     let program = facts.executable(agent.program());
     let program = program.as_deref();
     let (models, efforts) = match agent {
         Agent::Claude => (
-            fixed(
-                &[
-                    ("fable", "Fable"),
-                    ("opus", "Opus"),
-                    ("sonnet", "Sonnet"),
-                    ("haiku", "Haiku"),
-                ],
-                agent,
-            ),
+            fixed(&CLAUDE_MODELS, agent),
             efforts(run(facts, program, &["--help"]).await.as_deref(), agent),
         ),
         Agent::Codex => codex(run(facts, program, &["debug", "models"]).await.as_deref()),

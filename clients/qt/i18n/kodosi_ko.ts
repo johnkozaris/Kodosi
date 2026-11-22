@@ -4359,6 +4359,12 @@
         <translation>이번 주</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>최근 %n일</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>최근 %n시간</numerusform>
@@ -4373,6 +4379,12 @@
         <translation>%1, 이번 주</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1, 최근 %n일</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1, 최근 %n시간</numerusform>
@@ -4385,6 +4397,50 @@
     <message>
         <source>Default</source>
         <translation>기본값</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1일 %2시간</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1일</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1시간 %2분</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1시간</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1분</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n일</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n시간</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n분</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1, %2 후 초기화</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

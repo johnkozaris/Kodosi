@@ -370,7 +370,7 @@ enum AgentAction {
     List,
     /// List the models and efforts of an agent.
     Models { agent: String },
-    /// Show how much of the plan limits each signed-in account has used.
+    /// Show how much of the plan limits each signed-in account has used, and when each limit resets.
     Usage,
 }
 #[derive(Subcommand)]

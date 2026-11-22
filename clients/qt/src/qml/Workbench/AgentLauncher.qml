@@ -108,7 +108,7 @@ ColumnLayout {
     }
     function usageOf(entry: var): var {
         const usage = entry.identity ? root.launcher.usage[info.agent + "/" + entry.name] : null
-        return usage ? usage.headline : null
+        return usage ? root.launcher.headline(usage, root.modelId) ?? null : null
     }
     function loadsUsage(entry: var): bool {
         return !!entry && !!entry.identity && !!info && info.reportsUsage === true && root.launcher.loadingUsage

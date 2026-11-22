@@ -255,7 +255,7 @@ El comando `kodosi` trabaja con los mismos terminales que la app, y la app muest
 | `kodosi terminal start --directory <repository> --branch <name>` | Inicia un terminal en una rama nueva, en su propio worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Inicia un terminal en otro de tus ordenadores. Una carpeta relativa, o una que empieza por `~`, está en tu directorio personal de allí. `kodosi devices list` muestra qué ordenadores están en línea. |
 | `kodosi agent list` | Muestra los agentes, sus cuentas y tu última elección. |
-| `kodosi agent usage` | Muestra cuánto de los límites del plan ha usado cada cuenta con sesión iniciada de Claude Code, Codex y Copilot CLI. |
+| `kodosi agent usage` | Muestra cuánto de los límites del plan ha usado cada cuenta con sesión iniciada de Claude Code, Codex y Copilot CLI, y cuándo se restablece cada límite. |
 | `kodosi terminal list` | Muestra tus terminales con sus nombres e ID. Indica cualquiera de los dos como `<terminal>`. |
 | `kodosi terminal read <terminal>` | Imprime la pantalla. `--history` añade las líneas que se desplazaron fuera. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Le da un mensaje al agente de un terminal, con quién lo envía y desde dónde. |
