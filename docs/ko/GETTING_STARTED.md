@@ -229,7 +229,7 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
 | `kodosi terminal start --directory <repository> --branch <name>` | 전용 worktree의 새 브랜치에서 터미널을 시작해요. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | 내 다른 컴퓨터에서 터미널을 시작해요. 상대 경로 폴더나 `~`로 시작하는 폴더는 그 컴퓨터의 홈에 있어요. 어느 컴퓨터가 온라인인지는 `kodosi devices list`로 볼 수 있어요. |
 | `kodosi agent list` | 에이전트, 그 계정, 지난번 선택을 보여 줘요. |
-| `kodosi agent usage` | 로그인한 Claude Code, Codex, Copilot CLI 계정마다 요금제 한도를 얼마나 썼는지 보여 줘요. |
+| `kodosi agent usage` | 로그인한 Claude Code, Codex, Copilot CLI 계정마다 요금제 한도를 얼마나 썼는지와 각 한도가 언제 초기화되는지 보여 줘요. |
 | `kodosi terminal list` | 터미널을 이름과 ID와 함께 보여 줘요. 둘 중 무엇이든 `<terminal>`로 쓸 수 있어요. |
 | `kodosi terminal read <terminal>` | 화면을 출력해요. `--history`는 스크롤로 넘어간 줄도 더해요. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 보낸 사람과 보낸 곳을 붙여 터미널의 에이전트에게 메시지를 전달해요. |

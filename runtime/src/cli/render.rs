@@ -141,7 +141,7 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         ("session.result", _) => session_result(event, context),
         ("provider.result", "provider.agents") => agents(&event["result"]),
         ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
-        ("provider.result", "provider.usage") => usage(&event["result"]),
+        ("provider.result", "provider.usage") => usage(&event["result"], crate::identity::now_ms()),
         ("dosi.result", "dosi.stop") => "Dosi stops.".to_owned(),
         ("dosi.result", "dosi.ask") => {
             "The person sees the question. End your turn; the answer comes as the next message."
@@ -355,7 +355,7 @@ fn agent_models(result: &Value) -> String {
     format!("Models: {}\nEfforts: {}", list(models), list(efforts))
 }
 
-fn usage(result: &Value) -> String {
+fn usage(result: &Value, now_ms: u64) -> String {
     let lines = result["accounts"]
         .as_array()
         .into_iter()
@@ -367,11 +367,22 @@ fn usage(result: &Value) -> String {
                 .flatten()
                 .map(|limit| {
                     let level = match limit["level"].as_str() {
-                        Some("near") => " (near the limit)",
-                        Some("reached") => " (limit reached)",
-                        _ => "",
+                        Some("near") => Some("near the limit".to_owned()),
+                        Some("reached") => Some("limit reached".to_owned()),
+                        _ => None,
                     };
-                    format!("{} {}%{level}", window(limit), limit["used"])
+                    let reset = limit["resetsAtMs"]
+                        .as_u64()
+                        .and_then(|resets| resets.checked_sub(now_ms))
+                        .filter(|left| *left > 0)
+                        .map(|left| format!("resets in {}", countdown(left)));
+                    let notes = level.into_iter().chain(reset).collect::<Vec<_>>();
+                    let notes = if notes.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" ({})", notes.join(", "))
+                    };
+                    format!("{} {}%{notes}", window(limit), limit["used"])
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -386,6 +397,25 @@ fn usage(result: &Value) -> String {
         "No signed-in account reports plan limits.".to_owned()
     } else {
         lines.join("\n")
+    }
+}
+
+fn countdown(left_ms: u64) -> String {
+    const HOUR_MS: u64 = 3_600_000;
+    if left_ms >= 24 * HOUR_MS {
+        let hours = left_ms.div_ceil(HOUR_MS);
+        match (hours / 24, hours % 24) {
+            (days, 0) => format!("{days}d"),
+            (days, hours) => format!("{days}d {hours}h"),
+        }
+    } else if left_ms >= HOUR_MS {
+        let minutes = left_ms.div_ceil(60_000);
+        match (minutes / 60, minutes % 60) {
+            (hours, 0) => format!("{hours}h"),
+            (hours, minutes) => format!("{hours}h {minutes}m"),
+        }
+    } else {
+        format!("{}m", left_ms.div_ceil(60_000))
     }
 }
 
@@ -820,26 +850,37 @@ mod tests {
     }
 
     #[test]
-    fn usage_names_each_window_and_says_when_a_limit_is_near() {
-        fn limit(hours: Option<u32>, scope: Option<&str>, used: u8, level: &str) -> Value {
-            json!({"hours": hours, "scope": scope, "used": used, "level": level, "headline": false})
+    fn usage_names_each_window_and_says_when_a_limit_is_near_and_resets() {
+        const NOW: u64 = 1_795_349_410_000;
+        const MINUTE: u64 = 60_000;
+        fn limit(
+            hours: Option<u32>,
+            scope: Option<&str>,
+            used: u8,
+            level: &str,
+            resets: Option<u64>,
+        ) -> Value {
+            json!({"hours": hours, "scope": scope, "model": scope.map(str::to_lowercase), "used": used, "level": level, "resetsAtMs": resets})
         }
         assert_eq!(
-            usage(&json!({"accounts": [
-                {"agent": "claude", "account": "work", "readAtMs": 1, "limits": [
-                    limit(Some(5), None, 42, "normal"),
-                    limit(Some(168), None, 85, "near"),
-                    limit(Some(168), Some("Fable"), 100, "reached"),
-                ]},
-                {"agent": "codex", "account": "default", "readAtMs": 1, "limits": [limit(Some(72), None, 3, "normal")]},
-                {"agent": "copilot", "account": "default", "readAtMs": 1, "limits": [limit(None, None, 59, "normal")]},
-            ]})),
-            "claude  work: 5h 42%, week 85% (near the limit), Fable 100% (limit reached)\n\
-             codex  default: 3d 3%\n\
+            usage(
+                &json!({"accounts": [
+                    {"agent": "claude", "account": "work", "readAtMs": 1, "limits": [
+                        limit(Some(5), None, 42, "normal", Some(NOW + 287 * MINUTE + 1)),
+                        limit(Some(168), None, 85, "near", Some(NOW + (4 * 24 * 60 + 45) * MINUTE)),
+                        limit(Some(168), Some("Fable"), 100, "reached", Some(NOW + 5 * 24 * 60 * MINUTE)),
+                    ]},
+                    {"agent": "codex", "account": "default", "readAtMs": 1, "limits": [limit(Some(72), None, 3, "normal", Some(NOW + 30 * 1000))]},
+                    {"agent": "copilot", "account": "default", "readAtMs": 1, "limits": [limit(None, None, 59, "normal", Some(NOW - MINUTE))]},
+                ]}),
+                NOW
+            ),
+            "claude  work: 5h 42% (resets in 4h 48m), week 85% (near the limit, resets in 4d 1h), Fable 100% (limit reached, resets in 5d)\n\
+             codex  default: 3d 3% (resets in 1m)\n\
              copilot  default: month 59%"
         );
         assert_eq!(
-            usage(&json!({"accounts": []})),
+            usage(&json!({"accounts": []}), NOW),
             "No signed-in account reports plan limits."
         );
     }

@@ -113,7 +113,7 @@ Dosi 头像旁的那一行会告诉你 Dosi 何时在工作、何时已回答、
 | `kodosi terminal start --directory <repository> --branch <name>` | 在新分支上、独立的 worktree 中启动终端。 |
 | `kodosi terminal start --computer <computer> --directory <folder>` | 在你的另一台电脑上启动终端。相对路径的文件夹或以 `~` 开头的文件夹位于那台电脑上你的主目录中。`kodosi devices list` 会显示哪些电脑在线。 |
 | `kodosi agent list` | 显示 Agent、它们的账号和你上次的选择。 |
-| `kodosi agent usage` | 显示每个已登录的 Claude Code、Codex 和 Copilot CLI 账号已使用了多少套餐额度。 |
+| `kodosi agent usage` | 显示每个已登录的 Claude Code、Codex 和 Copilot CLI 账号已使用了多少套餐额度，以及每项额度何时重置。 |
 | `kodosi terminal list` | 显示你的终端及其名称和 ID。两者都可以作为 `<terminal>` 使用。 |
 | `kodosi terminal read <terminal>` | 输出屏幕内容。`--history` 会加上已滚出屏幕的行。 |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 把一条消息交给终端里的 Agent，并附上发送者和来源。 |

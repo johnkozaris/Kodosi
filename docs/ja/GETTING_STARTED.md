@@ -113,7 +113,7 @@ Dosi の顔の隣の行には、Dosi が作業中か、答えたか、質問が�
 | `kodosi terminal start --directory <repository> --branch <name>` | 専用の worktree の新しいブランチでターミナルを起動します。 |
 | `kodosi terminal start --computer <computer> --directory <folder>` | ほかのコンピュータでターミナルを起動します。相対パスのフォルダや `~` で始まるフォルダは、そのコンピュータのホームにあるものです。どのコンピュータがオンラインかは `kodosi devices list` で確認できます。 |
 | `kodosi agent list` | エージェント、そのアカウント、前回の設定を表示します。 |
-| `kodosi agent usage` | サインイン中の Claude Code、Codex、Copilot CLI の各アカウントが、プランの上限をどれだけ使ったかを表示します。 |
+| `kodosi agent usage` | サインイン中の Claude Code、Codex、Copilot CLI の各アカウントが、プランの上限をどれだけ使ったかと、各上限がいつリセットされるかを表示します。 |
 | `kodosi terminal list` | ターミナルを名前と ID 付きで表示します。どちらも `<terminal>` に指定できます。 |
 | `kodosi terminal read <terminal>` | 画面を出力します。`--history` を付けると、スクロールで流れた行も加わります。 |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 送信者と送信元を添えて、ターミナルのエージェントにメッセージを渡します。 |

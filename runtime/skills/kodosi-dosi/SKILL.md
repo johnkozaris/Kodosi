@@ -32,7 +32,7 @@ context between terminals and projects.
   as text (`--history` adds the earlier lines). Quote only the lines that matter.
 - `kodosi agent list` and `kodosi agent models <agent>`: the installed agents, their
   accounts, models and efforts, and the person's last choice. `kodosi agent usage`: how
-  much of the plan limits each signed-in account has used.
+  much of the plan limits each signed-in account has used, and when each limit resets.
 - `kodosi provider history claude <folder>` and
   `kodosi provider read claude <conversation> <folder>`: saved Claude Code conversations;
   `copilot` works the same way.

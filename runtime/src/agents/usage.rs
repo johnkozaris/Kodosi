@@ -14,7 +14,7 @@ use tokio::{
 
 use super::{
     AccountUsage, Agent, AgentAccount, AgentCatalog, AgentUsageReply, Runner, UsageLevel,
-    UsageLimit,
+    UsageLimit, models::CLAUDE_MODELS,
 };
 
 const READING_LIFE: Duration = Duration::from_secs(60);
@@ -132,7 +132,7 @@ pub(super) async fn read(
         .await
         .map_err(|_| format!("{} did not report its usage in time.", agent.label()))??;
     process.finish().await;
-    Ok(headlined(limits))
+    Ok(upcoming(limits, crate::identity::now_ms()))
 }
 
 struct Process {
@@ -382,23 +382,32 @@ pub(super) fn claude(report: &Value) -> Vec<UsageLimit> {
                 (_, "monthly") => None,
                 _ => return None,
             };
-            let scope = match row.get("scope").filter(|scope| !scope.is_null()) {
-                Some(scope) => Some(
-                    scope
-                        .pointer("/model/display_name")
-                        .or_else(|| scope.pointer("/surface/display_name"))
-                        .and_then(Value::as_str)
-                        .and_then(scope_name)?,
-                ),
-                None => None,
+            let (scope, model) = match row.get("scope").filter(|scope| !scope.is_null()) {
+                None => (None, None),
+                Some(scope) => {
+                    let name = |pointer: &str| {
+                        scope
+                            .pointer(pointer)
+                            .and_then(Value::as_str)
+                            .and_then(scope_name)
+                    };
+                    match name("/model/display_name") {
+                        Some(model) => (Some(model.clone()), Some(claude_model(model))),
+                        None => (Some(name("/surface/display_name")?), None),
+                    }
+                }
             };
-            limit(
-                hours,
+            Some(UsageLimit {
                 scope,
-                row.get("percent")?.as_f64()?,
-                matches!(text("severity"), "warning" | "critical"),
-                false,
-            )
+                model,
+                resets_at_ms: rfc3339_ms(text("resets_at")),
+                ..limit(
+                    hours,
+                    row.get("percent")?.as_f64()?,
+                    matches!(text("severity"), "warning" | "critical"),
+                    false,
+                )?
+            })
         })
         .collect()
 }
@@ -413,13 +422,18 @@ pub(super) fn codex(result: &Value) -> Vec<UsageLimit> {
             let window = snapshot.get(window)?;
             let minutes = window.get("windowDurationMins")?.as_u64()?;
             let hours = u32::try_from(minutes.div_ceil(60)).ok()?;
-            limit(
-                Some(hours),
-                None,
-                window.get("usedPercent")?.as_f64()?,
-                false,
-                false,
-            )
+            Some(UsageLimit {
+                resets_at_ms: window
+                    .get("resetsAt")
+                    .and_then(Value::as_u64)
+                    .and_then(|seconds| seconds.checked_mul(1000)),
+                ..limit(
+                    Some(hours),
+                    window.get("usedPercent")?.as_f64()?,
+                    false,
+                    false,
+                )?
+            })
         })
         .collect()
 }
@@ -438,11 +452,17 @@ pub(super) fn copilot(result: &Value) -> Vec<UsageLimit> {
         .and_then(|remaining| {
             limit(
                 None,
-                None,
                 100.0 - remaining,
                 false,
                 flag("usageAllowedWithExhaustedQuota"),
             )
+        })
+        .map(|limit| UsageLimit {
+            resets_at_ms: quota
+                .get("resetDate")
+                .and_then(Value::as_str)
+                .and_then(rfc3339_ms),
+            ..limit
         })
         .into_iter()
         .collect()
@@ -453,13 +473,7 @@ pub(super) fn copilot(result: &Value) -> Vec<UsageLimit> {
     clippy::cast_sign_loss,
     reason = "the percentage is rounded and clamped to 0 through 100 first"
 )]
-fn limit(
-    hours: Option<u32>,
-    scope: Option<String>,
-    percent: f64,
-    warned: bool,
-    continues: bool,
-) -> Option<UsageLimit> {
+fn limit(hours: Option<u32>, percent: f64, warned: bool, continues: bool) -> Option<UsageLimit> {
     if !percent.is_finite() || hours == Some(0) {
         return None;
     }
@@ -473,11 +487,25 @@ fn limit(
     };
     Some(UsageLimit {
         hours,
-        scope,
+        scope: None,
+        model: None,
         used,
         level,
-        headline: false,
+        resets_at_ms: None,
     })
+}
+
+fn claude_model(name: String) -> String {
+    CLAUDE_MODELS
+        .iter()
+        .find(|(_, label)| label.eq_ignore_ascii_case(&name))
+        .map_or(name, |(id, _)| (*id).to_owned())
+}
+
+fn rfc3339_ms(text: &str) -> Option<u64> {
+    let moment =
+        time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339).ok()?;
+    u64::try_from(moment.unix_timestamp_nanos() / 1_000_000).ok()
 }
 
 fn scope_name(name: &str) -> Option<String> {
@@ -488,14 +516,12 @@ fn scope_name(name: &str) -> Option<String> {
     .then(|| name.to_owned())
 }
 
-pub(super) fn headlined(mut limits: Vec<UsageLimit>) -> Vec<UsageLimit> {
-    let chosen = limits
-        .iter()
-        .enumerate()
-        .max_by_key(|(index, limit)| (limit.level, limit.used, std::cmp::Reverse(*index)))
-        .map(|(index, _)| index);
-    for (index, limit) in limits.iter_mut().enumerate() {
-        limit.headline = Some(index) == chosen;
+fn upcoming(mut limits: Vec<UsageLimit>, now_ms: u64) -> Vec<UsageLimit> {
+    let life = u64::try_from(READING_LIFE.as_millis()).unwrap_or(u64::MAX);
+    for limit in &mut limits {
+        limit.resets_at_ms = limit
+            .resets_at_ms
+            .filter(|resets| *resets > now_ms.saturating_add(life));
     }
     limits
 }
