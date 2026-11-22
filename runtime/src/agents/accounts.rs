@@ -238,7 +238,7 @@ const fn records(agent: Agent) -> &'static [&'static str] {
     match agent {
         Agent::Claude => &[".claude.json"],
         Agent::Codex => &["auth.json", "config.toml", "installation_id"],
-        Agent::Copilot | Agent::Cursor | Agent::Gemini | Agent::Opencode => &["config.json"],
+        Agent::Copilot | Agent::Cursor | Agent::Opencode | Agent::Antigravity => &["config.json"],
     }
 }
 
@@ -282,7 +282,7 @@ pub(super) fn identity(agent: Agent, home: &Path, path: &Path) -> Option<String>
                 .as_str()?
                 .to_owned()
         }
-        Agent::Cursor | Agent::Gemini | Agent::Opencode => return None,
+        Agent::Cursor | Agent::Opencode | Agent::Antigravity => return None,
     };
     (!identity.is_empty() && identity.len() <= 256 && !identity.chars().any(char::is_control))
         .then_some(identity)
@@ -305,8 +305,8 @@ const fn install(agent: Agent) -> &'static str {
             Agent::Codex => "irm https://chatgpt.com/codex/install.ps1 | iex",
             Agent::Copilot => "winget install GitHub.Copilot",
             Agent::Cursor => "irm 'https://cursor.com/install?win32=true' | iex",
-            Agent::Gemini => "npm install -g @google/gemini-cli",
             Agent::Opencode => "npm install -g opencode-ai",
+            Agent::Antigravity => "irm https://antigravity.google/cli/install.ps1 | iex",
         };
     }
     match agent {
@@ -314,8 +314,8 @@ const fn install(agent: Agent) -> &'static str {
         Agent::Codex => "curl -fsSL https://chatgpt.com/codex/install.sh | sh",
         Agent::Copilot => "curl -fsSL https://gh.io/copilot-install | bash",
         Agent::Cursor => "curl https://cursor.com/install -fsS | bash",
-        Agent::Gemini => "npm install -g @google/gemini-cli",
         Agent::Opencode => "curl -fsSL https://opencode.ai/install | bash",
+        Agent::Antigravity => "curl -fsSL https://antigravity.google/cli/install.sh | bash",
     }
 }
 

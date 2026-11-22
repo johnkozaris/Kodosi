@@ -175,7 +175,7 @@ public sealed class PushServiceTests
             ? (HttpStatusCode.OK, """{"access_token":"google-access","expires_in":3599}""")
             : (status, error));
         var fcm = new Fcm(PushKeys.Settings(apns: false).Fcm!, new PushClients(google), TimeProvider.System);
-        var delivery = await fcm.SendAsync(new PushToken { Token = "fcm:token-1" }, Notice(new TerminalStatus("gemini", "done", Attention: true)),
+        var delivery = await fcm.SendAsync(new PushToken { Token = "fcm:token-1" }, Notice(new TerminalStatus("antigravity", "done", Attention: true)),
             TestContext.Current.CancellationToken);
         Assert.Equal(outcome, delivery.Outcome.ToString());
     }

@@ -117,8 +117,8 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
             "codex" => "Codex",
             "copilot" => "Copilot CLI",
             "cursor" => "Cursor",
-            "gemini" => "Gemini CLI",
             "opencode" => "OpenCode",
+            "antigravity" => "Antigravity CLI",
             _ => null,
         };
         var sentence = (status.State, status.Kind) switch

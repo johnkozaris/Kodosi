@@ -393,7 +393,7 @@
     <string name="agent_unrestricted_detail">Fragt nie und führt jeden Befehl mit deinen Rechten aus.</string>
     <string name="agent_auto_check_detail">Eine Sicherheitsprüfung erlaubt, was sicher ist, und fragt dich beim Rest. Die Prüfung verbraucht Tokens.</string>
     <string name="agent_auto_folder_detail">Arbeitet in diesem Ordner selbstständig und fragt dich beim Rest.</string>
-    <string name="agent_auto_edit_detail">Bearbeitet Dateien selbstständig und fragt, bevor er Befehle ausführt.</string>
+    <string name="agent_auto_safe_detail">Bearbeitet Dateien und führt sichere Befehle selbstständig aus und fragt, bevor er etwas tut, das sich nicht rückgängig machen lässt.</string>
     <string name="agent_auto_detail">Erlaubt seine eigenen Aktionen, außer dem, was du verboten hast.</string>
     <string name="agent_quiet_detail">Zeigt weniger von seiner Arbeit.</string>
     <string name="agent_standard_detail">Zeigt seine Arbeit so, wie der Agent eingerichtet ist.</string>

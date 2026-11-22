@@ -58,8 +58,8 @@
         <translation>Δουλεύει μόνος του σε αυτόν τον φάκελο και σας ρωτά για τα υπόλοιπα.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>Επεξεργάζεται αρχεία και εκτελεί ασφαλείς εντολές μόνος του, και ρωτά πριν από ό,τι δεν αναιρείται.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>
@@ -325,8 +325,8 @@
         <translation>Δουλεύει μόνος του σε αυτόν τον φάκελο και σας ρωτά για τα υπόλοιπα.</translation>
     </message>
     <message>
-        <source>Edits files on its own and asks before it runs commands.</source>
-        <translation>Επεξεργάζεται αρχεία μόνος του και ρωτά πριν εκτελέσει εντολές.</translation>
+        <source>Edits files and runs safe commands on its own, and asks before what it cannot undo.</source>
+        <translation>Επεξεργάζεται αρχεία και εκτελεί ασφαλείς εντολές μόνος του, και ρωτά πριν από ό,τι δεν αναιρείται.</translation>
     </message>
     <message>
         <source>Accepts its own actions, except what you denied.</source>

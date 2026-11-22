@@ -833,6 +833,17 @@ impl LocalActor {
         }
     }
 
+    /// A wait, a finish or a failure that a program reports tells its person once, so the
+    /// program's own notification about it would tell them again.
+    fn reports_wait(&self) -> bool {
+        self.status_program
+            .is_some_and(|program| self.pty.foreground_process_group() == Some(program))
+            && self
+                .status
+                .summary()
+                .is_some_and(|status| status.state.waiting(false).is_some())
+    }
+
     fn publish_status(&mut self) {
         let status = self.status.summary();
         if status != self.published_status
@@ -1388,11 +1399,13 @@ impl LocalActor {
                     self.publish_context();
                 }
                 TerminalEffect::DesktopNotification { title, body } => {
-                    drop(self.changes.try_send(SessionChange::Notification {
-                        id: self.id,
-                        title,
-                        body,
-                    }));
+                    if !self.reports_wait() {
+                        drop(self.changes.try_send(SessionChange::Notification {
+                            id: self.id,
+                            title,
+                            body,
+                        }));
+                    }
                 }
             }
         }

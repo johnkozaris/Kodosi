@@ -3,7 +3,7 @@ use std::{fs, path::Path, sync::Arc};
 use super::{
     accounts::{self, referenced_home},
     launch::plan,
-    models::{self, codex, copilot, cursor, listed_values, opencode},
+    models::{self, antigravity, codex, copilot, cursor, listed_values, opencode},
     shell::Facts,
     *,
 };
@@ -356,7 +356,7 @@ fn a_new_account_gets_a_private_empty_folder() {
     assert_eq!(mode & 0o777, 0o700);
     assert!(accounts::add(home, Agent::Codex, "night shift", &[]).is_err());
     assert!(accounts::add(home, Agent::Codex, "../x", &[]).is_err());
-    assert!(accounts::add(home, Agent::Gemini, "work", &[]).is_err());
+    assert!(accounts::add(home, Agent::Cursor, "work", &[]).is_err());
     assert_eq!(
         accounts::add(
             home,
@@ -427,6 +427,11 @@ fn help_text_lists_the_values_of_a_flag() {
         ["none", "low", "high"]
     );
     assert_eq!(listed_values(claude, "--model"), Vec::<String>::new());
+    let agy = "  --effort                        Reasoning effort for the current CLI session (low|medium|high|xhigh|max)\n  -i                              Short alias for --prompt-interactive";
+    assert_eq!(
+        listed_values(agy, "--effort"),
+        ["low", "medium", "high", "xhigh", "max"]
+    );
 }
 
 #[test]
@@ -460,7 +465,7 @@ fn codex_lists_the_models_of_its_picker_in_order() {
 }
 
 #[test]
-fn copilot_cursor_and_opencode_lists_become_models() {
+fn copilot_cursor_opencode_and_antigravity_lists_become_models() {
     let config = "  `model`: AI model to use\n    - \"claude-sonnet-5.5\"\n    - \"gpt-6-sol\"\n\n  `contextTier`: tier\n    - \"default\"";
     assert_eq!(
         copilot(Some(config))
@@ -491,6 +496,41 @@ fn copilot_cursor_and_opencode_lists_become_models() {
             "--model anthropic/claude-opus-5",
             "--model 'openrouter/x[1m]'"
         ]
+    );
+    let (models, efforts) = antigravity(Some(
+        "Fetching available models...\ngemini-4-neon-high\tGemini 4 Neon (High)\ngemini-4-neon-xhigh\tGemini 4 Neon (XHigh)\ngemini-4-neon-low\tGemini 4 Neon (Low)\ngemini-3.1-pro-low\tGemini 3.1 Pro (Low)\ngemini-3.1-pro-high\tGemini 3.1 Pro (High)\nError: try again\n",
+    ));
+    assert_eq!(
+        models
+            .iter()
+            .map(|model| (
+                model.id.as_str(),
+                model.label.as_str(),
+                model.argument.as_str(),
+                model.efforts.join(" ")
+            ))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "gemini-4-neon",
+                "Gemini 4 Neon",
+                "--model gemini-4-neon",
+                "low high xhigh".to_owned()
+            ),
+            (
+                "gemini-3.1-pro",
+                "Gemini 3.1 Pro",
+                "--model gemini-3.1-pro",
+                "low high".to_owned()
+            )
+        ]
+    );
+    assert_eq!(
+        efforts
+            .iter()
+            .map(|effort| effort.argument.as_str())
+            .collect::<Vec<_>>(),
+        ["--effort low", "--effort high", "--effort xhigh"]
     );
 }
 
@@ -612,7 +652,7 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
         Agent::Codex.with_context("codex", &notes),
         "codex --no-daemon -c \"developer_instructions=$KODOSI_AGENT_CONTEXT\""
     );
-    for agent in [Agent::Claude, Agent::Copilot, Agent::Gemini] {
+    for agent in [Agent::Claude, Agent::Copilot] {
         assert_eq!(agent.with_context(agent.program(), &notes), agent.program());
     }
     assert!(!CONTEXT.trim().contains(['"', '%', '\n']));
@@ -737,6 +777,53 @@ fn cursor_and_opencode_get_the_note_only_in_the_line_that_kodosi_types_where_the
 }
 
 #[test]
+fn antigravity_gets_the_note_from_the_folder_that_its_line_adds() {
+    let root = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let folder = root.join("data root").join("agents");
+    write_notes(&folder).unwrap();
+    let bin = root.join("bin");
+    fs::create_dir(&bin).unwrap();
+    kodosi_os::process::write_program(&bin.join("agy"), "#!/bin/sh\nprintf '%s\\0' \"$@\"\n")
+        .unwrap();
+    let notes = Notes {
+        shell: "/bin/sh".into(),
+        folder: folder.clone(),
+        installed: Installed::default(),
+    };
+    let line = Agent::Antigravity.with_context("agy --mode auto", &notes);
+    let printed = std::process::Command::new("/bin/sh")
+        .arg("-c")
+        .arg(&line)
+        .env_clear()
+        .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
+        .output()
+        .unwrap();
+    let arguments = String::from_utf8(printed.stdout)
+        .unwrap()
+        .split_terminator('\0')
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let added = folder.join("antigravity");
+    assert_eq!(
+        arguments,
+        ["--mode", "auto", "--add-dir", added.to_str().unwrap()]
+    );
+    let arguments = [vec!["agy".to_owned()], arguments].concat();
+    assert!(!Agent::Antigravity.started_without_note(&arguments, None, &notes));
+    assert!(Agent::Antigravity.started_without_note(
+        &["agy".to_owned(), "--mode=".to_owned()],
+        None,
+        &notes
+    ));
+    let nothing = Notes {
+        folder: root.join("nothing"),
+        ..notes
+    };
+    assert_eq!(Agent::Antigravity.with_context("agy", &nothing), "agy");
+}
+
+#[test]
 fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
     let folder = tempfile::tempdir().unwrap();
     let notes = kodosi_os::fs::canonicalize(folder.path())
@@ -757,14 +844,22 @@ fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
         format!("---\napplyTo: \"**\"\n---\n\n{}\n", CONTEXT.trim())
     );
     let plugin = notes.join("plugin");
+    let antigravity = notes
+        .join("antigravity")
+        .join(".agents")
+        .join("plugins")
+        .join("kodosi");
     for (root, manifest) in [
-        (plugin.clone(), ".claude-plugin"),
-        (notes.join("cursor"), ".cursor-plugin"),
+        (plugin.clone(), plugin.join(".claude-plugin")),
+        (
+            notes.join("cursor"),
+            notes.join("cursor").join(".cursor-plugin"),
+        ),
+        (antigravity.clone(), antigravity.clone()),
     ] {
-        let manifest: serde_json::Value = serde_json::from_str(
-            &fs::read_to_string(root.join(manifest).join("plugin.json")).unwrap(),
-        )
-        .unwrap();
+        let manifest: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(manifest.join("plugin.json")).unwrap())
+                .unwrap();
         assert_eq!(manifest["name"], "kodosi");
         let skills = root.join("skills");
         for (skill, text) in [
@@ -782,6 +877,10 @@ fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
     assert_eq!(
         hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"],
         "kodosi skill context"
+    );
+    assert_eq!(
+        fs::read_to_string(antigravity.join("rules").join("AGENTS.md")).unwrap(),
+        format!("{}\n", CONTEXT.trim())
     );
     assert_eq!(plugin_dir(&notes).as_deref(), plugin.to_str());
     assert!(
@@ -1101,39 +1200,42 @@ fn installed(agent: Agent) -> AgentInfo {
     }
 }
 
+fn line(
+    agent: Agent,
+    saved: Option<Permissions>,
+    permissions: Option<Permissions>,
+    output: Option<Output>,
+) -> Result<(String, Option<Permissions>), String> {
+    let saved = AgentPick {
+        agent,
+        account: None,
+        model: None,
+        effort: None,
+        permissions: saved,
+        output: None,
+        fast: false,
+    };
+    let start = AgentStart {
+        agent,
+        account: None,
+        model: None,
+        effort: None,
+        permissions,
+        output,
+        fast: None,
+    };
+    plan(
+        &installed(agent),
+        None,
+        &saved,
+        &start,
+        Path::new("/bin/zsh"),
+    )
+    .map(|(line, pick)| (line, pick.permissions))
+}
+
 #[test]
 fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_quiet() {
-    let line = |agent: Agent,
-                saved: Option<Permissions>,
-                permissions: Option<Permissions>,
-                output: Option<Output>| {
-        let saved = AgentPick {
-            agent,
-            account: None,
-            model: None,
-            effort: None,
-            permissions: saved,
-            output: None,
-            fast: false,
-        };
-        let start = AgentStart {
-            agent,
-            account: None,
-            model: None,
-            effort: None,
-            permissions,
-            output,
-            fast: None,
-        };
-        plan(
-            &installed(agent),
-            None,
-            &saved,
-            &start,
-            Path::new("/bin/zsh"),
-        )
-        .map(|(line, pick)| (line, pick.permissions))
-    };
     let (ask, auto, unrestricted) = (
         Permissions::Ask,
         Permissions::Auto,
@@ -1188,6 +1290,38 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
     assert_eq!(
         line(Agent::Copilot, None, None, Some(Output::Detailed)).unwrap_err(),
         "Copilot CLI has no output detailed. Outputs: quiet, standard."
+    );
+}
+
+#[test]
+fn antigravity_starts_in_its_own_auto_mode_unless_a_person_chooses() {
+    assert_eq!(
+        line(Agent::Antigravity, None, None, None).unwrap(),
+        (
+            format!("agy --mode auto --settings '{ANTIGRAVITY_QUIET}'"),
+            Some(Permissions::Auto)
+        )
+    );
+    assert_eq!(
+        line(
+            Agent::Antigravity,
+            Some(Permissions::Ask),
+            None,
+            Some(Output::Standard)
+        )
+        .unwrap(),
+        ("agy --mode=".to_owned(), Some(Permissions::Ask))
+    );
+    assert_eq!(
+        line(
+            Agent::Antigravity,
+            None,
+            Some(Permissions::Unrestricted),
+            Some(Output::Detailed)
+        )
+        .unwrap()
+        .0,
+        format!("agy --dangerously-skip-permissions --settings '{ANTIGRAVITY_DETAILED}'")
     );
 }
 
@@ -1271,7 +1405,12 @@ fn a_running_agent_shows_each_permissions_output_and_fast_mode_that_kodosi_start
             .map(str::to_owned)
             .collect::<Vec<_>>()
     };
-    for agent in [Agent::Claude, Agent::Codex, Agent::Copilot] {
+    for agent in [
+        Agent::Claude,
+        Agent::Codex,
+        Agent::Copilot,
+        Agent::Antigravity,
+    ] {
         let mut outputs = agent.outputs();
         if outputs.is_empty() {
             outputs.push(agent.default_output());
@@ -1445,7 +1584,7 @@ fn an_agent_folder_comes_from_its_variable_or_the_usual_folder() {
         folder(Agent::Codex, Some("/srv/codex")),
         Some(Path::new("/srv/codex").to_path_buf())
     );
-    assert_eq!(folder(Agent::Gemini, None), None);
+    assert_eq!(folder(Agent::Cursor, None), None);
 }
 
 #[test]
@@ -1592,12 +1731,16 @@ fn a_running_agent_changes_with_its_own_commands() {
         ["/model gpt-6", "/permissions allow-all"]
     );
     assert_eq!(
-        lines(Agent::Gemini, settings(Some("pro"), None, None)).unwrap(),
-        ["/model set pro"]
-    );
-    assert_eq!(
         lines(Agent::Cursor, settings(None, None, Some(Permissions::Ask))).unwrap(),
         ["/run-everything off"]
+    );
+    assert_eq!(
+        lines(
+            Agent::Antigravity,
+            settings(Some("gemini-4-hydrogen"), Some("xhigh"), None)
+        )
+        .unwrap(),
+        ["/model gemini-4-hydrogen", "/effort xhigh"]
     );
     for (agent, change, what) in [
         (
@@ -1612,6 +1755,11 @@ fn a_running_agent_changes_with_its_own_commands() {
         ),
         (Agent::Copilot, settings(None, Some("high"), None), "effort"),
         (Agent::Opencode, settings(Some("big"), None, None), "model"),
+        (
+            Agent::Antigravity,
+            settings(None, None, Some(Permissions::Ask)),
+            "permissions",
+        ),
     ] {
         let label = agent.label();
         assert_eq!(
@@ -1814,6 +1962,29 @@ fn a_restart_keeps_what_kodosi_changed_while_the_agent_ran() {
             .chosen(&arguments, &AgentSettings::default())
             .join(" "),
         r#"--model opus --effort high --permission-mode manual --settings '{"viewMode":"verbose"}'"#
+    );
+}
+
+#[test]
+fn a_restart_keeps_the_empty_mode_that_asks_in_antigravity() {
+    let arguments = ["agy", "--model", "gemini-4-hydrogen", "--mode="].map(str::to_owned);
+    assert_eq!(
+        Agent::Antigravity
+            .chosen(&arguments, &AgentSettings::default())
+            .join(" "),
+        "--model gemini-4-hydrogen --mode="
+    );
+    assert_eq!(
+        Agent::Antigravity.started_with(&arguments).permissions,
+        Some(Permissions::Ask)
+    );
+    let auto = AgentSettings {
+        permissions: Some(Permissions::Auto),
+        ..AgentSettings::default()
+    };
+    assert_eq!(
+        Agent::Antigravity.chosen(&arguments, &auto).join(" "),
+        "--model gemini-4-hydrogen --mode auto"
     );
 }
 

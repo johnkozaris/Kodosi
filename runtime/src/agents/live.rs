@@ -94,7 +94,7 @@ impl Agent {
     pub(crate) const fn screen_questions(self) -> &'static [&'static str] {
         match self {
             Self::Claude => &CLAUDE_QUESTIONS,
-            Self::Codex | Self::Copilot | Self::Gemini | Self::Cursor | Self::Opencode => &[],
+            Self::Codex | Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity => &[],
         }
     }
 
@@ -119,15 +119,16 @@ impl Agent {
                 permissions: Permissions::ALL.to_vec(),
                 ..AgentLive::default()
             },
-            Self::Gemini => AgentLive {
-                model: true,
-                ..AgentLive::default()
-            },
             Self::Cursor => AgentLive {
                 permissions: vec![Permissions::Ask, Permissions::Unrestricted],
                 ..AgentLive::default()
             },
             Self::Opencode => AgentLive::default(),
+            Self::Antigravity => AgentLive {
+                model: true,
+                effort: true,
+                ..AgentLive::default()
+            },
         }
     }
 
@@ -138,7 +139,7 @@ impl Agent {
             (Self::Claude, false) => Some("/fast off"),
             (Self::Codex, true) => Some("/model --speed=fast"),
             (Self::Codex, false) => Some("/model --speed=standard"),
-            (Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode, _) => None,
+            (Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity, _) => None,
         }
     }
 
@@ -199,10 +200,7 @@ impl Agent {
                 .join(" ");
                 lines.push((line, part(model.as_ref(), effort.as_ref())));
             }
-            (Self::Gemini, Some(model), _) => {
-                lines.push((format!("/model set {model}"), part(Some(model), None)));
-            }
-            (Self::Claude | Self::Copilot, model, effort) => {
+            (Self::Claude | Self::Copilot | Self::Antigravity, model, effort) => {
                 if let Some(model) = model {
                     lines.push((format!("/model {model}"), part(Some(model), None)));
                 }
@@ -249,12 +247,6 @@ impl Agent {
         if arguments.is_empty() {
             return AgentSettings::default();
         }
-        let has = |flags: &[&str]| {
-            arguments
-                .iter()
-                .skip(1)
-                .any(|argument| flags.contains(&argument.as_str()))
-        };
         let value = |flag: &str| last_value(arguments, flag, "");
         let model = last_value(arguments, self.model_flag(), "")
             .filter(|model| is_value(model))
@@ -265,8 +257,37 @@ impl Agent {
                 .filter(|effort| is_value(effort))
                 .map(str::to_owned)
         });
-        let permissions = match self {
-            Self::Claude if has(&["--dangerously-skip-permissions"]) => {
+        let fast = match self {
+            Self::Claude => match value("--fast-mode") {
+                Some("on") => Some(true),
+                Some("off") => Some(false),
+                _ => None,
+            },
+            Self::Codex => match last_value(arguments, "-c", "service_tier=")
+                .and_then(|value| value.strip_prefix("service_tier="))
+                .map(|tier| tier.trim_matches('"'))
+            {
+                Some("fast" | "priority") => Some(true),
+                Some("default" | "standard") => Some(false),
+                _ => None,
+            },
+            Self::Copilot | Self::Cursor | Self::Opencode | Self::Antigravity => None,
+        };
+        AgentSettings {
+            model,
+            effort,
+            permissions: self.started_permissions(arguments),
+            output: self.started_output(arguments),
+            fast,
+        }
+    }
+
+    #[cfg(feature = "host")]
+    fn started_permissions(self, arguments: &[String]) -> Option<Permissions> {
+        let has = |flags: &[&str]| has_any(arguments, flags);
+        let value = |flag: &str| last_value(arguments, flag, "");
+        match self {
+            Self::Claude | Self::Antigravity if has(&["--dangerously-skip-permissions"]) => {
                 Some(Permissions::Unrestricted)
             }
             Self::Claude => match value("--permission-mode") {
@@ -287,23 +308,25 @@ impl Agent {
             },
             Self::Copilot if has(&["--yolo", "--allow-all"]) => Some(Permissions::Unrestricted),
             Self::Copilot if has(&["--assisted-approval"]) => Some(Permissions::Auto),
-            Self::Gemini if has(&["--yolo", "-y"]) => Some(Permissions::Unrestricted),
-            Self::Gemini => match value("--approval-mode") {
-                Some("default") => Some(Permissions::Ask),
-                Some("auto_edit") => Some(Permissions::Auto),
-                Some("yolo") => Some(Permissions::Unrestricted),
+            Self::Cursor if has(&["--force", "-f", "--yolo"]) => Some(Permissions::Unrestricted),
+            Self::Antigravity => match value("--mode") {
+                Some("") => Some(Permissions::Ask),
+                Some("auto") => Some(Permissions::Auto),
                 _ => None,
             },
-            Self::Cursor if has(&["--force", "-f", "--yolo"]) => Some(Permissions::Unrestricted),
             Self::Opencode if has(&["--auto"]) => Some(Permissions::Auto),
             Self::Opencode if has(&["--yolo", "--dangerously-skip-permissions"]) => None,
             Self::Copilot | Self::Cursor | Self::Opencode => Some(Permissions::Ask),
-        };
-        let output = match self {
+        }
+    }
+
+    #[cfg(feature = "host")]
+    fn started_output(self, arguments: &[String]) -> Option<Output> {
+        match self {
             Self::Claude => match last_value(arguments, "--settings", r#"{"viewMode""#) {
                 Some(settings) if settings.contains(r#""focus""#) => Some(Output::Quiet),
                 Some(settings) if settings.contains(r#""verbose""#) => Some(Output::Detailed),
-                _ if has(&["--verbose"]) => Some(Output::Detailed),
+                _ if has_any(arguments, &["--verbose"]) => Some(Output::Detailed),
                 _ => Some(Output::Standard),
             },
             Self::Codex => {
@@ -316,32 +339,22 @@ impl Agent {
                     Some(Output::Standard)
                 }
             }
-            Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
-        };
-        let fast = match self {
-            Self::Claude => match value("--fast-mode") {
-                Some("on") => Some(true),
-                Some("off") => Some(false),
-                _ => None,
+            Self::Antigravity => match last_value(arguments, "--settings", r#"{"verbosity""#) {
+                Some(settings) if settings.contains(r#""low""#) => Some(Output::Quiet),
+                Some(settings) if settings.contains(r#""high""#) => Some(Output::Detailed),
+                _ => Some(Output::Standard),
             },
-            Self::Codex => match last_value(arguments, "-c", "service_tier=")
-                .and_then(|value| value.strip_prefix("service_tier="))
-                .map(|tier| tier.trim_matches('"'))
-            {
-                Some("fast" | "priority") => Some(true),
-                Some("default" | "standard") => Some(false),
-                _ => None,
-            },
-            Self::Copilot | Self::Cursor | Self::Gemini | Self::Opencode => None,
-        };
-        AgentSettings {
-            model,
-            effort,
-            permissions,
-            output,
-            fast,
+            Self::Copilot | Self::Cursor | Self::Opencode => None,
         }
     }
+}
+
+#[cfg(feature = "host")]
+fn has_any(arguments: &[String], flags: &[&str]) -> bool {
+    arguments
+        .iter()
+        .skip(1)
+        .any(|argument| flags.contains(&argument.as_str()))
 }
 
 fn is_value(value: &str) -> bool {
