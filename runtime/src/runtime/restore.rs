@@ -225,9 +225,12 @@ pub(super) async fn agent_line(
     {
         super::commands::allow_copilot_link(account.clone(), folder.clone()).await;
     }
-    let conversation = match foreground.group {
-        Some(group) => crate::provider::shown_conversation(agent, account, group, folder).await,
-        None => None,
+    let conversation = match (terminal.chat.conversation().await, foreground.group) {
+        (Some(conversation), _) => Some(conversation),
+        (None, Some(group)) => {
+            crate::provider::shown_conversation(agent, account, group, folder).await
+        }
+        (None, None) => None,
     };
     resume_line(agent, &command, conversation.as_deref()).map(|line| AgentLine {
         line,

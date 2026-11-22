@@ -93,10 +93,11 @@ public enum AskAlways: Decodable, Equatable, Sendable {
     case rule(tool: String, text: String)
     /// Each call that this permission mode allows, until the session ends.
     case mode(ChatMode)
+    /// A folder that the agent may also work in.
     case folder(String)
 
     private enum Key: String, CodingKey {
-        case kind, tool, text, mode, path
+        case kind, tool, text, mode, name
     }
 
     public init(from decoder: any Decoder) throws {
@@ -104,7 +105,7 @@ public enum AskAlways: Decodable, Equatable, Sendable {
         switch try fields.decode(String.self, forKey: .kind) {
         case "rule": self = try .rule(tool: fields.decode(String.self, forKey: .tool), text: fields.decode(String.self, forKey: .text))
         case "mode": self = try .mode(fields.decode(ChatMode.self, forKey: .mode))
-        case "folder": self = try .folder(fields.decode(String.self, forKey: .path))
+        case "folder": self = try .folder(fields.decode(String.self, forKey: .name))
         case let kind:
             throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown offer \(kind)")
         }

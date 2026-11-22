@@ -14,7 +14,9 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTask, ChatTool, MOST_OUTPUT,
     MOST_TARGET, MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Stop, answer, file_name, list, now, person, plan_command, text, words},
+    agent::{
+        Agent, Stop, answer, file_name, list, now, person, plan_command, stop_open, text, words,
+    },
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -138,6 +140,7 @@ impl Copilot {
 
     fn hello(&mut self, chat: &mut Chat, event: &Value) -> Vec<String> {
         let closed = chat.close_asks(|_| true);
+        chat.reset();
         *self = Self {
             linked: true,
             ..Self::default()
@@ -149,11 +152,6 @@ impl Copilot {
                 model: words(event, "model"),
                 mode: mode(text(event, "mode")),
                 folder: words(event, "cwd"),
-                models: list(event, "models")
-                    .filter_map(Value::as_str)
-                    .take(32)
-                    .map(str::to_owned)
-                    .collect(),
                 ..super::ChatFacts::default()
             };
         });
@@ -945,14 +943,13 @@ impl Agent for Copilot {
                     .collect::<Option<Map<_, _>>>()?;
                 json!({"action": "accept", "content": content})
             }
-            (AskKind::Form { fields }, ChatAnswer::Deny { .. }) => {
-                match (refusal, fields.iter().find(|field| field.takes_words())) {
-                    (Some(words), Some(field)) => {
-                        json!({"action": "accept", "content": {field.name.clone(): words}})
-                    }
-                    _ => json!({"action": "decline"}),
-                }
-            }
+            (AskKind::Form { fields }, ChatAnswer::Deny { .. }) => refusal
+                .and_then(|words| {
+                    let field = fields.iter().find(|field| field.takes_words())?;
+                    let value = field.value(&[words.to_owned()])?;
+                    Some(json!({"action": "accept", "content": {field.name.clone(): value}}))
+                })
+                .unwrap_or_else(|| json!({"action": "decline"})),
             // Copilot's own autopilot also allows each tool for the session, which its terminal
             // asks for at once, so the extension turns that on as it gives the decision.
             (AskKind::Plan { actions }, ChatAnswer::Plan { choice }) => {
@@ -1080,25 +1077,6 @@ fn mode(name: &str) -> Option<ChatMode> {
     (name == "plan").then_some(ChatMode::Plan)
 }
 
-/// The answer that the agent wrote and each call that did not end stay as far as they came.
-fn stop_open(chat: &mut Chat) {
-    let open = chat
-        .items()
-        .iter()
-        .filter_map(|item| match &item.body {
-            ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
-            ChatBody::Text { live: true, .. } => Some(item.id.clone()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    for item in open {
-        match chat.body(&item).cloned() {
-            Some(ChatBody::Text { text, .. }) => chat.put(&item, answer(&text, false)),
-            _ => chat.change_tool(&item, |tool| tool.state = ToolState::Stopped),
-        }
-    }
-}
-
 /// A tool call of Copilot as the chat shows it, by Copilot's name of the tool.
 fn described(data: &Value) -> ChatTool {
     let name = text(data, "toolName");
@@ -1198,7 +1176,8 @@ fn described(data: &Value) -> ChatTool {
 }
 
 /// The questions of a form of Copilot: its message, and one question for each field. A form
-/// with a field that the chat cannot ask is for the terminal alone.
+/// with a field that the chat cannot ask is for the terminal alone, and so is a form with a
+/// field for words beside other fields: a person's words in the chat answer one field.
 fn form_of(form: &Value) -> Option<(Vec<ChatQuestion>, Vec<Field>)> {
     let message = text(form, "message");
     let properties = form.pointer("/requestedSchema/properties")?.as_object()?;
@@ -1241,7 +1220,10 @@ fn form_of(form: &Value) -> Option<(Vec<ChatQuestion>, Vec<Field>)> {
             shape,
         });
     }
-    Some((questions, fields))
+    let words = fields
+        .iter()
+        .any(|field| matches!(field.shape, Shape::Text | Shape::Number { .. }));
+    (!words || fields.len() == 1).then_some((questions, fields))
 }
 
 fn shape_of(schema: &Value) -> Option<Shape> {
@@ -1333,7 +1315,10 @@ impl Field {
     }
 
     fn takes_words(&self) -> bool {
-        matches!(self.shape, Shape::Text | Shape::One(_))
+        matches!(
+            self.shape,
+            Shape::Text | Shape::Number { .. } | Shape::One(_)
+        )
     }
 
     /// An answer that Copilot took, in the labels that the chat shows.

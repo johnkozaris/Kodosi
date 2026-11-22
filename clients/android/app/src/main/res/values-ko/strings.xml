@@ -416,6 +416,12 @@
     <string name="chat_hide_tasks">작업 숨기기</string>
     <string name="chat_takes_next">에이전트는 다음 메시지를 터미널에서 받아요.</string>
     <string name="chat_in_background">백그라운드</string>
+    <plurals name="chat_helpers">
+        <item quantity="other">서브에이전트 %d개 작업 중</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="other">명령 %d개가 백그라운드에서 실행 중</item>
+    </plurals>
     <string name="chat_denied">거부됨</string>
     <string name="chat_stopped_step">중지됨</string>
     <string name="chat_mode_edits">편집</string>

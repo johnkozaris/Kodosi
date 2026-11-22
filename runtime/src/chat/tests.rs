@@ -9,7 +9,7 @@
 use serde_json::{Value, json};
 
 use super::{
-    agent::{Agent, Stop},
+    agent::{Agent, Stop, shown_rule},
     claude::Claude,
     codex::Codex,
     copilot::Copilot,
@@ -260,7 +260,6 @@ fn an_answer_grows_in_one_item_and_ends_as_the_agent_stored_it() {
             .collect::<Vec<_>>(),
         [(Some(168), 18)]
     );
-    assert!(facts.models.iter().any(|model| model == "opus"));
 }
 
 #[test]
@@ -359,6 +358,14 @@ fn the_words_of_a_refusal_go_to_the_agent_as_the_persons_and_the_change_shows_as
         "the agent followed the person's words"
     );
     assert_said_after_refusal(&play, "Do not change the file.");
+}
+
+#[test]
+fn a_rule_for_an_absolute_path_names_only_its_folder() {
+    assert_eq!(shown_rule("//home/sam/shop/**"), "shop/**");
+    assert_eq!(shown_rule("/home/sam/shop"), "shop");
+    assert_eq!(shown_rule("~/work/notes/*.md"), "notes/*.md");
+    assert_eq!(shown_rule("npm test:*"), "npm test:*");
 }
 
 #[test]
@@ -759,6 +766,23 @@ fn a_cleared_conversation_empties_the_chat() {
 }
 
 #[test]
+fn a_clear_from_the_chat_lets_the_next_message_go() {
+    let mut play = Play::of(record!("text"), &[]);
+    play.chat.queue("/clear".to_owned(), None);
+    let [command] = &play.agent.commands(&play.chat)[..] else {
+        panic!("the command goes to Claude Code");
+    };
+    let n = command["n"].clone();
+
+    play.more(record!("clear"), &[]);
+    play.take(&json!({"k": "did", "n": n}));
+
+    assert_eq!(play.view.queued, []);
+    play.chat.queue("Hello.".to_owned(), None);
+    assert_eq!(play.agent.commands(&play.chat).len(), 1);
+}
+
+#[test]
 fn claude_code_that_starts_again_in_the_terminal_starts_the_chat_again() {
     let mut play = Play::of(record!("text"), &[]);
     assert_eq!(play.people(), ["Say hello in five words."]);
@@ -1018,10 +1042,64 @@ async fn a_message_and_a_stop_of_a_viewer_reach_the_module_that_asks_for_command
 }
 
 #[tokio::test]
+async fn the_agent_gets_the_start_and_the_end_of_a_message_longer_than_the_chat_takes() {
+    let chat = ChatHandle::spawn();
+    assert!(report(&chat, "one", 1, events(record!("text"))).await);
+    let viewer = chat
+        .attach("7".to_owned(), "Sam".to_owned())
+        .await
+        .expect("the chat opens");
+    let (reply, commands) = tokio::sync::oneshot::channel();
+    let job = Job::Next {
+        link: "one".to_owned(),
+        reply,
+    };
+    chat.jobs()
+        .upgrade()
+        .expect("the chat")
+        .send(job)
+        .await
+        .ok();
+    let log = format!(
+        "Build log:\n{}Why does it fail?",
+        "error: link\n".repeat(10_000)
+    );
+
+    let message = serde_json::to_vec(&ChatRequest::Send { text: log }).expect("a request");
+    viewer.sender.send(message).await.expect("the pipe is open");
+
+    let Ok(Ok(Some(commands))) =
+        tokio::time::timeout(std::time::Duration::from_secs(5), commands).await
+    else {
+        panic!("the message goes to the module");
+    };
+    let text = commands[0]["text"].as_str().expect("the text");
+    assert!(text.len() <= MOST_MESSAGE + 8);
+    assert!(text.starts_with("Build log:"));
+    assert!(text.ends_with("Why does it fail?"));
+}
+
+#[tokio::test]
 async fn a_batch_that_the_module_sends_again_changes_the_chat_once() {
     let chat = ChatHandle::spawn();
     assert!(report(&chat, "one", 1, events(record!("text"))).await);
     assert!(report(&chat, "one", 1, events(record!("text"))).await);
+
+    let mut viewer = chat
+        .attach(String::new(), String::new())
+        .await
+        .expect("the chat opens");
+    let ChatFrame::Snapshot(snapshot) = frame(&mut viewer).await else {
+        panic!("the chat as it is comes first");
+    };
+    assert_eq!(snapshot.items.len(), 3);
+}
+
+#[tokio::test]
+async fn another_agent_in_the_terminal_starts_the_chat_again() {
+    let chat = ChatHandle::spawn();
+    assert!(report(&chat, "copilot", 1, events(copilot!("history"))).await);
+    assert!(report(&chat, "claude", 1, events(record!("text"))).await);
 
     let mut viewer = chat
         .attach(String::new(), String::new())
@@ -1085,10 +1163,6 @@ fn codex_shows_its_first_turn_from_the_moment_its_server_lets_the_chat_follow() 
     assert_eq!(facts.effort.as_deref(), Some("low"));
     assert_eq!(facts.mode, Some(ChatMode::Ask));
     assert_eq!(facts.folder.as_deref(), Some("/home/sam/shop"));
-    assert_eq!(
-        facts.models,
-        ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"]
-    );
     assert_eq!(
         facts.context,
         Some(ChatContext {
@@ -1612,8 +1686,8 @@ async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_person
     );
     assert_eq!(heard!()["method"], "initialized");
 
-    // The adapter asks for the models, the modes, the limits and the conversations of the server.
-    let asked = [heard!(), heard!(), heard!(), heard!()];
+    // The adapter asks for the modes, the limits and the conversations of the server.
+    let asked = [heard!(), heard!(), heard!()];
     let loaded = asked
         .iter()
         .find(|call| call["method"] == "thread/loaded/list")
@@ -1671,6 +1745,16 @@ async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_person
 }
 
 #[test]
+fn codex_names_the_conversation_that_its_terminal_shows() {
+    let play = Play::codex(&[codex!("first")], &[]);
+
+    assert_eq!(
+        play.agent.conversation(),
+        Some("00000001-0000-7000-8000-000000000000")
+    );
+}
+
+#[test]
 fn copilot_shows_a_message_and_the_answer_as_copilot_writes_it() {
     let play = Play::copilot(&[copilot!("text")], &[]);
 
@@ -1683,7 +1767,6 @@ fn copilot_shows_a_message_and_the_answer_as_copilot_writes_it() {
     assert_eq!(facts.version.as_deref(), Some("1.0.115-3"));
     assert_eq!(facts.model.as_deref(), Some("mai-code-2-flash"));
     assert_eq!(facts.folder.as_deref(), Some("/home/sam/shop"));
-    assert!(facts.models.iter().any(|model| model == "gpt-6-luna"));
     assert!(
         facts
             .context
@@ -2141,6 +2224,53 @@ fn an_answer_in_the_terminal_closes_a_question_of_copilot_and_shows_in_the_chat(
     assert_eq!(play.answers(), ["tea"]);
 }
 
+/// A question of Copilot that asks `fields` of the schema of its form, as the extension reports it.
+fn copilot_form(fields: &Value) -> Play {
+    let mut play = Play::copilot(&[], &[]);
+    let lines = copilot!("question").lines().collect::<Vec<_>>();
+    let asked = lines
+        .iter()
+        .position(|line| line.contains(r#""k":"ask""#))
+        .expect("a question");
+    let mut ask: Value = serde_json::from_str(lines[asked]).expect("the question");
+    ask["form"]["requestedSchema"]["properties"] = fields.clone();
+    let record = lines[..asked]
+        .iter()
+        .map(|line| (*line).to_owned())
+        .chain([ask.to_string()])
+        .collect::<Vec<_>>();
+    play.more(&record.join("\n"), &[]);
+    play
+}
+
+#[test]
+fn a_number_that_a_person_writes_answers_the_form_of_copilot_that_asks_for_it() {
+    let play = copilot_form(&json!({"count": {"type": "integer", "title": "How many?"}}));
+    let ask = play.view.asks[0].id.clone();
+    let mut agent = play.agent;
+
+    assert_eq!(
+        agent.decision(
+            &ask,
+            &ChatAnswer::Deny {
+                text: Some("3".to_owned())
+            },
+            None
+        ),
+        Some(json!({"action": "accept", "content": {"count": 3}}))
+    );
+}
+
+#[test]
+fn a_form_of_copilot_with_words_and_other_fields_is_for_its_terminal() {
+    let play = copilot_form(&json!({
+        "name": {"type": "string", "title": "Name"},
+        "fruit": {"type": "string", "enum": ["pear", "plum"]},
+    }));
+
+    assert_eq!(play.view.asks, []);
+}
+
 #[test]
 fn words_in_place_of_an_answer_go_to_copilot_as_the_person_s_own_answer() {
     let mut play = Play::copilot(&[], &[]);
@@ -2274,6 +2404,17 @@ fn the_steps_of_a_helper_of_copilot_show_in_the_call_that_started_it() {
     assert!(helper_asked, "the helper's question named its task");
     assert_eq!(play.view.facts.helpers, 0);
     assert_eq!(play.view.facts.model.as_deref(), Some("mai-code-2-flash"));
+}
+
+#[test]
+fn copilot_that_starts_again_in_its_terminal_shows_its_conversation_once() {
+    let mut play = Play::new(Box::new(Copilot::default()));
+    play.more(copilot!("history"), &[]);
+    let people = play.people().len();
+
+    play.more(copilot!("history"), &[]);
+
+    assert_eq!(play.people().len(), people);
 }
 
 #[test]

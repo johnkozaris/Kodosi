@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde_json::Value;
 
 use super::{
-    ChatAnswer, ChatBody, ChatPerson, MOST_TARGET, MOST_TEXT,
+    ChatAnswer, ChatBody, ChatPerson, MOST_TARGET, MOST_TEXT, ToolState,
     claude::Claude,
     codex::Codex,
     copilot::Copilot,
@@ -58,6 +58,12 @@ pub(super) trait Agent: Send {
 
     /// How the turn stops for a person in the chat.
     fn stop(&mut self, chat: &Chat) -> Stop;
+
+    /// The conversation that the agent shows in its terminal, when only the chat knows it: Codex
+    /// keeps its conversations in the server of the terminal, outside the terminal's programs.
+    fn conversation(&self) -> Option<&str> {
+        None
+    }
 }
 
 pub(super) enum Stop {
@@ -119,8 +125,46 @@ pub(super) fn answer(words: &str, live: bool) -> ChatBody {
     }
 }
 
+/// The items that did not end: each call that runs or waits, and the answer that the agent writes.
+pub(super) fn open_items(chat: &Chat) -> Vec<String> {
+    chat.items()
+        .iter()
+        .filter_map(|item| match &item.body {
+            ChatBody::Tool { tool } if tool.state.is_open() => Some(item.id.clone()),
+            ChatBody::Text { live: true, .. } => Some(item.id.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The answer that the agent wrote and each call that did not end stay as far as they came.
+pub(super) fn stop_open(chat: &mut Chat) {
+    for item in open_items(chat) {
+        match chat.body(&item).cloned() {
+            Some(ChatBody::Text { text, .. }) => chat.put(&item, answer(&text, false)),
+            _ => chat.change_tool(&item, |tool| tool.state = ToolState::Stopped),
+        }
+    }
+}
+
 pub(super) fn file_name(path: &str) -> &str {
     path.rsplit(['/', '\\']).next().unwrap_or(path)
+}
+
+/// A rule for an absolute path names only its folder and the pattern after it, as a person
+/// reads it in a question.
+pub(super) fn shown_rule(rule: &str) -> String {
+    if !rule.starts_with(['/', '~']) {
+        return rule.to_owned();
+    }
+    let parts = rule
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    parts
+        .iter()
+        .rposition(|part| !part.contains(['*', '?', '[']))
+        .map_or_else(|| rule.to_owned(), |folder| parts[folder..].join("/"))
 }
 
 /// A message that starts with the agents' own `/plan` command goes on in plan mode, with the rest

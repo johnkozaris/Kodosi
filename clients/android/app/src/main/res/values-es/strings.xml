@@ -420,6 +420,16 @@
     <string name="chat_hide_tasks">Ocultar las tareas</string>
     <string name="chat_takes_next">El agente toma el siguiente mensaje en su terminal.</string>
     <string name="chat_in_background">en segundo plano</string>
+    <plurals name="chat_helpers">
+        <item quantity="one">%d ayudante trabaja</item>
+        <item quantity="many">%d ayudantes trabajan</item>
+        <item quantity="other">%d ayudantes trabajan</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="one">%d comando se ejecuta en segundo plano</item>
+        <item quantity="many">%d comandos se ejecutan en segundo plano</item>
+        <item quantity="other">%d comandos se ejecutan en segundo plano</item>
+    </plurals>
     <string name="chat_denied">denegado</string>
     <string name="chat_stopped_step">detenido</string>
     <string name="chat_mode_edits">Cambios</string>

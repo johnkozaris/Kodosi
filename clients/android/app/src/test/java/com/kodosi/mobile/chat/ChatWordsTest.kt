@@ -24,14 +24,6 @@ class ChatWordsTest {
     }
 
     @Test
-    fun aRuleForAnAbsolutePathNamesOnlyItsFolder() {
-        assertEquals("shop/**", ChatWords.ruleWords("/a/b/shop/**"))
-        assertEquals("shop", ChatWords.ruleWords("/a/b/shop"))
-        assertEquals("notes/*.md", ChatWords.ruleWords("~/work/notes/*.md"))
-        assertEquals("npm test:*", ChatWords.ruleWords("npm test:*"))
-    }
-
-    @Test
     fun aModelThatTheAgentNamesByItsFullIdTakesTheLaunchersNameAndItsVersion() {
         val models =
             listOf(AgentModel("sonnet", "Sonnet"), AgentModel("opus", "Opus"), AgentModel("gpt-6-luna", "GPT-6-Luna"))
