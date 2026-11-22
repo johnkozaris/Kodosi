@@ -138,9 +138,9 @@ enum Action {
 
 const TERMINAL: &str =
     "The terminal: its name, its ID or the end of its ID that `kodosi terminal list` shows";
-const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where the agent's own safety check decides and asks for the rest; or unrestricted, which never asks. It starts with your last choice, else unrestricted, or ask for an agent without it";
+const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where the agent's own safety check decides and asks for the rest; or unrestricted, which never asks. It starts with your last choice, else auto for Antigravity CLI, unrestricted for the other agents that have it, and ask for the rest";
 const LIVE_PERMISSIONS: &str = "How the agent asks before it acts: ask, auto or unrestricted, as far as the agent can change it while it runs";
-const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed for Claude Code and Codex, and quiet or standard for Copilot CLI. It starts with your last choice, else quiet";
+const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed for Claude Code, Codex and Antigravity CLI, and quiet or standard for Copilot CLI. It starts with your last choice, else quiet";
 const FAST: &str = "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off for the agent's own setting. It starts with your last choice";
 const CHAT: &str = "Antigravity CLI in the chat of the terminal, in a conversation of its own, on macOS and Linux: on, or off for its own app in the terminal. It starts with your last choice";
 const LIVE_FAST: &str =
