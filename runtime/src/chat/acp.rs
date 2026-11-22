@@ -4,8 +4,9 @@
 //! `kodosi acp -- <command>` runs the agent's own server in the terminal, with the terminal's
 //! folder and environment, as a person would run it there. It makes Kodosi known to the server
 //! and carries each message of the server to the terminal's chat as it is, and the calls and the
-//! decisions of the chat's adapter back. What the protocol means is all in the adapter. Kodosi
-//! never talks to the agent's provider: the agent's own program does.
+//! decisions of the chat's adapter back. What the messages mean in the chat is all in the adapter;
+//! this side shows only what a program shows in its terminal: the agent's state and the title of
+//! its session. Kodosi never talks to the agent's provider: the agent's own program does.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -38,6 +39,7 @@ const MOST_MESSAGE: usize = 8 * 1024 * 1024;
 const MOST_HEAD: usize = 16 * 1024;
 const MOST_BATCH: usize = 64;
 const MOST_WAITING: usize = 256;
+const MOST_TITLE: usize = 120;
 /// The JSON-RPC code of a method that the other side does not have.
 const NO_METHOD: i64 = -32601;
 /// What Kodosi's chat calls on the terminal's side itself: the agent's own sign-in, and the
@@ -111,9 +113,7 @@ fn agent_of(program: &str) -> Option<(&'static str, &'static str)> {
 }
 
 fn say(text: &Text) {
-    let mut out = io::stdout().lock();
-    drop(writeln!(out, "{text}"));
-    drop(out.flush());
+    write_out(&format!("{text}\n"));
 }
 
 /// The agent's own sign-in in this terminal, which asks the person for a code.
@@ -138,6 +138,8 @@ struct Server {
     child: Child,
     input: ChildStdin,
     output: Messages,
+    /// The server's answer to Kodosi's first message: what it is and what it offers.
+    started: Option<Value>,
 }
 
 impl Server {
@@ -167,6 +169,7 @@ impl Server {
             child,
             input,
             output: Messages::new(output),
+            started: None,
         };
         let hello = json!({
             "jsonrpc": "2.0",
@@ -198,7 +201,7 @@ impl Server {
         .flatten();
         match answer {
             Some(answer) if answer.get("result").is_some() => {
-                server.output.started = answer.get("result").cloned();
+                server.started = answer.get("result").cloned();
                 Ok(server)
             }
             Some(answer) => Err(text!(
@@ -241,7 +244,6 @@ impl Server {
 struct Messages {
     reader: BufReader<ChildStdout>,
     line: Vec<u8>,
-    started: Option<Value>,
 }
 
 impl Messages {
@@ -249,7 +251,6 @@ impl Messages {
         Self {
             reader: BufReader::new(output),
             line: Vec::new(),
-            started: None,
         }
     }
 
@@ -422,6 +423,8 @@ struct Open {
     requests: HashSet<String>,
     /// The agent asked the person a question and waits for the next message.
     asking: bool,
+    /// How the last turn ended: done, or with an error.
+    ended: Option<&'static str>,
     made: u64,
     shown: Option<&'static str>,
 }
@@ -440,7 +443,7 @@ impl Open {
         } else if self.asking {
             "state=blocked:kind=question"
         } else {
-            "state=idle"
+            self.ended.unwrap_or("state=idle")
         };
         if self.shown == Some(state) {
             return;
@@ -451,8 +454,12 @@ impl Open {
 }
 
 fn report(state: &str) {
+    write_out(&format!("\x1b]7501;{state}:app=antigravity\x07"));
+}
+
+fn write_out(text: &str) {
     let mut out = io::stdout().lock();
-    drop(write!(out, "\x1b]7501;{state}:app=antigravity\x07"));
+    drop(out.write_all(text.as_bytes()));
     drop(out.flush());
 }
 
@@ -479,7 +486,7 @@ async fn relay(
         "k": "hello",
         "t": now(),
         "agent": agent,
-        "started": server.output.started.take(),
+        "started": server.started.take(),
         "folder": std::env::current_dir().ok(),
         "start": start,
     });
@@ -552,6 +559,7 @@ async fn relay(
     open.prompts.clear();
     open.requests.clear();
     open.asking = false;
+    open.ended = None;
     open.show();
     Ok(match ended {
         Ended::Code(0) => Ended::Code(code),
@@ -611,6 +619,9 @@ impl Relay {
         if heard.began {
             typed.listen();
         }
+        if let Some(title) = heard.title {
+            write_out(&format!("\x1b]2;{title}\x07"));
+        }
         match heard.event {
             Some(event) => self.tell(event).await,
             None => None,
@@ -654,6 +665,8 @@ struct Heard {
     refuse: Option<Value>,
     /// The session began, so the terminal can take messages.
     began: bool,
+    /// The title that the agent gave the session, which the terminal takes as its program's title.
+    title: Option<String>,
 }
 
 fn hear(open: &mut Open, message: &Value) -> Heard {
@@ -676,6 +689,7 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
             }
         }
         (Some(method), None) => Heard {
+            title: session_title(&params),
             event: Some(json!({"k": "note", "t": now(), "m": method, "p": params})),
             ..Heard::default()
         },
@@ -686,8 +700,11 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
             let Some(tag) = open.calls.remove(&number) else {
                 return Heard::default();
             };
-            open.prompts.retain(|prompt| *prompt != number);
             let result = message.get("result").cloned();
+            if let Some(at) = open.prompts.iter().position(|prompt| *prompt == number) {
+                open.prompts.remove(at);
+                open.ended = turn_end(result.as_ref());
+            }
             let began = tag.starts_with("session") && result.is_some();
             Heard {
                 event: Some(json!({
@@ -705,6 +722,30 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
     }
 }
 
+/// The title that the agent gave its session, as a terminal shows it.
+fn session_title(params: &Value) -> Option<String> {
+    let update = params
+        .get("update")
+        .filter(|update| update["sessionUpdate"] == "session_info_update")?;
+    let title = update["title"].as_str()?;
+    Some(
+        title
+            .chars()
+            .filter(|character| !character.is_control())
+            .take(MOST_TITLE)
+            .collect(),
+    )
+}
+
+/// The state that a turn leaves: done, none after a person's stop, or an error.
+fn turn_end(result: Option<&Value>) -> Option<&'static str> {
+    match result.and_then(|result| result["stopReason"].as_str()) {
+        Some("end_turn") => Some("state=done"),
+        Some("cancelled") => None,
+        _ => Some("state=error"),
+    }
+}
+
 /// A call or a notification of the adapter as the server takes it.
 fn call(open: &mut Open, command: &Value) -> Value {
     let mut message = json!({"jsonrpc": "2.0", "method": command["m"]});
@@ -719,6 +760,7 @@ fn call(open: &mut Open, command: &Value) -> Value {
     if command["m"] == "session/prompt" {
         open.prompts.push(open.made);
         open.asking = false;
+        open.ended = None;
     }
     open.calls.insert(open.made, tag);
     message["id"] = json!(open.made);
