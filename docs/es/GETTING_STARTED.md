@@ -67,6 +67,11 @@ la shell del terminal nuevo.
   Kodosi inicia el terminal en un worktree de Git nuevo. Cuando el terminal termina, Kodosi
   quita el worktree si no ha cambiado nada. Ajustes › Terminal define dónde van esas
   carpetas.
+- Un terminal es claro u oscuro como Kodosi en el ordenador que lo ejecuta, en cada
+  dispositivo que lo muestra. Sus programas conocen el aspecto, y algunos lo siguen, como
+  Claude Code con su tema en Auto (`/theme`). Para que los terminales sigan oscuros
+  mientras Kodosi está claro, activa Mantener los terminales oscuros en Ajustes ›
+  Terminal.
 
 Un terminal es una shell real en el ordenador que lo ejecuta. Minimizar oculta un terminal y
 lo deja en marcha; Cerrar lo termina junto con sus programas. Cuando cierras la ventana, Kodosi
@@ -109,6 +114,13 @@ las notificaciones de un dispositivo, abre Ajustes en Kodosi en ese dispositivo.
 programas indican su estado con el
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) o con
 una barra de progreso. Un programa que no indica nada no muestra estado.
+
+Un terminal con Claude Code también se muestra como chat, igual que uno con Codex o
+Copilot CLI cuando Kodosi los inicia. En un Mac, un iPhone, un iPad o un teléfono Android,
+selecciona Chat en la cabecera del terminal. El chat muestra lo que escribiste, lo que el
+agente respondió e hizo, y sus preguntas, con las respuestas como botones. Escríbele al
+agente ahí, o detenlo. Mientras pregunta, las palabras que escribes le dicen qué hacer en
+su lugar. Lo que haces en el chat también ocurre en el terminal.
 
 ## 4. Mira lo que muestra un agente
 
