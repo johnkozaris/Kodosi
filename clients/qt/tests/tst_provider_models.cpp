@@ -371,6 +371,8 @@ private slots:
         QCOMPARE(launcher.resetIn(resetting(now + 5 * 24 * 60 * minute), now), QStringLiteral("5d"));
         QCOMPARE(launcher.resetIn(resetting(now + 287 * minute + 1), now), QStringLiteral("4h 48m"));
         QCOMPARE(launcher.resetIn(resetting(now + 30000), now), QStringLiteral("1m"));
+        QCOMPARE(launcher.resetIn(resetting(now + 59 * minute + 30000), now), QStringLiteral("1h"));
+        QCOMPARE(launcher.resetIn(resetting(now + (23 * 60 + 59) * minute + 30000), now), QStringLiteral("1d"));
         QCOMPARE(launcher.resetIn(resetting(now - minute), now), QString());
         QCOMPARE(launcher.resetIn(QVariantMap { { QStringLiteral("resetsAtMs"), QVariant() } }, now), QString());
         QCOMPARE(launcher.spokenWithReset(resetting(now + 288 * minute), now), QStringLiteral("This week: 85% used, resets in 4 hours 48 minutes"));

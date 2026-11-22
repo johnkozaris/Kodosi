@@ -122,11 +122,7 @@ async fn read_account(
     read(agent, &runner, home).await
 }
 
-pub(super) async fn read(
-    agent: Agent,
-    runner: &Runner,
-    home: &Path,
-) -> Result<Vec<UsageLimit>, String> {
+async fn read(agent: Agent, runner: &Runner, home: &Path) -> Result<Vec<UsageLimit>, String> {
     let mut process = Process::start(agent, runner, home)?;
     let limits = tokio::time::timeout(READ_TIME, process.ask(agent))
         .await
@@ -368,7 +364,7 @@ fn answer(message: &Value, id: u64) -> Result<Option<Value>, String> {
     Ok(Some(message.get("result").cloned().unwrap_or_default()))
 }
 
-pub(super) fn claude(report: &Value) -> Vec<UsageLimit> {
+fn claude(report: &Value) -> Vec<UsageLimit> {
     report
         .pointer("/rate_limits/limits")
         .and_then(Value::as_array)
@@ -412,7 +408,7 @@ pub(super) fn claude(report: &Value) -> Vec<UsageLimit> {
         .collect()
 }
 
-pub(super) fn codex(result: &Value) -> Vec<UsageLimit> {
+fn codex(result: &Value) -> Vec<UsageLimit> {
     let Some(snapshot) = result.get("rateLimits") else {
         return Vec::new();
     };
@@ -438,7 +434,7 @@ pub(super) fn codex(result: &Value) -> Vec<UsageLimit> {
         .collect()
 }
 
-pub(super) fn copilot(result: &Value) -> Vec<UsageLimit> {
+fn copilot(result: &Value) -> Vec<UsageLimit> {
     let Some(quota) = result.pointer("/quotaSnapshots/premium_interactions") else {
         return Vec::new();
     };
@@ -496,10 +492,14 @@ fn limit(hours: Option<u32>, percent: f64, warned: bool, continues: bool) -> Opt
 }
 
 fn claude_model(name: String) -> String {
-    CLAUDE_MODELS
-        .iter()
-        .find(|(_, label)| label.eq_ignore_ascii_case(&name))
-        .map_or(name, |(id, _)| (*id).to_owned())
+    let model = name
+        .split(|letter: char| !letter.is_alphanumeric())
+        .find_map(|word| {
+            CLAUDE_MODELS
+                .iter()
+                .find(|(_, label)| label.eq_ignore_ascii_case(word))
+        });
+    model.map_or(name, |(id, _)| (*id).to_owned())
 }
 
 fn rfc3339_ms(text: &str) -> Option<u64> {
