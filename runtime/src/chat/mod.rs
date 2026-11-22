@@ -5,8 +5,12 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(all(feature = "host", unix))]
+mod acp;
 #[cfg(feature = "host")]
 mod agent;
+#[cfg(feature = "host")]
+mod antigravity;
 #[cfg(feature = "host")]
 mod claude;
 #[cfg(feature = "host")]
@@ -28,6 +32,8 @@ mod state;
 #[cfg(all(test, feature = "host"))]
 mod tests;
 
+#[cfg(all(feature = "host", unix))]
+pub(crate) use acp::{Choices as AcpChoices, run as run_acp};
 #[cfg(feature = "host")]
 pub(crate) use claude::MODULE as CLAUDE_MODULE;
 #[cfg(feature = "host")]

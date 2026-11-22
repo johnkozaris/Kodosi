@@ -10,6 +10,7 @@ use serde_json::Value;
 
 use super::{
     ChatAnswer, ChatBody, ChatPerson, MOST_TARGET, MOST_TEXT,
+    antigravity::Antigravity,
     claude::Claude,
     codex::Codex,
     copilot::Copilot,
@@ -74,6 +75,7 @@ pub(super) fn named(name: &str) -> Option<Box<dyn Agent>> {
         Claude::NAME => Some(Box::new(Claude::default())),
         Codex::NAME => Some(Box::new(Codex::default())),
         Copilot::NAME => Some(Box::new(Copilot::default())),
+        Antigravity::NAME => Some(Box::new(Antigravity::default())),
         _ => None,
     }
 }

@@ -107,6 +107,26 @@ enum Action {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         arguments: Vec<String>,
     },
+    #[command(
+        about = "Run an agent's server for programs (ACP) in this terminal, and show its session in the terminal's chat: kodosi acp -- agy acp."
+    )]
+    Acp {
+        /// The model of the session.
+        #[arg(long)]
+        model: Option<String>,
+        /// The thinking level of the session.
+        #[arg(long)]
+        effort: Option<String>,
+        /// The agent's mode of the session, such as auto. An empty mode is the agent's default.
+        #[arg(long)]
+        mode: Option<String>,
+        /// The session to go on with.
+        #[arg(long)]
+        resume: Option<String>,
+        /// The agent's server and its arguments, after --.
+        #[arg(last = true, required = true)]
+        command: Vec<String>,
+    },
     #[command(about = "Run the local terminal host until interrupted, or stop the host that runs.")]
     Host {
         #[command(subcommand)]
@@ -528,6 +548,38 @@ pub fn is_invocation(args: &[OsString]) -> bool {
         .any(|command| command.get_name() == first)
 }
 
+#[cfg(unix)]
+async fn run_acp(
+    command: Vec<String>,
+    model: Option<String>,
+    effort: Option<String>,
+    mode: Option<String>,
+    resume: Option<String>,
+) -> Result<u8> {
+    let choices = crate::chat::AcpChoices {
+        model,
+        effort,
+        mode,
+        resume,
+    };
+    crate::chat::run_acp(command, choices)
+        .await
+        .map_err(Error::Text)
+}
+
+#[cfg(not(unix))]
+async fn run_acp(
+    _: Vec<String>,
+    _: Option<String>,
+    _: Option<String>,
+    _: Option<String>,
+    _: Option<String>,
+) -> Result<u8> {
+    Err(Error::Text(text!(
+        "The chat of a terminal follows an agent's server only on macOS and Linux."
+    )))
+}
+
 const fn hosted_kind(action: &Action) -> Option<HostKind> {
     match action {
         Action::Host { action: None } => Some(HostKind::Foreground),
@@ -542,6 +594,16 @@ const fn hosted_kind(action: &Action) -> Option<HostKind> {
 )]
 #[expect(clippy::too_many_lines, reason = "one dispatch for every command")]
 async fn dispatch(args: Arguments) -> Result<u8> {
+    if let Action::Acp {
+        model,
+        effort,
+        mode,
+        resume,
+        command,
+    } = args.command
+    {
+        return run_acp(command, model, effort, mode, resume).await;
+    }
     let mut config = Config::load()?;
     if let Some(kind) = hosted_kind(&args.command) {
         config.host = kind;
@@ -744,6 +806,7 @@ async fn command(
         | Action::Canvas { .. }
         | Action::Browser { .. }
         | Action::Doc { .. }
+        | Action::Acp { .. }
         | Action::Host { .. }
         | Action::InternalHost
         | Action::Status => {
