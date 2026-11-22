@@ -122,10 +122,6 @@ Chat nell'intestazione del terminale. La chat mostra cosa hai scritto, cosa l'ag
 risposto e fatto, e le sue domande, con le risposte come pulsanti. Lì puoi scrivere
 all'agente o fermarlo. Mentre chiede, le parole che scrivi gli dicono cosa fare invece.
 Ciò che fai nella chat avviene anche nel terminale.
-Antigravity CLI si apre nella sua app nel terminale, o nella chat quando il suo terminale
-gira su un Mac o su un computer Linux: scegli Si apre in, in Altro, nel launcher. Nella
-chat lavora in una conversazione tutta sua, che si vede solo lì, e accede con i suoi
-passaggi nel terminale.
 
 ## 4. Guarda cosa mostra un agente
 

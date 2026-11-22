@@ -57,6 +57,7 @@
 "Kodosi could not sign you in": "Kodosi konnte dich nicht anmelden",
 "Kodosi could not trust this device after the reset.": "Kodosi konnte diesem Gerät nach dem Zurücksetzen nicht vertrauen.",
 "Kodosi did not send some of your last input.": "Kodosi hat einen Teil deiner letzten Eingabe nicht gesendet.",
+"Kodosi does not start Antigravity CLI in the chat now. Start agy in the terminal.": "Kodosi startet Antigravity CLI zurzeit nicht im Chat. Starte agy im Terminal.",
 "Kodosi had an error.": "In Kodosi ist ein Fehler aufgetreten.",
 "Kodosi has no browser for this computer yet.": "Kodosi hat noch keinen Browser für diesen Computer.",
 "Kodosi has stopped.": "Kodosi wurde beendet.",

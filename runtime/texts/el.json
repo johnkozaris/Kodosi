@@ -57,6 +57,7 @@
 "Kodosi could not sign you in": "Το Kodosi δεν μπόρεσε να σας συνδέσει",
 "Kodosi could not trust this device after the reset.": "Το Kodosi δεν μπόρεσε να εμπιστευτεί αυτή τη συσκευή μετά την επαναφορά.",
 "Kodosi did not send some of your last input.": "Το Kodosi δεν έστειλε μέρος της τελευταίας εισόδου σας.",
+"Kodosi does not start Antigravity CLI in the chat now. Start agy in the terminal.": "Το Kodosi δεν ξεκινά προς το παρόν το Antigravity CLI στη συνομιλία. Ξεκινήστε το agy στο τερματικό.",
 "Kodosi had an error.": "Παρουσιάστηκε σφάλμα στο Kodosi.",
 "Kodosi has no browser for this computer yet.": "Το Kodosi δεν έχει ακόμη browser για αυτόν τον υπολογιστή.",
 "Kodosi has stopped.": "Το Kodosi σταμάτησε.",

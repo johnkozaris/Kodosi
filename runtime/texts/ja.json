@@ -57,6 +57,7 @@
 "Kodosi could not sign you in": "Kodosi はサインインできませんでした",
 "Kodosi could not trust this device after the reset.": "リセット後、Kodosi はこのデバイスを信頼できませんでした。",
 "Kodosi did not send some of your last input.": "直前の入力の一部を送信できませんでした。",
+"Kodosi does not start Antigravity CLI in the chat now. Start agy in the terminal.": "現在、Kodosi は Antigravity CLI をチャットで起動しません。ターミナルで agy を起動してください。",
 "Kodosi had an error.": "Kodosi でエラーが発生しました。",
 "Kodosi has no browser for this computer yet.": "Kodosi にはまだこのコンピュータ用のブラウザがありません。",
 "Kodosi has stopped.": "Kodosi は停止しました。",

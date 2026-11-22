@@ -108,6 +108,7 @@ enum Action {
         arguments: Vec<String>,
     },
     #[command(
+        hide = !crate::agents::CHAT_SESSIONS,
         about = "Run an agent's server for programs (ACP) in this terminal, and show its conversation in the terminal's chat: kodosi acp -- agy acp."
     )]
     Acp {
@@ -268,7 +269,7 @@ enum TerminalAction {
         output: Option<String>,
         #[arg(long, requires = "agent", help = FAST, value_parser = on_off())]
         fast: Option<bool>,
-        #[arg(long, requires = "agent", help = CHAT, value_parser = on_off())]
+        #[arg(long, requires = "agent", help = CHAT, value_parser = on_off(), hide = !crate::agents::CHAT_SESSIONS)]
         chat: Option<bool>,
         /// The agent's first prompt.
         #[arg(long, requires = "agent")]
@@ -296,7 +297,7 @@ enum TerminalAction {
         output: Option<String>,
         #[arg(long, help = FAST, value_parser = on_off())]
         fast: Option<bool>,
-        #[arg(long, help = CHAT, value_parser = on_off())]
+        #[arg(long, help = CHAT, value_parser = on_off(), hide = !crate::agents::CHAT_SESSIONS)]
         chat: Option<bool>,
     },
     /// Start a terminal that resumes a saved conversation of Claude Code or Copilot CLI.
@@ -561,6 +562,11 @@ async fn run_acp(
     mode: Option<String>,
     resume: Option<String>,
 ) -> Result<u8> {
+    if !crate::agents::CHAT_SESSIONS {
+        return Err(Error::Text(text!(
+            "Kodosi does not start Antigravity CLI in the chat now. Start agy in the terminal."
+        )));
+    }
     let choices = crate::chat::AcpChoices {
         model,
         effort,

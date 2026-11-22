@@ -1402,15 +1402,13 @@ fn antigravity_in_the_chat_runs_its_server_with_the_choices_of_the_session() {
             fast: None,
             chat,
         };
-        plan(
-            &installed(Agent::Antigravity),
-            None,
-            &saved,
-            &start,
-            Path::new("/bin/zsh"),
-        )
-        .map(|(line, pick)| (line, pick.chat))
-        .unwrap()
+        let info = AgentInfo {
+            chat: true,
+            ..installed(Agent::Antigravity)
+        };
+        plan(&info, None, &saved, &start, Path::new("/bin/zsh"))
+            .map(|(line, pick)| (line, pick.chat))
+            .unwrap()
     };
     assert_eq!(
         chat(false, Some(true), Permissions::Ask),
