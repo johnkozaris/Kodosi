@@ -236,7 +236,7 @@ static GhosttyColorRgb channels(uint32_t color) {
 }
 
 // Ghostty's minimum-contrast: a glyph too close to its background turns white or black, whichever stands out
-// more, so that text a program colored for the other look stays readable.
+// more, so that text a program colored for the other look stays readable. Faint text stays faint.
 static uint32_t contrasted(Kernel *kernel, double minimum, uint32_t foreground, uint32_t background) {
     uint32_t key = (foreground * 0x9E3779B1u) ^ (background * 0x85EBCA77u);
     Contrast *known = &kernel->contrast[key >> (32 - CONTRAST_BITS)];
@@ -245,8 +245,9 @@ static uint32_t contrasted(Kernel *kernel, double minimum, uint32_t foreground, 
         const GhosttyColorRgb bg = channels(background);
         uint32_t shown = foreground;
         if (ghostty_color_contrast(&fg, &bg) < minimum) {
-            shown = ghostty_color_contrast(&WHITE, &bg) > ghostty_color_contrast(&BLACK, &bg) ? 0xFFFFFFFFu
-                                                                                                : 0xFF000000u;
+            const uint32_t legible =
+                ghostty_color_contrast(&WHITE, &bg) > ghostty_color_contrast(&BLACK, &bg) ? 0x00FFFFFFu : 0;
+            shown = legible | (foreground & 0xFF000000u);
         }
         *known = (Contrast){.foreground = foreground, .background = background, .shown = shown};
     }
