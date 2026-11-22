@@ -14,6 +14,8 @@ class AppearanceModel final : public QObject {
     Q_OBJECT
     Q_PROPERTY(Preference preference READ preference NOTIFY preferenceChanged FINAL)
     Q_PROPERTY(bool dark READ dark NOTIFY darkChanged FINAL)
+    Q_PROPERTY(bool keepsTerminalsDark READ keepsTerminalsDark NOTIFY terminalLookChanged FINAL)
+    Q_PROPERTY(QString terminalLook READ terminalLook NOTIFY terminalLookChanged FINAL)
     Q_PROPERTY(bool reduceMotion READ reduceMotion NOTIFY reduceMotionChanged FINAL)
     Q_PROPERTY(bool systemReducesMotion READ systemReducesMotion NOTIFY reduceMotionChanged FINAL)
     Q_PROPERTY(bool summaryFirst READ summaryFirst NOTIFY summaryFirstChanged FINAL)
@@ -41,12 +43,15 @@ public:
 
     [[nodiscard]] Preference preference() const noexcept;
     [[nodiscard]] bool dark() const noexcept;
+    [[nodiscard]] bool keepsTerminalsDark() const noexcept;
+    [[nodiscard]] QString terminalLook() const;
     [[nodiscard]] bool reduceMotion() const noexcept;
     [[nodiscard]] bool systemReducesMotion() const noexcept;
     [[nodiscard]] bool summaryFirst() const noexcept;
     [[nodiscard]] QString settingsError() const;
 
     Q_INVOKABLE [[nodiscard]] bool setPreference(int preference);
+    Q_INVOKABLE [[nodiscard]] bool setKeepsTerminalsDark(bool enabled);
     Q_INVOKABLE [[nodiscard]] bool setReducesMotion(bool enabled);
     Q_INVOKABLE [[nodiscard]] bool setSummaryFirst(bool enabled);
     Q_INVOKABLE [[nodiscard]] static int stableIndex(const QString& key, int count);
@@ -61,6 +66,7 @@ public:
 signals:
     void preferenceChanged();
     void darkChanged();
+    void terminalLookChanged();
     void reduceMotionChanged();
     void summaryFirstChanged();
     void settingsErrorChanged();
@@ -70,6 +76,7 @@ private:
     StyleHooks m_styleHooks;
     Preference m_preference = Preference::System;
     bool m_dark = false;
+    bool m_keepsTerminalsDark = false;
     bool m_systemReducesMotion = false;
     bool m_reducesMotion = false;
     bool m_summaryFirst = false;

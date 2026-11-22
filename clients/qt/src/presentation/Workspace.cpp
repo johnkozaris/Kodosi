@@ -31,7 +31,7 @@ bool isRefresh(const QString& operation)
 {
     static const QStringList refreshes { QStringLiteral("session.list"), QStringLiteral("auth.refresh"),
         QStringLiteral("friends.refresh"), QStringLiteral("devices.refresh"), QStringLiteral("project.list"),
-        QStringLiteral("app.presence") };
+        QStringLiteral("app.presence"), QStringLiteral("app.look") };
     return refreshes.contains(operation);
 }
 }
@@ -127,6 +127,20 @@ void Workspace::reportVisible()
             { { QStringLiteral("sessionIds"), QJsonArray::fromStringList(visible.first) },
                 { QStringLiteral("watching"), visible.second } }))
         m_reportedVisible = visible;
+}
+
+void Workspace::setTerminalLook(QString look)
+{
+    m_terminalLook = std::move(look);
+    reportLook();
+}
+
+void Workspace::reportLook()
+{
+    if (!m_hostReady || m_terminalLook.isEmpty() || m_reportedLook == m_terminalLook)
+        return;
+    if (sendUntracked(QStringLiteral("app.look"), { { QStringLiteral("look"), m_terminalLook } }))
+        m_reportedLook = m_terminalLook;
 }
 
 void Workspace::attachCanvas(CanvasModel& canvas)
@@ -270,6 +284,7 @@ void Workspace::reset()
 {
     m_hostReady = false;
     m_reportedVisible.reset();
+    m_reportedLook.clear();
     clearAccountData(m_account.signedIn(), m_account.m_userId);
     m_account.reset();
 }
@@ -332,6 +347,8 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     if (type == QStringLiteral("system.ready")) {
         m_hostReady = true;
         m_restoreAsked = false;
+        m_reportedLook.clear();
+        reportLook();
         m_reportedVisible.reset();
         reportVisible();
         emit hostReady();

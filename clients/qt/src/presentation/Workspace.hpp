@@ -46,6 +46,7 @@ public:
     void reset();
     void route(const DeepLinkDestination& destination);
     void setError(QString error);
+    void setTerminalLook(QString look);
     void attachCanvas(CanvasModel& canvas);
     Q_INVOKABLE void addFiles(const QString& sessionId, const QList<QUrl>& files);
     [[nodiscard]] QString frontSessionId() const;
@@ -80,6 +81,8 @@ private:
     QPointer<CanvasModel> m_canvas;
     QHash<QString, Pending> m_pending;
     std::optional<std::pair<QStringList, bool>> m_reportedVisible;
+    QString m_terminalLook;
+    QString m_reportedLook;
     bool m_hostReady = false;
     bool m_restoreAsked = false;
     QString m_error;
@@ -97,6 +100,7 @@ private:
     bool hasPending(PendingDomain domain) const;
     void notifyBusy();
     void reportVisible();
+    void reportLook();
     void openCanvas(const QString& sessionId, const QString& section);
     [[nodiscard]] bool canvasOpen(const QString& sessionId) const;
     void followCanvas();

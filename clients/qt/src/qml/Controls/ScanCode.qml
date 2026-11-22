@@ -18,8 +18,8 @@ Item {
     Raised {
         anchors.fill: parent
         radius: KodosiTheme.radiusXl
+        look: KodosiTheme.lightLook
         fill: "#fefbf5"
-        dark: false
     }
     Canvas {
         id: modules

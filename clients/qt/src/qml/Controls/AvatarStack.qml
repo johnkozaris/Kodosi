@@ -10,7 +10,8 @@ Row {
     property var userIds: []
     property real size: 24
     property int limit: 4
-    property color ring: KodosiTheme.surface
+    property Look look: KodosiTheme.look
+    property color ring: look.surface
 
     spacing: -size * 0.28
 
@@ -32,14 +33,14 @@ Row {
         width: root.size
         height: root.size
         radius: width / 2
-        color: KodosiTheme.well
+        color: root.look.well
         border.width: 2
         border.color: root.ring
 
         Text {
             anchors.centerIn: parent
             text: "+" + (root.userIds.length - root.limit)
-            color: KodosiTheme.inkMuted
+            color: root.look.inkMuted
             font.pixelSize: Math.round(root.size * 0.38)
             font.weight: Font.DemiBold
         }

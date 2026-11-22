@@ -763,6 +763,49 @@ private slots:
         f.workspace.apply(test::snapshot({ test::session(1), test::session(2) }), 0);
         QVERIFY(f.sessions.attention().isEmpty());
     }
+    void theHostHearsTheLookOfItsTerminalsAfterEachReadyAndEachChange()
+    {
+        Fixture f;
+        const auto looks = [&] {
+            QStringList looks;
+            for (const auto& command : f.commands.values) {
+                if (command.value(QStringLiteral("type")).toString() == QStringLiteral("app.look"))
+                    looks.append(command.value(QStringLiteral("look")).toString());
+            }
+            return looks;
+        };
+        const QJsonObject ready { { QStringLiteral("type"), QStringLiteral("system.ready") } };
+        f.workspace.setTerminalLook(QStringLiteral("light"));
+        QVERIFY(looks().isEmpty());
+        f.workspace.apply(ready, 0);
+        QCOMPARE(looks(), QStringList { QStringLiteral("light") });
+        f.workspace.setTerminalLook(QStringLiteral("light"));
+        f.workspace.setTerminalLook(QStringLiteral("dark"));
+        QCOMPARE(looks(), (QStringList { QStringLiteral("light"), QStringLiteral("dark") }));
+        f.workspace.reset();
+        f.workspace.setTerminalLook(QStringLiteral("light"));
+        QCOMPARE(looks().size(), 2);
+        f.workspace.apply(ready, 0);
+        QCOMPARE(looks(), (QStringList { QStringLiteral("light"), QStringLiteral("dark"), QStringLiteral("light") }));
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("app.error") },
+                              { QStringLiteral("operation"), QStringLiteral("app.look") },
+                              { QStringLiteral("message"), QStringLiteral("No host") } },
+            0);
+        QVERIFY(f.workspace.error().isEmpty());
+    }
+    void aTerminalShowsInTheLookThatItsHostGives()
+    {
+        Fixture f;
+        auto light = test::session(1, true);
+        light.insert(QStringLiteral("look"), QStringLiteral("light"));
+        f.workspace.apply(test::snapshot({ light, test::session(2) }), 0);
+        QCOMPARE(f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("look")).toString(), QStringLiteral("light"));
+        QCOMPARE(f.sessions.presentationForSession(test::id(2)).value(QStringLiteral("look")).toString(), QStringLiteral("dark"));
+        light.insert(QStringLiteral("look"), QStringLiteral("dim"));
+        skippedSnapshot();
+        f.workspace.apply(test::snapshot({ light }), 0);
+        QVERIFY(f.sessions.containsSession(test::id(2)));
+    }
     void theHostHearsAtOnceWhenNoTerminalShows()
     {
         Fixture f;

@@ -35,7 +35,7 @@ ColumnLayout {
         Layout.fillWidth: true
         implicitHeight: 104
 
-        Raised { anchors.fill: parent; radius: KodosiTheme.radiusTile; fill: KodosiTheme.terminal; rim: false; elevation: 2 }
+        Raised { anchors.fill: parent; radius: KodosiTheme.radiusTile; look: KodosiTheme.terminalLook; fill: KodosiTheme.terminalLook.terminal; rim: false; elevation: 2 }
         Column {
             x: 16
             y: 14
@@ -43,19 +43,19 @@ ColumnLayout {
 
             Row {
                 spacing: size.value * 0.6
-                Text { text: "~/kodosi ❯"; color: KodosiTheme.terminalInkFaint; font.family: family.text; font.pixelSize: size.value }
-                Text { text: "claude"; color: KodosiTheme.terminalInk; font.family: family.text; font.pixelSize: size.value }
+                Text { text: "~/kodosi ❯"; color: KodosiTheme.terminalLook.inkFaint; font.family: family.text; font.pixelSize: size.value }
+                Text { text: "claude"; color: KodosiTheme.terminalLook.ink; font.family: family.text; font.pixelSize: size.value }
             }
-            Text { text: "✻ " + qsTr("Welcome back. What are we building?"); color: KodosiTheme.terminalAccent; font.family: family.text; font.pixelSize: size.value }
+            Text { text: "✻ " + qsTr("Welcome back. What are we building?"); color: KodosiTheme.terminalLook.accent; font.family: family.text; font.pixelSize: size.value }
             Row {
                 spacing: size.value * 0.6
-                Text { text: "~/kodosi ❯"; color: KodosiTheme.terminalInkFaint; font.family: family.text; font.pixelSize: size.value }
+                Text { text: "~/kodosi ❯"; color: KodosiTheme.terminalLook.inkFaint; font.family: family.text; font.pixelSize: size.value }
                 CursorBlock {
                     anchors.bottom: parent.bottom
                     width: root.cursorStyle === 1 ? 2 : size.value * 0.6
                     height: root.cursorStyle === 2 ? 2 : size.value * 1.15
                     blinks: blink.checked
-                    color: KodosiTheme.terminalAccent
+                    color: KodosiTheme.terminalLook.accent
                 }
             }
         }
@@ -78,6 +78,24 @@ ColumnLayout {
                 ]
                 currentValue: Models.Appearance.preference
                 onActivated: value => Models.Appearance.setPreference(value)
+            }
+        }
+        ListRow {
+            iconName: "moon"
+            tint: "#8a6fc2"
+            title: qsTr("Keep terminals dark")
+
+            KSwitch {
+                Accessible.id: objectName
+                Accessible.name: qsTr("Keep terminals dark")
+                checked: Models.Appearance.keepsTerminalsDark
+                objectName: "settings.keepTerminalsDark"
+
+                onToggled: {
+                    const wanted = checked;
+                    checked = Qt.binding(() => Models.Appearance.keepsTerminalsDark);
+                    Models.Appearance.setKeepsTerminalsDark(wanted);
+                }
             }
         }
         ListRow {

@@ -5,6 +5,7 @@ import QtQuick.Shapes
 Item {
     id: root
 
+    required property Look look
     property real seam: width
     property real depth: 0
     property real radius: KodosiTheme.radiusTile
@@ -26,8 +27,8 @@ Item {
     readonly property real neckFlare: Math.min(10, -(tab.y + tab.height) + 4)
     readonly property real flareLeft: Math.min(neckFlare, Math.max(0, neckMiddle - neckNarrow - r))
     readonly property real flareRight: Math.min(neckFlare, Math.max(0, width - r - neckMiddle - neckNarrow))
-    readonly property color face: KodosiTheme.terminal
-    readonly property color bandColor: KodosiTheme.terminalBandSelected
+    readonly property color face: look.terminal
+    readonly property color bandColor: look.bandSelected
 
     function dip(value: real, wide: real): real {
         const edge = Math.min(seam, width - seam);
@@ -160,7 +161,7 @@ Item {
 
         ShapePath {
             strokeColor: "transparent"
-            fillColor: KodosiTheme.alpha(KodosiTheme.shadow, KodosiTheme.isDark ? 0.16 : 0.05)
+            fillColor: KodosiTheme.alpha(root.look.shadow, root.look.dark ? 0.16 : 0.05)
 
             PathSvg { path: root.width > 0 ? root.lobes() : "" }
         }
@@ -174,7 +175,7 @@ Item {
 
         ShapePath {
             strokeColor: "transparent"
-            fillColor: KodosiTheme.alpha(KodosiTheme.shadow, KodosiTheme.isDark ? 0.22 : 0.07)
+            fillColor: KodosiTheme.alpha(root.look.shadow, root.look.dark ? 0.22 : 0.07)
 
             PathSvg { path: root.width > 0 ? root.lobes() : "" }
         }
@@ -208,7 +209,7 @@ Item {
             PathSvg { path: root.neck() }
         }
         ShapePath {
-            strokeColor: KodosiTheme.alpha(KodosiTheme.terminalHairline, 0.8)
+            strokeColor: KodosiTheme.alpha(root.look.hairline, 0.8)
             strokeWidth: 1
             fillColor: "transparent"
 

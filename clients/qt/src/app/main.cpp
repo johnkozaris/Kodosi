@@ -174,6 +174,9 @@ int main(int argc, char* argv[])
     kodosi::ProviderFilesModel providerFiles(runtime);
     kodosi::AgentLauncherModel launcher(runtime);
     kodosi::AppearanceModel appearance(settings());
+    workspace.setTerminalLook(appearance.terminalLook());
+    QObject::connect(&appearance, &kodosi::AppearanceModel::terminalLookChanged, &workspace,
+        [&] { workspace.setTerminalLook(appearance.terminalLook()); });
     kodosi::ShortcutsModel shortcuts(settings());
     kodosi::TerminalView::setAppKeys(shortcuts.taken());
     QObject::connect(&shortcuts, &kodosi::ShortcutsModel::keysChanged, &shortcuts,

@@ -218,7 +218,7 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: root.browserState === "awake" ? KodosiTheme.terminal : KodosiTheme.sheet
+            color: root.browserState === "awake" ? KodosiTheme.darkLook.terminal : KodosiTheme.sheet
             activeFocusOnTab: true
             objectName: "canvas.browser.page"
             Accessible.id: objectName
@@ -410,6 +410,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: 10
+                look: KodosiTheme.darkLook
                 shown: root.browserState === "awake" && video.shows && video.reconnecting
                 objectName: "canvas.browser.reconnecting"
             }

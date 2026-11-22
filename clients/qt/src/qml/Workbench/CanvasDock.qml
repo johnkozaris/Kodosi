@@ -13,6 +13,7 @@ Row {
     property bool inPanel: false
     property string identifier: "canvas.key"
     property var session: Models.Sessions.presentationForSession(sessionId)
+    readonly property Look look: KodosiTheme.lookNamed(session.look)
     readonly property var canvas: session.canvas || null
     readonly property var present: canvas
         ? ((canvas.items || []).length > 0 ? ["files"] : []).concat(canvas.browser ? ["browser"] : []) : []
@@ -78,9 +79,9 @@ Row {
         Rectangle {
             anchors.fill: parent
             radius: height / 2
-            color: KodosiTheme.terminalWell
+            color: root.look.well
             border.width: 1
-            border.color: Qt.tint(KodosiTheme.terminalWell, KodosiTheme.alpha("#000000", 0.4))
+            border.color: Qt.tint(root.look.well, root.look.dark ? KodosiTheme.alpha("#000000", 0.4) : KodosiTheme.alpha(root.look.hairline, 0.6))
         }
         Row {
             id: keys
@@ -137,14 +138,14 @@ Row {
                                 height: 13
                                 name: key.modelData === "browser" ? "globe" : "files"
                                 strokeWidth: 2.1
-                                color: key.selected ? KodosiTheme.terminalAccentStrong : KodosiTheme.terminalInkMuted
+                                color: key.selected ? root.look.accentStrong : root.look.inkMuted
                             }
                             PlainLabel {
                                 anchors.verticalCenter: parent.verticalCenter
                                 visible: key.words.length > 0
                                 width: Math.min(implicitWidth, 160)
                                 text: key.words
-                                color: key.selected ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
+                                color: key.selected ? root.look.ink : root.look.inkMuted
                                 font.pixelSize: KodosiTheme.fontFootnote
                                 font.weight: Font.Medium
                                 elide: Text.ElideMiddle
@@ -153,7 +154,7 @@ Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 visible: key.words.length === 0 && key.count > 1
                                 text: String(key.count)
-                                color: KodosiTheme.terminalInkFaint
+                                color: root.look.inkFaint
                                 font.pixelSize: KodosiTheme.fontCaption
                             }
                         }
@@ -167,8 +168,8 @@ Row {
                         Raised {
                             anchors.fill: parent
                             radius: height / 2
-                            fill: KodosiTheme.terminalLifted
-                            dark: true
+                            look: root.look
+                            fill: root.look.lifted
                             visible: key.selected
                         }
                         LightRim {
@@ -176,13 +177,14 @@ Row {
                             radius: height / 2
                             lineWidth: 1.5
                             tile: true
+                            light: root.look.dark ? root.look.accentStrong : root.look.accent
                             visible: key.doing
                         }
                         BreathingDot {
                             x: parent.width - 7
                             y: 1
                             size: 6
-                            color: KodosiTheme.glowOrange
+                            color: root.look.glowOrange
                             visible: key.news
                         }
                     }
@@ -208,11 +210,11 @@ Row {
                         contentItem: KIcon {
                             name: "close"
                             strokeWidth: 3
-                            color: close.hovered ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
+                            color: close.hovered ? root.look.ink : root.look.inkMuted
                         }
                         background: Rectangle {
                             radius: width / 2
-                            color: KodosiTheme.alpha(KodosiTheme.terminalInk, close.hovered ? 0.14 : 0.08)
+                            color: KodosiTheme.alpha(root.look.ink, close.hovered ? 0.14 : 0.08)
                         }
                         onClicked: root.closeRequested(key.modelData)
                     }
@@ -227,7 +229,7 @@ Row {
         visible: root.inPanel
         glyph: "plus"
         size: 26
-        onTerminal: true
+        terminalLook: root.look
         open: openMenu.visible
         objectName: root.identifier + ".open"
         Accessible.id: objectName

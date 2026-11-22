@@ -12,6 +12,7 @@ ColumnLayout {
 
     property bool centered: false
     property bool inSheet: false
+    readonly property Look look: KodosiTheme.terminalLook
     readonly property string folder: Models.DesktopState.launcherFolder
     property string projectId: ""
     property bool showsAll: false
@@ -381,7 +382,7 @@ ColumnLayout {
         Raised {
             anchors.fill: parent
             radius: KodosiTheme.radiusLg
-            fill: KodosiTheme.terminal
+            fill: root.look.terminal
             rim: false
         }
         Rectangle {
@@ -391,7 +392,7 @@ ColumnLayout {
             height: 42
             topLeftRadius: KodosiTheme.radiusLg
             topRightRadius: KodosiTheme.radiusLg
-            color: KodosiTheme.terminalBand
+            color: root.look.band
 
             Shape {
                 id: tab
@@ -410,7 +411,7 @@ ColumnLayout {
                 Behavior on width { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
                 ShapePath {
-                    fillColor: KodosiTheme.terminal
+                    fillColor: root.look.terminal
                     strokeColor: "transparent"
                     startX: -8
                     startY: tab.height
@@ -494,7 +495,7 @@ ColumnLayout {
                                     anchors.verticalCenter: parent.verticalCenter
                                     visible: mark.selected
                                     text: mark.title
-                                    color: mark.modelData.installed ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
+                                    color: mark.modelData.installed ? root.look.ink : root.look.inkMuted
                                     font.pixelSize: KodosiTheme.fontBody
                                     font.weight: Font.DemiBold
                                 }
@@ -507,9 +508,9 @@ ColumnLayout {
                                 width: parent.width
                                 height: parent.height - 4
                                 radius: KodosiTheme.radiusSm
-                                color: mark.hovered && !mark.selected ? "#2a221e" : "transparent"
+                                color: mark.hovered && !mark.selected ? root.look.bandHover : "transparent"
                                 border.width: mark.visualFocus ? 1.5 : 0
-                                border.color: KodosiTheme.terminalAccent
+                                border.color: root.look.accent
 
                                 Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                             }
@@ -543,7 +544,7 @@ ColumnLayout {
                             height: 13
                             name: "plus"
                             strokeWidth: 2.2
-                            color: more.hovered ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
+                            color: more.hovered ? root.look.ink : root.look.inkMuted
                             rotation: root.showsAll ? 45 : 0
 
                             Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
@@ -553,9 +554,9 @@ ColumnLayout {
                         y: 2
                         height: parent.height - 4
                         radius: KodosiTheme.radiusSm
-                        color: more.hovered ? "#2a221e" : "transparent"
+                        color: more.hovered ? root.look.bandHover : "transparent"
                         border.width: more.visualFocus ? 1.5 : 0
-                        border.color: KodosiTheme.terminalAccent
+                        border.color: root.look.accent
                     }
                 }
             }
@@ -592,13 +593,13 @@ ColumnLayout {
                     contentItem: Row {
                         spacing: 5
 
-                        KIcon { anchors.verticalCenter: parent.verticalCenter; width: 13; height: 13; name: "laptop"; strokeWidth: 1.9; color: KodosiTheme.terminalInkMuted }
+                        KIcon { anchors.verticalCenter: parent.verticalCenter; width: 13; height: 13; name: "laptop"; strokeWidth: 1.9; color: root.look.inkMuted }
                         PlainLabel {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Math.min(implicitWidth, 150)
                             text: root.computerName
                             elide: Text.ElideRight
-                            color: computerKey.hovered || computerKey.open ? KodosiTheme.terminalInk : KodosiTheme.terminalInkMuted
+                            color: computerKey.hovered || computerKey.open ? root.look.ink : root.look.inkMuted
                             font.pixelSize: KodosiTheme.fontFootnote
                         }
                         KIcon {
@@ -607,7 +608,7 @@ ColumnLayout {
                             height: 9
                             name: "chevron-down"
                             strokeWidth: 2.4
-                            color: computerKey.open ? KodosiTheme.terminalAccent : KodosiTheme.terminalInkMuted
+                            color: computerKey.open ? root.look.accent : root.look.inkMuted
                             rotation: computerKey.open ? 180 : 0
 
                             Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
@@ -615,9 +616,9 @@ ColumnLayout {
                     }
                     background: Rectangle {
                         radius: KodosiTheme.radiusSm
-                        color: computerKey.hovered || computerKey.open ? "#2a221e" : "transparent"
+                        color: computerKey.hovered || computerKey.open ? root.look.bandHover : "transparent"
                         border.width: computerKey.visualFocus ? 1.5 : 0
-                        border.color: KodosiTheme.terminalAccent
+                        border.color: root.look.accent
 
                         Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
                     }
@@ -629,20 +630,20 @@ ColumnLayout {
                     height: 13
                     name: "laptop"
                     strokeWidth: 1.9
-                    color: KodosiTheme.terminalInkMuted
+                    color: root.look.inkMuted
                 }
                 PlainLabel {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.computers.length === 0
                     text: qsTr("This computer")
-                    color: KodosiTheme.terminalInkMuted
+                    color: root.look.inkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
                 PlainLabel {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.offline
                     text: "·"
-                    color: KodosiTheme.terminalInkMuted
+                    color: root.look.inkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
                 PlainLabel {
@@ -651,14 +652,14 @@ ColumnLayout {
                     objectName: "launcher.offline"
                     Accessible.id: objectName
                     text: qsTr("Offline")
-                    color: KodosiTheme.terminalCaution
+                    color: root.look.caution
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
                 KButton {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.offline
                     compact: true
-                    onTerminal: true
+                    terminalLook: root.look
                     variant: KButton.Ghost
                     text: qsTr("Try again")
                     objectName: "launcher.offline.retry"
@@ -670,7 +671,7 @@ ColumnLayout {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.projectName.length > 0
                     text: "·"
-                    color: KodosiTheme.terminalInkMuted
+                    color: root.look.inkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
                 ProjectSigil {
@@ -685,14 +686,14 @@ ColumnLayout {
                     width: Math.min(implicitWidth, 160)
                     text: root.projectName
                     elide: Text.ElideRight
-                    color: KodosiTheme.terminalInkMuted
+                    color: root.look.inkMuted
                     font.pixelSize: KodosiTheme.fontFootnote
                 }
                 KIconButton {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: root.inSheet
                     glyph: "close"
-                    onTerminal: true
+                    terminalLook: root.look
                     size: 26
                     objectName: "launcher.close"
                     Accessible.id: objectName
@@ -769,7 +770,7 @@ ColumnLayout {
                         height: 26
                         verticalAlignment: Text.AlignVCenter
                         text: "❯"
-                        color: KodosiTheme.terminalAccent
+                        color: root.look.accent
                         font: root.commandFont
                         Accessible.ignored: true
                     }
@@ -778,7 +779,7 @@ ColumnLayout {
                         height: 26
                         verticalAlignment: Text.AlignVCenter
                         text: root.info ? root.info.program : ""
-                        color: KodosiTheme.mix(Identity.kindTint(root.agentId), "#ffffff", 0.35)
+                        color: KodosiTheme.mix(Identity.kindTint(root.agentId), root.look.dark ? "#ffffff" : root.look.ink, 0.35)
                         font: root.commandFont
                     }
                     PickerKey {
@@ -805,7 +806,7 @@ ColumnLayout {
                             tint: root.info && root.account
                                 ? Identity.accountTint(root.info.agent, root.info.accounts.findIndex(entry => entry.name === root.account.name))
                                 : Identity.personTint(root.account ? root.account.folder || root.account.command : "")
-                            onTerminal: true
+                            look: root.look
                         }
                         onClicked: root.toggleMenu("account")
                     }
@@ -832,8 +833,8 @@ ColumnLayout {
                                 level: root.effortLevel
                                 count: root.efforts.length
                                 barHeight: 10
-                                lit: KodosiTheme.terminalAccent
-                                unlit: KodosiTheme.alpha(KodosiTheme.terminalInk, 0.2)
+                                lit: root.look.accent
+                                unlit: KodosiTheme.alpha(root.look.ink, 0.2)
                             }
                             KIcon {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -843,7 +844,7 @@ ColumnLayout {
                                 name: "bolt"
                                 filled: true
                                 strokeWidth: 1
-                                color: KodosiTheme.terminalAccent
+                                color: root.look.accent
                             }
                         }
                         onClicked: root.toggleMenu("model")
@@ -866,7 +867,7 @@ ColumnLayout {
                             height: 11
                             name: "more"
                             strokeWidth: 3.4
-                            color: root.permissions === "unrestricted" ? KodosiTheme.caution : Identity.kindTint(root.agentId)
+                            color: root.permissions === "unrestricted" ? root.look.caution : Identity.kindTint(root.agentId)
                         }
                         onClicked: root.toggleMenu("modes")
                     }
@@ -875,7 +876,7 @@ ColumnLayout {
                         height: 26
                         verticalAlignment: Text.AlignVCenter
                         text: root.info ? root.info.install : ""
-                        color: KodosiTheme.terminalInkMuted
+                        color: root.look.inkMuted
                         font: root.commandFont
                     }
                     Item {
@@ -888,7 +889,7 @@ ColumnLayout {
                             width: 9
                             height: 18
                             blinks: true
-                            color: KodosiTheme.terminalAccent
+                            color: root.look.accent
                         }
                     }
                 }

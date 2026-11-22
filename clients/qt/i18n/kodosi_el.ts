@@ -3917,6 +3917,10 @@
         <translation>Σκουρόχρωμο</translation>
     </message>
     <message>
+        <source>Keep terminals dark</source>
+        <translation>Τερματικά πάντα σκουρόχρωμα</translation>
+    </message>
+    <message>
         <source>Title</source>
         <translation>Τίτλος</translation>
     </message>

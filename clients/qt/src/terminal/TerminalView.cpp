@@ -381,24 +381,9 @@ int TerminalView::scrollbackLines() const noexcept
     return m_scrollbackLines;
 }
 
-QColor TerminalView::selectionBackground() const
+bool TerminalView::dark() const noexcept
 {
-    return m_palette.selectionBackground;
-}
-
-QColor TerminalView::selectionForeground() const
-{
-    return m_palette.selectionForeground;
-}
-
-QColor TerminalView::preeditBackground() const
-{
-    return m_palette.preeditBackground;
-}
-
-QColor TerminalView::preeditForeground() const
-{
-    return m_palette.preeditForeground;
+    return m_look == TerminalLook::Dark;
 }
 
 bool TerminalView::terminalReady() const noexcept
@@ -541,48 +526,18 @@ void TerminalView::setScrollbackLines(const int lines)
     configureAttachedKernel();
 }
 
-void TerminalView::setSelectionBackground(const QColor& color)
+void TerminalView::setDark(const bool dark)
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    if (!color.isValid() || color == m_palette.selectionBackground) {
+    const auto look = dark ? TerminalLook::Dark : TerminalLook::Light;
+    if (look == m_look) {
         return;
     }
-    m_palette.selectionBackground = color;
-    emit selectionBackgroundChanged();
+    m_look = look;
+    m_palette = TerminalRasterizer::palette(look);
+    emit darkChanged();
     update();
-}
-
-void TerminalView::setSelectionForeground(const QColor& color)
-{
-    Q_ASSERT(thread() == QThread::currentThread());
-    if (!color.isValid() || color == m_palette.selectionForeground) {
-        return;
-    }
-    m_palette.selectionForeground = color;
-    emit selectionForegroundChanged();
-    update();
-}
-
-void TerminalView::setPreeditBackground(const QColor& color)
-{
-    Q_ASSERT(thread() == QThread::currentThread());
-    if (!color.isValid() || color == m_palette.preeditBackground) {
-        return;
-    }
-    m_palette.preeditBackground = color;
-    emit preeditBackgroundChanged();
-    update();
-}
-
-void TerminalView::setPreeditForeground(const QColor& color)
-{
-    Q_ASSERT(thread() == QThread::currentThread());
-    if (!color.isValid() || color == m_palette.preeditForeground) {
-        return;
-    }
-    m_palette.preeditForeground = color;
-    emit preeditForegroundChanged();
-    update();
+    configureAttachedKernel();
 }
 
 void TerminalView::setTerminalInteraction(
@@ -1332,6 +1287,7 @@ TerminalKernelSettings TerminalView::kernelSettings() const
         .scrollbackLines = static_cast<std::size_t>(m_scrollbackLines),
         .scrollbackBytes = terminalScrollbackByteBudget(
             static_cast<std::size_t>(m_scrollbackLines)),
+        .look = m_look,
     };
 }
 

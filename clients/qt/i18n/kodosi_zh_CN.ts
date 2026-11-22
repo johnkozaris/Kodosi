@@ -3905,6 +3905,10 @@
         <translation>深色</translation>
     </message>
     <message>
+        <source>Keep terminals dark</source>
+        <translation>终端始终保持深色</translation>
+    </message>
+    <message>
         <source>Title</source>
         <translation>标题</translation>
     </message>

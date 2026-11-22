@@ -57,6 +57,7 @@ public:
         QString projectName;
         QString status;
         QString connectionState;
+        QString look;
         bool stalled = false;
         bool direct = false;
         QString message;
