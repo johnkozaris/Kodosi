@@ -107,6 +107,7 @@ import com.kodosi.mobile.ui.SegmentedPill
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.TextEntryDialog
 import com.kodosi.mobile.ui.bezel
+import com.kodosi.mobile.ui.colors
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
 import com.kodosi.mobile.ui.snappy
@@ -115,6 +116,7 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonNull
@@ -130,6 +132,9 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     val session = remember(sessionId) {
         model.terminals.state.map { catalog -> catalog.sessions.firstOrNull { it.id == sessionId } }
     }.collectAsStateWithLifecycle(model.terminals.session(sessionId)).value
+    val look by remember(sessionId) {
+        model.terminals.state.mapNotNull { catalog -> catalog.sessions.firstOrNull { it.id == sessionId }?.look }
+    }.collectAsStateWithLifecycle(model.terminals.session(sessionId)?.look ?: TerminalLook.DARK)
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var control by remember { mutableStateOf(false) }
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
@@ -232,7 +237,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp)
-                    .terminalTile(colors)
+                    .terminalTile(colors, look = look.colors)
                     .clip(RoundedCornerShape(Radius.tile))
             ) {
                 AndroidView(
@@ -247,6 +252,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     onRelease = { if (view === it) view = null },
                     update = {
                         it.fontSize(textSize)
+                        it.look(look)
                         it.onLink = { address -> links.open(address, session?.hostName) }
                         it.onPastePicture = { uri ->
                             val target = session
@@ -272,7 +278,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     },
                     modifier = Modifier.fillMaxSize().padding(8.dp)
                 )
-                KodosiTheme(dark = true) {
+                KodosiTheme(dark = look == TerminalLook.DARK) {
                     if (session == null) {
                         StateCard(stringResource(R.string.terminal_ended), null, working = false) {
                             KodosiButton(
@@ -297,25 +303,6 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         session?.waitsForConnection == true && state == TerminalConnection.State.Rendered,
                         Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
                     )
-                    clipboardAnswer?.let { answer ->
-                        ConfirmDialog(
-                            session?.name.orEmpty(),
-                            stringResource(
-                                R.string.clipboard_request
-                            ),
-                            stringResource(R.string.approve),
-                            {
-                                answer("")
-                                clipboardAnswer = null
-                            },
-                            {
-                                val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
-                                val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
-                                answer(text)
-                                clipboardAnswer = null
-                            }
-                        )
-                    }
                 }
             }
             if (composing) {
@@ -344,7 +331,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     })
                 }
             } else if (typing) {
-                KeyRow(view, control) {
+                KeyRow(view, control, look) {
                     if (landscape) {
                         ActionIcon(AppSymbol.COMPOSE, R.string.compose, { composing = true })
                         ActionIcon(AppSymbol.HIDE_KEYBOARD, R.string.hide_keyboard, { keyboard?.hide() })
@@ -359,7 +346,9 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     horizontalArrangement = Arrangement.End
                 ) {
                     if (session?.needsUser == true && session.agent.isAgent) {
-                        listOf("1", "2", "3").forEach { answer -> KeyCap(answer) { view?.paste(answer, enter = true) } }
+                        listOf("1", "2", "3").forEach { answer ->
+                            KeyCap(answer, look = look) { view?.paste(answer, enter = true) }
+                        }
                         Spacer(Modifier.weight(1f))
                     }
                     ActionIcon(
@@ -378,6 +367,23 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                 }
             }
         }
+    }
+    clipboardAnswer?.let { answer ->
+        ConfirmDialog(
+            session?.name.orEmpty(),
+            stringResource(R.string.clipboard_request),
+            stringResource(R.string.approve),
+            {
+                answer("")
+                clipboardAnswer = null
+            },
+            {
+                val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
+                answer(text)
+                clipboardAnswer = null
+            }
+        )
     }
     if (renaming && session?.isOwner == true) {
         TextEntryDialog(
@@ -775,23 +781,27 @@ private fun StateCard(title: String, message: String?, working: Boolean, action:
 }
 
 @Composable
-private fun KeyRow(view: TerminalView?, control: Boolean, actions: @Composable () -> Unit) {
+private fun KeyRow(view: TerminalView?, control: Boolean, look: TerminalLook, actions: @Composable () -> Unit) {
     FlowRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
-        KeyCap("esc", stringResource(R.string.key_escape)) { view?.press(TerminalKernel.Key.ESCAPE) }
-        KeyCap("tab", stringResource(R.string.key_tab)) { view?.press(TerminalKernel.Key.TAB) }
-        KeyCap("ctrl", stringResource(R.string.key_control), on = control) { view?.let { it.control = !it.control } }
+        KeyCap("esc", stringResource(R.string.key_escape), look = look) { view?.press(TerminalKernel.Key.ESCAPE) }
+        KeyCap("tab", stringResource(R.string.key_tab), look = look) { view?.press(TerminalKernel.Key.TAB) }
+        KeyCap("ctrl", stringResource(R.string.key_control), on = control, look = look) {
+            view?.let { it.control = !it.control }
+        }
         Spacer(Modifier.width(2.dp))
-        KeyCap("", stringResource(R.string.key_left), symbol = AppSymbol.ARROW_LEFT) {
+        KeyCap("", stringResource(R.string.key_left), symbol = AppSymbol.ARROW_LEFT, look = look) {
             view?.press(TerminalKernel.Key.LEFT)
         }
-        KeyCap("", stringResource(R.string.key_up), symbol = AppSymbol.ARROW_UP) { view?.press(TerminalKernel.Key.UP) }
-        KeyCap("", stringResource(R.string.key_down), symbol = AppSymbol.ARROW_DOWN) {
+        KeyCap("", stringResource(R.string.key_up), symbol = AppSymbol.ARROW_UP, look = look) {
+            view?.press(TerminalKernel.Key.UP)
+        }
+        KeyCap("", stringResource(R.string.key_down), symbol = AppSymbol.ARROW_DOWN, look = look) {
             view?.press(TerminalKernel.Key.DOWN)
         }
-        KeyCap("", stringResource(R.string.key_right), symbol = AppSymbol.ARROW_RIGHT) {
+        KeyCap("", stringResource(R.string.key_right), symbol = AppSymbol.ARROW_RIGHT, look = look) {
             view?.press(TerminalKernel.Key.RIGHT)
         }
         Spacer(Modifier.width(2.dp))
@@ -806,9 +816,10 @@ private fun KeyCap(
     on: Boolean = false,
     enabled: Boolean = true,
     symbol: AppSymbol? = null,
+    look: TerminalLook,
     press: () -> Unit
 ) {
-    val colors = KodosiTheme.colors
+    val colors = look.colors
     val shape = RoundedCornerShape(Radius.sm)
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()

@@ -68,6 +68,7 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
     private val run = StringBuilder()
     private var scrolled = 0f
     private var accent = 0
+    private var look = TerminalLook.DARK
     private var selection: ActionMode? = null
     private var selecting = false
     private var mouseButton = 1
@@ -177,6 +178,11 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         text.letterSpacing = (cellWidth - text.measureText("M")) / text.textSize
         onSizeChanged(width, height, width, height)
         invalidate()
+    }
+
+    fun look(next: TerminalLook) {
+        look = next
+        if (connection.kernel.look(next)) invalidate()
     }
 
     fun paste(content: String, enter: Boolean = false): Boolean {
@@ -365,11 +371,7 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
     }
 
     override fun onDraw(canvas: Canvas) {
-        val frame = connection.kernel.frame()
-        if (frame == null) {
-            canvas.drawColor(TERMINAL_BACKGROUND)
-            return
-        }
+        val frame = connection.kernel.frame() ?: return
         canvas.drawColor(frame.background)
         val images = connection.kernel.images()
         canvas.withTranslation(0f, -top(frame).toFloat()) {
@@ -420,9 +422,16 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
 
     private fun background(frame: TerminalFrame, column: Int, row: Int): Int =
         if (frame.style(column, row) and TerminalFrame.Style.SELECTED != 0) {
-            0xFF5C3825.toInt()
+            if (look == TerminalLook.LIGHT) LIGHT_SELECTION else DARK_SELECTION
         } else {
             frame.background(column, row)
+        }
+
+    private fun foreground(frame: TerminalFrame, column: Int, row: Int): Int =
+        if (look == TerminalLook.LIGHT && frame.style(column, row) and TerminalFrame.Style.SELECTED != 0) {
+            LIGHT_SELECTED_TEXT
+        } else {
+            frame.foreground(column, row)
         }
 
     private fun drawText(canvas: Canvas, frame: TerminalFrame, row: Int) {
@@ -435,13 +444,13 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
                 column++
                 continue
             }
-            val color = frame.foreground(column, row)
+            val color = foreground(frame, column, row)
             val style = frame.style(column, row)
             run.setLength(0)
             run.append(content)
             var end = column + 1
             if (width == 1) {
-                while (end < frame.cols && frame.width(end, row) == 1 && frame.foreground(end, row) == color &&
+                while (end < frame.cols && frame.width(end, row) == 1 && foreground(frame, end, row) == color &&
                     frame.style(end, row) == style
                 ) {
                     run.append(frame.text(end, row) ?: " ")
@@ -626,6 +635,8 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         private const val MODIFIER_META = KeyEvent.META_CTRL_MASK or KeyEvent.META_ALT_MASK
         private const val FONT_SIZE_DP = 12f
         private const val MAX_DELETE = 64
-        private const val TERMINAL_BACKGROUND = 0xFF0D0B09.toInt()
+        private const val DARK_SELECTION = 0xFF5C3825.toInt()
+        private const val LIGHT_SELECTION = 0xFFF0DFCB.toInt()
+        private const val LIGHT_SELECTED_TEXT = 0xFF2A1D15.toInt()
     }
 }

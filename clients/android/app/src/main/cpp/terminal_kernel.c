@@ -64,6 +64,7 @@ typedef struct {
     GhosttyKeyEncoder keys;
     uint64_t next_sequence;
     bool admitted;
+    bool light;
     uint8_t *clipboard;
     size_t clipboard_len;
     uint8_t clipboard_kind;
@@ -168,14 +169,35 @@ static void clipboard_read(GhosttyTerminal terminal, void *userdata, const Ghost
     }
 }
 
-static const GhosttyColorRgb FOREGROUND = {0xe8, 0xe1, 0xd9};
-static const GhosttyColorRgb BACKGROUND = {0x0d, 0x0b, 0x09};
-static const GhosttyColorRgb CURSOR = {0xcc, 0x7a, 0x45};
-static const GhosttyColorRgb ANSI[16] = {
-    {0x1a, 0x16, 0x13}, {0xc4, 0x40, 0x40}, {0x52, 0xb3, 0x6b}, {0xc4, 0x99, 0x3d},
-    {0x5d, 0x8e, 0xc7}, {0xb0, 0x6d, 0xba}, {0x5d, 0xaf, 0xa6}, {0xc4, 0xb8, 0xa8},
-    {0x8c, 0x7a, 0x6f}, {0xd6, 0x60, 0x60}, {0x6d, 0xcc, 0x85}, {0xd6, 0xb3, 0x5d},
-    {0x7d, 0xaa, 0xd9}, {0xc8, 0x8d, 0xd0}, {0x7d, 0xc7, 0xbe}, {0xe8, 0xe1, 0xd9},
+typedef struct {
+    GhosttyColorRgb foreground;
+    GhosttyColorRgb background;
+    GhosttyColorRgb cursor;
+    GhosttyColorRgb ansi[16];
+} Look;
+
+static const Look DARK = {
+    .foreground = {0xe8, 0xe1, 0xd9},
+    .background = {0x0d, 0x0b, 0x09},
+    .cursor = {0xcc, 0x7a, 0x45},
+    .ansi = {
+        {0x1a, 0x16, 0x13}, {0xc4, 0x40, 0x40}, {0x52, 0xb3, 0x6b}, {0xc4, 0x99, 0x3d},
+        {0x5d, 0x8e, 0xc7}, {0xb0, 0x6d, 0xba}, {0x5d, 0xaf, 0xa6}, {0xc4, 0xb8, 0xa8},
+        {0x8c, 0x7a, 0x6f}, {0xd6, 0x60, 0x60}, {0x6d, 0xcc, 0x85}, {0xd6, 0xb3, 0x5d},
+        {0x7d, 0xaa, 0xd9}, {0xc8, 0x8d, 0xd0}, {0x7d, 0xc7, 0xbe}, {0xe8, 0xe1, 0xd9},
+    },
+};
+
+static const Look LIGHT = {
+    .foreground = {0x2a, 0x1d, 0x15},
+    .background = {0xfa, 0xf6, 0xee},
+    .cursor = {0xb8, 0x5a, 0x26},
+    .ansi = {
+        {0x2a, 0x1d, 0x15}, {0xb2, 0x3a, 0x32}, {0x2f, 0x7d, 0x54}, {0x7e, 0x5e, 0x12},
+        {0x2e, 0x64, 0xa8}, {0x8f, 0x3f, 0x9c}, {0x1f, 0x7a, 0x74}, {0x7d, 0x6b, 0x5f},
+        {0x5e, 0x4d, 0x42}, {0xc4, 0x45, 0x3b}, {0x3a, 0x8f, 0x60}, {0x94, 0x70, 0x1a},
+        {0x3a, 0x74, 0xbe}, {0xa2, 0x4d, 0xb0}, {0x2a, 0x8f, 0x88}, {0x9a, 0x87, 0x78},
+    },
 };
 
 static Kernel *kernel_of(jlong handle) {
@@ -227,6 +249,26 @@ static GhosttyResult restore_history(GhosttySnapshotDecoder decoder, size_t size
     }
 }
 
+static GhosttyResult paint(GhosttyTerminal terminal, bool light) {
+    const Look *look = light ? &LIGHT : &DARK;
+    GhosttyResult result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND, &look->foreground);
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND, &look->background);
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &look->cursor);
+    }
+    GhosttyColorRgb palette[256];
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLOR_PALETTE_DEFAULT, palette);
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        memcpy(palette, look->ansi, sizeof(look->ansi));
+        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_PALETTE, palette);
+    }
+    return result;
+}
+
 static GhosttyResult configure(GhosttyTerminal terminal, bool console, Kernel *kernel) {
     const uint64_t image_limit = KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES;
     const bool glyphs = false;
@@ -264,21 +306,7 @@ static GhosttyResult configure(GhosttyTerminal terminal, bool console, Kernel *k
         result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_LINES, &scrollback_lines);
     }
     if (result == GHOSTTY_SUCCESS) {
-        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND, &FOREGROUND);
-    }
-    if (result == GHOSTTY_SUCCESS) {
-        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND, &BACKGROUND);
-    }
-    if (result == GHOSTTY_SUCCESS) {
-        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_CURSOR, &CURSOR);
-    }
-    GhosttyColorRgb palette[256];
-    if (result == GHOSTTY_SUCCESS) {
-        result = ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLOR_PALETTE_DEFAULT, palette);
-    }
-    if (result == GHOSTTY_SUCCESS) {
-        memcpy(palette, ANSI, sizeof(ANSI));
-        result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_COLOR_PALETTE, palette);
+        result = paint(terminal, kernel->light);
     }
     return result;
 }
@@ -760,6 +788,19 @@ JNIEXPORT jint JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nativeRes
     }
     pthread_mutex_unlock(&kernel->lock);
     return result;
+}
+
+JNIEXPORT void JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nativeLook(JNIEnv *env, jclass type,
+                                                                                  jlong handle, jboolean light) {
+    (void)env;
+    (void)type;
+    Kernel *kernel = kernel_of(handle);
+    pthread_mutex_lock(&kernel->lock);
+    kernel->light = light;
+    if (kernel->admitted) {
+        paint(kernel->terminal, kernel->light);
+    }
+    pthread_mutex_unlock(&kernel->lock);
 }
 
 JNIEXPORT jint JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nativeFrame(JNIEnv *env, jclass type,

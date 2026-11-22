@@ -60,7 +60,7 @@ internal object ChatType {
     val monoCaption = TextStyle(fontFamily = terminal, fontSize = 11.sp, lineHeight = 15.sp)
 }
 
-/** Code and what a command printed stay dark in both appearances, as terminals do. */
+/** Code and what a command printed stay in a small dark terminal in both appearances. */
 @Composable
 internal fun TerminalTile(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     Box(modifier.terminalTile(DarkColors, TileRadius).padding(horizontal = 10.dp, vertical = 8.dp), content = content)

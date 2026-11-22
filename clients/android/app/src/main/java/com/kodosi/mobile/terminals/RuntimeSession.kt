@@ -72,7 +72,9 @@ data class RuntimeSession(
     val restoredFrom: String? = null,
     val canvas: Canvas? = null,
     /** An agent of the terminal reports to the terminal's chat. */
-    val chat: Boolean = false
+    val chat: Boolean = false,
+    /** The terminal's computer chooses it for everyone who sees the terminal. */
+    val look: TerminalLook = TerminalLook.DARK
 ) {
     @Serializable
     enum class Kind {
@@ -133,6 +135,15 @@ data class RuntimeSession(
     val agent: AgentKind get() = AgentKind.of(program)
 
     val folderName: String? get() = workingDir?.trimEnd('/', '\\')?.substringAfterLast('/')?.substringAfterLast('\\')
+}
+
+@Serializable
+enum class TerminalLook {
+    @SerialName("dark")
+    DARK,
+
+    @SerialName("light")
+    LIGHT
 }
 
 enum class AgentKind {

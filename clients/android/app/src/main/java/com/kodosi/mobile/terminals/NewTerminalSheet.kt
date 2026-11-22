@@ -116,6 +116,7 @@ private enum class LaunchStep { OFFLINE, NO_COMPUTER, FOLDERS, PROGRAMS }
 fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -> Unit, started: (String) -> Unit) {
     val colors = KodosiTheme.colors
     val account by model.account.state.collectAsStateWithLifecycle()
+    val terminals by model.terminals.state.collectAsStateWithLifecycle()
     var computer by rememberSaveable {
         mutableStateOf(
             request.computer ?: model.preferences.launchComputer ?: account.computers.firstOrNull()?.deviceId
@@ -274,7 +275,9 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                             }
                             if (agent != null) {
                                 item {
-                                    FirstPrompt(agent, prompt, !busy)
+                                    // Every terminal of a computer has that computer's look.
+                                    val known = terminals.sessions.firstOrNull { it.hostDeviceId == chosen.deviceId }
+                                    FirstPrompt(agent, prompt, !busy, known?.look ?: TerminalLook.DARK)
                                 }
                             }
                             failure?.let { error ->
@@ -368,14 +371,15 @@ private fun ProgramChoice(kind: AgentKind, selected: Boolean, enabled: Boolean, 
 }
 
 @Composable
-internal fun FirstPrompt(agent: AgentInfo, prompt: TextFieldState, enabled: Boolean) {
-    KodosiTheme(dark = true) {
+internal fun FirstPrompt(agent: AgentInfo, prompt: TextFieldState, enabled: Boolean, look: TerminalLook) {
+    val ground = KodosiTheme.colors
+    KodosiTheme(dark = look == TerminalLook.DARK) {
         val colors = KodosiTheme.colors
         val focus = LocalFocusManager.current
         val label = stringResource(R.string.first_prompt)
         val stacked = LocalConfiguration.current.fontScale >= 1.5f
         FlowRow(
-            Modifier.fillMaxWidth().terminalTile(colors, radius = Radius.lg).padding(14.dp),
+            Modifier.fillMaxWidth().terminalTile(ground, Radius.lg, look = colors).padding(14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -384,7 +388,7 @@ internal fun FirstPrompt(agent: AgentInfo, prompt: TextFieldState, enabled: Bool
                 Text(
                     agent.program,
                     style = KodosiType.mono,
-                    color = lerp(AgentKind.of(agent.agent).tint(), Color.White, 0.35f)
+                    color = lerp(AgentKind.of(agent.agent).tint(), colors.ink, 0.35f)
                 )
             }
             BasicTextField(

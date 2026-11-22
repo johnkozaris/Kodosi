@@ -46,7 +46,7 @@ class FirstPromptTest {
         )
         InstrumentationRegistry.getInstrumentation().setInTouchMode(true)
         Robolectric.buildActivity(ComponentActivity::class.java).setup().get().setContent {
-            KodosiTheme { FirstPrompt(claude, prompt, enabled = true) }
+            KodosiTheme { FirstPrompt(claude, prompt, enabled = true, look = TerminalLook.DARK) }
         }
         val field = compose.onNodeWithContentDescription("First prompt")
 
