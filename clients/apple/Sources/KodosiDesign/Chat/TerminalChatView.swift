@@ -24,21 +24,13 @@ public struct TerminalChatView<ModelKey: View>: View {
         self.modelKey = modelKey
     }
 
-    private var ground: Color {
-        #if os(iOS)
-            theme.colors.surface
-        #else
-            theme.colors.sheet
-        #endif
-    }
-
     public var body: some View {
         VStack(spacing: 0) {
             ChatThread(chat: chat, agent: agent, me: me, sent: sent)
             ChatDock(chat: chat, agent: agent, focused: $focused, modelKey: modelKey) { sent += 1 }
                 .layoutPriority(1)
         }
-        .background(ground)
+        .background(theme.colors.chat)
         .task { await chat.watch() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chat")

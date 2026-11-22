@@ -42,6 +42,10 @@ struct SessionTileView: View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
     }
 
+    private var showsChat: Bool {
+        session.isConnected && deps.workbench.chatting.contains(session.id)
+    }
+
     var body: some View {
         let viewers = deps.viewers(of: session)
         VStack(spacing: 0) {
@@ -60,7 +64,8 @@ struct SessionTileView: View {
             .terminalDrag(session, when: !projectEmbedded)
             terminal.frame(maxWidth: .infinity, maxHeight: .infinity).padding(Self.terminalInsets)
         }
-        .terminalTile(radius: radius, selected: lit && !projectEmbedded && !alone, shown: !joinsCanvas)
+        .terminalTile(radius: radius, selected: lit && !projectEmbedded && !alone, shown: !joinsCanvas,
+                      fill: showsChat ? theme.colors.chat : nil)
         .overlay {
             shape.fill(theme.colors.accent)
                 .opacity(veil)
@@ -150,7 +155,7 @@ struct SessionTileView: View {
             let manager = deps.terminalManager
             let managed = manager.session(for: session.id)
             let state = manager.renderState(for: session.id)
-            let chatting = deps.workbench.chatting.contains(session.id)
+            let chatting = showsChat
             ZStack {
                 screen(manager: manager, managed: managed, state: state)
                     .opacity(chatting ? 0 : 1).allowsHitTesting(!chatting).accessibilityHidden(chatting)

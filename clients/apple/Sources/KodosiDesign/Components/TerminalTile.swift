@@ -6,8 +6,8 @@ import SwiftUI
 #endif
 
 public extension View {
-    func terminalTile(radius: CGFloat = Radius.tile, selected: Bool = false, shown: Bool = true) -> some View {
-        modifier(TerminalTile(radius: radius, selected: selected, shown: shown))
+    func terminalTile(radius: CGFloat = Radius.tile, selected: Bool = false, shown: Bool = true, fill: Color? = nil) -> some View {
+        modifier(TerminalTile(radius: radius, selected: selected, shown: shown, fill: fill))
     }
 }
 
@@ -18,6 +18,7 @@ private struct TerminalTile: ViewModifier {
     let radius: CGFloat
     let selected: Bool
     let shown: Bool
+    let fill: Color?
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -25,7 +26,7 @@ private struct TerminalTile: ViewModifier {
         content
             .background {
                 if shown {
-                    shape.fill(theme.colors.terminal)
+                    shape.fill(fill ?? theme.colors.terminal)
                         .shadow(color: ground.colors.shadow.opacity(ground.isDark ? 0.5 : 0.14), radius: 10, x: 3, y: 6)
                 }
             }

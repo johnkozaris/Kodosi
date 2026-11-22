@@ -16,6 +16,8 @@ struct CanvasBody: View, Animatable {
     var depth: CGFloat
     var radius: CGFloat
     var tab: CGRect?
+    /// Where the part of a terminal that shows its chat ends.
+    var chatEnd: CGFloat?
     var outline = true
     var shadow = true
 
@@ -40,6 +42,12 @@ struct CanvasBody: View, Animatable {
         let band = colors.band
         ZStack(alignment: .topLeading) {
             lobes.fill(colors.terminal)
+            if let chatEnd {
+                GeometryReader { geometry in
+                    colors.chat.frame(width: max(0, min(geometry.size.width, chatEnd)))
+                }
+                .clipShape(lobes)
+            }
             GeometryReader { geometry in
                 let width = geometry.size.width
                 UnevenRoundedRectangle(bottomTrailingRadius: end, style: .continuous).fill(band)
