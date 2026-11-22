@@ -133,7 +133,7 @@ public struct AccountUsage: Decodable, Equatable, Sendable {
     public var readAtMs: UInt64
 
     public func headline(for model: String?) -> UsageLimit? {
-        UsageLimit.nearest(of: limits.filter { $0.counts(for: model) })
+        UsageLimit.nearest(of: limits.filter { $0.model == nil || model == nil || $0.model == model })
     }
 
     public var stale: Bool {
@@ -153,27 +153,12 @@ public struct UsageLimit: Decodable, Equatable, Identifiable, Sendable {
     public var level: UsageLevel
     public var resetsAtMs: UInt64?
 
-    public init(
-        hours: Int?, scope: String? = nil, model: String? = nil, used: Int, level: UsageLevel, resetsAtMs: UInt64? = nil,
-    ) {
-        self.hours = hours
-        self.scope = scope
-        self.model = model
-        self.used = used
-        self.level = level
-        self.resetsAtMs = resetsAtMs
-    }
-
     public var id: String {
         scope.map { "scope:\($0)" } ?? hours.map { "hours:\($0)" } ?? "month"
     }
 
     public var resetsAt: Date? {
         resetsAtMs.map { Date(timeIntervalSince1970: Double($0) / 1000) }
-    }
-
-    public func counts(for model: String?) -> Bool {
-        self.model == nil || model == nil || self.model == model
     }
 
     public var window: String {
