@@ -10,7 +10,7 @@ Item {
     property real size: 26
     property var usage: null
     property bool loading: false
-    property bool onTerminal: false
+    property Look look: KodosiTheme.look
     property color tint: Identity.personTint(key)
     readonly property real ring: Math.max(1.5, size * 0.075)
     readonly property real face: usage || loading ? size - 2 * (ring + Math.max(1.25, size * 0.06)) : size
@@ -44,6 +44,6 @@ Item {
         limit: root.usage
         loading: root.loading
         lineWidth: root.ring
-        onTerminal: root.onTerminal
+        look: root.look
     }
 }

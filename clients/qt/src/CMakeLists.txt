@@ -381,6 +381,7 @@ qt_add_qml_module(kodosi-ui
         qml/Shell/WindowControls.qml
         qml/Theme/Identity.qml
         qml/Theme/KodosiTheme.qml
+        qml/Theme/Look.qml
         qml/Theme/Mentions.qml
         qml/Workbench/AgentChoiceMenu.qml
         qml/Workbench/AgentLauncher.qml

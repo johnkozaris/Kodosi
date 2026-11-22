@@ -28,6 +28,8 @@ reading provider conversations stay on the computer. The app needs Android 15 or
   phone lacks. The composer sends a paste and Return only when you tap Send. While an
   agent waits, 1, 2 and 3 answer it without the keyboard. In landscape, the header
   hides while you type. A hardware keyboard types into the terminal.
+- A terminal whose agent reports to its chat shows as its screen or as its chat, and
+  you choose the view in its header.
 - A drag scrolls the terminal, or the program when it uses the mouse. Links follow the
   shared link rules. Select and copy text, paste text or pictures, and rename your
   terminal from its header. Android's system back gesture leaves the terminal.

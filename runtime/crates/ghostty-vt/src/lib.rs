@@ -7,9 +7,9 @@
 )]
 
 pub use ghostty_vt_sys::raw::{
-    Colors, CompressionProgress, ContextAction, ContextSignal, Effect, Error, ProgramStatus,
-    ProgramStatusKind, ProgramStatusState, ProgressState, Screen, SnapshotHeader, SnapshotLimits,
-    TerminalState,
+    ColorScheme, Colors, CompressionProgress, ContextAction, ContextSignal, Effect, Error,
+    ProgramStatus, ProgramStatusKind, ProgramStatusState, ProgressState, Screen, SnapshotHeader,
+    SnapshotLimits, TerminalState,
 };
 
 use ghostty_vt_sys::raw::{Format, FormatOptions, Limits, Terminal as RawTerminal};
@@ -94,6 +94,20 @@ impl Terminal {
 
     pub fn set_default_colors(&mut self, colors: &Colors) -> Result<(), Error> {
         self.raw.set_default_colors(colors)
+    }
+
+    pub fn set_color_scheme(&mut self, scheme: ColorScheme) -> Result<(), Error> {
+        self.raw.set_color_scheme(scheme)
+    }
+
+    pub fn color_scheme_report(&mut self) -> Result<Vec<u8>, Error> {
+        if !self.raw.mode(2031, false)? {
+            return Ok(Vec::new());
+        }
+        Ok(match self.raw.color_scheme() {
+            ColorScheme::Dark => b"\x1b[?997;1n".to_vec(),
+            ColorScheme::Light => b"\x1b[?997;2n".to_vec(),
+        })
     }
 
     pub fn write(&mut self, bytes: &[u8]) -> Result<Vec<Effect>, Error> {

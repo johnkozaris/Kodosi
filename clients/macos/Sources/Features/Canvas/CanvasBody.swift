@@ -1,6 +1,8 @@
+import KodosiBridge
 import KodosiDesign
 import SwiftUI
 
+/// The body is the terminal's, and its shadow falls on the ground around it.
 struct CanvasBody: View, Animatable {
     static let band: CGFloat = 38
     nonisolated static let waist: CGFloat = 14
@@ -9,10 +11,13 @@ struct CanvasBody: View, Animatable {
     static let clearance: CGFloat = 10
 
     @Environment(\.theme) private var theme
+    let look: TerminalLook
     var seam: CGFloat
     var depth: CGFloat
     var radius: CGFloat
     var tab: CGRect?
+    /// Where the part of a terminal that shows its chat ends.
+    var chatEnd: CGFloat?
     var outline = true
     var shadow = true
 
@@ -33,9 +38,16 @@ struct CanvasBody: View, Animatable {
         let part = min(1, depth / Self.waist)
         let gap = Self.split * part
         let end = Radius.xs * part
-        let band = theme.colors.band
+        let colors = AppTheme(look: look).colors
+        let band = colors.band
         ZStack(alignment: .topLeading) {
-            lobes.fill(theme.colors.terminal)
+            lobes.fill(colors.terminal)
+            if let chatEnd {
+                GeometryReader { geometry in
+                    colors.chat.frame(width: max(0, min(geometry.size.width, chatEnd)))
+                }
+                .clipShape(lobes)
+            }
             GeometryReader { geometry in
                 let width = geometry.size.width
                 UnevenRoundedRectangle(bottomTrailingRadius: end, style: .continuous).fill(band)
@@ -53,10 +65,9 @@ struct CanvasBody: View, Animatable {
         .shadow(color: shadow ? theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.14) : .clear, radius: 10, x: 3, y: 6)
         .overlay {
             if outline {
-                Outline(lobes: lobes, tab: tab).fill(theme.colors.hairline.opacity(0.7))
+                Outline(lobes: lobes, tab: tab).fill(colors.hairline.opacity(0.7))
             }
         }
-        .terminalScope()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

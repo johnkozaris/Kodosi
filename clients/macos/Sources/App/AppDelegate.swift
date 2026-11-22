@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_: Notification) {
         UNUserNotificationCenter.current().delegate = self
         SystemPresenceSignals.observe(dependencies.presence)
+        dependencies.watchAppearance()
         dependencies.start()
         if !storageBootstrap.isIsolated {
             if dependencies.updater.configured {

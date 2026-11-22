@@ -13,7 +13,9 @@ colors:
   well: "#0C0A08"
   well-light: "#E8E0D2"
   terminal: "#0D0B09"
+  terminal-light: "#FAF6EE"
   band: "#221A16"
+  band-light: "#F1EADF"
   hairline: "#3B2F29"
   hairline-light: "#D9CCBA"
   ink: "#F1E9E3"
@@ -69,7 +71,7 @@ components:
 The app is a warm workbench lit from the top left. A source list rests on the ground, one framed surface holds the work, raised objects rest on it and inputs sink into wells. The copper cursor is the one sign of the brand: it ends the wordmark, marks the slot for a new terminal, and new terminals open from it. Each screen starts with the objects of its job, and text is short.
 
 ## Colors
-Copper `accent` means "act here" or "selected", and nothing else. `glowAmber` flashes behind a fresh change and `glowOrange` is a breathing dot for work or for a change out of view. Green `ready` means done or verified and is never a person's color. Plain tokens are dark and `-light` tokens their light pair. Use `AppTheme` roles, not literals. Every fill is solid, and terminals stay dark in both appearances.
+Copper `accent` means "act here" or "selected", and nothing else. `glowAmber` flashes behind a fresh change and `glowOrange` is a breathing dot for work or for a change out of view. Green `ready` means done or verified and is never a person's color. Plain tokens are dark and `-light` tokens their light pair. Use `AppTheme` roles, not literals. Every fill is solid. A terminal takes the light or dark look of the computer that it runs on, for everyone who sees it, and what belongs to a terminal takes its look.
 
 ## Typography
 Use `AppTextStyle`: `large` for page titles, `title` for sheets, `headline` for object names, `body` for conversation and rows, `footnote` and `caption` for facts, monospace for code and paths. Labels use sentence case. The wordmark is a picture.
@@ -88,8 +90,8 @@ Tags and pills are capsules, buttons are rounded rectangles, agents, projects an
 - **Status sign.** Each row, card, tab and tile header ends with one status sign, and it is the only sign that a program waits: copper while it waits, a green check for done and a `caution` triangle for failed. While a program works, a warm light circles the edge of its mark, and nothing glows outside the mark. A breathing copper dot marks news out of view.
 - **Buttons.** A button is a rounded rectangle with a flat face lit from the top left. Primary is copper and the others are quiet. A symbol-only button turns copper only while it is on, and names itself in a tip after a short pause.
 - **Selection.** The selection is a raised pill with a copper caret, and segmented controls and tabs slide a raised thumb.
-- **Terminal tile.** A terminal is a dark rounded tile whose header actions stay faint until hover or selection, and the selected tile has a thin copper edge. The header says where the terminal runs in one line of words, never as tags or fields. The launcher is the terminal about to open, dark in both appearances.
-- **Canvas.** A terminal and its open canvas are two lobes of one body with a soft waist between them. The keys of the canvas sit in a dark well, and files and browser tabs are tabs over what they show.
+- **Terminal tile.** A terminal is a rounded tile in its look whose header actions stay faint until hover or selection, and the selected tile has a thin copper edge. Its chat fills the same body. The header says where the terminal runs in one line of words, never as tags or fields. The launcher is the terminal about to open, in this Mac's look.
+- **Canvas.** A terminal and its open canvas are two lobes of one body with a soft waist between them. The keys of the canvas sit in a well, and files and browser tabs are tabs over what they show.
 - **Drop.** A place that takes a dragged thing shows a dashed copper outline, and the dragged thing is a lifted chip.
 - **Conversation.** Your messages are bubbles on the right; others show an avatar and a name, and agents their mark, owner and terminal. Mentions are tinted chips.
 - **Dosi.** Its face is the copper cursor doubled into two eyes on a dark squircle, on a line at the bottom of the source list with no box. The face and one monospace line say what Dosi does, and nothing pops up for Dosi.

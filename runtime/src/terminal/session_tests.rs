@@ -11,12 +11,18 @@ async fn shell(
     mpsc::Receiver<SessionChange>,
     tempfile::TempDir,
 ) {
-    shell_at(script, Default::default()).await
+    shell_at(
+        script,
+        Default::default(),
+        watch::channel(TerminalLook::Dark).1,
+    )
+    .await
 }
 
 async fn shell_at(
     script: &str,
     grid: (TerminalSize, CellPixels),
+    look: watch::Receiver<TerminalLook>,
 ) -> (
     TerminalSession,
     mpsc::Receiver<SessionChange>,
@@ -40,6 +46,8 @@ async fn shell_at(
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
+        look,
         directory.join("pictures"),
         changes,
     )
@@ -137,6 +145,7 @@ async fn a_terminal_starts_at_the_grid_of_its_view() {
 printf 'SIZE=%s\n' "$(stty size)"
 exec /bin/cat"#,
         (size, cell),
+        watch::channel(TerminalLook::Dark).1,
     )
     .await;
     let mut subscription = session.subscribe().await.expect("subscribe");
@@ -147,6 +156,36 @@ exec /bin/cat"#,
         .await
         .expect("checkpoint");
     assert_eq!(cut.checkpoint.size(), size);
+    session.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn a_new_look_of_the_host_reaches_the_program_that_follows_the_color_scheme_and_the_viewers()
+{
+    let (look, host_look) = watch::channel(TerminalLook::Dark);
+    let (session, _changes, _root) = shell_at(
+        r"stty raw -echo
+printf '\033[?2031hREADY'
+exec /bin/cat -v",
+        Default::default(),
+        host_look,
+    )
+    .await;
+    let mut subscription = session.subscribe().await.expect("subscribe");
+    let mut output = session.output();
+    wait_text(&mut subscription, b"READY").await;
+
+    look.send_replace(TerminalLook::Light);
+
+    wait_text(&mut subscription, b"^[[?997;2n").await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !matches!(
+            output.recv().await,
+            Ok(PublishedFrame::Metadata(metadata)) if metadata.look == TerminalLook::Light
+        ) {}
+    })
+    .await
+    .expect("the new look for the viewers");
     session.close().await.expect("close");
 }
 
@@ -829,7 +868,8 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
     let root = tempfile::tempdir().expect("cwd");
     let directory = kodosi_os::fs::canonicalize(root.path()).expect("canonical");
     let emulator =
-        SessionTerminalHandle::spawn(TerminalSize::default(), Vec::new()).expect("emulator");
+        SessionTerminalHandle::spawn(TerminalSize::default(), Vec::new(), TerminalLook::Dark)
+            .expect("emulator");
     let (pty, reader) = KodosiPty::spawn_program(
         Path::new("/bin/sh"),
         &["-c".to_owned(), "stty raw -echo; exec /bin/cat".to_owned()],
@@ -851,6 +891,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         &std::env::temp_dir(),
         crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
     );
+    let chat = TerminalChat::alone().handle;
     let mut actor = LocalActor {
         id: Uuid::now_v7(),
         incarnation: Uuid::now_v7(),
@@ -896,6 +937,10 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         published_context: None,
         canvas: canvas.clone(),
         canvas_state: canvas.state(),
+        chat_linked: chat.linked(),
+        chat,
+        host_look: watch::channel(TerminalLook::Dark).1,
+        look: TerminalLook::Dark,
         pictures: std::env::temp_dir().join(Uuid::now_v7().to_string()),
         saving: JoinSet::new(),
         metadata_dirty: false,
@@ -1221,6 +1266,8 @@ async fn a_command_runs_only_while_the_shell_is_at_its_prompt() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
+        watch::channel(TerminalLook::Dark).1,
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1275,6 +1322,8 @@ async fn a_terminal_shows_the_screen_it_starts_with_above_its_program() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
+        watch::channel(TerminalLook::Dark).1,
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1323,6 +1372,8 @@ async fn interactive_shell() -> (
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
+        watch::channel(TerminalLook::Dark).1,
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )
@@ -1640,6 +1691,8 @@ async fn title_delivery_retries_after_the_change_channel_is_full() {
             &std::env::temp_dir(),
             crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
         ),
+        TerminalChat::alone(),
+        watch::channel(TerminalLook::Dark).1,
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         changes,
     )

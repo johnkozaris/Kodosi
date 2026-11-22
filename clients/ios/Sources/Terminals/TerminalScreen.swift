@@ -72,6 +72,18 @@ private struct TerminalScreenContent: View {
         )
     }
 
+    private var chatting: Bool {
+        model.terminals.showsChat(controller.sessionId)
+    }
+
+    private var face: Binding<TerminalFace> {
+        Binding {
+            chatting ? .chat : .terminal
+        } set: { face in
+            model.terminals.showChat(face == .chat, of: controller.sessionId)
+        }
+    }
+
     private var liveKey: TerminalLiveKey {
         let session = controller.session
         return TerminalLiveKey(
@@ -85,12 +97,13 @@ private struct TerminalScreenContent: View {
 
     var body: some View {
         let session = controller.session
+        let header = input.showsHeader(compact: compact) || chatting
         VStack(spacing: 0) {
             stage(session)
-                .padding(.horizontal, compact ? 6 : 10)
-                .padding(.top, input.showsHeader(compact: compact) ? 6 : 2)
-                .padding(.bottom, session == nil ? 10 : 0)
-            if let session {
+                .padding(.horizontal, chatting ? 0 : compact ? 6 : 10)
+                .padding(.top, header ? 6 : 2)
+                .padding(.bottom, session == nil || chatting ? 10 : 0)
+            if let session, !chatting {
                 TerminalControls(
                     controller: controller, session: session, input: input, compact: compact, composing: $composing,
                     actions: inputActions,
@@ -104,10 +117,11 @@ private struct TerminalScreenContent: View {
                             addingFile = true
                         },
                 )
+                .terminalScope(session.terminalLook)
             }
         }
         .background(theme.colors.surface)
-        .toolbar(input.showsHeader(compact: compact) ? .visible : .hidden, for: .navigationBar)
+        .toolbar(header ? .visible : .hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -121,6 +135,9 @@ private struct TerminalScreenContent: View {
             .sharedBackgroundVisibility(.hidden)
             if let session {
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    if session.reportsToChat || chatting {
+                        TerminalFaceSwitch(face: face, identifier: "terminal.face")
+                    }
                     let viewers = model.viewers(of: session)
                     if !viewers.isEmpty {
                         AvatarStack(people: viewers, size: 22, limit: 3)
@@ -245,7 +262,7 @@ private struct TerminalScreenContent: View {
     private func stage(_ session: RuntimeSession?) -> some View {
         stageContent(session)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .terminalTile()
+            .terminalTile(shown: !(chatting && session?.isConnected == true))
             .overlay(alignment: .top) {
                 VStack(spacing: 8) {
                     if waitsForConnection(session) {
@@ -274,12 +291,18 @@ private struct TerminalScreenContent: View {
                         .allowsHitTesting(false)
                 }
             }
-            .terminalScope()
+            .terminalScope(look(of: session))
             .animation(theme.motion.soft, value: liveKey)
             .animation(theme.motion.spring, value: waitsForConnection(session))
             .animation(theme.motion.soft, value: controller.sizeNote)
             .animation(theme.motion.spring, value: controller.picture == nil)
             .animation(theme.motion.spring, value: arrival)
+    }
+
+    /// The screen is the terminal's, and the chat face, full screen without a tile, is the app's.
+    private func look(of session: RuntimeSession?) -> TerminalLook {
+        guard let session, !(chatting && session.isConnected) else { return theme.isDark ? .dark : .light }
+        return session.terminalLook
     }
 
     private func waitsForConnection(_ session: RuntimeSession?) -> Bool {
@@ -289,10 +312,17 @@ private struct TerminalScreenContent: View {
     @ContentBuilder
     private func stageContent(_ session: RuntimeSession?) -> some View {
         if let session {
-            let surface = session.isConnected ? controller.surface : nil
-            let cover = TerminalCover.of(session, unreachable: model.unreachable(session), opening: controller.opening,
-                                         failure: controller.openFailure, render: surface.map { _ in controller.renderState })
+            let surface = session.isConnected && !chatting ? controller.surface : nil
+            let cover = chatting && session.isConnected ? nil
+                : TerminalCover.of(session, unreachable: model.unreachable(session), opening: controller.opening,
+                                   failure: controller.openFailure, render: surface.map { _ in controller.renderState })
             ZStack {
+                if chatting, session.isConnected {
+                    TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId) { name, effort in
+                        ChatModelMenu(session: session, name: name, effort: effort)
+                    }
+                    .transition(.identity)
+                }
                 if let surface {
                     TerminalRowsFrame(renderer: surface.renderer) {
                         TerminalRendererView(
@@ -328,6 +358,40 @@ private struct TerminalScreenContent: View {
             .animation(theme.motion.fade, value: cover)
         } else {
             TerminalEnded { dismiss() }
+        }
+    }
+}
+
+/// The model in a chat's facts opens the agent's part of the terminal menu, which changes its model.
+private struct ChatModelMenu: View {
+    @Environment(AppModel.self) private var model
+    let session: RuntimeSession
+    let name: String
+    let effort: String?
+
+    private var face: ChatModelFace {
+        var models: AgentModels?
+        if session.isOwner, let host = session.hostDeviceId {
+            models = model.launcher(for: host).models[session.agent.rawValue]
+        }
+        return ChatModelFace(models: models, model: name, effort: effort)
+    }
+
+    var body: some View {
+        if session.canControl, let live = session.programLive {
+            Menu {
+                AgentMenuSection(session: session, live: live)
+            } label: {
+                face.touchTarget()
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .loadsAgentModels(of: session)
+            .accessibilityLabel(Text("Model"))
+            .accessibilityValue(Text(verbatim: face.title))
+            .accessibilityIdentifier("terminal.chat.model")
+        } else {
+            face
         }
     }
 }

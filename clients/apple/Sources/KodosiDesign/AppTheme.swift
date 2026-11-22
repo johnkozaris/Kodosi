@@ -1,3 +1,4 @@
+import KodosiBridge
 import SwiftUI
 
 public struct AppTheme: Sendable {
@@ -14,6 +15,13 @@ public struct AppTheme: Sendable {
     public static let dark = AppTheme(colors: .dark, motion: Motion(reduced: false), isDark: true)
     public static let light = AppTheme(colors: .light, motion: Motion(reduced: false), isDark: false)
 
+    public init(look: TerminalLook) {
+        switch look {
+        case .dark: self = .dark
+        case .light: self = .light
+        }
+    }
+
     public func reducingMotion(_ reduced: Bool) -> AppTheme {
         AppTheme(colors: colors, motion: Motion(reduced: reduced), isDark: isDark)
     }
@@ -27,6 +35,8 @@ public extension AppTheme {
         public let lifted: Color
         public let well: Color
         public let terminal: Color
+        /// The header bar of a terminal's body.
+        public let band: Color
         public let hairline: Color
 
         public let ink: Color
@@ -61,6 +71,7 @@ public extension AppTheme {
             lifted: hex(0x2E241F),
             well: hex(0x0C0A08),
             terminal: hex(0x0D0B09),
+            band: hex(0x221A16),
             hairline: hex(0x3B2F29),
 
             ink: hex(0xF1E9E3),
@@ -95,7 +106,8 @@ public extension AppTheme {
             raised: hex(0xFEFBF5),
             lifted: hex(0xFFFDF9),
             well: hex(0xE8E0D2),
-            terminal: hex(0x0D0B09),
+            terminal: hex(0xFAF6EE),
+            band: hex(0xF1EADF),
             hairline: hex(0xD9CCBA),
 
             ink: hex(0x25160E),
@@ -132,9 +144,12 @@ public extension AppTheme.Colors {
         raised.mix(with: surface, by: 0.45)
     }
 
-    /// The header bar of a terminal's body, in the copper of a raised surface.
-    var band: Color {
-        hex(0x221A16)
+    var chat: Color {
+        #if os(iOS)
+            surface
+        #else
+            sheet
+        #endif
     }
 }
 

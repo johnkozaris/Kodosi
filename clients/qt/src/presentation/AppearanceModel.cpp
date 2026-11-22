@@ -14,6 +14,7 @@ namespace {
 
 const auto preferenceKey = QStringLiteral("appearance/preference");
 const auto motionKey = QStringLiteral("appearance/reduceMotion");
+const auto terminalsKey = QStringLiteral("appearance/keepTerminalsDark");
 const auto summaryKey = QStringLiteral("appearance/summaryFirst");
 
 QString preferenceName(const AppearanceModel::Preference preference)
@@ -92,6 +93,7 @@ AppearanceModel::AppearanceModel(
     Q_ASSERT(m_styleHooks.unsetColorScheme);
     m_preference = preferenceFromName(m_settings->value(preferenceKey).toString()).value_or(Preference::System);
     m_reducesMotion = m_settings->value(motionKey).toString() == QStringLiteral("true");
+    m_keepsTerminalsDark = m_settings->value(terminalsKey).toString() == QStringLiteral("true");
     m_summaryFirst = m_settings->value(summaryKey).toString() == QStringLiteral("true");
     applyPreference();
 }
@@ -126,6 +128,16 @@ int AppearanceModel::stableBits(const QString& key)
 bool AppearanceModel::dark() const noexcept
 {
     return m_dark;
+}
+
+bool AppearanceModel::keepsTerminalsDark() const noexcept
+{
+    return m_keepsTerminalsDark;
+}
+
+QString AppearanceModel::terminalLook() const
+{
+    return m_dark || m_keepsTerminalsDark ? QStringLiteral("dark") : QStringLiteral("light");
 }
 
 bool AppearanceModel::reduceMotion() const noexcept
@@ -185,6 +197,22 @@ bool AppearanceModel::setPreference(const int preference)
     setError({});
     emit preferenceChanged();
     applyPreference();
+    return true;
+}
+
+bool AppearanceModel::setKeepsTerminalsDark(const bool enabled)
+{
+    if (enabled == m_keepsTerminalsDark) {
+        return true;
+    }
+    if (!store(terminalsKey, enabled ? QStringLiteral("true") : QStringLiteral("false"))) {
+        setError(tr(
+            "Appearance settings could not be written. The previous preference remains active."));
+        return false;
+    }
+    setError({});
+    m_keepsTerminalsDark = enabled;
+    emit terminalLookChanged();
     return true;
 }
 
@@ -283,8 +311,12 @@ void AppearanceModel::updateDark(const Qt::ColorScheme scheme)
     if (m_dark == dark) {
         return;
     }
+    const auto look = terminalLook();
     m_dark = dark;
     emit darkChanged();
+    if (terminalLook() != look) {
+        emit terminalLookChanged();
+    }
 }
 
 void AppearanceModel::updateMotion(const bool system, const bool chosen)

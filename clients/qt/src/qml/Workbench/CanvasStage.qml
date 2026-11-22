@@ -9,6 +9,7 @@ Item {
     id: root
 
     default property alias contents: holder.data
+    required property Look look
     property string canvasSessionId: ""
     property bool wide: false
     property real chosenWidth: 0
@@ -39,6 +40,7 @@ Item {
     CanvasBody {
         anchors.fill: parent
         visible: root.joined
+        look: root.look
         seam: root.zoomed ? 0 : root.beside ? root.width - root.panel : root.width
         depth: root.beside && !root.zoomed ? 14 : 0
         radius: root.radius
@@ -95,6 +97,7 @@ Item {
         CanvasBody {
             anchors.fill: parent
             visible: root.part > 0.001
+            look: root.look
             seam: width
             radius: root.radius
         }
@@ -151,7 +154,7 @@ Item {
             width: 3
             height: 34
             radius: 1.5
-            color: KodosiTheme.terminalInkFaint
+            color: root.look.inkFaint
             opacity: handle.containsMouse || handle.pressed ? 0.7 : 0
 
             Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }

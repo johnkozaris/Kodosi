@@ -1,4 +1,6 @@
+import KodosiBridge
 import KodosiTerminal
+import KodosiTerminalSessions
 import UIKit
 
 enum TerminalAppearance {
@@ -26,7 +28,7 @@ enum TerminalAppearance {
         TextSize(rawValue: UserDefaults.standard.string(forKey: TextSize.storageKey) ?? "") ?? .standard
     }
 
-    static var style: TerminalStyle {
+    static func style(look: TerminalLook) -> TerminalStyle {
         TerminalStyle(
             fontFamily: fontFamily,
             fontSize: textSize.points,
@@ -36,8 +38,8 @@ enum TerminalAppearance {
             scrollback: TerminalScrollbackBudget(lines: 5000),
             paddingX: 4,
             paddingY: 4,
-            minimumContrast: 1.1,
-            palette: .kodosi,
+            minimumContrast: look.minimumContrast,
+            palette: look.palette,
         )
     }
 }

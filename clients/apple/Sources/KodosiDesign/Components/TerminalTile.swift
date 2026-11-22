@@ -5,31 +5,29 @@ import SwiftUI
     import UIKit
 #endif
 
-public enum TerminalInk {
-    public static let body = hex(0x0D0B09)
-    public static let band = hex(0x1A1512)
-    public static let path = hex(0x5DAFA6)
-}
-
 public extension View {
-    func terminalTile(radius: CGFloat = Radius.tile, selected: Bool = false, shown: Bool = true) -> some View {
-        modifier(TerminalTile(radius: radius, selected: selected, shown: shown))
+    func terminalTile(radius: CGFloat = Radius.tile, selected: Bool = false, shown: Bool = true, fill: Color? = nil) -> some View {
+        modifier(TerminalTile(radius: radius, selected: selected, shown: shown, fill: fill))
     }
 }
 
+/// A tile casts its shadow on the ground around it, so the shadow is the ground's.
 private struct TerminalTile: ViewModifier {
     @Environment(\.theme) private var theme
+    @Environment(\.chromeTheme) private var chrome
     let radius: CGFloat
     let selected: Bool
     let shown: Bool
+    let fill: Color?
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let ground = chrome ?? theme
         content
             .background {
                 if shown {
-                    shape.fill(theme.colors.terminal)
-                        .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.5 : 0.14), radius: 10, x: 3, y: 6)
+                    shape.fill(fill ?? theme.colors.terminal)
+                        .shadow(color: ground.colors.shadow.opacity(ground.isDark ? 0.5 : 0.14), radius: 10, x: 3, y: 6)
                 }
             }
             .overlay {
@@ -56,6 +54,7 @@ public struct TerminalPreview: View {
     }
 
     @Environment(\.theme) private var theme
+    @Environment(\.chromeTheme) private var chrome
     private let look: Look
 
     public init(family: String, size: CGFloat, lineHeight: Double = 1, cursor: Cursor = .block, blinks: Bool = true) {
@@ -75,18 +74,28 @@ public struct TerminalPreview: View {
         #endif
     }
 
+    /// The foreground of the terminal palette of the look.
+    private var ink: Color {
+        theme.isDark ? hex(0xE8E1D9) : hex(0x2A1D15)
+    }
+
+    /// The cyan of the terminal palette of the look.
+    private var path: Color {
+        theme.isDark ? hex(0x5DAFA6) : hex(0x1F7A74)
+    }
+
     public var body: some View {
         let size = look.size
-        let ink = hex(0xE8E1D9)
+        let ground = chrome ?? theme
         VStack(alignment: .leading, spacing: max(0, (look.lineHeight - 1) * size)) {
             HStack(spacing: size * 0.5) {
-                Text(verbatim: "~/kodosi").foregroundStyle(TerminalInk.path)
+                Text(verbatim: "~/kodosi").foregroundStyle(path)
                 Text(verbatim: "❯").foregroundStyle(theme.colors.accent)
                 Text(verbatim: "claude").foregroundStyle(ink)
             }
             Text(verbatim: "✳ Welcome back. What are we building?").foregroundStyle(hex(0xD97757))
             HStack(spacing: size * 0.5) {
-                Text(verbatim: "~/kodosi").foregroundStyle(TerminalInk.path)
+                Text(verbatim: "~/kodosi").foregroundStyle(path)
                 Text(verbatim: "❯").foregroundStyle(theme.colors.accent)
                 cursor
             }
@@ -97,7 +106,7 @@ public struct TerminalPreview: View {
         .frame(maxWidth: .infinity, minHeight: 128, alignment: .topLeading)
         .background(theme.colors.terminal, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
         .overlay { RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(theme.colors.hairline.opacity(0.7), lineWidth: 0.5) }
-        .shadow(color: theme.colors.shadow.opacity(theme.isDark ? 0.45 : 0.14), radius: 12, x: 3, y: 8)
+        .shadow(color: ground.colors.shadow.opacity(ground.isDark ? 0.45 : 0.14), radius: 12, x: 3, y: 8)
         .animation(theme.motion.spring, value: look)
         .accessibilityElement(children: .ignore).accessibilityLabel(Text("Terminal preview", bundle: .module))
     }

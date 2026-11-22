@@ -14,14 +14,10 @@ extension TerminalSessionManager {
         self.init(
             runtimeHandle: runtimeHandle,
             commandSink: commandSink,
-            style: { KodosiTerminalStyle.make(settings: settings.terminalSettings) },
+            style: { KodosiTerminalStyle.make(settings: settings.terminalSettings, look: $0) },
             disconnectTerminal: disconnectTerminal,
             beep: beep,
             onFocusResult: onFocusResult,
         )
-    }
-
-    func applySettings(_ terminalSettings: DesktopSettings.TerminalSettings) {
-        applyStyle(KodosiTerminalStyle.make(settings: terminalSettings))
     }
 }

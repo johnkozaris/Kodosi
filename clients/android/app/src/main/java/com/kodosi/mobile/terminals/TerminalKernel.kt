@@ -40,6 +40,7 @@ class TerminalKernel : AutoCloseable {
     private var placed: List<TerminalImage>? = null
     private var changed = false
     private var animationDue = NO_ANIMATION
+    private var look = TerminalLook.DARK
 
     val animationDelay: Long?
         get() = synchronized(this) {
@@ -60,6 +61,15 @@ class TerminalKernel : AutoCloseable {
     fun resize(atSequence: Long, rows: Int, cols: Int, cellWidth: Int, cellHeight: Int): Int = synchronized(this) {
         changed = true
         if (handle == 0L) CLOSED else nativeResize(handle, atSequence, rows, cols, cellWidth, cellHeight)
+    }
+
+    /** A later checkpoint keeps the look. Tells whether the colors changed. */
+    fun look(next: TerminalLook): Boolean = synchronized(this) {
+        if (handle == 0L || look == next) return false
+        look = next
+        changed = true
+        nativeLook(handle, next == TerminalLook.LIGHT)
+        true
     }
 
     /** Null before the first checkpoint. */
@@ -226,6 +236,8 @@ class TerminalKernel : AutoCloseable {
             cellWidth: Int,
             cellHeight: Int
         ): Int
+
+        @JvmStatic private external fun nativeLook(handle: Long, light: Boolean)
 
         @JvmStatic private external fun nativeFrame(handle: Long, output: ByteBuffer): Int
 

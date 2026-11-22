@@ -59,6 +59,8 @@ pub use pty::{
     CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome, open_files,
     process_group,
 };
+#[cfg(unix)]
+pub use pty::{ProcessStart, process_start};
 
 macro_rules! ghostty_version {
     () => {

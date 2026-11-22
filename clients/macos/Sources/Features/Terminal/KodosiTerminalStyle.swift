@@ -1,7 +1,9 @@
+import KodosiBridge
 import KodosiTerminal
+import KodosiTerminalSessions
 
 enum KodosiTerminalStyle {
-    static func make(settings: DesktopSettings.TerminalSettings) -> TerminalStyle {
+    static func make(settings: DesktopSettings.TerminalSettings, look: TerminalLook) -> TerminalStyle {
         let cursorStyle: TerminalCursorStyle = switch settings.cursorStyle {
         case .block: .block
         case .bar: .bar
@@ -16,8 +18,8 @@ enum KodosiTerminalStyle {
             scrollback: TerminalScrollbackBudget(lines: settings.scrollbackLines),
             paddingX: 4,
             paddingY: 4,
-            minimumContrast: 1.1,
-            palette: .kodosi,
+            minimumContrast: look.minimumContrast,
+            palette: look.palette,
         )
     }
 }

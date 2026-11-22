@@ -1,5 +1,6 @@
 pragma Singleton
 
+import Kodosi 1.0
 import QtQuick
 import Kodosi.Models 1.0 as Models
 
@@ -8,52 +9,38 @@ QtObject {
     readonly property bool reduceMotion: Models.Appearance.reduceMotion
     property bool shown: true
 
-    readonly property color ground: isDark ? "#110e0c" : "#f0e9dc"
-    readonly property color surface: isDark ? "#181411" : "#f7f2e8"
-    readonly property color raised: isDark ? "#251d19" : "#fefbf5"
-    readonly property color lifted: isDark ? "#2e241f" : "#fffdf9"
-    readonly property color well: isDark ? "#0c0a08" : "#e8e0d2"
-    readonly property color sheet: mix(raised, surface, 0.45)
-    readonly property color hairline: isDark ? "#3b2f29" : "#d9ccba"
-    readonly property color ink: isDark ? "#f1e9e3" : "#25160e"
-    readonly property color inkMuted: isDark ? "#b3a094" : "#5f4838"
-    readonly property color inkFaint: isDark ? "#8c7a6f" : "#8a7262"
-    readonly property color accent: isDark ? "#db8a62" : "#b85a26"
-    readonly property color accentHover: isDark ? "#e69b74" : "#c5672f"
-    readonly property color accentStrong: isDark ? "#eaa47e" : "#9a4516"
-    readonly property color accentSoft: isDark ? "#3e281c" : "#f4dec8"
-    readonly property color accentInk: isDark ? "#160e0a" : "#fffaf3"
-    readonly property color ready: isDark ? "#7dbb99" : "#2f7d54"
-    readonly property color readySoft: isDark ? "#1f3229" : "#dcebdd"
-    readonly property color caution: isDark ? "#ddb866" : "#8a6a1c"
-    readonly property color cautionSoft: isDark ? "#3a2f17" : "#f3e6bf"
-    readonly property color danger: isDark ? "#e77a75" : "#b23a32"
-    readonly property color dangerSoft: isDark ? "#3f211f" : "#f4d9d4"
-    readonly property color glowAmber: isDark ? "#f2bc55" : "#f2c14e"
-    readonly property color glowOrange: isDark ? "#f08a4b" : "#e8793a"
-    readonly property color shadow: isDark ? terminalShadow : "#2e1f0f"
-    readonly property real shadowStrength: isDark ? 1 : 0.36
-    readonly property color highlight: isDark ? terminalHighlight : Qt.rgba(1, 1, 1, 0.95)
-    readonly property color lowlight: isDark ? terminalLowlight : Qt.rgba(0.31, 0.19, 0.09, 0.12)
+    readonly property Look darkLook: Look { dark: true }
+    readonly property Look lightLook: Look { dark: false }
+    readonly property Look look: isDark ? darkLook : lightLook
+    readonly property Look terminalLook: lookNamed(Models.Appearance.terminalLook)
 
-    readonly property color terminal: "#0d0b09"
-    readonly property color terminalBand: "#1a1512"
-    readonly property color terminalBandSelected: "#221a16"
-    readonly property color terminalRaised: "#251d19"
-    readonly property color terminalLifted: "#2e241f"
-    readonly property color terminalShadow: "#000000"
-    readonly property color terminalHighlight: Qt.rgba(1, 0.945, 0.863, 0.11)
-    readonly property color terminalLowlight: Qt.rgba(0, 0, 0, 0.34)
-    readonly property color terminalWell: "#0c0a08"
-    readonly property color terminalInk: "#f1e9e3"
-    readonly property color terminalInkMuted: "#b3a094"
-    readonly property color terminalInkFaint: "#8c7a6f"
-    readonly property color terminalHairline: "#3b2f29"
-    readonly property color terminalAccent: "#db8a62"
-    readonly property color terminalAccentSoft: "#3e281c"
-    readonly property color terminalAccentStrong: "#eaa47e"
-    readonly property color terminalCaution: "#ddb866"
-    readonly property color terminalDanger: "#e77a75"
+    readonly property color ground: look.ground
+    readonly property color surface: look.surface
+    readonly property color raised: look.raised
+    readonly property color lifted: look.lifted
+    readonly property color well: look.well
+    readonly property color sheet: mix(raised, surface, 0.45)
+    readonly property color hairline: look.hairline
+    readonly property color ink: look.ink
+    readonly property color inkMuted: look.inkMuted
+    readonly property color inkFaint: look.inkFaint
+    readonly property color accent: look.accent
+    readonly property color accentHover: look.accentHover
+    readonly property color accentStrong: look.accentStrong
+    readonly property color accentSoft: look.accentSoft
+    readonly property color accentInk: look.accentInk
+    readonly property color ready: look.ready
+    readonly property color readySoft: look.readySoft
+    readonly property color caution: look.caution
+    readonly property color cautionSoft: look.cautionSoft
+    readonly property color danger: look.danger
+    readonly property color dangerSoft: look.dangerSoft
+    readonly property color glowAmber: look.glowAmber
+    readonly property color glowOrange: look.glowOrange
+    readonly property color shadow: look.shadow
+    readonly property real shadowStrength: look.shadowStrength
+    readonly property color highlight: look.highlight
+    readonly property color lowlight: look.lowlight
 
     readonly property int fontLarge: 28
     readonly property int fontTitle: 20
@@ -99,7 +86,11 @@ QtObject {
     }
 
     function buttonFace(lit: bool): color {
-        return mix(lifted, ink, lit ? (isDark ? 0.05 : 0.03) : 0)
+        return look.buttonFace(lit)
+    }
+
+    function lookNamed(name: string): Look {
+        return name === "light" ? lightLook : darkLook
     }
 
     // The outline of a rounded rectangle with Apple's continuous corners, as SVG path data.

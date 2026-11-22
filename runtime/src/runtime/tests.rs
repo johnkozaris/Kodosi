@@ -650,6 +650,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             #[cfg(feature = "host")]
             services: crate::canvas::CanvasServices::new(&config.data_root, true),
             #[cfg(feature = "host")]
+            links: crate::chat::Links::unserved(),
+            #[cfg(feature = "host")]
             dosi: crate::dosi::Engine::load(
                 &config.data_root,
                 &config.home,
@@ -668,6 +670,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             recent: crate::folders::Recent::load(&config.data_root),
             #[cfg(feature = "host")]
             restore: restore::Restore::load(&config.data_root),
+            #[cfg(feature = "host")]
+            look: look::HostLook::load(&config.data_root),
             #[cfg(feature = "host")]
             mentions: messages::Mentions::default(),
             #[cfg(feature = "host")]
@@ -2991,6 +2995,8 @@ async fn hosted(runtime: &mut Runtime, folder: &Path) -> (Uuid, TerminalSession)
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
+        runtime.look.watch(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -3000,7 +3006,7 @@ async fn hosted(runtime: &mut Runtime, folder: &Path) -> (Uuid, TerminalSession)
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
         "repository": false, "working": false, "sharedWith": [], "attention": false,
-        "connectedUsers": [], "hidden": false,
+        "connectedUsers": [], "hidden": false, "look": "dark",
     }))
     .unwrap();
     runtime.local.insert(
@@ -3446,6 +3452,8 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
             }),
             context: None,
             canvas: None,
+            chat: false,
+            look: crate::terminal::TerminalLook::Dark,
         },
     });
     let generation = runtime.network.generation();
@@ -3519,6 +3527,8 @@ async fn a_closed_terminal_keeps_its_title_only_while_the_same_agent_runs_there(
             status: None,
             context: None,
             canvas: None,
+            chat: false,
+            look: crate::terminal::TerminalLook::Dark,
         },
     });
     runtime.change(SessionChange::RemoteClosed {
@@ -3543,6 +3553,80 @@ async fn a_closed_terminal_keeps_its_title_only_while_the_same_agent_runs_there(
     assert_eq!(title(&runtime), remembered);
     runtime.replace_remotes(vec![running("codex")]);
     assert_eq!(title(&runtime), None);
+}
+
+#[tokio::test]
+async fn a_terminal_of_another_computer_keeps_the_look_that_its_computer_sends() {
+    use crate::terminal::{TerminalLook, TerminalMetadata};
+    let (mut runtime, _root) = registry_fixture();
+    let (id, incarnation) = (Uuid::now_v7(), Uuid::now_v7());
+    let remote = remote_session(id, incarnation);
+    runtime.replace_remotes(vec![remote.clone()]);
+    let (connection, _requests, _updates) = crate::network::test_remote_connection(remote.clone());
+    runtime.connections.insert(
+        id,
+        RemoteTerminal::spawn(connection, runtime.changes.clone()),
+    );
+    let instance_id = runtime.connections[&id].instance_id;
+    runtime.change(SessionChange::Metadata {
+        id,
+        incarnation,
+        instance_id,
+        metadata: TerminalMetadata {
+            look: TerminalLook::Light,
+            ..TerminalMetadata::default()
+        },
+    });
+    runtime.change(SessionChange::RemoteClosed {
+        id,
+        incarnation,
+        instance_id,
+        reason: crate::text::Text::plain("Closed here."),
+    });
+
+    runtime.replace_remotes(vec![remote]);
+
+    assert_eq!(runtime.remotes[&id].look, TerminalLook::Light);
+}
+
+#[cfg(all(unix, feature = "host"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_new_look_reaches_the_list_of_terminals_and_the_next_start_of_the_host() {
+    use crate::terminal::TerminalLook;
+    let (mut runtime, storage) = registry_fixture();
+    let (_, terminal) = hosted(&mut runtime, storage.path()).await;
+    let mut events = runtime.events.subscribe();
+    let from_an_older_account = CommandEnvelope {
+        account_user_id: Some("an account that went away".to_owned()),
+        account_epoch: runtime.scope.epoch + 1,
+        computer: None,
+        command: Command::Look {
+            request_id: Uuid::now_v7().to_string(),
+            look: TerminalLook::Light,
+        },
+    };
+
+    runtime.command(
+        &from_an_older_account,
+        Uuid::now_v7(),
+        CancellationToken::new(),
+    );
+
+    let heard: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+        .map(|event| serde_json::to_value(event).unwrap())
+        .collect();
+    let listed = heard
+        .iter()
+        .find(|event| event["type"] == "sessions.snapshot")
+        .expect("a new list of terminals");
+    assert_eq!(listed["sessions"][0]["look"], "light");
+    assert!(heard.iter().any(|event| event["type"] == "app.result"));
+    runtime.look.saved().await;
+    assert_eq!(
+        look::HostLook::load(&runtime.config.data_root).now(),
+        TerminalLook::Light
+    );
+    terminal.close().await.unwrap();
 }
 
 fn sign_in(runtime: &mut Runtime, enrolled: bool) {
@@ -3848,6 +3932,43 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
 
 #[cfg(feature = "host")]
 #[test]
+fn a_codex_that_comes_back_through_its_server_keeps_the_permissions_of_its_conversation() {
+    use crate::agents::Agent;
+    let id = "019f0000-0000-7000-8000-000000000001";
+    let home = Path::new("/home/ana");
+    let served = crate::agents::Notes {
+        shell: "/bin/zsh".into(),
+        codex_servers: Some("unix:///tmp/kodosi-501-a/codex-".to_owned()),
+        ..crate::agents::Notes::default()
+    };
+    let command = restore::restart_command(
+        Agent::Codex,
+        home,
+        &home.join(".codex"),
+        &[
+            "codex",
+            "-m",
+            "gpt-5.6-sol",
+            "-a",
+            "on-request",
+            "-s",
+            "read-only",
+        ]
+        .map(str::to_owned),
+        &crate::agents::AgentSettings {
+            permissions: Some(crate::agents::Permissions::Auto),
+            ..crate::agents::AgentSettings::default()
+        },
+        &served,
+    );
+    assert_eq!(
+        restore::resume_line(Agent::Codex, &command, Some(id)).unwrap(),
+        format!("codex -m gpt-5.6-sol --remote \"$KODOSI_CODEX_SERVER\" resume {id}")
+    );
+}
+
+#[cfg(feature = "host")]
+#[test]
 fn a_terminal_comes_back_to_the_conversation_its_agent_had_when_the_agent_stops_first() {
     use restore::{AgentLine, Conversation};
     let now = Instant::now();
@@ -3990,6 +4111,8 @@ async fn a_stopping_agent_gives_the_line_that_continues_its_conversation_with_it
             Vec::new(),
             Default::default(),
             stand_in_canvas(),
+            crate::chat::TerminalChat::alone(),
+            watch::channel(crate::terminal::TerminalLook::Dark).1,
             home.join("pictures"),
             changes.clone(),
         )
@@ -4342,6 +4465,8 @@ async fn a_restored_terminal_rejoins_its_project_for_its_account_and_leaves_a_re
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
+        runtime.look.watch(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -4352,7 +4477,7 @@ async fn a_restored_terminal_rejoins_its_project_for_its_account_and_leaves_a_re
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
         "repository": false, "working": false, "sharedWith": [], "restoredFrom": replaced,
-        "attention": false, "connectedUsers": [], "hidden": false,
+        "attention": false, "connectedUsers": [], "hidden": false, "look": "dark",
     }))
     .unwrap();
     let chosen = Uuid::now_v7().to_string();
@@ -4625,6 +4750,8 @@ async fn a_working_agent_gets_the_project_message_that_names_its_terminal_unless
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
+        runtime.look.watch(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -4636,6 +4763,7 @@ async fn a_working_agent_gets_the_project_message_that_names_its_terminal_unless
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
         "repository": false, "working": false, "sharedWith": ["ana"], "projectId": project,
         "projectName": "Launch", "attention": false, "connectedUsers": [], "hidden": false,
+        "look": "dark",
     }))
     .unwrap();
     entry.program = Some("claude".to_owned());
@@ -4830,6 +4958,8 @@ async fn enter_reaches_the_program_as_a_key_of_its_own_after_the_text() {
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
+        runtime.look.watch(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -5196,6 +5326,8 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
         Vec::new(),
         Default::default(),
         stand_in_canvas(),
+        crate::chat::TerminalChat::alone(),
+        runtime.look.watch(),
         std::env::temp_dir().join(Uuid::now_v7().to_string()),
         runtime.changes.clone(),
     )
@@ -5205,7 +5337,7 @@ async fn a_change_of_the_agent_waits_for_its_next_prompt_and_types_its_own_comma
         "id": id, "incarnationId": terminal.incarnation_id, "kind": "local", "name": "Build",
         "isOwner": true, "status": "running", "connectionState": "local", "prompt": false,
         "repository": false, "sharedWith": [], "attention": false, "connectedUsers": [],
-        "hidden": false, "working": false,
+        "hidden": false, "working": false, "look": "dark",
     }))
     .unwrap();
     entry.program = Some("claude".to_owned());

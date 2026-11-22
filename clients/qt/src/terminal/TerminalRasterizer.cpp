@@ -325,6 +325,59 @@ void drawRowBackgrounds(
     }
 }
 
+double linearChannel(const int value)
+{
+    static const auto channels = [] {
+        std::array<double, 256> linear {};
+        for (std::size_t index = 0; index < linear.size(); ++index) {
+            const auto encoded = static_cast<double>(index) / 255.0;
+            linear[index] = encoded <= 0.04045 ? encoded / 12.92 : std::pow((encoded + 0.055) / 1.055, 2.4);
+        }
+        return linear;
+    }();
+    return channels[static_cast<std::size_t>(std::clamp(value, 0, 255))];
+}
+
+double luminance(const QColor& color)
+{
+    return 0.2126 * linearChannel(color.red()) + 0.7152 * linearChannel(color.green())
+        + 0.0722 * linearChannel(color.blue());
+}
+
+double contrastRatio(const double first, const double second)
+{
+    return (std::max(first, second) + 0.05) / (std::min(first, second) + 0.05);
+}
+
+bool graphicsElement(const QString& grapheme)
+{
+    if (grapheme.isEmpty()) {
+        return false;
+    }
+    const auto first = grapheme.front();
+    const char32_t codepoint = first.isHighSurrogate() && grapheme.size() > 1
+        ? QChar::surrogateToUcs4(first, grapheme.at(1))
+        : first.unicode();
+    return (codepoint >= 0x2500 && codepoint <= 0x259F) || (codepoint >= 0xE0B0 && codepoint <= 0xE0D7)
+        || (codepoint >= 0x1FB00 && codepoint <= 0x1FBFF) || (codepoint >= 0x1CC00 && codepoint <= 0x1CEBF);
+}
+
+// As in Ghostty's renderer, so that a terminal reads alike in every app. Graphics elements keep
+// their colors because they join the colors of the cells around them.
+QColor legibleForeground(const TerminalCell& cell, const double minimumContrast)
+{
+    if (minimumContrast <= 1.0 || graphicsElement(cell.grapheme)) {
+        return cell.foreground;
+    }
+    const auto background = luminance(cell.background);
+    if (contrastRatio(luminance(cell.foreground), background) >= minimumContrast) {
+        return cell.foreground;
+    }
+    QColor legible(contrastRatio(1.0, background) > contrastRatio(0.0, background) ? Qt::white : Qt::black);
+    legible.setAlpha(cell.foreground.alpha());
+    return legible;
+}
+
 void drawRowText(
     QPainter& painter,
     const TerminalFrame& frame,
@@ -351,7 +404,7 @@ void drawRowText(
             cell.height);
         const auto foreground = terminalCell->selected
             ? palette.selectionForeground
-            : terminalCell->foreground;
+            : legibleForeground(*terminalCell, palette.minimumContrast);
         if (const auto& next = faces.of(*terminalCell); face != &next) {
             face = &next;
             painter.setFont(next);
@@ -632,6 +685,19 @@ std::vector<RowChange> changedRows(
     return changed;
 }
 
+}
+
+TerminalRasterizer::Palette TerminalRasterizer::palette(const TerminalLook look)
+{
+    const auto& colors = terminalColors(look);
+    const auto color = [](const TerminalRgb rgb) { return QColor(rgb.red, rgb.green, rgb.blue); };
+    return {
+        .selectionBackground = color(colors.selectionBackground),
+        .selectionForeground = color(colors.selectionForeground),
+        .preeditBackground = color(colors.selectionBackground),
+        .preeditForeground = color(colors.selectionForeground),
+        .minimumContrast = colors.minimumContrast,
+    };
 }
 
 QSizeF TerminalRasterizer::logicalSize(

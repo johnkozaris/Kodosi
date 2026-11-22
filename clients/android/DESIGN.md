@@ -16,9 +16,11 @@ navigation:
   focus ring. Regular keys and fields use the iPhone's 13-point radius in dp, not a
   Material capsule. People are circles; project marks and agent marks keep their
   colors and shapes across clients.
-- The terminal is in a dark rounded tile in both appearances, in JetBrains Mono at
-  12 dp on phones and 14 dp on tablets, adjusted by its own text-size setting rather
-  than the system font size. The keys above the keyboard are small raised caps.
+- The terminal is in a rounded tile in the light or dark look of its computer, whatever
+  the app's appearance, in JetBrains Mono at 12 dp on phones and 14 dp on tablets,
+  adjusted by its own text-size setting rather than the system font size. The keys above
+  the keyboard are small raised caps in the same look. The chat of a terminal keeps the
+  app's appearance.
 - Four tabs (Terminals, Projects, Dosi and Settings) keep their own stacks. Friends opens
   from Settings, and its requests count there. The navigation rests on ground, with
   copper symbols and words for selection, without a filled Material pill.

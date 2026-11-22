@@ -53,6 +53,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -124,7 +125,10 @@ enum class AppSymbol {
     ARROW_LEFT,
     ARROW_UP,
     ARROW_DOWN,
-    ARROW_RIGHT
+    ARROW_RIGHT,
+    PENCIL,
+    SPARKLE,
+    CLOCK
 }
 
 @Composable
@@ -499,6 +503,20 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 path(15f, 5f, 22f, 12f, 15f, 19f)
                 path(2f, 12f, 22f, 12f)
             }
+
+            AppSymbol.PENCIL -> {
+                path(4f, 20f, 5f, 15f, 15f, 5f, 19f, 9f, 9f, 19f, 4f, 20f)
+                path(13f, 7f, 17f, 11f)
+            }
+
+            AppSymbol.SPARKLE -> path(
+                12f, 3f, 13.8f, 10.2f, 21f, 12f, 13.8f, 13.8f, 12f, 21f, 10.2f, 13.8f, 3f, 12f, 10.2f, 10.2f, 12f, 3f
+            )
+
+            AppSymbol.CLOCK -> {
+                circle(12f, 12f, 9f)
+                path(12f, 7f, 12f, 12f, 15.5f, 14f)
+            }
         }
     }
 }
@@ -805,9 +823,17 @@ fun TextEntryDialog(
 
 @Composable
 fun SelectableWords(text: String, modifier: Modifier = Modifier, markdown: Boolean = false) {
+    val content = rememberWords(text, markdown)
+    SelectionContainer {
+        Text(content, style = KodosiType.body, color = KodosiTheme.colors.ink, modifier = modifier)
+    }
+}
+
+@Composable
+fun rememberWords(text: String, markdown: Boolean): AnnotatedString {
     val links = LocalLinkOpener.current
     val colors = KodosiTheme.colors
-    val content = remember(text, markdown, colors.accent, colors.ink, links) {
+    return remember(text, markdown, colors.accent, colors.ink, links) {
         val linked = TextLinkStyles(style = SpanStyle(color = colors.accent, textDecoration = TextDecoration.Underline))
         buildAnnotatedString {
             val named = mutableListOf<IntRange>()
@@ -842,9 +868,6 @@ fun SelectableWords(text: String, modifier: Modifier = Modifier, markdown: Boole
                 }
             }
         }
-    }
-    SelectionContainer {
-        Text(content, style = KodosiType.body, color = colors.ink, modifier = modifier)
     }
 }
 

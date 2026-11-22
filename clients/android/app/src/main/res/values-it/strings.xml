@@ -415,4 +415,176 @@
     <string name="agent_effort_high">Alto</string>
     <string name="agent_effort_xhigh">Molto alto</string>
     <string name="agent_effort_max">Massimo</string>
+    <string name="terminal">Terminale</string>
+    <string name="chat">Chat</string>
+    <string name="chat_message_agent">Scrivi a %1$s</string>
+    <string name="chat_say_instead">Oppure di’ cosa fare invece</string>
+    <string name="chat_allow">Consenti</string>
+    <string name="chat_deny">Nega</string>
+    <string name="chat_always">Sempre %1$s</string>
+    <string name="chat_keep_planning">Continua a pianificare</string>
+    <string name="chat_approve_ask">Approva e chiedi prima di ogni modifica</string>
+    <string name="chat_approve_edits">Approva e consenti le sue modifiche</string>
+    <string name="chat_approve_auto">Approva e usa il controllo di sicurezza</string>
+    <string name="chat_approve_alone">Approva e non chiedere nulla</string>
+    <string name="chat_approve_helpers">Approva e lascia lavorare gli assistenti da soli</string>
+    <string name="chat_leave_plan">Esci dalla modalità piano</string>
+    <string name="chat_compacted">conversazione compattata</string>
+    <string name="chat_stopped">Interrotto</string>
+    <string name="chat_refused">Rifiutato</string>
+    <string name="chat_worked_for">ha lavorato per %1$s</string>
+    <string name="chat_no_agent">Nessun agente è in esecuzione in questo terminale</string>
+    <string name="chat_show_steps">Mostra i passaggi</string>
+    <string name="chat_hide_steps">Nascondi i passaggi</string>
+    <string name="chat_thinking">sta pensando</string>
+    <string name="chat_writing">sta scrivendo</string>
+    <string name="chat_compacting">sta compattando la conversazione</string>
+    <string name="chat_latest">Più recenti</string>
+    <string name="chat_context_used">Contesto: %1$d%% usato</string>
+    <string name="chat_show_tasks">Mostra le attività</string>
+    <string name="chat_hide_tasks">Nascondi le attività</string>
+    <string name="chat_takes_next">L’agente prende il prossimo messaggio nel suo terminale.</string>
+    <string name="chat_in_background">in background</string>
+    <plurals name="chat_helpers">
+        <item quantity="one">%d assistente lavora</item>
+        <item quantity="many">%d assistenti lavorano</item>
+        <item quantity="other">%d assistenti lavorano</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="one">%d comando è in esecuzione in background</item>
+        <item quantity="many">%d comandi sono in esecuzione in background</item>
+        <item quantity="other">%d comandi sono in esecuzione in background</item>
+    </plurals>
+    <string name="chat_denied">negato</string>
+    <string name="chat_stopped_step">interrotto</string>
+    <string name="chat_mode_edits">Modifiche</string>
+    <string name="chat_mode_plan">Piano</string>
+    <string name="chat_mode_rules">Regole</string>
+    <string name="chat_running">sta eseguendo</string>
+    <string name="chat_running_subject">sta eseguendo %1$s</string>
+    <string name="chat_reading">sta leggendo</string>
+    <string name="chat_reading_subject">sta leggendo %1$s</string>
+    <string name="chat_changing">sta modificando</string>
+    <string name="chat_changing_subject">sta modificando %1$s</string>
+    <string name="chat_writing_subject">sta scrivendo %1$s</string>
+    <string name="chat_searching">sta cercando</string>
+    <string name="chat_searching_subject">sta cercando %1$s</string>
+    <string name="chat_fetching">sta recuperando</string>
+    <string name="chat_fetching_subject">sta recuperando %1$s</string>
+    <string name="chat_asking_helper">sta chiedendo a un assistente</string>
+    <string name="chat_asking_helper_subject">sta chiedendo a un assistente su %1$s</string>
+    <string name="chat_planning">sta pianificando</string>
+    <string name="chat_planning_subject">sta pianificando %1$s</string>
+    <string name="chat_using">sta usando</string>
+    <string name="chat_using_subject">sta usando %1$s</string>
+    <string name="chat_ran">ha eseguito</string>
+    <string name="chat_ran_subject">ha eseguito %1$s</string>
+    <string name="chat_read">ha letto</string>
+    <string name="chat_read_subject">ha letto %1$s</string>
+    <string name="chat_changed">ha modificato</string>
+    <string name="chat_changed_subject">ha modificato %1$s</string>
+    <string name="chat_wrote">ha scritto</string>
+    <string name="chat_wrote_subject">ha scritto %1$s</string>
+    <string name="chat_searched">ha cercato</string>
+    <string name="chat_searched_subject">ha cercato %1$s</string>
+    <string name="chat_fetched">ha recuperato</string>
+    <string name="chat_fetched_subject">ha recuperato %1$s</string>
+    <string name="chat_asked_helper">ha chiesto a un assistente</string>
+    <string name="chat_asked_helper_subject">ha chiesto a un assistente su %1$s</string>
+    <string name="chat_planned">ha pianificato</string>
+    <string name="chat_planned_subject">ha pianificato %1$s</string>
+    <string name="chat_used">ha usato</string>
+    <string name="chat_used_subject">ha usato %1$s</string>
+    <string name="today">Oggi</string>
+    <string name="yesterday">Ieri</string>
+    <string name="chat_usage_used">%1$s: %2$d%% usato</string>
+    <string name="chat_usage_month">Questo mese</string>
+    <string name="chat_usage_week">Questa settimana</string>
+    <string name="chat_usage_scope_month">%1$s, questo mese</string>
+    <string name="chat_usage_scope_week">%1$s, questa settimana</string>
+    <plurals name="chat_ran_commands">
+        <item quantity="one">ha eseguito %d comando</item>
+        <item quantity="many">ha eseguito %d comandi</item>
+        <item quantity="other">ha eseguito %d comandi</item>
+    </plurals>
+    <plurals name="chat_read_files">
+        <item quantity="one">ha letto %d file</item>
+        <item quantity="many">ha letto %d file</item>
+        <item quantity="other">ha letto %d file</item>
+    </plurals>
+    <plurals name="chat_changed_files">
+        <item quantity="one">ha modificato %d file</item>
+        <item quantity="many">ha modificato %d file</item>
+        <item quantity="other">ha modificato %d file</item>
+    </plurals>
+    <plurals name="chat_wrote_files">
+        <item quantity="one">ha scritto %d file</item>
+        <item quantity="many">ha scritto %d file</item>
+        <item quantity="other">ha scritto %d file</item>
+    </plurals>
+    <plurals name="chat_made_searches">
+        <item quantity="one">ha fatto %d ricerca</item>
+        <item quantity="many">ha fatto %d ricerche</item>
+        <item quantity="other">ha fatto %d ricerche</item>
+    </plurals>
+    <plurals name="chat_fetched_pages">
+        <item quantity="one">ha recuperato %d pagina</item>
+        <item quantity="many">ha recuperato %d pagine</item>
+        <item quantity="other">ha recuperato %d pagine</item>
+    </plurals>
+    <plurals name="chat_asked_helpers">
+        <item quantity="one">ha chiesto a %d assistente</item>
+        <item quantity="many">ha chiesto a %d assistenti</item>
+        <item quantity="other">ha chiesto a %d assistenti</item>
+    </plurals>
+    <plurals name="chat_used_skills">
+        <item quantity="one">ha usato %d skill</item>
+        <item quantity="many">ha usato %d skill</item>
+        <item quantity="other">ha usato %d skill</item>
+    </plurals>
+    <plurals name="chat_asked_questions">
+        <item quantity="one">ha fatto %d domanda</item>
+        <item quantity="many">ha fatto %d domande</item>
+        <item quantity="other">ha fatto %d domande</item>
+    </plurals>
+    <plurals name="chat_made_plans">
+        <item quantity="one">ha fatto %d piano</item>
+        <item quantity="many">ha fatto %d piani</item>
+        <item quantity="other">ha fatto %d piani</item>
+    </plurals>
+    <plurals name="chat_used_tools">
+        <item quantity="one">ha usato %d strumento</item>
+        <item quantity="many">ha usato %d strumenti</item>
+        <item quantity="other">ha usato %d strumenti</item>
+    </plurals>
+    <plurals name="chat_steps">
+        <item quantity="one">%d passaggio</item>
+        <item quantity="many">%d passaggi</item>
+        <item quantity="other">%d passaggi</item>
+    </plurals>
+    <plurals name="chat_count_denied">
+        <item quantity="one">%d negato</item>
+        <item quantity="many">%d negati</item>
+        <item quantity="other">%d negati</item>
+    </plurals>
+    <plurals name="chat_count_stopped">
+        <item quantity="one">%d interrotto</item>
+        <item quantity="many">%d interrotti</item>
+        <item quantity="other">%d interrotti</item>
+    </plurals>
+    <plurals name="chat_usage_hours">
+        <item quantity="one">Ultima %d ora</item>
+        <item quantity="many">Ultime %d ore</item>
+        <item quantity="other">Ultime %d ore</item>
+    </plurals>
+    <plurals name="chat_usage_scope_hours">
+        <item quantity="one">%1$s, ultima %2$d ora</item>
+        <item quantity="many">%1$s, ultime %2$d ore</item>
+        <item quantity="other">%1$s, ultime %2$d ore</item>
+    </plurals>
+    <plurals name="chat_tasks_done">
+        <item quantity="one">Attività: %1$d di %2$d completata</item>
+        <item quantity="many">Attività: %1$d di %2$d completate</item>
+        <item quantity="other">Attività: %1$d di %2$d completate</item>
+    </plurals>
 </resources>

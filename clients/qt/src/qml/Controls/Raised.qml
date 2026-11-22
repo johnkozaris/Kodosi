@@ -6,11 +6,11 @@ import QtQuick
 Item {
     id: root
 
+    property Look look: KodosiTheme.look
     property real radius: KodosiTheme.radiusLg
-    property color fill: KodosiTheme.raised
+    property color fill: look.raised
     property int elevation: 1
     property bool rim: true
-    property bool dark: KodosiTheme.isDark
 
     readonly property int layers: elevation === 1 ? 3 : elevation === 2 ? 5 : 7
     readonly property real step: elevation === 1 ? 0.75 : elevation === 2 ? 1.4 : 2.1
@@ -28,8 +28,8 @@ Item {
             width: root.width + grow * 2
             height: root.height + grow * 2
             radius: Math.min(root.radius + grow, height / 2)
-            color: root.dark ? KodosiTheme.terminalShadow : KodosiTheme.shadow
-            opacity: (root.elevation === 1 ? 0.1 : 0.085) * (root.dark ? 1 : KodosiTheme.shadowStrength)
+            color: root.look.shadow
+            opacity: (root.elevation === 1 ? 0.1 : 0.085) * root.look.shadowStrength
         }
     }
     Rectangle {
@@ -39,13 +39,11 @@ Item {
         gradient: Gradient {
             GradientStop {
                 position: 0
-                color: Qt.tint(Qt.tint(root.fill, root.dark ? KodosiTheme.terminalHighlight : KodosiTheme.highlight),
-                    KodosiTheme.alpha(root.dark ? KodosiTheme.terminalHairline : KodosiTheme.hairline, 0.35))
+                color: Qt.tint(Qt.tint(root.fill, root.look.highlight), KodosiTheme.alpha(root.look.hairline, 0.35))
             }
             GradientStop {
                 position: 1
-                color: Qt.tint(Qt.tint(root.fill, root.dark ? KodosiTheme.terminalLowlight : KodosiTheme.lowlight),
-                    KodosiTheme.alpha(root.dark ? KodosiTheme.terminalHairline : KodosiTheme.hairline, 0.45))
+                color: Qt.tint(Qt.tint(root.fill, root.look.lowlight), KodosiTheme.alpha(root.look.hairline, 0.45))
             }
         }
     }

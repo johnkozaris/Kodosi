@@ -103,8 +103,27 @@ import Testing
     manager.releaseSession(for: id)
 }
 
+@Test func `a terminal takes its computer's look only when the look changes`() {
+    var asked: [TerminalLook] = []
+    let manager = TerminalSessionManager(
+        runtimeHandle: RuntimeHandle(inbox: RuntimeEventInbox()), commandSink: CommandSink { _ in 0 },
+        style: { look in
+            asked.append(look)
+            return KodosiTerminalStyle.make(settings: .defaults, look: look)
+        },
+        disconnectTerminal: { _, _, _ in },
+    )
+    let id = UUIDv7.generate()
+    manager.reconcileSessions(liveSessionIds: [id], looks: [id: .light])
+    _ = manager.session(for: id)
+    manager.reconcileSessions(liveSessionIds: [id], looks: [id: .light])
+    manager.reconcileSessions(liveSessionIds: [id], looks: [id: .dark])
+    #expect(asked == [.light, .dark])
+    manager.releaseSession(for: id)
+}
+
 @Test func `a new terminal asks for the grid of the tile that it takes`() {
-    let style = KodosiTerminalStyle.make(settings: .defaults)
+    let style = KodosiTerminalStyle.make(settings: .defaults, look: .dark)
     let cell = DesktopSettings.TerminalCell(width: 17, height: 41, scale: 2)
     let grid = { tiles in
         AppDependencies.startGrid(room: CGSize(width: 1240, height: 841), tiles: tiles, scale: 2, cell: cell, style: style)

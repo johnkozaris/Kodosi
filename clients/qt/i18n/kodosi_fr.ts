@@ -3917,6 +3917,10 @@
         <translation>Sombre</translation>
     </message>
     <message>
+        <source>Keep terminals dark</source>
+        <translation>Garder les terminaux sombres</translation>
+    </message>
+    <message>
         <source>Title</source>
         <translation>Titre</translation>
     </message>

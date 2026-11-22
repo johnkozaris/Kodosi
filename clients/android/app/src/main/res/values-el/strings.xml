@@ -409,4 +409,157 @@
     <string name="agent_effort_high">Υψηλή</string>
     <string name="agent_effort_xhigh">Πολύ υψηλή</string>
     <string name="agent_effort_max">Μέγιστη</string>
+    <string name="terminal">Τερματικό</string>
+    <string name="chat">Συνομιλία</string>
+    <string name="chat_message_agent">Μήνυμα στο %1$s</string>
+    <string name="chat_say_instead">Ή πείτε τι να γίνει αντί γι’ αυτό</string>
+    <string name="chat_allow">Να επιτρέπεται</string>
+    <string name="chat_deny">Απόρριψη</string>
+    <string name="chat_always">Πάντα %1$s</string>
+    <string name="chat_keep_planning">Συνέχιση σχεδιασμού</string>
+    <string name="chat_approve_ask">Έγκριση, με ερώτηση πριν από κάθε αλλαγή</string>
+    <string name="chat_approve_edits">Έγκριση, με άδεια για τις αλλαγές του</string>
+    <string name="chat_approve_auto">Έγκριση, με τον έλεγχο ασφαλείας</string>
+    <string name="chat_approve_alone">Έγκριση, χωρίς ερωτήσεις</string>
+    <string name="chat_approve_helpers">Έγκριση, με βοηθούς που δουλεύουν μόνοι</string>
+    <string name="chat_leave_plan">Έξοδος από τη λειτουργία σχεδίου</string>
+    <string name="chat_compacted">η συνομιλία συμπτύχθηκε</string>
+    <string name="chat_stopped">Σταμάτησε</string>
+    <string name="chat_refused">Αρνήθηκε</string>
+    <string name="chat_worked_for">δούλεψε για %1$s</string>
+    <string name="chat_no_agent">Δεν τρέχει κανένας agent σε αυτό το τερματικό</string>
+    <string name="chat_show_steps">Εμφάνιση βημάτων</string>
+    <string name="chat_hide_steps">Απόκρυψη βημάτων</string>
+    <string name="chat_thinking">σκέφτεται</string>
+    <string name="chat_writing">γράφει</string>
+    <string name="chat_compacting">συμπτύσσει τη συνομιλία</string>
+    <string name="chat_latest">Πιο πρόσφατα</string>
+    <string name="chat_context_used">Πλαίσιο: %1$d%% σε χρήση</string>
+    <string name="chat_show_tasks">Εμφάνιση εργασιών</string>
+    <string name="chat_hide_tasks">Απόκρυψη εργασιών</string>
+    <string name="chat_takes_next">Ο agent δέχεται το επόμενο μήνυμα στο τερματικό του.</string>
+    <string name="chat_in_background">στο παρασκήνιο</string>
+    <plurals name="chat_helpers">
+        <item quantity="one">%d βοηθός δουλεύει</item>
+        <item quantity="other">%d βοηθοί δουλεύουν</item>
+    </plurals>
+    <plurals name="chat_background_commands">
+        <item quantity="one">%d εντολή εκτελείται στο παρασκήνιο</item>
+        <item quantity="other">%d εντολές εκτελούνται στο παρασκήνιο</item>
+    </plurals>
+    <string name="chat_denied">απορρίφθηκε</string>
+    <string name="chat_stopped_step">σταμάτησε</string>
+    <string name="chat_mode_edits">Αλλαγές</string>
+    <string name="chat_mode_plan">Σχέδιο</string>
+    <string name="chat_mode_rules">Κανόνες</string>
+    <string name="chat_running">εκτελεί</string>
+    <string name="chat_running_subject">εκτελεί %1$s</string>
+    <string name="chat_reading">διαβάζει</string>
+    <string name="chat_reading_subject">διαβάζει %1$s</string>
+    <string name="chat_changing">αλλάζει</string>
+    <string name="chat_changing_subject">αλλάζει %1$s</string>
+    <string name="chat_writing_subject">γράφει %1$s</string>
+    <string name="chat_searching">αναζητά</string>
+    <string name="chat_searching_subject">αναζητά %1$s</string>
+    <string name="chat_fetching">ανακτά</string>
+    <string name="chat_fetching_subject">ανακτά %1$s</string>
+    <string name="chat_asking_helper">ρωτά έναν βοηθό</string>
+    <string name="chat_asking_helper_subject">ρωτά έναν βοηθό για %1$s</string>
+    <string name="chat_planning">σχεδιάζει</string>
+    <string name="chat_planning_subject">σχεδιάζει %1$s</string>
+    <string name="chat_using">χρησιμοποιεί</string>
+    <string name="chat_using_subject">χρησιμοποιεί %1$s</string>
+    <string name="chat_ran">εκτέλεσε</string>
+    <string name="chat_ran_subject">εκτέλεσε %1$s</string>
+    <string name="chat_read">διάβασε</string>
+    <string name="chat_read_subject">διάβασε %1$s</string>
+    <string name="chat_changed">άλλαξε</string>
+    <string name="chat_changed_subject">άλλαξε %1$s</string>
+    <string name="chat_wrote">έγραψε</string>
+    <string name="chat_wrote_subject">έγραψε %1$s</string>
+    <string name="chat_searched">αναζήτησε</string>
+    <string name="chat_searched_subject">αναζήτησε %1$s</string>
+    <string name="chat_fetched">ανέκτησε</string>
+    <string name="chat_fetched_subject">ανέκτησε %1$s</string>
+    <string name="chat_asked_helper">ρώτησε έναν βοηθό</string>
+    <string name="chat_asked_helper_subject">ρώτησε έναν βοηθό για %1$s</string>
+    <string name="chat_planned">σχεδίασε</string>
+    <string name="chat_planned_subject">σχεδίασε %1$s</string>
+    <string name="chat_used">χρησιμοποίησε</string>
+    <string name="chat_used_subject">χρησιμοποίησε %1$s</string>
+    <string name="today">Σήμερα</string>
+    <string name="yesterday">Χθες</string>
+    <string name="chat_usage_used">%1$s: %2$d%% σε χρήση</string>
+    <string name="chat_usage_month">Αυτός ο μήνας</string>
+    <string name="chat_usage_week">Αυτή η εβδομάδα</string>
+    <string name="chat_usage_scope_month">%1$s, αυτόν τον μήνα</string>
+    <string name="chat_usage_scope_week">%1$s, αυτή την εβδομάδα</string>
+    <plurals name="chat_ran_commands">
+        <item quantity="one">εκτέλεσε %d εντολή</item>
+        <item quantity="other">εκτέλεσε %d εντολές</item>
+    </plurals>
+    <plurals name="chat_read_files">
+        <item quantity="one">διάβασε %d αρχείο</item>
+        <item quantity="other">διάβασε %d αρχεία</item>
+    </plurals>
+    <plurals name="chat_changed_files">
+        <item quantity="one">άλλαξε %d αρχείο</item>
+        <item quantity="other">άλλαξε %d αρχεία</item>
+    </plurals>
+    <plurals name="chat_wrote_files">
+        <item quantity="one">έγραψε %d αρχείο</item>
+        <item quantity="other">έγραψε %d αρχεία</item>
+    </plurals>
+    <plurals name="chat_made_searches">
+        <item quantity="one">έκανε %d αναζήτηση</item>
+        <item quantity="other">έκανε %d αναζητήσεις</item>
+    </plurals>
+    <plurals name="chat_fetched_pages">
+        <item quantity="one">ανέκτησε %d σελίδα</item>
+        <item quantity="other">ανέκτησε %d σελίδες</item>
+    </plurals>
+    <plurals name="chat_asked_helpers">
+        <item quantity="one">ρώτησε %d βοηθό</item>
+        <item quantity="other">ρώτησε %d βοηθούς</item>
+    </plurals>
+    <plurals name="chat_used_skills">
+        <item quantity="one">χρησιμοποίησε %d δεξιότητα</item>
+        <item quantity="other">χρησιμοποίησε %d δεξιότητες</item>
+    </plurals>
+    <plurals name="chat_asked_questions">
+        <item quantity="one">έκανε %d ερώτηση</item>
+        <item quantity="other">έκανε %d ερωτήσεις</item>
+    </plurals>
+    <plurals name="chat_made_plans">
+        <item quantity="one">έφτιαξε %d σχέδιο</item>
+        <item quantity="other">έφτιαξε %d σχέδια</item>
+    </plurals>
+    <plurals name="chat_used_tools">
+        <item quantity="one">χρησιμοποίησε %d εργαλείο</item>
+        <item quantity="other">χρησιμοποίησε %d εργαλεία</item>
+    </plurals>
+    <plurals name="chat_steps">
+        <item quantity="one">%d βήμα</item>
+        <item quantity="other">%d βήματα</item>
+    </plurals>
+    <plurals name="chat_count_denied">
+        <item quantity="one">%d απορρίφθηκε</item>
+        <item quantity="other">%d απορρίφθηκαν</item>
+    </plurals>
+    <plurals name="chat_count_stopped">
+        <item quantity="one">%d σταμάτησε</item>
+        <item quantity="other">%d σταμάτησαν</item>
+    </plurals>
+    <plurals name="chat_usage_hours">
+        <item quantity="one">Τελευταία %d ώρα</item>
+        <item quantity="other">Τελευταίες %d ώρες</item>
+    </plurals>
+    <plurals name="chat_usage_scope_hours">
+        <item quantity="one">%1$s, τελευταία %2$d ώρα</item>
+        <item quantity="other">%1$s, τελευταίες %2$d ώρες</item>
+    </plurals>
+    <plurals name="chat_tasks_done">
+        <item quantity="one">Εργασίες: %1$d από %2$d έτοιμη</item>
+        <item quantity="other">Εργασίες: %1$d από %2$d έτοιμες</item>
+    </plurals>
 </resources>

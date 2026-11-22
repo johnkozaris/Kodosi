@@ -29,6 +29,7 @@
 #include <QQmlEngine>
 #include <QQuickWindow>
 #include <QRawFont>
+#include <QSet>
 #include <QSignalSpy>
 #include <QSysInfo>
 #include <QTemporaryDir>
@@ -473,6 +474,7 @@ private slots:
     void rasterizerAppliesLineHeightAndOwnedCursorPolicy();
     void rasterizerAlignsCellsToDevicePixels();
     void rasterizerFillsBlockAndPowerlineCells();
+    void rasterizerKeepsTextReadableOnItsBackground();
     void rasterizerDrawsImagesInTheirLayers();
     void rasterizerPaintsChangedRowsAsTheWholeFrame();
     void rasterizerDrawsARowAlikeInEveryRow();
@@ -480,7 +482,6 @@ private slots:
     void scrollbackReconfigurationPublishesReplacementFrame();
     void terminalViewOwnsValidatedDisplaySettings();
     void terminalViewPrefersInstalledNerdFontFallback();
-    void terminalViewOwnsExplicitSelectionAndPreeditPalette();
     void keyEncodingUsesRestoredTerminalModes();
     void mouseEncodingUsesRestoredTerminalModes();
     void terminalViewRoutesTrackedMouseToPty();
@@ -498,7 +499,7 @@ private slots:
     void selectionUsesGhosttyTrackedStateAndFormatting();
     void aSelectionShowsOnlyAfterThePointerLeavesItsFirstCell();
     void doubleAndTripleClicksSelectWordsAndLines();
-    void framesDrawTheKodosiTerminalColors();
+    void framesDrawTheColorsOfTheTerminalsLook();
     void aWebAddressInTheTextIsALinkThatEndsBeforePunctuation();
     void scrolledSelectionUsesVisibleViewportCoordinates();
     void selectionEndpointsTrackIncomingOutput();
@@ -1109,6 +1110,41 @@ void TerminalKernelTest::rasterizerFillsBlockAndPowerlineCells()
     }
 }
 
+void TerminalKernelTest::rasterizerKeepsTextReadableOnItsBackground()
+{
+    const QColor white(Qt::white);
+    const QColor blue(0x2e, 0x64, 0xa8);
+    kodosi::TerminalFrame frame;
+    frame.columns = 3;
+    frame.rows = 1;
+    frame.background = QColor(0xfa, 0xf6, 0xee);
+    frame.foreground = QColor(0x2a, 0x1d, 0x15);
+    frame.cells = {
+        {.grapheme = QStringLiteral(" "), .foreground = white, .background = frame.background, .underline = 1},
+        {.grapheme = QStringLiteral(" "), .foreground = blue, .background = frame.background, .underline = 1},
+        {.grapheme = QStringLiteral("\u2588"), .foreground = white, .background = frame.background},
+    };
+    auto font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    font.setPixelSize(14);
+    const auto cell = kodosi::TerminalRasterizer::cellSize(font);
+    const auto colorsIn = [&](const QImage& image, const int column) {
+        QSet<QRgb> colors;
+        for (int y = 0; y < qRound(cell.height()); ++y) {
+            for (int x = qRound(cell.width() * column); x < qRound(cell.width() * (column + 1)); ++x)
+                colors.insert(image.pixelColor(x, y).rgb());
+        }
+        return colors;
+    };
+    kodosi::TerminalRasterizer::Options options;
+    options.palette = kodosi::TerminalRasterizer::palette(kodosi::TerminalLook::Light);
+    const auto image = kodosi::TerminalRasterizer::render(frame, font, 1.0, options);
+
+    QVERIFY(colorsIn(image, 0).contains(QColor(Qt::black).rgb()));
+    QVERIFY(!colorsIn(image, 0).contains(white.rgb()));
+    QVERIFY(colorsIn(image, 1).contains(blue.rgb()));
+    QCOMPARE(colorsIn(image, 2), QSet<QRgb> {white.rgb()});
+}
+
 void TerminalKernelTest::rasterizerDrawsImagesInTheirLayers()
 {
     using Layer = kodosi::TerminalImagePlacement::Layer;
@@ -1500,25 +1536,6 @@ void TerminalKernelTest::terminalViewOwnsValidatedDisplaySettings()
         QStringLiteral("terminal.cursorBlinkTimer"));
     QVERIFY(timer != nullptr);
     QVERIFY(!timer->isActive());
-}
-
-void TerminalKernelTest::terminalViewOwnsExplicitSelectionAndPreeditPalette()
-{
-    kodosi::TerminalView view(m_window.contentItem());
-    const auto selectionBackground = QColor(QStringLiteral("#db8a62"));
-    const auto selectionForeground = QColor(QStringLiteral("#160e0a"));
-    const auto preeditBackground = QColor(QStringLiteral("#e69a72"));
-    const auto preeditForeground = QColor(QStringLiteral("#21100e"));
-
-    view.setSelectionBackground(selectionBackground);
-    view.setSelectionForeground(selectionForeground);
-    view.setPreeditBackground(preeditBackground);
-    view.setPreeditForeground(preeditForeground);
-
-    QCOMPARE(view.selectionBackground(), selectionBackground);
-    QCOMPARE(view.selectionForeground(), selectionForeground);
-    QCOMPARE(view.preeditBackground(), preeditBackground);
-    QCOMPARE(view.preeditForeground(), preeditForeground);
 }
 
 void TerminalKernelTest::keyEncodingUsesRestoredTerminalModes()
@@ -1930,7 +1947,7 @@ void TerminalKernelTest::doubleAndTripleClicksSelectWordsAndLines()
     QCOMPARE(*kernel.selectedText(subscription), QString());
 }
 
-void TerminalKernelTest::framesDrawTheKodosiTerminalColors()
+void TerminalKernelTest::framesDrawTheColorsOfTheTerminalsLook()
 {
     const kodosi::TerminalSubscription subscription {
         QStringLiteral("session"),
@@ -1950,6 +1967,16 @@ void TerminalKernelTest::framesDrawTheKodosiTerminalColors()
     QCOMPARE((*frame)->foreground, QColor(0xe8, 0xe1, 0xd9));
     QCOMPARE((*frame)->cursorColor, QColor(0xcc, 0x7a, 0x45));
     QCOMPARE((*frame)->cell(0, 0)->foreground, QColor(0xc4, 0x40, 0x40));
+
+    const auto light = kernel.configure({.look = kodosi::TerminalLook::Light});
+    QVERIFY(light && *light);
+    const auto& lit = **light;
+    QVERIFY(lit->displayRevision > (*frame)->displayRevision);
+    QCOMPARE(lit->background, QColor(0xfa, 0xf6, 0xee));
+    QCOMPARE(lit->foreground, QColor(0x2a, 0x1d, 0x15));
+    QCOMPARE(lit->cursorColor, QColor(0xb8, 0x5a, 0x26));
+    QCOMPARE(lit->cell(0, 0)->foreground, QColor(0xb2, 0x3a, 0x32));
+    QCOMPARE(lit->cell(5, 0)->background, lit->background);
 }
 
 void TerminalKernelTest::aWebAddressInTheTextIsALinkThatEndsBeforePunctuation()
