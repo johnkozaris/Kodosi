@@ -143,6 +143,11 @@ final class WorkbenchState {
         sidebarCollapsed ? .rail : dosiOpen ? .slot : .row
     }
 
+    /// The tile of the terminal shows its chat in place of its screen.
+    func showsChat(_ session: RuntimeSession) -> Bool {
+        session.isConnected && session.shownFace(faces[session.id]) == .chat
+    }
+
     func resizeSidebar(to width: CGFloat) {
         if dosiOpen {
             dosiWidth = width.clamped(to: Self.dosiWidths)
@@ -450,12 +455,16 @@ extension WorkbenchState {
     }
 
     func openCanvas(_ id: String, at section: CanvasSection? = nil) {
-        selectedSessionId = id
-        focusedSessionId = id
-        canvasesLeftOpen.remove(id)
         if let session = known[id] {
             canvas.open(session, at: section)
         }
+        showCanvas(id)
+    }
+
+    func showCanvas(_ id: String) {
+        selectedSessionId = id
+        focusedSessionId = id
+        canvasesLeftOpen.remove(id)
         if known[id].map(canvas.showsSomething) == true {
             canvasSessionId = id
             awaitedCanvas = nil

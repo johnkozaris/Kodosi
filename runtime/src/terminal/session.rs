@@ -94,6 +94,7 @@ enum Request {
     Focus {
         connection: Uuid,
         focused: bool,
+        returning: bool,
         reply: oneshot::Sender<Result<()>>,
     },
     Interrupt(oneshot::Sender<Result<()>>),
@@ -398,12 +399,14 @@ impl TerminalSession {
         &self,
         connection: Uuid,
         focused: bool,
+        returning: bool,
     ) -> impl Future<Output = Result<()>> + Send + use<> {
         let (reply, response) = oneshot::channel();
         await_reply(
             self.send(Request::Focus {
                 connection,
                 focused,
+                returning,
                 reply,
             }),
             response,
@@ -654,11 +657,12 @@ pub(crate) async fn pipe(
     view: String,
     person: String,
     name: String,
+    local: bool,
 ) -> std::result::Result<crate::canvas::PipeEnds, Text> {
     if key == crate::chat::CHAT_PIPE {
         chat.attach(person, name).await
     } else {
-        canvas.document(key, view, person, name).await
+        canvas.document(key, view, person, name, local).await
     }
 }
 
@@ -930,6 +934,17 @@ impl LocalActor {
         }
     }
 
+    /// A wait, a finish or a failure that a program reports tells its person once, so the
+    /// program's own notification about it would tell them again.
+    fn reports_wait(&self) -> bool {
+        self.status_program
+            .is_some_and(|program| self.pty.foreground_process_group() == Some(program))
+            && self
+                .status
+                .summary()
+                .is_some_and(|status| status.state.waiting(false).is_some())
+    }
+
     fn publish_status(&mut self) {
         let status = self.status.summary();
         if status != self.published_status
@@ -1029,7 +1044,6 @@ impl LocalActor {
                 taken_turn,
             },
         );
-        let claim = claim || self.focused.contains_key(&controller);
         let cell = geometry.map_or(self.cell, CellPixels::of);
         let (width, height) = cell.pty_pixels(size);
         if authorization.is_cancelled() {
@@ -1144,11 +1158,15 @@ impl LocalActor {
         Ok(())
     }
 
+    /// A focus takes the size only as a person's act: a view that gives its focus back after its
+    /// connection came back takes none, and another device's runtime claims the size with the
+    /// resize of the view where its person acted.
     async fn focus_view(
         &mut self,
         controller: Controller,
         authorization: CancellationToken,
         focused: bool,
+        acted: bool,
     ) -> (Result<()>, bool) {
         if let Err(error) = self
             .set_focus(controller, Some(authorization.clone()), focused)
@@ -1156,17 +1174,35 @@ impl LocalActor {
         {
             return (Err(error), false);
         }
-        let owner = self
-            .resize_owner
-            .as_ref()
-            .is_some_and(|owner| owner.controller == controller);
-        if !focused || owner {
+        if !focused || !acted {
             return (Ok(()), false);
         }
-        match self.take_requested_size(controller, authorization).await {
+        match self.acted(controller, authorization).await {
             Ok(()) => (Ok(()), false),
             Err(error) => (Err(error), true),
         }
+    }
+
+    async fn acted(
+        &mut self,
+        controller: Controller,
+        authorization: CancellationToken,
+    ) -> Result<()> {
+        if self
+            .resize_owner
+            .as_ref()
+            .is_some_and(|owner| owner.controller == controller)
+        {
+            return Ok(());
+        }
+        if self.requested.contains_key(&controller) {
+            return self.take_requested_size(controller, authorization).await;
+        }
+        self.resize_owner = Some(ResizeOwner {
+            controller,
+            authorization,
+        });
+        Ok(())
     }
 
     async fn take_requested_size(
@@ -1467,11 +1503,13 @@ impl LocalActor {
                     self.publish_context();
                 }
                 TerminalEffect::DesktopNotification { title, body } => {
-                    drop(self.changes.try_send(SessionChange::Notification {
-                        id: self.id,
-                        title,
-                        body,
-                    }));
+                    if !self.reports_wait() {
+                        drop(self.changes.try_send(SessionChange::Notification {
+                            id: self.id,
+                            title,
+                            body,
+                        }));
+                    }
                 }
             }
         }
@@ -1510,15 +1548,22 @@ impl LocalActor {
         program.is_none() && self.pty.foreground_is_child()
     }
 
-    fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) {
+    async fn accept_input(&mut self, connection: Uuid, mut write: PendingWrite) -> Option<Text> {
         let Ok(authorization) = self.subscribers.authorization(connection) else {
             if let Some(completion) = write.completion.take() {
                 completion.send(Err(Error::Stale));
             }
-            return;
+            return None;
         };
+        let taken = self
+            .acted(Controller::Local(connection), authorization.clone())
+            .await;
         write.authorization = Some(authorization);
         self.type_keys(write);
+        taken.err().map(|error| {
+            tracing::warn!(id = %self.id, %error, "typing did not bring the view's size");
+            size_not_applied()
+        })
     }
 
     fn accept_command_input(&mut self, mut write: PendingWrite, message: bool) {
@@ -1598,7 +1643,9 @@ impl LocalActor {
                 self.note_local_view();
                 return self.release(Controller::Local(connection)).await;
             }
-            Request::Input { connection, write } => self.accept_input(connection, write),
+            Request::Input { connection, write } => {
+                return self.accept_input(connection, write).await;
+            }
             Request::Picture { picture, reply } => {
                 self.save_picture(None, picture, InputCompletion::Local(reply));
             }
@@ -1627,6 +1674,7 @@ impl LocalActor {
             Request::Focus {
                 connection,
                 focused,
+                returning,
                 reply,
             } => {
                 if reply.is_closed() {
@@ -1634,8 +1682,13 @@ impl LocalActor {
                 }
                 let (result, diverged) = match self.subscribers.authorization(connection) {
                     Ok(authorization) => {
-                        self.focus_view(Controller::Local(connection), authorization, focused)
-                            .await
+                        self.focus_view(
+                            Controller::Local(connection),
+                            authorization,
+                            focused,
+                            !returning,
+                        )
+                        .await
                     }
                     Err(error) => (Err(error), false),
                 };
@@ -1876,7 +1929,7 @@ impl LocalActor {
             .cloned()
             .unwrap_or_else(|| view.clone());
         tokio::spawn(async move {
-            let ends = pipe(&canvas, &chat, &key, view, person, name).await;
+            let ends = pipe(&canvas, &chat, &key, view, person, name, false).await;
             drop(reply.send(ends));
         });
     }
@@ -2019,7 +2072,12 @@ impl LocalActor {
             }
             TerminalControl::Focus { focused } => {
                 let (result, diverged) = self
-                    .focus_view(Controller::Remote(connection_id), authorization, focused)
+                    .focus_view(
+                        Controller::Remote(connection_id),
+                        authorization,
+                        focused,
+                        false,
+                    )
                     .await;
                 fatal = diverged
                     || result

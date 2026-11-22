@@ -535,8 +535,16 @@ impl Engine {
         }
     }
 
+    fn to_window(&self, window: i64, event: Event) -> Vec<(mpsc::Sender<Event>, Event)> {
+        let sender = self.routes().windows.get(&window).cloned();
+        sender.map_or_default(|sender| vec![(sender, event)])
+    }
+
     fn report(&self, report: Report) -> Vec<(mpsc::Sender<Event>, Event)> {
         let said = match report {
+            Report::Frame(frame) if frame.still => {
+                return self.to_window(frame.window, Event::Still(frame.data));
+            }
             Report::Frame(frame) => {
                 self.deliver_frame(frame);
                 return Vec::new();
@@ -551,8 +559,12 @@ impl Engine {
         match said {
             FromEngine::Failed { window, problem } => {
                 tracing::warn!(%problem, "the capture stopped");
-                let sender = self.routes().windows.get(&window).cloned();
-                sender.map_or_default(|sender| vec![(sender, Event::CaptureFailed)])
+                self.to_window(window, Event::CaptureFailed)
+            }
+            FromEngine::Layer { window, context } => self.to_window(window, Event::Layer(context)),
+            FromEngine::NoLayer { window, problem } => {
+                tracing::warn!(%problem, "the browser's views take video");
+                self.to_window(window, Event::NoLayer)
             }
             FromEngine::Shape { tab, shape } => to_tab(tab, Event::Shape(shape)),
             FromEngine::Menu {
@@ -648,12 +660,22 @@ async fn follow(
             }
         };
         for (sender, event) in deliveries {
-            if let Err(mpsc::error::TrySendError::Full(_)) = sender.try_send(event) {
-                tracing::debug!("a window is behind, so it misses an event of its page");
-            }
+            deliver(sender, event);
         }
     }
     engine.stopped.send_replace(true);
+}
+
+fn deliver(sender: mpsc::Sender<Event>, event: Event) {
+    match sender.try_send(event) {
+        Err(mpsc::error::TrySendError::Full(event)) if event.must_arrive() => {
+            tokio::spawn(async move { drop(sender.send(event).await) });
+        }
+        Err(mpsc::error::TrySendError::Full(_)) => {
+            tracing::debug!("a window is behind, so it misses an event of its page");
+        }
+        _ => {}
+    }
 }
 
 fn arguments(profile: &Path, link: &Path, port: u16, system_keychain: bool) -> Vec<String> {
@@ -765,6 +787,18 @@ mod tests {
             active,
             loading: false,
         }
+    }
+
+    #[tokio::test]
+    async fn a_report_that_the_engine_says_once_reaches_a_window_that_is_behind() {
+        let (sender, mut receiver) = mpsc::channel(1);
+        deliver(sender.clone(), Event::Answered);
+        deliver(sender.clone(), Event::Shape("pointer".to_owned()));
+        deliver(sender, Event::Layer(7));
+        let first = tokio::time::timeout(Duration::from_secs(5), receiver.recv()).await;
+        assert!(matches!(first, Ok(Some(Event::Answered))));
+        let second = tokio::time::timeout(Duration::from_secs(5), receiver.recv()).await;
+        assert!(matches!(second, Ok(Some(Event::Layer(7)))));
     }
 
     fn routes_with(windows: &[i64]) -> (Routes, mpsc::Receiver<Event>) {

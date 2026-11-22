@@ -13,7 +13,7 @@ struct AppModelTests {
 
     init() {
         let sent = sent
-        model.commands.transport = { data in
+        model.commands.transport { data in
             RuntimeContract.verify(data)
             sent.append(data)
             return Int32(KODOSI_FFI_OK)
@@ -153,8 +153,9 @@ struct AppModelTests {
         try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "working")]])
         let item = CanvasItem(key: "notes", name: "Notes.docx", kind: .document, view: .docx, revision: 1, bytes: 1, changed: 1)
         let link = model.terminals.canvas.document(item, in: "s1")
-        var frames: [Data] = []
-        var news: [DocumentLink.News] = []
+        // The link of a document hears its pipe on the main actor.
+        nonisolated(unsafe) var frames: [Data] = []
+        nonisolated(unsafe) var news: [DocumentLink.News] = []
         link.onFrame = { frames.append($0) }
         link.onNews = { news.append($0) }
         let opening = Task { try await link.open() }
@@ -298,6 +299,13 @@ struct AppModelTests {
             entry["waiting"] = state
         }
         return entry
+    }
+}
+
+extension CommandSink {
+    /// For a test that sends from the main actor alone.
+    func transport(_ answer: @escaping @MainActor (Data) -> Int32?) {
+        transport = { data in MainActor.assumeIsolated { answer(data) } }
     }
 }
 

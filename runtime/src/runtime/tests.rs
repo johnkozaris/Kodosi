@@ -606,6 +606,7 @@ async fn generic_terminal_command_cannot_bypass_subscription_admission() {
                 expected_runtime_incarnation_id: incarnation.to_string(),
                 client_id: Uuid::now_v7().to_string(),
                 subscription_generation: 1,
+                returning: false,
             },
         })
         .unwrap_err();
@@ -3062,7 +3063,7 @@ fn reports_presence(
 
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_program_notification_shows_where_nobody_looks_and_not_over_a_state_mark() {
+async fn a_program_notification_marks_and_shows_where_nobody_looks_and_not_over_a_state_mark() {
     use crate::{
         protocol::Cue,
         terminal::{ProgramState, Waiting},
@@ -3088,9 +3089,11 @@ async fn a_program_notification_shows_where_nobody_looks_and_not_over_a_state_ma
     let app = (client, &lifetime);
 
     assert_eq!(noted(&mut runtime), [Cue::List]);
+    assert!(runtime.entries()[0].attention);
     reports_presence(&mut runtime, app, Presence::Kodosi);
     assert_eq!(noted(&mut runtime), [Cue::Sound]);
     show(&mut runtime, client, &lifetime, &[id]);
+    assert!(!runtime.entries()[0].attention);
     assert_eq!(noted(&mut runtime), []);
     reports_presence(&mut runtime, app, Presence::Here);
     assert_eq!(noted(&mut runtime), [Cue::Banner]);
@@ -3103,41 +3106,46 @@ async fn a_program_notification_shows_where_nobody_looks_and_not_over_a_state_ma
     assert_eq!(noted(&mut runtime), []);
     runtime.change(SessionChange::Seen { id });
     assert_eq!(*mark.borrow(), None);
+    assert!(runtime.entries()[0].attention);
+    reports_presence(&mut runtime, app, Presence::Kodosi);
     assert!(!runtime.entries()[0].attention);
+    assert_eq!(*mark.borrow(), None);
     terminal.close().await.unwrap();
     drop(terminal);
 }
 
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_wait_seen_on_its_computer_gets_its_mark_again_and_calls_once_when_its_person_leaves() {
+async fn a_wait_that_its_person_saw_on_any_device_gets_no_mark_again_when_the_person_leaves() {
     use crate::terminal::{ProgramState, Waiting};
     let (mut runtime, storage) = registry_fixture();
-    let (id, terminal) = hosted(&mut runtime, storage.path()).await;
-    let mark = runtime.local[&id].publication(id).3;
+    let (here, here_terminal) = hosted(&mut runtime, storage.path()).await;
+    let (phone, phone_terminal) = hosted(&mut runtime, storage.path()).await;
+    let marks = [here, phone].map(|id| runtime.local[&id].publication(id).3);
     let mut events = runtime.events.subscribe();
     let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
     let app = (client, &lifetime);
     reports_presence(&mut runtime, app, Presence::Kodosi);
-    show(&mut runtime, client, &lifetime, &[id]);
-    reports_state(&mut runtime, id, ProgramState::Blocked);
+    show(&mut runtime, client, &lifetime, &[here]);
+    reports_state(&mut runtime, here, ProgramState::Blocked);
+    reports_state(&mut runtime, phone, ProgramState::Blocked);
     let later = Instant::now() + Duration::from_secs(3);
     let watched = runtime.watched();
-    assert!(!runtime.attention.settle(later, &watched));
-    assert_eq!(*mark.borrow(), None);
+    assert!(runtime.attention.settle(later, &watched));
+    runtime.publish_catalog();
+    assert_eq!(*marks[0].borrow(), None);
+    assert_eq!(*marks[1].borrow(), Some(Waiting::Blocked));
+    runtime.change(SessionChange::Seen { id: phone });
 
-    reports_presence(&mut runtime, app, Presence::Idle);
-    assert_eq!(*mark.borrow(), Some(Waiting::Blocked));
-    runtime.attend();
-    reports_presence(&mut runtime, app, Presence::Idle);
-    assert_eq!(
-        calls(&mut events, &mut None),
-        [(Some(Waiting::Blocked), crate::protocol::Cue::Sound)]
-    );
-    reports_presence(&mut runtime, app, Presence::Kodosi);
-    assert_eq!(*mark.borrow(), None);
-    terminal.close().await.unwrap();
-    drop(terminal);
+    for away in [Presence::Idle, Presence::Away] {
+        reports_presence(&mut runtime, app, away);
+        assert!(marks.iter().all(|mark| mark.borrow().is_none()));
+        reports_presence(&mut runtime, app, Presence::Kodosi);
+    }
+    assert_eq!(calls(&mut events, &mut None), Vec::new());
+    for terminal in [here_terminal, phone_terminal] {
+        terminal.close().await.unwrap();
+    }
 }
 
 #[cfg(all(unix, feature = "host"))]
@@ -5656,7 +5664,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
     assert_eq!(
         typed(&work).await,
         format!(
-            "env CLAUDE_CONFIG_DIR={}/.claude-work claude --model opus --effort max --dangerously-skip-permissions\n",
+            "env CLAUDE_CONFIG_DIR={}/.claude-work claude --model opus --effort max --dangerously-skip-permissions --fast-mode off\n",
             home.display()
         ),
         "the account, model and permissions of the agent and the effort that waits; the output of the last choice"
@@ -5674,7 +5682,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
     started(&mut runtime, &default, Some(agent)).await;
     assert_eq!(
         typed(&default).await,
-        "claude --model sonnet --dangerously-skip-permissions\n",
+        "claude --model sonnet --dangerously-skip-permissions --fast-mode off\n",
         "a new model that waits runs at its own effort"
     );
 
@@ -5685,7 +5693,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
     started(&mut runtime, &by_hand, Some(agent)).await;
     assert_eq!(
         typed(&by_hand).await,
-        "claude --model sonnet --dangerously-skip-permissions\n",
+        "claude --model sonnet --dangerously-skip-permissions --fast-mode off\n",
         "a model that Kodosi cannot start stays the last choice"
     );
 

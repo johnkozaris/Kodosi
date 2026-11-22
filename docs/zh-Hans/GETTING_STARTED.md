@@ -21,7 +21,7 @@
 - 按键与 Ghostty 一致。⌘1 到 ⌘9 选择终端（Linux 和 Windows 上为 Alt+1 到 Alt+9），⌥⌘ 加方向键选择相邻的终端（Ctrl+Alt 加方向键），⌘W 关闭所选终端。“设置 › 快捷键”列出了所有按键，并可以修改。
 - 如果缺少某个 Agent，启动器会显示它的安装命令。
 - Agent 启动时为“不受限制”：会直接修改文件、运行命令，不会先询问你。Antigravity CLI 则以它自己的自动模式启动，执行无法撤销的操作前会询问。若想让某个 Agent 先询问，在模型后面的“更多”中选择“询问”。在那里还可以选择“详细程度”，即 Claude Code、Codex、Copilot CLI 和 Antigravity CLI 显示多少工作内容，开始时为“简洁”。Copilot CLI 只从自己的设置中读取详细程度，因此在 Copilot CLI 以“简洁”运行期间，Kodosi 会修改它的设置，结束后再改回来。
-- Claude Code 和 Codex 有“快速模式”，回答更快，但费用更高。可在模型和推理强度旁边打开。关闭时，Agent 沿用它自己的设置。
+- Claude Code 和 Codex 有“快速模式”，回答更快，但费用更高。可在模型和推理强度旁边打开。它只对那一次启动有效，所以除非你打开它，Agent 启动时都不使用快速模式。
 - 新账号有自己的登录文件夹，例如 `~/.claude-work`。Kodosi 也会找到你在 shell 中设置的账号，例如 `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`。
 - 在停在提示符处的终端里，标题栏中的操作按钮（两个滑块）会列出已安装的 Agent。选择一个，即可按你上次的选择启动它。
 - Agent 运行时，同一个操作按钮可以用 Agent 自己的命令更改它的模型、推理强度和快速模式，部分 Agent 还能更改权限，无需重新启动。更改会等到 Agent 这一轮结束后生效；Claude Code 还会在之后的会话中沿用这个模型、推理强度和快速模式。
@@ -46,7 +46,7 @@
 | 一个绿色对勾 | 已完成。 |
 | 一个黄色警告标志 | 已失败。 |
 
-在你的任何一台设备上打开终端后，对勾和警告就会消失。当你的某个终端开始等待、完成或失败时，Kodosi 会在你正在使用的设备上提醒你一次。在 Kodosi 中，你会看到标志。在电脑上使用其他应用时，你会在那台电脑上收到通知。当你没有使用任何一台电脑时，你会在手机上收到通知。如果你离开电脑时某个终端仍在等你，那时你会在手机上收到通知。只有等待中的终端会发出声音。要关闭某台设备的通知，请在那台设备上打开 Kodosi 的“设置”。程序通过 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) 或进度条报告状态。不报告任何内容的程序不会显示状态。
+在你的任何一台设备上打开终端后，对勾和警告就会消失。当你的某个终端开始等待、完成或失败时，Kodosi 会在你正在使用的设备上提醒你一次。在 Kodosi 中，你会看到标志。在电脑上使用其他应用时，你会在那台电脑上收到通知。当你没有使用任何一台电脑时，你会在手机上收到通知。如果你离开电脑时，某个你还没有打开的终端仍在等你，那时你会在手机上收到通知。只有等待中的终端会发出声音。要关闭某台设备的通知，请在那台设备上打开 Kodosi 的“设置”。程序通过 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) 或进度条报告状态。不报告任何内容的程序不会显示状态。
 
 Claude Code 的终端也会以聊天的形式显示；由 Kodosi 启动的 Codex 和 Copilot CLI 的终端也一样。在 Mac、iPhone、iPad 或 Android 手机上，选择终端标题栏中的“聊天”。聊天会显示你写的内容、Agent 的回答和所做的事，以及它提出的问题，答案显示为按钮。你可以在那里给 Agent 写消息，也可以让它停下。在它提问时，你写的话会告诉它改做什么。你在聊天里做的事也会在终端里发生。
 
@@ -116,7 +116,7 @@ Dosi 头像旁的那一行会告诉你 Dosi 何时在工作、何时已回答、
 | `kodosi terminal start --directory <repository> --branch <name>` | 在新分支上、独立的 worktree 中启动终端。 |
 | `kodosi terminal start --computer <computer> --directory <folder>` | 在你的另一台电脑上启动终端。相对路径的文件夹或以 `~` 开头的文件夹位于那台电脑上你的主目录中。`kodosi devices list` 会显示哪些电脑在线。 |
 | `kodosi agent list` | 显示 Agent、它们的账号和你上次的选择。 |
-| `kodosi agent usage` | 显示每个已登录的 Claude Code、Codex 和 Copilot CLI 账号已使用了多少套餐额度。 |
+| `kodosi agent usage` | 显示每个已登录的 Claude Code、Codex 和 Copilot CLI 账号已使用了多少套餐额度，以及每项额度何时重置。 |
 | `kodosi terminal list` | 显示你的终端及其名称和 ID。两者都可以作为 `<terminal>` 使用。 |
 | `kodosi terminal read <terminal>` | 输出屏幕内容。`--history` 会加上已滚出屏幕的行。 |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 把一条消息交给终端里的 Agent，并附上发送者和来源。 |

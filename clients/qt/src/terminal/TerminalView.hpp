@@ -230,6 +230,10 @@ private:
     std::optional<PendingResize> m_pendingResize;
     QString m_pendingFocusRequestId;
     bool m_focusClaimed = false;
+    bool m_focusMovedHere = false;
+    // The focus that waits only gives back the focus that the view had before its connection
+    // came back, which takes no size.
+    bool m_focusReturning = false;
     bool m_terminalReady = false;
     bool m_focusRetryQueued = false;
     FocusOperation m_focusRetryOperation = FocusOperation::None;
@@ -289,7 +293,7 @@ private:
     [[nodiscard]] bool enqueueInput(QByteArray bytes);
     static constexpr int inputBackoffMilliseconds[] {4, 8, 16, 32, 64};
     void drainInputQueue();
-    void sendFocus(bool focused);
+    void sendFocus(bool focused, bool returning = false);
     void dispatchFocus(FocusOperation operation);
     void scheduleFocusRetry(FocusOperation operation);
     void scheduleResizeRetry();

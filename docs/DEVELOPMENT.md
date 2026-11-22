@@ -131,7 +131,9 @@ A host and an engine work together only with the same version of their link, `VE
 `browser/crate/src/link.rs`. Each engine and each feed names its version, the feed has its
 address by it, a host takes only the feed and the engine of its own version, and an engine
 of another version cannot connect to a host. So an engine and an app release in any order.
-Raise the version in the change that makes the link different.
+Raise the version in the change that makes the link different. Raise the engine's own
+version in `browser/engine/Cargo.toml` in each change of the engine too: a host takes an
+engine from the feed only when its version is higher than the one that it has.
 
 ## Texts and languages
 

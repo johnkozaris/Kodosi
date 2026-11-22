@@ -40,8 +40,8 @@ la shell del terminal nuevo.
   ajustes, así que Kodosi los cambia mientras Copilot CLI se ejecuta en Breve y después los
   restablece.
 - Claude Code y Codex tienen un modo rápido, que responde más rápido y cuesta más. Actívalo
-  junto al modelo y el esfuerzo. Mientras está desactivado, el agente mantiene su propio
-  ajuste.
+  junto al modelo y el esfuerzo. Vale solo para ese inicio, así que un agente empieza sin él
+  salvo que lo actives.
 - Una cuenta nueva tiene su propia carpeta de inicio de sesión, como `~/.claude-work`. Kodosi
   también encuentra las cuentas que configura tu shell, como
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -109,10 +109,10 @@ La marca de verificación y la advertencia desaparecen cuando abres el terminal 
 de tus dispositivos. Cuando uno de tus terminales empieza a esperar, termina o falla, Kodosi
 te avisa una vez, en el dispositivo que usas. En Kodosi, ves la señal. En tu ordenador, en
 otra app, recibes allí una notificación. Cuando no usas ninguno de tus ordenadores, la
-recibes en tu teléfono. Un terminal que aún te espera cuando te alejas de tu ordenador te
-avisa entonces en tu teléfono. Solo un terminal que espera emite un sonido. Para desactivar
-las notificaciones de un dispositivo, abre Ajustes en Kodosi en ese dispositivo. Los
-programas indican su estado con el
+recibes en tu teléfono. Un terminal que aún te espera y que no has abierto te avisa en tu
+teléfono cuando te alejas de tu ordenador. Solo un terminal que espera emite un sonido. Para
+desactivar las notificaciones de un dispositivo, abre Ajustes en Kodosi en ese dispositivo.
+Los programas indican su estado con el
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) o con
 una barra de progreso. Un programa que no indica nada no muestra estado.
 
@@ -267,7 +267,7 @@ El comando `kodosi` trabaja con los mismos terminales que la app, y la app muest
 | `kodosi terminal start --directory <repository> --branch <name>` | Inicia un terminal en una rama nueva, en su propio worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Inicia un terminal en otro de tus ordenadores. Una carpeta relativa, o una que empieza por `~`, está en tu directorio personal de allí. `kodosi devices list` muestra qué ordenadores están en línea. |
 | `kodosi agent list` | Muestra los agentes, sus cuentas y tu última elección. |
-| `kodosi agent usage` | Muestra cuánto de los límites del plan ha usado cada cuenta con sesión iniciada de Claude Code, Codex y Copilot CLI. |
+| `kodosi agent usage` | Muestra cuánto de los límites del plan ha usado cada cuenta con sesión iniciada de Claude Code, Codex y Copilot CLI, y cuándo se restablece cada límite. |
 | `kodosi terminal list` | Muestra tus terminales con sus nombres e ID. Indica cualquiera de los dos como `<terminal>`. |
 | `kodosi terminal read <terminal>` | Imprime la pantalla. `--history` añade las líneas que se desplazaron fuera. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Le da un mensaje al agente de un terminal, con quién lo envía y desde dónde. |

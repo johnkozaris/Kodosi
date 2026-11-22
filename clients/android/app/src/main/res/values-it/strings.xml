@@ -291,12 +291,37 @@
     <string name="uploading">Invio del file</string>
     <string name="loading">Caricamento</string>
     <string name="reading_usage">Lettura dell\'utilizzo del piano</string>
+    <string name="usage_month">Questo mese</string>
+    <string name="usage_week">Questa settimana</string>
+    <string name="usage_scope_month">%1$s, questo mese</string>
+    <string name="usage_scope_week">%1$s, questa settimana</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Ultima %d ora</item>
+        <item quantity="many">Ultime %d ore</item>
+        <item quantity="other">Ultime %d ore</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Ultimo %d giorno</item>
+        <item quantity="many">Ultimi %d giorni</item>
+        <item quantity="other">Ultimi %d giorni</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, ultima %2$d ora</item>
+        <item quantity="many">%1$s, ultime %2$d ore</item>
+        <item quantity="other">%1$s, ultime %2$d ore</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, ultimo %2$d giorno</item>
+        <item quantity="many">%1$s, ultimi %2$d giorni</item>
+        <item quantity="other">%1$s, ultimi %2$d giorni</item>
+    </plurals>
     <string name="browser_address">Cerca o inserisci un indirizzo</string>
     <string name="new_browser_tab">Nuova scheda</string>
     <string name="browser_back">Indietro</string>
     <string name="browser_forward">Avanti</string>
     <string name="browser_reload">Ricarica</string>
     <string name="browser_sleeping">Il browser è in pausa</string>
+    <string name="browser_undecodable">Questo dispositivo non può mostrare la pagina</string>
     <string name="wake_browser">Apri browser</string>
     <string name="browser_dialog">La pagina chiede</string>
     <string name="choose_file">Scegli un file</string>

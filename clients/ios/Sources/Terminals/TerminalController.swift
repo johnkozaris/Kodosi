@@ -54,6 +54,9 @@ final class TerminalController {
     @ObservationIgnored let lock: AppLock
     @ObservationIgnored private var openTask: Task<Void, Never>?
     @ObservationIgnored private var listed: RuntimeSession?
+    /// A person opened or touched the terminal here, and its focus has not gone as that act yet.
+    /// A focus that only comes back with the app or the connection takes no size.
+    @ObservationIgnored private var acted = false
 
     init(sessionId: String, store: TerminalStore, lock: AppLock) {
         self.sessionId = sessionId
@@ -105,6 +108,7 @@ final class TerminalController {
         guard !presence.visible else { return }
         presence.visible = true
         presence.active = active
+        acted = true
         store.focus.registerRevoker(surfaceId: surfaceId) { [weak self] in
             self?.focusRevoked()
         }
@@ -153,22 +157,36 @@ final class TerminalController {
             releaseFocus()
             return
         }
+        let act = acted
+        acted = false
         store.focus.acquire(
             sessionId: sessionId,
             runtimeIncarnationId: session.incarnationId,
             subscriptionId: surface.token.subscriptionId,
             subscriptionGeneration: surface.token.subscriptionGeneration,
             surfaceId: surfaceId,
+            returning: !act,
         )
+        if act {
+            store.focus.act(surfaceId: surfaceId)
+        }
         holdsFocus = true
     }
 
     func focusTerminal() {
         focusDeclined = false
+        acted = true
         refresh()
     }
 
+    /// A tap that comes while the terminal cannot take the focus is no act for a later focus.
+    func tapped() {
+        guard canType else { return }
+        focusTerminal()
+    }
+
     func resizeHere() {
+        releaseFocus()
         focusTerminal()
         store.live.takeSize(for: sessionId)
     }

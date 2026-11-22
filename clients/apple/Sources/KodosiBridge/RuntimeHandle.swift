@@ -11,6 +11,7 @@ public final class RuntimeHandle: Sendable {
     private let terminalSubscriptions = TerminalSubscriptionRegistry()
 
     private let inbox: RuntimeEventInbox
+    public let browserPipes = BrowserPipes()
 
     public init(inbox: RuntimeEventInbox) {
         self.inbox = inbox
@@ -265,71 +266,87 @@ public final class RuntimeHandle: Sendable {
         return Unmanaged<RuntimeHandle>.fromOpaque(ud).takeUnretainedValue()
     }
 
+    /// The runtime calls this callback and the ones below on its own threads, which drain no
+    /// autorelease pool, so each call drains its own; else what Foundation autoreleases there stays
+    /// until the app quits.
     private static let onEvent: kodosi_event_cb_t = { json, len, ud in
-        guard len <= KODOSI_MAX_FRAME_BYTES, let json, let runtime = resolve(ud) else { return }
-        runtime.inbox.push(Data(bytes: json, count: Int(len)))
+        autoreleasepool {
+            guard len <= KODOSI_MAX_FRAME_BYTES, let json, let runtime = resolve(ud) else { return }
+            let event = Data(bytes: json, count: Int(len))
+            if !runtime.browserPipes.take(event) {
+                runtime.inbox.push(event)
+            }
+        }
     }
 
     private static let onTerminalData: kodosi_terminal_data_cb_t = { sid, subscriptionId, subscriptionGeneration, _, bytes, len, ud in
-        guard let sid, let subscriptionId, let bytes, let self_ = resolve(ud) else { return }
-        let sessionId = String(cString: sid)
-        let subscriptionIdValue = String(cString: subscriptionId)
+        autoreleasepool {
+            guard let sid, let subscriptionId, let bytes, let self_ = resolve(ud) else { return }
+            let sessionId = String(cString: sid)
+            let subscriptionIdValue = String(cString: subscriptionId)
 
-        let connection = self_.terminalSubscriptions.connection(
-            sessionId: sessionId,
-            subscriptionId: subscriptionIdValue,
-            subscriptionGeneration: subscriptionGeneration,
-        )
-
-        guard let connection else {
-            Logger.terminal.debug(
-                "Ignored stale terminal data for \(sessionId), subscription \(subscriptionIdValue)",
+            let connection = self_.terminalSubscriptions.connection(
+                sessionId: sessionId,
+                subscriptionId: subscriptionIdValue,
+                subscriptionGeneration: subscriptionGeneration,
             )
-            return
+
+            guard let connection else {
+                Logger.terminal.debug(
+                    "Ignored stale terminal data for \(sessionId), subscription \(subscriptionIdValue)",
+                )
+                return
+            }
+            connection.onData(Data(bytes: bytes, count: Int(len)))
         }
-        connection.onData(Data(bytes: bytes, count: Int(len)))
     }
 
     private static let onTerminalControl: kodosi_terminal_control_cb_t = { sid, subscriptionId, subscriptionGeneration, json, len, ud in
-        guard len <= KODOSI_TERMINAL_CONTROL_MAX_BYTES,
-              let sid, let subscriptionId, let json, let self_ = resolve(ud)
-        else { return }
-        let sessionId = String(cString: sid)
-        let subscriptionIdValue = String(cString: subscriptionId)
+        autoreleasepool {
+            guard len <= KODOSI_TERMINAL_CONTROL_MAX_BYTES,
+                  let sid, let subscriptionId, let json, let self_ = resolve(ud)
+            else { return }
+            let sessionId = String(cString: sid)
+            let subscriptionIdValue = String(cString: subscriptionId)
 
-        let connection = self_.terminalSubscriptions.connection(
-            sessionId: sessionId,
-            subscriptionId: subscriptionIdValue,
-            subscriptionGeneration: subscriptionGeneration,
-        )
+            let connection = self_.terminalSubscriptions.connection(
+                sessionId: sessionId,
+                subscriptionId: subscriptionIdValue,
+                subscriptionGeneration: subscriptionGeneration,
+            )
 
-        guard let connection else { return }
-        connection.onControl(Data(bytes: json, count: Int(len)))
+            guard let connection else { return }
+            connection.onControl(Data(bytes: json, count: Int(len)))
+        }
     }
 
     private static let onTerminalCheckpoint: kodosi_terminal_checkpoint_cb_t = { sid, subscriptionId, generation, _, rows, cols, console, bytes, len, ud in
-        guard rows > 0, cols > 0,
-              len > 0, len <= KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES,
-              let sid, let subscriptionId, let bytes, let self_ = resolve(ud)
-        else { return Int32(KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED) }
-        let sessionId = String(cString: sid)
-        let subscriptionIdValue = String(cString: subscriptionId)
-        guard let connection = self_.terminalSubscriptions.connection(
-            sessionId: sessionId,
-            subscriptionId: subscriptionIdValue,
-            subscriptionGeneration: generation,
-        ) else { return Int32(KODOSI_FFI_STALE_SUBSCRIPTION) }
-        return connection.onCheckpoint(Data(bytes: bytes, count: Int(len)), console)
+        autoreleasepool {
+            guard rows > 0, cols > 0,
+                  len > 0, len <= KODOSI_TERMINAL_SNAPSHOT_MAX_BYTES,
+                  let sid, let subscriptionId, let bytes, let self_ = resolve(ud)
+            else { return Int32(KODOSI_FFI_TERMINAL_CHECKPOINT_REJECTED) }
+            let sessionId = String(cString: sid)
+            let subscriptionIdValue = String(cString: subscriptionId)
+            guard let connection = self_.terminalSubscriptions.connection(
+                sessionId: sessionId,
+                subscriptionId: subscriptionIdValue,
+                subscriptionGeneration: generation,
+            ) else { return Int32(KODOSI_FFI_STALE_SUBSCRIPTION) }
+            return connection.onCheckpoint(Data(bytes: bytes, count: Int(len)), console)
+        }
     }
 
     private static let onTerminalConnectResult: kodosi_terminal_connect_result_cb_t = { sid, subscriptionId, subscriptionGeneration, result, ud in
-        guard let sid, let subscriptionId, let self_ = resolve(ud) else { return }
-        self_.completeTerminalConnection(
-            sessionId: String(cString: sid),
-            subscriptionId: String(cString: subscriptionId),
-            subscriptionGeneration: subscriptionGeneration,
-            result: result,
-        )
+        autoreleasepool {
+            guard let sid, let subscriptionId, let self_ = resolve(ud) else { return }
+            self_.completeTerminalConnection(
+                sessionId: String(cString: sid),
+                subscriptionId: String(cString: subscriptionId),
+                subscriptionGeneration: subscriptionGeneration,
+                result: result,
+            )
+        }
     }
 }
 

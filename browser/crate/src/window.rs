@@ -16,9 +16,9 @@ use crate::{
     Error,
     driver::{self, Driver},
     engine::Engine,
-    flow::{Ask, Flow},
+    flow::{Ask, Flow, HOPELESS},
     input,
-    link::{EncodedFrame, EngineTab, MOST_ICON, ToEngine},
+    link::{EncodedFrame, EngineTab, FrameKind, MOST_ICON, ToEngine},
     message::{
         Chooser, Dialog, Download, Frame, Input, KeyAction, Menu, MenuContext, MenuItem,
         MouseAction, MouseButton, Pointer, Size, State, Tab, ToViewer, ToWindow, Viewer,
@@ -32,7 +32,8 @@ const SLEEP_AFTER: Duration = Duration::from_mins(10);
 const RETRY_CAPTURE: Duration = Duration::from_secs(1);
 /// How long a new size of the page waits for the page to take the last press, release or scroll.
 const ANSWER_LIMIT: Duration = Duration::from_secs(1);
-const SIZES: std::ops::RangeInclusive<u32> = 200..=4096;
+/// A phone on its side gives the browser a view lower than 200 points.
+const SIZES: std::ops::RangeInclusive<u32> = 100..=4096;
 /// Chrome keeps its window at least this wide.
 const NARROWEST: u32 = 500;
 /// The longer and the shorter side of the largest picture that the encoder takes: `VideoToolbox`
@@ -81,7 +82,12 @@ pub(crate) enum Event {
     Driven,
     Close,
     Frame(EncodedFrame),
+    /// A key frame of the engine's layer, for the views that host it.
+    Still(Bytes),
     CaptureFailed,
+    /// The engine's layer shows the page, in the context of this id.
+    Layer(u32),
+    NoLayer,
     /// The page took the last press, release or scroll that a new size waited for.
     Answered,
     Tabs {
@@ -124,6 +130,14 @@ pub(crate) enum Event {
         guid: String,
         done: bool,
     },
+}
+
+impl Event {
+    /// The engine says each of these once, so a window that is behind gets it later rather than
+    /// never.
+    pub(crate) const fn must_arrive(&self) -> bool {
+        matches!(self, Self::CaptureFailed | Self::Layer(_) | Self::NoLayer)
+    }
 }
 
 #[derive(Clone)]
@@ -331,6 +345,36 @@ struct Seat {
     pointer: Option<(f64, f64)>,
     /// The size of the viewer's view, which the page takes while this viewer is in control.
     size: Option<Size>,
+    /// The viewer gets no state before it says how it watches, as the state names its picture.
+    watching: Option<Watching>,
+    /// Since when a still waits for the acknowledgment of a view that hosts the layer. The view
+    /// gets no other still before it, and leaves as a view of the video does when none comes.
+    still_since: Option<Instant>,
+}
+
+impl Seat {
+    fn hosts_layer(&self) -> bool {
+        matches!(self.watching, Some(Watching::Layer { .. }))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Watching {
+    Video,
+    /// The view runs on the browser's computer and hosts the page's layer, so it takes no video.
+    Layer {
+        anchors: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Layer {
+    /// It has shown no picture yet.
+    Coming,
+    /// It shows the page, in the Core Animation context of this id.
+    Shows(u32),
+    /// The engine has none, so each view takes video.
+    Missing,
 }
 
 /// The frames that wait in a viewer's pipe.
@@ -409,6 +453,9 @@ struct Live {
     active: Option<i64>,
     capturing: Option<i64>,
     capture_failed_at: Option<Instant>,
+    /// The tab that the engine draws into the window's layer.
+    layering: Option<i64>,
+    layer: Layer,
     next_frame: u32,
     used_at: Instant,
     control: Option<Control>,
@@ -466,6 +513,8 @@ impl Live {
             active: None,
             capturing: None,
             capture_failed_at: None,
+            layering: None,
+            layer: Layer::Coming,
             next_frame: 0,
             used_at: Instant::now(),
             control: None,
@@ -539,7 +588,16 @@ impl Live {
                 bitrate,
             });
         }
-        let hopeless = self.flow.hopeless(now);
+        let mut hopeless = self.flow.hopeless(now);
+        hopeless.extend(
+            self.seats
+                .iter()
+                .filter(|(_, seat)| {
+                    seat.still_since
+                        .is_some_and(|since| now.duration_since(since) >= HOPELESS)
+                })
+                .map(|(viewer, _)| viewer.clone()),
+        );
         if !hopeless.is_empty() {
             for viewer in hopeless {
                 if let Some(left) = self.seats.remove(&viewer) {
@@ -566,7 +624,11 @@ impl Live {
             self.publish();
         }
         self.send_waiting();
-        self.flow.is_empty() && now.duration_since(self.used_at) >= SLEEP_AFTER
+        !self.watched() && now.duration_since(self.used_at) >= SLEEP_AFTER
+    }
+
+    fn watched(&self) -> bool {
+        !self.flow.is_empty() || self.seats.values().any(Seat::hosts_layer)
     }
 
     fn publish(&mut self) {
@@ -587,20 +649,31 @@ impl Live {
             .collect();
         self.published.send_replace(self.state.clone());
         let icons = std::mem::take(&mut self.new_icons);
-        for seat in self.seats.values() {
-            let mut state = self.state_for(&seat.viewer);
+        for seat in self.seats.values().filter(|seat| seat.watching.is_some()) {
+            let mut state = self.state_for(&seat.viewer, seat.hosts_layer());
             state.icons.clone_from(&icons);
             seat.mailbox.put(state);
         }
         self.copied = None;
     }
 
+    fn welcome(&self, viewer: &str) {
+        if let Some(seat) = self.seats.get(viewer) {
+            let mut state = self.state_for(&seat.viewer, seat.hosts_layer());
+            state.icons.clone_from(&self.icons);
+            seat.mailbox.put(state);
+        }
+    }
+
     /// A list, a copy and a file picker belong to the viewer in control. A person's own pointer
     /// is on the screen that they use, so no view of theirs shows it again; an agent's pointer
-    /// comes from the canvas and stays.
-    fn state_for(&self, viewer: &Viewer) -> State {
+    /// comes from the canvas and stays. Only a view that hosts the layer learns its context.
+    fn state_for(&self, viewer: &Viewer, layer: bool) -> State {
         let pressed = self.in_control(&viewer.id);
         let mut state = self.state.clone();
+        if let (Layer::Shows(context), true) = (self.layer, layer) {
+            state.layer = Some(context);
+        }
         state
             .pointers
             .retain(|pointer| pointer.person != viewer.person);
@@ -625,9 +698,6 @@ impl Live {
                 outgoing,
                 mailbox,
             } => {
-                let mut state = self.state_for(&viewer);
-                state.icons.clone_from(&self.icons);
-                mailbox.put(state);
                 self.seats.insert(
                     viewer.id.clone(),
                     Seat {
@@ -637,6 +707,8 @@ impl Live {
                         mailbox,
                         pointer: None,
                         size: None,
+                        watching: None,
+                        still_since: None,
                     },
                 );
             }
@@ -656,10 +728,19 @@ impl Live {
             Event::Driven => self.driven(),
             Event::Close => {}
             Event::Frame(frame) => self.frame(frame),
+            Event::Still(data) => self.still(data),
             Event::CaptureFailed => {
                 self.capturing = None;
                 self.capture_failed_at = Some(Instant::now());
             }
+            Event::Layer(context) => {
+                // A report of the layer that waited for this window can come after its failure.
+                if self.layer != Layer::Missing {
+                    self.layer = Layer::Shows(context);
+                    self.publish();
+                }
+            }
+            Event::NoLayer => self.take_video(),
             Event::Tabs { tabs, active } => return self.tabs(tabs, active),
             // The person's own pointer takes this shape, so it cannot wait for the tick.
             Event::Shape(shape) => {
@@ -727,8 +808,23 @@ impl Live {
                 size,
                 anchors,
                 opened,
+                layer,
             } => {
-                self.flow.seat(viewer, anchors, now);
+                let Some(seat) = self.seats.get_mut(viewer) else {
+                    return;
+                };
+                let local = seat.viewer.local;
+                let watching = if layer && local && self.layer != Layer::Missing {
+                    Watching::Layer { anchors }
+                } else {
+                    Watching::Video
+                };
+                seat.watching = Some(watching);
+                if watching == Watching::Video {
+                    self.flow.seat(viewer, anchors, local, now);
+                } else {
+                    self.flow.leave(viewer);
+                }
                 self.used_at = now;
                 if opened {
                     self.opened(viewer);
@@ -736,10 +832,24 @@ impl Live {
                 self.control.get_or_insert_with(|| Control::of(viewer));
                 self.keep_size(viewer, size);
                 self.update_capture();
-                self.flow.keyframe_asked(now);
-                self.ask(Ask::Keyframe);
+                if watching == Watching::Video {
+                    self.flow.keyframe_asked(now);
+                    self.ask(Ask::Keyframe);
+                } else {
+                    self.engine.command(ToEngine::Still { window: self.id });
+                }
+                self.welcome(viewer);
             }
-            ToWindow::Ack { frame } => self.flow.ack(viewer, frame, now),
+            ToWindow::Ack { frame } => {
+                if let Some(seat) = self.seats.get_mut(viewer).filter(|seat| seat.hosts_layer()) {
+                    seat.still_since = None;
+                } else {
+                    self.flow.ack(viewer, frame, now);
+                }
+            }
+            ToWindow::Keyframe if self.seats.get(viewer).is_some_and(Seat::hosts_layer) => {
+                self.engine.command(ToEngine::Still { window: self.id });
+            }
             ToWindow::Keyframe => {
                 let seats = &self.seats;
                 if let Some(ask) = self.flow.reset(viewer, now, |viewer| queued(seats, viewer)) {
@@ -794,6 +904,27 @@ impl Live {
         }
     }
 
+    /// A still has the number of the newest frame of the video, as the views that take the video
+    /// count its frames for gaps.
+    fn still(&mut self, data: Bytes) {
+        let now = Instant::now();
+        let message = ToViewer::Frame(Frame {
+            id: self.next_frame,
+            kind: FrameKind::Key,
+            data,
+        })
+        .encode();
+        for seat in self
+            .seats
+            .values_mut()
+            .filter(|seat| seat.hosts_layer() && seat.still_since.is_none())
+        {
+            if seat.outgoing.try_send(message.clone()).is_ok() {
+                seat.still_since = Some(now);
+            }
+        }
+    }
+
     /// Returns whether the last tab closed.
     fn tabs(&mut self, tabs: Vec<EngineTab>, active: Option<i64>) -> bool {
         let emptied = !self.state.tabs.is_empty() && tabs.is_empty();
@@ -842,18 +973,43 @@ impl Live {
     }
 
     fn update_capture(&mut self) {
-        let wanted = if self.flow.is_empty() {
-            None
-        } else {
-            self.active
-        };
-        if wanted == self.capturing {
-            return;
+        let video = self.active.filter(|_| !self.flow.is_empty());
+        if video != self.capturing {
+            self.capturing = video;
+            match video {
+                Some(tab) => self.capture(tab),
+                None => self.engine.command(ToEngine::Stop { window: self.id }),
+            }
         }
-        self.capturing = wanted;
-        match wanted {
-            Some(tab) => self.capture(tab),
-            None => self.engine.command(ToEngine::Stop { window: self.id }),
+        let layer = self
+            .active
+            .filter(|_| self.seats.values().any(Seat::hosts_layer));
+        if layer != self.layering {
+            self.layering = layer;
+            self.engine.command(ToEngine::Layer {
+                window: self.id,
+                tab: layer,
+            });
+        }
+    }
+
+    fn take_video(&mut self) {
+        let now = Instant::now();
+        self.layer = Layer::Missing;
+        let mut moved = false;
+        for (viewer, seat) in &mut self.seats {
+            if let Some(Watching::Layer { anchors }) = seat.watching {
+                seat.watching = Some(Watching::Video);
+                seat.still_since = None;
+                self.flow.seat(viewer, anchors, seat.viewer.local, now);
+                moved = true;
+            }
+        }
+        self.update_capture();
+        if moved {
+            self.flow.keyframe_asked(now);
+            self.ask(Ask::Keyframe);
+            self.publish();
         }
     }
 
@@ -1489,12 +1645,15 @@ mod tests {
                 id: "app".to_owned(),
                 person: "ana".to_owned(),
                 name: "Ana".to_owned(),
+                local: false,
             },
             number,
             outgoing: mpsc::channel(1).0,
             mailbox: Arc::default(),
             pointer: None,
             size: None,
+            watching: None,
+            still_since: None,
         }
     }
 
@@ -1514,12 +1673,27 @@ mod tests {
     }
 
     async fn join_of(live: &mut Live, id: &str, person: &str) -> Pipe {
+        join_from(live, id, person, false).await
+    }
+
+    async fn watching(live: &mut Live, id: &str) -> Pipe {
+        watching_of(live, id, id).await
+    }
+
+    async fn watching_of(live: &mut Live, id: &str, person: &str) -> Pipe {
+        let pipe = join_of(live, id, person).await;
+        rejoin(live, id, view(800, 600)).await;
+        pipe
+    }
+
+    async fn join_from(live: &mut Live, id: &str, person: &str, local: bool) -> Pipe {
         let (outgoing, incoming) = mpsc::channel(VIEWER_QUEUE);
         let mailbox = Arc::new(Mailbox::default());
         let viewer = Viewer {
             id: id.to_owned(),
             person: person.to_owned(),
             name: person.to_owned(),
+            local,
         };
         let seat = SEATS.fetch_add(1, Ordering::Relaxed);
         live.handle(Event::Join {
@@ -1582,12 +1756,17 @@ mod tests {
     }
 
     async fn watch(live: &mut Live, viewer: &str, size: Size, opened: bool) {
+        watch_hosting(live, viewer, size, opened, false).await;
+    }
+
+    async fn watch_hosting(live: &mut Live, viewer: &str, size: Size, opened: bool, layer: bool) {
         live.handle(Event::Message {
             viewer: viewer.to_owned(),
             message: ToWindow::Watch {
                 size,
                 anchors: false,
                 opened,
+                layer,
             },
         })
         .await;
@@ -1700,8 +1879,8 @@ mod tests {
     #[tokio::test]
     async fn each_copy_reaches_the_viewer_who_pressed_once_also_the_same_words_again() {
         let mut live = live();
-        let ana = join(&mut live, "ana").await;
-        let bob = join(&mut live, "bob").await;
+        let ana = watching(&mut live, "ana").await;
+        let bob = watching(&mut live, "bob").await;
         press(&mut live, "ana").await;
         live.handle(Event::Copied("word".to_owned())).await;
         live.publish();
@@ -1715,15 +1894,15 @@ mod tests {
         live.publish();
         assert_eq!(copied(&ana).as_deref(), Some("word"));
 
-        let again = join(&mut live, "ana").await;
+        let again = watching(&mut live, "ana").await;
         assert_eq!(copied(&again), None);
     }
 
     #[tokio::test]
     async fn a_copy_goes_to_the_viewer_whose_key_asked_for_it() {
         let mut live = live();
-        let ana = join(&mut live, "ana").await;
-        let bob = join(&mut live, "bob").await;
+        let ana = watching(&mut live, "ana").await;
+        let bob = watching(&mut live, "bob").await;
         press(&mut live, "ana").await;
         press(&mut live, "bob").await;
         let copy = json!({ "kind": "key", "action": "down", "key": "c", "code": "KeyC", "keyCode": 67, "modifiers": 4 });
@@ -1737,7 +1916,7 @@ mod tests {
     #[tokio::test]
     async fn a_copy_after_an_agents_command_is_no_persons_until_a_person_acts() {
         let mut live = live();
-        let ana = join(&mut live, "ana").await;
+        let ana = watching(&mut live, "ana").await;
         press(&mut live, "ana").await;
         live.handle(Event::Driven).await;
         live.handle(Event::Copied("word".to_owned())).await;
@@ -1753,7 +1932,7 @@ mod tests {
     #[tokio::test]
     async fn a_copy_that_waits_for_its_viewer_goes_once_with_the_newest_state() {
         let mut live = live();
-        let ana = join(&mut live, "ana").await;
+        let ana = watching(&mut live, "ana").await;
         press(&mut live, "ana").await;
         live.handle(Event::Copied("word".to_owned())).await;
         live.publish();
@@ -1771,8 +1950,8 @@ mod tests {
     async fn a_right_click_menu_opens_where_its_viewer_pressed_and_copies_its_link_for_that_viewer()
     {
         let mut live = live();
-        let ana = join(&mut live, "ana").await;
-        let bob = join(&mut live, "bob").await;
+        let ana = watching(&mut live, "ana").await;
+        let bob = watching(&mut live, "bob").await;
         let right = json!({ "kind": "mouse", "action": "press", "x": 40, "y": 30, "button": "right", "clicks": 1 });
         say(&mut live, "ana", right).await;
         live.handle(Event::Context {
@@ -1801,7 +1980,7 @@ mod tests {
     #[tokio::test]
     async fn each_viewer_gets_a_tab_icon_once_also_through_a_newer_state_and_after_joining_late() {
         let mut live = live();
-        let ana = join(&mut live, "ana").await;
+        let ana = watching(&mut live, "ana").await;
         live.handle(Event::Icon {
             tab: 5,
             png: "aWNvbg==".to_owned(),
@@ -1815,7 +1994,7 @@ mod tests {
         live.handle(Event::Shape("pointer".to_owned())).await;
         assert_eq!(icon(newest(&ana)), None);
 
-        let bob = join(&mut live, "bob").await;
+        let bob = watching(&mut live, "bob").await;
         assert_eq!(icon(newest(&bob)).as_deref(), Some("aWNvbg=="));
     }
 
@@ -1852,9 +2031,9 @@ mod tests {
     #[tokio::test]
     async fn each_viewer_sees_where_other_people_point_but_not_where_its_own_person_points() {
         let mut live = live();
-        let mac = join_of(&mut live, "mac", "ana").await;
-        let phone = join_of(&mut live, "phone", "ana").await;
-        let bob = join(&mut live, "bob").await;
+        let mac = watching_of(&mut live, "mac", "ana").await;
+        let phone = watching_of(&mut live, "phone", "ana").await;
+        let bob = watching(&mut live, "bob").await;
         say(
             &mut live,
             "mac",
@@ -1966,6 +2145,25 @@ mod tests {
     }
 
     #[test]
+    fn a_phone_on_its_side_gets_a_page_of_its_own_shape() {
+        assert_eq!(
+            fitted(
+                Size {
+                    width: 914,
+                    height: 182,
+                    scale: 2.625,
+                },
+                [],
+            ),
+            Some(Size {
+                width: 914,
+                height: 182,
+                scale: 2.625,
+            })
+        );
+    }
+
+    #[test]
     fn a_broken_size_is_ignored() {
         assert_eq!(
             fitted(
@@ -2031,6 +2229,165 @@ mod tests {
                 scale: 1.0,
             })
         );
+    }
+
+    const KEY: u8 = 1;
+
+    fn open_tab(id: i64) -> Event {
+        Event::Tabs {
+            tabs: vec![EngineTab {
+                id,
+                window: 1,
+                target: None,
+                title: String::new(),
+                address: String::new(),
+                active: true,
+                loading: false,
+            }],
+            active: Some(id),
+        }
+    }
+
+    fn video_frame(kind: FrameKind) -> Event {
+        Event::Frame(EncodedFrame {
+            window: 1,
+            kind,
+            mark: None,
+            still: false,
+            data: Bytes::from_static(b"\0\0\0\x01picture"),
+        })
+    }
+
+    fn key_frame() -> Event {
+        video_frame(FrameKind::Key)
+    }
+
+    fn pictures(pipe: &mut Pipe) -> Vec<(u32, u8)> {
+        std::iter::from_fn(|| pipe.incoming.try_recv().ok())
+            .map(|message| {
+                let id = u32::from_be_bytes(message[1..5].try_into().unwrap());
+                (id, message[5])
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn only_a_view_on_the_browsers_computer_hosts_the_layer_and_learns_its_context() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let mut mac = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
+        let mut phone = join_from(&mut live, "phone", "ana", false).await;
+        watch_hosting(&mut live, "phone", view(600, 1000), true, true).await;
+        assert_eq!((live.capturing, live.layering), (Some(5), Some(5)));
+
+        live.handle(Event::Layer(7)).await;
+        assert_eq!(newest(&mac).and_then(|state| state.layer), Some(7));
+        assert_eq!(newest(&phone).and_then(|state| state.layer), None);
+
+        live.handle(key_frame()).await;
+        assert_eq!(pictures(&mut mac), Vec::<(u32, u8)>::new());
+        assert_eq!(pictures(&mut phone), [(1, KEY)]);
+
+        let again = join_from(&mut live, "mac", "ana", true).await;
+        assert_eq!(newest(&again), None);
+        watch_hosting(&mut live, "mac", view(900, 700), false, true).await;
+        assert_eq!(newest(&again).and_then(|state| state.layer), Some(7));
+    }
+
+    #[tokio::test]
+    async fn the_engine_codes_video_only_for_a_view_that_takes_it() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let _mac = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
+        assert_eq!((live.capturing, live.layering), (None, Some(5)));
+        let phone = join_from(&mut live, "phone", "ana", false).await;
+        watch(&mut live, "phone", view(600, 1000), true).await;
+        assert_eq!(live.capturing, Some(5));
+        live.handle(Event::Leave {
+            viewer: "phone".to_owned(),
+            seat: phone.seat,
+        })
+        .await;
+        assert_eq!((live.capturing, live.layering), (None, Some(5)));
+    }
+
+    #[tokio::test]
+    async fn a_view_that_hosts_the_layer_takes_video_for_good_when_the_engine_has_no_layer() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let mut mac = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
+        live.handle(Event::NoLayer).await;
+        live.handle(Event::Layer(7)).await;
+        assert_eq!((live.capturing, live.layering), (Some(5), None));
+        assert_eq!(newest(&mac).and_then(|state| state.layer), None);
+        live.handle(key_frame()).await;
+        assert_eq!(pictures(&mut mac), [(1, KEY)]);
+
+        let _again = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), false, true).await;
+        assert_eq!((live.capturing, live.layering), (Some(5), None));
+    }
+
+    #[tokio::test]
+    async fn a_still_goes_only_to_the_views_that_host_the_layer_and_leaves_no_gap_in_the_video() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let mut mac = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
+        let mut phone = join_from(&mut live, "phone", "ana", false).await;
+        watch(&mut live, "phone", view(600, 1000), true).await;
+        live.handle(key_frame()).await;
+        live.handle(Event::Still(Bytes::from_static(b"\0\0\0\x01still")))
+            .await;
+        live.handle(video_frame(FrameKind::Delta)).await;
+        assert_eq!(pictures(&mut mac), [(1, KEY)]);
+        assert_eq!(pictures(&mut phone), [(1, KEY), (2, 0)]);
+    }
+
+    #[tokio::test]
+    async fn a_view_that_hosts_the_layer_gets_one_still_at_a_time_and_leaves_when_it_takes_none() {
+        let mut live = live();
+        live.handle(open_tab(5)).await;
+        let mut mac = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
+        let still = || Event::Still(Bytes::from_static(b"\0\0\0\x01still"));
+        for _ in 0..3 {
+            live.handle(still()).await;
+        }
+        assert_eq!(pictures(&mut mac).len(), 1);
+
+        live.handle(Event::Message {
+            viewer: "mac".to_owned(),
+            message: ToWindow::Ack { frame: 0 },
+        })
+        .await;
+        live.handle(still()).await;
+        live.handle(still()).await;
+        assert_eq!(pictures(&mut mac).len(), 1);
+
+        live.seats.get_mut("mac").unwrap().still_since = Instant::now().checked_sub(HOPELESS);
+        live.tick();
+        assert!(!live.seats.contains_key("mac"));
+        assert!(!live.watched());
+    }
+
+    #[tokio::test]
+    async fn a_window_stays_awake_while_a_view_shows_its_layer() {
+        let mut live = live();
+        let mac = join_from(&mut live, "mac", "ana", true).await;
+        watch_hosting(&mut live, "mac", view(900, 700), true, true).await;
+        live.used_at = Instant::now().checked_sub(SLEEP_AFTER).unwrap();
+        assert!(!live.tick());
+        live.handle(Event::Leave {
+            viewer: "mac".to_owned(),
+            seat: mac.seat,
+        })
+        .await;
+        live.used_at = Instant::now().checked_sub(SLEEP_AFTER).unwrap();
+        assert!(live.tick());
     }
 
     #[tokio::test]

@@ -239,8 +239,13 @@ Row {
         KMenu {
             id: openMenu
 
+            property var choices: []
+
+            // Choosing a section takes it off the list, and a menu does not close for an item that
+            // leaves it during the click, so the list changes only when the menu opens.
+            onAboutToShow: choices = root.closed
             Instantiator {
-                model: root.closed
+                model: openMenu.choices
                 onObjectAdded: (index, item) => openMenu.insertItem(index, item)
                 onObjectRemoved: (index, item) => openMenu.removeItem(item)
                 delegate: KMenuItem {

@@ -39,7 +39,8 @@ the shell of the new terminal.
   show; they start at Quiet. Copilot CLI takes its verbosity only from its own settings, so
   Kodosi changes them while Copilot CLI runs at Quiet and puts them back after.
 - Claude Code and Codex have a fast mode, which answers faster and costs more. Turn it on
-  with the model and effort. While it is off, the agent keeps its own setting.
+  with the model and effort. It holds for that start only, so an agent starts without it
+  unless you turn it on.
 - A new account gets its own sign-in folder, such as `~/.claude-work`. Kodosi also finds
   the accounts that your shell sets up, such as
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -105,9 +106,9 @@ The check and the warning go away when you open the terminal on any of your devi
 When one of your terminals starts to wait, finishes or fails, Kodosi tells you once, on the
 device that you use. In Kodosi, you get the sign. At your computer in another app, you get
 a notification there. When you use none of your computers, you get it on your phone. A
-terminal that still waits for you when you leave your computer tells your phone then. Only
-a terminal that waits makes a sound. To turn the notifications of a device off, open
-Settings in Kodosi on that device. Programs report their state with the
+terminal that still waits for you and that you did not open tells your phone when you leave
+your computer. Only a terminal that waits makes a sound. To turn the notifications of a
+device off, open Settings in Kodosi on that device. Programs report their state with the
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) or a
 progress bar. A program that reports nothing shows no state.
 
@@ -258,7 +259,7 @@ does.
 | `kodosi terminal start --directory <repository> --branch <name>` | Starts a terminal on a new branch, in its own worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Starts a terminal on another of your computers. A relative folder, or one that starts with `~`, is in your home there. `kodosi devices list` shows which computers are online. |
 | `kodosi agent list` | Shows the agents, their accounts and your last choice. |
-| `kodosi agent usage` | Shows how much of the plan limits each signed-in Claude Code, Codex and Copilot CLI account has used. |
+| `kodosi agent usage` | Shows how much of the plan limits each signed-in Claude Code, Codex and Copilot CLI account has used, and when each limit resets. |
 | `kodosi terminal list` | Shows your terminals with their names and IDs. Give either one as `<terminal>`. |
 | `kodosi terminal read <terminal>` | Prints the screen. `--history` adds the lines that scrolled away. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Gives the agent in a terminal a message, with who sends it and from where. |

@@ -126,6 +126,15 @@ class CanvasStoreTest {
     }
 
     @Test
+    fun theFilesPartShowsTheChosenFileElseTheNewestAlsoAfterTheBrowserShowed() {
+        val newer = item.copy(key = "newer", name = "notes.txt", changed = 5)
+        val canvas = Canvas(1, listOf(item, newer), CanvasBrowser("running", 9))
+        assertEquals(item, canvas.shownFile("file"))
+        assertEquals(newer, canvas.shownFile("browser"))
+        assertEquals(newer, canvas.shownFile("removed"))
+    }
+
+    @Test
     fun closedPartsStayClosedAcrossSnapshotsUntilTheirOwnContentChanges() {
         val browser = CanvasBrowser("sleeping", 2)
         val canvas = Canvas(1, listOf(item), browser)

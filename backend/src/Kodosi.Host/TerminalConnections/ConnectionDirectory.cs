@@ -38,15 +38,6 @@ public sealed class ConnectionDirectory
         lock (sync) return hosted.TryGetValue(sessionId, out var live) && live.Host.Connection.IsOpen ? (true, live.Status) : (false, null);
     }
 
-    internal int Blocked(Guid userId)
-    {
-        lock (sync)
-            return accounts.TryGetValue(userId, out var devices)
-                ? devices.Values.Where(entry => entry.Connection.IsOpen)
-                    .Sum(entry => entry.Hosted.Count(sessionId => hosted[sessionId].Status?.State == "blocked"))
-                : 0;
-    }
-
     internal IReadOnlyList<(Guid SessionId, TerminalStatus Status)> WithAttention(Guid userId)
     {
         lock (sync)

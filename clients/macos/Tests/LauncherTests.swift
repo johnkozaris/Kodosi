@@ -8,7 +8,7 @@ private func launcherApp(_ prefix: String) throws -> (AppDependencies, () -> [[S
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
     let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
     var sent: [[String: JSONValue]] = []
-    app.commandSink.transport = { data in
+    app.commandSink.transport { data in
         if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
             sent.append(fields)
         }
@@ -356,7 +356,9 @@ private func terminal(running agent: [String: JSONValue]) throws -> RuntimeSessi
         await Task.yield()
         asked = sent().last { $0["type"] == .string("provider.usage") }?["requestId"]?.stringValue
     }
-    let limit: JSONValue = .object(["hours": .int(5), "scope": .null, "used": .int(91), "level": .string("near"), "headline": .bool(true)])
+    let limit: JSONValue = .object([
+        "hours": .int(5), "scope": .null, "model": .null, "used": .int(91), "level": .string("near"), "resetsAtMs": .null,
+    ])
     let accounts = ["default", "work"].map { name -> JSONValue in
         .object(["agent": .string("claude"), "account": .string(name), "readAtMs": .int(1_792_716_922_000), "limits": .array([limit])])
     }

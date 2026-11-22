@@ -14,14 +14,22 @@
 #include <QtTest/QTest>
 
 namespace {
-class Commands final : public kodosi::CommandDispatcher {
+class Commands final : public kodosi::CommandDispatcher, public kodosi::PipeRouter {
 public:
     QList<QJsonObject> values;
+    QStringList routes;
+    qsizetype routedBefore = -1;
     Result send(QByteArrayView bytes) override
     {
         values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
         return {};
     }
+    void route(const QString& pipe, QObject&, Read) override
+    {
+        routes.append(pipe);
+        routedBefore = values.size();
+    }
+    void unroute(const QString& pipe) override { routes.removeAll(pipe); }
     QJsonObject request() const { return values.last().value(QStringLiteral("request")).toObject(); }
 };
 
@@ -512,7 +520,7 @@ private slots:
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasDocuments documents(commands, sessions);
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
         QSignalSpy opened(&documents, &kodosi::CanvasDocuments::opened);
         QSignalSpy received(&documents, &kodosi::CanvasDocuments::received);
         const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
@@ -541,33 +549,60 @@ private slots:
         QCOMPARE(received.last().at(1).toString(), QString::fromLatin1(QByteArray("again").toBase64()));
     }
 
-    void aNativeViewTakesItsFrameAsBytes()
+    void aBrowserPipeGoesToItsReaderFromItsFirstEventUntilItCloses()
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasDocuments documents(commands, sessions);
-        QSignalSpy text(&documents, &kodosi::CanvasDocuments::received);
-        QSignalSpy bytes(&documents, &kodosi::CanvasDocuments::receivedBytes);
-        const auto pipe = documents.openBytes(test::id(1), QStringLiteral("browser"));
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        QSignalSpy opened(&documents, &kodosi::CanvasDocuments::opened);
+        QSignalSpy closed(&documents, &kodosi::CanvasDocuments::closed);
+        QObject reader;
+        const auto pipe = documents.openReader(test::id(1), QStringLiteral("browser"), reader, {});
+        QCOMPARE(commands.routes, QStringList { pipe });
+        QCOMPARE(commands.routedBefore, 0);
         QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
-        const auto part = [&pipe](int sequence, bool more, const QByteArray& data) {
-            return QJsonObject { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
-                { QStringLiteral("sequence"), sequence }, { QStringLiteral("more"), more },
-                { QStringLiteral("data"), QString::fromLatin1(data.toBase64()) } };
-        };
         documents.apply({ { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } });
-        documents.apply(part(0, true, "\x01Hel"));
-        documents.apply(part(1, false, "lo\xff"));
-        QCOMPARE(bytes.size(), 1);
-        QCOMPARE(bytes.first().at(1).toByteArray(), QByteArray("\x01Hello\xff"));
-        QVERIFY(text.isEmpty());
+        QVERIFY(opened.isEmpty());
+        documents.close(pipe);
+        QVERIFY(commands.routes.isEmpty());
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
+        const auto refused = documents.openReader(test::id(1), QStringLiteral("browser"), reader, {});
+        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.error") },
+            { QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("document.open") } });
+        QCOMPARE(closed.size(), 1);
+        QCOMPARE(closed.first().at(0).toString(), refused);
+        QVERIFY(commands.routes.isEmpty());
+    }
+
+    void aTerminalsBrowserHasOnePipeAndTheNewestViewTakesIt()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        QSignalSpy closed(&documents, &kodosi::CanvasDocuments::closed);
+        QObject earlier;
+        QObject later;
+        QObject other;
+        const auto first = documents.openReader(test::id(1), QStringLiteral("browser"), earlier, {});
+        const auto elsewhere = documents.openReader(test::id(2), QStringLiteral("browser"), other, {});
+        const auto sent = commands.values.size();
+        const auto second = documents.openReader(test::id(1), QStringLiteral("browser"), later, {});
+        QCOMPARE(commands.values.size(), sent + 2);
+        QCOMPARE(commands.values.at(sent).value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
+        QCOMPARE(commands.values.at(sent).value(QStringLiteral("pipe")).toString(), first);
+        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), second);
+        QCOMPARE(closed.size(), 1);
+        QCOMPARE(closed.first().at(0).toString(), first);
+        QCOMPARE(commands.routes, (QStringList { elsewhere, second }));
     }
 
     void aDocumentGoesToAHostThatComesBackOnceItListsTheTerminal()
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasDocuments documents(commands, sessions);
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
         QSignalSpy lost(&documents, &kodosi::CanvasDocuments::lost);
         const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
         documents.reset();
@@ -587,7 +622,7 @@ private slots:
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasDocuments documents(commands, sessions);
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
         QSignalSpy received(&documents, &kodosi::CanvasDocuments::received);
         QSignalSpy closed(&documents, &kodosi::CanvasDocuments::closed);
         const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
@@ -619,7 +654,7 @@ private slots:
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasDocuments documents(commands, sessions);
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
         const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
         documents.send(pipe, QString(600 * 1024, u'A'));
         QCOMPARE(commands.values.size(), 3);

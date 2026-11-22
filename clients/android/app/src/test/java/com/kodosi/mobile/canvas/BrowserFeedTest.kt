@@ -2,15 +2,17 @@ package com.kodosi.mobile.canvas
 
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.SentCommands
-import com.kodosi.mobile.runtime.TestWords
 import com.kodosi.mobile.runtime.event
 import com.kodosi.mobile.runtime.string
 import java.util.Base64
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,11 +23,12 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class BrowserFeedTest {
     private val sent = SentCommands()
-    private val store = CanvasStore(sent.sink, TestWords)
+    private val pipes = BrowserPipes(sent.sink, Runnable::run)
 
     @Test
     fun aFeedWatchesOnEachOpenOfItsPipeAndShowsALossUntilAFrameComes() = runTest {
-        val feed = BrowserFeed(store, "terminal", backgroundScope)
+        pipes.choose("terminal")
+        val feed = feed()
         feed.show(true)
         runCurrent()
         val pipe = sent.last("document.open").string("pipe")
@@ -46,8 +49,63 @@ class BrowserFeedTest {
         assertFalse(feed.reconnecting.value)
     }
 
+    @Test
+    fun onlyThePersonsActTakesThePageAndAReturnToTheScreenDoesNot() = runTest {
+        pipes.choose("terminal")
+        val feed = feed()
+        feed.show(true)
+        assertEquals(true, look())
+        feed.show(false)
+        feed.show(true)
+        assertEquals(false, look())
+
+        pipes.choose("terminal")
+        pipes.forget("terminal")
+        feed.show(false)
+        feed.show(true)
+        assertEquals(false, look())
+    }
+
+    @Test
+    fun anActOnTheBrowserThatAViewWatchesTakesThePageAtOnceAndOnlyOnce() = runTest {
+        val feed = feed()
+        feed.show(true)
+        assertEquals(false, look())
+
+        pipes.choose("terminal")
+        assertEquals(true, watched()?.get("opened")?.jsonPrimitive?.boolean)
+        feed.show(false)
+        feed.show(true)
+        assertEquals(false, look())
+    }
+
+    @Test
+    fun aPipeThatOpensBeforeTheViewHasItsSizeWatchesWithTheSizeOfTheView() = runTest {
+        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
+        feed.show(true)
+        val pipe = sent.last("document.open").string("pipe")
+        sent.reply("document.open")
+        news("document.opened", pipe)
+        assertTrue(sent.types.none { it == "document.send" })
+
+        feed.resize(1080, 1740, 2.625f)
+        val size = watched()?.get("size")?.jsonObject
+        assertEquals(411, size?.get("width")?.jsonPrimitive?.int)
+        assertEquals(662, size?.get("height")?.jsonPrimitive?.int)
+    }
+
+    private fun TestScope.feed() =
+        BrowserFeed(pipes, "terminal", backgroundScope).also { it.resize(1080, 1740, 2.625f) }
+
+    private fun look(): Boolean? {
+        val pipe = sent.last("document.open").string("pipe")
+        sent.reply("document.open")
+        news("document.opened", pipe)
+        return watched()?.get("opened")?.jsonPrimitive?.boolean
+    }
+
     private fun news(type: String, pipe: String, fields: String = "") {
-        store.receive(event(type, """"pipe":"$pipe"${if (fields.isEmpty()) "" else ",$fields"}"""))
+        pipes.receive(event(type, """"pipe":"$pipe"${if (fields.isEmpty()) "" else ",$fields"}"""))
     }
 
     private fun watched(): JsonObject? {

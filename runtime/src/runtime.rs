@@ -800,12 +800,13 @@ impl TerminalTarget {
         &self,
         connection: Uuid,
         focused: bool,
+        returning: bool,
     ) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
         match self {
             #[cfg(feature = "host")]
-            Self::Local(terminal) => Box::pin(terminal.focus(connection, focused)),
+            Self::Local(terminal) => Box::pin(terminal.focus(connection, focused, returning)),
             Self::Remote(terminal) => {
-                let result = terminal.control(Some(connection), TerminalControl::Focus { focused });
+                let result = terminal.focus(connection, focused, returning);
                 Box::pin(async move { result.await.map(|_| ()) })
             }
         }
@@ -881,7 +882,7 @@ impl TerminalTarget {
                 let view = consumer.to_string();
                 let person = person.unwrap_or_else(|| view.clone());
                 Box::pin(async move {
-                    crate::terminal::pipe(&canvas, &chat, &key, view, person, name)
+                    crate::terminal::pipe(&canvas, &chat, &key, view, person, name, true)
                         .await
                         .map_err(Error::Text)
                 })
@@ -1606,14 +1607,10 @@ impl Runtime {
         }
     }
 
-    /// The marks go to the terminal list and the status first, so that an app has the state that
-    /// a call is about.
-    fn leave(&mut self, watched: &BTreeSet<String>) {
+    fn leave(&mut self) {
         if !self.attention.left() {
             return;
         }
-        self.attention.mark_seen_waits(watched);
-        self.publish_catalog();
         let now = tokio::time::Instant::now();
         for (id, cue) in self.attention.call_waits(now) {
             self.emit(json!({"type":"term.attention", "sessionId":id, "cue":cue}));
@@ -1644,8 +1641,8 @@ impl Runtime {
         if let Some(presence) = self.attention.changed_presence() {
             self.network.inner.link.present(presence);
         }
+        self.leave();
         let watched = self.watched();
-        self.leave(&watched);
         let now = tokio::time::Instant::now();
         let ended = self.attention.look(&watched);
         if self.attention.settle(now, &watched) || ended {
@@ -3057,8 +3054,7 @@ impl Runtime {
             match serde_json::from_value::<crate::network::Elsewhere>(event.event) {
                 Ok(elsewhere) if heard => {
                     self.attention.hear_elsewhere(elsewhere);
-                    let watched = self.watched();
-                    self.leave(&watched);
+                    self.leave();
                 }
                 Ok(_) => self.attention.lose_elsewhere(),
                 Err(error) => tracing::warn!(%error, "a presence notice was unreadable"),
@@ -3828,6 +3824,8 @@ impl Runtime {
                     && !self.attention.marked(&key)
                     && !self.watched().contains(&key)
                 {
+                    self.attention.mark_here(&key);
+                    self.publish_catalog();
                     let cue = self.attention.notification_cue(tokio::time::Instant::now());
                     self.emit(json!({"type":"term.notification", "sessionId":id,
                         "runtimeIncarnationId":incarnation, "title":title, "body":body,

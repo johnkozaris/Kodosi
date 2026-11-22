@@ -94,19 +94,12 @@ public final class TerminalChat {
     private func connect() async {
         let link = store.chatLink(of: session)
         self.link = link
-        link.onFrame = { [weak self] in self?.receive($0) }
+        // The canvas store gives the pipe of a chat its events on the main actor.
+        link.onFrame = { [weak self] frame in
+            MainActor.assumeIsolated { self?.receive(frame) }
+        }
         link.onNews = { [weak self, weak link] news in
-            guard let self, self.link === link else { return }
-            switch news {
-            case .open:
-                awaitsSnapshot = true
-            case let .lost(reason):
-                linked = false
-                failure = reason
-            case .closed:
-                self.link = nil
-                linked = false
-            }
+            MainActor.assumeIsolated { self?.hear(news, on: link) }
         }
         do {
             try await link.open()
@@ -117,6 +110,20 @@ public final class TerminalChat {
             if !Task.isCancelled {
                 failure = error.localizedDescription
             }
+        }
+    }
+
+    private func hear(_ news: DocumentLink.News, on link: DocumentLink?) {
+        guard self.link === link else { return }
+        switch news {
+        case .open:
+            awaitsSnapshot = true
+        case let .lost(reason):
+            linked = false
+            failure = reason
+        case .closed:
+            self.link = nil
+            linked = false
         }
     }
 

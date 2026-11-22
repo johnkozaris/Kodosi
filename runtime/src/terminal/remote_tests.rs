@@ -704,7 +704,6 @@ async fn a_focused_view_sends_its_size_again_when_the_view_that_set_it_leaves() 
         TerminalControl::Resize {
             rows: 17,
             cols: 49,
-            claim: true,
             ..
         }
     ));
@@ -728,33 +727,40 @@ async fn the_focused_view_whose_size_the_host_took_last_sends_it_again() {
     let second = another_view(&terminal, &mut requests, &updates).await;
     let blurred = another_view(&terminal, &mut requests, &updates).await;
     let attach = another_view(&terminal, &mut requests, &updates).await;
-    let ids = [
-        first.connection_id,
-        second.connection_id,
-        blurred.connection_id,
-    ];
-    let focused = terminal.control(Some(ids[0]), TerminalControl::Focus { focused: true });
+    let focused = terminal.control(
+        Some(first.connection_id),
+        TerminalControl::Focus { focused: true },
+    );
     assert!(matches!(
         confirm(&mut requests).await,
         TerminalControl::Focus { focused: true }
     ));
     focused.await.expect("focus");
-    for id in &ids[1..] {
+    let first_id = first.connection_id;
+    set_size(
+        &terminal,
+        first_id,
+        resize(18, 60, false),
+        &mut requests,
+        &updates,
+        &mut first,
+    )
+    .await;
+    for (id, control) in [
+        (second.connection_id, resize(24, 80, false)),
+        (blurred.connection_id, resize(40, 90, false)),
+    ] {
         terminal
-            .control(Some(*id), TerminalControl::Focus { focused: true })
+            .control(Some(id), TerminalControl::Focus { focused: true })
             .await
             .expect("focus");
-    }
-    for (id, control) in [
-        (ids[0], resize(18, 60, false)),
-        (ids[1], resize(24, 80, false)),
-        (ids[0], resize(20, 70, false)),
-        (ids[2], resize(40, 90, false)),
-    ] {
         set_size(&terminal, id, control, &mut requests, &updates, &mut first).await;
     }
     terminal
-        .control(Some(ids[2]), TerminalControl::Focus { focused: false })
+        .control(
+            Some(blurred.connection_id),
+            TerminalControl::Focus { focused: false },
+        )
         .await
         .expect("blur");
     set_size(
@@ -770,12 +776,186 @@ async fn the_focused_view_whose_size_the_host_took_last_sends_it_again() {
     assert!(matches!(
         confirm(&mut requests).await,
         TerminalControl::Resize {
-            rows: 20,
-            cols: 70,
+            rows: 24,
+            cols: 80,
+            ..
+        }
+    ));
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn a_focused_view_claims_the_size_only_when_a_person_acts_there() {
+    let (terminal, mut view, mut requests, updates, _changes) = start().await;
+    let id = view.connection_id;
+    let focused = terminal.control(Some(id), TerminalControl::Focus { focused: true });
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    focused.await.expect("focus");
+    set_size(
+        &terminal,
+        id,
+        resize(10, 40, false),
+        &mut requests,
+        &updates,
+        &mut view,
+    )
+    .await;
+    let resized = terminal.control(Some(id), resize(12, 50, false));
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Resize {
+            rows: 12,
+            cols: 50,
+            claim: false,
+            ..
+        }
+    ));
+    resized.await.expect("the host decides");
+    host_size(&updates, &mut view, 30, 100).await;
+    for focused in [false, true] {
+        let changed = terminal.control(Some(id), TerminalControl::Focus { focused });
+        assert!(matches!(
+            confirm(&mut requests).await,
+            TerminalControl::Focus { focused: was } if was == focused
+        ));
+        changed.await.expect("focus change");
+    }
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Resize {
+            rows: 12,
+            cols: 50,
             claim: true,
             ..
         }
     ));
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn a_focus_that_a_view_gives_back_after_it_attached_again_claims_no_size() {
+    let (terminal, mut view, mut requests, updates, _changes) = start().await;
+    let id = view.connection_id;
+    let focused = terminal.control(Some(id), TerminalControl::Focus { focused: true });
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    focused.await.expect("focus");
+    set_size(
+        &terminal,
+        id,
+        resize(10, 40, false),
+        &mut requests,
+        &updates,
+        &mut view,
+    )
+    .await;
+    let resized = terminal.control(Some(id), resize(12, 50, false));
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Resize {
+            rows: 12,
+            cols: 50,
+            claim: false,
+            ..
+        }
+    ));
+    resized.await.expect("the host decides");
+    host_size(&updates, &mut view, 30, 100).await;
+    let blurred = terminal.control(Some(id), TerminalControl::Focus { focused: false });
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: false }
+    ));
+    blurred.await.expect("blur");
+    let back = terminal.focus(id, true, true);
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    back.await.expect("focus back");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(requests.try_recv().is_err());
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn a_focus_that_an_app_gives_back_after_a_reconnect_claims_no_size() {
+    let (terminal, mut view, mut requests, updates, mut changes) = start().await;
+    let id = view.connection_id;
+    let focused = terminal.control(Some(id), TerminalControl::Focus { focused: true });
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    focused.await.expect("focus");
+    set_size(
+        &terminal,
+        id,
+        resize(10, 40, false),
+        &mut requests,
+        &updates,
+        &mut view,
+    )
+    .await;
+    drop(updates);
+    interrupted(&mut changes, &terminal).await;
+    let blurred = terminal.control(Some(id), TerminalControl::Focus { focused: false });
+    let (mut requests, _updates) = reconnect(&terminal).await;
+    for focused in [true, false] {
+        assert!(matches!(
+            confirm(&mut requests).await,
+            TerminalControl::Focus { focused: was } if was == focused
+        ));
+    }
+    blurred.await.expect("blur");
+    let back = terminal.control(Some(id), TerminalControl::Focus { focused: true });
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Focus { focused: true }
+    ));
+    back.await.expect("focus again");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(requests.try_recv().is_err());
+    terminal.disconnect();
+}
+
+#[tokio::test]
+async fn keys_claim_the_size_that_the_view_asked_for() {
+    let (terminal, view, mut requests, _updates, _changes) = start().await;
+    let id = view.connection_id;
+    let refused = terminal.control(Some(id), resize(10, 40, false));
+    match next_request(&mut requests).await {
+        TestRemoteRequest::Control {
+            control: TerminalControl::Resize { claim: false, .. },
+            reply,
+        } => reply
+            .send(Err(crate::network::Error::Invalid {
+                reason: "Another device controls the size.".to_owned(),
+            }))
+            .expect("refusal"),
+        _ => panic!("resize expected"),
+    }
+    assert!(refused.await.is_err());
+    let typed = terminal.write_input(id, Bytes::from_static(b"x"));
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Resize {
+            rows: 10,
+            cols: 40,
+            claim: true,
+            ..
+        }
+    ));
+    assert!(matches!(
+        confirm(&mut requests).await,
+        TerminalControl::Input { .. }
+    ));
+    typed.await.expect("keys");
     terminal.disconnect();
 }
 

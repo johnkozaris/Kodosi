@@ -1,10 +1,13 @@
 import Foundation
 import KodosiKit
+import Synchronization
 
 @MainActor
 public final class CommandSink {
     public typealias DispatchCompletion = @MainActor (Int32?) -> Void
-    public typealias Transport = @MainActor (Data) -> Int32?
+    /// A browser pipe sends from the task that reads its frames, so the transport takes commands
+    /// from any thread.
+    public typealias Transport = @Sendable (Data) -> Int32?
 
     public enum Delivery: Equatable, Sendable {
         case caller
@@ -21,11 +24,15 @@ public final class CommandSink {
         let operation: String
     }
 
+    private struct Line {
+        var transport: Transport?
+        var accountUserId: String?
+        var accountEpoch: UInt64 = 0
+    }
+
     private static let mostAbandoned = 64
 
-    public var transport: Transport?
-    private(set) var accountUserId: String?
-    private(set) var accountEpoch: UInt64 = 0
+    private nonisolated let line = Mutex(Line())
     private var pending: [String: Pending] = [:]
     /// The requests that their callers stopped waiting for, so that their late answers reach
     /// nobody.
@@ -33,38 +40,64 @@ public final class CommandSink {
     public var onFailure: ((String) -> Void)?
 
     public init(transport: Transport? = nil) {
-        self.transport = transport
+        line.withLock { $0.transport = transport }
+    }
+
+    public var transport: Transport? {
+        get { line.withLock { $0.transport } }
+        set { line.withLock { $0.transport = newValue } }
     }
 
     public func setAccount(userId: String?, epoch: UInt64) {
-        guard epoch != accountEpoch || userId != accountUserId else { return }
+        let changed = line.withLock { epoch != $0.accountEpoch || userId != $0.accountUserId }
+        guard changed else { return }
         cancelPending(RuntimeError.accountChanged)
-        accountUserId = userId
-        accountEpoch = epoch
+        line.withLock {
+            $0.accountUserId = userId
+            $0.accountEpoch = epoch
+        }
     }
 
     @discardableResult
     public func send(_ type: String, _ fields: [String: JSONValue] = [:]) -> Int32? {
-        var fields = fields
-        if fields["requestId"] == nil {
-            fields["requestId"] = .string(UUIDv7.generate())
-        }
-        return send(RuntimeCommand(type: type, fields: fields))
+        send(Self.command(type, fields))
     }
 
     @discardableResult
     public func send(_ command: some Encodable) -> Int32? {
-        guard let transport else { return nil }
         do {
-            return try transport(JSONEncoder().encode(RuntimeCommandEnvelope(
-                accountUserId: accountUserId,
-                accountEpoch: accountEpoch,
-                command: command,
-            )))
+            return try post(command)
         } catch {
             onFailure?(error.localizedDescription)
             return Int32(KODOSI_FFI_DESER_FAILED)
         }
+    }
+
+    /// Sends from any thread. Returns nil without a transport.
+    nonisolated func post(_ type: String, _ fields: [String: JSONValue]) -> Int32? {
+        do {
+            return try post(Self.command(type, fields))
+        } catch {
+            return Int32(KODOSI_FFI_DESER_FAILED)
+        }
+    }
+
+    private nonisolated func post(_ command: some Encodable) throws -> Int32? {
+        let line = line.withLock { $0 }
+        guard let transport = line.transport else { return nil }
+        return try transport(JSONEncoder().encode(RuntimeCommandEnvelope(
+            accountUserId: line.accountUserId,
+            accountEpoch: line.accountEpoch,
+            command: command,
+        )))
+    }
+
+    private nonisolated static func command(_ type: String, _ fields: [String: JSONValue]) -> RuntimeCommand {
+        var fields = fields
+        if fields["requestId"] == nil {
+            fields["requestId"] = .string(UUIDv7.generate())
+        }
+        return RuntimeCommand(type: type, fields: fields)
     }
 
     public func perform(_ type: String, _ fields: [String: JSONValue] = [:]) {
@@ -172,11 +205,14 @@ public final class CommandSink {
         result == Int32(KODOSI_FFI_OK)
     }
 
+    /// A view whose focus only comes back with the app or its connection says that it is
+    /// returning, which is no act of a person, so the focus takes no size.
     public func sendTerminalFocus(sessionId: String, clientId: String, subscriptionGeneration: UInt64, requestId: String,
-                                  expectedRuntimeIncarnationId: String) -> Int32?
+                                  expectedRuntimeIncarnationId: String, returning: Bool = false) -> Int32?
     {
         send(TerminalCommand.focus(sessionId: sessionId, clientId: clientId, subscriptionGeneration: subscriptionGeneration,
-                                   requestId: requestId, expectedRuntimeIncarnationId: expectedRuntimeIncarnationId))
+                                   requestId: requestId, expectedRuntimeIncarnationId: expectedRuntimeIncarnationId,
+                                   returning: returning))
     }
 
     public func sendTerminalBlur(sessionId: String, clientId: String, subscriptionGeneration: UInt64,

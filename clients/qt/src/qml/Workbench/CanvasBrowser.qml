@@ -5,6 +5,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Shapes
+import QtQuick.Templates as T
 import Kodosi.Models 1.0 as Models
 
 Item {
@@ -21,6 +22,8 @@ Item {
     readonly property var activeTab: (browser.tabs || []).find(tab => tab.active) || null
     readonly property string failure: browser.problem || ""
     readonly property var parts: video.window
+    readonly property var tabs: (parts.tabs || []).length > 0 ? parts.tabs
+        : (browser.tabs || []).map(tab => ({ id: tab.id, title: tab.title, address: tab.url, active: tab.active, loading: false }))
     readonly property bool choosing: !!parts.chooser
 
     signal asking(string words)
@@ -50,6 +53,20 @@ Item {
         video.step({ kind: "newTab" });
         address.text = "";
         address.forceActiveFocus();
+    }
+    function closeTab(id: string): void {
+        video.step({ kind: "closeTab", id: id });
+    }
+    function tabTitle(tab: var): string {
+        if (tab.address.length === 0 || tab.address === "about:blank")
+            return qsTr("New tab");
+        if (tab.title.length > 0 && tab.title !== tab.address)
+            return tab.title;
+        try {
+            return new URL(tab.address).hostname || tab.address;
+        } catch (error) {
+            return tab.address;
+        }
     }
     function cursor(shape: string): int {
         switch (shape) {
@@ -81,6 +98,198 @@ Item {
         anchors.fill: parent
         spacing: 0
 
+        Item {
+            id: strip
+
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            visible: root.browserState === "awake"
+
+            Flickable {
+                id: tabsArea
+
+                x: 6
+                width: Math.min(contentWidth, strip.width - x - newTab.width - 10)
+                height: 26
+                anchors.verticalCenter: parent.verticalCenter
+                contentWidth: tabRow.implicitWidth
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+
+                WheelHandler {
+                    onWheel: event => {
+                        const step = event.pixelDelta.x || event.pixelDelta.y || (event.angleDelta.x || event.angleDelta.y) / 2;
+                        tabsArea.contentX = Math.max(0, Math.min(tabsArea.contentWidth - tabsArea.width, tabsArea.contentX - step));
+                    }
+                }
+                Row {
+                    id: tabRow
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 2
+                    objectName: "canvas.browser.tabs"
+                    Accessible.id: objectName
+                    Accessible.role: Accessible.PageTabList
+                    Accessible.name: qsTr("Tabs")
+
+                    add: Transition {
+                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: KodosiTheme.motionFade; easing.type: Easing.OutCubic }
+                        NumberAnimation { property: "scale"; from: 0.9; to: 1; duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic }
+                    }
+
+                    Repeater {
+                        id: tabList
+
+                        model: Models.KeyedList { values: root.tabs }
+
+                        AbstractButton {
+                            id: tab
+
+                            required property var modelData
+                            required property int index
+                            readonly property bool selected: modelData.active
+                            readonly property string title: root.tabTitle(modelData)
+                            readonly property string favicon: video.icons[modelData.id] || ""
+
+                            function keepInView(): void {
+                                if (selected || activeFocus || close.activeFocus)
+                                    Qt.callLater(() => {
+                                        tabRow.forceLayout();
+                                        tabsArea.positionViewAtChild(tab, Flickable.Contain);
+                                    });
+                            }
+
+                            height: 24
+                            implicitWidth: Math.max(80, Math.min(200, tabContent.implicitWidth + 34))
+                            hoverEnabled: true
+                            objectName: "canvas.browser.tab." + modelData.id
+                            Accessible.id: objectName
+                            Accessible.name: title
+                            Accessible.role: Accessible.PageTab
+                            Accessible.selected: selected
+                            ToolTip.text: modelData.address
+                            ToolTip.visible: hovered && !close.hovered && ToolTip.text.length > 0
+                            ToolTip.delay: Tip.delay
+                            Keys.onReturnPressed: clicked()
+                            Keys.onEnterPressed: clicked()
+
+                            contentItem: Item {
+                                RowLayout {
+                                    id: tabContent
+
+                                    x: 8
+                                    width: tab.width - 34
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 6
+
+                                    Item {
+                                        Layout.preferredWidth: 14
+                                        Layout.preferredHeight: 14
+
+                                        Spinner {
+                                            anchors.centerIn: parent
+                                            size: 10
+                                            visible: tab.modelData.loading
+                                        }
+                                        Image {
+                                            anchors.fill: parent
+                                            visible: !tab.modelData.loading && tab.favicon.length > 0
+                                            source: tab.favicon
+                                            sourceSize: Qt.size(28, 28)
+                                            smooth: true
+                                        }
+                                        KIcon {
+                                            anchors.centerIn: parent
+                                            width: 12
+                                            height: 12
+                                            visible: !tab.modelData.loading && tab.favicon.length === 0
+                                            name: "globe"
+                                            strokeWidth: 2.2
+                                            color: tab.selected ? KodosiTheme.accentStrong : KodosiTheme.inkFaint
+                                        }
+                                    }
+                                    PlainLabel {
+                                        Layout.fillWidth: true
+                                        text: tab.title
+                                        color: tab.selected || tab.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                                        font.pixelSize: KodosiTheme.fontFootnote
+                                        font.weight: Font.Medium
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                            background: Item {
+                                Raised {
+                                    anchors.fill: parent
+                                    radius: height / 2
+                                    opacity: tab.selected ? 1 : 0
+                                    visible: opacity > 0
+
+                                    Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+                                }
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: height / 2
+                                    color: "transparent"
+                                    border.width: tab.visualFocus ? 1.5 : 0
+                                    border.color: KodosiTheme.accentStrong
+                                }
+                            }
+                            onClicked: video.step({ kind: "tab", id: modelData.id })
+                            onSelectedChanged: keepInView()
+                            onActiveFocusChanged: keepInView()
+                            onXChanged: keepInView()
+                            onWidthChanged: keepInView()
+                            Component.onCompleted: keepInView()
+                            T.ContextMenu.onRequested: position => {
+                                tabMenu.tabId = modelData.id;
+                                tabMenu.popupFor(tab, position);
+                            }
+
+                            RemoveKey {
+                                id: close
+
+                                z: 2
+                                anchors.right: parent.right
+                                anchors.rightMargin: 5
+                                anchors.verticalCenter: parent.verticalCenter
+                                size: 16
+                                objectName: "canvas.browser.close." + tab.modelData.id
+                                Accessible.name: qsTr("Close tab")
+                                onClicked: {
+                                    if (visualFocus)
+                                        (tabList.itemAt(tab.index + 1) ?? tabList.itemAt(tab.index - 1) ?? newTab).forceActiveFocus(Qt.TabFocusReason);
+                                    root.closeTab(tab.modelData.id);
+                                }
+                                onActiveFocusChanged: tab.keepInView()
+                            }
+                        }
+                    }
+                }
+            }
+            KIconButton {
+                id: newTab
+
+                x: tabsArea.x + tabsArea.width + 4
+                anchors.verticalCenter: parent.verticalCenter
+                glyph: "plus"
+                size: 26
+                Accessible.name: qsTr("New tab")
+                objectName: "canvas.browser.newTab"
+                onClicked: root.newTab()
+            }
+            KMenu {
+                id: tabMenu
+
+                property string tabId: ""
+
+                KMenuItem {
+                    text: qsTr("Close tab")
+                    iconName: "close"
+                    onTriggered: root.closeTab(tabMenu.tabId)
+                }
+            }
+        }
         RowLayout {
             Layout.fillWidth: true
             Layout.preferredHeight: 36
@@ -144,50 +353,6 @@ Item {
 
                 HoverHandler { id: sharedHover }
             }
-            KButton {
-                id: tabsButton
-
-                visible: (root.browser.tabs || []).length > 1
-                compact: true
-                variant: KButton.Ghost
-                text: qsTr("%1 tabs").arg((root.browser.tabs || []).length)
-                objectName: "canvas.browser.tabs"
-                onClicked: tabsMenu.popup(tabsButton, 0, tabsButton.height + 4)
-
-                KMenu {
-                    id: tabsMenu
-
-                    Instantiator {
-                        model: root.browser.tabs || []
-                        onObjectAdded: (index, item) => tabsMenu.insertItem(index, item)
-                        onObjectRemoved: (index, item) => tabsMenu.removeItem(item)
-                        delegate: KMenuItem {
-                            required property var modelData
-
-                            text: modelData.title || modelData.url
-                            iconName: modelData.active ? "check" : "globe"
-                            image: !modelData.active ? video.icons[modelData.id] || "" : ""
-                            onTriggered: video.step({ kind: "tab", id: modelData.id })
-                        }
-                    }
-                    MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline } }
-                    KMenuItem { text: qsTr("New tab"); iconName: "plus"; onTriggered: root.newTab() }
-                    KMenuItem {
-                        text: qsTr("Close tab")
-                        iconName: "close"
-                        enabled: !!root.activeTab
-                        onTriggered: video.step({ kind: "closeTab", id: root.activeTab.id })
-                    }
-                }
-            }
-            KIconButton {
-                visible: !tabsButton.visible
-                glyph: "plus"
-                size: 26
-                Accessible.name: qsTr("New tab")
-                objectName: "canvas.browser.newTab"
-                onClicked: root.newTab()
-            }
             PlainLabel {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 60
@@ -244,6 +409,7 @@ Item {
 
                 anchors.fill: parent
                 documents: Models.CanvasDocuments
+                canvas: Models.Canvas
                 sessionId: root.sessionId
                 active: !root.browser.problem && KodosiTheme.shown
                 visible: root.browserState === "awake" && shows

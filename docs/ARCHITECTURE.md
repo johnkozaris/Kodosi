@@ -54,8 +54,10 @@ Each app tells its host which terminals are on its screen. The channel to a term
 another computer is open only while a client shows the terminal or has work for it. A
 hidden terminal keeps its last screen, and its state and alerts come from the backend.
 
-The view in focus sets the size of its terminal. Input from a view is a person's, and
-input from the `kodosi` command gives way while a person types.
+A terminal has the size of the view where a person acted last: the view that they focused
+or typed in. A view that only changes its size, or whose focus only comes back with the app
+or its connection, leaves the size where it is. Input from a view is a person's, and input
+from the `kodosi` command gives way while a person types.
 
 A terminal has the look of the computer that hosts it, dark or light, on every device that
 shows it. The app on that computer gives its host the look, and a host without an app keeps
@@ -79,10 +81,11 @@ uses another app on a computer, the runtime of that computer shows a notificatio
 person who uses none of the devices, the backend sends a push notification to the phones,
 with a sound only for a terminal that waits. It waits a short time first, and a computer
 whose screen is still on shows its notification before, so that a person who only gave no
-input for a while can answer there. A terminal that still waits when its owner stops using
-every device gets its mark again and tells the owner again. When the owner looks at the
-terminal on one device, its host removes the mark, and the notification leaves every
-device.
+input for a while can answer there. A wait that still has its mark when its owner stops
+using every device goes to the phones then, and a computer that did not show it yet shows
+it. Each device shows a mark once. When the owner looks at the terminal on one device, its
+host removes the mark, the notification leaves every device, and that state does not tell
+the owner again.
 
 A device can call another computer of the same person. The call is an end-to-end
 encrypted channel like a view, but to the host itself, which answers the launcher's
@@ -176,16 +179,21 @@ nothing on the computer. The host gets it from a signed feed and keeps it up to 
 host and the browser speak over a link with a version, and a host takes only a browser of
 its own version of that link.
 
-A device looks at the browser only while it is on its screen, and while one looks, the
-engine encodes the page as video. One picture serves every device that looks. The page
-takes the size of the device in use: the one that acted last, or another device of the
-same person once they open the browser there. It takes the pixels of the sharpest view, as
-far as the host's encoder takes them, and a page that stays still is coded again until it
-is sharp. A device that falls behind misses frames rather than see an ever older page, and
-goes on at a key frame, or on a Mac host at a small frame that refers only to pictures that
-every device said it has. The frames, and the clicks and keys that come back, travel on
-the terminal's encrypted channel. The agent drives its window with agent-browser through a
-port that the host serves, where it sees only the tabs of its own terminal.
+A device looks at the browser only while it is on its screen. The Mac app on the browser's
+own computer gets the page as the browser draws it: the browser puts each picture in a Core
+Animation layer, and the window server draws that layer into the app's window. For the
+other devices, the engine encodes the page as video while one looks, and one picture serves
+every device that looks. The host decides for each view which of the two it gets. The page
+takes the size of the device in use: the one that acted last, or another device of the same
+person once they open the browser there. It takes the pixels of the sharpest view, as far
+as the host's encoder takes them, and a page that stays still is coded again until it is
+sharp. While the page takes a new size, each device keeps its last picture until the page
+has drawn at that size, as Chromium first shows stand-ins for it. A device that falls
+behind misses frames rather than see an ever older page, and goes on at a key frame, or on
+a Mac host at a small frame that refers only to pictures that every device said it has. The
+frames, and the clicks and keys that come back, travel on the terminal's encrypted channel.
+The agent drives its window with agent-browser through a port that the host serves, where
+it sees only the tabs of its own terminal.
 
 A person's private terminals share one kept browser profile. A shared terminal has a
 profile of its own, which goes with the terminal.

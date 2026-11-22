@@ -1251,7 +1251,7 @@ fn settings(chat: &mut Chat, settings: &Value) {
 }
 
 fn limits(chat: &mut Chat, result: &Value) {
-    let limits = crate::agents::codex_session(result);
+    let limits = crate::agents::codex_limits(result);
     if !limits.is_empty() {
         chat.change_facts(|facts| facts.limits = limits);
     }

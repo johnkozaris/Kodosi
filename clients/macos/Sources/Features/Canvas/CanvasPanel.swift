@@ -36,7 +36,7 @@ struct CanvasPair {
 }
 
 /// With `always`, the body is there without a canvas too, and `tab` is the tab that it flows out
-/// of.
+/// of. With `chat`, the terminal shows its chat.
 struct CanvasStage<Terminal: View>: View {
     static var corner: CGFloat {
         16
@@ -51,13 +51,15 @@ struct CanvasStage<Terminal: View>: View {
     @Binding var width: CGFloat?
     var tab: CGRect?
     var always = false
+    var chat = false
     let hide: () -> Void
     let terminal: Terminal
     @State private var shown: String?
     @State private var shownFront: String?
 
     init(canvas: RuntimeSession?, look: TerminalLook, front: String?, wide: Binding<Bool>, width: Binding<CGFloat?>,
-         tab: CGRect? = nil, always: Bool = false, hide: @escaping () -> Void, @ContentBuilder terminal: () -> Terminal)
+         tab: CGRect? = nil, always: Bool = false, chat: Bool = false, hide: @escaping () -> Void,
+         @ContentBuilder terminal: () -> Terminal)
     {
         self.canvas = canvas
         self.look = look
@@ -66,6 +68,7 @@ struct CanvasStage<Terminal: View>: View {
         _width = width
         self.tab = tab
         self.always = always
+        self.chat = chat
         self.hide = hide
         self.terminal = terminal()
     }
@@ -82,7 +85,8 @@ struct CanvasStage<Terminal: View>: View {
             let seam = zoomed ? 0 : size.width - pair.panel
             ZStack(alignment: .trailing) {
                 if open || always {
-                    CanvasBody(look: look, seam: seam, depth: beside && !zoomed ? CanvasBody.waist : 0, radius: radius, tab: tab)
+                    CanvasBody(look: look, seam: seam, depth: beside && !zoomed ? CanvasBody.waist : 0, radius: radius, tab: tab,
+                               chatEnd: chat && !zoomed ? (beside ? seam : size.width) : nil)
                         .transition(.modifier(active: Grow(part: tile.width / max(size.width, 1)), identity: Grow(part: 1)))
                 }
                 terminal
@@ -90,7 +94,7 @@ struct CanvasStage<Terminal: View>: View {
                     .transformEnvironment(\.terminalInteractionEnabled) { $0 = $0 && !zoomed }
                     .modifier(ZoomedOut(part: zoomed ? 1 : 0, look: look, zoom: zoom, radius: radius,
                                         offset: CGSize(width: size.width - Self.corner - tile.width, height: -Self.corner),
-                                        name: canvas?.name ?? "") { wide = false })
+                                        name: canvas?.name ?? "", chat: chat) { wide = false })
                     .padding(.trailing, beside ? pair.panel : 0)
                     .transaction(value: canvas?.id) { $0.animation = nil }
                     .zIndex(open ? 2 : 0)
@@ -370,6 +374,7 @@ private struct ZoomedOut: ViewModifier, Animatable {
     let radius: CGFloat
     let offset: CGSize
     let name: String
+    let chat: Bool
     let grow: () -> Void
     @State private var hovered = false
 
@@ -386,7 +391,8 @@ private struct ZoomedOut: ViewModifier, Animatable {
             .accessibilityHidden(away)
             .background {
                 if away {
-                    CanvasBody(look: look, seam: .greatestFiniteMagnitude, depth: 0, radius: radius)
+                    CanvasBody(look: look, seam: .greatestFiniteMagnitude, depth: 0, radius: radius,
+                               chatEnd: chat ? .greatestFiniteMagnitude : nil)
                 }
             }
             .overlay {

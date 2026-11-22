@@ -38,8 +38,8 @@ comando nella shell del nuovo terminale.
   Antigravity CLI; partono da Essenziale. Copilot CLI legge la verbosità solo dalle proprie impostazioni,
   quindi Kodosi le cambia finché Copilot CLI gira in Essenziale e poi le ripristina.
 - Claude Code e Codex hanno una modalità veloce, che risponde più velocemente e costa di più.
-  Attivala insieme al modello e al livello di ragionamento. Finché è disattivata, l'agente
-  mantiene la propria impostazione.
+  Attivala insieme al modello e al livello di ragionamento. Vale solo per quell'avvio, quindi
+  un agente parte senza di essa, a meno che tu non la attivi.
 - Un nuovo account ha una sua cartella di accesso, come `~/.claude-work`. Kodosi trova anche
   gli account che configura la tua shell, come
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -109,9 +109,9 @@ La spunta e l'avviso spariscono quando apri il terminale su uno qualsiasi dei tu
 dispositivi. Quando uno dei tuoi terminali inizia ad attendere, finisce o non riesce, Kodosi
 ti avvisa una volta, sul dispositivo che usi. In Kodosi, vedi il segnale. Al tuo computer,
 in un'altra app, ricevi lì una notifica. Quando non usi nessuno dei tuoi computer, la ricevi
-sul tuo telefono. Un terminale che ti attende ancora quando ti allontani dal tuo computer ti
-avvisa in quel momento sul tuo telefono. Solo un terminale che attende emette un suono. Per
-disattivare le notifiche di un dispositivo, apri Impostazioni in Kodosi su quel
+sul tuo telefono. Un terminale che ti attende ancora e che non hai aperto ti avvisa sul tuo
+telefono quando ti allontani dal tuo computer. Solo un terminale che attende emette un
+suono. Per disattivare le notifiche di un dispositivo, apri Impostazioni in Kodosi su quel
 dispositivo. I programmi comunicano il loro stato con il
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) o con
 una barra di avanzamento. Un programma che non comunica nulla non mostra uno stato.
@@ -265,7 +265,7 @@ Il comando `kodosi` lavora sugli stessi terminali dell'app, e l'app mostra cosa 
 | `kodosi terminal start --directory <repository> --branch <name>` | Avvia un terminale su un nuovo branch, nel suo worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Avvia un terminale su un altro dei tuoi computer. Una cartella relativa, o che inizia con `~`, è nella tua home su quel computer. `kodosi devices list` mostra quali computer sono online. |
 | `kodosi agent list` | Mostra gli agenti, i loro account e la tua ultima scelta. |
-| `kodosi agent usage` | Mostra quanto dei limiti del piano ha usato ogni account connesso di Claude Code, Codex e Copilot CLI. |
+| `kodosi agent usage` | Mostra quanto dei limiti del piano ha usato ogni account connesso di Claude Code, Codex e Copilot CLI, e quando si reimposta ogni limite. |
 | `kodosi terminal list` | Mostra i tuoi terminali con i loro nomi e ID. Indica l'uno o l'altro come `<terminal>`. |
 | `kodosi terminal read <terminal>` | Stampa lo schermo. `--history` aggiunge le righe scorse via. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Dà un messaggio all'agente di un terminale, con chi lo invia e da dove. |

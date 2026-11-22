@@ -606,7 +606,8 @@ pub(super) fn plan(
             effort: effort.map(|effort| effort.id.clone()),
             permissions: Some(chose.permissions),
             output: Some(chose.output),
-            fast: chose.fast,
+            // Fast mode costs more, so each start chooses it again.
+            fast: false,
             chat,
         },
     ))
@@ -666,7 +667,6 @@ fn start_line(
 struct Modes {
     permissions: Permissions,
     output: Output,
-    fast: bool,
     permission_words: &'static [&'static str],
     output_words: &'static [&'static str],
     fast_words: &'static [&'static str],
@@ -695,17 +695,15 @@ fn modes(agent: Agent, saved: &AgentPick, start: &AgentStart) -> Result<Modes, S
         )
     })?;
     let fast = start.fast.unwrap_or_else(|| fast_of(agent, saved.fast));
-    let fast_words = if fast {
-        agent
-            .fast_words(true)
-            .ok_or_else(|| format!("{label} has no fast mode."))?
-    } else {
-        &[]
+    // An agent keeps a fast mode that it had turned on, so a start without it says so.
+    let fast_words = match agent.fast_words(fast) {
+        Some(words) => words,
+        None if fast => return Err(format!("{label} has no fast mode.")),
+        None => &[],
     };
     Ok(Modes {
         permissions,
         output,
-        fast,
         permission_words,
         output_words,
         fast_words,

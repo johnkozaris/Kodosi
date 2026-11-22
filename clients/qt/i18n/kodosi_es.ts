@@ -500,12 +500,12 @@
         <translation>Compartido</translation>
     </message>
     <message>
-        <source>%1 tabs</source>
-        <translation>%1 pestañas</translation>
-    </message>
-    <message>
         <source>New tab</source>
         <translation>Nueva pestaña</translation>
+    </message>
+    <message>
+        <source>Tabs</source>
+        <translation>Pestañas</translation>
     </message>
     <message>
         <source>Close tab</source>
@@ -4368,6 +4368,13 @@
         <translation>Esta semana</translation>
     </message>
     <message numerus="yes">
+        <source>Last %n days</source>
+        <translation>
+            <numerusform>Último %n día</numerusform>
+            <numerusform>Últimos %n días</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>Last %n hours</source>
         <translation>
             <numerusform>Última %n hora</numerusform>
@@ -4383,6 +4390,13 @@
         <translation>%1, esta semana</translation>
     </message>
     <message numerus="yes">
+        <source>%1, last %n days</source>
+        <translation>
+            <numerusform>%1, último %n día</numerusform>
+            <numerusform>%1, últimos %n días</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%1, last %n hours</source>
         <translation>
             <numerusform>%1, última %n hora</numerusform>
@@ -4396,6 +4410,53 @@
     <message>
         <source>Default</source>
         <translation>Predeterminado</translation>
+    </message>
+    <message>
+        <source>%1d %2h</source>
+        <translation>%1 d %2 h</translation>
+    </message>
+    <message>
+        <source>%1d</source>
+        <comment>time left</comment>
+        <translation>%1 d</translation>
+    </message>
+    <message>
+        <source>%1h %2m</source>
+        <translation>%1 h %2 min</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <comment>time left</comment>
+        <translation>%1 h</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1 min</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n days</source>
+        <translation>
+            <numerusform>%n día</numerusform>
+            <numerusform>%n días</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n hours</source>
+        <translation>
+            <numerusform>%n hora</numerusform>
+            <numerusform>%n horas</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n minutes</source>
+        <translation>
+            <numerusform>%n minuto</numerusform>
+            <numerusform>%n minutos</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1, resets in %2</source>
+        <translation>%1, se restablece en %2</translation>
     </message>
     <message>
         <source>Kodosi could not ask for a new account.</source>

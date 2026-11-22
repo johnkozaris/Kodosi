@@ -35,7 +35,8 @@ struct TilingStage: View {
         } else {
             let alone = workbench.focusedSessionId != nil || presentedSessionIds.count == 1
             CanvasStage(canvas: canvasSession, look: canvasLook, front: workbench.focusedSessionId, wide: $workbench.canvasWide,
-                        width: $workbench.canvasWidth)
+                        width: $workbench.canvasWidth,
+                        chat: canvasSession.map(workbench.showsChat) ?? false)
             {
                 workbench.canvasSessionId.map(deps.canvas.closeCanvas)
                 workbench.hideCanvas()

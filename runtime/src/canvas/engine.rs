@@ -336,9 +336,6 @@ async fn install(engines: &Path, progress: impl Fn(u8) + Send) -> Result<PathBuf
         .ok_or_else(not_for_this_computer)?;
     let folder = engines.join(folder_of(&feed.version));
     let program = folder.join(&engine.program);
-    if program.exists() {
-        return Ok(program);
-    }
     tokio::fs::create_dir_all(engines)
         .await
         .map_err(|_| no_engine())?;
@@ -478,6 +475,9 @@ async fn unpack(archive: PathBuf, folder: PathBuf) -> Result<(), Text> {
         std::fs::create_dir_all(&unpacking)?;
         let file = std::fs::File::open(&archive)?;
         tar::Archive::new(flate2::read::GzDecoder::new(file)).unpack(&unpacking)?;
+        // The engine of another version of the link can have the same number, and no host of
+        // this version may start it.
+        drop(std::fs::remove_dir_all(&folder));
         std::fs::rename(&unpacking, &folder)
     })
     .await
@@ -616,6 +616,31 @@ mod tests {
             read_feed(feed(LINK + 1).as_bytes()).map(|feed| feed.version),
             Err(not_for_this_computer())
         );
+    }
+
+    #[tokio::test]
+    async fn a_new_engine_takes_the_place_of_one_with_its_number_from_another_link() {
+        let folder = tempfile::tempdir().unwrap();
+        let archive = folder.path().join("1.2.tar.gz");
+        let mut builder = tar::Builder::new(flate2::write::GzEncoder::new(
+            std::fs::File::create(&archive).unwrap(),
+            flate2::Compression::fast(),
+        ));
+        let mut header = tar::Header::new_gnu();
+        header.set_size(3);
+        header.set_mode(0o755);
+        header.set_cksum();
+        builder
+            .append_data(&mut header, "bin/chrome", &b"new"[..])
+            .unwrap();
+        builder.into_inner().unwrap().finish().unwrap();
+        let engine = folder.path().join(folder_of("1.2"));
+        std::fs::create_dir_all(engine.join("bin")).unwrap();
+        std::fs::write(engine.join("bin/chrome"), "old").unwrap();
+        std::fs::write(engine.join("left"), "").unwrap();
+        unpack(archive, engine.clone()).await.unwrap();
+        assert_eq!(std::fs::read(engine.join("bin/chrome")).unwrap(), b"new");
+        assert!(!engine.join("left").exists());
     }
 
     #[tokio::test]

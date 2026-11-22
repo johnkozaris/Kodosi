@@ -46,6 +46,7 @@ enum TerminalCommand: Encodable {
         subscriptionGeneration: UInt64,
         requestId: String,
         expectedRuntimeIncarnationId: String,
+        returning: Bool,
     )
     case blur(
         sessionId: String,
@@ -58,7 +59,7 @@ enum TerminalCommand: Encodable {
     private enum CodingKeys: String, CodingKey {
         case type, sessionId, cols, rows, widthPixels, heightPixels
         case cellWidthPixels, cellHeightPixels, surfaceGeneration
-        case clientId, requestId, expectedRuntimeIncarnationId
+        case clientId, requestId, expectedRuntimeIncarnationId, returning
         case subscriptionId, subscriptionGeneration
     }
 
@@ -82,13 +83,16 @@ enum TerminalCommand: Encodable {
             )
             try c.encode(identity.subscriptionId, forKey: .subscriptionId)
             try c.encode(identity.subscriptionGeneration, forKey: .subscriptionGeneration)
-        case let .focus(sessionId, clientId, subscriptionGeneration, requestId, expectedRuntimeIncarnationId):
+        case let .focus(sessionId, clientId, subscriptionGeneration, requestId, expectedRuntimeIncarnationId, returning):
             try c.encode("session.focus", forKey: .type)
             try c.encode(sessionId, forKey: .sessionId)
             try c.encode(clientId, forKey: .clientId)
             try c.encode(subscriptionGeneration, forKey: .subscriptionGeneration)
             try c.encode(requestId, forKey: .requestId)
             try c.encode(expectedRuntimeIncarnationId, forKey: .expectedRuntimeIncarnationId)
+            if returning {
+                try c.encode(true, forKey: .returning)
+            }
         case let .blur(sessionId, clientId, subscriptionGeneration, requestId, expectedRuntimeIncarnationId):
             try c.encode("session.blur", forKey: .type)
             try c.encode(sessionId, forKey: .sessionId)

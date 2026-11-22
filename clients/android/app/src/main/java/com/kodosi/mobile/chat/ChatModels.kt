@@ -350,13 +350,7 @@ data class ChatContext(val tokens: Long, val window: Long) {
 }
 
 @Serializable
-data class UsageLimit(
-    val hours: Int? = null,
-    val scope: String? = null,
-    val used: Int,
-    val level: UsageLevel,
-    val headline: Boolean = false
-) {
+data class UsageLimit(val hours: Int? = null, val scope: String? = null, val used: Int, val level: UsageLevel) {
     companion object {
         fun nearest(limits: List<UsageLimit>): UsageLimit? =
             limits.maxWithOrNull(compareBy<UsageLimit> { it.level }.thenBy { it.used })

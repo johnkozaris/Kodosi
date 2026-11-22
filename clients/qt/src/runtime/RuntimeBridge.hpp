@@ -39,6 +39,17 @@ public:
     [[nodiscard]] virtual Result send(QByteArrayView json) = 0;
 };
 
+// The events of a routed pipe skip the GUI thread: each one goes to its reader's thread in the
+// order that the runtime sent it, with `afterDrop` when the app dropped events since the one
+// before, until the pipe is unrouted.
+class PipeRouter {
+public:
+    using Read = std::function<void(const QByteArray& event, bool afterDrop)>;
+    virtual ~PipeRouter() = default;
+    virtual void route(const QString& pipe, QObject& reader, Read read) = 0;
+    virtual void unroute(const QString& pipe) = 0;
+};
+
 [[nodiscard]] inline QJsonObject lostAnswer(const QString& operation, const QString& requestId, const QString& message)
 {
     return { { QStringLiteral("type"), operation.section(QLatin1Char('.'), 0, 0) + QStringLiteral(".error") },
@@ -96,7 +107,7 @@ public:
     [[nodiscard]] virtual bool installCheckpoint(TerminalCheckpoint checkpoint) noexcept = 0;
 };
 
-class RuntimeBridge : public QObject, public TerminalCommandDispatcher {
+class RuntimeBridge : public QObject, public TerminalCommandDispatcher, public PipeRouter {
     Q_OBJECT
 public:
     using Result = CommandDispatcher::Result;
@@ -114,7 +125,12 @@ public:
     void stop() noexcept;
     void quit() noexcept;
     void stopHostAsync(std::function<void(HostStop)> completion);
+    // Takes commands from any thread. A runtime callback holds a lock of the runtime while it
+    // runs, and the runtime may call back on the sending thread, so no lock that a callback
+    // takes may be held while a command goes.
     [[nodiscard]] Result send(QByteArrayView json) override;
+    void route(const QString& pipe, QObject& reader, Read read) override;
+    void unroute(const QString& pipe) override;
     [[nodiscard]] Result connectTerminal(const TerminalSubscription& subscription) override;
     [[nodiscard]] Result refreshTerminal(const TerminalSubscription& subscription) override;
     [[nodiscard]] Result disconnectTerminal(const TerminalSubscription& subscription) override;
@@ -142,12 +158,18 @@ private:
         std::uint64_t dropGeneration = 0;
         QByteArray payload;
     };
+    struct Route {
+        QByteArray field;
+        QObject* reader = nullptr;
+        Read read;
+        std::uint64_t dropGeneration = 0;
+    };
     std::shared_ptr<CallbackContext> m_callbacks = std::make_shared<CallbackContext>();
     bool m_starting = false;
     bool m_catchUpAfterStart = false;
     bool m_hostForeground = false;
     QList<QueuedEvent> m_startupEvents;
-    void* m_handle = nullptr;
+    std::atomic<void*> m_handle { nullptr };
     TerminalEventSink* m_terminalSink = nullptr;
     std::atomic<std::uint64_t> m_activeGeneration { 0 };
     std::mutex m_queueMutex;
@@ -155,14 +177,21 @@ private:
     Backlog m_queued;
     Backlog m_dropped;
     std::uint64_t m_nextGeneration = 0;
+    std::mutex m_accountMutex;
     QString m_accountUserId;
     std::uint64_t m_accountEpoch = 0;
+    std::mutex m_routesMutex;
+    QList<Route> m_routes;
     RuntimeEventFaults m_faults;
     [[nodiscard]] Result requireRunning() const;
     [[nodiscard]] Result terminalOperationResult(std::int32_t result, QString operation) const;
     [[nodiscard]] Result subscriptionCommand(const TerminalSubscription& subscription,
         std::int32_t (*command)(void*, const char*, const char*, std::uint64_t), QString operation) const;
+    class Waiting;
     void queueEvent(const std::uint8_t* json, std::uintptr_t length);
+    [[nodiscard]] bool routeEvent(std::uint64_t generation, const QueuedEvent& event);
+    [[nodiscard]] bool claimed(const QByteArray& field, const QObject* reader);
+    [[nodiscard]] bool dequeue(std::uint64_t generation, const QueuedEvent& event);
     void forgetQueue();
     void receiveQueued(std::uint64_t generation, const QueuedEvent& event);
     void catchUp(std::uint64_t generation);

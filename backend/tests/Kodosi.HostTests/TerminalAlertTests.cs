@@ -78,7 +78,7 @@ public sealed class TerminalAlertTests
         Assert.Empty(After(TimeSpan.FromSeconds(1)));
         var notice = Assert.Single(After(TerminalAlerts.Delay));
         Assert.Equal(owner, notice.OwnerId);
-        Assert.Equal(new PushAlert(terminal.Id, new TerminalStatus("claude", "blocked", "question", 1, true), Sound: true, Blocked: 1), notice.Alert);
+        Assert.Equal(new PushAlert(terminal.Id, new TerminalStatus("claude", "blocked", "question", 1, true), Sound: true, Waits: 1), notice.Alert);
         Assert.Equal([terminal.Id], notice.Pushed.Select(x => x.TerminalId));
         Assert.Empty(After(TerminalAlerts.Delay));
     }
@@ -100,7 +100,7 @@ public sealed class TerminalAlertTests
         Assert.Empty(alerts.Take());
         Assert.Equal(fresh.Id, Alert(After(TerminalAlerts.Delay - TimeSpan.FromSeconds(20))).TerminalId);
         Assert.Empty(After(TimeSpan.FromSeconds(19)));
-        Assert.Equal(new PushAlert(waiting.Id, new TerminalStatus("claude", "blocked", "permission", 1, true), Sound: false, Blocked: 3),
+        Assert.Equal(new PushAlert(waiting.Id, new TerminalStatus("claude", "blocked", "permission", 1, true), Sound: false, Waits: 2),
             Alert(After(TimeSpan.FromSeconds(1))));
 
         var other = Hosted(computer);

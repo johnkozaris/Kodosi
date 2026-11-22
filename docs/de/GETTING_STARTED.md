@@ -42,8 +42,8 @@ Befehl in die Shell des neuen Terminals.
   eigenen Einstellungen, deshalb ändert Kodosi diese, solange Copilot CLI mit Knapp läuft,
   und stellt sie danach zurück.
 - Claude Code und Codex haben einen Schnellmodus, der schneller antwortet und mehr kostet.
-  Schalte ihn bei Modell und Denkaufwand ein. Solange er aus ist, behält der Agent seine
-  eigene Einstellung.
+  Schalte ihn bei Modell und Denkaufwand ein. Er gilt nur für diesen Start, also startet ein
+  Agent ohne ihn, solange du ihn nicht einschaltest.
 - Ein neues Konto bekommt seinen eigenen Anmeldeordner, zum Beispiel `~/.claude-work`.
   Kodosi findet auch die Konten, die deine Shell einrichtet, etwa
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
@@ -116,10 +116,10 @@ Haken und Warnzeichen verschwinden, wenn du das Terminal auf irgendeinem deiner 
 sagt Kodosi es dir einmal, auf dem Gerät, das du nutzt. In Kodosi bekommst du das Zeichen.
 Bist du an deinem Computer in einer anderen App, bekommst du dort eine Mitteilung. Nutzt du
 keinen deiner Computer, bekommst du sie auf deinem Telefon. Ein Terminal, das noch auf
-dich wartet, wenn du deinen Computer verlässt, sagt es dir dann auf deinem Telefon. Nur
-ein Terminal, das wartet, gibt einen Ton aus. Um die Mitteilungen eines Geräts
-auszuschalten, öffne auf diesem Gerät die Einstellungen in Kodosi. Programme melden ihren
-Zustand über das
+dich wartet und das du nicht geöffnet hast, sagt es dir auf deinem Telefon, sobald du
+deinen Computer verlässt. Nur ein Terminal, das wartet, gibt einen Ton aus. Um die
+Mitteilungen eines Geräts auszuschalten, öffne auf diesem Gerät die Einstellungen in
+Kodosi. Programme melden ihren Zustand über das
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) oder
 einen Fortschrittsbalken. Ein Programm, das nichts meldet, zeigt keinen Zustand.
 
@@ -280,7 +280,7 @@ tut.
 | `kodosi terminal start --directory <repository> --branch <name>` | Startet ein Terminal auf einem neuen Branch, in seinem eigenen Worktree. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | Startet ein Terminal auf einem anderen deiner Computer. Ein relativer Ordner oder einer, der mit `~` beginnt, liegt dort in deinem Home-Verzeichnis. `kodosi devices list` zeigt, welche Computer online sind. |
 | `kodosi agent list` | Zeigt die Agents, ihre Konten und deine letzte Wahl. |
-| `kodosi agent usage` | Zeigt, wie viel der Tariflimits jedes angemeldete Konto von Claude Code, Codex und Copilot CLI verbraucht hat. |
+| `kodosi agent usage` | Zeigt, wie viel der Tariflimits jedes angemeldete Konto von Claude Code, Codex und Copilot CLI verbraucht hat und wann jedes Limit zurückgesetzt wird. |
 | `kodosi terminal list` | Zeigt deine Terminals mit ihren Namen und IDs. Gib eines davon als `<terminal>` an. |
 | `kodosi terminal read <terminal>` | Gibt den Bildschirm aus. `--history` fügt die Zeilen hinzu, die weggescrollt sind. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | Gibt dem Agent in einem Terminal eine Nachricht, mit Absender und Herkunft. |

@@ -21,6 +21,7 @@
 #include <QFontDatabase>
 #include <QInputMethodEvent>
 #include <QHoverEvent>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -532,6 +533,7 @@ private slots:
     void terminalViewCancelsLinkReleaseOutsideBounds();
     void terminalViewCopySelectionStillUsesHostClipboard();
     void terminalViewRetriesRevocationBlurBeforeRefocus();
+    void terminalViewGivesItsFocusBackWithoutTheSizeWhenItsTerminalComesBack();
     void terminalViewLeavesWithoutWaitingForABusyBlur();
     void terminalViewSendsItsSizeOnlyWhileItMayResize();
     void terminalViewWaitsQuietlyForItsConnection();
@@ -3714,6 +3716,60 @@ void TerminalKernelTest::terminalViewRetriesRevocationBlurBeforeRefocus()
             QStringLiteral("session.blur"),
             QStringLiteral("session.focus"),
         }));
+}
+
+void TerminalKernelTest::terminalViewGivesItsFocusBackWithoutTheSizeWhenItsTerminalComesBack()
+{
+    kodosi::TerminalSessionRegistry registry;
+    FakeTerminalDispatcher dispatcher;
+    QQuickWindow window;
+    window.resize(400, 200);
+    kodosi::TerminalView view(window.contentItem());
+    view.setSize(QSizeF(400, 200));
+    view.setTerminalInteraction(true, true);
+    const auto focuses = [&dispatcher] {
+        QJsonArray found;
+        for (const auto& command : dispatcher.terminalCommands) {
+            if (command.value(QStringLiteral("type")).toString() == QStringLiteral("session.focus"))
+                found.append(command);
+        }
+        return found;
+    };
+    const kodosi::TerminalSubscription first {
+        QStringLiteral("returning"),
+        QStringLiteral("first"),
+        1,
+    };
+    QVERIFY(view.attach(registry, dispatcher, first, QStringLiteral("incarnation")));
+    window.show();
+    window.requestActivate();
+    view.forceActiveFocus();
+    QTRY_VERIFY(window.isActive() && view.hasActiveFocus());
+    makeTerminalReady(registry, first);
+    QTRY_COMPARE(focuses().size(), 1);
+    registry.receiveControl({
+        first,
+        QJsonDocument(QJsonObject {
+            {QStringLiteral("type"), QStringLiteral("term.focusApplied")},
+            {QStringLiteral("requestId"),
+                focuses().last().toObject().value(QStringLiteral("requestId"))},
+            {QStringLiteral("runtimeIncarnationId"), QStringLiteral("incarnation")},
+        }).toJson(QJsonDocument::Compact),
+    });
+    QCoreApplication::processEvents();
+
+    const kodosi::TerminalSubscription second {
+        QStringLiteral("returning"),
+        QStringLiteral("second"),
+        2,
+    };
+    QVERIFY(view.attach(registry, dispatcher, second, QStringLiteral("next-incarnation")));
+    makeTerminalReady(registry, second);
+    QTRY_COMPARE(focuses().size(), 2);
+    QVERIFY(view.hasActiveFocus());
+    QVERIFY(!focuses().first().toObject().contains(QStringLiteral("returning")));
+    QCOMPARE(focuses().last().toObject().value(QStringLiteral("returning")).toBool(), true);
+    window.hide();
 }
 
 void TerminalKernelTest::terminalViewLeavesWithoutWaitingForABusyBlur()

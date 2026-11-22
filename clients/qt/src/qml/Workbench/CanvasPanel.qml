@@ -76,6 +76,12 @@ Item {
         if (key.length > 0)
             DocumentViews.show(sessionId, key, documentView, documentPlace);
     }
+    function renewView(): void {
+        if (body.item && body.key !== currentKey) {
+            body.active = false;
+            body.active = true;
+        }
+    }
     function ask(key: string): void {
         const send = words => root.askAbout(key, words);
         const page = body.item as CanvasPage;
@@ -112,10 +118,11 @@ Item {
     Accessible.name: qsTr("Canvas of %1").arg(session.name || qsTr("Terminal"))
 
     onLoadKeyChanged: load()
+    // QML runs this before the bindings that follow the new key, so a restart here would make a
+    // view of the component of the key before.
     onCurrentKeyChanged: {
         Qt.callLater(placeDocument);
-        body.active = false;
-        body.active = true;
+        Qt.callLater(renewView);
         Qt.callLater(markSeen);
     }
 
@@ -324,6 +331,14 @@ Item {
                                         && Models.Canvas.isNew(root.sessionId, modelData.key)
                                     readonly property bool closing: hovered
 
+                                    function keepInView(): void {
+                                        if (selected || activeFocus)
+                                            Qt.callLater(() => {
+                                                tabs.forceLayout();
+                                                tabsArea.positionViewAtChild(tab, Flickable.Contain);
+                                            });
+                                    }
+
                                     height: 24
                                     implicitWidth: Math.min(200, tabRow.implicitWidth + 17)
                                     hoverEnabled: true
@@ -366,18 +381,20 @@ Item {
                                     }
                                     background: Item {
                                         Raised { anchors.fill: parent; radius: height / 2; visible: tab.selected }
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: height / 2
+                                            color: "transparent"
+                                            border.width: tab.visualFocus ? 1.5 : 0
+                                            border.color: KodosiTheme.accentStrong
+                                        }
                                         BreathingDot { x: parent.width - 8; y: 2; size: 6; color: KodosiTheme.glowOrange; visible: tab.fresh }
                                     }
                                     onClicked: Models.Canvas.pick(root.sessionId, modelData.key)
                                     T.ContextMenu.onRequested: position => root.openFileMenu(tab.modelData, tab, position)
-                                    onSelectedChanged: {
-                                        if (selected)
-                                            Qt.callLater(tabsArea.positionViewAtChild, tab, Flickable.Contain);
-                                    }
-                                    Component.onCompleted: {
-                                        if (selected)
-                                            Qt.callLater(tabsArea.positionViewAtChild, tab, Flickable.Contain);
-                                    }
+                                    onSelectedChanged: keepInView()
+                                    onActiveFocusChanged: keepInView()
+                                    Component.onCompleted: keepInView()
 
                                     RemoveKey {
                                         x: 5
@@ -522,6 +539,8 @@ Item {
                     Loader {
                         id: body
 
+                        property string key: ""
+
                         anchors.fill: parent
                         visible: !root.shelf
                         sourceComponent: !root.current || root.documentView.length > 0 ? null
@@ -531,6 +550,7 @@ Item {
                             : root.current.kind === "picture" ? pictureView
                             : root.documentKind(root.current.kind) || !Models.CanvasWeb.available ? fileView
                             : pageView
+                        onLoaded: key = root.currentKey
                     }
                     Spinner {
                         anchors.centerIn: parent

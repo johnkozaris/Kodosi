@@ -49,7 +49,8 @@ import Testing
     let incarnationId = UUIDv7.generate()
     let requestId = UUIDv7.generate()
     var sent: [Data] = []
-    let commands = CommandSink { data in sent.append(data); return 0 }
+    let commands = CommandSink()
+    commands.transport { data in sent.append(data); return 0 }
     #expect(commands.sendTerminalFocus(
         sessionId: sessionId, clientId: token.subscriptionId, subscriptionGeneration: token.subscriptionGeneration,
         requestId: requestId, expectedRuntimeIncarnationId: incarnationId,

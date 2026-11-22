@@ -110,28 +110,34 @@ struct TerminalEnded: View {
 
 struct TerminalSizeNote: View {
     @Environment(\.theme) private var theme
+    @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .footnote) private var glyph: CGFloat = 12
     let note: String
     let resize: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: glyph, weight: .semibold))
-                .foregroundStyle(theme.colors.caution)
-            Text(note)
-                .appTextStyle(.footnote)
-                .foregroundStyle(theme.colors.ink)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 4)
+        let wraps = typeSize.isAccessibilitySize
+        let layout = wraps ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 10))
+        layout {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: glyph, weight: .semibold))
+                    .foregroundStyle(theme.colors.caution)
+                Text(note)
+                    .appTextStyle(.footnote)
+                    .foregroundStyle(theme.colors.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !wraps {
+                Spacer(minLength: 4)
+            }
             Button("Resize here", action: resize)
                 .buttonStyle(.kodosi(.tinted, size: .small))
                 .accessibilityIdentifier("terminal.sizeNote.resize")
         }
         .padding(.leading, 14)
-        .padding(.trailing, 6)
-        .padding(.vertical, 6)
+        .padding(.trailing, wraps ? 14 : 6)
+        .padding(.vertical, wraps ? 10 : 6)
         .raised(Radius.lg, fill: theme.colors.lifted, elevation: .floating)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("terminal.sizeNote")

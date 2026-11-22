@@ -663,9 +663,6 @@
                       "items": {
                         "additionalProperties": false,
                         "properties": {
-                          "headline": {
-                            "type": "boolean"
-                          },
                           "hours": {
                             "anyOf": [
                               {
@@ -690,6 +687,27 @@
                               }
                             ]
                           },
+                          "model": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "resetsAtMs": {
+                            "anyOf": [
+                              {
+                                "format": "u64",
+                                "type": "integer"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "scope": {
                             "anyOf": [
                               {
@@ -708,9 +726,10 @@
                         "required": [
                           "hours",
                           "scope",
+                          "model",
                           "used",
                           "level",
-                          "headline"
+                          "resetsAtMs"
                         ],
                         "type": "object"
                       },
@@ -2862,9 +2881,6 @@
                                 "items": {
                                   "additionalProperties": false,
                                   "properties": {
-                                    "headline": {
-                                      "type": "boolean"
-                                    },
                                     "hours": {
                                       "anyOf": [
                                         {
@@ -2889,6 +2905,27 @@
                                         }
                                       ]
                                     },
+                                    "model": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "resetsAtMs": {
+                                      "anyOf": [
+                                        {
+                                          "format": "u64",
+                                          "type": "integer"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
                                     "scope": {
                                       "anyOf": [
                                         {
@@ -2907,9 +2944,10 @@
                                   "required": [
                                     "hours",
                                     "scope",
+                                    "model",
                                     "used",
                                     "level",
-                                    "headline"
+                                    "resetsAtMs"
                                   ],
                                   "type": "object"
                                 },
@@ -9876,6 +9914,9 @@
           "requestId": {
             "type": "string"
           },
+          "returning": {
+            "type": "boolean"
+          },
           "sessionId": {
             "type": "string"
           },
@@ -15375,9 +15416,6 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
-                              "headline": {
-                                "type": "boolean"
-                              },
                               "hours": {
                                 "anyOf": [
                                   {
@@ -15402,6 +15440,27 @@
                                   }
                                 ]
                               },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "resetsAtMs": {
+                                "anyOf": [
+                                  {
+                                    "format": "u64",
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "scope": {
                                 "anyOf": [
                                   {
@@ -15420,9 +15479,10 @@
                             "required": [
                               "hours",
                               "scope",
+                              "model",
                               "used",
                               "level",
-                              "headline"
+                              "resetsAtMs"
                             ],
                             "type": "object"
                           },

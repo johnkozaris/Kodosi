@@ -13,6 +13,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -46,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -161,6 +164,21 @@ private fun RemoveKey(@StringRes label: Int, close: () -> Unit) {
     }
 }
 
+/** A tab that changes, such as one that gets its title, has its new width only after the next layout. */
+internal suspend fun LazyListState.keepInView(index: Int) {
+    withFrameNanos {}
+    val info = layoutInfo
+    val tab = info.visibleItemsInfo.firstOrNull { it.index == index }
+    when {
+        tab == null -> if (info.visibleItemsInfo.isEmpty()) scrollToItem(index) else animateScrollToItem(index)
+
+        tab.offset < info.viewportStartOffset -> animateScrollBy((tab.offset - info.viewportStartOffset).toFloat())
+
+        tab.offset + tab.size > info.viewportEndOffset ->
+            animateScrollBy((tab.offset + tab.size - info.viewportEndOffset).toFloat())
+    }
+}
+
 @Composable
 internal fun CanvasFilesBar(
     files: List<CanvasItem>,
@@ -175,7 +193,7 @@ internal fun CanvasFilesBar(
     val list = rememberLazyListState()
     LaunchedEffect(selected, files) {
         val index = files.indexOfFirst { it.key == selected }
-        if (index >= 0) list.scrollToItem(index)
+        if (index >= 0) list.keepInView(index)
     }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp).selectableGroup(),

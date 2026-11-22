@@ -130,7 +130,8 @@ private struct ProjectTerminals: View {
     private func pair(_ current: RuntimeSession) -> some View {
         let open = workspace.showsCanvas && deps.canvas.showsSomething(current)
         CanvasStage(canvas: open ? current : nil, look: current.terminalLook, front: current.id, wide: $workspace.canvasWide,
-                    width: $workspace.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true)
+                    width: $workspace.canvasWidth, tab: tabFrame?.offsetBy(dx: -stageFrame.minX, dy: -stageFrame.minY), always: true,
+                    chat: deps.workbench.showsChat(current))
         {
             deps.canvas.closeCanvas(current.id)
             workspace.showsCanvas = false

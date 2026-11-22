@@ -1,8 +1,12 @@
+#[cfg(target_os = "macos")]
+mod cf;
 mod client;
 mod cursor;
 mod encode;
 mod engine;
 mod filters;
+#[cfg(target_os = "macos")]
+mod layer;
 mod link;
 #[cfg(target_os = "macos")]
 mod mac;
@@ -100,7 +104,8 @@ fn start(sandbox: *mut u8) -> i32 {
         log_severity: LogSeverity::WARNING,
         background_color: engine::OPAQUE_WHITE,
         // Chromium keeps the key of its cookies in the Mac's keychain under Chromium's names, so
-        // names of its own keep Kodosi Browser and an installed Chromium from sharing one key.
+        // names of its own keep Kodosi Browser and an installed Chromium from sharing one key. An
+        // update that renames them makes a new key, and each sign-in under the old one is lost.
         keychain_service_name: CefString::from("Kodosi Browser Safe Storage"),
         keychain_account_name: CefString::from("Kodosi Browser"),
         ..Default::default()

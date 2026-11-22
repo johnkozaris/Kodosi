@@ -17,8 +17,8 @@ public sealed class PushServiceTests
     private static readonly PushedTerminal Other = new(OtherId, new TerminalStatus(State: "done", Attention: true));
     private static readonly string AppleToken = new('a', 64);
 
-    private static PushNotice Notice(TerminalStatus status, bool sound = false, int blocked = 0) =>
-        new(Guid.CreateVersion7(), [new PushedTerminal(TerminalId, status), Other], new PushAlert(TerminalId, status, sound, blocked));
+    private static PushNotice Notice(TerminalStatus status, bool sound = false, int waits = 0) =>
+        new(Guid.CreateVersion7(), [new PushedTerminal(TerminalId, status), Other], new PushAlert(TerminalId, status, sound, waits));
 
     private static string Part(string jwt, int index) => Encoding.UTF8.GetString(System.Buffers.Text.Base64Url.DecodeFromChars(jwt.Split('.')[index]));
 
@@ -40,9 +40,9 @@ public sealed class PushServiceTests
 
         foreach (var notice in new[]
                  {
-                     Notice(new TerminalStatus("claude", "blocked", "permission", 2, true), sound: true, blocked: 2),
+                     Notice(new TerminalStatus("claude", "blocked", "permission", 2, true), sound: true, waits: 2),
                      Notice(new TerminalStatus("aider", "done", Attention: true)),
-                     Notice(new TerminalStatus("codex", "error", Attention: true), blocked: 1),
+                     Notice(new TerminalStatus("codex", "error", Attention: true), waits: 1),
                      new PushNotice(Guid.CreateVersion7(), [Other]),
                  })
             Assert.Equal(Delivered.Sent, (await apns.SendAsync(production, notice, ct)).Outcome);

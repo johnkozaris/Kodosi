@@ -143,6 +143,14 @@ public extension AppTheme.Colors {
     var sheet: Color {
         raised.mix(with: surface, by: 0.45)
     }
+
+    var chat: Color {
+        #if os(iOS)
+            surface
+        #else
+            sheet
+        #endif
+    }
 }
 
 public extension AppTheme {

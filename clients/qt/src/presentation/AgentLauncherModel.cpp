@@ -1,6 +1,10 @@
 #include "presentation/AgentLauncherModel.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <optional>
+#include <tuple>
 #include <utility>
 
 #include <QDateTime>
@@ -26,7 +30,7 @@ QVariantMap describedLimit(QVariantMap limit)
 {
     const auto scope = limit.value(QStringLiteral("scope")).toString();
     const auto hours = limit.value(QStringLiteral("hours"));
-    const bool monthly = hours.isNull() || !hours.isValid();
+    const bool monthly = hours.isNull();
     const int count = hours.toInt();
     auto window = scope;
     if (window.isEmpty()) {
@@ -36,18 +40,61 @@ QVariantMap describedLimit(QVariantMap limit)
             : count % 24 == 0 ? AgentLauncherModel::tr("%1d").arg(count / 24)
                               : AgentLauncherModel::tr("%1h").arg(count);
     }
+    const bool days = count > 24 && count % 24 == 0;
     const auto name = scope.isEmpty()
         ? (monthly ? AgentLauncherModel::tr("This month")
                 : count == 168 ? AgentLauncherModel::tr("This week")
+                : days         ? AgentLauncherModel::tr("Last %n days", "", count / 24)
                                : AgentLauncherModel::tr("Last %n hours", "", count))
         : (monthly ? AgentLauncherModel::tr("%1, this month").arg(scope)
                 : count == 168 ? AgentLauncherModel::tr("%1, this week").arg(scope)
+                : days         ? AgentLauncherModel::tr("%1, last %n days", "", count / 24).arg(scope)
                                : AgentLauncherModel::tr("%1, last %n hours", "", count).arg(scope));
     limit.insert(QStringLiteral("id"), !scope.isEmpty() ? QStringLiteral("scope:") + scope
             : monthly ? QStringLiteral("month") : QStringLiteral("hours:") + QString::number(count));
     limit.insert(QStringLiteral("window"), window);
     limit.insert(QStringLiteral("spoken"), AgentLauncherModel::tr("%1: %2% used").arg(name, QString::number(limit.value(QStringLiteral("used")).toInt())));
     return limit;
+}
+
+QVariant nearestLimit(const QVariantList& limits, const QString& model)
+{
+    static const QStringList levels { QStringLiteral("normal"), QStringLiteral("near"), QStringLiteral("reached") };
+    const auto nearness = [](const QVariant& limit) {
+        const auto values = limit.toMap();
+        return std::pair(levels.indexOf(values.value(QStringLiteral("level")).toString()), values.value(QStringLiteral("used")).toInt());
+    };
+    QVariant nearest;
+    for (const auto& limit : limits) {
+        const auto counted = limit.toMap().value(QStringLiteral("model")).toString();
+        if (!model.isEmpty() && !counted.isEmpty() && counted != model)
+            continue;
+        if (!nearest.isValid() || nearness(limit) > nearness(nearest))
+            nearest = limit;
+    }
+    return nearest;
+}
+
+struct TimeLeft {
+    int days;
+    int hours;
+    int minutes;
+};
+
+std::optional<TimeLeft> timeLeft(const QVariantMap& limit, double now)
+{
+    constexpr qint64 minute = 60000;
+    constexpr qint64 hour = 60 * minute;
+    const auto resets = limit.value(QStringLiteral("resetsAtMs"));
+    const auto left = resets.isNull() ? 0 : static_cast<qint64>(std::ceil(resets.toDouble() - now));
+    if (left <= 0)
+        return std::nullopt;
+    const auto minutes = static_cast<int>((left + minute - 1) / minute);
+    if (minutes >= 24 * 60) {
+        const auto hours = static_cast<int>((left + hour - 1) / hour);
+        return TimeLeft { hours / 24, hours % 24, 0 };
+    }
+    return TimeLeft { 0, minutes / 60, minutes % 60 };
 }
 }
 
@@ -265,6 +312,12 @@ QVariantList AgentLauncherModel::usageSections() const
                 { QStringLiteral("identity"), identity }, { QStringLiteral("usage"), usage },
                 { QStringLiteral("place"), place } });
         }
+        const auto order = [](const QVariant& limit) {
+            const auto values = limit.toMap();
+            const auto hours = values.value(QStringLiteral("hours"));
+            return std::tuple(hours.isNull() ? std::numeric_limits<int>::max() : hours.toInt(), values.value(QStringLiteral("scope")).toString());
+        };
+        std::ranges::sort(windows, [&order](const QVariant& left, const QVariant& right) { return order(left) < order(right); });
         if (!rows.isEmpty())
             sections.append(QVariantMap { { QStringLiteral("agent"), agent }, { QStringLiteral("rows"), rows },
                 { QStringLiteral("windows"), windows } });
@@ -274,20 +327,45 @@ QVariantList AgentLauncherModel::usageSections() const
 
 QVariant AgentLauncherModel::usageNearest() const
 {
-    static const QStringList levels { QStringLiteral("normal"), QStringLiteral("near"), QStringLiteral("reached") };
-    const auto nearness = [](const QVariant& limit) {
-        const auto values = limit.toMap();
-        return std::pair(levels.indexOf(values.value(QStringLiteral("level")).toString()), values.value(QStringLiteral("used")).toInt());
-    };
-    QVariant nearest;
+    QVariantList limits;
     for (const auto& section : usageSections()) {
-        for (const auto& row : section.toMap().value(QStringLiteral("rows")).toList()) {
-            const auto headline = row.toMap().value(QStringLiteral("usage")).toMap().value(QStringLiteral("headline"));
-            if (headline.isValid() && (!nearest.isValid() || nearness(headline) > nearness(nearest)))
-                nearest = headline;
-        }
+        for (const auto& row : section.toMap().value(QStringLiteral("rows")).toList())
+            limits.append(row.toMap().value(QStringLiteral("usage")).toMap().value(QStringLiteral("limits")).toList());
     }
-    return nearest;
+    return nearestLimit(limits, {});
+}
+
+QVariant AgentLauncherModel::headline(const QVariantMap& usage, const QString& model) const
+{
+    return nearestLimit(usage.value(QStringLiteral("limits")).toList(), model);
+}
+
+QString AgentLauncherModel::resetIn(const QVariantMap& limit, double now) const
+{
+    const auto left = timeLeft(limit, now);
+    if (!left)
+        return {};
+    if (left->days > 0)
+        return left->hours == 0 ? tr("%1d", "time left").arg(left->days) : tr("%1d %2h").arg(left->days).arg(left->hours);
+    if (left->hours > 0)
+        return left->minutes == 0 ? tr("%1h", "time left").arg(left->hours) : tr("%1h %2m").arg(left->hours).arg(left->minutes);
+    return tr("%1m").arg(left->minutes);
+}
+
+QString AgentLauncherModel::spokenWithReset(const QVariantMap& limit, double now) const
+{
+    const auto spoken = limit.value(QStringLiteral("spoken")).toString();
+    const auto left = timeLeft(limit, now);
+    if (!left)
+        return spoken;
+    QStringList parts;
+    if (left->days > 0)
+        parts.append(tr("%n days", "", left->days));
+    if (left->hours > 0)
+        parts.append(tr("%n hours", "", left->hours));
+    if (left->minutes > 0)
+        parts.append(tr("%n minutes", "", left->minutes));
+    return tr("%1, resets in %2").arg(spoken, parts.join(u' '));
 }
 
 void AgentLauncherModel::refreshUsage()
@@ -447,8 +525,6 @@ void AgentLauncherModel::apply(const QJsonObject& event)
                 for (const auto& limit : account.value(QStringLiteral("limits")).toList())
                     limits.append(describedLimit(limit.toMap()));
                 account.insert(QStringLiteral("limits"), limits);
-                const auto headline = std::ranges::find_if(limits, [](const QVariant& limit) { return limit.toMap().value(QStringLiteral("headline")).toBool(); });
-                account.insert(QStringLiteral("headline"), headline == limits.end() ? limits.value(0) : *headline);
                 usage.insert(account.value(QStringLiteral("agent")).toString() + u'/' + account.value(QStringLiteral("account")).toString(), account);
             }
             const bool loading = !m_usageRead;

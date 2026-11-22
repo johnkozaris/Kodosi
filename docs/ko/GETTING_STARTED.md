@@ -38,7 +38,8 @@ Kodosi를 열고 사이드바 아래쪽의 로그인을 선택하세요. Kodosi�
   상세도를 자기 설정에서만 읽기 때문에, Copilot CLI가 간결로 실행되는 동안 Kodosi가 그
   설정을 바꾸고 끝나면 되돌려 놓아요.
 - Claude Code와 Codex에는 빠른 모드가 있어요. 더 빨리 답하지만 비용이 더 들어요. 모델,
-  추론 수준과 함께 켜세요. 꺼져 있는 동안에는 에이전트가 자기 설정을 그대로 써요.
+  추론 수준과 함께 켜세요. 그 시작에만 적용되므로, 켜지 않으면 에이전트는 빠른 모드 없이
+  시작해요.
 - 새 계정은 `~/.claude-work`처럼 자기만의 로그인 폴더를 가져요. Kodosi는
   `alias cw='CLAUDE_CONFIG_DIR=~/.claude-work claude'`처럼 셸에서 설정한 계정도 찾아요.
 - 프롬프트에서 기다리는 터미널에서는 헤더의 동작 버튼(슬라이더 두 개)에 설치된 에이전트가
@@ -98,9 +99,9 @@ Mac에서는 다른 터미널 앱처럼 터미널의 프로그램이 Kodosi에 �
 체크와 경고는 어느 기기에서든 터미널을 열면 사라져요. 터미널이 기다리기 시작하거나,
 끝나거나, 실패하면 Kodosi가 내가 쓰고 있는 기기에서 한 번 알려 줘요. Kodosi를 쓰고
 있으면 표시로 알려 줘요. 컴퓨터에서 다른 앱을 쓰고 있으면 그 컴퓨터에서 알림을 받아요.
-어느 컴퓨터도 쓰고 있지 않으면 휴대폰에서 받아요. 컴퓨터를 떠날 때 터미널이 아직 나를
-기다리고 있으면 그때 휴대폰으로 알려 줘요. 기다리는 터미널만 소리를 내요. 기기의 알림을
-끄려면 그 기기의 Kodosi에서 설정을 여세요. 프로그램은
+어느 컴퓨터도 쓰고 있지 않으면 휴대폰에서 받아요. 컴퓨터를 떠날 때 아직 열지 않은
+터미널이 나를 기다리고 있으면 그때 휴대폰으로 알려 줘요. 기다리는 터미널만 소리를 내요.
+기기의 알림을 끄려면 그 기기의 Kodosi에서 설정을 여세요. 프로그램은
 [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status)이나
 진행 막대로 상태를 알려요. 아무것도 알리지 않는 프로그램은 상태가 표시되지 않아요.
 
@@ -239,7 +240,7 @@ iPhone이나 iPad에서는 터미널의 +나 내 컴퓨터 옆의 +를 선택하
 | `kodosi terminal start --directory <repository> --branch <name>` | 전용 worktree의 새 브랜치에서 터미널을 시작해요. |
 | `kodosi terminal start --computer <computer> --directory <folder>` | 내 다른 컴퓨터에서 터미널을 시작해요. 상대 경로 폴더나 `~`로 시작하는 폴더는 그 컴퓨터의 홈에 있어요. 어느 컴퓨터가 온라인인지는 `kodosi devices list`로 볼 수 있어요. |
 | `kodosi agent list` | 에이전트, 그 계정, 지난번 선택을 보여 줘요. |
-| `kodosi agent usage` | 로그인한 Claude Code, Codex, Copilot CLI 계정마다 요금제 한도를 얼마나 썼는지 보여 줘요. |
+| `kodosi agent usage` | 로그인한 Claude Code, Codex, Copilot CLI 계정마다 요금제 한도를 얼마나 썼는지와 각 한도가 언제 초기화되는지 보여 줘요. |
 | `kodosi terminal list` | 터미널을 이름과 ID와 함께 보여 줘요. 둘 중 무엇이든 `<terminal>`로 쓸 수 있어요. |
 | `kodosi terminal read <terminal>` | 화면을 출력해요. `--history`는 스크롤로 넘어간 줄도 더해요. |
 | `kodosi terminal message <terminal> "Can you review my branch?"` | 보낸 사람과 보낸 곳을 붙여 터미널의 에이전트에게 메시지를 전달해요. |

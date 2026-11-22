@@ -54,6 +54,13 @@ public struct CanvasDock: View {
                         .transition(.scale(scale: 0.7).combined(with: .opacity))
                 }
             }
+            // Under all keys, as the iPhone lifts the chosen key over the key that it slides from.
+            .background {
+                if let chosen, sections.contains(chosen) {
+                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
+                        .matchedGeometryEffect(id: chosen, in: thumb, isSource: false)
+                }
+            }
             .padding(2)
             .wellCapsule()
             .fixedSize()
@@ -129,12 +136,10 @@ public struct CanvasDock: View {
             .appTextStyle(.footnote).fontWeight(.medium)
             .padding(.leading, words == nil ? 7 : 9).padding(.trailing, (words == nil ? 7 : 11) + (closing ? 16 : 0))
             .frame(minWidth: 26).controlHeight(24)
-            .background {
-                if selected {
-                    RaisedBackground(shape: Capsule(), fill: theme.colors.raised, elevation: .resting)
-                        .matchedGeometryEffect(id: "thumb", in: thumb)
-                }
-            }
+            // A label fades out where it was, outside its key once the key is narrower, and at the end
+            // of the dock over the add key. The news dot is not clipped, as its ring reaches beyond the key.
+            .clipped()
+            .background { Color.clear.matchedGeometryEffect(id: section, in: thumb) }
             .wash(trigger: newest, radius: 12)
             .overlay {
                 if doing {
@@ -161,13 +166,18 @@ public struct CanvasDock: View {
             }
         }
         .modifier(CloseMenu(close: close.map { close in { close(section) } }))
-        .overlay(alignment: .trailing) {
-            if closing, let close {
-                RemoveKey(size: 14, title: String(localized: "Close", bundle: .module),
-                          identifier: "\(identifier).close.\(section.rawValue)") { close(section) }
-                    .padding(.trailing, 5)
-                    .transition(.opacity)
+        // As the label, a close key fades out inside its key. A clip leaves its touch target as it is.
+        .overlay {
+            ZStack(alignment: .trailing) {
+                if closing, let close {
+                    RemoveKey(size: 14, title: String(localized: "Close", bundle: .module),
+                              identifier: "\(identifier).close.\(section.rawValue)") { close(section) }
+                        .padding(.trailing, 5)
+                        .transition(.opacity)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .clipped()
         }
         .onHover { inside in
             if inside {
@@ -176,6 +186,10 @@ public struct CanvasDock: View {
                 pointed = nil
             }
         }
+        #if os(iOS)
+        // The touch target of the next key reaches back over the end of this one, where the close key is.
+        .zIndex(closing ? 1 : 0)
+        #endif
     }
 
     @ContentBuilder

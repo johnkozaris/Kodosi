@@ -299,12 +299,33 @@
     <string name="uploading">Sending file</string>
     <string name="loading">Loading</string>
     <string name="reading_usage">Reading plan usage</string>
+    <string name="usage_month">This month</string>
+    <string name="usage_week">This week</string>
+    <string name="usage_scope_month">%1$s, this month</string>
+    <string name="usage_scope_week">%1$s, this week</string>
+    <plurals name="usage_hours">
+        <item quantity="one">Last %d hour</item>
+        <item quantity="other">Last %d hours</item>
+    </plurals>
+    <plurals name="usage_days">
+        <item quantity="one">Last %d day</item>
+        <item quantity="other">Last %d days</item>
+    </plurals>
+    <plurals name="usage_scope_hours">
+        <item quantity="one">%1$s, last %2$d hour</item>
+        <item quantity="other">%1$s, last %2$d hours</item>
+    </plurals>
+    <plurals name="usage_scope_days">
+        <item quantity="one">%1$s, last %2$d day</item>
+        <item quantity="other">%1$s, last %2$d days</item>
+    </plurals>
     <string name="browser_address">Search or enter an address</string>
     <string name="new_browser_tab">New tab</string>
     <string name="browser_back">Go back</string>
     <string name="browser_forward">Go forward</string>
     <string name="browser_reload">Reload</string>
     <string name="browser_sleeping">The browser is asleep</string>
+    <string name="browser_undecodable">This device cannot show the page</string>
     <string name="wake_browser">Open browser</string>
     <string name="browser_dialog">The page asks</string>
     <string name="choose_file">Choose a file</string>
