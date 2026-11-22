@@ -205,11 +205,14 @@ public final class CommandSink {
         result == Int32(KODOSI_FFI_OK)
     }
 
+    /// A view whose focus only comes back with the app or its connection says that it is
+    /// returning, which is no act of a person, so the focus takes no size.
     public func sendTerminalFocus(sessionId: String, clientId: String, subscriptionGeneration: UInt64, requestId: String,
-                                  expectedRuntimeIncarnationId: String) -> Int32?
+                                  expectedRuntimeIncarnationId: String, returning: Bool = false) -> Int32?
     {
         send(TerminalCommand.focus(sessionId: sessionId, clientId: clientId, subscriptionGeneration: subscriptionGeneration,
-                                   requestId: requestId, expectedRuntimeIncarnationId: expectedRuntimeIncarnationId))
+                                   requestId: requestId, expectedRuntimeIncarnationId: expectedRuntimeIncarnationId,
+                                   returning: returning))
     }
 
     public func sendTerminalBlur(sessionId: String, clientId: String, subscriptionGeneration: UInt64,

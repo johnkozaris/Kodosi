@@ -26,6 +26,7 @@ public final class TerminalProcessFocusCoordinator {
     private struct PendingFocus: Equatable {
         let generation: UInt64
         let requestId: String
+        let returning: Bool
     }
 
     private struct LeaseState {
@@ -34,9 +35,11 @@ public final class TerminalProcessFocusCoordinator {
         var focus: PendingFocus?
         var release: TerminalProcessFocusReleaseAuthority?
         var focusRetries = 0
+        /// The focus only comes back with the app or the view's connection, so it takes no size.
+        var returning = false
     }
 
-    private let sendFocus: (TerminalProcessFocusLease, String, @escaping (Bool) -> Void) -> Void
+    private let sendFocus: (TerminalProcessFocusLease, String, Bool, @escaping (Bool) -> Void) -> Void
     private let sendBlur: (TerminalProcessFocusReleaseAuthority, @escaping (Bool) -> Void) -> Void
     private var leases: [TerminalProcessFocusLease: LeaseState] = [:]
     private var leaseBySurfaceId: [UUID: TerminalProcessFocusLease] = [:]
@@ -44,7 +47,7 @@ public final class TerminalProcessFocusCoordinator {
     private var lastGeneration: UInt64 = 0
 
     public init(
-        sendFocus: @escaping (TerminalProcessFocusLease, String, @escaping (Bool) -> Void) -> Void,
+        sendFocus: @escaping (TerminalProcessFocusLease, String, Bool, @escaping (Bool) -> Void) -> Void,
         sendBlur: @escaping (TerminalProcessFocusReleaseAuthority, @escaping (Bool) -> Void) -> Void,
     ) {
         self.sendFocus = sendFocus
@@ -61,6 +64,7 @@ public final class TerminalProcessFocusCoordinator {
         subscriptionId: String,
         subscriptionGeneration: UInt64,
         surfaceId: UUID,
+        returning: Bool = false,
     ) {
         let lease = TerminalProcessFocusLease(
             sessionId: sessionId,
@@ -79,6 +83,7 @@ public final class TerminalProcessFocusCoordinator {
             lastGeneration += 1
             state.generation = lastGeneration
             state.focusRetries = 0
+            state.returning = returning
         }
         leases[lease] = state
         if !wasFocused, state.release == nil, let generation = state.generation {
@@ -94,11 +99,25 @@ public final class TerminalProcessFocusCoordinator {
         leases[lease]?.focus = nil
         if accepted {
             leases[lease]?.focusRetries = 0
+            // A person acted on the view while the focus that came back was on its way.
+            if pending.returning, leases[lease]?.returning == false {
+                requestFocus(lease, generation: pending.generation)
+            }
         } else if !state.surfaces.isEmpty, state.focusRetries == 0 {
             leases[lease]?.focusRetries = 1
             requestFocus(lease, generation: pending.generation)
         } else {
             revoke(lease, generation: pending.generation)
+        }
+    }
+
+    /// A person acts on a view that has the focus already, so the focus goes again as their act,
+    /// which takes the terminal's size for the view.
+    public func act(surfaceId: UUID) {
+        guard let lease = leaseBySurfaceId[surfaceId], leases[lease] != nil else { return }
+        leases[lease]?.returning = false
+        if let state = leases[lease], let generation = state.generation, state.focus == nil, state.release == nil {
+            requestFocus(lease, generation: generation)
         }
     }
 
@@ -126,9 +145,9 @@ public final class TerminalProcessFocusCoordinator {
 
     private func requestFocus(_ lease: TerminalProcessFocusLease, generation: UInt64) {
         guard let state = leases[lease], state.generation == generation, !state.surfaces.isEmpty else { return }
-        let pending = PendingFocus(generation: generation, requestId: UUIDv7.generate())
+        let pending = PendingFocus(generation: generation, requestId: UUIDv7.generate(), returning: state.returning)
         leases[lease]?.focus = pending
-        sendFocus(lease, pending.requestId) { [weak self] admitted in
+        sendFocus(lease, pending.requestId, pending.returning) { [weak self] admitted in
             guard !admitted, let self, leases[lease]?.focus == pending else { return }
             revoke(lease, generation: generation)
         }
@@ -177,11 +196,12 @@ public final class TerminalProcessFocusCoordinator {
 public extension TerminalProcessFocusCoordinator {
     convenience init(commands: CommandSink) {
         self.init(
-            sendFocus: { lease, requestId, completion in
+            sendFocus: { lease, requestId, returning, completion in
                 completion(CommandSink.didAcceptSynchronously(commands.sendTerminalFocus(
                     sessionId: lease.sessionId, clientId: lease.subscriptionId,
                     subscriptionGeneration: lease.subscriptionGeneration,
                     requestId: requestId, expectedRuntimeIncarnationId: lease.runtimeIncarnationId,
+                    returning: returning,
                 )))
             },
             sendBlur: { authority, completion in
