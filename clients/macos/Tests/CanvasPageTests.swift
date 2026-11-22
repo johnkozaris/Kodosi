@@ -32,24 +32,27 @@ import WebKit
     #expect(opened == ["https://example.com/person"])
 }
 
-@Test func `a canvas page ends its web view when its view leaves`() async throws {
+@Test func `a canvas page ends its web view and its scripts when its view leaves`() async throws {
     let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 240), styleMask: [.titled], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     defer { window.close() }
     window.contentView = NSHostingView(rootView: CanvasPageView(key: "page", frames: CanvasFrames(), content: Data("<p>A page</p>".utf8),
                                                                 otherComputer: nil))
     weak var page: WKWebView?
+    weak var scripts: WKUserContentController?
     for _ in 0 ..< 500 where page?.url == nil {
         window.contentView?.layoutSubtreeIfNeeded()
         page = webView(in: window.contentView)
+        scripts = page?.configuration.userContentController
         try await Task.sleep(for: .milliseconds(10))
     }
     try #require(page?.url != nil)
     window.contentView = nil
-    for _ in 0 ..< 500 where page != nil {
+    for _ in 0 ..< 500 where page != nil || scripts != nil {
         try await Task.sleep(for: .milliseconds(10))
     }
     #expect(page == nil)
+    #expect(scripts == nil)
 }
 
 private func show(_ html: String, in frame: CanvasFrame, window: NSWindow) async throws {

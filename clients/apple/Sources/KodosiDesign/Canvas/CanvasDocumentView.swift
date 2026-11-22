@@ -148,6 +148,7 @@ final class CanvasDocumentPage {
     @ObservationIgnored let links = CanvasLinks()
     @ObservationIgnored private let link: DocumentLink
     @ObservationIgnored private let messages = PageMessages()
+    @ObservationIgnored private let scripts: WKUserContentController
     @ObservationIgnored private let view: CanvasItem.View
     @ObservationIgnored private var look: [String: String]
     @ObservationIgnored private var preferences: [String: Bool]
@@ -167,9 +168,10 @@ final class CanvasDocumentPage {
         configuration.websiteDataStore = .nonPersistent()
         configuration.urlSchemeHandlers[URLScheme(Self.scheme)!] = ViewBundleHandler()
         configuration.upgradeKnownHostsToHTTPS = false
-        configuration.userContentController.add(messages, contentWorld: .page, name: "document")
-        configuration.userContentController.add(messages, contentWorld: .page, name: "ready")
-        links.watch(configuration.userContentController)
+        scripts = configuration.userContentController
+        scripts.add(messages, contentWorld: .page, name: "document")
+        scripts.add(messages, contentWorld: .page, name: "ready")
+        links.watch(scripts)
         page = WebPage(configuration: configuration, navigationDecider: DocumentNavigation(links: links))
         let (stream, inbound) = AsyncStream.makeStream(of: Inbound.self)
         self.inbound = inbound
@@ -185,6 +187,12 @@ final class CanvasDocumentPage {
             },
             Task { [weak self] in await self?.stayOpen() },
         ]
+    }
+
+    /// WebKit keeps a content controller that has a message handler, and each handler with what it
+    /// holds, after the page ends.
+    isolated deinit {
+        scripts.removeAllScriptMessageHandlers()
     }
 
     func restyle(_ look: [String: String]) {
