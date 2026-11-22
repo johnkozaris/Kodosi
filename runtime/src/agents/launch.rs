@@ -571,6 +571,12 @@ pub(super) fn plan(
             .and_then(|id| efforts(models, model).find(|effort| effort.id == id)),
     };
     let (permissions, output, words) = modes(info.agent, saved, start)?;
+    let words = words.map(str::to_owned).collect::<Vec<_>>();
+    let words = if info.agent == Agent::Antigravity {
+        super::one_settings(words)
+    } else {
+        words
+    };
     let line = [
         Some(account.command.clone()),
         model.map(|model| model.argument.clone()),
@@ -578,7 +584,7 @@ pub(super) fn plan(
     ]
     .into_iter()
     .flatten()
-    .chain(words.map(|word| as_shell_word(shell, word)))
+    .chain(words.iter().map(|word| as_shell_word(shell, word)))
     .collect::<Vec<_>>()
     .join(" ");
     Ok((

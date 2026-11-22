@@ -119,8 +119,8 @@ presentazione o l'app che esegue sul canvas del suo terminale, e usare un browse
 con lui. Il canvas si apre con ciò che l'agente mostra mentre guardi il suo terminale, e quando
 cambia un file del canvas o il browser, a meno che tu non l'abbia chiuso. Per aprirlo solo tu,
 disattiva Apri il canvas automaticamente in Impostazioni › Generale. Claude Code e Copilot CLI
-sanno come fare, anche quando li avvii tu, e così Codex, Cursor, OpenCode e Antigravity CLI
-quando li avvia Kodosi (OpenCode su un Mac o su Linux); a un altro
+sanno come fare, anche quando li avvii tu, e così Codex, Cursor e OpenCode quando li
+avvia Kodosi (OpenCode su un Mac o su Linux); a un altro
 agente, di' di leggere `kodosi skill canvas`. Quando il canvas ha qualcosa, l'intestazione del
 terminale mostra un pulsante per i suoi file e uno per il suo browser, con un punto color rame
 per le novità. Selezionane uno per aprire il canvas accanto al terminale; Più spazio dà la
@@ -235,8 +235,8 @@ al suo interno, e invita gli amici quando vuoi.
   in `KODOSI_GITEA_URL`. Le tue credenziali restano sul tuo computer.
 - Scrivi `@` e il nome di un terminale nella chat, e Kodosi dà all'agente di quel terminale il
   tuo messaggio con il tuo nome e il progetto; l'agente decide cosa farne. Claude Code e Copilot
-  CLI in un terminale di Kodosi, e Codex, Cursor, OpenCode e Antigravity CLI quando li
-  avvia Kodosi (OpenCode su un Mac o su Linux), sanno di girare in Kodosi, e
+  CLI in un terminale di Kodosi, e Codex, Cursor e OpenCode quando li avvia
+  Kodosi (OpenCode su un Mac o su Linux), sanno di girare in Kodosi, e
   `kodosi skill` stampa la [skill](../../runtime/skills/kodosi/SKILL.md) che permette a un
   agente di partecipare. In un terminale di Kodosi, il comando trova il progetto; altrove,
   aggiungi `--project <name>`.
