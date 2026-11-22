@@ -13,7 +13,7 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * The chat of one terminal as this device holds it. [answers] are the answers that a person gave
- * on this device, until their questions are gone.
+ * on this device, until their questions are gone or the chat comes again.
  */
 data class ChatView(
     val chat: ChatSnapshot? = null,
@@ -139,11 +139,11 @@ class TerminalChat internal constructor(
             if (!awaitsSnapshot) renew()
             return
         }
+        // The host closes a question when it takes its answer, and the pipe loses what an app sends
+        // while it is broken. A question that is still there waits for its answer.
         frame.snapshot?.let { snapshot ->
             awaitsSnapshot = false
-            view.update {
-                it.copy(chat = snapshot, answers = it.answers.asked(snapshot), linked = true, failure = null)
-            }
+            view.update { it.copy(chat = snapshot, answers = emptyMap(), linked = true, failure = null) }
         }
         frame.update?.let { update ->
             val chat = view.value.chat
