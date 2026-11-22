@@ -38,7 +38,7 @@ WebEngineView {
     }
 
     url: "kodosi-document://view/index.html"
-    profile: Models.CanvasWeb.profile
+    profile: Models.CanvasWeb.documentProfile
     backgroundColor: KodosiTheme.surface
     webChannel: channel
     userScripts.collection: [{
