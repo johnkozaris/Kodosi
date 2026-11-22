@@ -866,6 +866,7 @@ fn cursor_and_opencode_get_the_note_only_in_the_line_that_kodosi_types_where_the
     assert_eq!(major_version("opencode\n"), None);
 }
 
+#[cfg(unix)]
 #[test]
 fn antigravity_gets_the_note_from_the_folder_that_its_line_adds() {
     let root = tempfile::tempdir().unwrap();
