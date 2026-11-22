@@ -164,7 +164,7 @@ import Testing
 
     try await runtime.open()
     try runtime.send(asking)
-    runtime.chat.answer(try #require(runtime.chat.question), .allow)
+    try runtime.chat.answer(#require(runtime.chat.question), .allow)
     #expect(runtime.chat.question == nil)
     try runtime.lose()
     try runtime.reopen()
