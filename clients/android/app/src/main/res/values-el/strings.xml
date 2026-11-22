@@ -407,6 +407,7 @@
     <string name="chat_approve_helpers">Έγκριση, με βοηθούς που δουλεύουν μόνοι</string>
     <string name="chat_leave_plan">Έξοδος από τη λειτουργία σχεδίου</string>
     <string name="chat_compacted">η συνομιλία συμπτύχθηκε</string>
+    <string name="chat_signed_out_detail">Συνδεθείτε με τα δικά του βήματα στο τερματικό.</string>
     <string name="chat_stopped">Σταμάτησε</string>
     <string name="chat_refused">Αρνήθηκε</string>
     <string name="chat_worked_for">δούλεψε για %1$s</string>

@@ -93,6 +93,7 @@ pub(crate) async fn run(command: Vec<String>, choices: Choices) -> Result<u8, Te
                     "{agent} is not signed in. Sign in with its own steps below.",
                     agent = label
                 ));
+                report("state=blocked:kind=auth");
                 if !sign_in(&command[0]).await {
                     return Err(text!("{agent} is not signed in.", agent = label));
                 }
@@ -443,10 +444,14 @@ impl Open {
             return;
         }
         self.shown = Some(state);
-        let mut out = io::stdout().lock();
-        drop(write!(out, "\x1b]7501;{state}:app=antigravity\x07"));
-        drop(out.flush());
+        report(state);
     }
+}
+
+fn report(state: &str) {
+    let mut out = io::stdout().lock();
+    drop(write!(out, "\x1b]7501;{state}:app=antigravity\x07"));
+    drop(out.flush());
 }
 
 /// The name of the question that a request of the server makes, which the adapter gives too.

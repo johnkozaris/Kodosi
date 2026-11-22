@@ -211,6 +211,8 @@ pub enum TurnEnd {
 pub enum ChatNote {
     /// The agent made its conversation shorter to free its context.
     Compacted,
+    /// The agent is not signed in, and signs in with its own steps in its terminal.
+    SignedOut,
     /// The agent could not continue. `error` is the agent's word for the cause.
     Failed {
         error: String,

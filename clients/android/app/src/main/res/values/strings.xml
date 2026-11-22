@@ -415,6 +415,7 @@
     <string name="chat_approve_helpers">Approve, and let helpers work alone</string>
     <string name="chat_leave_plan">Leave plan mode</string>
     <string name="chat_compacted">compacted</string>
+    <string name="chat_signed_out_detail">Sign in with its own steps in the terminal.</string>
     <string name="chat_stopped">Stopped</string>
     <string name="chat_refused">Refused</string>
     <string name="chat_worked_for">worked for %1$s</string>

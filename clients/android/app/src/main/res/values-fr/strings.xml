@@ -409,6 +409,7 @@
     <string name="chat_approve_helpers">Approuver et laisser les assistants travailler seuls</string>
     <string name="chat_leave_plan">Quitter le mode plan</string>
     <string name="chat_compacted">conversation compactée</string>
+    <string name="chat_signed_out_detail">Connectez-vous avec ses propres étapes dans le terminal.</string>
     <string name="chat_stopped">Arrêté</string>
     <string name="chat_refused">Refusé</string>
     <string name="chat_worked_for">a travaillé pendant %1$s</string>

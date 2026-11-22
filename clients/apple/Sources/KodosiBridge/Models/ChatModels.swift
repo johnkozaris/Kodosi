@@ -176,6 +176,8 @@ public enum TurnEnd: String, Decodable, Sendable {
 public enum ChatNote: Decodable, Equatable, Sendable {
     /// The agent made its conversation shorter to free its context.
     case compacted
+    /// The agent is not signed in, and signs in with its own steps in its terminal.
+    case signedOut
     /// The agent could not continue. `error` is the agent's word for the cause.
     case failed(error: String, text: String)
 
@@ -187,6 +189,7 @@ public enum ChatNote: Decodable, Equatable, Sendable {
         let fields = try decoder.container(keyedBy: Key.self)
         switch try fields.decode(String.self, forKey: .kind) {
         case "compacted": self = .compacted
+        case "signedOut": self = .signedOut
         case "failed":
             self = try .failed(error: fields.decode(String.self, forKey: .error), text: fields.decodeIfPresent(String.self, forKey: .text) ?? "")
         case let kind:

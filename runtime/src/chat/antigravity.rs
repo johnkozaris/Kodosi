@@ -59,8 +59,6 @@ pub(super) struct Antigravity {
 struct Offers {
     /// The server gives the history of a session that it loads.
     loads: bool,
-    /// The server adds Kodosi's note to the instructions of a session.
-    appends: bool,
     /// The agent asks for no permission, as the line chose.
     unrestricted: bool,
 }
@@ -108,16 +106,12 @@ impl Antigravity {
         self.calls.push_back(call);
     }
 
-    /// The parameters that each start of a session carries: the folder, no servers of tools of
-    /// Kodosi, and Kodosi's note where the agent takes it.
+    /// The parameters that each start of a session carries: the folder, and no servers of tools
+    /// of Kodosi. Kodosi's note comes with its plugin, in the folder that the server's line adds,
+    /// as in the agent's terminal app.
     fn session_params(&self, mut params: Value) -> Value {
         params["cwd"] = json!(self.folder);
         params["mcpServers"] = json!([]);
-        if self.offers.appends {
-            params["_meta"] = json!({
-                "antigravity": {"systemPrompt": {"append": crate::agents::CONTEXT.trim()}},
-            });
-        }
         params
     }
 
@@ -130,10 +124,6 @@ impl Antigravity {
             linked: true,
             offers: Offers {
                 loads: capabilities.get("loadSession").and_then(Value::as_bool) == Some(true),
-                appends: capabilities
-                    .pointer("/_meta/antigravity/systemPrompt/append")
-                    .and_then(Value::as_bool)
-                    == Some(true),
                 unrestricted: list(event, "arguments")
                     .any(|argument| argument == "--dangerously-skip-permissions"),
             },
@@ -198,7 +188,12 @@ impl Antigravity {
     fn not_started(&mut self, chat: &mut Chat, name: &str, event: &Value, at: u64) {
         self.starting = false;
         if event.pointer("/e/code").and_then(Value::as_i64) == Some(SIGNED_OUT) {
-            failed(chat, event, at);
+            chat.push(
+                at,
+                ChatBody::Note {
+                    note: ChatNote::SignedOut,
+                },
+            );
             self.session = None;
             self.calls.push_back(json!({"m": SIGN_IN}));
             return;

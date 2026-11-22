@@ -362,6 +362,16 @@ struct ChatNoteView: View {
                 .padding(.horizontal, 10).controlHeight(22)
                 .raisedCapsule(fill: theme.colors.raised)
                 .frame(maxWidth: .infinity)
+        case .signedOut:
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                StatusSign(form: .key, size: 12)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Needs you to sign in", bundle: .module).appTextStyle(.footnote).fontWeight(.semibold)
+                        .foregroundStyle(theme.colors.ink)
+                    Text("Sign in with its own steps in the terminal.", bundle: .module).appTextStyle(.footnote)
+                        .foregroundStyle(theme.colors.inkMuted)
+                }
+            }
         case let .failed(error, text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 StatusSign(form: .failed, size: 12)

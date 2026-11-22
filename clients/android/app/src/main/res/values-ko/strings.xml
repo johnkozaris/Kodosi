@@ -405,6 +405,7 @@
     <string name="chat_approve_helpers">승인하고 서브에이전트에 맡기기</string>
     <string name="chat_leave_plan">계획 모드 나가기</string>
     <string name="chat_compacted">대화 압축됨</string>
+    <string name="chat_signed_out_detail">터미널에 나오는 단계로 로그인하세요.</string>
     <string name="chat_stopped">중지됨</string>
     <string name="chat_refused">응답 거부</string>
     <string name="chat_worked_for">%1$s 동안 작업함</string>

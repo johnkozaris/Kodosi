@@ -405,6 +405,7 @@
     <string name="chat_approve_helpers">批准，并让助手独立工作</string>
     <string name="chat_leave_plan">退出规划模式</string>
     <string name="chat_compacted">已压缩对话</string>
+    <string name="chat_signed_out_detail">请在终端中按照它自己的步骤登录。</string>
     <string name="chat_stopped">已停止</string>
     <string name="chat_refused">拒绝回答</string>
     <string name="chat_worked_for">工作了 %1$s</string>

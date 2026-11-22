@@ -409,6 +409,7 @@
     <string name="chat_approve_helpers">Aprobar y dejar que los ayudantes trabajen solos</string>
     <string name="chat_leave_plan">Salir del modo de planificación</string>
     <string name="chat_compacted">conversación compactada</string>
+    <string name="chat_signed_out_detail">Inicia sesión con sus propios pasos en el terminal.</string>
     <string name="chat_stopped">Detenido</string>
     <string name="chat_refused">Rechazado</string>
     <string name="chat_worked_for">trabajó durante %1$s</string>

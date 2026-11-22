@@ -2370,14 +2370,14 @@ fn a_signed_out_antigravity_signs_in_with_its_own_steps_in_its_terminal() {
         .find(|call| call["m"] == "session/new")
         .expect("a new session");
     assert_eq!(new["p"]["cwd"], "/home/ana/work");
-    assert_eq!(
-        new["p"]["_meta"]["antigravity"]["systemPrompt"]["append"],
-        crate::agents::CONTEXT.trim()
-    );
     assert!(matches!(
         &play.view.items[..],
-        [ChatItem { body: ChatBody::Note { note: ChatNote::Failed { error, .. } }, .. }]
-            if error == "Authentication required"
+        [ChatItem {
+            body: ChatBody::Note {
+                note: ChatNote::SignedOut
+            },
+            ..
+        }]
     ));
     assert!(play.calls.iter().any(|call| call["m"] == acp::SIGN_IN));
     assert_eq!(play.view.facts.version.as_deref(), Some("1.5.14"));
