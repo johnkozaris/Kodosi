@@ -53,26 +53,26 @@ ColumnLayout {
             Row {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 5
+
+                SignPhase {
+                    id: pulse
+                    period: 1250
+                    running: root.waiting && !KodosiTheme.reduceMotion && KodosiTheme.shown
+                }
                 Repeater {
                     model: 3
                     Rectangle {
-                        id: dot
                         required property int index
+                        readonly property real at: pulse.value * pulse.period - index * 190
+
                         anchors.verticalCenter: parent.verticalCenter
                         width: 5
                         height: 5
                         radius: 2.5
                         color: KodosiTheme.accent
-                        opacity: 0.3
-
-                        SequentialAnimation {
-                            running: root.waiting && !KodosiTheme.reduceMotion && KodosiTheme.shown
-                            loops: Animation.Infinite
-                            PauseAnimation { duration: dot.index * 180 }
-                            NumberAnimation { target: dot; property: "opacity"; from: 0.3; to: 1; duration: 260 }
-                            NumberAnimation { target: dot; property: "opacity"; from: 1; to: 0.3; duration: 260 }
-                            PauseAnimation { duration: (2 - dot.index) * 180 + 300 }
-                        }
+                        opacity: !pulse.running || at < 0 || at >= 550 ? 0.3
+                            : at < 275 ? 0.3 + 0.7 * at / 275
+                            : 1 - 0.7 * (at - 275) / 275
                     }
                 }
             }
