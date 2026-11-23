@@ -51,6 +51,7 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
     var onClipboardRead: (((String) -> Boolean) -> Unit) = { it("") }
     var onFailure: () -> Unit = {}
     var onPastePicture: (Uri) -> Unit = {}
+    var onSelectionChanged: (Boolean) -> Unit = {}
 
     private val regular = resources.getFont(R.font.jetbrains_mono_regular)
     private val bold = resources.getFont(R.font.jetbrains_mono_bold)
@@ -258,6 +259,15 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         invalidate()
     }
 
+    fun endSelection() {
+        selection?.finish()
+    }
+
+    override fun onDetachedFromWindow() {
+        endSelection()
+        super.onDetachedFromWindow()
+    }
+
     private fun showSelection() {
         if (selection != null) return
         selection = startActionMode(
@@ -286,10 +296,12 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
                     selecting = false
                     connection.kernel.clearSelection()
                     invalidate()
+                    onSelectionChanged(false)
                 }
             },
             ActionMode.TYPE_FLOATING
         )
+        onSelectionChanged(selection != null)
     }
 
     fun press(key: TerminalKernel.Key) {
