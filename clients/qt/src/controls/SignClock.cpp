@@ -21,12 +21,19 @@ enum class Drawing : int { Unknown, Processor, GraphicsProcessor };
 
 std::atomic<Drawing> drawing { Drawing::Unknown };
 
+constexpr quint64 microsoft = 0x1414;
+constexpr quint64 basicRenderDriver = 0x8c;
+
 bool drawsByProcessor(const QRhi* rhi)
 {
     if (rhi == nullptr)
         return false;
     const auto info = rhi->driverInfo();
     if (info.deviceType == QRhiDriverInfo::CpuDevice)
+        return true;
+    // Where Windows has no graphics processor, its first adapter is the Basic Render Driver, which
+    // draws by the processor and does not say so. Its vendor and device numbers tell it.
+    if (info.vendorId == microsoft && info.deviceId == basicRenderDriver)
         return true;
     // OpenGL names no type of device, but Mesa's drivers that draw by the processor name themselves.
     return rhi->backend() == QRhi::OpenGLES2
