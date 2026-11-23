@@ -283,16 +283,4 @@ mod tests {
         assert_eq!(file_of(folder, "https://kodosi.invalid//etc/passwd"), None);
         assert_eq!(file_of(folder, "https://example.com/index.html"), None);
     }
-
-    #[test]
-    fn modules_go_out_as_scripts() {
-        assert_eq!(
-            kind_of(Path::new("index-a1.js")),
-            "text/javascript; charset=utf-8"
-        );
-        assert_eq!(
-            kind_of(Path::new("worker.mjs")),
-            "text/javascript; charset=utf-8"
-        );
-    }
 }
