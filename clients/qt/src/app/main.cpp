@@ -35,7 +35,6 @@
 #include <QSettings>
 #include <QSystemTrayIcon>
 #include <QWindow>
-#include <QtWebEngineQuick/qtwebenginequickglobal.h>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -91,7 +90,6 @@ int main(int argc, char* argv[])
         qputenv("QT_QPA_PLATFORM", "windows:altgr");
 #endif
     kodosi::CanvasWeb::registerScheme();
-    QtWebEngineQuick::initialize();
     QApplication app(argc, argv);
 #ifdef Q_OS_WIN
     QFont::insertSubstitutions(
