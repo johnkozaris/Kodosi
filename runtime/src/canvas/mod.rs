@@ -284,10 +284,10 @@ impl Canvas {
         self.items.len() <= MOST_ITEMS
             && self.items.iter().all(CanvasItem::is_valid)
             && self.browser.as_ref().is_none_or(CanvasBrowser::is_valid)
-            && self
-                .open
-                .as_ref()
-                .is_none_or(|open| bounded(&open.key, MOST_KEY))
+            && [&self.open, &self.change]
+                .into_iter()
+                .flatten()
+                .all(|mark| bounded(&mark.key, MOST_KEY))
     }
 }
 

@@ -4,8 +4,8 @@ use base64::Engine as _;
 use serde_json::json;
 
 use super::{
-    BROWSER_PIPE, BrowserAct, BrowserDoingKind, BrowserPoint, BrowserState, CanvasAnswer,
-    CanvasHandle, CanvasKind, CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES,
+    BROWSER_PIPE, BrowserAct, BrowserDoingKind, BrowserPoint, BrowserState, Canvas, CanvasAnswer,
+    CanvasHandle, CanvasKind, CanvasOpen, CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES,
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
     files::{Files, Showing, Stamp, examine_all},
@@ -56,6 +56,21 @@ fn requests_from_other_computers_have_bounds() {
     assert!(read("/a/plan.md".to_owned()).is_valid());
     assert!(!read("a".repeat(2000)).is_valid());
     assert!(!read("/a/\0".to_owned()).is_valid());
+
+    let mark = |key: &str| {
+        Some(CanvasOpen {
+            key: key.to_owned(),
+            at: 1,
+        })
+    };
+    let canvas = |open, change| Canvas {
+        open,
+        change,
+        ..Canvas::default()
+    };
+    assert!(canvas(mark("/a/plan.md"), mark("/a/plan.md")).is_valid());
+    assert!(!canvas(mark(&"a".repeat(2000)), None).is_valid());
+    assert!(!canvas(None, mark("/a/\0")).is_valid());
 }
 
 #[test]
@@ -387,9 +402,7 @@ async fn the_browser_of_a_terminal_that_becomes_shared_says_it_keeps_its_own_sig
         uuid::Uuid::now_v7(),
     );
     let mut state = canvas.state();
-    let own = |canvas: &crate::canvas::Canvas| {
-        canvas.browser.as_ref().map(|browser| browser.own_sign_ins)
-    };
+    let own = |canvas: &Canvas| canvas.browser.as_ref().map(|browser| browser.own_sign_ins);
     state
         .wait_for(|canvas| own(canvas) == Some(false))
         .await
