@@ -957,12 +957,6 @@ impl Permissions {
             Self::Unrestricted => "unrestricted",
         }
     }
-
-    pub fn named(name: &str) -> Option<Self> {
-        Self::ALL
-            .into_iter()
-            .find(|permissions| permissions.name() == name)
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -982,10 +976,6 @@ impl Output {
             Self::Standard => "standard",
             Self::Detailed => "detailed",
         }
-    }
-
-    pub fn named(name: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|output| output.name() == name)
     }
 }
 

@@ -1510,6 +1510,11 @@ fn codex_shows_its_first_turn_from_the_moment_its_server_lets_the_chat_follow() 
             .iter()
             .all(|call| call["p"]["threadId"] == "00000001-0000-7000-8000-000000000000")
     );
+    assert_eq!(
+        play.agent.conversation(),
+        Some("00000001-0000-7000-8000-000000000000"),
+        "the conversation that the terminal shows"
+    );
 }
 
 #[test]
@@ -2197,16 +2202,6 @@ async fn an_agent_reaches_the_chat_of_its_terminal_at_the_addresses_that_the_ter
         assert_eq!(greet(stream, terminal).await, "HTTP/1.1 204 No Content");
         linked(&chat).await;
     }
-}
-
-#[test]
-fn codex_names_the_conversation_that_its_terminal_shows() {
-    let play = Play::codex(&[codex!("first")], &[]);
-
-    assert_eq!(
-        play.agent.conversation(),
-        Some("00000001-0000-7000-8000-000000000000")
-    );
 }
 
 #[test]
