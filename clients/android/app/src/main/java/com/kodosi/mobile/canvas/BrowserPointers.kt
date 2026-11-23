@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -48,6 +47,7 @@ import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
+import com.kodosi.mobile.ui.dropShadow
 import com.kodosi.mobile.ui.personTint
 import com.kodosi.mobile.ui.reducedMotion
 import com.kodosi.mobile.ui.snappy
