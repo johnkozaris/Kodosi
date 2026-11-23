@@ -346,7 +346,6 @@
 "{name} has this task. Take another task, or ask them to release it.": "{name} tiene esta tarea. Coge otra o pídele que la libere.",
 "{name} is missing. The agent can show it again.": "Falta {name}. El agente puede volver a mostrarlo.",
 "{name} is not on this computer.": "{name} no está en este ordenador.",
-"{name} is offline. The terminal closes when it is back.": "{name} está sin conexión. El terminal se cerrará cuando vuelva.",
 "{name} keeps its sign-ins locked on this computer, so sign in on the canvas.": "{name} mantiene bloqueados sus inicios de sesión en este ordenador, así que inicia sesión en el lienzo.",
 "{program} did not start: {error}": "{program} no se inició: {error}",
 "{reason} Approve this device from another device, or start fresh here.": "{reason} Aprueba este dispositivo desde otro o empieza de cero aquí.",

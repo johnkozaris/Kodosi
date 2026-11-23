@@ -346,7 +346,6 @@
 "{name} has this task. Take another task, or ask them to release it.": "{name} 已认领此任务。请认领其他任务，或请对方放弃认领。",
 "{name} is missing. The agent can show it again.": "找不到 {name}。Agent 可以重新显示它。",
 "{name} is not on this computer.": "这台电脑上没有 {name}。",
-"{name} is offline. The terminal closes when it is back.": "{name} 已离线。它重新上线后，终端将关闭。",
 "{name} keeps its sign-ins locked on this computer, so sign in on the canvas.": "{name} 在这台电脑上锁定了它的登录信息，请在画布中登录。",
 "{program} did not start: {error}": "{program} 未能启动：{error}",
 "{reason} Approve this device from another device, or start fresh here.": "{reason} 请从另一台设备批准此设备，或在这里重新开始。",
