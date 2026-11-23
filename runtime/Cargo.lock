@@ -2004,6 +2004,7 @@ dependencies = [
  "nix",
  "rustix",
  "security-framework",
+ "socket2",
  "tempfile",
  "tokio",
  "trash",

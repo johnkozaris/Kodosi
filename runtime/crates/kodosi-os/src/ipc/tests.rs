@@ -24,7 +24,19 @@ fn endpoint_names_are_validated() {
 
 #[tokio::test]
 async fn a_listener_serves_its_user_and_refuses_a_second_owner() {
-    let endpoint = Endpoint::new(&namespace(), "host").unwrap();
+    serves_its_user_and_refuses_a_second_owner(Endpoint::new(&namespace(), "host").unwrap()).await;
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn a_socket_file_serves_its_user_and_refuses_a_second_owner() {
+    serves_its_user_and_refuses_a_second_owner(
+        Endpoint::socket_file(&namespace(), "host").unwrap(),
+    )
+    .await;
+}
+
+async fn serves_its_user_and_refuses_a_second_owner(endpoint: Endpoint) {
     assert_eq!(
         connect(&endpoint).await.err().map(|error| error.kind()),
         Some(io::ErrorKind::NotFound)

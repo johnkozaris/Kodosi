@@ -146,9 +146,9 @@ impl CodexAddresses {
         let endpoint =
             kodosi_os::ipc::Endpoint::new(&self.namespace, &format!("{start}{name}")).ok()?;
         let server = endpoint
-            .socket()
+            .address()
             .with_file_name(format!("{start}{name}-s.sock"));
-        let address = super::codex_link::address(endpoint.socket())?;
+        let address = super::codex_link::address(endpoint.address())?;
         tokio::spawn(super::codex_link::serve(
             endpoint,
             server,
@@ -209,7 +209,7 @@ async fn listen(
 
 #[cfg(unix)]
 fn socket_of(endpoint: &kodosi_os::ipc::Endpoint) -> Option<Arc<str>> {
-    endpoint.socket().to_str().map(Arc::from)
+    endpoint.address().to_str().map(Arc::from)
 }
 
 /// The module of an agent's link reaches a socket file, and a Windows endpoint is a named pipe.

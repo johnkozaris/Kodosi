@@ -141,11 +141,20 @@ impl Descriptor {
         } else {
             String::new()
         };
-        let sddl = format!("D:P(A;{flags};{rights};;;{sid}){system}");
+        Self::parse(&format!("D:P(A;{flags};{rights};;;{sid}){system}"))
+    }
+
+    /// A folder that its user owns and that only its user and what it holds can reach.
+    pub(crate) fn user_only_folder() -> io::Result<Self> {
+        let sid = user_sid()?;
+        Self::parse(&format!("O:{sid}D:P(A;OICI;FA;;;{sid})"))
+    }
+
+    fn parse(sddl: &str) -> io::Result<Self> {
         let mut descriptor: PSECURITY_DESCRIPTOR = ptr::null_mut();
         if unsafe {
             ConvertStringSecurityDescriptorToSecurityDescriptorW(
-                wide(&sddl).as_ptr(),
+                wide(sddl).as_ptr(),
                 SDDL_REVISION_1,
                 &raw mut descriptor,
                 ptr::null_mut(),
