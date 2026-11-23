@@ -482,10 +482,6 @@
     <string name="today">今天</string>
     <string name="yesterday">昨天</string>
     <string name="chat_usage_used">%1$s：已用 %2$d%%</string>
-    <string name="chat_usage_month">本月</string>
-    <string name="chat_usage_week">本周</string>
-    <string name="chat_usage_scope_month">%1$s，本月</string>
-    <string name="chat_usage_scope_week">%1$s，本周</string>
     <plurals name="chat_ran_commands">
         <item quantity="other">运行了 %d 条命令</item>
     </plurals>
@@ -527,12 +523,6 @@
     </plurals>
     <plurals name="chat_count_stopped">
         <item quantity="other">%d 个已停止</item>
-    </plurals>
-    <plurals name="chat_usage_hours">
-        <item quantity="other">过去 %d 小时</item>
-    </plurals>
-    <plurals name="chat_usage_scope_hours">
-        <item quantity="other">%1$s，过去 %2$d 小时</item>
     </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="other">任务：已完成 %1$d/%2$d</item>

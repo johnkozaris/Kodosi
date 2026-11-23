@@ -13,34 +13,44 @@ public extension UsageLevel {
 
 public struct UsageRing: View {
     @Environment(\.theme) private var theme
-    let limit: UsageLimit?
+    /// The percent used, or none while there is no reading.
+    let used: Int?
+    let level: UsageLevel
     var lineWidth: CGFloat = 2
     var loading = false
     @State private var drawn = 0.0
 
     public init(limit: UsageLimit?, lineWidth: CGFloat = 2, loading: Bool = false) {
-        self.limit = limit
+        used = limit?.used
+        level = limit?.level ?? .normal
         self.lineWidth = lineWidth
         self.loading = loading
     }
 
+    /// A ring of a share that is no limit of a plan, such as the context of a session.
+    public init(used: Int, level: UsageLevel, lineWidth: CGFloat = 2) {
+        self.used = used
+        self.level = level
+        self.lineWidth = lineWidth
+    }
+
     private var fraction: Double {
-        Double(limit?.used ?? 0) / 100
+        Double(used ?? 0) / 100
     }
 
     public var body: some View {
         ZStack {
             Circle().inset(by: lineWidth / 2).stroke(
-                theme.colors.ink.opacity(limit == nil ? 0.24 : 0.12),
-                style: StrokeStyle(lineWidth: lineWidth, dash: limit == nil && !loading ? [lineWidth * 1.1, lineWidth * 1.5] : []),
+                theme.colors.ink.opacity(used == nil ? 0.24 : 0.12),
+                style: StrokeStyle(lineWidth: lineWidth, dash: used == nil && !loading ? [lineWidth * 1.1, lineWidth * 1.5] : []),
             )
-            if let limit, limit.used > 0 {
+            if let used, used > 0 {
                 Circle().inset(by: lineWidth / 2)
                     .trim(from: 0, to: drawn)
-                    .stroke(limit.level.color(theme.colors), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .stroke(level.color(theme.colors), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                     .rotationEffect(.degrees(-90))
             }
-            if limit == nil, loading {
+            if used == nil, loading {
                 LoadingArc(lineWidth: lineWidth).transition(.opacity)
             }
         }
@@ -50,7 +60,7 @@ public struct UsageRing: View {
         .onChange(of: fraction) { _, now in
             withAnimation(theme.motion.soft) { drawn = now }
         }
-        .animation(theme.motion.fade, value: limit?.level)
+        .animation(theme.motion.fade, value: used == nil ? nil : level)
         .animation(theme.motion.fade, value: loading)
         .accessibilityHidden(true)
     }

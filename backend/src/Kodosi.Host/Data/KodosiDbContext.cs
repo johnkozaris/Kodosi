@@ -15,6 +15,7 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
     public DbSet<Block> Blocks => Set<Block>();
     public DbSet<FriendList> FriendLists => Set<FriendList>();
     public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<TerminalPush> TerminalPushes => Set<TerminalPush>();
     public DbSet<SessionMember> SessionMembers => Set<SessionMember>();
     public DbSet<HiddenSession> HiddenSessions => Set<HiddenSession>();
     public DbSet<Project> Projects => Set<Project>();
@@ -128,6 +129,14 @@ public sealed class KodosiDbContext(DbContextOptions<KodosiDbContext> options) :
             e.HasOne<User>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Device>().WithMany().HasForeignKey(x => x.HostDeviceId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.SetNull);
+        });
+        model.Entity<TerminalPush>(e =>
+        {
+            e.ToTable("terminal_pushes"); e.HasKey(x => x.SessionId);
+            e.Property(x => x.Program).HasMaxLength(32);
+            e.Property(x => x.State).HasMaxLength(16);
+            e.Property(x => x.Kind).HasMaxLength(16);
+            e.HasOne<Session>().WithOne().HasForeignKey<TerminalPush>(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<SessionMember>(e =>
         {

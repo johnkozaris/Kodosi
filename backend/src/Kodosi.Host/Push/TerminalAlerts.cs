@@ -8,6 +8,8 @@ internal sealed record PushAlert(Guid TerminalId, TerminalStatus Status, bool So
 
 internal sealed record PushNotice(Guid OwnerId, IReadOnlyList<PushedTerminal> Pushed, PushAlert? Alert = null, string? DeviceId = null);
 
+internal sealed record PushRecord(Guid OwnerId, Guid TerminalId, TerminalStatus Status, DateTimeOffset At);
+
 internal sealed partial class TerminalAlerts(ConnectionDirectory directory, TimeProvider clock, ILogger<TerminalAlerts> logger)
 {
     // The wait also keeps a server that just started from pushing before the devices report again.
@@ -23,8 +25,11 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
     private readonly Dictionary<Guid, Dictionary<Guid, Pushed>> pushed = [];
     private readonly Dictionary<Guid, Queue<DateTimeOffset>> sent = [];
     private readonly Dictionary<Guid, DateTimeOffset> sounded = [];
+    private readonly Dictionary<Guid, PushRecord?> unsaved = [];
+    private readonly Dictionary<Guid, Guid> unconfirmed = [];
     private List<PushNotice> outbox = [];
     private int remembered;
+    private DateTimeOffset forgetsFrom = DateTimeOffset.MinValue;
 
     public void Follow()
     {
@@ -44,13 +49,12 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
         lock (sync)
         {
             waiting.Remove(report.SessionId);
+            unconfirmed.Remove(report.SessionId);
             var push = pushed.GetValueOrDefault(report.OwnerId)?.GetValueOrDefault(report.SessionId);
-            if (push is not null && (status is not { Attention: true } || status.State != push.Status.State))
+            if (push is not null && !Holds(status, push))
             {
                 Forget(report.OwnerId, report.SessionId);
-                var listed = Listed(report.OwnerId);
-                Withdrawn(logger, report.OwnerId, listed.Count);
-                outbox.Add(new PushNotice(report.OwnerId, listed));
+                Withdraw(report.OwnerId);
                 push = null;
             }
             if (status is { Attention: true } && push is null && waiting.Count < ConnectionDirectory.MaximumHostedTerminals)
@@ -68,6 +72,50 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
                 if (status.State == "blocked" && pushed.GetValueOrDefault(ownerId)?.GetValueOrDefault(terminalId) is not { Status.State: "blocked" })
                     waiting.TryAdd(terminalId, new Waiting(ownerId, status, due, "the person became away"));
         }
+    }
+
+    /// The pushes from before a restart come back while the hosts connect again. A state that a host
+    /// reported first decides at once; a terminal whose host is back without that wait by the time
+    /// the hosts had to connect again has its push taken back.
+    public void Restore(IEnumerable<PushRecord> records)
+    {
+        lock (sync)
+        {
+            HashSet<Guid> changed = [];
+            foreach (var record in records)
+            {
+                var push = new Pushed(record.Status, record.At);
+                if (directory.Live(record.TerminalId) is (true, { } reported) && !Holds(reported, push))
+                {
+                    unsaved[record.TerminalId] = null;
+                    changed.Add(record.OwnerId);
+                    continue;
+                }
+                if (waiting.GetValueOrDefault(record.TerminalId) is { } wait && Holds(wait.Status, push)) waiting.Remove(record.TerminalId);
+                if (!pushed.TryGetValue(record.OwnerId, out var terminals)) pushed[record.OwnerId] = terminals = [];
+                if (!terminals.TryAdd(record.TerminalId, push)) continue;
+                remembered++;
+                unconfirmed[record.TerminalId] = record.OwnerId;
+            }
+            foreach (var ownerId in changed) Withdraw(ownerId);
+            forgetsFrom = clock.GetUtcNow() + ConnectionDirectory.PresenceLease;
+        }
+    }
+
+    public Dictionary<Guid, PushRecord?> TakeUnsaved()
+    {
+        lock (sync)
+        {
+            Dictionary<Guid, PushRecord?> taken = new(unsaved);
+            unsaved.Clear();
+            return taken;
+        }
+    }
+
+    public void SaveLater(IReadOnlyDictionary<Guid, PushRecord?> records)
+    {
+        lock (sync)
+            foreach (var (terminalId, record) in records) unsaved.TryAdd(terminalId, record);
     }
 
     public List<PushNotice> Take()
@@ -128,6 +176,7 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
         if (!pushed.TryGetValue(ownerId, out var terminals)) pushed[ownerId] = terminals = [];
         if (terminals.TryAdd(terminalId, push)) remembered++;
         else terminals[terminalId] = push;
+        unsaved[terminalId] = new PushRecord(ownerId, terminalId, push.Status, push.At);
         if (remembered <= MostRemembered) return;
         var oldest = pushed.SelectMany(owner => owner.Value.Select(terminal => (Owner: owner.Key, Terminal: terminal.Key, terminal.Value.At)))
             .MinBy(x => x.At);
@@ -137,17 +186,23 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
     private void Forget(Guid ownerId, Guid terminalId)
     {
         if (!pushed.TryGetValue(ownerId, out var terminals) || !terminals.Remove(terminalId)) return;
+        unsaved[terminalId] = null;
         remembered--;
         if (terminals.Count == 0) pushed.Remove(ownerId);
     }
 
     private void ForgetOld(DateTimeOffset now)
     {
-        var old = pushed.SelectMany(owner => owner.Value
-                .Where(terminal => now - terminal.Value.At >= Remembered && !StillWaits(terminal.Key, terminal.Value))
-                .Select(terminal => (owner.Key, terminal.Key)))
-            .ToList();
-        foreach (var (ownerId, terminalId) in old) Forget(ownerId, terminalId);
+        // The hosts of a server that just started have to connect again before their terminals wait.
+        if (now >= forgetsFrom)
+        {
+            ConfirmRestored();
+            var old = pushed.SelectMany(owner => owner.Value
+                    .Where(terminal => now - terminal.Value.At >= Remembered && !StillWaits(terminal.Key, terminal.Value))
+                    .Select(terminal => (owner.Key, terminal.Key)))
+                .ToList();
+            foreach (var (ownerId, terminalId) in old) Forget(ownerId, terminalId);
+        }
         foreach (var (ownerId, times) in sent.ToArray())
         {
             while (times.TryPeek(out var oldest) && now - oldest >= Hour) times.Dequeue();
@@ -157,8 +212,31 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
             if (now - at >= SoundSpacing) sounded.Remove(ownerId);
     }
 
+    private void ConfirmRestored()
+    {
+        if (unconfirmed.Count == 0) return;
+        HashSet<Guid> changed = [];
+        foreach (var (terminalId, ownerId) in unconfirmed)
+            if (directory.Live(terminalId) is (true, var status) && pushed.GetValueOrDefault(ownerId)?.GetValueOrDefault(terminalId) is { } push && !Holds(status, push))
+            {
+                Forget(ownerId, terminalId);
+                changed.Add(ownerId);
+            }
+        unconfirmed.Clear();
+        foreach (var ownerId in changed) Withdraw(ownerId);
+    }
+
+    private void Withdraw(Guid ownerId)
+    {
+        var listed = Listed(ownerId);
+        Withdrawn(logger, ownerId, listed.Count);
+        outbox.Add(new PushNotice(ownerId, listed));
+    }
+
     private bool StillWaits(Guid terminalId, Pushed push) =>
-        directory.Live(terminalId) is (true, { Attention: true } status) && status.State == push.Status.State;
+        directory.Live(terminalId) is (true, { } status) && Holds(status, push);
+
+    private static bool Holds(TerminalStatus? status, Pushed push) => status is { Attention: true } && status.State == push.Status.State;
 
     private sealed record Waiting(Guid OwnerId, TerminalStatus Status, DateTimeOffset Due, string Reason);
 
