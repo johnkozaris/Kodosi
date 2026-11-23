@@ -286,6 +286,8 @@
     <string name="save_copy">사본 저장…</string>
     <string name="ask_about_this">이것에 대해 묻기</string>
     <string name="remove_from_canvas">캔버스에서 제거</string>
+    <string name="remove_all_from_canvas">모두 캔버스에서 제거</string>
+    <string name="move_to_trash">휴지통으로 이동</string>
     <string name="file_too_large">캔버스에는 32MB까지 파일을 올릴 수 있어요.</string>
     <string name="file_unavailable">이 파일을 사용할 수 없습니다.</string>
     <string name="uploading">파일을 보내는 중</string>

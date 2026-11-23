@@ -149,6 +149,8 @@ bar, and a banner names what the agent shows or changes, with Open.
   link to a slide or a cell of the same file goes there.
 - Select words on a page or in a document, then Ask about this. Kodosi types the file and
   the words into the terminal, and you write the question.
+- Right-click a file's tab, or touch and hold it on a phone, to save a copy, take the file
+  or all files off the canvas, or move the file to the Trash of the terminal's computer.
 - Click and type in the shared browser as in your own. The agent sees the same pages and
   sign-ins, and its next command tells it that you used the browser. After 10 minutes with
   no use the browser sleeps, and it opens its last page again when you look at it or the

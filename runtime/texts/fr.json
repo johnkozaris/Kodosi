@@ -330,6 +330,7 @@
 "macOS lets only apps with Full Disk Access read the sign-ins of {name}.": "macOS ne laisse que les apps disposant de l'Accès complet au disque lire les connexions de {name}.",
 "{computer} is offline.": "{computer} est hors ligne.",
 "{computer} is online.": "{computer} est en ligne.",
+"{name} could not be moved to the trash, so it stays in its folder.": "Impossible de placer {name} dans la corbeille : il reste dans son dossier.",
 "{name} could not be read.": "Impossible de lire {name}.",
 "{name} could not be saved.": "Impossible d'enregistrer {name}.",
 "{name} did not give Kodosi the key of its sign-ins.": "{name} n'a pas donné à Kodosi la clé de ses connexions.",

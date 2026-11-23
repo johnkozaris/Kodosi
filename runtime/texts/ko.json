@@ -330,6 +330,7 @@
 "macOS lets only apps with Full Disk Access read the sign-ins of {name}.": "macOS에서는 전체 디스크 접근 권한이 있는 앱만 {name}의 로그인 정보를 읽을 수 있어요.",
 "{computer} is offline.": "{computer}이(가) 오프라인이에요.",
 "{computer} is online.": "{computer}이(가) 온라인이에요.",
+"{name} could not be moved to the trash, so it stays in its folder.": "{name}을(를) 휴지통으로 옮기지 못해 원래 폴더에 그대로 있어요.",
 "{name} could not be read.": "{name}을(를) 읽지 못했어요.",
 "{name} could not be saved.": "{name}을(를) 저장하지 못했어요.",
 "{name} did not give Kodosi the key of its sign-ins.": "{name}에서 Kodosi에 로그인 정보 키를 주지 않았어요.",

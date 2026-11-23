@@ -440,6 +440,26 @@ async fn a_removed_file_closes_the_document_and_says_so() {
 }
 
 #[tokio::test]
+async fn a_file_that_goes_takes_its_last_change_along_and_its_views_hear_it() {
+    let rig = rig();
+    let mut ana = joined(&rig.documents, &rig.file, "ana").await;
+    change(&ana, 1, 0, "a1", "x").await;
+    assert!(matches!(message(&mut ana).await, ToClient::Changed(_)));
+    rig.documents.close_for_removal(&rig.file).await;
+    assert_eq!(file_value(&rig.file, "a1").as_deref(), Some("x"));
+    assert!(matches!(
+        message(&mut ana).await,
+        ToClient::Saved { rev: 1, .. }
+    ));
+    assert!(matches!(
+        message(&mut ana).await,
+        ToClient::Closed {
+            reason: ClosedReason::Removed
+        }
+    ));
+}
+
+#[tokio::test]
 async fn a_view_that_reads_nothing_loses_its_pipe_and_others_go_on() {
     let rig = rig();
     let slow = joined(&rig.documents, &rig.file, "slow").await;

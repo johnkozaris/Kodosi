@@ -286,6 +286,8 @@
     <string name="save_copy">Αποθήκευση αντιγράφου…</string>
     <string name="ask_about_this">Ερώτηση γι\' αυτό</string>
     <string name="remove_from_canvas">Αφαίρεση από το canvas</string>
+    <string name="remove_all_from_canvas">Αφαίρεση όλων από το canvas</string>
+    <string name="move_to_trash">Μετακίνηση στον κάδο</string>
     <string name="file_too_large">Το canvas δέχεται αρχεία έως 32 MB.</string>
     <string name="file_unavailable">Αυτό το αρχείο δεν είναι διαθέσιμο.</string>
     <string name="uploading">Αποστολή αρχείου</string>

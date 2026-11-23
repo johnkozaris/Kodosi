@@ -7158,6 +7158,22 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "trash"
+                  }
+                },
+                "required": [
+                  "type",
+                  "key"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
                   "data": {
                     "type": "string"
                   },
@@ -17829,7 +17845,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 104,
+  "protocolVersion": 105,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

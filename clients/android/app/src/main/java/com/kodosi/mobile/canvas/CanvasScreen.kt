@@ -289,13 +289,23 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
                             askAbout(menuItem?.key, words)
                         })
                     }
-                    if (menuItem !=
-                        null
-                    ) {
+                    if (menuItem != null) {
                         KodosiMenuItem(text = { Text(stringResource(R.string.remove_from_canvas)) }, onClick = {
                             menu = false
                             scope.launch { model.runAction { model.canvas.remove(sessionId, menuItem.key) } }
                         })
+                        if ((canvas?.items?.size ?: 0) > 1) {
+                            KodosiMenuItem(text = { Text(stringResource(R.string.remove_all_from_canvas)) }, onClick = {
+                                menu = false
+                                scope.launch { model.runAction { model.canvas.removeAll(sessionId) } }
+                            })
+                        }
+                        if (!menuItem.missing) {
+                            KodosiMenuItem(text = { Text(stringResource(R.string.move_to_trash)) }, onClick = {
+                                menu = false
+                                scope.launch { model.runAction { model.canvas.trash(sessionId, menuItem.key) } }
+                            })
+                        }
                     }
                     KodosiMenuItem(text = { Text(stringResource(R.string.close_part)) }, onClick = {
                         menu = false

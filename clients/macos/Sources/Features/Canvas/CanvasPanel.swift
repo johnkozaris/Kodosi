@@ -256,6 +256,17 @@ struct CanvasPanel: View {
         }
         Divider()
         Button("Remove from Canvas", systemImage: "xmark") { remove([item.key]) }
+        if (session.canvas?.files.count ?? 0) > 1 {
+            Button("Remove All from Canvas", systemImage: "xmark") {
+                perform { try await deps.canvas.removeAll(in: session.id) }
+            }
+        }
+        if !item.missing {
+            Divider()
+            Button("Move to Trash", systemImage: "trash") {
+                perform { try await deps.canvas.trash(item, in: session.id) }
+            }
+        }
     }
 
     @ContentBuilder
@@ -305,9 +316,13 @@ struct CanvasPanel: View {
     }
 
     private func remove(_ keys: [String]) {
+        perform { try await deps.canvas.remove(keys, in: session.id) }
+    }
+
+    private func perform(_ work: @escaping () async throws -> Void) {
         Task {
             do {
-                try await deps.canvas.remove(keys, in: session.id)
+                try await work()
             } catch { deps.errorMessage = error.localizedDescription }
         }
     }

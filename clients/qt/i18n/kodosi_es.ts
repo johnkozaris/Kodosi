@@ -717,6 +717,14 @@
         <translation>Quitar del lienzo</translation>
     </message>
     <message>
+        <source>Remove all from canvas</source>
+        <translation>Quitar todo del lienzo</translation>
+    </message>
+    <message>
+        <source>Move to trash</source>
+        <translation>Mover a la papelera</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>Falta el archivo</translation>
     </message>
