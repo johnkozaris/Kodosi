@@ -126,7 +126,9 @@ module in Kodosi's plugin, which reaches a socket of the host that the terminal 
 its environment. For Codex it is Codex's app server: a Codex that connects to the address
 that the terminal names gets a server that the host starts with Codex's own program, and
 the host follows that server as a second client. For Copilot CLI it is an extension in a
-plugin of Kodosi's, which Kodosi's start line of Copilot names. Antigravity CLI's terminal
+plugin of Kodosi's, which Kodosi's start line of Copilot names. The extension runs in Node,
+which reaches no socket file on Windows, so there it reaches the host at a named pipe that
+the terminal also names. Antigravity CLI's terminal
 app has no such interface. For its chat, `kodosi acp -- agy acp` runs the person's own
 server of Antigravity CLI in the terminal, with the terminal's folder and environment,
 speaks the Agent Client Protocol to it as an editor does, and carries its messages to the

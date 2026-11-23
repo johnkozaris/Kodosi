@@ -56,11 +56,9 @@ pub enum KodosiError {
 }
 
 pub use pty::{
-    CONSOLE_HOST, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome, open_files,
-    process_group,
+    CONSOLE_HOST, KodosiPty, ProcessStart, PtyReader, ShutdownStage, Transfer, WaitOutcome,
+    open_files, process_group, process_start,
 };
-#[cfg(unix)]
-pub use pty::{ProcessStart, process_start};
 
 macro_rules! ghostty_version {
     () => {

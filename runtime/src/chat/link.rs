@@ -1,4 +1,4 @@
-//! The local endpoint where the agents in this computer's terminals report to their chats.
+//! The local endpoints where the agents in this computer's terminals report to their chats.
 
 use std::{
     collections::HashMap,
@@ -29,14 +29,13 @@ const MOST_NAME: usize = 64;
 const MOST_KEPT: usize = 9 * 1024 * 1024;
 
 type Rooms = Arc<Mutex<HashMap<Uuid, mpsc::WeakSender<Job>>>>;
+type Variables = Vec<(&'static str, String)>;
 
 /// What a new terminal gets for its chat.
 pub(crate) struct TerminalChat {
     pub(crate) handle: ChatHandle,
-    /// Where the terminal's agents report, on a platform that has such an address.
-    pub(crate) socket: Option<String>,
-    /// Where a Codex of the terminal finds its app-server, on such a platform.
-    pub(crate) codex: Option<String>,
+    /// The variables that tell the terminal's agents where they report.
+    pub(crate) variables: Variables,
 }
 
 impl TerminalChat {
@@ -44,24 +43,21 @@ impl TerminalChat {
     pub(crate) fn alone() -> Self {
         Self {
             handle: ChatHandle::spawn(),
-            socket: None,
-            codex: None,
+            variables: Vec::new(),
         }
     }
 }
 
-/// The chats of this computer's terminals, and the address where their agents reach them.
+/// The chats of this computer's terminals, and the addresses where their agents reach them.
 #[derive(Clone)]
 pub(crate) struct Links {
     rooms: Rooms,
-    socket: Option<Arc<str>>,
-    #[cfg(unix)]
+    addresses: Arc<[(&'static str, String)]>,
     codex: Option<CodexAddresses>,
     _served: Arc<tokio_util::sync::DropGuard>,
 }
 
 /// What gives each terminal its own address for Codex's server.
-#[cfg(unix)]
 #[derive(Clone)]
 struct CodexAddresses {
     /// The name of this host's private folder of local addresses.
@@ -73,20 +69,17 @@ impl Links {
     pub(crate) async fn serve(root: &Path) -> Self {
         let rooms = Rooms::default();
         let stop = CancellationToken::new();
-        let served = listen(root, Arc::clone(&rooms), stop.clone())
-            .await
-            .unwrap_or_else(|error| {
+        let (addresses, codex) = match listen(root, Arc::clone(&rooms), stop.clone()).await {
+            Ok((addresses, namespace)) => (addresses, CodexAddresses::new(namespace, &stop)),
+            Err(error) => {
                 tracing::warn!(%error, "agents cannot report to the chats of their terminals");
-                None
-            });
+                (Vec::new(), None)
+            }
+        };
         Self {
             rooms,
-            socket: served.as_ref().map(|(socket, _)| Arc::clone(socket)),
-            #[cfg(unix)]
-            codex: served.map(|(_, namespace)| CodexAddresses {
-                namespace,
-                stop: stop.clone(),
-            }),
+            addresses: addresses.into(),
+            codex,
             _served: Arc::new(stop.drop_guard()),
         }
     }
@@ -96,8 +89,7 @@ impl Links {
         let stop = CancellationToken::new();
         Self {
             rooms: Rooms::default(),
-            socket: None,
-            #[cfg(unix)]
+            addresses: Arc::new([]),
             codex: None,
             _served: Arc::new(stop.drop_guard()),
         }
@@ -110,23 +102,17 @@ impl Links {
             rooms.retain(|_, room| room.upgrade().is_some());
             rooms.insert(terminal, handle.jobs());
         }
+        let codex = self
+            .codex
+            .as_ref()
+            .and_then(|codex| codex.serve(terminal, &handle))
+            .map(|address| (super::CODEX_VARIABLE, address));
         TerminalChat {
-            #[cfg(unix)]
-            codex: self
-                .codex
-                .as_ref()
-                .and_then(|codex| codex.serve(terminal, &handle)),
-            // Codex reaches its app-server at a socket file, and a Windows endpoint is a named pipe.
-            #[cfg(not(unix))]
-            codex: None,
+            variables: self.addresses.iter().cloned().chain(codex).collect(),
             handle,
-            socket: self.socket.as_deref().map(str::to_owned),
         }
     }
-}
 
-#[cfg(unix)]
-impl Links {
     /// How the address of each terminal's Codex server starts.
     pub(crate) fn codex_servers(&self) -> Option<String> {
         let folder = kodosi_os::ipc::private_dir(&self.codex.as_ref()?.namespace).ok()?;
@@ -134,88 +120,127 @@ impl Links {
     }
 }
 
-#[cfg(unix)]
 impl CodexAddresses {
+    /// Each terminal's addresses have the same length, so the addresses of one terminal show
+    /// whether this host's folder of local addresses has room for them.
+    fn new(namespace: Arc<str>, stop: &CancellationToken) -> Option<Self> {
+        Self::endpoints(&namespace, Uuid::max())?;
+        Some(Self {
+            namespace,
+            stop: stop.clone(),
+        })
+    }
+
     /// Serves the address of one terminal, and gives it as Codex takes it.
     fn serve(&self, terminal: Uuid, chat: &ChatHandle) -> Option<String> {
-        // The end of a terminal's name is what tells it from the others of its time, and an
-        // address has room for few characters.
-        let name = terminal.simple().to_string();
-        let name = &name[name.len() - 16..];
-        let start = super::codex_link::NAME;
-        let endpoint =
-            kodosi_os::ipc::Endpoint::new(&self.namespace, &format!("{start}{name}")).ok()?;
-        let server = endpoint
-            .socket()
-            .with_file_name(format!("{start}{name}-s.sock"));
-        let address = super::codex_link::address(endpoint.socket())?;
+        let (endpoint, server) = Self::endpoints(&self.namespace, terminal)?;
+        let address = super::codex_link::address(endpoint.address())?;
         tokio::spawn(super::codex_link::serve(
             endpoint,
-            server,
+            server.address().to_owned(),
             chat.jobs(),
             chat.linked(),
             self.stop.clone(),
         ));
         Some(address)
     }
+
+    /// Where the terminal's Codex connects, and where its server listens. The end of a
+    /// terminal's name is what tells it from the others of its time, and an address has room for
+    /// few characters.
+    fn endpoints(
+        namespace: &str,
+        terminal: Uuid,
+    ) -> Option<(kodosi_os::ipc::Endpoint, kodosi_os::ipc::Endpoint)> {
+        let name = terminal.simple().to_string();
+        let name = &name[name.len() - 16..];
+        let start = super::codex_link::NAME;
+        Some((
+            kodosi_os::ipc::Endpoint::socket_file(namespace, &format!("{start}{name}")).ok()?,
+            kodosi_os::ipc::Endpoint::socket_file(namespace, &format!("{start}{name}-s")).ok()?,
+        ))
+    }
 }
 
-/// The address where the agents report, with the name of the host's folder of local addresses.
+/// Serves the addresses where the agents report, and gives them as variables of a terminal, with
+/// the name of the host's folder of local addresses.
 async fn listen(
     root: &Path,
     rooms: Rooms,
     stop: CancellationToken,
-) -> std::io::Result<Option<(Arc<str>, Arc<str>)>> {
+) -> std::io::Result<(Variables, Arc<str>)> {
     let root = kodosi_os::fs::canonicalize(root)?;
     let namespace = crate::local_host::namespace(&root);
-    let endpoint = kodosi_os::ipc::Endpoint::new(&namespace, ROLE)?;
-    let Some(socket) = socket_of(&endpoint) else {
-        return Ok(None);
-    };
-    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint).await?;
-    // The address is this host's now, so no other host has servers in the folder.
+    let slots = Arc::new(Semaphore::new(MOST_CONNECTIONS));
+    let mut addresses = Vec::new();
+    for (variable, endpoint) in endpoints(&namespace)? {
+        let address = endpoint
+            .address()
+            .to_str()
+            .ok_or_else(|| std::io::Error::other("the address of the agents' links is not UTF-8"))?
+            .to_owned();
+        let listener = kodosi_os::ipc::Listener::bind(&endpoint).await?;
+        tokio::spawn(accept(
+            listener,
+            Arc::clone(&rooms),
+            Arc::clone(&slots),
+            stop.clone(),
+        ));
+        addresses.push((variable, address));
+    }
+    // The addresses are this host's now, so no other host has servers in the folder.
     #[cfg(unix)]
     if let Ok(folder) = kodosi_os::ipc::private_dir(&namespace) {
         super::codex_link::end_left_servers(&folder).await;
     }
-    tokio::spawn(async move {
-        let slots = Arc::new(Semaphore::new(MOST_CONNECTIONS));
-        loop {
-            let stream = tokio::select! {
-                () = stop.cancelled() => return,
-                accepted = listener.accept() => match accepted {
-                    Ok(stream) => stream,
-                    Err(error) => {
-                        tracing::warn!(%error, "the endpoint of the agents' links closed");
-                        return;
-                    }
-                },
-            };
-            let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else {
-                continue;
-            };
-            let (rooms, stop) = (Arc::clone(&rooms), stop.clone());
-            tokio::spawn(async move {
-                let _slot = slot;
-                tokio::select! {
-                    () = stop.cancelled() => {}
-                    () = connection(stream, rooms) => {}
+    Ok((addresses, namespace.into()))
+}
+
+/// Claude Code's module reaches a socket file, and a program of Node reaches a local endpoint on
+/// Windows only at a named pipe.
+fn endpoints(namespace: &str) -> std::io::Result<Vec<(&'static str, kodosi_os::ipc::Endpoint)>> {
+    let mut endpoints = vec![(
+        super::LINK_VARIABLE,
+        kodosi_os::ipc::Endpoint::socket_file(namespace, ROLE)?,
+    )];
+    if cfg!(windows) {
+        endpoints.push((
+            super::PIPE_VARIABLE,
+            kodosi_os::ipc::Endpoint::new(namespace, ROLE)?,
+        ));
+    }
+    Ok(endpoints)
+}
+
+async fn accept(
+    mut listener: kodosi_os::ipc::Listener,
+    rooms: Rooms,
+    slots: Arc<Semaphore>,
+    stop: CancellationToken,
+) {
+    loop {
+        let stream = tokio::select! {
+            () = stop.cancelled() => return,
+            accepted = listener.accept() => match accepted {
+                Ok(stream) => stream,
+                Err(error) => {
+                    tracing::warn!(%error, "the endpoint of the agents' links closed");
+                    return;
                 }
-            });
-        }
-    });
-    Ok(Some((socket, namespace.into())))
-}
-
-#[cfg(unix)]
-fn socket_of(endpoint: &kodosi_os::ipc::Endpoint) -> Option<Arc<str>> {
-    endpoint.socket().to_str().map(Arc::from)
-}
-
-/// The module of an agent's link reaches a socket file, and a Windows endpoint is a named pipe.
-#[cfg(not(unix))]
-fn socket_of(_: &kodosi_os::ipc::Endpoint) -> Option<Arc<str>> {
-    None
+            },
+        };
+        let Ok(slot) = Arc::clone(&slots).try_acquire_owned() else {
+            continue;
+        };
+        let (rooms, stop) = (Arc::clone(&rooms), stop.clone());
+        tokio::spawn(async move {
+            let _slot = slot;
+            tokio::select! {
+                () = stop.cancelled() => {}
+                () = connection(stream, rooms) => {}
+            }
+        });
+    }
 }
 
 async fn connection(mut stream: kodosi_os::ipc::Stream, rooms: Rooms) {
@@ -327,7 +352,6 @@ async fn respond(
 
 /// The agent's greeting carries the command line that its program started with. Some choices of
 /// a session, such as Claude Code's permission modes, are given there and reported nowhere else.
-#[cfg(unix)]
 fn started_with(events: &mut [Value], peer: Option<u32>) {
     let Some(hello) = events
         .iter_mut()
@@ -339,10 +363,6 @@ fn started_with(events: &mut [Value], peer: Option<u32>) {
         hello["arguments"] = json!(start.arguments);
     }
 }
-
-/// The module of an agent's link reaches a socket file, and a Windows endpoint is a named pipe.
-#[cfg(not(unix))]
-const fn started_with(_: &mut [Value], _: Option<u32>) {}
 
 /// The chat's answer to a request that waits: the answer, nothing when the time of the request
 /// ended, and no value at all when the other side left.

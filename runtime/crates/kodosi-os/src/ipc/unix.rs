@@ -22,7 +22,11 @@ impl Endpoint {
         Ok(Self { directory, path })
     }
 
-    pub(super) fn socket(&self) -> &Path {
+    pub(super) fn socket_file(namespace: &str, role: &str) -> io::Result<Self> {
+        Self::new(namespace, role)
+    }
+
+    pub(super) fn address(&self) -> &Path {
         &self.path
     }
 }
@@ -117,6 +121,10 @@ pub(super) async fn connect(endpoint: &Endpoint) -> io::Result<Stream> {
         ));
     }
     Ok(stream)
+}
+
+pub(super) async fn connect_file(path: &Path) -> io::Result<Stream> {
+    UnixStream::connect(path).await
 }
 
 pub(super) fn peer_pid(stream: &Stream) -> Option<u32> {

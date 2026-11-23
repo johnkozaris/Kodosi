@@ -1656,7 +1656,6 @@ fn a_message_of_the_chat_goes_to_codex_when_no_turn_runs_and_shows_with_its_pers
 }
 
 /// The first change of the chat that has what the test waits for.
-#[cfg(unix)]
 async fn change<T>(
     viewer: &mut crate::canvas::PipeEnds,
     wanted: impl Fn(&ChatChange) -> Option<T>,
@@ -1671,7 +1670,6 @@ async fn change<T>(
 }
 
 /// The messages of a record of Codex as its server sends them on a connection.
-#[cfg(unix)]
 fn server_says(record: &str) -> Vec<Value> {
     events(record)
         .into_iter()
@@ -1686,7 +1684,6 @@ fn server_says(record: &str) -> Vec<Value> {
 }
 
 /// The answer of a record to one call of the adapter.
-#[cfg(unix)]
 fn answer_of(record: &str, tag: &str) -> Value {
     events(record)
         .into_iter()
@@ -1700,7 +1697,6 @@ fn answer_of(record: &str, tag: &str) -> Value {
         .expect("the record has the answer")
 }
 
-#[cfg(unix)]
 #[tokio::test]
 async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_persons_decision_to_the_server()
  {
@@ -1709,7 +1705,7 @@ async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_person
 
     let chat = ChatHandle::spawn();
     let room = chat.jobs().upgrade().expect("the chat");
-    let (ours, theirs) = tokio::net::UnixStream::pair().expect("two connected sockets");
+    let (ours, theirs) = tokio::io::duplex(64 * 1024);
     let left = tokio_util::sync::CancellationToken::new();
     let link = tokio::spawn(codex_link::report(ours, room, left.clone()));
     let mut server = tokio_tungstenite::accept_async(theirs)
@@ -1854,6 +1850,92 @@ async fn the_next_host_ends_a_server_of_codex_that_the_host_before_left() {
         "the address that the earlier host served is gone"
     );
     assert!(other.exists(), "the other addresses of the folder stay");
+}
+
+/// A greeting of Claude Code's module, sent at an address of the agents' links, and the first
+/// line of the host's answer.
+async fn greet<S>(mut stream: S, terminal: uuid::Uuid) -> String
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+
+    let body = json!({
+        "v": claude::VERSION,
+        "terminal": terminal.to_string(),
+        "link": "greeting",
+        "batch": 1,
+        "events": [{
+            "k": "hello",
+            "t": 1,
+            "agent": "claude",
+            "session": "11111111-1111-4111-8111-111111111111",
+        }],
+    })
+    .to_string();
+    let request = format!(
+        "POST /v1/events HTTP/1.1\r\nhost: kodosi\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    stream
+        .write_all(request.as_bytes())
+        .await
+        .expect("the host reads");
+    let mut answer = vec![0; 256];
+    let read = tokio::time::timeout(std::time::Duration::from_secs(5), stream.read(&mut answer))
+        .await
+        .expect("the host answers in time")
+        .expect("the host answers");
+    String::from_utf8_lossy(&answer[..read])
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .to_owned()
+}
+
+async fn linked(chat: &TerminalChat) {
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        chat.handle.linked().wait_for(Option::is_some),
+    )
+    .await
+    .expect("the chat follows the agent in time")
+    .expect("the chat is there");
+}
+
+fn address<'a>(chat: &'a TerminalChat, variable: &str) -> Option<&'a str> {
+    chat.variables
+        .iter()
+        .find(|(name, _)| *name == variable)
+        .map(|(_, address)| address.as_str())
+}
+
+#[tokio::test]
+async fn an_agent_reaches_the_chat_of_its_terminal_at_the_addresses_that_the_terminal_names() {
+    let root = tempfile::tempdir().expect("a data root");
+    let links = Links::serve(root.path()).await;
+
+    let terminal = uuid::Uuid::now_v7();
+    let chat = links.room(terminal);
+    let file = address(&chat, LINK_VARIABLE).expect("the terminal names its socket file");
+    let stream = kodosi_os::ipc::connect_file(std::path::Path::new(file))
+        .await
+        .expect("the host serves the socket file");
+    assert_eq!(greet(stream, terminal).await, "HTTP/1.1 204 No Content");
+    linked(&chat).await;
+
+    let terminal = uuid::Uuid::now_v7();
+    let chat = links.room(terminal);
+    let pipe = address(&chat, PIPE_VARIABLE);
+    assert_eq!(pipe.is_some(), cfg!(windows));
+    #[cfg(windows)]
+    {
+        let stream = tokio::net::windows::named_pipe::ClientOptions::new()
+            .open(pipe.expect("the terminal names its pipe"))
+            .expect("the host serves the pipe");
+        assert_eq!(greet(stream, terminal).await, "HTTP/1.1 204 No Content");
+        linked(&chat).await;
+    }
 }
 
 #[test]

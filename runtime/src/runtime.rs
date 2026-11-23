@@ -1295,7 +1295,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     network.answer_calls(handle.command_client().answering());
     #[cfg(feature = "host")]
     let links = crate::chat::Links::serve(&config.data_root).await;
-    #[cfg(all(feature = "host", unix))]
+    #[cfg(feature = "host")]
     if let Some(servers) = links.codex_servers() {
         launcher.serve_codex(servers);
     }

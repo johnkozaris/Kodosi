@@ -86,6 +86,27 @@ pub fn end_group(leader: u32, force: bool) {
     imp::end_group(leader, force);
 }
 
+/// A program that started without a terminal, with the programs that it starts in turn, which
+/// end together.
+pub struct Group(imp::Group);
+
+impl Group {
+    pub fn of(pid: u32) -> std::io::Result<Self> {
+        imp::Group::of(pid).map(Self)
+    }
+
+    /// Asks the programs to end, or ends them at once.
+    pub fn end(&self, force: bool) {
+        self.0.end(force);
+    }
+}
+
+/// A job whose programs end when its last handle closes.
+#[cfg(windows)]
+pub fn closing_job() -> std::io::Result<std::os::windows::io::OwnedHandle> {
+    imp::closing_job()
+}
+
 pub fn is_running(pid: u32) -> bool {
     pid != 0 && imp::is_running(pid)
 }

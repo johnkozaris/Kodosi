@@ -100,6 +100,23 @@ pub(super) fn reset_signals() {
     let _ = unsafe { signal(Signal::SIGPIPE, SigHandler::SigIgn) };
 }
 
+/// The process group that a program without a terminal leads.
+pub(super) struct Group(u32);
+
+impl Group {
+    #[expect(
+        clippy::unnecessary_wraps,
+        reason = "the Windows form makes a job, and both forms share one signature"
+    )]
+    pub(super) const fn of(pid: u32) -> std::io::Result<Self> {
+        Ok(Self(pid))
+    }
+
+    pub(super) fn end(&self, force: bool) {
+        end_group(self.0, force);
+    }
+}
+
 pub(super) fn end_group(leader: u32, force: bool) {
     let Some(leader) = i32::try_from(leader)
         .ok()
