@@ -467,14 +467,6 @@ struct Scope {
 }
 
 #[cfg(feature = "host")]
-impl Local {
-    fn tell_canvas_who_shares(&self) {
-        let shared = !self.entry.shared_with.is_empty() || self.entry.project_id.is_some();
-        self.terminal.canvas.set_shared(shared);
-    }
-}
-
-#[cfg(feature = "host")]
 struct Local {
     terminal: TerminalSession,
     entry: SessionEntry,
@@ -507,6 +499,11 @@ impl Local {
 
     fn comes_back(&self) -> bool {
         !self.terminal.is_closed() && self.entry.status != SessionStatus::Closing
+    }
+
+    fn tell_canvas_who_shares(&self) {
+        let shared = !self.entry.shared_with.is_empty() || self.entry.project_id.is_some();
+        self.terminal.canvas.set_shared(shared);
     }
 
     fn publication(
@@ -2482,7 +2479,6 @@ impl Runtime {
         }
     }
 
-    #[cfg(feature = "host")]
     fn project_name(&self, id: &str) -> Option<String> {
         self.cached_events
             .get("projects.snapshot")?
