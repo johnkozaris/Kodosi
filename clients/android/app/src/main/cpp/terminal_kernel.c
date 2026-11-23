@@ -130,7 +130,7 @@ static bool mime_is(GhosttyString mime, const char *name) {
 static void clipboard_write(GhosttyTerminal terminal, void *userdata, const GhosttyClipboardWrite *write) {
     (void)terminal;
     Kernel *kernel = userdata;
-    if (write == NULL || write->size < sizeof(*write) || write->reply == NULL) return;
+    if (write == NULL || write->reply == NULL) return;
     uint8_t kind = write->contents_len == 0 ? 4 : 0;
     const GhosttyString *data = NULL;
     for (size_t i = 0; i < write->contents_len; i++) {
@@ -171,7 +171,7 @@ static void clipboard_write(GhosttyTerminal terminal, void *userdata, const Ghos
 static void clipboard_read(GhosttyTerminal terminal, void *userdata, const GhosttyClipboardRead *read) {
     (void)terminal;
     Kernel *kernel = userdata;
-    if (read != NULL && read->size >= sizeof(*read) && read->protocol == GHOSTTY_CLIPBOARD_PROTOCOL_OSC_52) {
+    if (read != NULL && read->protocol == GHOSTTY_CLIPBOARD_PROTOCOL_OSC_52) {
         kernel->clipboard_read = true;
     }
 }
@@ -327,7 +327,7 @@ static GhosttyResult configure(GhosttyTerminal terminal, bool console, Kernel *k
     const bool glyphs = false;
     const bool pull_scrollback = !console;
     const bool blink = false;
-    const GhosttyTerminalCursorStyle cursor = GHOSTTY_TERMINAL_CURSOR_STYLE_BLOCK;
+    const GhosttyCursorStyle cursor = GHOSTTY_CURSOR_STYLE_BLOCK;
     const size_t scrollback_lines = SCROLLBACK_LINES;
     const size_t scrollback_bytes = SCROLLBACK_BYTES;
     GhosttyResult result = ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_USERDATA, kernel);
@@ -599,7 +599,7 @@ static jint frame(Kernel *kernel, Output *output) {
                 result = GHOSTTY_INVALID_VALUE;
                 break;
             }
-            GhosttyStyle style = GHOSTTY_INIT_SIZED(GhosttyStyle);
+            GhosttyStyle style = {0};
             GhosttyColorRgb foreground = colors.foreground;
             GhosttyColorRgb background = colors.background;
             GhosttyCell raw = 0;
@@ -619,7 +619,7 @@ static jint frame(Kernel *kernel, Output *output) {
             }
             uint8_t *cell = reserve(output, CELL_BYTES);
             uint8_t text_length = 0;
-            if (result == GHOSTTY_SUCCESS && !style.invisible) {
+            if (result == GHOSTTY_SUCCESS && !(style.flags & GHOSTTY_STYLE_FLAG_INVISIBLE)) {
                 result = grapheme(cells, output, &text_length);
             }
             if (result != GHOSTTY_SUCCESS) {
@@ -634,12 +634,12 @@ static jint frame(Kernel *kernel, Output *output) {
             }
             uint32_t fg = rgb(foreground);
             uint32_t bg = has_background ? rgb(background) : 0;
-            if (style.inverse) {
+            if (style.flags & GHOSTTY_STYLE_FLAG_INVERSE) {
                 uint32_t swapped = has_background ? bg : rgb(colors.background);
                 bg = fg;
                 fg = swapped;
             }
-            if (style.faint) {
+            if (style.flags & GHOSTTY_STYLE_FLAG_FAINT) {
                 fg = (fg & 0x00FFFFFFu) | 0xA0000000u;
             }
             if (selected == GHOSTTY_SUCCESS && index >= selection.start_x && index <= selection.end_x) {
@@ -653,9 +653,11 @@ static jint frame(Kernel *kernel, Output *output) {
                 !graphic(codepoint)) {
                 fg = contrasted(kernel, look->minimum_contrast, fg, bg != 0 ? bg : rgb(colors.background));
             }
-            uint16_t flags = (style.bold ? CELL_BOLD : 0) | (style.italic ? CELL_ITALIC : 0) |
-                             (style.underline != 0 ? CELL_UNDERLINE : 0) |
-                             (style.strikethrough ? CELL_STRIKETHROUGH : 0) | (style.overline ? CELL_OVERLINE : 0);
+            uint16_t flags = (style.flags & GHOSTTY_STYLE_FLAG_BOLD ? CELL_BOLD : 0) |
+                             (style.flags & GHOSTTY_STYLE_FLAG_ITALIC ? CELL_ITALIC : 0) |
+                             (GHOSTTY_STYLE_UNDERLINE(style) != 0 ? CELL_UNDERLINE : 0) |
+                             (style.flags & GHOSTTY_STYLE_FLAG_STRIKETHROUGH ? CELL_STRIKETHROUGH : 0) |
+                             (style.flags & GHOSTTY_STYLE_FLAG_OVERLINE ? CELL_OVERLINE : 0);
             put32(cell, fg);
             put32(cell + 4, bg);
             put16(cell + 8, flags);
@@ -716,17 +718,17 @@ static jbyteArray encode_key(JNIEnv *env, Kernel *kernel, jint key, jint modifie
     }
     GhosttyMods mods = (modifiers & MOD_SHIFT ? GHOSTTY_MODS_SHIFT : 0) |
                        (modifiers & MOD_CONTROL ? GHOSTTY_MODS_CTRL : 0) | (modifiers & MOD_ALT ? GHOSTTY_MODS_ALT : 0);
-    ghostty_key_encoder_setopt_from_terminal(kernel->keys, kernel->terminal);
+    ghostty_key_encoder_set_from_terminal(kernel->keys, kernel->terminal);
     ghostty_key_event_set_action(event, GHOSTTY_KEY_ACTION_PRESS);
     ghostty_key_event_set_key(event, ghostty_key(key, text));
     ghostty_key_event_set_mods(event, mods);
     if (text != NULL && text[0] != '\0') {
-        ghostty_key_event_set_utf8(event, text, strlen(text));
+        ghostty_key_event_set_utf8(event, (GhosttyString){.ptr = (const uint8_t *)text, .len = strlen(text)});
         if ((unsigned char)text[0] < 0x80) {
             ghostty_key_event_set_unshifted_codepoint(event, (uint32_t)tolower((unsigned char)text[0]));
         }
     }
-    char encoded[128];
+    uint8_t encoded[128];
     size_t written = 0;
     GhosttyResult result = ghostty_key_encoder_encode(kernel->keys, event, encoded, sizeof(encoded), &written);
     ghostty_key_event_free(event);
@@ -753,7 +755,7 @@ static jbyteArray encode_paste(JNIEnv *env, Kernel *kernel, char *text, size_t l
     if (result != GHOSTTY_OUT_OF_SPACE || needed > KODOSI_MAX_FRAME_BYTES) {
         return NULL;
     }
-    char *encoded = malloc(needed);
+    uint8_t *encoded = malloc(needed);
     size_t written = 0;
     if (encoded == NULL ||
         ghostty_paste_encode(text, length, bracketed.value, encoded, needed, &written) != GHOSTTY_SUCCESS) {
@@ -934,7 +936,7 @@ JNIEXPORT jboolean JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nativ
         ghostty_terminal_get(kernel->terminal, GHOSTTY_TERMINAL_DATA_SCROLLBAR, &before);
         GhosttyTerminalScrollViewport move;
         memset(&move, 0, sizeof(move));
-        move.tag = rows == 0 ? GHOSTTY_SCROLL_VIEWPORT_BOTTOM : GHOSTTY_SCROLL_VIEWPORT_DELTA;
+        move.tag = rows == 0 ? GHOSTTY_TERMINAL_SCROLL_VIEWPORT_BOTTOM : GHOSTTY_TERMINAL_SCROLL_VIEWPORT_DELTA;
         move.value.delta = rows;
         ghostty_terminal_scroll_viewport(kernel->terminal, move);
         ghostty_terminal_get(kernel->terminal, GHOSTTY_TERMINAL_DATA_SCROLLBAR, &after);
@@ -970,7 +972,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
     (void)type;
     Kernel *kernel = kernel_of(handle);
     pthread_mutex_lock(&kernel->lock);
-    GhosttyGridRef ref = {.size = sizeof(GhosttyGridRef)};
+    GhosttyGridRef ref = {0};
     jbyteArray result = NULL;
     size_t length = 0;
     if (viewport_ref(kernel, column, row, &ref) == GHOSTTY_SUCCESS &&
@@ -993,14 +995,14 @@ JNIEXPORT void JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nativeSel
     Kernel *kernel = kernel_of(handle);
     pthread_mutex_lock(&kernel->lock);
     if (kernel->admitted) {
-        GhosttySelection selection = {.size = sizeof(GhosttySelection)};
+        GhosttySelection selection = {0};
         GhosttyResult result = GHOSTTY_NO_VALUE;
         if (column == -2) {
             ghostty_terminal_set(kernel->terminal, GHOSTTY_TERMINAL_OPT_SELECTION, NULL);
         } else if (column == -1) {
             result = ghostty_terminal_select_all(kernel->terminal, &selection);
         } else {
-            GhosttyGridRef ref = {.size = sizeof(GhosttyGridRef)};
+            GhosttyGridRef ref = {0};
             if (viewport_ref(kernel, column, row, &ref) == GHOSTTY_SUCCESS) {
                 if (word) {
                     GhosttyTerminalSelectWordOptions options = {.size = sizeof(options), .ref = ref};
@@ -1027,20 +1029,25 @@ JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
     (void)type;
     Kernel *kernel = kernel_of(handle);
     pthread_mutex_lock(&kernel->lock);
-    GhosttyTerminalSelectionFormatOptions options = {
-        .size = sizeof(options), .emit = GHOSTTY_FORMATTER_FORMAT_PLAIN, .unwrap = true, .trim = true};
+    GhosttySelection selection = {0};
+    GhosttyFormatter formatter = NULL;
+    const bool unwrap = true;
     size_t length = 0;
     jbyteArray result = NULL;
     if (kernel->admitted &&
-        ghostty_terminal_selection_format_buf(kernel->terminal, options, NULL, 0, &length) == GHOSTTY_OUT_OF_SPACE &&
+        ghostty_terminal_get(kernel->terminal, GHOSTTY_TERMINAL_DATA_SELECTION, &selection) == GHOSTTY_SUCCESS &&
+        ghostty_formatter_terminal_new(NULL, &formatter, kernel->terminal) == GHOSTTY_SUCCESS &&
+        ghostty_formatter_set(formatter, GHOSTTY_FORMATTER_OPT_UNWRAP, &unwrap) == GHOSTTY_SUCCESS &&
+        ghostty_formatter_set(formatter, GHOSTTY_FORMATTER_OPT_SELECTION, &selection) == GHOSTTY_SUCCESS &&
+        ghostty_formatter_format_buf(formatter, NULL, 0, &length) == GHOSTTY_OUT_OF_SPACE &&
         length <= KODOSI_MAX_FRAME_BYTES) {
         uint8_t *bytes = malloc(length);
-        if (bytes != NULL &&
-            ghostty_terminal_selection_format_buf(kernel->terminal, options, bytes, length, &length) == GHOSTTY_SUCCESS) {
+        if (bytes != NULL && ghostty_formatter_format_buf(formatter, bytes, length, &length) == GHOSTTY_SUCCESS) {
             result = byte_array(env, bytes, length);
         }
         free(bytes);
     }
+    ghostty_formatter_free(formatter);
     pthread_mutex_unlock(&kernel->lock);
     return result;
 }
@@ -1060,12 +1067,12 @@ JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
     jbyteArray result = NULL;
     if (kernel->admitted && ghostty_mouse_event_new(NULL, &event) == GHOSTTY_SUCCESS &&
         ghostty_mouse_encoder_new(NULL, &encoder) == GHOSTTY_SUCCESS) {
-        ghostty_mouse_encoder_setopt_from_terminal(encoder, kernel->terminal);
+        ghostty_mouse_encoder_set_from_terminal(encoder, kernel->terminal);
         GhosttyMouseEncoderSize size = {.size = sizeof(size), .screen_width = (uint32_t)width,
             .screen_height = (uint32_t)height, .cell_width = (uint32_t)cell_width, .cell_height = (uint32_t)cell_height};
         const bool pressed = action != GHOSTTY_MOUSE_ACTION_RELEASE && button != 0;
-        ghostty_mouse_encoder_setopt(encoder, GHOSTTY_MOUSE_ENCODER_OPT_SIZE, &size);
-        ghostty_mouse_encoder_setopt(encoder, GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED, &pressed);
+        ghostty_mouse_encoder_set(encoder, GHOSTTY_MOUSE_ENCODER_OPT_SIZE, &size);
+        ghostty_mouse_encoder_set(encoder, GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED, &pressed);
         ghostty_mouse_event_set_action(event, (GhosttyMouseAction)action);
         if (button != 0) {
             ghostty_mouse_event_set_button(event, (GhosttyMouseButton)button);
@@ -1073,10 +1080,10 @@ JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
         ghostty_mouse_event_set_position(event, (GhosttyMousePosition){.x = x, .y = y});
         ghostty_mouse_event_set_mods(event, (modifiers & MOD_SHIFT ? GHOSTTY_MODS_SHIFT : 0) |
             (modifiers & MOD_CONTROL ? GHOSTTY_MODS_CTRL : 0) | (modifiers & MOD_ALT ? GHOSTTY_MODS_ALT : 0));
-        char bytes[128];
+        uint8_t bytes[128];
         size_t length = 0;
         if (ghostty_mouse_encoder_encode(encoder, event, bytes, sizeof(bytes), &length) == GHOSTTY_SUCCESS) {
-            result = byte_array(env, (const uint8_t *)bytes, length);
+            result = byte_array(env, bytes, length);
         }
     }
     ghostty_mouse_event_free(event);
@@ -1144,7 +1151,7 @@ JNIEXPORT jlongArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
         ghostty_render_state_get(kernel->render, GHOSTTY_RENDER_STATE_DATA_IMAGE_ITERATOR, &iterator) == GHOSTTY_SUCCESS) {
         while (ghostty_render_state_image_iterator_next(iterator) && count < MAX_VISIBLE_CELLS) {
             GhosttyImageProtocol protocol;
-            GhosttyRenderStateImageLayer layer;
+            GhosttyImageLayer layer;
             uint32_t id, ox, oy, width, height, sx, sy, sw, sh, iw = 0, ih = 0;
             uint64_t generation;
             int32_t column, row, z;
@@ -1163,8 +1170,9 @@ JNIEXPORT jlongArray JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_nat
             if (ghostty_render_state_image_get_multi(iterator, 15, keys, values, NULL) != GHOSTTY_SUCCESS ||
                 protocol != GHOSTTY_IMAGE_PROTOCOL_KITTY) continue;
             GhosttyKittyGraphicsImage image = ghostty_kitty_graphics_image(graphics, id);
-            if (ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_IMAGE_DATA_WIDTH, &iw) != GHOSTTY_SUCCESS ||
-                ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_IMAGE_DATA_HEIGHT, &ih) != GHOSTTY_SUCCESS) continue;
+            if (ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_WIDTH, &iw) != GHOSTTY_SUCCESS ||
+                ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_HEIGHT, &ih) != GHOSTTY_SUCCESS)
+                continue;
             if (count == capacity) {
                 size_t next = capacity == 0 ? 16 : capacity * 2;
                 jlong *grown = realloc(placements, next * 16 * sizeof(jlong));
@@ -1197,22 +1205,21 @@ JNIEXPORT jobject JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_native
     GhosttyKittyGraphicsImage image = NULL;
     uint32_t width = 0, height = 0;
     uint64_t generation = 0;
-    const uint8_t *pixels = NULL;
-    size_t length = 0;
+    GhosttyString pixels = {0};
     GhosttyKittyImageFormat format;
     jobject bitmap = NULL;
     if (!kernel->admitted ||
         ghostty_terminal_get(kernel->terminal, GHOSTTY_TERMINAL_DATA_KITTY_GRAPHICS, &graphics) != GHOSTTY_SUCCESS ||
         (image = ghostty_kitty_graphics_image(graphics, (uint32_t)id)) == NULL ||
-        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_IMAGE_DATA_GENERATION, &generation) != GHOSTTY_SUCCESS ||
+        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_GENERATION, &generation) !=
+            GHOSTTY_SUCCESS ||
         generation != (uint64_t)expected_generation ||
-        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_IMAGE_DATA_WIDTH, &width) != GHOSTTY_SUCCESS ||
-        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_IMAGE_DATA_HEIGHT, &height) != GHOSTTY_SUCCESS ||
-        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_IMAGE_DATA_DATA_PTR, &pixels) != GHOSTTY_SUCCESS ||
-        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_IMAGE_DATA_DATA_LEN, &length) != GHOSTTY_SUCCESS ||
-        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_IMAGE_DATA_FORMAT, &format) != GHOSTTY_SUCCESS ||
-        width == 0 || height == 0 || pixels == NULL || maximum_pixels < 1 ||
-        length > KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES) goto finish;
+        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_WIDTH, &width) != GHOSTTY_SUCCESS ||
+        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_HEIGHT, &height) != GHOSTTY_SUCCESS ||
+        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_PIXELS, &pixels) != GHOSTTY_SUCCESS ||
+        ghostty_kitty_graphics_image_get(image, GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_FORMAT, &format) != GHOSTTY_SUCCESS ||
+        width == 0 || height == 0 || pixels.ptr == NULL || maximum_pixels < 1 ||
+        pixels.len > KODOSI_TERMINAL_IMAGE_STORAGE_MAX_BYTES) goto finish;
     unsigned bpp;
     switch (format) {
         case GHOSTTY_KITTY_IMAGE_FORMAT_RGB: bpp = 3; break;
@@ -1221,7 +1228,7 @@ JNIEXPORT jobject JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_native
         case GHOSTTY_KITTY_IMAGE_FORMAT_GRAY: bpp = 1; break;
         default: goto finish;
     }
-    if ((uint64_t)width * height * bpp != length) goto finish;
+    if ((uint64_t)width * height * bpp != pixels.len) goto finish;
     uint32_t sample = 1;
     while ((width + sample - 1) / sample > 8192 || (height + sample - 1) / sample > 8192 ||
         (uint64_t)((width + sample - 1) / sample) * ((height + sample - 1) / sample) >
@@ -1253,7 +1260,7 @@ JNIEXPORT jobject JNICALL Java_com_kodosi_mobile_terminals_TerminalKernel_native
     for (uint32_t y = 0; y < output_height; y++) {
         uint8_t *line = (uint8_t *)destination + (size_t)y * info.stride;
         for (uint32_t x = 0; x < output_width; x++) {
-            const uint8_t *pixel = pixels + ((size_t)y * sample * width + (size_t)x * sample) * bpp;
+            const uint8_t *pixel = pixels.ptr + ((size_t)y * sample * width + (size_t)x * sample) * bpp;
             uint8_t alpha = format == GHOSTTY_KITTY_IMAGE_FORMAT_RGBA ? pixel[3] :
                 (format == GHOSTTY_KITTY_IMAGE_FORMAT_GRAY_ALPHA ? pixel[1] : 255);
             const bool gray = format == GHOSTTY_KITTY_IMAGE_FORMAT_GRAY || format == GHOSTTY_KITTY_IMAGE_FORMAT_GRAY_ALPHA;
