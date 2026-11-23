@@ -168,14 +168,6 @@ public struct DosiQuestion: Decodable, Equatable, Sendable {
     public let terminal: String?
     public let answer: [String]?
 
-    public init(question: String, options: [String], multiple: Bool = false, terminal: String? = nil, answer: [String]? = nil) {
-        self.question = question
-        self.options = options
-        self.multiple = multiple
-        self.terminal = terminal
-        self.answer = answer
-    }
-
     public var open: Bool {
         answer == nil
     }

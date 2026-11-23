@@ -38,8 +38,6 @@ public struct ChatOption: Decodable, Equatable, Sendable {
 /// the first answer counts.
 public struct ChatAsk: Decodable, Equatable, Identifiable, Sendable {
     public let id: String
-    /// The item of the tool call that waits.
-    public let item: String?
     public let body: AskBody
 }
 

@@ -318,7 +318,6 @@ extension View {
 }
 
 struct LatestKey: View {
-    @Environment(\.theme) private var theme
     let action: () -> Void
 
     var body: some View {

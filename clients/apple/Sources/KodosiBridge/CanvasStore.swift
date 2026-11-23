@@ -28,7 +28,6 @@ public final class CanvasStore {
         let offset: UInt64?
         let total: UInt64?
         let data: String?
-        let text: String?
     }
 
     private static let mostStoredBytes = 64 * 1024 * 1024
