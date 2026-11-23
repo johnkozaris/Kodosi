@@ -12,10 +12,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{
-        Agent, Places, Stop, answer, file_name, list, now, person, shown_rule, stop_open, text,
-        words,
-    },
+    agent::{Agent, Places, Stop, answer, list, now, person, stop_open, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -733,7 +730,9 @@ impl Claude {
                         state: ToolState::Asking,
                         ..asking
                     }),
-                    always: suggestions.first().and_then(always),
+                    always: suggestions
+                        .first()
+                        .and_then(|suggestion| always(suggestion, &places)),
                     helper: self
                         .helpers
                         .get(text(event, "agent"))
@@ -1427,14 +1426,22 @@ fn questions(input: &Value) -> Vec<ChatQuestion> {
         .collect()
 }
 
-/// What Claude Code offers to allow from now on, in its first suggestion.
-fn always(suggestion: &Value) -> Option<AskAlways> {
+/// What Claude Code offers to allow from now on, in its first suggestion. The rule of a file tool
+/// is a path with a pattern, and the rule of another tool is its own words, such as a command.
+fn always(suggestion: &Value, places: &Places) -> Option<AskAlways> {
     match text(suggestion, "type") {
         "addRules" if text(suggestion, "behavior") == "allow" => {
             let rule = list(suggestion, "rules").next()?;
+            let (tool, content) = (text(rule, "toolName"), text(rule, "ruleContent"));
+            let shown = match kind(tool) {
+                ToolKind::Read | ToolKind::Edit | ToolKind::Write | ToolKind::Search => {
+                    places.rule(content)
+                }
+                _ => content.to_owned(),
+            };
             Some(AskAlways::Rule {
-                tool: start_of(text(rule, "toolName"), MOST_TARGET).to_owned(),
-                text: shown_rule(start_of(text(rule, "ruleContent"), MOST_TARGET)),
+                tool: start_of(tool, MOST_TARGET).to_owned(),
+                text: start_of(&shown, MOST_TARGET).to_owned(),
             })
         }
         "setMode" => Some(AskAlways::Mode {
@@ -1442,12 +1449,7 @@ fn always(suggestion: &Value) -> Option<AskAlways> {
         }),
         "addDirectories" => Some(AskAlways::Folder {
             name: start_of(
-                file_name(
-                    list(suggestion, "directories")
-                        .next()?
-                        .as_str()?
-                        .trim_end_matches(['/', '\\']),
-                ),
+                &places.file(list(suggestion, "directories").next()?.as_str()?),
                 MOST_TARGET,
             )
             .to_owned(),

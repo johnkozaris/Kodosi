@@ -15,8 +15,7 @@ use super::{
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Places, Stop, answer, list, open_items, person, plan_command, shown_rule, stop_open,
-        text, words,
+        Agent, Places, Stop, answer, list, open_items, person, plan_command, stop_open, text, words,
     },
     diff,
     state::{Chat, ends_of, start_of},
@@ -741,7 +740,7 @@ impl Codex {
         .filter(|text| !text.is_empty())
         .map(|text| AskAlways::Rule {
             tool: tool.name.clone(),
-            text: shown_rule(&text),
+            text,
         });
         chat.ask(ChatAsk {
             id: ask.clone(),

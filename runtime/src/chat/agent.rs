@@ -202,6 +202,31 @@ impl Places {
         }
     }
 
+    /// A rule for files names the folders before its pattern as a file shows them, and the
+    /// pattern as it is: `src/**` in the terminal's folder, `~/Repos/other/**` elsewhere.
+    pub(super) fn rule(&self, rule: &str) -> String {
+        let (folders, pattern) = match rule.find(['*', '?', '[', '{']) {
+            None => (rule, ""),
+            Some(glob) => {
+                let Some(end) = rule[..glob].rfind(SEPARATORS) else {
+                    return rule.to_owned();
+                };
+                (&rule[..end], &rule[end + 1..])
+            }
+        };
+        if !is_home(folders) && rooted(folders).is_none() {
+            return rule.to_owned();
+        }
+        let shown = self.file(folders);
+        if pattern.is_empty() {
+            shown
+        } else if shown.ends_with(SEPARATORS) {
+            format!("{shown}{pattern}")
+        } else {
+            format!("{shown}/{pattern}")
+        }
+    }
+
     fn home(&self) -> Option<Place<'_>> {
         let (start, rest) = rooted(self.home.as_deref()?)?;
         Some(Place::at(start).along(rest))
@@ -294,26 +319,6 @@ impl<'a> Place<'a> {
             format!("{}{separator}{names}", self.start)
         }
     }
-}
-
-pub(super) fn file_name(path: &str) -> &str {
-    path.rsplit(['/', '\\']).next().unwrap_or(path)
-}
-
-/// A rule for an absolute path names only its folder and the pattern after it, as a person
-/// reads it in a question.
-pub(super) fn shown_rule(rule: &str) -> String {
-    if !rule.starts_with(['/', '~']) {
-        return rule.to_owned();
-    }
-    let parts = rule
-        .split('/')
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>();
-    parts
-        .iter()
-        .rposition(|part| !part.contains(['*', '?', '[']))
-        .map_or_else(|| rule.to_owned(), |folder| parts[folder..].join("/"))
 }
 
 /// A message that starts with the agents' own `/plan` command goes on in plan mode, with the rest

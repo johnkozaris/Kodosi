@@ -15,9 +15,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{
-        Agent, Places, Stop, answer, list, open_items, person, shown_rule, stop_open, text, words,
-    },
+    agent::{Agent, Places, Stop, answer, list, open_items, person, stop_open, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -537,11 +535,11 @@ impl Antigravity {
             .any(|option| text(option, "kind") == "allow_always")
             .then(|| AskAlways::Rule {
                 tool: tool.name.clone(),
-                text: shown_rule(if tool.target.is_empty() {
-                    &tool.name
+                text: if tool.target.is_empty() {
+                    tool.name.clone()
                 } else {
-                    &tool.target
-                }),
+                    tool.target.clone()
+                },
             });
         chat.ask(ChatAsk {
             id: ask.clone(),

@@ -13,7 +13,7 @@
 use serde_json::{Value, json};
 
 use super::{
-    agent::{Agent, Places, Stop, shown_rule},
+    agent::{Agent, Places, Stop},
     antigravity::{ASKING, Antigravity, SIGN_IN},
     claude::Claude,
     codex::Codex,
@@ -468,11 +468,19 @@ fn a_windows_path_is_in_the_terminals_folder_with_either_separator_and_any_case(
 }
 
 #[test]
-fn a_rule_for_an_absolute_path_names_only_its_folder() {
-    assert_eq!(shown_rule("//home/sam/shop/**"), "shop/**");
-    assert_eq!(shown_rule("/home/sam/shop"), "shop");
-    assert_eq!(shown_rule("~/work/notes/*.md"), "notes/*.md");
-    assert_eq!(shown_rule("npm test:*"), "npm test:*");
+fn a_rule_for_files_names_its_folder_as_a_file_shows() {
+    let places = places(Some("/home/sam/shop"), "/home/sam");
+
+    for (rule, shown) in [
+        ("//home/sam/shop/**", "shop/**"),
+        ("//home/sam/shop/src/**", "src/**"),
+        ("//home/sam/Repos/Kodosi/**", "~/Repos/Kodosi/**"),
+        ("~/work/notes/*.md", "~/work/notes/*.md"),
+        ("//etc/**", "/etc/**"),
+        ("src/**", "src/**"),
+    ] {
+        assert_eq!(places.rule(rule), shown, "{rule}");
+    }
 }
 
 /// A file in another folder with the name of a file in Sam's shop.
@@ -485,7 +493,11 @@ fn claude_code_asks_for_a_file_of_another_folder_with_its_place() {
             {"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/home/sam/shop/prices.json"}},
             {"type": "tool_use", "id": "t2", "name": "Read", "input": {"file_path": OTHER_PRICES}},
         ]}),
-        json!({"k": "ask", "ask": "a1", "call": "t2", "tool": "Read", "input": {"file_path": OTHER_PRICES}}),
+        json!({"k": "ask", "ask": "a1", "call": "t2", "tool": "Read", "input": {"file_path": OTHER_PRICES},
+            "suggestions": [{"type": "addRules", "behavior": "allow", "destination": "session",
+                "rules": [{"toolName": "Read", "ruleContent": "//home/sam/Repos/Kodosi/**"}]}]}),
+        json!({"k": "ask", "ask": "a2", "tool": "Read", "input": {"file_path": OTHER_PRICES},
+            "suggestions": [{"type": "addDirectories", "directories": ["/home/sam/Repos/Kodosi/"]}]}),
     ]
     .map(|line| line.to_string())
     .join("\n");
@@ -498,13 +510,33 @@ fn claude_code_asks_for_a_file_of_another_folder_with_its_place() {
             .collect::<Vec<_>>(),
         ["prices.json", "~/Repos/Kodosi/prices.json"]
     );
-    let [ask] = &play.view.asks[..] else {
-        panic!("one question is open");
-    };
-    assert!(matches!(
-        &ask.body,
-        AskBody::Permission { tool, .. } if tool.target == "~/Repos/Kodosi/prices.json"
-    ));
+    let offers = play
+        .view
+        .asks
+        .iter()
+        .map(|ask| match &ask.body {
+            AskBody::Permission { tool, always, .. } => (tool.target.as_str(), always.clone()),
+            _ => panic!("the agent asks for a permission"),
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        offers,
+        [
+            (
+                "~/Repos/Kodosi/prices.json",
+                Some(AskAlways::Rule {
+                    tool: "Read".to_owned(),
+                    text: "~/Repos/Kodosi/**".to_owned()
+                })
+            ),
+            (
+                "~/Repos/Kodosi/prices.json",
+                Some(AskAlways::Folder {
+                    name: "~/Repos/Kodosi".to_owned()
+                })
+            ),
+        ]
+    );
 }
 
 #[test]
@@ -544,10 +576,17 @@ fn codex_asks_for_a_change_of_a_file_of_another_folder_with_its_place() {
     let [ask] = &play.view.asks[..] else {
         panic!("one question is open");
     };
-    assert!(matches!(
-        &ask.body,
-        AskBody::Permission { tool, .. } if tool.target == "~/Repos/Kodosi/prices.json"
-    ));
+    let AskBody::Permission { tool, always, .. } = &ask.body else {
+        panic!("the question asks for a permission");
+    };
+    assert_eq!(tool.target, "~/Repos/Kodosi/prices.json");
+    assert_eq!(
+        always,
+        &Some(AskAlways::Rule {
+            tool: "apply_patch".to_owned(),
+            text: "~/Repos/Kodosi/prices.json".to_owned()
+        })
+    );
 }
 
 #[test]
@@ -618,10 +657,17 @@ fn antigravity_asks_for_a_file_of_another_folder_with_its_place() {
     let [ask] = &play.view.asks[..] else {
         panic!("one question is open");
     };
-    assert!(matches!(
-        &ask.body,
-        AskBody::Permission { tool, .. } if tool.target == "~/Repos/Kodosi/prices.json"
-    ));
+    let AskBody::Permission { tool, always, .. } = &ask.body else {
+        panic!("the question asks for a permission");
+    };
+    assert_eq!(tool.target, "~/Repos/Kodosi/prices.json");
+    assert_eq!(
+        always,
+        &Some(AskAlways::Rule {
+            tool: "read_file".to_owned(),
+            text: "~/Repos/Kodosi/prices.json".to_owned()
+        })
+    );
 }
 
 #[test]
