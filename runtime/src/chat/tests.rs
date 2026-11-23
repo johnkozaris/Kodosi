@@ -1,7 +1,7 @@
-//! The records in `fixtures/claude` are what the link module sent from real sessions of Claude Code.
+//! The records in `fixtures/claude` are what the link module sends in real sessions of Claude Code.
 //! Those in `fixtures/codex` are the messages of Codex's app-server in real sessions, as the link
 //! gives them to the chat, without the messages that the chat does not read. Those in
-//! `fixtures/copilot` are what the extension sent from real sessions of Copilot CLI 1.0.115.
+//! `fixtures/copilot` are what the extension sends in real sessions of Copilot CLI 1.0.115.
 //! Those in `fixtures/antigravity` are the messages of `agy acp` 1.5.14 as `kodosi acp` gives them
 //! to the chat: signed out, and in sessions whose model was a local stand-in of the Gemini API
 //! (`GOOGLE_GEMINI_BASE_URL`) that answered with written calls and words.
@@ -1510,6 +1510,11 @@ fn codex_shows_its_first_turn_from_the_moment_its_server_lets_the_chat_follow() 
             .iter()
             .all(|call| call["p"]["threadId"] == "00000001-0000-7000-8000-000000000000")
     );
+    assert_eq!(
+        play.agent.conversation(),
+        Some("00000001-0000-7000-8000-000000000000"),
+        "the conversation that the terminal shows"
+    );
 }
 
 #[test]
@@ -2197,16 +2202,6 @@ async fn an_agent_reaches_the_chat_of_its_terminal_at_the_addresses_that_the_ter
         assert_eq!(greet(stream, terminal).await, "HTTP/1.1 204 No Content");
         linked(&chat).await;
     }
-}
-
-#[test]
-fn codex_names_the_conversation_that_its_terminal_shows() {
-    let play = Play::codex(&[codex!("first")], &[]);
-
-    assert_eq!(
-        play.agent.conversation(),
-        Some("00000001-0000-7000-8000-000000000000")
-    );
 }
 
 #[test]
@@ -3021,6 +3016,48 @@ fn a_person_allows_a_command_and_a_file_of_antigravity_in_the_chat() {
     assert_eq!(
         (facts.model.as_deref(), facts.effort.as_deref(), facts.mode),
         (Some("gemini-3.1-pro"), Some("low"), Some(ChatMode::Ask))
+    );
+}
+
+#[test]
+fn a_call_that_runs_keeps_its_item_when_the_adapter_forgets_older_calls() {
+    let (session, _) = split_at(antigravity!("allow"), "\"prompt\"");
+    let call = |id: &str, mut update: Value| {
+        update["toolCallId"] = json!(id);
+        json!({"k": "note", "m": "session/update", "p": {
+            "sessionId": "ab05ead0-ed08-43b7-b547-d2d6bc449422", "update": update}})
+        .to_string()
+    };
+    let done = json!({"sessionUpdate": "tool_call", "name": "run_command", "kind": "execute",
+        "status": "completed", "title": "ls"});
+    let mut record = vec![session];
+    record.extend((0..2047).map(|n| call(&format!("c{n}"), done.clone())));
+    record.push(call(
+        "long",
+        json!({"sessionUpdate": "tool_call", "name": "run_command", "kind": "execute",
+            "status": "in_progress", "title": "sleep 60"}),
+    ));
+    record.push(call("next", done));
+    record.push(call(
+        "long",
+        json!({"sessionUpdate": "tool_call_update", "status": "completed"}),
+    ));
+
+    let play = Play::antigravity(&record.join("\n"), &[]);
+
+    let tools = play.tools();
+    assert_eq!(
+        tools
+            .iter()
+            .filter(|tool| tool.target == "sleep 60")
+            .map(|tool| tool.state)
+            .collect::<Vec<_>>(),
+        [ToolState::Done]
+    );
+    assert_eq!(
+        tools.last().map(|tool| tool.target.as_str()),
+        Some("ls"),
+        "the end of the call that ran changed its own item"
     );
 }
 

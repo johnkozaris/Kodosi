@@ -1,4 +1,4 @@
-use super::{ChangeLine, ChangeSign, MOST_LINES};
+use super::{ChangeLine, ChangeSign, MOST_LINES, ToolDetail};
 
 /// Above this number of line pairs, the lines of the old text all count as removed.
 const MOST_PAIRS: usize = 250_000;
@@ -94,6 +94,15 @@ impl Change {
                 sign,
                 text: line.chars().take(MOST_LINE).collect(),
             });
+        }
+    }
+
+    pub(super) fn detail(self, path: String) -> ToolDetail {
+        ToolDetail::Change {
+            path,
+            added: self.added,
+            removed: self.removed,
+            lines: self.lines,
         }
     }
 

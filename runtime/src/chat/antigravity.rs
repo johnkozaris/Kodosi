@@ -13,9 +13,12 @@ use serde_json::{Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
-    MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Places, Stop, answer, list, open_items, person, stop_open, text, words},
+    ChatOption, ChatPerson, ChatQuestion, ChatTask, ChatTool, MOST_OPTIONS, MOST_OUTPUT,
+    MOST_QUESTIONS, MOST_TARGET, MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
+    agent::{
+        Agent, Places, Stop, answer, list, open_items, person, remember, show_state, stop_open,
+        text, words,
+    },
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -26,7 +29,6 @@ const SIGNED_OUT: i64 = -32000;
 /// The agent's tool that asks the person. The agent writes the question and ends its turn, and
 /// the person's next message is the answer.
 const ASK_QUESTION: &str = "ask_question";
-const MOST_ITEMS: usize = 2048;
 /// What Kodosi's chat calls on the terminal's side itself: the agent's own sign-in, and the
 /// state of an agent that asked the person a question in its answer and waits for the next message.
 pub(super) const SIGN_IN: &str = "kodosi/signIn";
@@ -101,15 +103,7 @@ impl Antigravity {
     pub(super) const NAME: &'static str = "antigravity";
 
     fn show(&self, chat: &mut Chat) {
-        if !self.linked {
-            chat.set_state(ChatState::Away, None);
-        } else if !chat.asks().is_empty() {
-            chat.set_state(ChatState::Asking, None);
-        } else if self.turn.is_some() {
-            chat.set_state(ChatState::Working, self.now.clone());
-        } else {
-            chat.set_state(ChatState::Idle, None);
-        }
+        show_state(chat, self.linked, self.turn.is_some(), self.now.clone());
     }
 
     fn call(&mut self, tag: &str, method: &str, params: Value) {
@@ -495,16 +489,13 @@ impl Antigravity {
         if let Some(item) = self.items.get(id) {
             return item.clone();
         }
-        if self.items.len() >= MOST_ITEMS {
-            self.items.clear();
-        }
         let item = chat.push(
             at,
             ChatBody::Tool {
                 tool: Box::new(described(update)),
             },
         );
-        self.items.insert(id.to_owned(), item.clone());
+        remember(&mut self.items, chat, id, item.clone());
         item
     }
 
@@ -516,7 +507,7 @@ impl Antigravity {
         };
         let call = params.get("toolCall").unwrap_or(&Value::Null);
         let options = list(params, "options")
-            .take(16)
+            .take(MOST_OPTIONS)
             .cloned()
             .collect::<Vec<_>>();
         let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
@@ -569,13 +560,13 @@ impl Antigravity {
         }
         let input = update.get("rawInput").unwrap_or(&Value::Null);
         let questions = list(input, "questions")
-            .take(8)
+            .take(MOST_QUESTIONS)
             .filter_map(|entry| {
                 Some(ChatQuestion {
                     question: start_of(&words(entry, "question")?, MOST_TARGET * 2).to_owned(),
                     header: String::new(),
                     options: list(entry, "options")
-                        .take(16)
+                        .take(MOST_OPTIONS)
                         .filter_map(Value::as_str)
                         .map(|label| ChatOption {
                             label: start_of(label, MOST_TARGET).to_owned(),
@@ -913,7 +904,7 @@ impl Agent for Antigravity {
             "p": {"sessionId": session, "prompt": [{"type": "text", "text": text}]},
         }));
         self.turn = Some(Turn {
-            at: super::agent::now(),
+            at: crate::identity::now_ms(),
             stopped: false,
             handed: Some(Handed { queued, text, by }),
         });
@@ -1123,12 +1114,7 @@ fn news(tool: &mut ChatTool, update: &Value, places: &Places) {
                 if tool.kind == ToolKind::Edit && lines.removed == 0 {
                     tool.kind = ToolKind::Write;
                 }
-                *detail = Some(ToolDetail::Change {
-                    path,
-                    added: lines.added,
-                    removed: lines.removed,
-                    lines: lines.lines,
-                });
+                *detail = Some(lines.detail(path));
             } else if let Some(printed) = printed.filter(|printed| !printed.trim().is_empty()) {
                 *detail = Some(ToolDetail::Output {
                     text: ends_of(&printed, MOST_TEXT),

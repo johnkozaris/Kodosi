@@ -1303,11 +1303,8 @@ fn an_agent_starts_with_its_last_permissions_and_output_else_unrestricted_and_qu
         format!("claude --permission-mode auto --settings '{CLAUDE_QUIET}' --fast-mode off")
     );
     assert_eq!(
-        line(Agent::Codex, None, None, None).unwrap().0,
-        "codex --dangerously-bypass-approvals-and-sandbox -c hide_agent_reasoning=true \
-         -c show_raw_agent_reasoning=false -c model_reasoning_summary=none -c tui.auto_recap=false \
-         -c tui.show_tooltips=false -c tui.animations=false -c 'tui.status_line=[]' \
-         -c service_tier=default"
+        line(Agent::Codex, None, None, None).unwrap(),
+        line(Agent::Codex, None, Some(unrestricted), Some(Output::Quiet)).unwrap()
     );
     assert_eq!(
         line(Agent::Copilot, None, None, None).unwrap(),
@@ -1505,71 +1502,77 @@ fn an_agent_starts_fast_only_when_chosen_and_the_next_start_chooses_again() {
 #[cfg(unix)]
 #[test]
 fn a_running_agent_shows_each_permissions_output_and_fast_mode_that_kodosi_starts_it_with() {
-    let shell = Path::new("/bin/sh");
-    let arguments = |line: &str| {
-        let printed = std::process::Command::new(shell)
-            .arg("-c")
-            .arg(format!(r"printf '%s\0' {line}"))
-            .env_clear()
-            .output()
-            .unwrap();
-        String::from_utf8(printed.stdout)
-            .unwrap()
-            .split_terminator('\0')
-            .map(str::to_owned)
-            .collect::<Vec<_>>()
-    };
-    for agent in [
-        Agent::Claude,
-        Agent::Codex,
-        Agent::Copilot,
-        Agent::Antigravity,
-    ] {
-        let mut outputs = agent.outputs();
-        if outputs.is_empty() {
-            outputs.push(agent.default_output());
+    for (shell, flags) in [("/bin/zsh", &["-f", "-c"][..]), ("/bin/sh", &["-c"][..])] {
+        let shell = Path::new(shell);
+        if !shell.exists() {
+            continue;
         }
-        let speeds: &[Option<bool>] = if agent.has_fast() {
-            &[None, Some(true)]
-        } else {
-            &[None]
+        let arguments = |line: &str| {
+            let printed = std::process::Command::new(shell)
+                .args(flags)
+                .arg(format!(r"printf '%s\0' {line}"))
+                .env_clear()
+                .output()
+                .unwrap();
+            String::from_utf8(printed.stdout)
+                .unwrap()
+                .split_terminator('\0')
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
         };
-        for permissions in agent.permissions() {
-            for &output in &outputs {
-                for &fast in speeds {
-                    let start = AgentStart {
-                        agent,
-                        account: None,
-                        model: None,
-                        effort: None,
-                        permissions: Some(permissions),
-                        output: Some(output),
-                        fast,
-                        chat: None,
-                    };
-                    let saved = AgentPick {
-                        agent,
-                        account: None,
-                        model: None,
-                        effort: None,
-                        permissions: None,
-                        output: None,
-                        fast: false,
-                        chat: false,
-                    };
-                    let (line, _) = plan(&installed(agent), None, &saved, &start, shell).unwrap();
-                    let notes = Notes {
-                        shell: shell.to_owned(),
-                        ..Notes::default()
-                    };
-                    let line = agent.with_context(&line, &notes);
-                    let started = agent.started_with(&arguments(&line));
-                    assert_eq!(started.permissions, Some(permissions), "{line}");
-                    if agent != Agent::Copilot {
-                        assert_eq!(started.output, Some(output), "{line}");
+        for agent in [
+            Agent::Claude,
+            Agent::Codex,
+            Agent::Copilot,
+            Agent::Antigravity,
+        ] {
+            let mut outputs = agent.outputs();
+            if outputs.is_empty() {
+                outputs.push(agent.default_output());
+            }
+            let speeds: &[Option<bool>] = if agent.has_fast() {
+                &[None, Some(true)]
+            } else {
+                &[None]
+            };
+            for permissions in agent.permissions() {
+                for &output in &outputs {
+                    for &fast in speeds {
+                        let start = AgentStart {
+                            agent,
+                            account: None,
+                            model: None,
+                            effort: None,
+                            permissions: Some(permissions),
+                            output: Some(output),
+                            fast,
+                            chat: None,
+                        };
+                        let saved = AgentPick {
+                            agent,
+                            account: None,
+                            model: None,
+                            effort: None,
+                            permissions: None,
+                            output: None,
+                            fast: false,
+                            chat: false,
+                        };
+                        let (line, _) =
+                            plan(&installed(agent), None, &saved, &start, shell).unwrap();
+                        let notes = Notes {
+                            shell: shell.to_owned(),
+                            ..Notes::default()
+                        };
+                        let line = agent.with_context(&line, &notes);
+                        let started = agent.started_with(&arguments(&line));
+                        assert_eq!(started.permissions, Some(permissions), "{line}");
+                        if agent != Agent::Copilot {
+                            assert_eq!(started.output, Some(output), "{line}");
+                        }
+                        let shown = agent.has_fast().then(|| fast.unwrap_or(false));
+                        assert_eq!(started.fast, shown, "{line}");
                     }
-                    let shown = agent.has_fast().then(|| fast.unwrap_or(false));
-                    assert_eq!(started.fast, shown, "{line}");
                 }
             }
         }

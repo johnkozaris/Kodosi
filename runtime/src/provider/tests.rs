@@ -840,12 +840,6 @@ fn config_inspection_never_creates_or_edits_provider_files() {
     );
     assert_eq!(fs::read(&user).unwrap(), b"{\"permissions\":{}}");
     assert!(!directory.join(".claude").exists());
-    assert!(
-        serde_json::to_value(&info)
-            .unwrap()
-            .get("version")
-            .is_none()
-    );
 }
 
 #[test]

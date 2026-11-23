@@ -12,10 +12,11 @@ use serde_json::{Map, Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
-    MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
+    ChatPerson, ChatTask, ChatTool, MOST_OUTPUT, MOST_QUESTIONS, MOST_TARGET, MOST_TEXT,
+    PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Places, Stop, answer, list, open_items, person, plan_command, stop_open, text, words,
+        Agent, Places, Stop, answer, list, open_items, person, plan_command, question, remember,
+        show_state, stop_open, text, words,
     },
     diff,
     state::{Chat, ends_of, start_of},
@@ -25,7 +26,6 @@ use super::{
 const HISTORY: u64 = 20;
 /// Codex's own words, which its terminal sends when a person chooses to carry out a plan.
 const IMPLEMENT: &str = "Implement the plan.";
-const MOST_ITEMS: usize = 2048;
 const MOST_PASSED: usize = 64;
 
 #[derive(Default)]
@@ -116,15 +116,7 @@ impl Codex {
     }
 
     fn show(&self, chat: &mut Chat) {
-        if !self.linked {
-            chat.set_state(ChatState::Away, None);
-        } else if !chat.asks().is_empty() {
-            chat.set_state(ChatState::Asking, None);
-        } else if self.turn.is_some() {
-            chat.set_state(ChatState::Working, self.now.clone());
-        } else {
-            chat.set_state(ChatState::Idle, None);
-        }
+        show_state(chat, self.linked, self.turn.is_some(), self.now.clone());
     }
 
     fn call(&mut self, tag: &str, method: &str, params: &Value) {
@@ -602,20 +594,12 @@ impl Codex {
             _ => None,
         };
         if let Some(shown) = shown {
-            if self.items.len() >= MOST_ITEMS {
-                let live = chat
-                    .items()
-                    .iter()
-                    .map(|item| item.id.as_str())
-                    .collect::<std::collections::HashSet<_>>();
-                self.items.retain(|_, item| live.contains(item.as_str()));
-            }
             if !done && chat.tool(&shown).is_some() {
                 self.now = Some(ChatNow::Tool {
                     item: shown.clone(),
                 });
             }
-            self.items.insert(id.to_owned(), shown);
+            remember(&mut self.items, chat, id, shown);
         }
         if done && text(item, "type") == "plan" {
             self.plan = self.items.get(id).cloned();
@@ -770,7 +754,9 @@ impl Codex {
         let Some(ask) = event.get("id").and_then(Self::ask_name) else {
             return;
         };
-        let given = list(params, "questions").take(8).collect::<Vec<_>>();
+        let given = list(params, "questions")
+            .take(MOST_QUESTIONS)
+            .collect::<Vec<_>>();
         if !self.is_ours(params)
             || given.is_empty()
             || given
@@ -781,19 +767,7 @@ impl Codex {
         }
         let questions = given
             .iter()
-            .map(|question| ChatQuestion {
-                question: start_of(text(question, "question"), MOST_TARGET * 2).to_owned(),
-                header: start_of(text(question, "header"), MOST_TARGET).to_owned(),
-                options: list(question, "options")
-                    .take(16)
-                    .map(|option| ChatOption {
-                        label: start_of(text(option, "label"), MOST_TARGET).to_owned(),
-                        description: start_of(text(option, "description"), MOST_TARGET * 2)
-                            .to_owned(),
-                    })
-                    .collect(),
-                multiple: false,
-            })
+            .map(|each| question(each, false))
             .collect::<Vec<_>>();
         let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
         let item = chat.push(
@@ -1373,17 +1347,11 @@ fn change(item: &Value, places: &Places) -> Option<ChatTool> {
         },
         state: ToolState::Running,
         target: start_of(&names, MOST_TARGET).to_owned(),
-        detail: Some(ToolDetail::Change {
-            path: text(first, "path").to_owned(),
-            added: lines.added,
-            removed: lines.removed,
-            lines: lines.lines,
-        }),
+        detail: Some(lines.detail(text(first, "path").to_owned())),
         ms: None,
     })
 }
 
-/// An item of a kind that the chat has no own view of. It shows with Codex's name of the kind.
 /// Codex's plan, as its plan mode writes it.
 fn plan(item: &Value, done: bool) -> ChatTool {
     ChatTool {
@@ -1402,6 +1370,7 @@ fn plan(item: &Value, done: bool) -> ChatTool {
     }
 }
 
+/// An item of a kind that the chat has no own view of. It shows with Codex's name of the kind.
 fn other(kind: &str, item: &Value, places: &Places) -> Option<ChatTool> {
     let (shown, subject) = match kind {
         "webSearch" => (ToolKind::Web, words(item, "query")),
