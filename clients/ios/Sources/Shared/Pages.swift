@@ -86,7 +86,6 @@ struct ListHeader: View {
                     .appTextStyle(.footnote)
                     .monospacedDigit()
                     .foregroundStyle(theme.colors.inkFaint)
-                    .contentTransition(.numericText(value: Double(count)))
             }
             Spacer(minLength: 0)
         }

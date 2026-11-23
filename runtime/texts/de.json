@@ -338,6 +338,7 @@
 "{agent} runs in the chat of this terminal. Write to it there, or here and press Return.": "{agent} läuft im Chat dieses Terminals. Schreib ihm dort oder hier und drück die Eingabetaste.",
 "{computer} is offline.": "{computer} ist offline.",
 "{computer} is online.": "{computer} ist online.",
+"{name} could not be moved to the trash, so it stays in its folder.": "{name} konnte nicht in den Papierkorb gelegt werden und bleibt in seinem Ordner.",
 "{name} could not be read.": "{name} konnte nicht gelesen werden.",
 "{name} could not be saved.": "{name} konnte nicht gespeichert werden.",
 "{name} did not give Kodosi the key of its sign-ins.": "{name} hat Kodosi den Schlüssel seiner Anmeldungen nicht gegeben.",

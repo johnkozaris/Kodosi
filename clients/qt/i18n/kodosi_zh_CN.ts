@@ -716,6 +716,14 @@
         <translation>从画布移除</translation>
     </message>
     <message>
+        <source>Remove all from canvas</source>
+        <translation>全部从画布移除</translation>
+    </message>
+    <message>
+        <source>Move to trash</source>
+        <translation>移到回收站</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>文件缺失</translation>
     </message>

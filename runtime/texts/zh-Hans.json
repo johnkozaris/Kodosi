@@ -338,6 +338,7 @@
 "{agent} runs in the chat of this terminal. Write to it there, or here and press Return.": "{agent} 在此终端的聊天中运行。在聊天中给它写，或在这里输入后按回车键。",
 "{computer} is offline.": "{computer} 已离线。",
 "{computer} is online.": "{computer} 已上线。",
+"{name} could not be moved to the trash, so it stays in its folder.": "无法将 {name} 移到回收站，它仍在原来的文件夹中。",
 "{name} could not be read.": "无法读取 {name}。",
 "{name} could not be saved.": "无法保存 {name}。",
 "{name} did not give Kodosi the key of its sign-ins.": "{name} 没有把它登录信息的密钥交给 Kodosi。",

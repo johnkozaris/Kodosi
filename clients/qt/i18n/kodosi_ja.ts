@@ -716,6 +716,14 @@
         <translation>キャンバスから削除</translation>
     </message>
     <message>
+        <source>Remove all from canvas</source>
+        <translation>すべてキャンバスから削除</translation>
+    </message>
+    <message>
+        <source>Move to trash</source>
+        <translation>ゴミ箱に移動</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>ファイルが見つかりません</translation>
     </message>

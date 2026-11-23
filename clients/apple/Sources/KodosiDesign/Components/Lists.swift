@@ -241,7 +241,7 @@ public struct PageHeader<Trailing: View>: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).appTextStyle(.large).foregroundStyle(theme.colors.ink)
                 if let facts {
-                    Text(facts).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).contentTransition(.numericText())
+                    Text(facts).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                 }
             }
             Spacer(minLength: 12)

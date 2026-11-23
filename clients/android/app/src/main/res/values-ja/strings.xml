@@ -286,6 +286,8 @@
     <string name="save_copy">コピーを保存…</string>
     <string name="ask_about_this">これについて質問</string>
     <string name="remove_from_canvas">キャンバスから削除</string>
+    <string name="remove_all_from_canvas">すべてキャンバスから削除</string>
+    <string name="move_to_trash">ゴミ箱に移動</string>
     <string name="file_too_large">キャンバスに置けるファイルは 32 MB までです。</string>
     <string name="file_unavailable">このファイルは利用できません。</string>
     <string name="uploading">ファイルを送信中</string>

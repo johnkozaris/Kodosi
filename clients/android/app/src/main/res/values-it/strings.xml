@@ -286,6 +286,8 @@
     <string name="save_copy">Salva una copia…</string>
     <string name="ask_about_this">Fai una domanda su questo</string>
     <string name="remove_from_canvas">Rimuovi dal canvas</string>
+    <string name="remove_all_from_canvas">Rimuovi tutto dal canvas</string>
+    <string name="move_to_trash">Sposta nel cestino</string>
     <string name="file_too_large">Il canvas accetta file fino a 32 MB.</string>
     <string name="file_unavailable">Questo file non è disponibile.</string>
     <string name="uploading">Invio del file</string>

@@ -338,6 +338,7 @@
 "{agent} runs in the chat of this terminal. Write to it there, or here and press Return.": "Το {agent} τρέχει στη συνομιλία αυτού του τερματικού. Γράψτε του εκεί, ή εδώ και πατήστε Return.",
 "{computer} is offline.": "{computer}: εκτός σύνδεσης.",
 "{computer} is online.": "{computer}: σε σύνδεση.",
+"{name} could not be moved to the trash, so it stays in its folder.": "Δεν ήταν δυνατή η μετακίνηση του {name} στον κάδο, οπότε μένει στον φάκελό του.",
 "{name} could not be read.": "Δεν ήταν δυνατή η ανάγνωση του {name}.",
 "{name} could not be saved.": "Δεν ήταν δυνατή η αποθήκευση του {name}.",
 "{name} did not give Kodosi the key of its sign-ins.": "Το {name} δεν έδωσε στο Kodosi το κλειδί των συνδέσεών του.",

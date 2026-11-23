@@ -717,6 +717,14 @@
         <translation>Αφαίρεση από το canvas</translation>
     </message>
     <message>
+        <source>Remove all from canvas</source>
+        <translation>Αφαίρεση όλων από το canvas</translation>
+    </message>
+    <message>
+        <source>Move to trash</source>
+        <translation>Μετακίνηση στον κάδο</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>Το αρχείο λείπει</translation>
     </message>

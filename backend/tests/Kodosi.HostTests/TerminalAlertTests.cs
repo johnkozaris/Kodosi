@@ -314,6 +314,22 @@ public sealed class TerminalAlertTests
     }
 
     [Fact]
+    public async Task AWithdrawalThatANewerNoticeOfTheSamePersonFollowsInTheSameSecondIsNotSent()
+    {
+        await using var computer = Connect("computer", hosts: true);
+        var answered = Hosted(computer); var next = Hosted(computer);
+        Report(computer, answered, "blocked");
+        Alert(After(TerminalAlerts.Delay));
+        clock.Advance(TimeSpan.FromSeconds(10));
+        Report(computer, next, "blocked");
+        clock.Advance(TerminalAlerts.Delay - TimeSpan.FromSeconds(1));
+        Report(computer, answered, "blocked", attention: false);
+        var notice = Assert.Single(After(TimeSpan.FromSeconds(1)));
+        Assert.Equal(next.Id, notice.Alert?.TerminalId);
+        Assert.Equal([next.Id], notice.Pushed.Select(x => x.TerminalId));
+    }
+
+    [Fact]
     public async Task APushIsWithdrawnWhenItsTerminalIsSeenChangesOrEndsButNotWhenItsHostDisconnects()
     {
         var computer = Connect("computer", hosts: true);

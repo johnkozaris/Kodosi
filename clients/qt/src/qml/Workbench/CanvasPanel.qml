@@ -589,6 +589,25 @@ Item {
             iconName: "close"
             onTriggered: Models.Canvas.remove(root.sessionId, fileMenu.item.key)
         }
+        KMenuItem {
+            text: qsTr("Remove all from canvas")
+            iconName: "close"
+            visible: root.files.length > 1
+            onTriggered: Models.Canvas.removeAll(root.sessionId)
+        }
+        MenuSeparator {
+            visible: trashItem.visible
+            contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
+        }
+        KMenuItem {
+            id: trashItem
+
+            text: qsTr("Move to trash")
+            iconName: "trash"
+            destructive: true
+            visible: !!fileMenu.item && fileMenu.item.missing !== true
+            onTriggered: Models.Canvas.trash(root.sessionId, fileMenu.item.key)
+        }
     }
     Component {
         id: browserView

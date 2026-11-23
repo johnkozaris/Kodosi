@@ -154,7 +154,7 @@ public sealed class PushTokenTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task AnAppleDeviceHearsOfAWithdrawalAtMostOnceInTenMinutesAndThenGetsTheNewestList()
+    public async Task AnAppleDeviceHearsAtOnceThatNothingIsLeftAndOfOtherWithdrawalsAtMostOnceInTenMinutes()
     {
         var ct = TestContext.Current.CancellationToken;
         var apple = new PushHandler(_ => (HttpStatusCode.OK, ""));
@@ -171,24 +171,32 @@ public sealed class PushTokenTests(PostgresFixture postgres)
         {
             var before = apple.Sent.Count;
             await delivery.DeliverAsync(notice, ct);
-            return apple.Sent.Count == before ? null : $"{apple.Sent[^1].Headers["apns-push-type"]} {apple.Sent[^1].Body}";
+            if (apple.Sent.Count == before) return null;
+            var sent = apple.Sent[^1];
+            return $"{sent.Headers["apns-push-type"]} {sent.Headers["apns-priority"]} {sent.Body}";
         }
-        PushNotice Alert(Guid terminal) => new(owner, [new PushedTerminal(terminal, status)], new PushAlert(terminal, status, true, 1));
-        var withdrawn = new PushNotice(owner, []);
-        const string Empty = """background {"aps":{"content-available":1},"kodosi":{"pushed":[]}}""";
+        PushedTerminal[] Listed(Guid[] terminals) => [.. terminals.Select(terminal => new PushedTerminal(terminal, status))];
+        PushNotice Alert(params Guid[] terminals) => new(owner, Listed(terminals), new PushAlert(terminals[0], status, true, terminals.Length));
+        PushNotice Left(params Guid[] terminals) => new(owner, Listed(terminals));
+        const string Cleared = """alert 10 {"aps":{"badge":0}}""";
+        string Background(Guid terminal) => $$$"""background 5 {"aps":{"content-available":1},"kodosi":{"pushed":["{{{terminal}}}"]}}""";
 
-        Assert.StartsWith("alert ", await SentAsync(Alert(first)), StringComparison.Ordinal);
-        Assert.Equal(Empty, await SentAsync(withdrawn));
-        Assert.StartsWith("alert ", await SentAsync(Alert(second)), StringComparison.Ordinal);
+        Assert.StartsWith("alert ", await SentAsync(Alert(first, second)), StringComparison.Ordinal);
+        Assert.Equal(Background(second), await SentAsync(Left(second)));
         clock.Advance(TimeSpan.FromMinutes(1));
-        Assert.Null(await SentAsync(withdrawn));
+        Assert.Equal(Cleared, await SentAsync(Left()));
+        Assert.Null(await SentAsync(Left()));
+        Assert.StartsWith("alert ", await SentAsync(Alert(first, second)), StringComparison.Ordinal);
+        Assert.Null(await SentAsync(Left(second)));
         clock.Advance(PushDelivery.BackgroundSpacing - TimeSpan.FromMinutes(2));
         Assert.Empty(delivery.Released());
         clock.Advance(TimeSpan.FromMinutes(1));
         Assert.Equal(new[] { (owner, device) }, delivery.Released());
-        Assert.Equal(Empty, await SentAsync(withdrawn with { DeviceId = device }));
+        Assert.Equal(Background(second), await SentAsync(Left(second) with { DeviceId = device }));
         Assert.Empty(delivery.Released());
+        Assert.Null(await SentAsync(Left(first)));
+        Assert.Equal(Cleared, await SentAsync(Left()));
         clock.Advance(PushDelivery.BackgroundSpacing);
-        Assert.Null(await SentAsync(withdrawn));
+        Assert.Empty(delivery.Released());
     }
 }

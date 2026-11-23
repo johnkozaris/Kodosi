@@ -185,26 +185,31 @@ fn only_a_wait_has_a_sound_and_at_most_once_in_thirty_seconds() {
 
 #[cfg(feature = "host")]
 #[test]
-fn a_programs_notification_sounds_where_its_person_can_be_and_only_lists_where_nobody_is() {
+fn a_programs_notification_shows_by_the_presence_at_its_own_device_and_never_sounds() {
     let mut attention = Attention::default();
     let app = Uuid::now_v7();
     let start = Instant::now();
-    let mut noted = |presence, elsewhere, millis| {
+    let mut noted = |presence, elsewhere| {
         attention.present(app, presence, CancellationToken::new());
         attention.hear_elsewhere(elsewhere);
-        attention.notification_cue(after(start, millis))
+        attention.notification_cue(start)
     };
     let nowhere = Elsewhere::default();
     let at_a_computer = Elsewhere {
         kodosi: false,
         here: true,
     };
-    assert_eq!(noted(Presence::Kodosi, nowhere, 0), Cue::Sound);
-    assert_eq!(noted(Presence::Here, nowhere, 29_999), Cue::Banner);
-    assert_eq!(noted(Presence::Here, at_a_computer, 30_000), Cue::Sound);
-    assert_eq!(noted(Presence::Idle, nowhere, 60_000), Cue::Sound);
-    assert_eq!(noted(Presence::Idle, at_a_computer, 90_000), Cue::List);
-    assert_eq!(noted(Presence::Away, nowhere, 90_000), Cue::List);
+    let in_kodosi = Elsewhere {
+        kodosi: true,
+        here: false,
+    };
+    assert_eq!(noted(Presence::Kodosi, nowhere), None);
+    assert_eq!(noted(Presence::Here, in_kodosi), Some(Cue::Banner));
+    assert_eq!(noted(Presence::Here, at_a_computer), Some(Cue::Banner));
+    assert_eq!(noted(Presence::Idle, nowhere), Some(Cue::Banner));
+    assert_eq!(noted(Presence::Idle, in_kodosi), Some(Cue::List));
+    assert_eq!(noted(Presence::Idle, at_a_computer), Some(Cue::List));
+    assert_eq!(noted(Presence::Away, in_kodosi), Some(Cue::List));
 }
 
 fn starts(attention: &mut Attention, id: &str, start: Instant) {

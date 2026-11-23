@@ -7202,6 +7202,22 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "trash"
+                  }
+                },
+                "required": [
+                  "type",
+                  "key"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
                   "data": {
                     "type": "string"
                   },

@@ -294,6 +294,8 @@
     <string name="save_copy">Save a copy</string>
     <string name="ask_about_this">Ask about this</string>
     <string name="remove_from_canvas">Remove from canvas</string>
+    <string name="remove_all_from_canvas">Remove all from canvas</string>
+    <string name="move_to_trash">Move to trash</string>
     <string name="file_too_large">The canvas takes files up to 32 MB.</string>
     <string name="file_unavailable">This file is not available.</string>
     <string name="uploading">Sending file</string>
