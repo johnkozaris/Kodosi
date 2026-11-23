@@ -4688,7 +4688,15 @@ fn a_message_names_the_terminal_whose_whole_name_follows_the_at_sign() {
         [2, 3]
     );
     assert_eq!(messages::named("@Build: the test fails", &terminals), [1]);
-    for text in ["@Builder", "write to ana@Build", "no names here", "@"] {
+    assert_eq!(messages::named("@build 2, then @DOCS", &terminals), [2, 3]);
+    assert_eq!(messages::named("@Build-fix is red", &terminals), [1]);
+    for text in [
+        "@Builder",
+        "write to ana@Build",
+        "see run_@Build",
+        "no names here",
+        "@",
+    ] {
         assert_eq!(
             messages::named(text, &terminals),
             Vec::<i32>::new(),

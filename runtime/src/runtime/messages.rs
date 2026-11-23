@@ -132,14 +132,12 @@ impl Mentions {
     }
 }
 
+/// The apps mark a name after an at sign in any case, and end it where a word ends. A name that an
+/// app marks and the runtime does not find leaves its person waiting for an agent that got nothing.
 pub(super) fn named<T: Copy>(text: &str, terminals: &[(T, &str)]) -> Vec<T> {
     let mut found = Vec::new();
     for (index, _) in text.match_indices('@') {
-        if text[..index]
-            .chars()
-            .next_back()
-            .is_some_and(char::is_alphanumeric)
-        {
+        if text[..index].chars().next_back().is_some_and(in_a_word) {
             continue;
         }
         let rest = &text[index + 1..];
@@ -147,11 +145,7 @@ pub(super) fn named<T: Copy>(text: &str, terminals: &[(T, &str)]) -> Vec<T> {
             .iter()
             .filter(|(_, name)| {
                 !name.is_empty()
-                    && rest.starts_with(*name)
-                    && rest[name.len()..]
-                        .chars()
-                        .next()
-                        .is_none_or(|next| !next.is_alphanumeric() && next != '_' && next != '-')
+                    && after_name(rest, name).is_some_and(|next| !next.is_some_and(in_a_word))
             })
             .max_by_key(|(_, name)| name.len());
         if let Some((terminal, _)) = best {
@@ -159,6 +153,20 @@ pub(super) fn named<T: Copy>(text: &str, terminals: &[(T, &str)]) -> Vec<T> {
         }
     }
     found
+}
+
+fn in_a_word(character: char) -> bool {
+    character.is_alphanumeric() || character == '_'
+}
+
+fn after_name(text: &str, name: &str) -> Option<Option<char>> {
+    let mut rest = text.chars();
+    for expected in name.chars() {
+        if !rest.next()?.to_lowercase().eq(expected.to_lowercase()) {
+            return None;
+        }
+    }
+    Some(rest.next())
 }
 
 pub(super) fn takes_messages(program: Option<&str>, status: Option<&ProgramStatus>) -> bool {
