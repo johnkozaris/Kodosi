@@ -550,7 +550,8 @@ private fun UsageReading(usage: JsonObject, limit: JsonObject) {
     }
     val locale = LocalConfiguration.current.locales[0]
     val percent = remember(used, locale) { NumberFormat.getPercentInstance(locale).format(used / 100.0) }
-    ListLine(usage.string("account").orEmpty(), subtitle = usageWindow(limit), leading = {
+    val window = usageWindow(limit.number("hours")?.toInt(), limit.string("scope"))
+    ListLine(usage.string("account").orEmpty(), subtitle = window, leading = {
         Canvas(Modifier.size(26.dp)) {
             val stroke = Stroke(2.dp.toPx(), cap = StrokeCap.Round)
             drawArc(colors.ink.copy(alpha = 0.12f), -90f, 360f, false, style = stroke)
@@ -560,9 +561,7 @@ private fun UsageReading(usage: JsonObject, limit: JsonObject) {
 }
 
 @Composable
-private fun usageWindow(limit: JsonObject): String {
-    val scope = limit.string("scope")
-    val hours = limit.number("hours")?.toInt()
+internal fun usageWindow(hours: Int?, scope: String?): String {
     val days = hours?.takeIf { it > DAY_HOURS && it % DAY_HOURS == 0 }?.div(DAY_HOURS)
     return if (scope == null) {
         when {

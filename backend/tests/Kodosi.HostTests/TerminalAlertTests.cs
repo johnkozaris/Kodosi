@@ -9,8 +9,8 @@ namespace Kodosi.HostTests;
 public sealed class TerminalAlertTests
 {
     private readonly ManualClock clock = new();
-    private readonly ConnectionDirectory directory;
-    private readonly TerminalAlerts alerts;
+    private ConnectionDirectory directory;
+    private TerminalAlerts alerts;
     private readonly Guid owner = Guid.CreateVersion7();
 
     public TerminalAlertTests()
@@ -45,6 +45,16 @@ public sealed class TerminalAlertTests
     }
 
     private static PushAlert Alert(List<PushNotice> notices) => Assert.Single(notices).Alert!;
+
+    private List<PushRecord> Restart()
+    {
+        var saved = alerts.TakeUnsaved().Values.OfType<PushRecord>().ToList();
+        alerts.Unfollow();
+        directory = new ConnectionDirectory(clock);
+        alerts = new TerminalAlerts(directory, clock, NullLogger<TerminalAlerts>.Instance);
+        alerts.Follow();
+        return saved;
+    }
 
     private static Guid[] Withdrawn(List<PushNotice> notices)
     {
@@ -223,6 +233,84 @@ public sealed class TerminalAlertTests
         Report(again, terminal, "done");
         Assert.Empty(Withdrawn(alerts.Take()));
         Assert.Equal("done", Alert(After(TerminalAlerts.Delay)).Status.State);
+    }
+
+    [Fact]
+    public async Task APushFromBeforeARestartOfTheServerIsNotSentAgainButANewStateIs()
+    {
+        var computer = Connect("computer", hosts: true);
+        var waiting = Hosted(computer); var seen = Hosted(computer);
+        Report(computer, waiting, "blocked");
+        Report(computer, seen, "done");
+        Assert.Equal(2, After(TerminalAlerts.Delay).Count(notice => notice.Alert is not null));
+        await computer.DisposeAsync();
+        var saved = Restart();
+
+        await using var again = Connect("computer", hosts: true);
+        Hosted(again, waiting); Hosted(again, seen);
+        Report(again, seen, "done", attention: false);
+        alerts.Restore(saved);
+        Assert.Equal([waiting.Id], Withdrawn(alerts.Take()));
+        Assert.Equal([seen.Id], alerts.TakeUnsaved().Keys);
+        Report(again, waiting, "blocked");
+        Assert.Empty(After(TerminalAlerts.Delay));
+        Report(again, waiting, "done");
+        Assert.Empty(Withdrawn(alerts.Take()));
+        var alert = Alert(After(TerminalAlerts.Delay));
+        Assert.Equal((waiting.Id, "done"), (alert.TerminalId, alert.Status.State));
+    }
+
+    [Fact]
+    public async Task AWaitThatAHostReportedBeforeThePushesCameBackGetsNoSecondPush()
+    {
+        var computer = Connect("computer", hosts: true);
+        var terminal = Hosted(computer);
+        Report(computer, terminal, "blocked");
+        Alert(After(TerminalAlerts.Delay));
+        await computer.DisposeAsync();
+        var saved = Restart();
+
+        await using var again = Connect("computer", hosts: true);
+        Hosted(again, terminal);
+        Report(again, terminal, "blocked");
+        alerts.Restore(saved);
+        Assert.Empty(After(ConnectionDirectory.PresenceLease));
+        Assert.Empty(alerts.TakeUnsaved());
+    }
+
+    [Fact]
+    public async Task ARestoredPushIsTakenBackWhenItsHostCameBackWithoutTheWaitAndKeptWhileItsHostIsAway()
+    {
+        var computer = Connect("computer", hosts: true); var laptop = Connect("laptop", hosts: true);
+        var answered = Hosted(computer); var asleep = Hosted(laptop);
+        Report(computer, answered, "blocked");
+        Report(laptop, asleep, "blocked");
+        Assert.Equal(2, After(TerminalAlerts.Delay).Count);
+        await computer.DisposeAsync();
+        await laptop.DisposeAsync();
+        var saved = Restart();
+
+        await using var again = Connect("computer", hosts: true);
+        Hosted(again, answered);
+        alerts.Restore(saved);
+        Assert.Empty(After(ConnectionDirectory.PresenceLease - TimeSpan.FromSeconds(1)));
+        Assert.Equal([asleep.Id], Withdrawn(After(TimeSpan.FromSeconds(1))));
+        Assert.Equal([answered.Id], alerts.TakeUnsaved().Keys);
+    }
+
+    [Fact]
+    public async Task EachPushAndEachWithdrawalWaitsToBeSavedAndTheNewerOneWins()
+    {
+        await using var computer = Connect("computer", hosts: true);
+        var terminal = Hosted(computer);
+        Report(computer, terminal, "blocked");
+        Alert(After(TerminalAlerts.Delay));
+        var pushed = alerts.TakeUnsaved();
+        Assert.Equal(new PushRecord(owner, terminal.Id, new TerminalStatus("claude", "blocked", null, 1, true), clock.GetUtcNow()), pushed[terminal.Id]);
+        Assert.Empty(alerts.TakeUnsaved());
+        Report(computer, terminal, "working", attention: false);
+        alerts.SaveLater(pushed);
+        Assert.Null(Assert.Single(alerts.TakeUnsaved()).Value);
     }
 
     [Fact]

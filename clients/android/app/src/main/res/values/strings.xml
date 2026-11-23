@@ -501,10 +501,6 @@
     <string name="today">Today</string>
     <string name="yesterday">Yesterday</string>
     <string name="chat_usage_used">%1$s: %2$d%% used</string>
-    <string name="chat_usage_month">This month</string>
-    <string name="chat_usage_week">This week</string>
-    <string name="chat_usage_scope_month">%1$s, this month</string>
-    <string name="chat_usage_scope_week">%1$s, this week</string>
     <plurals name="chat_ran_commands">
         <item quantity="one">ran %d command</item>
         <item quantity="other">ran %d commands</item>
@@ -560,14 +556,6 @@
     <plurals name="chat_count_stopped">
         <item quantity="one">%d stopped</item>
         <item quantity="other">%d stopped</item>
-    </plurals>
-    <plurals name="chat_usage_hours">
-        <item quantity="one">Last %d hour</item>
-        <item quantity="other">Last %d hours</item>
-    </plurals>
-    <plurals name="chat_usage_scope_hours">
-        <item quantity="one">%1$s, last %2$d hour</item>
-        <item quantity="other">%1$s, last %2$d hours</item>
     </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="one">Tasks: %1$d of %2$d done</item>

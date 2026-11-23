@@ -268,7 +268,7 @@ private struct TerminalScreenContent: View {
                     if waitsForConnection(session) {
                         ReconnectingNotice(identifier: "terminal.reconnecting")
                     }
-                    if let note = controller.sizeNote, session?.isConnected == true {
+                    if let note = controller.sizeNote, session?.isConnected == true, !chatting {
                         TerminalSizeNote(note: note, resize: controller.resizeHere)
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
