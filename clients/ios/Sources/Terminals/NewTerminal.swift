@@ -56,7 +56,7 @@ final class NewTerminal {
         let agent = agent(in: launcher).flatMap { LaunchPlan(launcher: launcher, agent: $0.agent).start }
         let words = String(prompt.map { $0.isNewline || $0 == "\t" ? " " : $0 }).trimmingCharacters(in: .whitespaces)
         let terminal = TerminalStart(
-            name: generateSessionName(), directory: folder(in: launcher), computer: computer, projectId: projectId, agent: agent,
+            directory: folder(in: launcher), computer: computer, projectId: projectId, agent: agent,
             prompt: agent == nil || words.isEmpty ? nil : words,
         )
         starting = true

@@ -199,7 +199,7 @@ class Launcher(private val commands: CommandSink, val computer: String) {
         }
     }
 
-    suspend fun start(name: String, directory: String?, prompt: String, project: String?): String? {
+    suspend fun start(directory: String?, prompt: String, project: String?): String? {
         val current = state.value
         val agent = current.agents.firstOrNull { it.agent == current.agent }
         val pick = current.pick
@@ -224,7 +224,6 @@ class Launcher(private val commands: CommandSink, val computer: String) {
         return commands.request(
             "session.create",
             fields(
-                "name" to name.trim(),
                 "computer" to computer,
                 "workingDir" to directory,
                 "projectId" to project,

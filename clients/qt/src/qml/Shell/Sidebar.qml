@@ -1440,7 +1440,8 @@ Item {
             x = point.x
             y = point.y
             directory = folder
-            branchName.text = Models.SessionActions.suggestedBranch()
+            branchName.clear()
+            Models.SessionActions.suggestBranch()
             open()
         }
         function start(): void {
@@ -1456,6 +1457,16 @@ Item {
         onOpened: {
             branchName.selectAll()
             branchName.forceActiveFocus(Qt.PopupFocusReason)
+        }
+        Connections {
+            target: Models.SessionActions
+
+            function onBranchSuggested(branch: string): void {
+                if (branchPopover.visible && branchName.length === 0) {
+                    branchName.text = branch
+                    branchName.selectAll()
+                }
+            }
         }
         contentItem: ColumnLayout {
             spacing: 10

@@ -401,7 +401,7 @@ struct AgentLauncher: View {
             defer { starting = false }
             do {
                 let id = try await deps.createSession(
-                    name: generateSessionName(), directory: directory, computer: computer, projectId: projectId,
+                    directory: directory, computer: computer, projectId: projectId,
                     command: command, agent: agent, prompt: first,
                 )
                 if agent?.chat == true, let id {
