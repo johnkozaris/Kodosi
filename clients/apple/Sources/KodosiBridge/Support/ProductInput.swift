@@ -5,7 +5,7 @@ public enum ProductInput {
 
     public static func validName(_ value: String) -> Bool {
         let name = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !name.isEmpty && name.utf8.count <= 128 && !name.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+        return !name.isEmpty && name.utf8.count <= 128 && !name.unicodeScalars.contains { $0.properties.generalCategory == .control }
     }
 
     public static func clip(_ text: String, bytes: Int) -> String {
