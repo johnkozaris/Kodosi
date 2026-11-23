@@ -8,17 +8,11 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.repeatable
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,40 +28,39 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.toRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
@@ -98,20 +91,25 @@ fun Still(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalReducedMotion provides true, content = content)
 }
 
+@Composable
+private fun signsMove(): Boolean = !reducedMotion() && !powerSaving()
+
 /** All moving signs step on one clock, so that a step of all of them is one frame and nothing draws between steps. */
 @Composable
-private fun signPhase(): FloatState? {
-    if (reducedMotion() || powerSaving()) return null
-    val phase = remember { mutableFloatStateOf(signPhaseAt(SystemClock.uptimeMillis(), SIGN_STEP_MILLIS)) }
-    LaunchedEffect(phase) {
+private fun SignSteps(step: (phase: Float) -> Unit) {
+    val stepping by rememberUpdatedState(step)
+    SideEffect { stepping(signPhaseAt(SystemClock.uptimeMillis(), SIGN_STEP_MILLIS)) }
+    LaunchedEffect(Unit) {
         val scale = coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
-        val step = (SIGN_STEP_MILLIS * scale).toLong().coerceAtLeast(1)
-        while (true) {
-            delay(step - SystemClock.uptimeMillis() % step)
-            withInfiniteAnimationFrameMillis { phase.floatValue = signPhaseAt(SystemClock.uptimeMillis(), step) }
+        val millis = (SIGN_STEP_MILLIS * scale).toLong().coerceAtLeast(1)
+        onMainLooper {
+            while (true) {
+                delay(millis - SystemClock.uptimeMillis() % millis)
+                displayFrameMillis()
+                stepping(signPhaseAt(SystemClock.uptimeMillis(), millis))
+            }
         }
     }
-    return phase
 }
 
 private fun signPhaseAt(now: Long, step: Long): Float = (now / step % SIGN_STEPS) / SIGN_STEPS.toFloat()
@@ -122,6 +120,11 @@ private fun breathAlpha(phase: Float): Float =
 private const val SIGN_STEPS = 32
 private const val SIGN_STEP_MILLIS = 2400L / SIGN_STEPS
 private const val BREATHS = 3
+private const val SPIN_MILLIS = 800L
+
+// Each frame costs the phone's system about as much as it costs the app, so a sign this small asks only for the frames
+// that the eye needs. The rest ends after the third display frame at 120 Hz and the first at 60 Hz: 30 steps a second.
+private const val SPIN_REST_MILLIS = 28L
 
 private val FadeEasing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 
@@ -157,46 +160,61 @@ fun Unfolding(message: String?, modifier: Modifier = Modifier, content: @Composa
 @Composable
 fun KodosiSpinner(modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
-    val turn = if (reducedMotion()) {
-        null
-    } else {
-        rememberInfiniteTransition(label = "spinner").animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(800, easing = LinearEasing), RepeatMode.Restart),
-            label = "spinner turn"
-        )
-    }
-    Canvas(modifier.size(14.dp).progressSemantics()) {
-        val stroke = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round)
-        val inset = stroke.width / 2
-        val diameter = Size(size.width - stroke.width, size.height - stroke.width)
-        drawArc(colors.hairline, 0f, 360f, false, Offset(inset, inset), diameter, style = stroke)
-        drawArc(colors.accent, turn?.value ?: 0f, 100.8f, false, Offset(inset, inset), diameter, style = stroke)
+    val sign = rememberSignNode()
+    if (reducedMotion()) SideEffect { sign.turn(0f) } else SpinnerSteps(sign)
+    Spacer(
+        modifier
+            .size(14.dp)
+            .progressSemantics()
+            .drawBehind { spinnerArc(colors.hairline, 360f) }
+            .sign(sign) { spinnerArc(colors.accent, 100.8f) }
+    )
+}
+
+private fun DrawScope.spinnerArc(color: Color, sweep: Float) {
+    val stroke = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round)
+    val inset = stroke.width / 2
+    val diameter = Size(size.width - stroke.width, size.height - stroke.width)
+    drawArc(color, 0f, sweep, false, Offset(inset, inset), diameter, style = stroke)
+}
+
+@Composable
+private fun SpinnerSteps(sign: SignNode) {
+    LaunchedEffect(sign) {
+        val scale = coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
+        val period = (SPIN_MILLIS * scale).toLong().coerceAtLeast(1)
+        onMainLooper {
+            val start = displayFrameMillis()
+            while (true) {
+                sign.turn(360f * ((displayFrameMillis() - start) % period) / period)
+                delay(SPIN_REST_MILLIS)
+            }
+        }
     }
 }
+
+private fun SignNode.breathe(phase: Float) = breathe(1f + 1.4f * phase, 1f - phase)
 
 /** It rests after a few breaths, because its notice can stay for a whole outage. */
 @Composable
 fun BreathingDot(color: Color, modifier: Modifier = Modifier) {
     val still = reducedMotion() || powerSaving()
+    val sign = rememberSignNode()
     val breath = remember { Animatable(1f) }
-    LaunchedEffect(still) {
+    SideEffect { sign.breathe(breath.value) }
+    LaunchedEffect(sign, still) {
         breath.snapTo(if (still) 1f else 0f)
-        if (!still) breath.animateTo(1f, repeatable(BREATHS, tween(1600, easing = EaseOut)))
+        sign.breathe(breath.value)
+        if (!still) breath.animateTo(1f, repeatable(BREATHS, tween(1600, easing = EaseOut))) { sign.breathe(value) }
     }
-    Canvas(modifier.size(7.dp)) {
-        val radius = size.minDimension / 2
-        drawCircle(color, radius)
-        val phase = breath.value
-        if (phase < 1f) {
-            val scale = 1f + 1.4f * phase
-            drawCircle(
-                color.copy(alpha = 0.55f * (1f - phase)),
-                radius * scale,
-                style = Stroke(1.5.dp.toPx() * scale)
-            )
-        }
+    Box(modifier.size(7.dp).drawBehind { drawCircle(color) }, contentAlignment = Alignment.Center) {
+        Spacer(
+            Modifier
+                .wrapContentSize(unbounded = true)
+                // The frame of the ring's node holds the ring at its widest: (3.5 + 1.5 / 2) * 2.4 on each side.
+                .requiredSize(21.dp)
+                .sign(sign) { drawCircle(color.copy(alpha = 0.55f), 3.5.dp.toPx(), style = Stroke(1.5.dp.toPx())) }
+        )
     }
 }
 
@@ -355,27 +373,23 @@ fun AgentMark(
 
 @Composable
 private fun WorkingLight(colors: KodosiColors, size: Dp, modifier: Modifier) {
-    val turn = signPhase()
+    val moving = signsMove()
+    val sign = rememberSignNode()
+    if (moving) SignSteps { sign.turn(360f * it) } else SideEffect { sign.turn(0f) }
     Spacer(
-        modifier.drawWithCache {
-            val width = (size * 0.07f).toPx().coerceAtLeast(1.5.dp.toPx())
-            val light = if (turn == null) {
-                SolidColor(colors.glowOrange)
-            } else {
-                val glow = colors.glowOrange
-                Brush.sweepGradient(listOf(Color.Transparent, glow.copy(alpha = 0.2f), glow, Color.Transparent))
-            }
-            val corner = CornerRadius((size * 0.3f).toPx())
-            val outline = Path().apply { addRoundRect(RoundRect(this@drawWithCache.size.toRect(), corner)) }
-            val ring = Stroke(width * 2)
-            onDrawBehind {
-                clipPath(outline) {
-                    rotate(360f * (turn?.floatValue ?: 0f)) {
-                        drawRoundRect(light, cornerRadius = corner, style = ring)
-                    }
+        modifier
+            .clip(RoundedCornerShape(size * 0.3f))
+            // A turned node keeps the whole mark when it reaches past the mark's corners: (sqrt(2) - 1) / 2.
+            .sign(sign, reach = size * 0.21f) {
+                val width = (size * 0.07f).toPx().coerceAtLeast(1.5.dp.toPx())
+                val light = if (moving) {
+                    val glow = colors.glowOrange
+                    Brush.sweepGradient(listOf(Color.Transparent, glow.copy(alpha = 0.2f), glow, Color.Transparent))
+                } else {
+                    SolidColor(colors.glowOrange)
                 }
+                drawRoundRect(light, cornerRadius = CornerRadius((size * 0.3f).toPx()), style = Stroke(width * 2))
             }
-        }
     )
 }
 
@@ -392,17 +406,19 @@ fun StatusSign(form: StatusForm, size: Dp, modifier: Modifier = Modifier) {
             StatusForm.FAILED -> R.string.sign_failed
         }
     )
-    val breath = if (form == StatusForm.CHANGED) signPhase() else null
-    Canvas(modifier.size(size + 5.dp).semantics { contentDescription = label }) {
+    val area = modifier.size(size + 5.dp).semantics { contentDescription = label }
+    if (form == StatusForm.CHANGED) {
+        val sign = rememberSignNode()
+        if (signsMove()) SignSteps { sign.fade(breathAlpha(it)) } else SideEffect { sign.fade(1f) }
+        Spacer(area.sign(sign) { drawCircle(colors.accent, radius = size.toPx() * 0.31f) })
+        return
+    }
+    Canvas(area) {
         val unit = size.toPx()
         val origin = Offset((this.size.width - unit) / 2, (this.size.height - unit) / 2)
         fun at(x: Float, y: Float) = Offset(origin.x + x * unit, origin.y + y * unit)
         when (form) {
-            StatusForm.CHANGED -> drawCircle(
-                colors.accent.copy(alpha = breath?.let { breathAlpha(it.floatValue) } ?: 1f),
-                radius = unit * 0.31f,
-                center = at(0.5f, 0.5f)
-            )
+            StatusForm.CHANGED -> Unit
 
             StatusForm.HAND -> {
                 val middle = at(0.5f, 0.56f)
