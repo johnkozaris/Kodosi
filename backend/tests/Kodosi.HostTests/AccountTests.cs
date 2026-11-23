@@ -1,5 +1,7 @@
-using System.Security.Claims;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text.Json;
 using Kodosi.Accounts;
 using Kodosi.Data;
@@ -68,12 +70,20 @@ public sealed class AccountTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task WithoutTheSignInServiceTheAccountHasNoDeletionPage()
+    public async Task WithoutTheSignInServiceTheAppDeletesTheAccountAfterARecentSignIn()
     {
-        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
-        using var actor = await app.EnrollAsync("profile-response");
-        var response = await actor.Client.GetFromJsonAsync<JsonElement>("/api/me", TestContext.Current.CancellationToken);
-        Assert.Equal(["id", "handle", "displayName", "deletionUri"], response.EnumerateObject().Select(x => x.Name));
-        Assert.Equal(JsonValueKind.Null, response.GetProperty("deletionUri").ValueKind);
+        var ct = TestContext.Current.CancellationToken;
+        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct));
+        using var actor = await app.EnrollAsync("leaving");
+        var me = await actor.Client.GetFromJsonAsync<JsonElement>("/api/me", ct);
+        Assert.Equal(JsonValueKind.Null, me.GetProperty("deletionUri").ValueKind);
+        using (var stale = await actor.Client.DeleteAsync("/api/me", ct))
+            Assert.Equal(HttpStatusCode.Forbidden, stale.StatusCode);
+        using var recent = app.CreateClient();
+        recent.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", app.Token("leaving", authenticatedAt: DateTimeOffset.UtcNow));
+        using (var deleted = await recent.DeleteAsync("/api/me", ct))
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        using var gone = await actor.Client.GetAsync("/api/me", ct);
+        Assert.Equal(HttpStatusCode.Gone, gone.StatusCode);
     }
 }
