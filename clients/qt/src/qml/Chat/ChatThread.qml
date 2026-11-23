@@ -124,7 +124,8 @@ Item {
             required property var modelData
             readonly property var line: modelData
             readonly property string kind: line.kind || ""
-            readonly property bool mine: kind === "person" && (!line.byId || line.byId === Models.Account.userId)
+            readonly property bool mine: kind === "person"
+                && (!line.byId || !Models.Account.signedIn || line.byId === Models.Account.userId)
             readonly property bool agents: kind === "answer" || kind === "plan" || kind === "work" || kind === "end"
                 || kind === "now" || (kind === "note" && line.note !== "compacted")
             readonly property bool lead: agents && line.lead === true
