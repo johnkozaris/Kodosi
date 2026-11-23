@@ -2304,6 +2304,62 @@ async fn a_phone_closes_its_connections_only_when_it_stays_in_the_background() {
     assert_eq!(answered, 2);
 }
 
+#[tokio::test(start_paused = true)]
+async fn a_phone_in_the_background_wakes_for_no_work_of_its_own_until_it_comes_back() {
+    let (mut runtime, _root, changes) = loop_fixture().await;
+    let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let start = Command::CreateSession {
+        request_id: Uuid::now_v7().to_string(),
+        name: "Terminal".to_owned(),
+        working_dir: None,
+        project_id: None,
+        resume: None,
+        branch: None,
+        worktrees: None,
+        command: None,
+        agent: None,
+        prompt: None,
+        like: None,
+        size: None,
+    };
+    runtime
+        .expect_answer(&start, client, lifetime.clone())
+        .unwrap();
+    runtime.starting.insert(
+        Uuid::now_v7(),
+        Starting {
+            answer: json!({"type":"session.result","requestId":start.request_id(),"operation":"session.create"}),
+            until: Instant::now() + Duration::from_secs(1),
+        },
+    );
+    runtime.network.inner.link.set_background(true);
+    let foreground = as_client(
+        &runtime,
+        Command::Lifecycle {
+            request_id: Uuid::now_v7().to_string(),
+            state: AppLifecycle::Foreground,
+        },
+    );
+    let mut events = runtime.events.subscribe();
+    let (requests, looping) = start_loop(runtime, changes).await;
+    let answered = |event: &Event| event.event.request_id() == Some(start.request_id());
+
+    tokio::time::sleep(Duration::from_mins(1)).await;
+    assert!(!std::iter::from_fn(|| events.try_recv().ok()).any(|event| answered(&event)));
+    requests
+        .send(Request::Command {
+            envelope: foreground,
+            consumer: client,
+            lifetime,
+        })
+        .await
+        .unwrap();
+    let back = Instant::now();
+    while !answered(&events.recv().await.unwrap()) {}
+    assert_eq!(back.elapsed(), Duration::ZERO);
+    looping.abort();
+}
+
 #[test]
 fn every_command_can_fail_with_an_answer_that_its_app_can_read() {
     for sample in crate::protocol::tests::commands() {
