@@ -2,6 +2,7 @@ package com.kodosi.mobile.terminals
 
 import android.content.res.Configuration
 import android.view.View
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.EnterExitState
@@ -137,6 +138,8 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     }.collectAsStateWithLifecycle(model.terminals.session(sessionId)?.look ?: TerminalLook.DARK)
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var control by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(false) }
+    BackHandler(selected) { view?.endSelection() }
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
     val picks by model.terminals.faces.collectAsStateWithLifecycle()
     val chatting = session?.shownFace(picks[sessionId]) == TerminalFace.CHAT
@@ -249,6 +252,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     factory = { context ->
                         TerminalView(context, connection, scope).also { created ->
                             created.onControlChanged = { control = it }
+                            created.onSelectionChanged = { selected = it }
                             created.onClipboardRead = { clipboardAnswer = it }
                             created.onFailure = { model.notify(model.words.didNotWork) }
                             view = created
