@@ -4753,7 +4753,11 @@ fn a_message_line_says_who_wrote_and_from_where_and_leaves_the_choice_to_the_age
     assert_eq!(
         messages::mention_line(
             "Launch",
-            &[mention(&ana, "@Build check\r/exit\n the\u{1b}[2J test", 7)]
+            &[mention(
+                &ana,
+                "@Build check\r/exit\n the\u{1b}[2J te\u{202e}st",
+                7
+            )]
         ),
         format!(
             "[Kodosi] Message from Ana in the project \"Launch\": \"@Build check /exit the [2J test\" If you answer: kodosi project post \"text\". {judgment} it."

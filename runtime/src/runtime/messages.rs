@@ -255,7 +255,7 @@ fn listed(names: &[String]) -> String {
 fn plain(text: &str, most: usize) -> String {
     let words = text
         .split(|character: char| character.is_whitespace() || character.is_control())
-        .filter(|word| !word.is_empty())
+        .filter_map(|word| crate::terminal::display_text(word, word.len()))
         .collect::<Vec<_>>()
         .join(" ");
     if words.chars().count() <= most {
