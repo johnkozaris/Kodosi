@@ -20,14 +20,14 @@
       "plain"
     ],
     "catalog": {
-      "@tiptap/core": "3.34.0",
-      "@tiptap/pm": "3.34.0",
-      "lucide": "1.72.0",
+      "@tiptap/core": "3.35.0",
+      "@tiptap/pm": "3.35.0",
+      "lucide": "1.77.0",
       "prosemirror-collab": "1.3.1",
       "prosemirror-model": "1.25.13",
       "prosemirror-schema-basic": "1.2.5",
-      "prosemirror-schema-list": "1.6.0",
-      "prosemirror-transform": "1.12.5"
+      "prosemirror-schema-list": "1.6.1",
+      "prosemirror-transform": "1.12.7"
     }
   },
   "overrides": {
@@ -42,8 +42,8 @@
     "format:check": "biome check ."
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.7",
-    "@types/bun": "1.4.4",
+    "@biomejs/biome": "2.6.8",
+    "@types/bun": "1.4.5",
     "typescript": "7.0.2",
     "vite": "8.3.8"
   }
