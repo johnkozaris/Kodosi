@@ -3,7 +3,6 @@
 #else
     import UIKit
 #endif
-import KodosiBridge
 import KodosiLinks
 import SwiftUI
 import Synchronization

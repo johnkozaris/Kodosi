@@ -1,4 +1,3 @@
-import KodosiBridge
 import SwiftUI
 
 struct KodosiCommands: Commands {

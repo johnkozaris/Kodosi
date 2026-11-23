@@ -5,7 +5,7 @@ import Testing
 @Test func `ephemeral defaults clean up after their last consumer`() throws {
     var owner = EphemeralUserDefaults(prefix: "EphemeralDefaultsLifetimeTests")
     let suite = try #require(owner?.suiteName)
-    let file = try #require(owner?.persistentFileURL)
+    let file = try #require(owner?.preferencesFile)
     weak let reference = owner
     var consumer: UserDefaults? = owner
 
@@ -33,7 +33,7 @@ import Testing
     #expect(retained.synchronize())
     var discarded = EphemeralUserDefaults(prefix: "EphemeralDefaultsIsolationTests")
     let discardedSuite = try #require(discarded?.suiteName)
-    let discardedFile = try #require(discarded?.persistentFileURL)
+    let discardedFile = try #require(discarded?.preferencesFile)
     #expect(discardedSuite != retained.suiteName)
     discarded?.set(["one", "two"], forKey: "value")
     #expect(discarded?.synchronize() == true)
@@ -45,9 +45,9 @@ import Testing
     #expect(reader.object(forKey: "value") == nil)
     #expect(!FileManager.default.fileExists(atPath: discardedFile.path))
     #expect(retained.string(forKey: "value") == "retained")
-    #expect(FileManager.default.fileExists(atPath: retained.persistentFileURL.path))
+    #expect(FileManager.default.fileExists(atPath: retained.preferencesFile.path))
     try retained.cleanUp()
-    #expect(!FileManager.default.fileExists(atPath: retained.persistentFileURL.path))
+    #expect(!FileManager.default.fileExists(atPath: retained.preferencesFile.path))
 }
 
 @Test func `ephemeral defaults explicit cleanup is repeatable`() throws {
@@ -58,13 +58,13 @@ import Testing
     try defaults.cleanUp()
 
     #expect(defaults.object(forKey: "value") == nil)
-    #expect(!FileManager.default.fileExists(atPath: defaults.persistentFileURL.path))
-    #expect(!FileManager.default.fileExists(atPath: defaults.persistentFileURL.deletingLastPathComponent().path))
+    #expect(!FileManager.default.fileExists(atPath: defaults.preferencesFile.path))
+    #expect(!FileManager.default.fileExists(atPath: defaults.preferencesFile.deletingLastPathComponent().path))
 }
 
 @Test func `ephemeral defaults use private temporary backing`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "EphemeralDefaultsBackingTests"))
-    let directory = defaults.persistentFileURL.deletingLastPathComponent()
+    let directory = defaults.preferencesFile.deletingLastPathComponent()
     let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)
     let mode = try #require(attributes[.posixPermissions] as? NSNumber)
     #expect(mode.intValue == 0o700)
@@ -73,7 +73,13 @@ import Testing
 
     defaults.set(42, forKey: "value")
     #expect(defaults.synchronize())
-    let data = try Data(contentsOf: defaults.persistentFileURL)
+    let data = try Data(contentsOf: defaults.preferencesFile)
     let plist = try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Int])
     #expect(plist["value"] == 42)
+}
+
+private extension EphemeralUserDefaults {
+    var preferencesFile: URL {
+        URL(filePath: suiteName + ".plist")
+    }
 }

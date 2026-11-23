@@ -35,7 +35,7 @@ import Testing
     let chat = try #require(runtime.chat.chat)
     #expect(chat.revision == 9)
     #expect(chat.items.map(\.id) == ["i1", "i2", "i3", "i4"])
-    #expect(chat.items[1].body == .tool(ChatTool(name: "Edit", kind: .edit, state: .done, target: "app.py", ms: 12)))
+    #expect(chat.items[1].body == .tool(ChatTool(name: "Edit", kind: .edit, state: .done, target: "app.py")))
     #expect(chat.items[2].body == .text("I made the fix.", live: false))
     #expect(chat.facts.model == "sonnet")
     #expect(chat.facts.mode == .edits)

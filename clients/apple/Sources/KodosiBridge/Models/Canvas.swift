@@ -2,7 +2,6 @@ import CoreGraphics
 import Foundation
 
 public struct Canvas: Decodable, Equatable, Sendable {
-    public let sequence: UInt64
     public let items: [CanvasItem]
     public let browser: CanvasBrowser?
     /// What the agent showed last, which each device acts on once.
@@ -12,14 +11,13 @@ public struct Canvas: Decodable, Equatable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        sequence = try container.decode(UInt64.self, forKey: .sequence)
         items = try container.decodeIfPresent([CanvasItem].self, forKey: .items) ?? []
         browser = try container.decodeIfPresent(CanvasBrowser.self, forKey: .browser)
         open = try container.decodeIfPresent(CanvasOpen.self, forKey: .open)
         change = try container.decodeIfPresent(CanvasOpen.self, forKey: .change)
     }
 
-    private enum CodingKeys: String, CodingKey { case sequence, items, browser, open, change }
+    private enum CodingKeys: String, CodingKey { case items, browser, open, change }
 
     public var shown: [CanvasShown] {
         items.map(CanvasShown.item) + (browser.map { [CanvasShown.browser($0)] } ?? [])
@@ -145,12 +143,9 @@ public struct CanvasBrowser: Decodable, Equatable, Sendable {
     public let state: State
     public let changed: UInt64
     public let tabs: [BrowserTab]
-    public let width: Int
-    public let height: Int
     /// The part of the first download of the browser, from 0 to 100.
     public let getting: Int?
     public let doing: BrowserDoing?
-    public let last: BrowserAction?
     public let problem: String?
     /// The terminal is shared, so its browser keeps sign-ins of its own.
     public let ownSignIns: Bool
@@ -160,16 +155,13 @@ public struct CanvasBrowser: Decodable, Equatable, Sendable {
         state = try container.decode(State.self, forKey: .state)
         changed = try container.decode(UInt64.self, forKey: .changed)
         tabs = try container.decodeIfPresent([BrowserTab].self, forKey: .tabs) ?? []
-        width = try container.decode(Int.self, forKey: .width)
-        height = try container.decode(Int.self, forKey: .height)
         getting = try container.decodeIfPresent(Int.self, forKey: .getting)
         doing = try container.decodeIfPresent(BrowserDoing.self, forKey: .doing)
-        last = try container.decodeIfPresent(BrowserAction.self, forKey: .last)
         problem = try container.decodeIfPresent(String.self, forKey: .problem)
         ownSignIns = try container.decodeIfPresent(Bool.self, forKey: .ownSignIns) ?? false
     }
 
-    private enum CodingKeys: String, CodingKey { case state, changed, tabs, width, height, getting, doing, last, problem, ownSignIns }
+    private enum CodingKeys: String, CodingKey { case state, changed, tabs, getting, doing, problem, ownSignIns }
 
     public var activeTab: BrowserTab? {
         tabs.first(where: \.active)
@@ -181,11 +173,6 @@ public struct BrowserTab: Decodable, Equatable, Identifiable, Sendable {
     public let title: String
     public let url: String
     public let active: Bool
-}
-
-public struct BrowserAction: Decodable, Equatable, Sendable {
-    public let agent: String
-    public let words: String
 }
 
 /// The point is the middle of the element that the agent acts on, in the browser's CSS pixels.

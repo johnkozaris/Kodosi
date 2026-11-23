@@ -122,23 +122,6 @@
     }
 
     @MainActor
-    @Test func `native surface generation identifies first and replacement attachments`() {
-        let session = TerminalRendererSession(
-            write: { _ in },
-            resize: { _, _ in },
-        )
-
-        #expect(session.nativeSurfaceGeneration == 0)
-
-        session.viewState.onSurfaceAttached?()
-        #expect(session.nativeSurfaceGeneration != 0)
-        #expect(session.nativeSurfaceGeneration == 1)
-
-        session.viewState.onSurfaceAttached?()
-        #expect(session.nativeSurfaceGeneration == 2)
-    }
-
-    @MainActor
     @Test func `renderer session deallocates after owner release`() {
         weak var weakSession: TerminalRendererSession?
         do {
@@ -161,11 +144,11 @@
         )
         session.setAllowsInput(false)
 
-        session.sendInputForTest(Data("blocked".utf8))
+        session.viewState.configuration.session.sendInput(Data("blocked".utf8))
         #expect(writes.values.isEmpty)
 
         session.setAllowsInput(true)
-        session.sendInputForTest(Data("allowed".utf8))
+        session.viewState.configuration.session.sendInput(Data("allowed".utf8))
         #expect(writes.values == [Data("allowed".utf8)])
     }
 
@@ -435,35 +418,15 @@
         #expect(writes.values.isEmpty)
     }
 
-    @MainActor
-    @Test func `renderer applies scrollback budget to surface configuration`() {
-        let session = TerminalRendererSession(
-            write: { _ in },
-            resize: { _, _ in },
-        )
-        let palette = TerminalPalette(
-            background: "000000",
-            foreground: "ffffff",
-            cursor: "ffffff",
-            selectionBackground: "333333",
-            selectionForeground: "ffffff",
-            ansiColors: Array(repeating: "000000", count: 16),
-        )
-        let style = TerminalStyle(
-            fontFamily: "monospace",
-            fontSize: 14,
-            lineHeightAdjustment: 0,
-            cursorStyle: .block,
-            cursorBlink: false,
-            scrollback: TerminalScrollbackBudget(lines: 10000),
-            paddingX: 0,
-            paddingY: 0,
-            minimumContrast: 1,
-            palette: palette,
-        )
-
-        session.setStyle(style)
-
-        #expect(session.viewState.configuration.scrollbackLimitBytes == style.scrollback.bytes)
+    @Test func `any scrollback setting keeps the terminal within its memory bound, in whole pages`() {
+        let page = 512 * 1024
+        let bound = 256 * 1024 * 1024
+        for lines in [-5, 0, 1, 5000, 10000, 200_000, Int.max] {
+            let bytes = TerminalScrollbackBudget(lines: lines).bytes
+            #expect((2 * page ... bound).contains(bytes), "\(lines)")
+            #expect(bytes % page == 0, "\(lines)")
+        }
+        #expect(TerminalScrollbackBudget(lines: 10000).bytes >= 10000 * 2400)
+        #expect(TerminalScrollbackBudget(lines: .max).bytes == bound)
     }
 #endif

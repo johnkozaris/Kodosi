@@ -15,13 +15,6 @@ public extension CanvasShown {
         case .browser: "globe"
         }
     }
-
-    var missing: Bool {
-        if case let .item(item) = self {
-            return item.missing
-        }
-        return false
-    }
 }
 
 public extension CanvasItem.Kind {
@@ -73,20 +66,6 @@ public extension CanvasSection {
 public enum CanvasSymbol {
     public static let canvas = "photo.artframe"
     public static let addFile = "doc.badge.plus"
-}
-
-public extension BrowserDoing.Kind {
-    var words: String {
-        switch self {
-        case .open: String(localized: "Opening a page", bundle: .module)
-        case .click: String(localized: "Clicking", bundle: .module)
-        case .type: String(localized: "Typing", bundle: .module)
-        case .scroll: String(localized: "Scrolling", bundle: .module)
-        case .read: String(localized: "Reading the page", bundle: .module)
-        case .wait: String(localized: "Waiting for the page", bundle: .module)
-        case .other: String(localized: "Using the browser", bundle: .module)
-        }
-    }
 }
 
 public extension RuntimeSession {

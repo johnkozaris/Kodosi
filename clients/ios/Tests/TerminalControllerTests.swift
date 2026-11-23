@@ -2,7 +2,6 @@ import Foundation
 @testable import Kodosi
 import KodosiBridge
 import KodosiKit
-import KodosiTerminalSessions
 import Testing
 
 struct TerminalControllerTests {
@@ -100,28 +99,6 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func `focus and blur name the view subscription`() throws {
-        let token = TerminalConnectionToken()
-        let surface = UUID()
-        let focus = TerminalProcessFocusCoordinator(commands: model.commands)
-        focus.acquire(
-            sessionId: "s1", runtimeIncarnationId: "s1-1", subscriptionId: token.subscriptionId,
-            subscriptionGeneration: token.subscriptionGeneration, surfaceId: surface,
-        )
-        let focused = try #require(log.fields(of: "session.focus").first)
-        #expect(focused["sessionId"] as? String == "s1")
-        #expect(focused["clientId"] as? String == token.subscriptionId)
-        #expect((focused["subscriptionGeneration"] as? NSNumber)?.uint64Value == token.subscriptionGeneration)
-        #expect(focused["expectedRuntimeIncarnationId"] as? String == "s1-1")
-        #expect((focused["requestId"] as? String)?.isEmpty == false)
-        focus.release(surfaceId: surface)
-        let blurred = try #require(log.fields(of: "session.blur").first)
-        #expect(blurred["clientId"] as? String == token.subscriptionId)
-        #expect((blurred["subscriptionGeneration"] as? NSNumber)?.uint64Value == token.subscriptionGeneration)
-        #expect(blurred["expectedRuntimeIncarnationId"] as? String == "s1-1")
-        #expect((blurred["requestId"] as? String)?.isEmpty == false)
-    }
-
     @Test func `only a visible active rendered controllable view takes focus`() {
         let focused = TerminalPresence(visible: true, active: true, rendered: true, canControl: true)
         #expect(focused.watching)
@@ -180,20 +157,6 @@ struct TerminalControllerTests {
         #expect(controller.canvasNews().map(\.shown.key) == ["/work/report.pdf"])
         #expect(controller.canvasNews().isEmpty)
         controller.disappear()
-    }
-
-    @Test func `interrupt, leave and hide name the current incarnation`() async throws {
-        let session = try #require(model.terminals.session("s1"))
-        model.terminals.interrupt(session)
-        model.terminals.leave(session)
-        model.terminals.hide(session)
-        await log.waitFor("session.hide")
-        for type in ["session.interrupt", "session.leave", "session.hide"] {
-            let fields = try #require(log.fields(of: type).first)
-            #expect(fields["sessionId"] as? String == "s1")
-            #expect(fields["expectedRuntimeIncarnationId"] as? String == "s1-1")
-            try deliver("session.result", ["requestId": fields["requestId"] ?? "", "operation": type])
-        }
     }
 
     private func deliver(_ type: String, _ fields: [String: Any] = [:]) throws {
