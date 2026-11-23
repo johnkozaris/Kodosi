@@ -1,6 +1,7 @@
 package com.kodosi.mobile
 
 import android.app.Application
+import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
 import com.kodosi.mobile.account.AccountStore
 import com.kodosi.mobile.account.AppLock
@@ -68,8 +69,18 @@ class AppModel(
     val push = PushRegistration(
         commands,
         scope,
-        token = { FirebaseMessaging.getInstance().token.await() },
-        forgetToken = { FirebaseMessaging.getInstance().deleteToken().await() }
+        installation = { FirebaseInstallations.getInstance().id.await() },
+        register = {
+            val messaging = FirebaseMessaging.getInstance()
+            // Enabling auto-init waits for the installation ID, which Play services refuses on the main thread.
+            withContext(Dispatchers.IO) { messaging.isAutoInitEnabled = true }
+            messaging.register().await()
+        },
+        unregister = {
+            val messaging = FirebaseMessaging.getInstance()
+            messaging.isAutoInitEnabled = false
+            messaging.unregister().await()
+        }
     )
     data class TerminalTarget(val id: String, val account: String)
     val terminalTarget = MutableStateFlow<TerminalTarget?>(null)
@@ -199,7 +210,6 @@ class AppModel(
         val user = current.userId.takeIf { current.isReady }
         notifications.account(user)
         if (!FirebaseConfiguration.available) return null
-        FirebaseMessaging.getInstance().isAutoInitEnabled = user != null && notifications.allowed
         return push.update(user, commands.accountEpoch, notifications.allowed, force)
     }
 

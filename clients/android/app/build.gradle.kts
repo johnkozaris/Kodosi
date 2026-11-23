@@ -428,6 +428,7 @@ val ktlint: Configuration = configurations.create("ktlint")
 dependencies {
     implementation(platform(libs.compose.bom))
     implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.installations)
     implementation(libs.firebase.messaging)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.compose)

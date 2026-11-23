@@ -89,10 +89,11 @@ the file or without a matching client works with push off. The build supplies
 `FirebaseOptions` directly; it does not need the Google Services Gradle plugin.
 
 The backend must have FCM HTTP v1 configured. After device approval, the app asks for
-notification permission and registers its FCM token through the runtime. Token changes
-use WorkManager to retry registration with a network connection. Notification payloads
-contain only identifiers and state; the app keeps a bounded private name cache. No
-server service-account credential belongs in the app.
+notification permission, registers with FCM by its Firebase installation ID and gives
+that ID to the backend through the runtime. When FCM reports another installation ID,
+WorkManager gives it to the backend once the phone has a network connection.
+Notification payloads contain only identifiers and state; the app keeps a bounded
+private name cache. No server service-account credential belongs in the app.
 
 ## Code and assets
 
