@@ -25,7 +25,9 @@ use tokio::{
     process::{Child, Command},
 };
 
-use super::{ShutdownStage, Transfer, WaitOutcome, program_identity, validate_working_dir};
+use super::{
+    ProcessStart, ShutdownStage, Transfer, WaitOutcome, program_identity, validate_working_dir,
+};
 
 static OPEN_PTY: Mutex<()> = Mutex::new(());
 
@@ -744,14 +746,6 @@ fn variable(environment: &[String], name: &str) -> Option<String> {
         .iter()
         .find_map(|entry| entry.strip_prefix(name)?.strip_prefix('='))
         .map(str::to_owned)
-}
-
-/// What a running process of this user started with.
-pub struct ProcessStart {
-    pub program: PathBuf,
-    pub arguments: Vec<String>,
-    pub variables: Vec<(String, String)>,
-    pub directory: PathBuf,
 }
 
 pub fn process_start(pid: u32) -> Option<ProcessStart> {
