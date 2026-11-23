@@ -201,8 +201,7 @@ void ProjectsModel::setPresentation(const QString& key, const QVariant& value)
     state.insert(key, value);
     const auto group = key == QStringLiteral("taskTitle") || key == QStringLiteral("taskDescription")
             || key == QStringLiteral("taskRepositories") || key == QStringLiteral("taskIssueRepository") ? QStringLiteral("taskRevision")
-        : key == QStringLiteral("message") ? QStringLiteral("messageRevision")
-        : key == QStringLiteral("repositoryUrl") ? QStringLiteral("repositoryRevision") : QString {};
+        : key == QStringLiteral("message") ? QStringLiteral("messageRevision") : QString {};
     if (!group.isEmpty()) state.insert(group, state.value(group).toULongLong() + 1);
     if ((key == QStringLiteral("conversation") || key == QStringLiteral("followLatest")) && value.toBool())
         state.remove(QStringLiteral("unread"));
@@ -237,7 +236,7 @@ void ProjectsModel::completeAction(const QString& projectId, const QString& acti
     if (action == QStringLiteral("createTask"))
         clear(QStringLiteral("taskRevision"), {QStringLiteral("taskTitle"), QStringLiteral("taskDescription"), QStringLiteral("taskRepositories"),
             QStringLiteral("taskIssueRepository")});
-    if (action == QStringLiteral("addRepository")) clear(QStringLiteral("repositoryRevision"), {QStringLiteral("repositoryUrl"), QStringLiteral("newRepository")});
+    if (action == QStringLiteral("addRepository")) current.remove(QStringLiteral("newRepository"));
     if (projectId == m_selectedId) emit presentationChanged();
 }
 
