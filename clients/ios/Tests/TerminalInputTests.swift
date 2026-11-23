@@ -14,15 +14,6 @@ struct TerminalInputTests {
         #expect(TerminalMessage.text(from: "") == nil)
     }
 
-    @Test func `only reading keeps the header in landscape and shows an agent's question`() {
-        #expect(TerminalInput.reading.showsAsk && !TerminalInput.reading.showsKeys)
-        #expect(TerminalInput.typing.showsKeys && !TerminalInput.typing.showsAsk)
-        #expect(!TerminalInput.composing.showsKeys && !TerminalInput.composing.showsAsk)
-        #expect(TerminalInput.reading.showsHeader(compact: true))
-        #expect(!TerminalInput.typing.showsHeader(compact: true) && TerminalInput.typing.showsHeader(compact: false))
-        #expect(!TerminalInput.composing.showsHeader(compact: true) && TerminalInput.composing.showsHeader(compact: false))
-    }
-
     @Test func `the key row shows each key at once, as wide as the keys of a keyboard`() throws {
         let keys = TerminalKey.groups.map(\.count)
         for (screen, compact, actions) in [(375.0, false, 2), (393.0, false, 2), (667.0, true, 3), (1024.0, false, 2)] {

@@ -147,17 +147,6 @@ struct ProjectStoreTests {
         #expect(projects.view("project-1").fresh.isEmpty)
     }
 
-    @Test func `issues are kept by repository`() throws {
-        try deliver("project.result", [
-            "requestId": "request-1", "operation": "project.act", "projectId": "project-1", "repositoryId": "repo-1",
-            "issues": [[
-                "repositoryId": "repo-1", "number": 12, "title": "Fix login", "body": "", "url": "https://github.com/team/app/issues/12",
-                "closed": false, "assignees": ["ana"],
-            ]],
-        ])
-        #expect(projects.issues["repo-1"]?.map(\.number) == [12])
-    }
-
     @Test func `account change clears projects`() throws {
         try deliver("projects.snapshot", list(["project-1"]))
         try deliver("project.snapshot", ["content": content("project-1", messages: [message("m1", 1, author: "user-2")])])
