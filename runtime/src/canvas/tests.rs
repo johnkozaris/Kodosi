@@ -796,6 +796,29 @@ fn a_page_that_loads_from_the_network_is_named() {
 }
 
 #[test]
+fn the_browser_comes_back_at_the_whole_address_of_its_page() {
+    let tab = |address: String, active| shared_browser::Tab {
+        id: "1".to_owned(),
+        title: "Report".to_owned(),
+        address,
+        active,
+        loading: false,
+    };
+    let long = format!("https://example.com/report?token={}", "a".repeat(1000));
+    let tabs = [
+        tab("https://example.com/other".to_owned(), false),
+        tab(long.clone(), true),
+    ];
+    assert_eq!(browser::kept_address(&tabs), Some(long.as_str()));
+    for address in [
+        "about:blank".to_owned(),
+        format!("https://{}", "a".repeat(5000)),
+    ] {
+        assert_eq!(browser::kept_address(&[tab(address, true)]), None);
+    }
+}
+
+#[test]
 fn the_browser_keeps_its_session_and_hides_what_an_agent_types() {
     let refused = |arguments: &[&str]| {
         browser::refused(
