@@ -234,6 +234,7 @@ ApplicationWindow {
                     anchors.fill: parent
                     radius: KodosiTheme.radiusXl
                     fill: KodosiTheme.surface
+                    solid: true
                 }
                 StackLayout {
                     anchors.fill: parent

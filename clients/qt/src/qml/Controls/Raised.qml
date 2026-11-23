@@ -11,6 +11,9 @@ Item {
     property color fill: look.raised
     property int elevation: 1
     property bool rim: true
+    // An opaque inside lets the scene graph skip all that the surface covers in each frame. Only
+    // for a surface that never fades, as a fading one would show its inside twice.
+    property bool solid: false
 
     readonly property int layers: elevation === 1 ? 3 : elevation === 2 ? 5 : 7
     readonly property real step: elevation === 1 ? 0.75 : elevation === 2 ? 1.4 : 2.1
@@ -48,11 +51,24 @@ Item {
         }
     }
     Rectangle {
+        id: face
+
         anchors.fill: parent
         anchors.margins: root.rim ? 1 : 0
         radius: Math.max(0, root.radius - (root.rim ? 1 : 0))
         color: root.fill
 
         Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
+
+        Rectangle {
+            readonly property real inset: Math.ceil(face.radius * 0.3) + 1
+
+            x: inset
+            y: inset
+            width: face.width - 2 * inset
+            height: face.height - 2 * inset
+            visible: root.solid && face.color.a === 1 && width > 0 && height > 0
+            color: face.color
+        }
     }
 }
