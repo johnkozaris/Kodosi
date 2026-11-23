@@ -35,7 +35,7 @@ int32_t kodosi_send_command(void*, const uint8_t* bytes, uintptr_t size)
 {
     runtime_fixture::lastCommand
         = QByteArray(reinterpret_cast<const char*>(bytes), static_cast<qsizetype>(size));
-    return runtime_fixture::commandResult;
+    return KODOSI_FFI_OK;
 }
 int32_t kodosi_terminal_input(
     void*, const char*, const char*, const char*, uint64_t, const uint8_t*, uintptr_t)

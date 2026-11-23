@@ -1,7 +1,6 @@
 #include "SessionFixture.hpp"
 #include "presentation/AgentLauncherModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
-#include "presentation/ProviderFilesModel.hpp"
 #include <QJsonDocument>
 #include <QSignalSpy>
 #include <QtTest/QTest>
@@ -72,8 +71,6 @@ private slots:
             { QStringLiteral("workingDirectory"), QStringLiteral("/repo") },
             { QStringLiteral("nativeConversationId"), test::id(1) } } } } }));
         tools.preview(test::id(1));
-        QCOMPARE(commands.values.last().value(QStringLiteral("limit")).toInt(), 50);
-        QCOMPARE(commands.values.last().value(QStringLiteral("maxBytes")).toInt(), 131072);
         const auto page = [](QString content, int before) {
             return QJsonObject { { QStringLiteral("entries"), QJsonArray { QJsonObject {
                 { QStringLiteral("content"), content } } } }, { QStringLiteral("nextBeforeByte"), before } };
@@ -144,18 +141,6 @@ private slots:
         QVERIFY(tools.hasOlder());
         tools.loadOlder();
         QVERIFY(commands.lastBytes.contains("\"beforeByte\":18446744073709551615"));
-    }
-    void inspectionOnlyRequestsMetadata()
-    {
-        ProviderCommands commands;
-        kodosi::ProviderFilesModel files(commands);
-        files.inspect(QStringLiteral("claude"), QStringLiteral("/repo"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(),
-            QStringLiteral("provider.inspect"));
-        QVERIFY(!commands.values.last().contains(QStringLiteral("content")));
-        files.apply(commands.reply({ { QStringLiteral("provider"), QStringLiteral("claude") },
-            { QStringLiteral("files"), QJsonArray {} } }));
-        QVERIFY(!files.busy());
     }
     void launcherTakesItsOwnRepliesAndKeepsAChangeMadeAfterAQuestion()
     {

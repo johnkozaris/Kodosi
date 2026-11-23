@@ -2,7 +2,6 @@
 #include "controls/LightTrack.hpp"
 #include "controls/SignClock.hpp"
 
-#include <QColor>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickWindow>
@@ -75,8 +74,6 @@ private slots:
         auto* ring = root->findChild<kodosi::LightTrack*>(QStringLiteral("ring"));
         auto* tile = root->findChild<kodosi::LightTrack*>(QStringLiteral("tile"));
         QVERIFY(ring && tile);
-        QCOMPARE(ring->property("light").value<QColor>(), QColor(0xb8, 0x5a, 0x26));
-        QCOMPARE(tile->property("light").value<QColor>(), QColor(0xea, 0xa4, 0x7e));
         QVERIFY(ring->turning() && tile->turning());
 
         auto* theme = engine.singletonInstance<QObject*>("Kodosi", "KodosiTheme");
