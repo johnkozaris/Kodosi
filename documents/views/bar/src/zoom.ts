@@ -44,8 +44,6 @@ export function stepFrom(scale: number, larger: boolean): number | undefined {
 export class Zoom {
   private readonly view: Zoomable;
   private readonly part: ZoomPart;
-  private readonly watching: ResizeObserver;
-  private readonly listening = new AbortController();
   private readonly start: Sizing;
   private sizing: Sizing;
   private current = 1;
@@ -76,30 +74,20 @@ export class Zoom {
         ];
       },
     });
-    const signal = this.listening.signal;
     const area = view.area;
-    document.addEventListener("keydown", (event) => this.key(event), { signal });
-    area.addEventListener("wheel", (event) => this.wheel(event), { passive: false, signal });
-    area.addEventListener(
-      "gesturestart",
-      (event) => {
-        event.preventDefault();
-        this.pinched = this.current;
-      },
-      { signal },
-    );
-    area.addEventListener(
-      "gesturechange",
-      (event) => {
-        event.preventDefault();
-        const pinch = event as GestureEvent;
-        this.set(this.pinched * pinch.scale, pinch);
-      },
-      { signal },
-    );
-    area.addEventListener("gestureend", (event) => event.preventDefault(), { signal });
-    this.watching = new ResizeObserver(() => this.refit());
-    this.watching.observe(area);
+    document.addEventListener("keydown", (event) => this.key(event));
+    area.addEventListener("wheel", (event) => this.wheel(event), { passive: false });
+    area.addEventListener("gesturestart", (event) => {
+      event.preventDefault();
+      this.pinched = this.current;
+    });
+    area.addEventListener("gesturechange", (event) => {
+      event.preventDefault();
+      const pinch = event as GestureEvent;
+      this.set(this.pinched * pinch.scale, pinch);
+    });
+    area.addEventListener("gestureend", (event) => event.preventDefault());
+    new ResizeObserver(() => this.refit()).observe(area);
     this.show();
   }
 
@@ -112,11 +100,6 @@ export class Zoom {
     if (area.clientWidth === 0 || area.clientHeight === 0) return;
     const box = area.getBoundingClientRect();
     this.apply(this.scaleOf(this.sizing), { clientX: box.left, clientY: box.top });
-  }
-
-  destroy(): void {
-    this.listening.abort();
-    this.watching.disconnect();
   }
 
   private scaleOf(sizing: Sizing): number {

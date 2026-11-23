@@ -41,7 +41,6 @@ export interface View {
   selection(): string;
   restyle(theme: Theme): void;
   prefer(preferences: Preferences): void;
-  destroy(): void;
 }
 
 type FileEditor = Editor & Pictures & { selection(): string };
@@ -119,11 +118,6 @@ export function mount(element: HTMLElement, options: Options): View & Pictures {
     pictures: () => editor?.pictures() ?? Promise.resolve(0),
     picture: (index: number): Promise<Area> =>
       editor?.picture(index) ?? Promise.reject(new Error("The file is not open.")),
-    destroy() {
-      editor?.destroy();
-      element.replaceChildren();
-      element.classList.remove("document-view");
-    },
   };
 }
 

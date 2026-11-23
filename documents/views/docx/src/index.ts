@@ -95,7 +95,6 @@ class DocxEditor implements ViewEditor, Pictures {
   private readonly look = document.createElement("style");
   private readonly clientKey = crypto.randomUUID();
   private readonly waiting = new Waiting();
-  private readonly choosing: MutationObserver;
   private sizing: ResizeObserver | undefined;
   private scale = 1;
   private view: DocxView = { styles: null, numbering: null, page: null };
@@ -118,8 +117,7 @@ class DocxEditor implements ViewEditor, Pictures {
     });
     this.bar = new DocxBar(root, [this.zoom.element, this.status.element]);
     root.append(this.bar.element, this.page, this.look);
-    this.choosing = new MutationObserver(() => this.zoom.refit());
-    this.choosing.observe(root, { attributeFilter: ["data-fit"] });
+    new MutationObserver(() => this.zoom.refit()).observe(root, { attributeFilter: ["data-fit"] });
   }
 
   private keyed(run: (editor: Editor) => void): () => boolean {
@@ -350,14 +348,6 @@ class DocxEditor implements ViewEditor, Pictures {
     const state = this.editor?.state;
     if (!state) return "";
     return state.doc.textBetween(state.selection.from, state.selection.to, "\n");
-  }
-
-  destroy(): void {
-    this.zoom.destroy();
-    this.choosing.disconnect();
-    this.sizing?.disconnect();
-    this.bar.destroy();
-    this.editor?.destroy();
   }
 }
 

@@ -328,11 +328,6 @@ export class DocxBar {
     });
   }
 
-  destroy(): void {
-    cancelAnimationFrame(this.pending);
-    this.bar.destroy();
-  }
-
   private history(command: typeof undo): void {
     const view = this.editor?.view;
     if (view) command(view.state, view.dispatch);

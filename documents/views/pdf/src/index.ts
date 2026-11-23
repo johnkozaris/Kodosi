@@ -738,14 +738,6 @@ class PdfEditor implements Editor, Pictures {
     if (!holder) throw new Error(`There is no page ${index + 1}.`);
     return areaOf(holder.element);
   }
-
-  destroy(): void {
-    clearTimeout(this.resting);
-    this.zoom.destroy();
-    this.bar.destroy();
-    this.visible?.disconnect();
-    this.loading?.destroy().catch(console.error);
-  }
 }
 
 export function createEditor(element: HTMLElement, client: Client): PdfEditor {

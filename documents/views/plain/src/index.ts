@@ -262,12 +262,6 @@ class PlainEditor implements ViewEditor, Pictures {
     if (!state) return "";
     return state.doc.textBetween(state.selection.from, state.selection.to, "\n");
   }
-
-  destroy(): void {
-    this.zoom.destroy();
-    this.bar.destroy();
-    this.view?.destroy();
-  }
 }
 
 export function createEditor(element: HTMLElement, client: Client): PlainEditor {

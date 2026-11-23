@@ -420,7 +420,6 @@ class XlsxEditor implements Editor, Pictures {
   private readonly status: Status;
   private readonly bar: XlsxBar;
   private readonly outbox = new Outbox<Change>();
-  private readonly scheme: MutationObserver;
   private univer: ReturnType<typeof createUniver> | undefined;
   /** Univer stops only a worker that it starts itself. */
   private worker: Worker | undefined;
@@ -460,8 +459,9 @@ class XlsxEditor implements Editor, Pictures {
     );
     this.marks = holder.appendChild(document.createElement("div"));
     this.marks.className = "xlsx-marks";
-    this.scheme = new MutationObserver(() => this.univer?.univerAPI.toggleDarkMode(this.dark()));
-    this.scheme.observe(root, { attributeFilter: ["data-scheme", "data-dark-pages"] });
+    new MutationObserver(() => this.univer?.univerAPI.toggleDarkMode(this.dark())).observe(root, {
+      attributeFilter: ["data-scheme", "data-dark-pages"],
+    });
   }
 
   private dark(): boolean {
@@ -1243,13 +1243,6 @@ class XlsxEditor implements Editor, Pictures {
   selection(): string {
     const range = this.univer?.univerAPI.getActiveWorkbook()?.getActiveSheet()?.getSelection();
     return range?.getActiveRange()?.getValues().flat().join("\t") ?? "";
-  }
-
-  destroy(): void {
-    this.scheme.disconnect();
-    this.bar.destroy();
-    this.univer?.univer.dispose();
-    this.worker?.terminate();
   }
 }
 
