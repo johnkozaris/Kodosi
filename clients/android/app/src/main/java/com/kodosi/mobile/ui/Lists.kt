@@ -156,19 +156,22 @@ fun MenuPicker(
         } else {
             row()
         }
-        KodosiMenu(expanded && enabled, { expanded = false }) {
-            options.forEach { (id, name) ->
-                KodosiMenuItem(text = {
-                    Column(Modifier.widthIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(name)
-                        details[id]?.let {
-                            Text(it, style = KodosiType.footnote, color = colors.inkMuted)
+        // The menu opens under the value that it changes, at the end of the line.
+        Box(Modifier.align(Alignment.BottomEnd)) {
+            KodosiMenu(expanded && enabled, { expanded = false }) {
+                options.forEach { (id, name) ->
+                    KodosiMenuItem(text = {
+                        Column(Modifier.widthIn(max = 320.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(name)
+                            details[id]?.let {
+                                Text(it, style = KodosiType.footnote, color = colors.inkMuted)
+                            }
                         }
-                    }
-                }, onClick = {
-                    expanded = false
-                    choose(id)
-                })
+                    }, onClick = {
+                        expanded = false
+                        choose(id)
+                    })
+                }
             }
         }
     }

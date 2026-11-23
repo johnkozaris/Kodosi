@@ -265,7 +265,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                                     ListButton(onClick = { browsing = true }, enabled = !busy) {
                                         ListLine(
                                             stringResource(R.string.folder),
-                                            subtitle = folder ?: state.folders?.home ?: "~",
+                                            subtitle = folder?.let { state.folders?.shown(it) ?: it } ?: "~",
                                             leading = { IconTile(AppSymbol.FOLDER, TileTint.teal) }
                                         ) {
                                             AppIcon(AppSymbol.FORWARD, Modifier.size(11.dp), tint = colors.inkFaint)
@@ -616,7 +616,7 @@ private fun FolderChoices(
         LazyColumn(Modifier.weight(1f).padding(horizontal = 20.dp)) {
             item {
                 Text(
-                    folders?.path.orEmpty(),
+                    folders?.let { it.shown(it.path) }.orEmpty(),
                     style = KodosiType.mono,
                     color = KodosiTheme.colors.inkMuted,
                     modifier = Modifier.padding(vertical = 12.dp),
@@ -632,7 +632,7 @@ private fun FolderChoices(
                         MenuPicker(
                             stringResource(R.string.recent_folders),
                             stringResource(R.string.browse_folders),
-                            folders.recent.map { it to it },
+                            folders.recent.map { it to folders.shown(it) },
                             leading = { AppIcon(AppSymbol.FOLDER) },
                             choose = load
                         )

@@ -66,8 +66,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.kodosi.mobile.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -846,6 +848,8 @@ fun rememberWords(text: String, markdown: Boolean): AnnotatedString {
                             fontWeight = if (run.strong) FontWeight.SemiBold else null,
                             fontStyle = if (run.emphasis) FontStyle.Italic else null,
                             fontFamily = if (run.code) FontFamily.Monospace else null,
+                            // The system's monospace font draws larger than the font of the text at one size.
+                            fontSize = if (run.code) 0.9.em else TextUnit.Unspecified,
                             background = if (run.code) colors.ink.copy(alpha = 0.07f) else Color.Unspecified,
                             textDecoration = if (run.struck) TextDecoration.LineThrough else null
                         ),
