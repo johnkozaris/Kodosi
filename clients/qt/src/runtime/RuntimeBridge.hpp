@@ -111,7 +111,7 @@ class RuntimeBridge : public QObject, public TerminalCommandDispatcher, public P
     Q_OBJECT
 public:
     using Result = CommandDispatcher::Result;
-    static constexpr std::uint32_t protocolVersion = 105;
+    static constexpr std::uint32_t protocolVersion = 106;
 
     explicit RuntimeBridge(QObject* parent = nullptr);
     RuntimeBridge(TerminalEventSink& terminalSink, QObject* parent = nullptr);
