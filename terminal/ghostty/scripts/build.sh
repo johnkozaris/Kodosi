@@ -146,15 +146,15 @@ fi
 PATCH_APPLICATION_DIGEST=$(
     python3 "$ROOT_DIR/scripts/digest.py" patch-application "$SOURCE_DIR" "$GHOSTTY_REF"
 )
-ZIG_STORE_DIGEST=$("$ROOT_DIR/scripts/prepare-zig-store.sh" "$SOURCE_DIR")
 
 if [ "$PLATFORM_GROUP" = windows ]; then
     "$ROOT_DIR/scripts/build-windows-vt-artifact.sh" \
         "$SOURCE_DIR" \
-        "$PATCH_APPLICATION_DIGEST" \
-        "$ZIG_STORE_DIGEST"
+        "$PATCH_APPLICATION_DIGEST"
     exit 0
 fi
+
+ZIG_STORE_DIGEST=$("$ROOT_DIR/scripts/prepare-zig-store.sh" "$SOURCE_DIR")
 
 if [ "$PLATFORM_GROUP" = android ]; then
     "$ROOT_DIR/scripts/build-android-vt-artifact.sh" \

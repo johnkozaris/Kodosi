@@ -7,10 +7,9 @@ cd "$(dirname "$0")/.."
 ROOT_DIR=$(pwd)
 SOURCE_DIR=${1:-}
 PATCH_APPLICATION_DIGEST=${2:-}
-ZIG_STORE_DIGEST=${3:-}
 
-if [ -z "$SOURCE_DIR" ] || [ -z "$PATCH_APPLICATION_DIGEST" ] || [ -z "$ZIG_STORE_DIGEST" ]; then
-    echo "Usage: $0 <source_dir> <patch_application_digest> <zig_store_digest>" >&2
+if [ -z "$SOURCE_DIR" ] || [ -z "$PATCH_APPLICATION_DIGEST" ]; then
+    echo "Usage: $0 <source_dir> <patch_application_digest>" >&2
     exit 1
 fi
 
@@ -34,6 +33,11 @@ OPTIONS=(
     "optimize=$GHOSTTY_WINDOWS_VT_OPTIMIZE"
     "strip=true"
 )
+
+# Windows cannot unpack Ghostty's themes archive: for the theme "Neon Raincheck: After Hours",
+# NTFS makes a stream of the file "Neon Raincheck", which the archive also holds. The VT library
+# never asks for the themes.
+ZIG_STORE_DIGEST=$("$ROOT_DIR/scripts/prepare-zig-store.sh" "$SOURCE_DIR" "${OPTIONS[@]/#/-D}")
 
 echo "[*] building Ghostty VT library for $GHOSTTY_WINDOWS_VT_TARGET"
 (
