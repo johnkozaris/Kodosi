@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use crate::{Attrs, Failed, Fragment, failed};
+use crate::{Attrs, Failed, Fragment, Mark, failed};
 
 pub type NodeId = u16;
 pub type MarkId = u16;
@@ -225,6 +225,12 @@ impl Schema {
 
     pub fn mark_name(&self, id: MarkId) -> &str {
         &self.marks[id as usize].name
+    }
+
+    /// The mark of the type of this name in a set, as `ProseMirror`'s `MarkType.isInSet`.
+    pub fn mark_in<'m>(&self, name: &str, marks: &'m [Mark]) -> Option<&'m Mark> {
+        let kind = self.mark_id(name)?;
+        marks.iter().find(|mark| mark.kind() == kind)
     }
 
     pub(crate) fn is_leaf(&self, id: NodeId) -> bool {

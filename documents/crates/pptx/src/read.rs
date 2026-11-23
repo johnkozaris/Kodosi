@@ -148,11 +148,6 @@ fn node(name: &str, attrs: Value, content: Vec<Node>) -> Result<Node, text::Fail
     )
 }
 
-fn mark(name: &str, attrs: Option<&Value>) -> Result<Mark, text::Failed> {
-    let kind = schema().mark_id(name).unwrap_or_default();
-    Mark::new(schema(), kind, attrs)
-}
-
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct RunLook {
     pub bold: bool,
@@ -187,11 +182,12 @@ fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {
         (look.underline, "underline"),
     ] {
         if on {
-            marks.push(mark(name, None)?);
+            marks.push(Mark::named(schema(), name, None)?);
         }
     }
     if look.color.is_some() || look.size.is_some() || look.font.is_some() {
-        marks.push(mark(
+        marks.push(Mark::named(
+            schema(),
             "textStyle",
             Some(&json!({ "color": look.color, "size": look.size, "font": look.font })),
         )?);
@@ -400,12 +396,16 @@ impl<'input> Reader<'_, '_, 'input> {
         let mut marks = Vec::new();
         if let Some(properties) = local(run, "rPr") {
             let props = self.keep(self.xml_of(properties));
-            marks.push(mark("run", Some(&json!({ "props": props })))?);
+            marks.push(Mark::named(
+                schema(),
+                "run",
+                Some(&json!({ "props": props })),
+            )?);
             marks.extend(look_marks(&run_look(properties))?);
             if let Some(link) =
                 local(properties, "hlinkClick").and_then(|click| self.link_of(click))
             {
-                marks.push(mark("link", Some(&link))?);
+                marks.push(Mark::named(schema(), "link", Some(&link))?);
             }
         }
         if let Some(text) = local(run, "t")
