@@ -14,6 +14,7 @@ KMenu {
     property bool agentOnly: false
     readonly property bool shareable: session.kind === "local" && session.isOwner === true
     readonly property bool changesAgent: agentChanges.shown
+    readonly property var launcher: agentChanges.launcher
 
     signal canvasRequested(string section)
     signal shareRequested()
@@ -186,6 +187,14 @@ KMenu {
         onTriggered: Models.SessionActions.attachProject(root.sessionId, "")
     }
 
+    Connections {
+        function onAgentsChanged() {
+            if (root.opened)
+                agentChanges.loadModels()
+        }
+
+        target: agentChanges.launcher
+    }
     QtObject {
         id: agentChanges
 
@@ -194,9 +203,12 @@ KMenu {
         readonly property var settings: root.session.programSettings || ({})
         readonly property var pending: root.session.programPending || ({})
         readonly property bool changesModes: agent.length > 0 && (live.permissions || []).length > 0
-        readonly property bool local: agent.length > 0 && (live.model === true || live.effort === true)
-            && root.session.kind === "local" && Models.Launcher.computer.length === 0
-        readonly property var models: local ? Models.Launcher.models[agent] || null : null
+        readonly property var launcher: root.session.kind === "local" ? Models.Launcher
+            : root.session.isOwner === true && (root.session.hostDeviceId || "").length > 0
+                ? Models.Launcher.of(root.session.hostDeviceId) : null
+        readonly property var info: launcher ? launcher.agents.find(entry => entry.agent === agent) || ({}) : ({})
+        readonly property bool changesModel: agent.length > 0 && (live.model === true || live.effort === true) && launcher !== null
+        readonly property var models: changesModel ? launcher.models[agent] || null : null
         readonly property string output: settings.output ?? ""
         readonly property bool shown: root.session.canControl === true
             && (models !== null || changesModes || output.length > 0 || live.fast === true)
@@ -211,14 +223,12 @@ KMenu {
             return (models ? models.efforts || [] : []).filter(option => allowed.length === 0 || allowed.includes(option.id))
                 .map(option => ({ id: option.id, label: Models.DesktopSettings.effortLabel(option.id) }))
         }
-        readonly property var knownPermissions: changesModes
-            ? (Models.Launcher.agents.find(info => info.agent === agent) || {}).permissions || [] : []
+        readonly property var knownPermissions: changesModes ? info.permissions || [] : []
         readonly property var permissionOptions: ["ask", "auto", "unrestricted"]
             .filter(id => knownPermissions.includes(id) || (live.permissions || []).includes(id) || id === permissions)
             .map(id => ({ id: id, label: permissionLabel(id), enabled: (live.permissions || []).includes(id),
                 detail: (live.permissions || []).includes(id) ? "" : qsTr("Only at start") }))
-        readonly property var knownOutputs: output.length > 0
-            ? (Models.Launcher.agents.find(info => info.agent === agent) || {}).outputs || [] : []
+        readonly property var knownOutputs: output.length > 0 ? info.outputs || [] : []
         readonly property var outputOptions: ["quiet", "standard", "detailed"]
             .filter(id => knownOutputs.includes(id) || id === output)
             .map(id => ({ id: id, label: outputLabel(id), enabled: false, detail: id === output ? "" : qsTr("Only at start") }))
@@ -236,8 +246,8 @@ KMenu {
         }
 
         function loadModels(): void {
-            if (local)
-                Models.Launcher.loadModels(agent)
+            if (changesModel)
+                launcher.loadModels(agent)
         }
         function modelLabel(id: string): string {
             if (id.length === 0)

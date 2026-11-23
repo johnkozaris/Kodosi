@@ -13,8 +13,7 @@ Item {
     required property string sessionId
     required property Look look
     readonly property string agent: session.program || ""
-    readonly property var launcher: session.kind === "local" ? Models.Launcher
-        : session.isOwner === true && (session.hostDeviceId || "").length > 0 ? Models.Launcher.of(session.hostDeviceId) : null
+    readonly property var launcher: actions.launcher
     readonly property var models: launcher ? launcher.models[agent] || null : null
     readonly property string model: facts.model || ""
     readonly property string modelName: Models.Chats.modelName(model, models || ({}))
