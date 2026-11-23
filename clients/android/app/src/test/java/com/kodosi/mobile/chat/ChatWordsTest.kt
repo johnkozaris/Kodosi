@@ -43,12 +43,27 @@ class ChatWordsTest {
             listOf(
                 ProseBlock.Heading("Fix"),
                 ProseBlock.Lines("• one"),
-                ProseBlock.Table("| a | b |"),
+                ProseBlock.Table(ProseTable(emptyList(), listOf(listOf("a", "b")), emptyList())),
                 ProseBlock.Lines("Then:"),
                 ProseBlock.Code("npm test\nmore")
             ),
             blocks
         )
+    }
+
+    @Test
+    fun aTableHasItsColumnsTheirSidesAndTheBarsThatItsWordsHold() {
+        val table = ProseTable.of(
+            listOf("| SKU | price \\| EUR | note |", "|:---|---:|:-:|", "| MUG-01 | 2400 | `a` |", "| BOWL-02 | 3800 |")
+        )
+
+        assertEquals(listOf("SKU", "price | EUR", "note"), table.header)
+        assertEquals(listOf(listOf("MUG-01", "2400", "`a`"), listOf("BOWL-02", "3800")), table.rows)
+        assertEquals(
+            listOf(ProseTable.Side.START, ProseTable.Side.END, ProseTable.Side.CENTER, ProseTable.Side.START),
+            (0..3).map(table::side)
+        )
+        assertEquals(3, table.columns)
     }
 
     private fun tool(kind: ChatToolKind, target: String) = ChatTool("Tool", kind, ChatToolState.DONE, target)
