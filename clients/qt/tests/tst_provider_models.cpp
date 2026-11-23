@@ -232,7 +232,7 @@ private slots:
             return QVariantMap { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("account"), account },
                 { QStringLiteral("model"), model }, { QStringLiteral("effort"), effort },
                 { QStringLiteral("permissions"), QStringLiteral("unrestricted") }, { QStringLiteral("output"), QStringLiteral("quiet") },
-                { QStringLiteral("fast"), false }, { QStringLiteral("chat"), false } };
+                { QStringLiteral("fast"), false } };
         };
         QCOMPARE(start(QStringLiteral("claude")), starts(QStringLiteral("work"), QStringLiteral("opus"), QStringLiteral("max")));
         QVERIFY(start(QStringLiteral("codex")).isEmpty());

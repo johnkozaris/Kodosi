@@ -66,6 +66,11 @@ public:
     Q_INVOKABLE void listFolders(const QString& path = {}, bool browse = false);
     Q_INVOKABLE void closeFolders();
 
+    // A limit of a plan with its window and the words that say it.
+    [[nodiscard]] static QVariantMap describedLimit(QVariantMap limit);
+    // The limit nearest to its end, of those that count for `model` when one is given.
+    [[nodiscard]] static QVariant nearestLimit(const QVariantList& limits, const QString& model);
+
     void apply(const QJsonObject& event);
     void abandonPending(const QString& message);
     void reset();

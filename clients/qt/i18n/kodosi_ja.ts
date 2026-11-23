@@ -297,6 +297,22 @@
         <translation>詳細</translation>
     </message>
     <message>
+        <source>Opens in</source>
+        <translation>開く場所</translation>
+    </message>
+    <message>
+        <source>Its own app runs in the terminal.</source>
+        <translation>専用のアプリがターミナルで動きます。</translation>
+    </message>
+    <message>
+        <source>Chat</source>
+        <translation>チャット</translation>
+    </message>
+    <message>
+        <source>It works in the chat of the terminal, in a conversation of its own.</source>
+        <translation>ターミナルのチャットで、専用の会話の中で動きます。</translation>
+    </message>
+    <message>
         <source>Permissions</source>
         <translation>権限</translation>
     </message>
@@ -752,6 +768,321 @@
     </message>
 </context>
 <context>
+    <name>ChatAskCard</name>
+    <message>
+        <source>Plan</source>
+        <translation>計画</translation>
+    </message>
+    <message>
+        <source>Needs your answer</source>
+        <translation>回答が必要</translation>
+    </message>
+    <message>
+        <source>Needs your approval</source>
+        <translation>承認が必要</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>許可</translation>
+    </message>
+    <message>
+        <source>Deny</source>
+        <translation>拒否</translation>
+    </message>
+    <message>
+        <source>Always %1</source>
+        <translation>常に %1</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>送信</translation>
+    </message>
+    <message>
+        <source>Keep planning</source>
+        <translation>計画を続ける</translation>
+    </message>
+</context>
+<context>
+    <name>ChatDock</name>
+    <message>
+        <source>Tasks: %1 of %2 done</source>
+        <translation>タスク: %2 件中 %1 件完了</translation>
+    </message>
+    <message>
+        <source>Hide the tasks</source>
+        <translation>タスクを非表示</translation>
+    </message>
+    <message>
+        <source>Show the tasks</source>
+        <translation>タスクを表示</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完了</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Waiting for %1</source>
+        <translation>%1 を待っています</translation>
+    </message>
+    <message>
+        <source>The agent takes the next message in its terminal.</source>
+        <translation>エージェントは次のメッセージをターミナルで受け取ります。</translation>
+    </message>
+    <message>
+        <source>No agent runs in this terminal</source>
+        <translation>このターミナルではエージェントが動いていません</translation>
+    </message>
+    <message>
+        <source>Or say what to do instead</source>
+        <translation>または、代わりにどうするかを伝える</translation>
+    </message>
+    <message>
+        <source>Message %1</source>
+        <translation>%1 にメッセージ</translation>
+    </message>
+</context>
+<context>
+    <name>ChatFacts</name>
+    <message>
+        <source>Model</source>
+        <translation>モデル</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>コンテキスト：%1% 使用</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n 個のサブエージェントが作業中</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n commands run in the background</source>
+        <translation>
+            <numerusform>%n 個のコマンドがバックグラウンドで実行中</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatStep</name>
+    <message>
+        <source>Done</source>
+        <translation>完了</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失敗</translation>
+    </message>
+    <message>
+        <source>denied</source>
+        <translation>拒否</translation>
+    </message>
+    <message>
+        <source>stopped</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <source>in the background</source>
+        <translation>バックグラウンド</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n ステップ</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatThread</name>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>compacted</source>
+        <translation>会話を圧縮</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>計画</translation>
+    </message>
+    <message>
+        <source>Stopped</source>
+        <translation>停止済み</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失敗</translation>
+    </message>
+    <message>
+        <source>Refused</source>
+        <translation>応答拒否</translation>
+    </message>
+    <message>
+        <source>Needs you to sign in</source>
+        <translation>サインインが必要</translation>
+    </message>
+    <message>
+        <source>Sign in with its own steps in the terminal.</source>
+        <translation>ターミナルに表示される手順でサインインしてください。</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWords</name>
+    <message numerus="yes">
+        <source>ran %n commands</source>
+        <translation>
+            <numerusform>コマンドを %n 回実行</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>read %n files</source>
+        <translation>
+            <numerusform>ファイルを %n 件読み込み</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>changed %n files</source>
+        <translation>
+            <numerusform>ファイルを %n 件変更</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>wrote %n files</source>
+        <translation>
+            <numerusform>ファイルを %n 件書き込み</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n searches</source>
+        <translation>
+            <numerusform>%n 回検索</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>fetched %n pages</source>
+        <translation>
+            <numerusform>ページを %n 件取得</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n helpers</source>
+        <translation>
+            <numerusform>サブエージェント %n 個に依頼</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n skills</source>
+        <translation>
+            <numerusform>スキルを %n 個使用</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n questions</source>
+        <translation>
+            <numerusform>%n 件質問</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n plans</source>
+        <translation>
+            <numerusform>計画を %n 件作成</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n tools</source>
+        <translation>
+            <numerusform>ツールを %n 個使用</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n denied</source>
+        <translation>
+            <numerusform>%n 件拒否</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n stopped</source>
+        <translation>
+            <numerusform>%n 件停止</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>確認</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>制限なし</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>編集</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>計画</translation>
+    </message>
+    <message>
+        <source>Rules</source>
+        <translation>ルール</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <translation>%1時間</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1分</translation>
+    </message>
+    <message>
+        <source>%1s</source>
+        <translation>%1秒</translation>
+    </message>
+    <message>
+        <source>%1 %2</source>
+        <comment>the parts of a duration</comment>
+        <translation>%1%2</translation>
+    </message>
+    <message>
+        <source>$</source>
+        <comment>the sign of US dollars</comment>
+        <translation>$</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWork</name>
+    <message>
+        <source>Hide the steps</source>
+        <translation>ステップを非表示</translation>
+    </message>
+    <message>
+        <source>Show the steps</source>
+        <translation>ステップを表示</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完了</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失敗</translation>
+    </message>
+</context>
+<context>
     <name>ClipboardReadDialog</name>
     <message>
         <source>Let a program read your clipboard?</source>
@@ -844,6 +1175,21 @@
     <message>
         <source>Cut</source>
         <translation>切り取り</translation>
+    </message>
+</context>
+<context>
+    <name>DayDivider</name>
+    <message>
+        <source>Today</source>
+        <translation>今日</translation>
+    </message>
+    <message>
+        <source>Yesterday</source>
+        <translation>昨日</translation>
+    </message>
+    <message>
+        <source>d MMMM</source>
+        <translation>M月d日</translation>
     </message>
 </context>
 <context>
@@ -1189,16 +1535,8 @@
         <translation>Dosi に聞く</translation>
     </message>
     <message>
-        <source>Stop</source>
-        <translation>停止</translation>
-    </message>
-    <message>
         <source>Stop (%1)</source>
         <translation>停止（%1）</translation>
-    </message>
-    <message>
-        <source>Send</source>
-        <translation>送信</translation>
     </message>
 </context>
 <context>
@@ -1486,10 +1824,6 @@
     <message>
         <source>Tell me when my terminals finish</source>
         <translation>ターミナルが終わったら教えて</translation>
-    </message>
-    <message>
-        <source>Latest</source>
-        <translation>最新</translation>
     </message>
 </context>
 <context>
@@ -2297,6 +2631,13 @@
     </message>
 </context>
 <context>
+    <name>LatestKey</name>
+    <message>
+        <source>Latest</source>
+        <translation>最新</translation>
+    </message>
+</context>
+<context>
     <name>Link</name>
     <message>
         <source>The link is not a complete address.</source>
@@ -2789,18 +3130,6 @@
 </context>
 <context>
     <name>ProjectConversation</name>
-    <message>
-        <source>Today</source>
-        <translation>今日</translation>
-    </message>
-    <message>
-        <source>Yesterday</source>
-        <translation>昨日</translation>
-    </message>
-    <message>
-        <source>d MMMM</source>
-        <translation>M月d日</translation>
-    </message>
     <message>
         <source>Conversation</source>
         <translation>会話</translation>
@@ -3382,6 +3711,13 @@
     </message>
 </context>
 <context>
+    <name>SendKey</name>
+    <message>
+        <source>Send</source>
+        <translation>送信</translation>
+    </message>
+</context>
+<context>
     <name>SessionDetails</name>
     <message>
         <source>Shared with %1</source>
@@ -3865,6 +4201,13 @@
     </message>
 </context>
 <context>
+    <name>StopKey</name>
+    <message>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+</context>
+<context>
     <name>TerminalAccessible</name>
     <message>
         <source>Terminal</source>
@@ -3873,6 +4216,112 @@
     <message>
         <source>Live terminal</source>
         <translation>ライブターミナル</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalActions</name>
+    <message>
+        <source>Start an agent</source>
+        <translation>エージェントを起動</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>モデル</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>推論レベル</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>アクセス権</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>詳細度</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>キャンバス</translation>
+    </message>
+    <message>
+        <source>Open Browser</source>
+        <translation>ブラウザを開く</translation>
+    </message>
+    <message>
+        <source>Add a file…</source>
+        <translation>ファイルを追加…</translation>
+    </message>
+    <message>
+        <source>Terminal</source>
+        <translation>ターミナル</translation>
+    </message>
+    <message>
+        <source>Share…</source>
+        <translation>共有…</translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation>詳細</translation>
+    </message>
+    <message>
+        <source>Remove from project</source>
+        <translation>プロジェクトから削除</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>起動時のみ</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>高速モード</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>簡潔</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>詳細</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>標準</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>デフォルト</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>制限なし</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>確認</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1（このターンの後）</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1 は、今のターンが終わると変更します。</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1 は、次回の起動時もこのモデル、推論レベル、高速モードを使います。</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalChatView</name>
+    <message>
+        <source>Chat</source>
+        <translation>チャット</translation>
     </message>
 </context>
 <context>
@@ -4089,48 +4538,12 @@
         <translation>%2 の %1</translation>
     </message>
     <message>
+        <source>Chat</source>
+        <translation>チャット</translation>
+    </message>
+    <message>
         <source>Actions</source>
         <translation>アクション</translation>
-    </message>
-    <message>
-        <source>Start an agent</source>
-        <translation>エージェントを起動</translation>
-    </message>
-    <message>
-        <source>Share…</source>
-        <translation>共有…</translation>
-    </message>
-    <message>
-        <source>Open Browser</source>
-        <translation>ブラウザを開く</translation>
-    </message>
-    <message>
-        <source>Model</source>
-        <translation>モデル</translation>
-    </message>
-    <message>
-        <source>Effort</source>
-        <translation>推論レベル</translation>
-    </message>
-    <message>
-        <source>Permissions</source>
-        <translation>権限</translation>
-    </message>
-    <message>
-        <source>Canvas</source>
-        <translation>キャンバス</translation>
-    </message>
-    <message>
-        <source>Add a file…</source>
-        <translation>ファイルを追加…</translation>
-    </message>
-    <message>
-        <source>Details</source>
-        <translation>詳細</translation>
-    </message>
-    <message>
-        <source>Remove from project</source>
-        <translation>プロジェクトから削除</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -4213,64 +4626,12 @@
         <translation>閉じる</translation>
     </message>
     <message>
-        <source>Only at start</source>
-        <translation>起動時のみ</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>デフォルト</translation>
-    </message>
-    <message>
-        <source>Unrestricted</source>
-        <translation>制限なし</translation>
-    </message>
-    <message>
-        <source>Auto</source>
-        <translation>自動</translation>
-    </message>
-    <message>
-        <source>Ask</source>
-        <translation>確認</translation>
-    </message>
-    <message>
-        <source>%1, after this turn</source>
-        <translation>%1（このターンの後）</translation>
-    </message>
-    <message>
-        <source>%1 changes when it finishes its turn.</source>
-        <translation>%1 は、今のターンが終わると変更します。</translation>
-    </message>
-    <message>
-        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
-        <translation>%1 は、次回の起動時もこのモデル、推論レベル、高速モードを使います。</translation>
-    </message>
-    <message>
         <source>Copy</source>
         <translation>コピー</translation>
     </message>
     <message>
         <source>Paste</source>
         <translation>貼り付け</translation>
-    </message>
-    <message>
-        <source>Verbosity</source>
-        <translation>詳細度</translation>
-    </message>
-    <message>
-        <source>Quiet</source>
-        <translation>簡潔</translation>
-    </message>
-    <message>
-        <source>Standard</source>
-        <translation>標準</translation>
-    </message>
-    <message>
-        <source>Detailed</source>
-        <translation>詳細</translation>
-    </message>
-    <message>
-        <source>Fast mode</source>
-        <translation>高速モード</translation>
     </message>
 </context>
 <context>
@@ -5009,6 +5370,59 @@
     <message>
         <source>Full screen</source>
         <translation>フルスクリーン</translation>
+    </message>
+</context>
+<context>
+    <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Approve</source>
+        <translation>承認</translation>
+    </message>
+    <message>
+        <source>Approve, and ask before each change</source>
+        <translation>承認して、変更ごとに確認</translation>
+    </message>
+    <message>
+        <source>Approve, and allow its edits</source>
+        <translation>承認して、変更を許可</translation>
+    </message>
+    <message>
+        <source>Approve, and use the safety check</source>
+        <translation>承認して、安全チェックを使う</translation>
+    </message>
+    <message>
+        <source>Approve, and ask nothing</source>
+        <translation>承認して、確認なしで進める</translation>
+    </message>
+    <message>
+        <source>Approve, and let helpers work alone</source>
+        <translation>承認して、サブエージェントに任せる</translation>
+    </message>
+    <message>
+        <source>Leave plan mode</source>
+        <translation>計画モードを終了</translation>
+    </message>
+    <message>
+        <source>writing</source>
+        <translation>書き込み中</translation>
+    </message>
+    <message>
+        <source>compacting</source>
+        <translation>会話を圧縮中</translation>
+    </message>
+    <message>
+        <source>thinking</source>
+        <translation>思考中</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n ステップ</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>worked for %1</source>
+        <translation>%1 作業</translation>
     </message>
 </context>
 <context>

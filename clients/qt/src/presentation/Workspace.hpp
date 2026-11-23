@@ -72,6 +72,7 @@ private:
         QString projectId;
         QVariantMap draft;
         bool quiet = false;
+        QJsonObject request;
     };
 
     CommandDispatcher& m_commands;

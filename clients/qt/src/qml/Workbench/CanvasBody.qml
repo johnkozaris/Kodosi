@@ -6,6 +6,7 @@ Item {
     id: root
 
     required property Look look
+    property bool chatting: false
     property real seam: width
     property real depth: 0
     property real radius: KodosiTheme.radiusTile
@@ -187,6 +188,7 @@ Item {
         ShapePath {
             strokeColor: "transparent"
             fillColor: root.face
+            fillGradient: root.chatting ? chatGround : null
 
             PathSvg { path: root.width > 0 ? root.lobes() : "" }
         }
@@ -195,6 +197,21 @@ Item {
             fillColor: root.bandColor
 
             PathSvg { path: root.width > 0 ? root.leftBand() : "" }
+        }
+        LinearGradient {
+            id: chatGround
+
+            readonly property real side: root.width > 0 ? Math.max(0, Math.min(1, root.seam / root.width)) : 1
+
+            x1: 0
+            y1: 0
+            x2: root.width
+            y2: 0
+
+            GradientStop { position: 0; color: root.look.sheet }
+            GradientStop { position: chatGround.side; color: root.look.sheet }
+            GradientStop { position: Math.min(1, chatGround.side + 0.0001); color: root.face }
+            GradientStop { position: 1; color: root.face }
         }
         ShapePath {
             strokeColor: "transparent"

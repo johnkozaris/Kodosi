@@ -26,55 +26,6 @@ QJsonValue nullable(const QString& value)
     return value.isEmpty() ? QJsonValue() : QJsonValue(value);
 }
 
-QVariantMap describedLimit(QVariantMap limit)
-{
-    const auto scope = limit.value(QStringLiteral("scope")).toString();
-    const auto hours = limit.value(QStringLiteral("hours"));
-    const bool monthly = hours.isNull();
-    const int count = hours.toInt();
-    auto window = scope;
-    if (window.isEmpty()) {
-        window = monthly ? AgentLauncherModel::tr("month")
-            : count == 24 ? AgentLauncherModel::tr("day")
-            : count == 168 ? AgentLauncherModel::tr("week")
-            : count % 24 == 0 ? AgentLauncherModel::tr("%1d").arg(count / 24)
-                              : AgentLauncherModel::tr("%1h").arg(count);
-    }
-    const bool days = count > 24 && count % 24 == 0;
-    const auto name = scope.isEmpty()
-        ? (monthly ? AgentLauncherModel::tr("This month")
-                : count == 168 ? AgentLauncherModel::tr("This week")
-                : days         ? AgentLauncherModel::tr("Last %n days", "", count / 24)
-                               : AgentLauncherModel::tr("Last %n hours", "", count))
-        : (monthly ? AgentLauncherModel::tr("%1, this month").arg(scope)
-                : count == 168 ? AgentLauncherModel::tr("%1, this week").arg(scope)
-                : days         ? AgentLauncherModel::tr("%1, last %n days", "", count / 24).arg(scope)
-                               : AgentLauncherModel::tr("%1, last %n hours", "", count).arg(scope));
-    limit.insert(QStringLiteral("id"), !scope.isEmpty() ? QStringLiteral("scope:") + scope
-            : monthly ? QStringLiteral("month") : QStringLiteral("hours:") + QString::number(count));
-    limit.insert(QStringLiteral("window"), window);
-    limit.insert(QStringLiteral("spoken"), AgentLauncherModel::tr("%1: %2% used").arg(name, QString::number(limit.value(QStringLiteral("used")).toInt())));
-    return limit;
-}
-
-QVariant nearestLimit(const QVariantList& limits, const QString& model)
-{
-    static const QStringList levels { QStringLiteral("normal"), QStringLiteral("near"), QStringLiteral("reached") };
-    const auto nearness = [](const QVariant& limit) {
-        const auto values = limit.toMap();
-        return std::pair(levels.indexOf(values.value(QStringLiteral("level")).toString()), values.value(QStringLiteral("used")).toInt());
-    };
-    QVariant nearest;
-    for (const auto& limit : limits) {
-        const auto counted = limit.toMap().value(QStringLiteral("model")).toString();
-        if (!model.isEmpty() && !counted.isEmpty() && counted != model)
-            continue;
-        if (!nearest.isValid() || nearness(limit) > nearness(nearest))
-            nearest = limit;
-    }
-    return nearest;
-}
-
 struct TimeLeft {
     int days;
     int hours;
@@ -96,6 +47,55 @@ std::optional<TimeLeft> timeLeft(const QVariantMap& limit, double now)
     }
     return TimeLeft { 0, minutes / 60, minutes % 60 };
 }
+}
+
+QVariantMap AgentLauncherModel::describedLimit(QVariantMap limit)
+{
+    const auto scope = limit.value(QStringLiteral("scope")).toString();
+    const auto hours = limit.value(QStringLiteral("hours"));
+    const bool monthly = hours.isNull();
+    const int count = hours.toInt();
+    auto window = scope;
+    if (window.isEmpty()) {
+        window = monthly ? tr("month")
+            : count == 24 ? tr("day")
+            : count == 168 ? tr("week")
+            : count % 24 == 0 ? tr("%1d").arg(count / 24)
+                              : tr("%1h").arg(count);
+    }
+    const bool days = count > 24 && count % 24 == 0;
+    const auto name = scope.isEmpty()
+        ? (monthly ? tr("This month")
+                : count == 168 ? tr("This week")
+                : days         ? tr("Last %n days", "", count / 24)
+                               : tr("Last %n hours", "", count))
+        : (monthly ? tr("%1, this month").arg(scope)
+                : count == 168 ? tr("%1, this week").arg(scope)
+                : days         ? tr("%1, last %n days", "", count / 24).arg(scope)
+                               : tr("%1, last %n hours", "", count).arg(scope));
+    limit.insert(QStringLiteral("id"), !scope.isEmpty() ? QStringLiteral("scope:") + scope
+            : monthly ? QStringLiteral("month") : QStringLiteral("hours:") + QString::number(count));
+    limit.insert(QStringLiteral("window"), window);
+    limit.insert(QStringLiteral("spoken"), tr("%1: %2% used").arg(name, QString::number(limit.value(QStringLiteral("used")).toInt())));
+    return limit;
+}
+
+QVariant AgentLauncherModel::nearestLimit(const QVariantList& limits, const QString& model)
+{
+    static const QStringList levels { QStringLiteral("normal"), QStringLiteral("near"), QStringLiteral("reached") };
+    const auto nearness = [](const QVariant& limit) {
+        const auto values = limit.toMap();
+        return std::pair(levels.indexOf(values.value(QStringLiteral("level")).toString()), values.value(QStringLiteral("used")).toInt());
+    };
+    QVariant nearest;
+    for (const auto& limit : limits) {
+        const auto counted = limit.toMap().value(QStringLiteral("model")).toString();
+        if (!model.isEmpty() && !counted.isEmpty() && counted != model)
+            continue;
+        if (!nearest.isValid() || nearness(limit) > nearness(nearest))
+            nearest = limit;
+    }
+    return nearest;
 }
 
 AgentLauncherModel::AgentLauncherModel(CommandDispatcher& commands, QObject* parent, bool remote)
@@ -200,13 +200,14 @@ QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
     if (!outputs.contains(output))
         output = info.value(QStringLiteral("defaultOutput")).toString();
     const bool fast = info.value(QStringLiteral("fast")).toBool() && saved.value(QStringLiteral("fast")).toBool();
+    const bool chat = info.value(QStringLiteral("chat")).toBool() && saved.value(QStringLiteral("chat")).toBool();
     QVariant start;
     if (info.value(QStringLiteral("installed")).toBool() && account.isValid()) {
-        // This app has no chat view, so an agent that runs in the chat also starts in its terminal app here.
         QVariantMap starting { { QStringLiteral("agent"), agent }, { QStringLiteral("account"), field(account, "name") },
             { QStringLiteral("model"), modelId }, { QStringLiteral("effort"), effortId },
-            { QStringLiteral("permissions"), permissions }, { QStringLiteral("fast"), fast },
-            { QStringLiteral("chat"), false } };
+            { QStringLiteral("permissions"), permissions }, { QStringLiteral("fast"), fast } };
+        if (info.value(QStringLiteral("chat")).toBool())
+            starting.insert(QStringLiteral("chat"), chat);
         if (!outputs.isEmpty())
             starting.insert(QStringLiteral("output"), output);
         start = starting;
@@ -215,7 +216,7 @@ QVariantMap AgentLauncherModel::plan(const QVariantMap& info) const
         { QStringLiteral("model"), model == models.end() ? QVariant() : *model },
         { QStringLiteral("efforts"), efforts }, { QStringLiteral("effortId"), effortId },
         { QStringLiteral("permissions"), permissions }, { QStringLiteral("output"), output },
-        { QStringLiteral("fast"), fast }, { QStringLiteral("chat"), saved.value(QStringLiteral("chat")).toBool() },
+        { QStringLiteral("fast"), fast }, { QStringLiteral("chat"), chat },
         { QStringLiteral("start"), start } };
 }
 
@@ -403,7 +404,7 @@ void AgentLauncherModel::chooseAgent(const QString& agent)
 void AgentLauncherModel::choose(const QString& kind, const QString& agent, const QVariant& value)
 {
     static const QStringList kinds { QStringLiteral("account"), QStringLiteral("model"), QStringLiteral("effort"),
-        QStringLiteral("permissions"), QStringLiteral("output"), QStringLiteral("fast") };
+        QStringLiteral("permissions"), QStringLiteral("output"), QStringLiteral("fast"), QStringLiteral("chat") };
     const auto info = std::ranges::find(m_agents, agent, [](const QVariant& entry) { return field(entry, "agent"); });
     if (info == m_agents.end() || !kinds.contains(kind))
         return;
@@ -416,7 +417,8 @@ void AgentLauncherModel::choose(const QString& kind, const QString& agent, const
         { QStringLiteral("output"), shown.value(QStringLiteral("output")).toString() },
         { QStringLiteral("fast"), shown.value(QStringLiteral("fast")).toBool() },
         { QStringLiteral("chat"), shown.value(QStringLiteral("chat")).toBool() } };
-    pick.insert(kind, kind == QStringLiteral("fast") ? QJsonValue(value.toBool()) : nullable(value.toString()));
+    pick.insert(kind, kind == QStringLiteral("fast") || kind == QStringLiteral("chat") ? QJsonValue(value.toBool())
+                                                                                     : nullable(value.toString()));
     auto picks = m_choice.value(QStringLiteral("picks")).toList();
     const auto saved = std::ranges::find(picks, agent, [](const QVariant& entry) { return field(entry, "agent"); });
     if (saved == picks.end())

@@ -7,6 +7,7 @@ Item {
     property var limit: null
     property real size: 26
     property bool loading: false
+    property Look look: KodosiTheme.look
     readonly property string level: limit ? limit.level : ""
 
     implicitWidth: size
@@ -28,13 +29,14 @@ Item {
         anchors.fill: parent
         limit: root.limit
         loading: root.loading
+        look: root.look
         lineWidth: Math.max(1.75, root.size * 0.085)
     }
     RollingText {
         anchors.centerIn: parent
         visible: root.limit !== null
         text: root.limit ? String(root.limit.used) : ""
-        color: root.level === "reached" ? KodosiTheme.danger : root.level === "near" ? KodosiTheme.caution : KodosiTheme.ink
+        color: root.level === "reached" ? root.look.danger : root.level === "near" ? root.look.caution : root.look.ink
         font.pixelSize: Math.round(root.size * 0.37)
         font.weight: Font.DemiBold
     }

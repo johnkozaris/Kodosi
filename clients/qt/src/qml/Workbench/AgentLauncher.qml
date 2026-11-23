@@ -49,6 +49,7 @@ ColumnLayout {
     readonly property string defaultOutput: info ? info.defaultOutput : "standard"
     readonly property string permissions: plan ? plan.permissions || defaultPermissions : defaultPermissions
     readonly property string output: plan ? plan.output || defaultOutput : defaultOutput
+    readonly property bool chat: plan ? plan.chat === true : false
     readonly property string directory: computer.length > 0 ? Models.DesktopState.launcherRemoteFolders[computer] || (places.recent || [])[0] || ""
         : folder || Models.DesktopSettings.effectiveWorkingDirectory
     readonly property string agentLabel: info ? Models.DesktopSettings.agentLabel(info.agent) : ""
@@ -276,6 +277,9 @@ ColumnLayout {
             root.launcher.choose("effort", info.agent, id)
         } else if (kind === "permissions" || kind === "output") {
             root.launcher.choose(kind, info.agent, id)
+            return
+        } else if (kind === "chat") {
+            root.launcher.choose(kind, info.agent, id === "chat")
             return
         }
         closeMenu()
@@ -1089,6 +1093,24 @@ ColumnLayout {
             width: 300
 
             ModeRow {
+                visible: root.info !== null && root.info.chat === true
+                width: parent.width
+                title: qsTr("Opens in")
+                options: [{ id: "terminal", label: qsTr("Terminal"), detail: qsTr("Its own app runs in the terminal."), caution: false },
+                    { id: "chat", label: qsTr("Chat"), detail: qsTr("It works in the chat of the terminal, in a conversation of its own."),
+                        caution: false }]
+                current: root.chat ? "chat" : "terminal"
+                objectName: "launcher.view"
+                Accessible.id: objectName
+                onPicked: id => root.pick("chat", id)
+            }
+            Rectangle {
+                visible: root.info !== null && root.info.chat === true
+                width: parent.width
+                height: 1
+                color: KodosiTheme.alpha(KodosiTheme.hairline, 0.6)
+            }
+            ModeRow {
                 width: parent.width
                 title: qsTr("Permissions")
                 options: root.permissionOptions()
@@ -1098,13 +1120,13 @@ ColumnLayout {
                 onPicked: id => root.pick("permissions", id)
             }
             Rectangle {
-                visible: root.outputs.length > 0
+                visible: root.outputs.length > 0 && !root.chat
                 width: parent.width
                 height: 1
                 color: KodosiTheme.alpha(KodosiTheme.hairline, 0.6)
             }
             ModeRow {
-                visible: root.outputs.length > 0
+                visible: root.outputs.length > 0 && !root.chat
                 width: parent.width
                 title: qsTr("Verbosity")
                 options: root.outputOptions()

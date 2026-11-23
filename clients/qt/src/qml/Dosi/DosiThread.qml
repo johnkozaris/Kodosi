@@ -28,19 +28,6 @@ Item {
                 thinkingDelay.restart()
         }
     }
-    function prose(text: string): string {
-        let html = Qt.escapeHtml(text)
-        html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>")
-        html = html.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
-        html = html.replace(/(^|[^*\w])\*([^*\n]+)\*(?![\w*])/g, "$1<i>$2</i>")
-        html = html.replace(/\[([^\]\n]+)\]\((https:\/\/[^\s)&]+)\)/g, "<a href=\"$2\">$1</a>")
-        html = html.replace(/(^|[\s(])(https:\/\/[^\s<)&]+)/g, "$1<a href=\"$2\">$2</a>")
-        return "<span style=\"white-space:pre-wrap\">" + html + "</span>"
-    }
-    function openLink(link: string): void {
-        if (link.startsWith("https://"))
-            Models.DesktopFiles.openWebUrl(link)
-    }
     function toEnd(): void {
         if (root.following)
             list.positionViewAtEnd()
@@ -257,36 +244,13 @@ Item {
                 Item {
                     height: bubble.height + (waiting.visible ? waiting.height + 4 : 0)
 
-                    Rectangle {
+                    PersonBubble {
                         id: bubble
-                        anchors.right: parent.right
-                        width: Math.min(words.implicitWidth, parent.width - 48 - 24) + 24
-                        height: words.implicitHeight + 16
-                        topLeftRadius: 14
-                        topRightRadius: 14
-                        bottomLeftRadius: 14
-                        bottomRightRadius: 4
-                        color: KodosiTheme.accentSoft
 
-                        TextEdit {
-                            id: words
-                            x: 12
-                            y: 8
-                            width: Math.min(implicitWidth, bubble.parent.width - 48 - 24)
-                            text: root.prose(entry.row.text || "")
-                            textFormat: TextEdit.RichText
-                            readOnly: true
-                            selectByMouse: true
-                            wrapMode: TextEdit.Wrap
-                            color: KodosiTheme.ink
-                            font.pixelSize: KodosiTheme.fontBody
-                            selectionColor: KodosiTheme.accent
-                            selectedTextColor: KodosiTheme.accentInk
-                            Accessible.name: entry.row.text || ""
-                            onLinkActivated: link => root.openLink(link)
-
-                            HoverHandler { cursorShape: words.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
-                        }
+                        width: parent.width
+                        html: Models.Markdown.text(entry.row.text || "")
+                        text: entry.row.text || ""
+                        onLinkActivated: link => Prose.open(link)
                     }
                     Row {
                         id: waiting
@@ -346,34 +310,9 @@ Item {
             }
             Component {
                 id: proseView
-                Item {
-                    height: Math.max(prose.implicitHeight, 18)
-
-                    TextEdit {
-                        id: prose
-                        width: Math.min(implicitWidth, parent.width - (entry.row.live ? 12 : 0))
-                        text: root.prose(entry.row.text || "")
-                        textFormat: TextEdit.RichText
-                        readOnly: true
-                        selectByMouse: true
-                        wrapMode: TextEdit.Wrap
-                        color: KodosiTheme.ink
-                        font.pixelSize: KodosiTheme.fontBody
-                        selectionColor: KodosiTheme.accent
-                        selectedTextColor: KodosiTheme.accentInk
-                        Accessible.name: entry.row.text || ""
-                        onLinkActivated: link => root.openLink(link)
-
-                        HoverHandler { cursorShape: prose.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
-                    }
-                    CursorBlock {
-                        x: Math.min(prose.positionToRectangle(prose.length).x + 3, parent.width - width)
-                        y: prose.positionToRectangle(prose.length).y + 2
-                        width: 6
-                        height: 14
-                        blinks: true
-                        visible: entry.row.live === true
-                    }
+                AgentProse {
+                    blocks: Models.Markdown.blocks(entry.row.text || "")
+                    live: entry.row.live === true
                 }
             }
             Component {
@@ -590,20 +529,9 @@ Item {
             }
         }
     }
-    KButton {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: root.following ? -height : 8
-        compact: true
-        iconName: "chevron-down"
-        text: qsTr("Latest")
-        opacity: root.following ? 0 : 1
-        visible: opacity > 0
+    LatestKey {
+        shown: !root.following
         objectName: "dosi.latest"
-        Accessible.id: objectName
         onClicked: root.showLatest()
-
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
-        Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
     }
 }
