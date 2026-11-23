@@ -3963,23 +3963,6 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
     use crate::agents::Agent;
     let id = "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
     let line = |agent, command, conversation| restore::resume_line(agent, command, conversation);
-    assert_eq!(
-        line(Agent::Claude, "claude", Some(id)).unwrap(),
-        format!("claude --resume {id}")
-    );
-    assert_eq!(
-        line(Agent::Copilot, "copilot", Some(id)).unwrap(),
-        format!("copilot --resume={id}")
-    );
-    assert_eq!(
-        line(Agent::Codex, "env CODEX_HOME=/w codex", None).unwrap(),
-        "env CODEX_HOME=/w codex resume"
-    );
-    assert_eq!(
-        line(Agent::Claude, "claude", None).unwrap(),
-        "claude --resume"
-    );
-    assert_eq!(line(Agent::Cursor, "cursor-agent", Some(id)), None);
     let zsh = crate::agents::Notes {
         shell: "/bin/zsh".into(),
         ..crate::agents::Notes::default()

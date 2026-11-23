@@ -2108,14 +2108,11 @@ async fn session_program(
     let executable = crate::agents::executable(&shell(config), resume.provider.executable())
         .await
         .ok_or_else(|| Error::Refused(text!("The provider CLI is not installed.")))?;
-    let arguments = match resume.provider {
-        provider::Provider::Claude => {
-            vec!["--resume".to_owned(), resume.native_conversation_id.clone()]
-        }
-        provider::Provider::Copilot => {
-            vec![format!("--resume={}", resume.native_conversation_id)]
-        }
-    };
+    let arguments = super::restore::resume_words(
+        resume.provider.agent(),
+        Some(&resume.native_conversation_id),
+    )
+    .ok_or_else(|| Error::Invalid("This agent continues no conversation.".to_owned()))?;
     Ok((executable, arguments))
 }
 
