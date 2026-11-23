@@ -4,12 +4,16 @@
 //! does. An adapter turns the reports of one agent's link into changes of the chat, and a person's
 //! answer, message or stop into what that agent takes.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::{HashMap, HashSet},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use serde_json::Value;
 
 use super::{
-    ChatAnswer, ChatBody, ChatPerson, MOST_TARGET, MOST_TEXT, ToolState,
+    ChatAnswer, ChatBody, ChatNow, ChatOption, ChatPerson, ChatQuestion, ChatState, MOST_CALLS,
+    MOST_OPTIONS, MOST_TARGET, MOST_TEXT, ToolState,
     antigravity::Antigravity,
     claude::Claude,
     codex::Codex,
@@ -130,6 +134,51 @@ pub(super) fn answer(words: &str, live: bool) -> ChatBody {
     ChatBody::Text {
         text: start_of(words, MOST_TEXT).to_owned(),
         live,
+    }
+}
+
+/// A question that waits for a person comes before the agent's work.
+pub(super) fn show_state(chat: &mut Chat, linked: bool, working: bool, now: Option<ChatNow>) {
+    let (state, now) = if !linked {
+        (ChatState::Away, None)
+    } else if !chat.asks().is_empty() {
+        (ChatState::Asking, None)
+    } else if working {
+        (ChatState::Working, now)
+    } else {
+        (ChatState::Idle, None)
+    };
+    chat.set_state(state, now);
+}
+
+/// A call whose item the chat still shows stays known, so that the news of a call that runs
+/// changes its own item.
+pub(super) fn remember(items: &mut HashMap<String, String>, chat: &Chat, call: &str, item: String) {
+    if items.len() >= MOST_CALLS {
+        let shown = chat
+            .items()
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect::<HashSet<_>>();
+        items.retain(|_, item| shown.contains(item.as_str()));
+    }
+    items.insert(call.to_owned(), item);
+}
+
+/// A question as Claude Code and Codex give it: its words, a short header, and the options with
+/// their labels and descriptions.
+pub(super) fn question(question: &Value, multiple: bool) -> ChatQuestion {
+    ChatQuestion {
+        question: start_of(text(question, "question"), MOST_TARGET * 2).to_owned(),
+        header: start_of(text(question, "header"), MOST_TARGET).to_owned(),
+        options: list(question, "options")
+            .take(MOST_OPTIONS)
+            .map(|option| ChatOption {
+                label: start_of(text(option, "label"), MOST_TARGET).to_owned(),
+                description: start_of(text(option, "description"), MOST_TARGET * 2).to_owned(),
+            })
+            .collect(),
+        multiple,
     }
 }
 

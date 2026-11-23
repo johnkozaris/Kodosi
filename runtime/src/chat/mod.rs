@@ -57,9 +57,18 @@ pub(crate) const CODEX_VARIABLE: &str = "KODOSI_CODEX_SERVER";
 
 /// The key of the pipe that carries a terminal's chat.
 pub const CHAT_PIPE: &str = "chat";
-pub const MOST_ITEMS: usize = 400;
-pub const MOST_QUEUED: usize = 16;
-pub const MOST_MESSAGE: usize = 64 * 1024;
+#[cfg(feature = "host")]
+const MOST_ITEMS: usize = 400;
+#[cfg(feature = "host")]
+const MOST_QUEUED: usize = 16;
+#[cfg(feature = "host")]
+const MOST_MESSAGE: usize = 64 * 1024;
+#[cfg(feature = "host")]
+const MOST_CALLS: usize = 2048;
+#[cfg(feature = "host")]
+const MOST_QUESTIONS: usize = 8;
+#[cfg(feature = "host")]
+const MOST_OPTIONS: usize = 16;
 #[cfg(feature = "host")]
 const MOST_TEXT: usize = 48 * 1024;
 #[cfg(feature = "host")]

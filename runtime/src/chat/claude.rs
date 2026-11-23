@@ -10,9 +10,12 @@ use serde_json::{Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTool, MOST_OUTPUT, MOST_TARGET,
-    MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{Agent, Places, Stop, answer, list, now, person, stop_open, text, words},
+    ChatPerson, ChatQuestion, ChatStep, ChatTool, MOST_CALLS, MOST_OUTPUT, MOST_QUESTIONS,
+    MOST_TARGET, MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
+    agent::{
+        Agent, Places, Stop, answer, list, now, person, question, show_state, stop_open, text,
+        words,
+    },
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -23,7 +26,6 @@ const REFUSED_WITH_WORDS: &str = "The user doesn't want to proceed with this too
     use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To \
     tell you how to proceed, the user said:\n";
 const MOST_ROWS: usize = 4096;
-const MOST_CALLS: usize = 2048;
 const MOST_SAID: usize = 400;
 
 #[derive(Default)]
@@ -205,17 +207,17 @@ impl Claude {
             .filter(|helper| helper.working && helper.call.is_some())
             .count();
         chat.change_facts(|facts| facts.helpers = u32::try_from(helpers).unwrap_or(u32::MAX));
-        if !self.linked {
-            chat.set_state(ChatState::Away, None);
-        } else if !chat.asks().is_empty() {
-            chat.set_state(ChatState::Asking, None);
-        } else if self.compacting {
-            chat.set_state(ChatState::Working, Some(ChatNow::Compacting));
-        } else if self.turn.is_some() {
-            chat.set_state(ChatState::Working, self.now.clone());
+        let now = if self.compacting {
+            Some(ChatNow::Compacting)
         } else {
-            chat.set_state(ChatState::Idle, None);
-        }
+            self.now.clone()
+        };
+        show_state(
+            chat,
+            self.linked,
+            self.compacting || self.turn.is_some(),
+            now,
+        );
     }
 
     fn helper(&mut self, id: &str) -> &mut Helper {
@@ -1357,12 +1359,7 @@ fn described(name: &str, input: &Value, places: &Places) -> ChatTool {
             };
             (
                 file.as_str(),
-                Some(ToolDetail::Change {
-                    path: start_of(path, MOST_TARGET * 4).to_owned(),
-                    added: change.added,
-                    removed: change.removed,
-                    lines: change.lines,
-                }),
+                Some(change.detail(start_of(path, MOST_TARGET * 4).to_owned())),
             )
         }
         ToolKind::Search => (first(&["pattern", "query", "path"]), None),
@@ -1410,18 +1407,12 @@ fn described(name: &str, input: &Value, places: &Places) -> ChatTool {
 
 fn questions(input: &Value) -> Vec<ChatQuestion> {
     list(input, "questions")
-        .take(8)
-        .map(|question| ChatQuestion {
-            question: start_of(text(question, "question"), MOST_TARGET * 2).to_owned(),
-            header: start_of(text(question, "header"), MOST_TARGET).to_owned(),
-            options: list(question, "options")
-                .take(16)
-                .map(|option| ChatOption {
-                    label: start_of(text(option, "label"), MOST_TARGET).to_owned(),
-                    description: start_of(text(option, "description"), MOST_TARGET * 2).to_owned(),
-                })
-                .collect(),
-            multiple: question.get("multiSelect").and_then(Value::as_bool) == Some(true),
+        .take(MOST_QUESTIONS)
+        .map(|each| {
+            question(
+                each,
+                each.get("multiSelect").and_then(Value::as_bool) == Some(true),
+            )
         })
         .collect()
 }

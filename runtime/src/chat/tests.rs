@@ -3020,6 +3020,48 @@ fn a_person_allows_a_command_and_a_file_of_antigravity_in_the_chat() {
 }
 
 #[test]
+fn a_call_that_runs_keeps_its_item_when_the_adapter_forgets_older_calls() {
+    let (session, _) = split_at(antigravity!("allow"), "\"prompt\"");
+    let call = |id: &str, mut update: Value| {
+        update["toolCallId"] = json!(id);
+        json!({"k": "note", "m": "session/update", "p": {
+            "sessionId": "ab05ead0-ed08-43b7-b547-d2d6bc449422", "update": update}})
+        .to_string()
+    };
+    let done = json!({"sessionUpdate": "tool_call", "name": "run_command", "kind": "execute",
+        "status": "completed", "title": "ls"});
+    let mut record = vec![session];
+    record.extend((0..2047).map(|n| call(&format!("c{n}"), done.clone())));
+    record.push(call(
+        "long",
+        json!({"sessionUpdate": "tool_call", "name": "run_command", "kind": "execute",
+            "status": "in_progress", "title": "sleep 60"}),
+    ));
+    record.push(call("next", done));
+    record.push(call(
+        "long",
+        json!({"sessionUpdate": "tool_call_update", "status": "completed"}),
+    ));
+
+    let play = Play::antigravity(&record.join("\n"), &[]);
+
+    let tools = play.tools();
+    assert_eq!(
+        tools
+            .iter()
+            .filter(|tool| tool.target == "sleep 60")
+            .map(|tool| tool.state)
+            .collect::<Vec<_>>(),
+        [ToolState::Done]
+    );
+    assert_eq!(
+        tools.last().map(|tool| tool.target.as_str()),
+        Some("ls"),
+        "the end of the call that ran changed its own item"
+    );
+}
+
+#[test]
 fn a_command_of_antigravity_that_exits_with_an_error_failed() {
     let play = Play::antigravity(
         antigravity!("work"),
