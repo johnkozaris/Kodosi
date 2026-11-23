@@ -1,5 +1,4 @@
 #include "terminal/GhosttyTerminalKernel.hpp"
-#include "terminal/GhosttyC.hpp"
 #include "presentation/Link.hpp"
 #include "terminal/TerminalLink.hpp"
 #include "terminal/TerminalAccessibility.hpp"
@@ -42,6 +41,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <ghostty/vt.h>
 #include <optional>
 #include <utility>
 #include <vector>

@@ -162,7 +162,6 @@ qt_add_resources(kodosi-desktop-integration "tray"
 qt_add_library(kodosi-terminal-kernel STATIC
     accessibility/AccessibilityScope.cpp
     accessibility/AccessibilityScope.hpp
-    terminal/GhosttyC.hpp
     terminal/TerminalAccessibility.cpp
     terminal/TerminalAccessibility.hpp
     terminal/GhosttyTerminalKernel.cpp

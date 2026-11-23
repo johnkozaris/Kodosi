@@ -1,5 +1,4 @@
 #include "accessibility/AccessibilityScope.hpp"
-#include "terminal/GhosttyC.hpp"
 #include "terminal/TerminalAccessibility.hpp"
 #include "terminal/TerminalSessionRegistry.hpp"
 #include "terminal/TerminalView.hpp"
@@ -11,6 +10,7 @@
 #include <QSet>
 #include <QtTest/QTest>
 
+#include <ghostty/vt.h>
 #include <memory>
 
 namespace {
