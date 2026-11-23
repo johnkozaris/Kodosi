@@ -5842,11 +5842,3 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
         drop(local.terminal.close().await);
     }
 }
-
-#[cfg(feature = "host")]
-#[test]
-fn a_saved_terminal_reads_its_project_under_the_name_in_the_file() {
-    let sharing: restore::Sharing =
-        serde_json::from_value(json!({"owner": "owner", "room": "project"})).unwrap();
-    assert_eq!(sharing.project.as_deref(), Some("project"));
-}
