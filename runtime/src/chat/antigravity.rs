@@ -15,10 +15,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{
-        Agent, Stop, answer, file_name, list, open_items, person, shown_rule, stop_open, text,
-        words,
-    },
+    agent::{Agent, Places, Stop, answer, list, open_items, person, stop_open, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -469,8 +466,9 @@ impl Antigravity {
         let item = self.item_of(chat, &id, update, at);
         let stopped = self.turn.as_ref().is_some_and(|turn| turn.stopped);
         let asking = self.asked.contains_key(&question_of(&id));
+        let places = Places::of(chat);
         chat.change_tool(&item, |tool| {
-            news(tool, update);
+            news(tool, update, &places);
             if stopped && tool.state == ToolState::Failed {
                 tool.state = ToolState::Stopped;
             } else if asking && tool.state.is_open() {
@@ -524,8 +522,9 @@ impl Antigravity {
         let at = event.get("t").and_then(Value::as_u64).unwrap_or_default();
         self.finish_writing(chat);
         let item = self.item_of(chat, text(call, "toolCallId"), call, at);
+        let places = Places::of(chat);
         chat.change_tool(&item, |tool| {
-            news(tool, call);
+            news(tool, call, &places);
             tool.state = ToolState::Asking;
         });
         let Some(tool) = chat.tool(&item).cloned() else {
@@ -536,11 +535,11 @@ impl Antigravity {
             .any(|option| text(option, "kind") == "allow_always")
             .then(|| AskAlways::Rule {
                 tool: tool.name.clone(),
-                text: shown_rule(if tool.target.is_empty() {
-                    &tool.name
+                text: if tool.target.is_empty() {
+                    tool.name.clone()
                 } else {
-                    &tool.target
-                }),
+                    tool.target.clone()
+                },
             });
         chat.ask(ChatAsk {
             id: ask.clone(),
@@ -1058,7 +1057,7 @@ fn described(update: &Value) -> ChatTool {
 /// The fields that a tool call's news gives: its state, its subject and what it did. A refused
 /// call stays refused when the agent then calls it failed, and a command that exits with an error
 /// failed although the agent completed the call.
-fn news(tool: &mut ChatTool, update: &Value) {
+fn news(tool: &mut ChatTool, update: &Value, places: &Places) {
     let input = update.get("rawInput").unwrap_or(&Value::Null);
     let output = update.get("rawOutput").unwrap_or(&Value::Null);
     let exited = output.get("exit_code").and_then(Value::as_i64);
@@ -1074,7 +1073,7 @@ fn news(tool: &mut ChatTool, update: &Value) {
     let command = words(input, "CommandLine");
     let place = list(update, "locations")
         .find_map(|location| words(location, "path"))
-        .map(|path| file_name(&path).to_owned());
+        .map(|path| places.file(&path));
     let subject = command
         .clone()
         .or(place)

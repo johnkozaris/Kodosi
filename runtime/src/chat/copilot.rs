@@ -14,9 +14,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTask, ChatTool, MOST_OUTPUT,
     MOST_TARGET, MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{
-        Agent, Stop, answer, file_name, list, now, person, plan_command, stop_open, text, words,
-    },
+    agent::{Agent, Places, Stop, answer, list, now, person, plan_command, stop_open, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -325,7 +323,7 @@ impl Copilot {
             }
             "tool.execution_start" => {
                 let call = text(data, "toolCallId");
-                let tool = described(data);
+                let tool = described(data, &Places::of(chat));
                 let step = ChatStep {
                     kind: tool.kind,
                     target: tool.target.clone(),
@@ -431,7 +429,7 @@ impl Copilot {
         let item = chat.push(
             at,
             ChatBody::Tool {
-                tool: Box::new(described(data)),
+                tool: Box::new(described(data, &Places::of(chat))),
             },
         );
         self.now = Some(ChatNow::Tool { item: item.clone() });
@@ -1078,10 +1076,10 @@ fn mode(name: &str) -> Option<ChatMode> {
 }
 
 /// A tool call of Copilot as the chat shows it, by Copilot's name of the tool.
-fn described(data: &Value) -> ChatTool {
+fn described(data: &Value, places: &Places) -> ChatTool {
     let name = text(data, "toolName");
     let arguments = &data["arguments"];
-    let file = || file_name(text(arguments, "path")).to_owned();
+    let file = || places.file(text(arguments, "path"));
     let (kind, target, detail) = match name {
         "bash" | "powershell" => {
             let command = text(arguments, "command");
@@ -1125,7 +1123,7 @@ fn described(data: &Value) -> ChatTool {
             } else {
                 ToolKind::Edit
             };
-            (kind, patched(patch), None)
+            (kind, patched(patch, places), None)
         }
         "web_fetch" => (ToolKind::Web, text(arguments, "url").to_owned(), None),
         "web_search" => (ToolKind::Web, text(arguments, "query").to_owned(), None),
@@ -1354,8 +1352,8 @@ fn chosen(choices: &[(String, String)], label: &str) -> String {
         .to_owned()
 }
 
-/// The names of the files that a patch of Copilot changes.
-fn patched(patch: &str) -> String {
+/// The files that a patch of Copilot changes.
+fn patched(patch: &str, places: &Places) -> String {
     patch
         .lines()
         .filter_map(|line| {
@@ -1363,7 +1361,7 @@ fn patched(patch: &str) -> String {
                 .iter()
                 .find_map(|start| line.strip_prefix(start))
         })
-        .map(file_name)
+        .map(|path| places.file(path))
         .collect::<Vec<_>>()
         .join(", ")
 }

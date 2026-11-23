@@ -12,9 +12,7 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
-    agent::{
-        Agent, Stop, answer, file_name, list, now, person, shown_rule, stop_open, text, words,
-    },
+    agent::{Agent, Places, Stop, answer, list, now, person, stop_open, text, words},
     diff,
     state::{Chat, ends_of, start_of},
 };
@@ -339,7 +337,7 @@ impl Claude {
                 if is_hidden(name, input) {
                     continue;
                 }
-                let mut tool = described(name, input);
+                let mut tool = described(name, input, &Places::of(chat));
                 let failed = used.get("isError").and_then(Value::as_bool) == Some(true);
                 tool.state = if failed {
                     ToolState::Failed
@@ -489,7 +487,7 @@ impl Claude {
             return;
         }
         self.end_writing(chat, None);
-        let tool = described(name, &Value::Null);
+        let tool = described(name, &Value::Null, &Places::of(chat));
         let item = chat.push(
             at,
             ChatBody::Tool {
@@ -524,7 +522,7 @@ impl Claude {
             );
             return;
         }
-        let tool = described(name, input);
+        let tool = described(name, input, &Places::of(chat));
         if let Some(item) = known {
             let state = chat.tool(&item).map_or(tool.state, |tool| tool.state);
             chat.put(
@@ -562,6 +560,7 @@ impl Claude {
         let step = described(
             text(block, "name"),
             block.get("input").unwrap_or(&Value::Null),
+            &Places::of(chat),
         );
         self.change_helper(chat, helper, |steps, doing, _| {
             *steps = steps.saturating_add(1);
@@ -706,7 +705,8 @@ impl Claude {
             .as_ref()
             .and_then(|call| self.calls.get(call))
             .and_then(|call| call.item.clone());
-        let asking = described(name, &input);
+        let places = Places::of(chat);
+        let asking = described(name, &input, &places);
         let (kind, body) = match asking.detail {
             Some(ToolDetail::Question { questions, .. }) => {
                 (AskKind::Question, AskBody::Question { questions })
@@ -730,7 +730,9 @@ impl Claude {
                         state: ToolState::Asking,
                         ..asking
                     }),
-                    always: suggestions.first().and_then(always),
+                    always: suggestions
+                        .first()
+                        .and_then(|suggestion| always(suggestion, &places)),
                     helper: self
                         .helpers
                         .get(text(event, "agent"))
@@ -1316,12 +1318,13 @@ fn is_hidden(name: &str, input: &Value) -> bool {
 }
 
 /// A call as the chat shows it before it ran, from the tool's name and what the agent gave it.
-fn described(name: &str, input: &Value) -> ChatTool {
+fn described(name: &str, input: &Value, places: &Places) -> ChatTool {
     let kind = kind(name);
     let path = [text(input, "file_path"), text(input, "notebook_path")]
         .into_iter()
         .find(|path| !path.is_empty())
         .unwrap_or_default();
+    let file = places.file(path);
     let first = |keys: &[&str]| {
         keys.iter()
             .map(|key| text(input, key))
@@ -1340,7 +1343,7 @@ fn described(name: &str, input: &Value) -> ChatTool {
                 }),
             )
         }
-        ToolKind::Read => (file_name(path), None),
+        ToolKind::Read => (file.as_str(), None),
         ToolKind::Edit | ToolKind::Write if !path.is_empty() => {
             let change = if kind == ToolKind::Write {
                 diff::written(text(input, "content"))
@@ -1353,7 +1356,7 @@ fn described(name: &str, input: &Value) -> ChatTool {
                 diff::between(text(input, "old_string"), text(input, "new_string"))
             };
             (
-                file_name(path),
+                file.as_str(),
                 Some(ToolDetail::Change {
                     path: start_of(path, MOST_TARGET * 4).to_owned(),
                     added: change.added,
@@ -1423,14 +1426,22 @@ fn questions(input: &Value) -> Vec<ChatQuestion> {
         .collect()
 }
 
-/// What Claude Code offers to allow from now on, in its first suggestion.
-fn always(suggestion: &Value) -> Option<AskAlways> {
+/// What Claude Code offers to allow from now on, in its first suggestion. The rule of a file tool
+/// is a path with a pattern, and the rule of another tool is its own words, such as a command.
+fn always(suggestion: &Value, places: &Places) -> Option<AskAlways> {
     match text(suggestion, "type") {
         "addRules" if text(suggestion, "behavior") == "allow" => {
             let rule = list(suggestion, "rules").next()?;
+            let (tool, content) = (text(rule, "toolName"), text(rule, "ruleContent"));
+            let shown = match kind(tool) {
+                ToolKind::Read | ToolKind::Edit | ToolKind::Write | ToolKind::Search => {
+                    places.rule(content)
+                }
+                _ => content.to_owned(),
+            };
             Some(AskAlways::Rule {
-                tool: start_of(text(rule, "toolName"), MOST_TARGET).to_owned(),
-                text: shown_rule(start_of(text(rule, "ruleContent"), MOST_TARGET)),
+                tool: start_of(tool, MOST_TARGET).to_owned(),
+                text: start_of(&shown, MOST_TARGET).to_owned(),
             })
         }
         "setMode" => Some(AskAlways::Mode {
@@ -1438,12 +1449,7 @@ fn always(suggestion: &Value) -> Option<AskAlways> {
         }),
         "addDirectories" => Some(AskAlways::Folder {
             name: start_of(
-                file_name(
-                    list(suggestion, "directories")
-                        .next()?
-                        .as_str()?
-                        .trim_end_matches(['/', '\\']),
-                ),
+                &places.file(list(suggestion, "directories").next()?.as_str()?),
                 MOST_TARGET,
             )
             .to_owned(),
