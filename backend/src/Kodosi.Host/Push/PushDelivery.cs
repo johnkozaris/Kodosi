@@ -41,7 +41,7 @@ internal sealed partial class PushDelivery(IServiceScopeFactory scopes, PushSett
         }
         List<PushToken> sending = [];
         foreach (var token in owned)
-            if (services.ContainsKey(token.Platform) && (token.Platform != "apns" || notice.Alert is not null || TakeBackground(token.DeviceId, notice)))
+            if (services.ContainsKey(token.Platform) && (token.Platform != "apns" || notice.Alert is not null || TakeWithdrawal(token.DeviceId, notice)))
                 sending.Add(token);
         var outcomes = await Task.WhenAll(sending.Select(token => SendAsync(token, notice, ct)));
         foreach (var (token, outcome) in sending.Zip(outcomes))
@@ -87,7 +87,7 @@ internal sealed partial class PushDelivery(IServiceScopeFactory scopes, PushSett
         }
     }
 
-    private bool TakeBackground(string deviceId, PushNotice notice)
+    private bool TakeWithdrawal(string deviceId, PushNotice notice)
     {
         lock (sync)
         {
@@ -97,6 +97,11 @@ internal sealed partial class PushDelivery(IServiceScopeFactory scopes, PushSett
             {
                 background.HeldFor = null;
                 return false;
+            }
+            if (notice.Clears)
+            {
+                background.HeldFor = null;
+                return true;
             }
             if (background.Sent is { } sent && now - sent < BackgroundSpacing)
             {
