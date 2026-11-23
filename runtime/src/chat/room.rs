@@ -18,6 +18,7 @@ use super::{
 };
 use crate::{
     canvas::{PIPE_QUEUE, PipeEnds},
+    terminal::TerminalFace,
     text::Text,
 };
 
@@ -75,13 +76,13 @@ pub(super) enum Asked {
 #[derive(Clone)]
 pub(crate) struct ChatHandle {
     jobs: mpsc::Sender<Job>,
-    linked: watch::Receiver<bool>,
+    linked: watch::Receiver<Option<TerminalFace>>,
 }
 
 impl ChatHandle {
     pub(super) fn spawn() -> Self {
         let (jobs, receiver) = mpsc::channel(JOBS);
-        let (linked, linking) = watch::channel(false);
+        let (linked, linking) = watch::channel(None);
         let room = Room {
             jobs: receiver,
             own: jobs.downgrade(),
@@ -110,8 +111,8 @@ impl ChatHandle {
         self.jobs.downgrade()
     }
 
-    /// True while an agent of the terminal reports to the chat.
-    pub(crate) fn linked(&self) -> watch::Receiver<bool> {
+    /// Where the agent that reports to the chat works, while one does.
+    pub(crate) fn linked(&self) -> watch::Receiver<Option<TerminalFace>> {
         self.linked.clone()
     }
 
@@ -144,7 +145,7 @@ struct Viewer {
 struct Room {
     jobs: mpsc::Receiver<Job>,
     own: mpsc::WeakSender<Job>,
-    linked: watch::Sender<bool>,
+    linked: watch::Sender<Option<TerminalFace>>,
     chat: Chat,
     /// The adapter of the agent whose link the chat follows.
     agent: Option<Box<dyn Agent>>,
@@ -442,7 +443,11 @@ impl Room {
         {
             self.commands = commands;
         }
-        let linked = self.is_linked();
+        let linked = self
+            .agent
+            .as_ref()
+            .filter(|agent| agent.is_linked())
+            .map(|agent| agent.works_in());
         self.linked.send_if_modified(|current| {
             let changed = *current != linked;
             *current = linked;

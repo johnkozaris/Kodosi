@@ -35,10 +35,11 @@ public struct AgentPick: Decodable, Equatable, Sendable {
     public var permissions: AgentPermissions?
     public var output: AgentOutput?
     public var fast: Bool
+    public var chat: Bool
 
     public init(
         agent: String, account: String? = nil, model: String? = nil, effort: String? = nil,
-        permissions: AgentPermissions? = nil, output: AgentOutput? = nil, fast: Bool = false,
+        permissions: AgentPermissions? = nil, output: AgentOutput? = nil, fast: Bool = false, chat: Bool = false,
     ) {
         self.agent = agent
         self.account = account
@@ -47,6 +48,7 @@ public struct AgentPick: Decodable, Equatable, Sendable {
         self.permissions = permissions
         self.output = output
         self.fast = fast
+        self.chat = chat
     }
 }
 
@@ -72,6 +74,7 @@ public enum AgentChoiceChange: Equatable, Sendable {
                 "model": pick.model.map(JSONValue.string) ?? .null, "effort": pick.effort.map(JSONValue.string) ?? .null,
                 "permissions": pick.permissions.map { .string($0.rawValue) } ?? .null,
                 "output": pick.output.map { .string($0.rawValue) } ?? .null, "fast": .bool(pick.fast),
+                "chat": .bool(pick.chat),
             ])
         }
     }

@@ -73,14 +73,14 @@ private struct TerminalScreenContent: View {
     }
 
     private var chatting: Bool {
-        model.terminals.showsChat(controller.sessionId)
+        controller.session.map { model.terminals.face(of: $0) == .chat } == true
     }
 
     private var face: Binding<TerminalFace> {
         Binding {
             chatting ? .chat : .terminal
         } set: { face in
-            model.terminals.showChat(face == .chat, of: controller.sessionId)
+            model.terminals.pick(face, of: controller.sessionId, over: controller.session?.face)
         }
     }
 
@@ -135,7 +135,7 @@ private struct TerminalScreenContent: View {
             .sharedBackgroundVisibility(.hidden)
             if let session {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    if session.reportsToChat || chatting {
+                    if session.face != nil || chatting {
                         TerminalFaceSwitch(face: face, identifier: "terminal.face")
                     }
                     let viewers = model.viewers(of: session)

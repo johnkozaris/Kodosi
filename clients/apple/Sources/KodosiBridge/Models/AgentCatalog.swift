@@ -18,11 +18,14 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
     public var defaultPermissions: AgentPermissions
     public var defaultOutput: AgentOutput
     public var fast: Bool
+    /// The agent also runs in the chat of its terminal, in a conversation of its own.
+    public var chat: Bool
 
     public init(
         agent: String, program: String, installed: Bool, accounts: [AgentAccount], install: String, addsAccounts: Bool,
         reportsUsage: Bool, permissions: [AgentPermissions] = [.ask], outputs: [AgentOutput] = [],
         defaultPermissions: AgentPermissions = .ask, defaultOutput: AgentOutput = .standard, fast: Bool = false,
+        chat: Bool = false,
     ) {
         self.agent = agent
         self.program = program
@@ -36,6 +39,7 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
         self.defaultPermissions = defaultPermissions
         self.defaultOutput = defaultOutput
         self.fast = fast
+        self.chat = chat
     }
 
     public var id: String {
@@ -217,10 +221,11 @@ public struct AgentStart: Equatable, Sendable {
     public var permissions: AgentPermissions?
     public var output: AgentOutput?
     public var fast: Bool?
+    public var chat: Bool?
 
     public init(
         agent: String, account: String? = nil, model: String? = nil, effort: String? = nil,
-        permissions: AgentPermissions? = nil, output: AgentOutput? = nil, fast: Bool? = nil,
+        permissions: AgentPermissions? = nil, output: AgentOutput? = nil, fast: Bool? = nil, chat: Bool? = nil,
     ) {
         self.agent = agent
         self.account = account
@@ -229,6 +234,7 @@ public struct AgentStart: Equatable, Sendable {
         self.permissions = permissions
         self.output = output
         self.fast = fast
+        self.chat = chat
     }
 
     public var json: JSONValue {
@@ -239,6 +245,7 @@ public struct AgentStart: Equatable, Sendable {
         fields["permissions"] = permissions.map { .string($0.rawValue) }
         fields["output"] = output.map { .string($0.rawValue) }
         fields["fast"] = fast.map(JSONValue.bool)
+        fields["chat"] = chat.map(JSONValue.bool)
         return .object(fields)
     }
 }
@@ -315,11 +322,16 @@ public struct LaunchPlan {
         pick?.fast == true && info?.fast == true
     }
 
+    /// The agent starts in the chat of its terminal.
+    public var chat: Bool {
+        pick?.chat == true && info?.chat == true
+    }
+
     public var shown: AgentPick? {
         info.map {
             AgentPick(
                 agent: $0.agent, account: account?.name, model: modelId, effort: effortId, permissions: permissions,
-                output: output, fast: fast,
+                output: output, fast: fast, chat: chat,
             )
         }
     }
@@ -328,7 +340,7 @@ public struct LaunchPlan {
         guard let info, info.installed, let account else { return nil }
         return AgentStart(
             agent: info.agent, account: account.name, model: modelId ?? "", effort: effortId ?? "", permissions: permissions,
-            output: info.outputs.isEmpty ? nil : output, fast: fast,
+            output: info.outputs.isEmpty ? nil : output, fast: fast, chat: info.chat ? chat : nil,
         )
     }
 }

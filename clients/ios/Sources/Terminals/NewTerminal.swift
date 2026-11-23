@@ -65,6 +65,9 @@ final class NewTerminal {
         do {
             let started = try await terminals.start(terminal)
             defaults.set(computer, forKey: Self.lastComputerKey)
+            if agent?.chat == true, let started {
+                terminals.pick(.chat, of: started, over: nil)
+            }
             return started
         } catch is CancellationError {
             return nil

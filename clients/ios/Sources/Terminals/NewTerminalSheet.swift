@@ -214,10 +214,13 @@ struct NewTerminalSheet: View {
         if agent.fast {
             fastRow(agent, plan: plan, launcher: launcher)
         }
+        if agent.chat {
+            viewRow(agent, plan: plan, launcher: launcher)
+        }
         if agent.permissions.count > 1 {
             permissionsRow(agent, plan: plan, launcher: launcher)
         }
-        if !agent.outputs.isEmpty {
+        if !agent.outputs.isEmpty, !plan.chat {
             outputRow(agent, plan: plan, launcher: launcher)
         }
     }
@@ -312,6 +315,22 @@ struct NewTerminalSheet: View {
             },
         )
         .accessibilityIdentifier("terminals.new.permissions")
+    }
+
+    private func viewRow(_ agent: AgentInfo, plan: LaunchPlan, launcher: LauncherState) -> some View {
+        let opens = { (chat: Bool) in chat ? String(localized: "Chat") : String(localized: "Terminal") }
+        return ChoiceRow(
+            title: String(localized: "Opens in"),
+            subtitle: plan.chat
+                ? String(localized: "It works in the chat of the terminal, in a conversation of its own.")
+                : String(localized: "Its own app runs in the terminal."),
+            value: opens(plan.chat), values: [false, true], selection: plan.chat, label: opens,
+            choose: { chat in choosePick(plan, launcher) { $0.chat = chat } },
+            leading: {
+                IconTile(symbol: plan.chat ? "bubble.left.and.text.bubble.right" : "apple.terminal", tint: agent.kind.tint, size: 28)
+            },
+        )
+        .accessibilityIdentifier("terminals.new.view")
     }
 
     private func outputRow(_ agent: AgentInfo, plan: LaunchPlan, launcher: LauncherState) -> some View {

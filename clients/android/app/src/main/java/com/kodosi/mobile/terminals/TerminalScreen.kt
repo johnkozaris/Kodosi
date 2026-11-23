@@ -138,8 +138,8 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var control by remember { mutableStateOf(false) }
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
-    val chats by model.terminals.chatting.collectAsStateWithLifecycle()
-    val chatting = sessionId in chats
+    val picks by model.terminals.faces.collectAsStateWithLifecycle()
+    val chatting = session?.shownFace(picks[sessionId]) == TerminalFace.CHAT
     val chatShown = chatting && session?.isConnected == true
     val news by model.canvas.news.collectAsStateWithLifecycle()
     var composing by rememberSaveable(sessionId) { mutableStateOf(false) }
@@ -205,12 +205,16 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                         enabled = session?.canControl == true
                     )
                 }
-                if (session != null && (session.chat || chatting)) {
+                if (session != null && (session.face != null || chatting)) {
                     FaceSwitch(chatting) { shown ->
                         composing = false
                         focus.clearFocus()
                         keyboard?.hide()
-                        model.terminals.showChat(shown, sessionId)
+                        model.terminals.pick(
+                            if (shown) TerminalFace.CHAT else TerminalFace.TERMINAL,
+                            sessionId,
+                            session.face
+                        )
                     }
                 }
                 if (session?.canvas != null) ActionIcon(AppSymbol.CANVAS, R.string.canvas, { canvas(null) })

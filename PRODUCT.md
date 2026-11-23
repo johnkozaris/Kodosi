@@ -61,7 +61,8 @@ provider has for add-ons, and a person's message, answer or stop goes back the s
 Kodosi does not read the screen for the chat and presses no key there, so a new look of
 the agent does not break it. An answer in the chat is the person's answer to the agent's
 own question, and the agent's permissions stay as the provider keeps them. An agent that
-does not report has no chat, and its terminal works as before.
+does not report has no chat, and its terminal works as before. A terminal opens on the view
+where its agent works, on each device.
 
 **People and agents are equals in a project.** They read and write the same conversation
 and tasks, and they decide what to do next; nobody assigns work. Only a message that

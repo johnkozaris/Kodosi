@@ -7,10 +7,29 @@ struct LauncherModes: View {
     let info: AgentInfo
     let permissions: AgentPermissions
     let output: AgentOutput
+    let chat: Bool
     let pick: (String) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
+            if info.chat {
+                ModeRow(
+                    title: String(localized: "Opens in"), identifier: "launcher.view",
+                    options: [
+                        ModeRow.Option(
+                            id: LauncherMenu.terminal, label: String(localized: "Terminal"),
+                            detail: String(localized: "Its own app runs in the terminal."), caution: false,
+                        ),
+                        ModeRow.Option(
+                            id: LauncherMenu.chat, label: String(localized: "Chat"),
+                            detail: String(localized: "It works in the chat of the terminal, in a conversation of its own."),
+                            caution: false,
+                        ),
+                    ],
+                    current: chat ? LauncherMenu.chat : LauncherMenu.terminal, pick: pick,
+                )
+                Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
+            }
             ModeRow(
                 title: String(localized: "Permissions"), identifier: "launcher.permissions",
                 options: info.permissions.map {
@@ -18,7 +37,7 @@ struct LauncherModes: View {
                 },
                 current: permissions.rawValue, pick: pick,
             )
-            if !info.outputs.isEmpty {
+            if !info.outputs.isEmpty, !chat {
                 Rectangle().fill(theme.colors.hairline.opacity(0.6)).frame(height: 0.5)
                 ModeRow(
                     title: String(localized: "Verbosity"), identifier: "launcher.output",

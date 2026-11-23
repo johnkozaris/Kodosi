@@ -550,6 +550,7 @@ async fn a_lost_provider_conversation_starts_over_with_the_whole_history() {
             permissions: None,
             output: None,
             fast: false,
+            chat: false,
         }),
         AgentChoiceChange::Tab {
             agent: Some(Agent::Codex),

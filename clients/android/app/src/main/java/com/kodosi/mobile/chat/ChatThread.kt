@@ -393,15 +393,30 @@ private fun AgentRow(row: ChatRow, hold: () -> Unit) {
             }
         }
 
-        is ChatRow.Kind.Note -> (kind.note as? ChatNote.Failed)?.let { failed ->
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        is ChatRow.Kind.Note -> when (val note = kind.note) {
+            is ChatNote.Failed -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StatusSign(StatusForm.FAILED, 12.dp)
                     Spacer(Modifier.width(6.dp))
-                    Text(failed.error, style = ChatType.monoCaption, color = colors.ink)
+                    Text(note.error, style = ChatType.monoCaption, color = colors.ink)
                 }
-                if (failed.text.isNotEmpty()) SelectableWords(failed.text)
+                if (note.text.isNotEmpty()) SelectableWords(note.text)
             }
+
+            ChatNote.SignedOut -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusSign(StatusForm.KEY, 12.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.sign_key), style = KodosiType.caption, color = colors.ink)
+                }
+                Text(
+                    stringResource(R.string.chat_signed_out_detail),
+                    style = KodosiType.caption,
+                    color = colors.inkMuted
+                )
+            }
+
+            ChatNote.Compacted -> Unit
         }
 
         is ChatRow.Kind.Person -> Unit

@@ -392,6 +392,9 @@
     </plurals>
     <string name="agent_permissions">Permissions</string>
     <string name="agent_output">Verbosity</string>
+    <string name="opens_in">Opens in</string>
+    <string name="opens_in_terminal_detail">Its own app runs in the terminal.</string>
+    <string name="opens_in_chat_detail">It works in the chat of the terminal, in a conversation of its own.</string>
     <string name="agent_ask">Ask</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Unrestricted</string>
@@ -433,6 +436,7 @@
     <string name="chat_approve_helpers">Approve, and let helpers work alone</string>
     <string name="chat_leave_plan">Leave plan mode</string>
     <string name="chat_compacted">compacted</string>
+    <string name="chat_signed_out_detail">Sign in with its own steps in the terminal.</string>
     <string name="chat_stopped">Stopped</string>
     <string name="chat_refused">Refused</string>
     <string name="chat_worked_for">worked for %1$s</string>

@@ -209,7 +209,9 @@ pub(super) async fn agent_line(
     changed: crate::agents::AgentSettings,
 ) -> Option<AgentLine> {
     let agent = Agent::named(&program)?;
-    let (_, variable) = agent.home()?;
+    let Some((_, variable)) = agent.home() else {
+        return server_line(&terminal, &notes).await;
+    };
     let foreground = terminal.foreground(variable).await.unwrap_or_default();
     let account = agent.account_folder(&home, account_variable(foreground.variable, variable))?;
     let command = restart_command(
@@ -236,6 +238,52 @@ pub(super) async fn agent_line(
         line,
         named: conversation.is_some(),
     })
+}
+
+/// An agent without accounts comes back only to the conversation of its chat, with the line of
+/// `kodosi acp` that runs its server.
+async fn server_line(terminal: &TerminalSession, notes: &Notes) -> Option<AgentLine> {
+    let conversation = terminal.chat.conversation().await?;
+    let foreground = terminal
+        .foreground(crate::agents::CONTEXT_VARIABLE)
+        .await
+        .ok()?;
+    let line = resumed_server_line(&foreground.arguments, &conversation, &notes.shell)?;
+    Some(AgentLine { line, named: true })
+}
+
+/// The line of `kodosi acp` with the words of `arguments`, which loads `conversation` again.
+pub(super) fn resumed_server_line(
+    arguments: &[String],
+    conversation: &str,
+    shell: &Path,
+) -> Option<String> {
+    let [program, action, rest @ ..] = arguments else {
+        return None;
+    };
+    if Path::new(program).file_name()? != "kodosi" || action != "acp" {
+        return None;
+    }
+    let (options, server) = rest.split_at(rest.iter().position(|word| word == "--")?);
+    let mut words = vec![program, action];
+    let mut options = options.iter();
+    while let Some(option) = options.next() {
+        if option == "--resume" {
+            options.next();
+        } else if !option.starts_with("--resume=") {
+            words.push(option);
+        }
+    }
+    let resume = ["--resume".to_owned(), conversation.to_owned()];
+    words.splice(2..2, &resume);
+    words.extend(server);
+    Some(
+        words
+            .into_iter()
+            .map(|word| crate::agents::as_shell_word(shell, word))
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
 }
 
 /// Kept while the agent runs, so that the terminal still comes back to its conversation when the

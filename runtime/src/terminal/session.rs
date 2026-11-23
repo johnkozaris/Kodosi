@@ -20,8 +20,9 @@ use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::title::titles_look_same;
 use super::{
-    CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, SessionChange, Subscription,
-    TYPING, TerminalLook, TerminalPixelGeometry, TerminalSize, agent_asks, someone_typing,
+    BlockedKind, CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, SessionChange,
+    Subscription, TYPING, TerminalFace, TerminalLook, TerminalPixelGeometry, TerminalSize,
+    agent_asks, someone_typing,
 };
 use crate::{
     Error, Result,
@@ -46,6 +47,9 @@ const LINE_STARTS_WITHIN: Duration = if kodosi_pty::CONSOLE_HOST {
     Duration::from_secs(2)
 };
 const PROMPT_QUIET: Duration = Duration::from_millis(300);
+/// The time that the program of a line that Kodosi typed takes to start, so its agent shows then
+/// and not only at the next look of each second.
+const PROGRAM_STARTS: Duration = Duration::from_millis(200);
 const BUSY_UPKEEP: Duration = Duration::from_millis(20);
 const IDLE_UPKEEP: Duration = Duration::from_millis(250);
 const BUSY_AFTER_OUTPUT: Duration = Duration::from_secs(1);
@@ -261,6 +265,7 @@ impl TerminalSession {
             canvas,
             canvas_state,
             chat_linked: chat.linked(),
+            published_face: None,
             chat,
             host_look,
             look,
@@ -781,7 +786,8 @@ struct LocalActor {
     canvas: CanvasHandle,
     canvas_state: watch::Receiver<Canvas>,
     chat: ChatHandle,
-    chat_linked: watch::Receiver<bool>,
+    chat_linked: watch::Receiver<Option<TerminalFace>>,
+    published_face: Option<TerminalFace>,
     host_look: watch::Receiver<TerminalLook>,
     look: TerminalLook,
     pictures: PathBuf,
@@ -843,7 +849,7 @@ impl LocalActor {
             status: self.status.summary(),
             context: self.published_context.clone(),
             canvas: self.canvas.current().map(Box::new),
-            chat: *self.chat_linked.borrow(),
+            face: self.face(),
             look: self.look,
         }
     }
@@ -867,17 +873,34 @@ impl LocalActor {
         }
     }
 
+    /// Where the agent that reports to the chat works. An agent of the chat waits for its sign-in
+    /// in the terminal, where its own steps ask the person.
+    fn face(&self) -> Option<TerminalFace> {
+        let face = (*self.chat_linked.borrow())?;
+        let signs_in = face == TerminalFace::Chat
+            && self
+                .status
+                .summary()
+                .is_some_and(|status| status.kind == Some(BlockedKind::Auth));
+        Some(if signs_in {
+            TerminalFace::Terminal
+        } else {
+            face
+        })
+    }
+
     fn publish_chat(&mut self) {
-        if !self.chat_linked.has_changed().unwrap_or(false) {
+        let face = self.face();
+        if face == self.published_face {
             return;
         }
         self.metadata_dirty = true;
         if self
             .changes
-            .try_send(SessionChange::Chat { id: self.id })
+            .try_send(SessionChange::Chat { id: self.id, face })
             .is_ok()
         {
-            self.chat_linked.mark_unchanged();
+            self.published_face = face;
         }
     }
 
@@ -1277,6 +1300,7 @@ impl LocalActor {
             self.line_ended();
         } else {
             self.typed_line = Some(TypedLine::now());
+            self.next_program_check = tokio::time::Instant::now() + PROGRAM_STARTS;
         }
         self.queue.extend(early);
     }

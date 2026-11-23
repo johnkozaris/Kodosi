@@ -14,8 +14,8 @@ final class TerminalStore {
     @ObservationIgnored private(set) var fresh = false
     @ObservationIgnored private var listing: String?
     private(set) var revision = 0
-    /// The terminals that show their chat in place of their screen.
-    private(set) var chatting: Set<String> = []
+    /// The faces that the person picked for terminals.
+    private(set) var faces: [String: FacePick] = [:]
     var watchingSessionId: String? {
         didSet {
             guard watchingSessionId != oldValue else { return }
@@ -61,7 +61,7 @@ final class TerminalStore {
         fresh = false
         listing = nil
         watchingSessionId = nil
-        chatting = []
+        faces = [:]
     }
 
     func stale() {
@@ -82,16 +82,13 @@ final class TerminalStore {
         return sessions.restart(of: session.id, owner: owner, host: host)
     }
 
-    func showsChat(_ id: String) -> Bool {
-        chatting.contains(id)
+    func face(of session: RuntimeSession) -> TerminalFace {
+        session.shownFace(faces[session.id])
     }
 
-    func showChat(_ shown: Bool, of id: String) {
-        if shown {
-            chatting.insert(id)
-        } else {
-            chatting.remove(id)
-        }
+    /// `own` is the terminal's own face, which the pick holds over.
+    func pick(_ face: TerminalFace, of id: String, over own: TerminalFace?) {
+        faces[id] = FacePick(face, over: own)
     }
 
     func sign(of session: RuntimeSession) -> StatusSign.Form? {
@@ -134,7 +131,7 @@ final class TerminalStore {
         let ids = Set(received.map(\.id))
         sessions = received
         canvas.observe(received)
-        chatting.formIntersection(ids)
+        faces = faces.filter { id, pick in received.first { $0.id == id }?.keeps(pick) == true }
         loaded = true
         for value in received {
             if let old = before[value.id], old.incarnationId != value.incarnationId {

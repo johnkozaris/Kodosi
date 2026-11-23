@@ -10,11 +10,13 @@ use serde_json::Value;
 
 use super::{
     ChatAnswer, ChatBody, ChatPerson, MOST_TARGET, MOST_TEXT, ToolState,
+    antigravity::Antigravity,
     claude::Claude,
     codex::Codex,
     copilot::Copilot,
     state::{Chat, ends_of, start_of},
 };
+use crate::terminal::TerminalFace;
 
 pub(super) trait Agent: Send {
     /// The name that the agent's link gives when it starts to report.
@@ -64,6 +66,11 @@ pub(super) trait Agent: Send {
     fn conversation(&self) -> Option<&str> {
         None
     }
+
+    /// Where the agent works: in its terminal, which the chat follows, or in the chat itself.
+    fn works_in(&self) -> TerminalFace {
+        TerminalFace::Terminal
+    }
 }
 
 pub(super) enum Stop {
@@ -80,6 +87,7 @@ pub(super) fn named(name: &str) -> Option<Box<dyn Agent>> {
         Claude::NAME => Some(Box::new(Claude::default())),
         Codex::NAME => Some(Box::new(Codex::default())),
         Copilot::NAME => Some(Box::new(Copilot::default())),
+        Antigravity::NAME => Some(Box::new(Antigravity::default())),
         _ => None,
     }
 }

@@ -391,6 +391,9 @@
     <string name="hide_keyboard">Masquer le clavier</string>
     <string name="agent_permissions">Autorisations</string>
     <string name="agent_output">Verbosité</string>
+    <string name="opens_in">S’ouvre dans</string>
+    <string name="opens_in_terminal_detail">Sa propre app s’exécute dans le terminal.</string>
+    <string name="opens_in_chat_detail">Il travaille dans le chat du terminal, dans sa propre conversation.</string>
     <string name="agent_ask">Demander</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Accès total</string>
@@ -432,6 +435,7 @@
     <string name="chat_approve_helpers">Approuver et laisser les assistants travailler seuls</string>
     <string name="chat_leave_plan">Quitter le mode plan</string>
     <string name="chat_compacted">conversation compactée</string>
+    <string name="chat_signed_out_detail">Connectez-vous avec ses propres étapes dans le terminal.</string>
     <string name="chat_stopped">Arrêté</string>
     <string name="chat_refused">Refusé</string>
     <string name="chat_worked_for">a travaillé pendant %1$s</string>

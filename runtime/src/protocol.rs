@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 105;
+pub const VERSION: u32 = 106;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -1000,9 +1000,10 @@ pub struct SessionEntry {
     pub context: Option<crate::terminal::TerminalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canvas: Option<crate::canvas::Canvas>,
-    /// An agent of the terminal reports to the terminal's chat, which the pipe `chat` carries.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub chat: bool,
+    /// Where the agent that reports to the terminal's chat works, while one does: the apps show
+    /// that face of the terminal first, and the pipe `chat` carries the chat.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub face: Option<crate::terminal::TerminalFace>,
     pub look: crate::terminal::TerminalLook,
     pub id: String,
     pub incarnation_id: String,

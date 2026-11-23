@@ -379,6 +379,9 @@
     <string name="hide_keyboard">キーボードを隠す</string>
     <string name="agent_permissions">権限</string>
     <string name="agent_output">詳細度</string>
+    <string name="opens_in">開く場所</string>
+    <string name="opens_in_terminal_detail">専用のアプリがターミナルで動きます。</string>
+    <string name="opens_in_chat_detail">ターミナルのチャットで、専用の会話の中で動きます。</string>
     <string name="agent_ask">確認</string>
     <string name="agent_auto">自動</string>
     <string name="agent_unrestricted">制限なし</string>
@@ -420,6 +423,7 @@
     <string name="chat_approve_helpers">承認して、サブエージェントに任せる</string>
     <string name="chat_leave_plan">計画モードを終了</string>
     <string name="chat_compacted">会話を圧縮</string>
+    <string name="chat_signed_out_detail">ターミナルに表示される手順でサインインしてください。</string>
     <string name="chat_stopped">停止済み</string>
     <string name="chat_refused">応答拒否</string>
     <string name="chat_worked_for">%1$s 作業</string>

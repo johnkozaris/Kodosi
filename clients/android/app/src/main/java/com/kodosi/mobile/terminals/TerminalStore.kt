@@ -29,9 +29,9 @@ class TerminalStore(private val commands: CommandSink) {
     val openResults: StateFlow<Map<String, OpenResult>>
         field = MutableStateFlow(emptyMap())
 
-    /** The terminals that show their chat in place of their screen. */
-    val chatting: StateFlow<Set<String>>
-        field = MutableStateFlow(emptySet())
+    /** The faces that the person picked for terminals. */
+    val faces: StateFlow<Map<String, FacePick>>
+        field = MutableStateFlow(emptyMap())
     private val opening = HashMap<String, Any>()
     private var listing: String? = null
     private var watching: String? = null
@@ -46,7 +46,7 @@ class TerminalStore(private val commands: CommandSink) {
     fun reset() {
         state.value = TerminalsState()
         openResults.value = emptyMap()
-        chatting.value = emptySet()
+        faces.value = emptyMap()
         opening.clear()
         listing = null
         watching = null
@@ -105,8 +105,9 @@ class TerminalStore(private val commands: CommandSink) {
         return result
     }
 
-    fun showChat(shown: Boolean, sessionId: String) {
-        chatting.update { if (shown) it + sessionId else it - sessionId }
+    /** [own] is the terminal's own face, which the pick holds over. */
+    fun pick(face: TerminalFace, sessionId: String, own: TerminalFace?) {
+        faces.update { it + (sessionId to FacePick(face, own)) }
     }
 
     fun disconnect(sessionId: String) {
@@ -133,7 +134,9 @@ class TerminalStore(private val commands: CommandSink) {
             throw InvalidEvent("a terminal list repeats a terminal")
         }
         state.update { it.copy(sessions = received, loaded = true) }
-        chatting.update { shown -> shown.filterTo(mutableSetOf()) { id -> received.any { it.id == id } } }
+        faces.update { picks ->
+            picks.filter { (id, pick) -> received.firstOrNull { it.id == id }?.keeps(pick) == true }
+        }
     }
 
     private fun settleList(event: RuntimeEvent) {
