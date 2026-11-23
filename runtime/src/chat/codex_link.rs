@@ -18,7 +18,6 @@ use futures_util::{SinkExt as _, StreamExt as _};
 use serde_json::{Value, json};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    net::UnixStream,
     sync::{mpsc, oneshot, watch},
     task::JoinSet,
 };
@@ -50,8 +49,9 @@ pub(super) fn address(socket: &Path) -> Option<String> {
     socket.to_str().map(|path| format!("unix://{path}"))
 }
 
-/// A server does not end with the host that started it, so a host that ended without its stop
-/// leaves its servers. The host that takes the folder next ends them before it starts one.
+/// A server on Unix does not end with the host that started it, so a host that ended without its
+/// stop leaves its servers. The host that takes the folder next ends them before it starts one.
+#[cfg(unix)]
 pub(super) async fn end_left_servers(folder: &Path) {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return;
@@ -65,9 +65,8 @@ pub(super) async fn end_left_servers(folder: &Path) {
         if !left {
             continue;
         }
-        if let Ok(stream) = UnixStream::connect(&socket).await
-            && let Some(server) = stream.peer_cred().ok().and_then(|peer| peer.pid())
-            && let Ok(server) = u32::try_from(server)
+        if let Ok(stream) = kodosi_os::ipc::connect_file(&socket).await
+            && let Some(server) = stream.peer_pid()
         {
             drop(stream);
             tracing::info!(server, "a server of Codex that an earlier host left ends");
@@ -77,10 +76,11 @@ pub(super) async fn end_left_servers(folder: &Path) {
     }
 }
 
+#[cfg(unix)]
 async fn end_left(server: u32, socket: &Path) {
     kodosi_os::process::end_group(server, false);
     let ended = async {
-        while UnixStream::connect(socket).await.is_ok() {
+        while kodosi_os::ipc::connect_file(socket).await.is_ok() {
             tokio::time::sleep(START_STEP).await;
         }
     };
@@ -167,7 +167,7 @@ async fn session(
 }
 
 async fn relay(mut codex: kodosi_os::ipc::Stream, socket: PathBuf) {
-    let Ok(mut server) = UnixStream::connect(&socket).await else {
+    let Ok(mut server) = kodosi_os::ipc::connect_file(&socket).await else {
         return;
     };
     drop(tokio::io::copy_bidirectional(&mut codex, &mut server).await);
@@ -175,6 +175,8 @@ async fn relay(mut codex: kodosi_os::ipc::Stream, socket: PathBuf) {
 
 struct Server {
     child: tokio::process::Child,
+    group: kodosi_os::process::Group,
+    socket: PathBuf,
 }
 
 impl Server {
@@ -201,14 +203,21 @@ impl Server {
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .process_group(0)
             .kill_on_drop(true);
+        kodosi_os::process::without_terminal(command.as_std_mut());
+        let child = command.spawn()?;
+        let pid = child
+            .id()
+            .ok_or_else(|| std::io::Error::other("the server ended as it started"))?;
+        let group = kodosi_os::process::Group::of(pid)?;
         let mut server = Self {
-            child: command.spawn()?,
+            child,
+            group,
+            socket: socket.to_owned(),
         };
         let begun = tokio::time::Instant::now();
         loop {
-            if UnixStream::connect(socket).await.is_ok() {
+            if kodosi_os::ipc::connect_file(socket).await.is_ok() {
                 return Ok(server);
             }
             if server.child.try_wait()?.is_some() || begun.elapsed() > START {
@@ -220,21 +229,23 @@ impl Server {
 
     /// The server and the commands that it runs get the time to end by themselves.
     async fn stop(mut self) {
-        let Some(group) = self.child.id() else {
+        if self.child.id().is_none() {
             return;
-        };
-        kodosi_os::process::end_group(group, false);
+        }
+        self.group.end(false);
         if tokio::time::timeout(END, self.child.wait()).await.is_err() {
-            kodosi_os::process::end_group(group, true);
+            self.group.end(true);
         }
     }
 }
 
+/// A server that does not end by itself leaves its socket file.
 impl Drop for Server {
     fn drop(&mut self) {
-        if let (Some(group), Ok(None)) = (self.child.id(), self.child.try_wait()) {
-            kodosi_os::process::end_group(group, true);
+        if matches!(self.child.try_wait(), Ok(None)) {
+            self.group.end(true);
         }
+        drop(std::fs::remove_file(&self.socket));
     }
 }
 
@@ -285,7 +296,7 @@ fn toml_string(text: &str) -> String {
 
 async fn follow(socket: PathBuf, room: mpsc::Sender<Job>, left: CancellationToken) {
     tokio::time::sleep(AFTER_CODEX).await;
-    let Ok(stream) = UnixStream::connect(&socket).await else {
+    let Ok(stream) = kodosi_os::ipc::connect_file(&socket).await else {
         return;
     };
     report(stream, room, left).await;

@@ -15,7 +15,7 @@ mod antigravity;
 mod claude;
 #[cfg(feature = "host")]
 mod codex;
-#[cfg(all(feature = "host", unix))]
+#[cfg(feature = "host")]
 mod codex_link;
 #[cfg(feature = "host")]
 mod copilot;
@@ -43,9 +43,14 @@ pub(crate) use link::{Links, TerminalChat};
 #[cfg(feature = "host")]
 pub(crate) use room::ChatHandle;
 
-/// The variable that gives the programs of a terminal the address where an agent reports to the chat.
+/// The variable that gives the programs of a terminal the socket file where an agent reports to
+/// the chat.
 #[cfg(feature = "host")]
 pub(crate) const LINK_VARIABLE: &str = "KODOSI_AGENT_LINK";
+/// The variable that gives the programs of a Windows terminal the named pipe where an agent that
+/// runs in Node reports to the chat.
+#[cfg(feature = "host")]
+pub(crate) const PIPE_VARIABLE: &str = "KODOSI_AGENT_PIPE";
 /// The variable that gives a terminal the address of its own app-server of Codex.
 #[cfg(feature = "host")]
 pub(crate) const CODEX_VARIABLE: &str = "KODOSI_CODEX_SERVER";

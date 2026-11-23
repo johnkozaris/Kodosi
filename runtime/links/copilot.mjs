@@ -45,7 +45,8 @@ const READ = {
   'session.mode_changed': ['newMode'],
 }
 
-let socket = process.env.KODOSI_AGENT_LINK || ''
+// Node reaches a local endpoint on Windows only at a named pipe, which the host names there apart.
+let socket = process.env.KODOSI_AGENT_PIPE || process.env.KODOSI_AGENT_LINK || ''
 const terminal = process.env.KODOSI_SESSION_ID || ''
 const loaded = Date.now().toString(36)
 const pending = []
