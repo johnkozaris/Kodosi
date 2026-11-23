@@ -1806,6 +1806,56 @@ async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_person
     .await;
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn the_next_host_ends_a_server_of_codex_that_the_host_before_left() {
+    use std::{os::unix::net::UnixListener, time::Duration};
+
+    const NAME: &str =
+        "chat::tests::the_next_host_ends_a_server_of_codex_that_the_host_before_left";
+    const LEFT: &str = "KODOSI_TEST_LEFT_SERVER";
+    if let Some(address) = std::env::var_os(LEFT) {
+        let _server = UnixListener::bind(address).expect("the address is free");
+        std::thread::sleep(Duration::from_secs(60));
+        return;
+    }
+    let folder = tempfile::tempdir().expect("a folder");
+    let server = folder.path().join("codex-0123456789abcdef-s.sock");
+    let closed = folder.path().join("codex-0123456789abcdef.sock");
+    let other = folder.path().join("agents.sock");
+    drop(UnixListener::bind(&closed).expect("the address is free"));
+    std::fs::write(&other, "").expect("a file");
+    let mut left = tokio::process::Command::new(std::env::current_exe().expect("this program"))
+        .args(["--exact", NAME, "--test-threads=1"])
+        .env(LEFT, &server)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .process_group(0)
+        .kill_on_drop(true)
+        .spawn()
+        .expect("the server starts");
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while tokio::net::UnixStream::connect(&server).await.is_err() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the server takes programs");
+
+    codex_link::end_left_servers(folder.path()).await;
+
+    tokio::time::timeout(Duration::from_secs(10), left.wait())
+        .await
+        .expect("the server ended")
+        .expect("the server was a child");
+    assert!(!server.exists(), "the address of the server is free again");
+    assert!(
+        !closed.exists(),
+        "the address that the earlier host served is gone"
+    );
+    assert!(other.exists(), "the other addresses of the folder stay");
+}
+
 #[test]
 fn codex_names_the_conversation_that_its_terminal_shows() {
     let play = Play::codex(&[codex!("first")], &[]);
