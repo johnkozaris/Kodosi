@@ -17,7 +17,7 @@ use super::{
     files::{self, Files, Showing, Stamp, key_of},
     render,
 };
-use crate::documents::{DocumentAction, DocumentHost, RenderArguments, path_of};
+use crate::documents::{DocumentAction, DocumentHost, RenderArguments};
 use crate::text::Text;
 
 const JOBS: usize = 64;
@@ -239,7 +239,7 @@ impl CanvasHandle {
             name,
             can_edit: true,
         };
-        self.documents.open(&path_of(key), viewer).await
+        self.documents.open(Path::new(key), viewer).await
     }
 
     pub(crate) async fn document_command(

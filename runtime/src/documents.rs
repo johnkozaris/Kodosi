@@ -107,10 +107,6 @@ fn ends_of(mut pipe: documents::Pipe) -> PipeEnds {
     PipeEnds { sender, receiver }
 }
 
-pub(crate) fn path_of(key: &str) -> PathBuf {
-    PathBuf::from(key)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
