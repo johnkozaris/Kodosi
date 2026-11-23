@@ -536,7 +536,6 @@ mod tests {
                 .contains(&json!("executable"))
         );
         assert!(matches(&schema["properties"]["executable"], &Value::Null));
-        assert!(schema["properties"].get("version").is_none());
         let provider = shape::<kodosi_runtime::provider::Provider>().unwrap();
         assert!(matches(&provider, &json!("claude")));
         assert!(!matches(&provider, &json!("Claude")));

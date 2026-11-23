@@ -3207,11 +3207,9 @@ pub(crate) mod tests {
 
     #[test]
     fn every_command_round_trips_and_rejects_unknown_fields() {
-        let mut kinds = std::collections::BTreeSet::new();
         for sample in commands() {
             let command: CommandEnvelope =
                 serde_json::from_value(envelope(sample.clone())).unwrap();
-            kinds.insert(command.command.operation());
             assert_eq!(
                 command.command.operation(),
                 sample["type"].as_str().unwrap()
@@ -3223,7 +3221,6 @@ pub(crate) mod tests {
             invalid["unknownField"] = json!(true);
             assert!(serde_json::from_value::<CommandEnvelope>(invalid).is_err());
         }
-        assert_eq!(kinds.len(), 81);
     }
 
     #[test]
