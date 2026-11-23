@@ -22,7 +22,7 @@
     "tailwind-merge": "3.7.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.7",
+    "@biomejs/biome": "2.6.8",
     "@keycloakify/keycloak-account-ui": "file:tools/keycloak-account-ui",
     "@tailwindcss/vite": "4.3.5",
     "@types/react": "19.3.0",
