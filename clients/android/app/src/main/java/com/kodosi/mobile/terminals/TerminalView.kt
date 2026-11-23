@@ -150,6 +150,7 @@ class TerminalView(context: Context, private val connection: TerminalConnection,
         isFocusable = true
         isFocusableInTouchMode = false
         isFocusedByDefault = true
+        defaultFocusHighlightEnabled = false
         isClickable = true
         connection.onChange = {
             if (frameQueued.compareAndSet(false, true) && !post(frameUpdate)) frameQueued.set(false)
