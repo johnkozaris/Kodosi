@@ -26,9 +26,21 @@ pub(crate) fn title_words(title: &str) -> Option<String> {
 }
 
 fn words(title: &str) -> &str {
-    title.trim_start_matches(|mark: char| {
-        SPINNER.contains(&mark) || MARKS.contains(&mark) || mark.is_whitespace()
-    })
+    let words = title.trim_start_matches(is_mark);
+    // Codex blinks "[ ! ]" and "[ . ]" before its title while it waits for a person.
+    match words
+        .strip_prefix('[')
+        .and_then(|rest| rest.split_once(']'))
+    {
+        Some((blink, rest)) if !blink.chars().any(char::is_alphanumeric) => {
+            rest.trim_start_matches(is_mark)
+        }
+        _ => words,
+    }
+}
+
+fn is_mark(mark: char) -> bool {
+    SPINNER.contains(&mark) || MARKS.contains(&mark) || mark.is_whitespace()
 }
 
 #[cfg(test)]

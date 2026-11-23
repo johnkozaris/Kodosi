@@ -30,6 +30,15 @@ fn a_status_mark_or_space_before_the_words_is_not_seen() {
 
 #[cfg(feature = "host")]
 #[test]
+fn a_blinking_mark_in_brackets_looks_the_same_as_the_frame_before() {
+    assert!(titles_look_same(
+        Some("[ ! ] Action Required | Fix the cart | shop"),
+        Some("[ . ] Action Required | Fix the cart | shop")
+    ));
+}
+
+#[cfg(feature = "host")]
+#[test]
 fn new_words_or_a_stopped_spinner_look_different() {
     assert!(!titles_look_same(
         Some("⠂ Reading files"),
@@ -65,6 +74,14 @@ fn the_words_of_a_title_have_no_mark_and_nothing_hidden() {
     assert_eq!(
         title_words("safe\u{202e}txt.exe\u{7}").as_deref(),
         Some("safetxt.exe")
+    );
+    assert_eq!(
+        title_words("[ ! ] Action Required | Fix the cart").as_deref(),
+        Some("Action Required | Fix the cart")
+    );
+    assert_eq!(
+        title_words("[main] vim notes.md").as_deref(),
+        Some("[main] vim notes.md")
     );
     assert_eq!(title_words("⠂ "), None);
     assert_eq!(
