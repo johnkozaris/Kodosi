@@ -498,10 +498,6 @@
     <string name="today">Oggi</string>
     <string name="yesterday">Ieri</string>
     <string name="chat_usage_used">%1$s: %2$d%% usato</string>
-    <string name="chat_usage_month">Questo mese</string>
-    <string name="chat_usage_week">Questa settimana</string>
-    <string name="chat_usage_scope_month">%1$s, questo mese</string>
-    <string name="chat_usage_scope_week">%1$s, questa settimana</string>
     <plurals name="chat_ran_commands">
         <item quantity="one">ha eseguito %d comando</item>
         <item quantity="many">ha eseguito %d comandi</item>
@@ -571,16 +567,6 @@
         <item quantity="one">%d interrotto</item>
         <item quantity="many">%d interrotti</item>
         <item quantity="other">%d interrotti</item>
-    </plurals>
-    <plurals name="chat_usage_hours">
-        <item quantity="one">Ultima %d ora</item>
-        <item quantity="many">Ultime %d ore</item>
-        <item quantity="other">Ultime %d ore</item>
-    </plurals>
-    <plurals name="chat_usage_scope_hours">
-        <item quantity="one">%1$s, ultima %2$d ora</item>
-        <item quantity="many">%1$s, ultime %2$d ore</item>
-        <item quantity="other">%1$s, ultime %2$d ore</item>
     </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="one">Attività: %1$d di %2$d completata</item>

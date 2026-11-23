@@ -127,6 +127,16 @@ public sealed class Session
     public DateTimeOffset CreatedAt { get; set; }
 }
 
+public sealed class TerminalPush
+{
+    public Guid SessionId { get; set; }
+    public string? Program { get; set; }
+    public string State { get; set; } = "";
+    public string? Kind { get; set; }
+    public int? Account { get; set; }
+    public DateTimeOffset At { get; set; }
+}
+
 public sealed class SessionMember
 {
     public Guid SessionId { get; set; }
