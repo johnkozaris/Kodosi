@@ -13,26 +13,27 @@ namespace Kodosi.HostTests;
 public sealed class SharingTests(PostgresFixture postgres)
 {
     [Fact]
-    public async Task CatalogDoesNotSilentlyDropSessionsBeyond512()
+    public async Task TheCatalogListsEveryTerminalUpToItsLimitAndRefusesRatherThanDropOne()
     {
+        var ct = TestContext.Current.CancellationToken;
         await using var store = await TestStore.CreateAsync(postgres);
-        var viewer = await store.UserAsync("viewer");
-        for (var ownerIndex = 0; ownerIndex < 5; ownerIndex++)
+        var viewer = await store.UserAsync("viewer"); var owner = await store.UserAsync("owner");
+        void Share()
         {
-            var owner = await store.UserAsync($"owner{ownerIndex}");
-            for (var index = 0; index < 110; index++)
-            {
-                var id = Guid.CreateVersion7();
-                store.Db.Sessions.Add(new Session { Id = id, IncarnationId = Guid.CreateVersion7(),
-                    OwnerUserId = owner.User.Id, HostDeviceId = owner.Device.Id, HostName = "Host", Name = "Terminal",
-                    CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2) });
-                store.Db.SessionMembers.Add(new SessionMember { SessionId = id, UserId = viewer.User.Id });
-            }
+            var id = Guid.CreateVersion7();
+            store.Db.Sessions.Add(new Session { Id = id, IncarnationId = Guid.CreateVersion7(),
+                OwnerUserId = owner.User.Id, HostDeviceId = owner.Device.Id, HostName = "Host", Name = "Terminal",
+                CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2) });
+            store.Db.SessionMembers.Add(new SessionMember { SessionId = id, UserId = viewer.User.Id });
         }
-        await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        var catalog = await store.Sessions.ListAsync(viewer.User.Id, viewer.Device.Id, TestContext.Current.CancellationToken);
-        Assert.Equal(550, catalog.Count);
+        for (var index = 0; index < Limits.SessionCatalog; index++) Share();
+        await store.Db.SaveChangesAsync(ct);
+        var catalog = await store.Sessions.ListAsync(viewer.User.Id, viewer.Device.Id, ct);
+        Assert.Equal(Limits.SessionCatalog, catalog.Count);
         Assert.All(catalog, session => Assert.Equal(new[] { viewer.User.Id }, session.SharedWith));
+        Share();
+        await store.Db.SaveChangesAsync(ct);
+        Assert.Equal(409, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ListAsync(viewer.User.Id, viewer.Device.Id, ct))).Status);
     }
 
     [Fact]
