@@ -121,16 +121,25 @@ Item {
                     color: root.look.inkFaint
                 }
                 PlainLabel {
+                    id: title
+
                     readonly property bool whole: (root.ask.whole || "").length > 0 && permissionCard.commandRoom > 0
 
                     Layout.fillWidth: true
-                    text: root.ask.title || ""
+                    text: whole ? root.ask.title || ""
+                        : titleLetters.elidedText(root.ask.title || "", Qt.ElideMiddle, 3 * (width - titleLetters.maximumCharacterWidth))
                     color: root.look.ink
                     font.family: "monospace"
                     font.pixelSize: KodosiTheme.fontFootnote
                     wrapMode: whole ? Text.NoWrap : Text.WrapAnywhere
                     maximumLineCount: whole ? 1 : 3
-                    elide: whole ? Text.ElideMiddle : Text.ElideRight
+                    elide: Text.ElideMiddle
+
+                    FontMetrics {
+                        id: titleLetters
+
+                        font: title.font
+                    }
                     ToolTip.visible: titleHover.hovered
                     ToolTip.text: root.ask.name || ""
                     ToolTip.delay: Tip.delay
@@ -208,9 +217,12 @@ Item {
                 AnswerKey {
                     id: always
 
+                    readonly property var words: qsTr("Always %1").split("%1")
+
                     x: keys.together ? keys.width - width : 0
                     y: keys.together ? 0 : allow.height + 6
                     width: Math.min(implicitWidth, keys.width)
+                    implicitWidth: offerBox.implicitWidth + leftPadding + rightPadding
                     visible: (root.ask.always || "").length > 0
                     chat: root.chat
                     askId: root.ask.id
@@ -223,17 +235,64 @@ Item {
                     ToolTip.text: root.ask.always || ""
                     ToolTip.delay: Tip.delay
 
-                    contentItem: Text {
-                        text: qsTr("Always %1").arg(root.ask.alwaysCode
-                            ? "<span style=\"font-family:monospace;font-weight:normal;color:" + root.look.inkMuted + "\">"
-                                + Prose.escaped(root.ask.always || "") + "</span>"
-                            : Prose.escaped(root.ask.always || ""))
-                        textFormat: Text.RichText
-                        elide: Text.ElideMiddle
-                        color: always.foreground
-                        font.pixelSize: KodosiTheme.fontFootnote
-                        font.weight: Font.DemiBold
-                        verticalAlignment: Text.AlignVCenter
+                    contentItem: Item {
+                        id: offerBox
+
+                        readonly property real gap: /\s$/.test(always.words[0]) || /^\s/.test(always.words[1] || "") ? space.advanceWidth : 0
+
+                        implicitWidth: lead.implicitWidth + offerWhole.advanceWidth + tail.implicitWidth
+                            + (lead.visible ? gap : 0) + (tail.visible ? gap : 0) + 2
+                        implicitHeight: lead.implicitHeight
+
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: offerBox.gap
+
+                            Text {
+                                id: lead
+
+                                visible: text.length > 0
+                                text: always.words[0].trim()
+                                color: always.foreground
+                                font.pixelSize: KodosiTheme.fontFootnote
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                id: offer
+
+                                anchors.baseline: lead.baseline
+                                width: Math.max(0, Math.min(offerWhole.advanceWidth + 2, offerBox.width - offerBox.implicitWidth
+                                    + offerWhole.advanceWidth + 2))
+                                text: root.ask.always || ""
+                                textFormat: Text.PlainText
+                                elide: Text.ElideMiddle
+                                color: root.ask.alwaysCode ? root.look.inkMuted : always.foreground
+                                font: root.ask.alwaysCode ? Qt.font({ family: "monospace", pixelSize: KodosiTheme.fontFootnote })
+                                    : Qt.font({ pixelSize: KodosiTheme.fontFootnote, weight: Font.DemiBold })
+                            }
+                            Text {
+                                id: tail
+
+                                anchors.baseline: lead.baseline
+                                visible: text.length > 0
+                                text: always.words.length > 1 ? always.words[1].trim() : ""
+                                color: always.foreground
+                                font.pixelSize: KodosiTheme.fontFootnote
+                                font.weight: Font.DemiBold
+                            }
+                        }
+                        TextMetrics {
+                            id: offerWhole
+
+                            font: offer.font
+                            text: offer.text
+                        }
+                        TextMetrics {
+                            id: space
+
+                            font: lead.font
+                            text: " "
+                        }
                     }
                 }
             }
