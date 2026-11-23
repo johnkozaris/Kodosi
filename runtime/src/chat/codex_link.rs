@@ -42,9 +42,51 @@ const END: Duration = Duration::from_secs(2);
 const ASK_AGAIN: Duration = Duration::from_secs(20);
 const MOST_WAITING: usize = 64;
 
+/// How the names of the addresses of Codex's servers start in the host's folder of local addresses.
+pub(super) const NAME: &str = "codex-";
+
 /// The address of a terminal's Codex server, as Codex takes it.
 pub(super) fn address(socket: &Path) -> Option<String> {
     socket.to_str().map(|path| format!("unix://{path}"))
+}
+
+/// A server does not end with the host that started it, so a host that ended without its stop
+/// leaves its servers. The host that takes the folder next ends them before it starts one.
+pub(super) async fn end_left_servers(folder: &Path) {
+    let Ok(entries) = std::fs::read_dir(folder) else {
+        return;
+    };
+    for socket in entries.flatten().map(|entry| entry.path()) {
+        let left = socket.extension().is_some_and(|kind| kind == "sock")
+            && socket
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with(NAME));
+        if !left {
+            continue;
+        }
+        if let Ok(stream) = UnixStream::connect(&socket).await
+            && let Some(server) = stream.peer_cred().ok().and_then(|peer| peer.pid())
+            && let Ok(server) = u32::try_from(server)
+        {
+            drop(stream);
+            tracing::info!(server, "a server of Codex that an earlier host left ends");
+            end_left(server, &socket).await;
+        }
+        drop(std::fs::remove_file(&socket));
+    }
+}
+
+async fn end_left(server: u32, socket: &Path) {
+    kodosi_os::process::end_group(server, false);
+    let ended = async {
+        while UnixStream::connect(socket).await.is_ok() {
+            tokio::time::sleep(START_STEP).await;
+        }
+    };
+    if tokio::time::timeout(END, ended).await.is_err() {
+        kodosi_os::process::end_group(server, true);
+    }
 }
 
 /// Serves the address of one terminal until its chat ends.

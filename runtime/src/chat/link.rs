@@ -130,7 +130,7 @@ impl Links {
     /// How the address of each terminal's Codex server starts.
     pub(crate) fn codex_servers(&self) -> Option<String> {
         let folder = kodosi_os::ipc::private_dir(&self.codex.as_ref()?.namespace).ok()?;
-        super::codex_link::address(&folder.join("codex-"))
+        super::codex_link::address(&folder.join(super::codex_link::NAME))
     }
 }
 
@@ -142,11 +142,12 @@ impl CodexAddresses {
         // address has room for few characters.
         let name = terminal.simple().to_string();
         let name = &name[name.len() - 16..];
+        let start = super::codex_link::NAME;
         let endpoint =
-            kodosi_os::ipc::Endpoint::new(&self.namespace, &format!("codex-{name}")).ok()?;
+            kodosi_os::ipc::Endpoint::new(&self.namespace, &format!("{start}{name}")).ok()?;
         let server = endpoint
             .socket()
-            .with_file_name(format!("codex-{name}-s.sock"));
+            .with_file_name(format!("{start}{name}-s.sock"));
         let address = super::codex_link::address(endpoint.socket())?;
         tokio::spawn(super::codex_link::serve(
             endpoint,
@@ -172,6 +173,11 @@ async fn listen(
         return Ok(None);
     };
     let mut listener = kodosi_os::ipc::Listener::bind(&endpoint).await?;
+    // The address is this host's now, so no other host has servers in the folder.
+    #[cfg(unix)]
+    if let Ok(folder) = kodosi_os::ipc::private_dir(&namespace) {
+        super::codex_link::end_left_servers(&folder).await;
+    }
     tokio::spawn(async move {
         let slots = Arc::new(Semaphore::new(MOST_CONNECTIONS));
         loop {
