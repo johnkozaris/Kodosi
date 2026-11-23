@@ -33,6 +33,14 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
             request.Headers.Add("apns-collapse-id", alert.TerminalId.ToString());
             request.Headers.Add("apns-expiration", (clock.GetUtcNow() + Expiry).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
         }
+        else if (notice.Clears)
+        {
+            // A badge of 0 takes every notification of the app off the phone at once, also while the
+            // app does not run, which a background push cannot promise.
+            request.Headers.Add("apns-push-type", "alert");
+            request.Headers.Add("apns-priority", "10");
+            request.Headers.Add("apns-expiration", (clock.GetUtcNow() + Expiry).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
+        }
         else
         {
             request.Headers.Add("apns-push-type", "background");
@@ -66,14 +74,20 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
 
     internal static byte[] Payload(PushNotice notice) => PushJson.Written(json =>
     {
-        var alert = notice.Alert;
         json.WriteStartObject();
         json.WriteStartObject("aps");
-        if (alert is null) json.WriteNumber("content-available", 1);
-        else Shown(json, alert);
+        if (notice.Alert is { } alert) Shown(json, alert);
+        else if (notice.Clears) json.WriteNumber("badge", 0);
+        else json.WriteNumber("content-available", 1);
         json.WriteEndObject();
+        if (!notice.Clears) Listed(json, notice);
+        json.WriteEndObject();
+    });
+
+    private static void Listed(Utf8JsonWriter json, PushNotice notice)
+    {
         json.WriteStartObject("kodosi");
-        if (alert is not null)
+        if (notice.Alert is { } alert)
         {
             json.WriteString("terminal", alert.TerminalId);
             json.WriteString("agent", alert.Status.Program);
@@ -84,8 +98,7 @@ internal sealed class Apns(ApnsSettings settings, IHttpClientFactory http, TimeP
         foreach (var pushed in notice.Pushed) json.WriteStringValue(pushed.TerminalId);
         json.WriteEndArray();
         json.WriteEndObject();
-        json.WriteEndObject();
-    });
+    }
 
     private static void Shown(Utf8JsonWriter json, PushAlert alert)
     {

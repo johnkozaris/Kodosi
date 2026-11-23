@@ -29,7 +29,7 @@ public sealed class PushServiceTests
     }
 
     [Fact]
-    public async Task AnApplePushCarriesOnlyIdentifiersASentenceKeyAndTheListOfPushesWithAReusedProviderToken()
+    public async Task AnApplePushCarriesOnlyIdentifiersASentenceKeyAndTheListOfPushesOrABadgeOfZeroWithAReusedProviderToken()
     {
         var ct = TestContext.Current.CancellationToken;
         var clock = new ManualClock();
@@ -44,23 +44,25 @@ public sealed class PushServiceTests
                      Notice(new TerminalStatus("aider", "done", Attention: true)),
                      Notice(new TerminalStatus("codex", "error", Attention: true), waits: 1),
                      new PushNotice(Guid.CreateVersion7(), [Other]),
+                     new PushNotice(Guid.CreateVersion7(), []),
                  })
             Assert.Equal(Delivered.Sent, (await apns.SendAsync(production, notice, ct)).Outcome);
         Assert.Equal(Delivered.Sent, (await apns.SendAsync(new PushToken { Token = AppleToken, Environment = "development" },
             Notice(new TerminalStatus(State: "done", Attention: true)), ct)).Outcome);
 
-        var (blocked, done, failed, background, development) = (apple.Sent[0], apple.Sent[1], apple.Sent[2], apple.Sent[3], apple.Sent[4]);
+        var (blocked, done, failed, background, cleared, development) = (apple.Sent[0], apple.Sent[1], apple.Sent[2], apple.Sent[3], apple.Sent[4], apple.Sent[5]);
         Assert.Equal($"https://api.push.apple.com/3/device/{AppleToken}", blocked.Uri.ToString());
         Assert.Equal($"https://api.sandbox.push.apple.com/3/device/{AppleToken}", development.Uri.ToString());
         Assert.All(apple.Sent, sent => Assert.Equal((HttpMethod.Post, HttpVersion.Version20, "com.kodosi.mobile"),
             (sent.Method, sent.Version, sent.Headers["apns-topic"])));
-        foreach (var (alert, priority) in new[] { (blocked, "10"), (done, "5"), (failed, "5") })
+        foreach (var (alert, priority) in new[] { (blocked, "10"), (done, "5"), (failed, "5"), (cleared, "10") })
         {
-            Assert.Equal(("alert", priority, TerminalId.ToString()), (alert.Headers["apns-push-type"], alert.Headers["apns-priority"], alert.Headers["apns-collapse-id"]));
+            Assert.Equal(("alert", priority), (alert.Headers["apns-push-type"], alert.Headers["apns-priority"]));
             Assert.Equal((now + 3600).ToString(System.Globalization.CultureInfo.InvariantCulture), alert.Headers["apns-expiration"]);
         }
+        Assert.All(new[] { blocked, done, failed }, alert => Assert.Equal(TerminalId.ToString(), alert.Headers["apns-collapse-id"]));
         Assert.Equal(("background", "5", "0"), (background.Headers["apns-push-type"], background.Headers["apns-priority"], background.Headers["apns-expiration"]));
-        Assert.False(background.Headers.ContainsKey("apns-collapse-id"));
+        Assert.All(new[] { background, cleared }, sent => Assert.False(sent.Headers.ContainsKey("apns-collapse-id")));
         Assert.Equal(
             """{"aps":{"alert":{"loc-key":"%@ asks for permission","loc-args":["Claude Code"]},"sound":"default","mutable-content":1,"interruption-level":"active","relevance-score":1.0,"badge":2},"kodosi":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","agent":"claude","state":"blocked","kind":"permission","pushed":["0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e"]}}""",
             blocked.Body);
@@ -71,6 +73,7 @@ public sealed class PushServiceTests
             """{"aps":{"alert":{"loc-key":"%@ failed","loc-args":["Codex"]},"mutable-content":1,"interruption-level":"passive","relevance-score":0.6,"badge":1},"kodosi":{"terminal":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","agent":"codex","state":"error","kind":null,"pushed":["0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d","0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e"]}}""",
             failed.Body);
         Assert.Equal("""{"aps":{"content-available":1},"kodosi":{"pushed":["0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e"]}}""", background.Body);
+        Assert.Equal("""{"aps":{"badge":0}}""", cleared.Body);
 
         var bearer = blocked.Headers["Authorization"];
         Assert.StartsWith("bearer ", bearer, StringComparison.Ordinal);
@@ -81,7 +84,7 @@ public sealed class PushServiceTests
         Assert.All(apple.Sent, sent => Assert.Equal(bearer, sent.Headers["Authorization"]));
         clock.Advance(Apns.TokenLife);
         await apns.SendAsync(production, Notice(new TerminalStatus(State: "error", Attention: true)), ct);
-        Assert.NotEqual(bearer, apple.Sent[5].Headers["Authorization"]);
+        Assert.NotEqual(bearer, apple.Sent[6].Headers["Authorization"]);
     }
 
     [Theory]

@@ -6,7 +6,10 @@ internal sealed record PushedTerminal(Guid TerminalId, TerminalStatus Status);
 
 internal sealed record PushAlert(Guid TerminalId, TerminalStatus Status, bool Sound, int Waits);
 
-internal sealed record PushNotice(Guid OwnerId, IReadOnlyList<PushedTerminal> Pushed, PushAlert? Alert = null, string? DeviceId = null);
+internal sealed record PushNotice(Guid OwnerId, IReadOnlyList<PushedTerminal> Pushed, PushAlert? Alert = null, string? DeviceId = null)
+{
+    public bool Clears => Alert is null && Pushed.Count == 0;
+}
 
 internal sealed record PushRecord(Guid OwnerId, Guid TerminalId, TerminalStatus Status, DateTimeOffset At);
 
@@ -131,7 +134,7 @@ internal sealed partial class TerminalAlerts(ConnectionDirectory directory, Time
             ForgetOld(now);
             var taken = outbox;
             outbox = [];
-            return taken;
+            return [.. taken.Where((notice, index) => notice.Alert is not null || !taken.Skip(index + 1).Any(later => later.OwnerId == notice.OwnerId))];
         }
     }
 
