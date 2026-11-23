@@ -1038,7 +1038,7 @@ mod tests {
                 r"Path=C:\bin",
                 "TERM=xterm-256color",
                 "TERM_PROGRAM=ghostty",
-                "TERM_PROGRAM_VERSION=1.4.0",
+                "TERM_PROGRAM_VERSION=1.4.1-dev",
                 "WT_SESSION=1",
             ]
         );

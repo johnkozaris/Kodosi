@@ -1,8 +1,8 @@
 diff --git a/build.zig b/build.zig
-index 7f03c71d6..98eb5f475 100644
+index 91fc5c9db..e9665fc02 100644
 --- a/build.zig
 +++ b/build.zig
-@@ -223,17 +223,16 @@ pub fn build(b: *std.Build) !void {
+@@ -284,17 +284,16 @@ pub fn build(b: *std.Build) !void {
          const lib_shared = try buildpkg.GhosttyLib.initShared(b, &deps);
          const lib_static = try buildpkg.GhosttyLib.initStatic(b, &deps);
  

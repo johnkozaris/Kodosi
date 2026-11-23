@@ -116,7 +116,10 @@ exec /bin/cat"#,
     assert_eq!(actual, ended);
     assert_eq!(
         std::fs::read_to_string(root.path().join("term")).expect("terminal type"),
-        format!("xterm-256color ghostty 1.4.0 {}", crate::PRODUCT_VERSION)
+        format!(
+            "xterm-256color ghostty 1.4.1-dev {}",
+            crate::PRODUCT_VERSION
+        )
     );
     assert_eq!(
         std::fs::read_to_string(root.path().join("cwd")).expect("working directory"),

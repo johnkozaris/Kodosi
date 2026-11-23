@@ -37,9 +37,10 @@ if [ ! -d "$ARTIFACT_ROOT" ]; then
 fi
 
 ARCHIVE="$ARTIFACT_ROOT/lib/libghostty-vt.a"
-SHARED_REAL="$ARTIFACT_ROOT/lib/libghostty-vt.so.0.1.0"
-SHARED_SONAME="$ARTIFACT_ROOT/lib/libghostty-vt.so.0"
 SHARED_LINK="$ARTIFACT_ROOT/lib/libghostty-vt.so"
+SONAME=$(readlink "$SHARED_LINK" || true)
+SHARED_SONAME="$ARTIFACT_ROOT/lib/$SONAME"
+SHARED_REAL="$ARTIFACT_ROOT/lib/$(readlink "$SHARED_SONAME" || true)"
 HEADERS="$ARTIFACT_ROOT/include"
 for path in \
     "$ARCHIVE" \
@@ -52,12 +53,12 @@ for path in \
         exit 1
     fi
 done
-if [ "$(readlink "$SHARED_SONAME")" != "libghostty-vt.so.0.1.0" ] ||
-    [ "$(readlink "$SHARED_LINK")" != "libghostty-vt.so.0" ]; then
+if [[ ! $SONAME =~ ^libghostty-vt\.so\.[0-9]+$ ]] ||
+    [[ $(basename "$SHARED_REAL") != "$SONAME".*.* ]]; then
     echo "[!] Linux Ghostty VT shared-library link chain is invalid" >&2
     exit 1
 fi
-if ! readelf -d "$SHARED_REAL" | grep -Fq 'Library soname: [libghostty-vt.so.0]'; then
+if ! readelf -d "$SHARED_REAL" | grep -Fq "Library soname: [$SONAME]"; then
     echo "[!] Linux Ghostty VT shared library has an unexpected SONAME" >&2
     exit 1
 fi
@@ -102,12 +103,16 @@ declared -= {
     "ghostty_wasm_take_opaque",
 }
 exported = {
-    line.split(maxsplit=2)[2]
-    for line in subprocess.check_output(
-        ["nm", "-D", "--defined-only", library],
-        text=True,
-    ).splitlines()
-    if len(line.split(maxsplit=2)) == 3
+    fields[2].split("@")[0]
+    for fields in (
+        line.split(maxsplit=2)
+        for line in subprocess.check_output(
+            ["nm", "-D", "--defined-only", library],
+            text=True,
+        ).splitlines()
+    )
+    # A version node of the export map is an absolute symbol, not a function.
+    if len(fields) == 3 and fields[1] != "A"
 }
 if exported != declared:
     print(f"[!] unexpected shared exports: {sorted(exported - declared)}")

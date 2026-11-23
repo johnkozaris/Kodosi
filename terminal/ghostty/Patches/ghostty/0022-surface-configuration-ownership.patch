@@ -1,17 +1,17 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index 9cadafc02..d9c1e1e5d 100644
+index 94c427c6e..3d6a11eec 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
-@@ -536,6 +536,7 @@ typedef struct {
-   const char* initial_input;
+@@ -554,6 +554,7 @@ typedef struct {
+   const char* GHOSTTY_NULLABLE initial_input;
    bool wait_after_command;
    ghostty_surface_context_e context;
-+  ghostty_config_t config;
++  ghostty_config_t GHOSTTY_NULLABLE config;
  } ghostty_surface_config_s;
  
  typedef enum {
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index 2d1b0bee5..a7b1b14d4 100644
+index 2d0b9fb7e..6fbe97b76 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
 @@ -528,6 +528,7 @@ pub const Surface = struct {
@@ -35,7 +35,7 @@ index 2d1b0bee5..a7b1b14d4 100644
  
          // If we have a working directory from the options then we set it.
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index bffd63ed7..dad57cea2 100644
+index e4ef729cf..c530f08bd 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -185,6 +185,8 @@ pub const DerivedConfig = struct {

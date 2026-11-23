@@ -1,18 +1,10 @@
 diff --git a/include/ghostty/vt/terminal.h b/include/ghostty/vt/terminal.h
-index 8b5f0fe73..c3389e0c0 100644
+index 26dfd13da..41d56f996 100644
 --- a/include/ghostty/vt/terminal.h
 +++ b/include/ghostty/vt/terminal.h
-@@ -106,6 +106,7 @@ extern "C" {
-  * | `GHOSTTY_TERMINAL_OPT_SEMANTIC_PROMPT`  | `GhosttyTerminalSemanticPromptFn` | Shell reports a prompt or command step via OSC 133 |
-  * | `GHOSTTY_TERMINAL_OPT_RESET`            | `GhosttyTerminalResetFn`          | Full reset (RIS, ESC c)                   |
-  * | `GHOSTTY_TERMINAL_OPT_RESIZE_WINDOW`    | `GhosttyTerminalResizeWindowFn`   | Window resize request (CSI 8 t)           |
-+ * | `GHOSTTY_TERMINAL_OPT_HIERARCHICAL_CONTEXT` | `GhosttyTerminalHierarchicalContextFn` | Context signal via OSC 3008     |
-  *
-  * ### Defining a write_pty callback
-  * @snippet c-vt-effects/src/main.c effects-write-pty
-@@ -1905,6 +1906,74 @@ typedef void (*GhosttyTerminalResizeWindowFn)(
-     void* userdata,
-     const GhosttyTerminalResizeWindow* request);
+@@ -1760,6 +1760,72 @@ typedef void (*GhosttyTerminalResizeWindowFn)(
+  * @{
+  */
  
 +/**
 + * Whether a context signal starts or ends a context.
@@ -42,14 +34,12 @@ index 8b5f0fe73..c3389e0c0 100644
 + *
 + * See https://uapi-group.org/specifications/specs/osc_context/.
 + *
-+ * This is a sized struct. Read only the fields that `size` covers.
++ * This struct has a frozen layout and will never gain fields. It is 40 bytes
++ * on 64-bit targets and 20 bytes on wasm32.
 + *
 + * @ingroup terminal
 + */
 +typedef struct {
-+  /** Size of this struct in bytes. */
-+  size_t size;
-+
 +  /** Whether the context starts or ends. */
 +  GhosttyHierarchicalContextAction action;
 +
@@ -85,10 +75,10 @@ index 8b5f0fe73..c3389e0c0 100644
  /**
   * Callback function type for color scheme queries (CSI ? 996 n).
   *
-@@ -2794,6 +2863,14 @@ typedef enum GHOSTTY_ENUM_TYPED {
+@@ -2672,6 +2738,14 @@ typedef enum GHOSTTY_ENUM_TYPED {
     * Input type: GhosttyTerminalResizeWindowFn
     */
-   GHOSTTY_TERMINAL_OPT_RESIZE_WINDOW = 47,
+   GHOSTTY_TERMINAL_OPT_RESIZE_WINDOW = 48,
 +
 +  /**
 +   * Callback invoked for each context signal (OSC 3008). Set to NULL to
@@ -96,15 +86,15 @@ index 8b5f0fe73..c3389e0c0 100644
 +   *
 +   * Input type: GhosttyTerminalHierarchicalContextFn
 +   */
-+  GHOSTTY_TERMINAL_OPT_HIERARCHICAL_CONTEXT = 48,
++  GHOSTTY_TERMINAL_OPT_HIERARCHICAL_CONTEXT = 49,
    GHOSTTY_TERMINAL_OPT_MAX_VALUE = GHOSTTY_ENUM_MAX_VALUE,
  } GhosttyTerminalOption;
  
 diff --git a/src/terminal/c/terminal.zig b/src/terminal/c/terminal.zig
-index ee07fb71c..782ddfe5a 100644
+index d995b59f4..c28d1e98f 100644
 --- a/src/terminal/c/terminal.zig
 +++ b/src/terminal/c/terminal.zig
-@@ -225,6 +225,20 @@ pub const ProgramStatus = extern struct {
+@@ -225,6 +225,19 @@ pub const ProgramStatus = extern struct {
      message: lib.String,
  };
  
@@ -116,7 +106,6 @@ index ee07fb71c..782ddfe5a 100644
 +///
 +/// C: GhosttyTerminalHierarchicalContext
 +pub const HierarchicalContext = extern struct {
-+    size: usize,
 +    action: HierarchicalContextAction,
 +    id: lib.String,
 +    fields: lib.String,
@@ -125,7 +114,7 @@ index ee07fb71c..782ddfe5a 100644
  /// C: GhosttySemanticPromptKind
  pub const SemanticPromptKind = Handler.SemanticPrompt.Kind;
  
-@@ -352,6 +366,7 @@ const Effects = struct {
+@@ -351,6 +364,7 @@ pub const Effects = struct {
      pwd_changed: ?PwdChangedFn = null,
      progress_report: ?ProgressReportFn = null,
      program_status: ?ProgramStatusFn = null,
@@ -133,7 +122,7 @@ index ee07fb71c..782ddfe5a 100644
      semantic_prompt: ?SemanticPromptFn = null,
      reset: ?ResetFn = null,
      size_cb: ?SizeFn = null,
-@@ -423,6 +438,10 @@ const Effects = struct {
+@@ -422,6 +436,10 @@ pub const Effects = struct {
      /// and its strings are borrowed for the callback duration.
      pub const ProgramStatusFn = *const fn (Terminal, ?*anyopaque, *const ProgramStatus) callconv(lib.calling_conv) void;
  
@@ -144,7 +133,7 @@ index ee07fb71c..782ddfe5a 100644
      /// C function pointer type for the semantic_prompt callback. The event
      /// and its strings are borrowed for the callback duration.
      pub const SemanticPromptFn = *const fn (Terminal, ?*anyopaque, *const SemanticPrompt) callconv(lib.calling_conv) void;
-@@ -768,6 +787,21 @@ const Effects = struct {
+@@ -771,6 +789,20 @@ pub const Effects = struct {
          func(@ptrCast(wrapper), wrapper.effects.userdata, &c_report);
      }
  
@@ -155,7 +144,6 @@ index ee07fb71c..782ddfe5a 100644
 +        const wrapper = TerminalWrapper.fromHandler(handler);
 +        const func = wrapper.effects.hierarchical_context orelse return;
 +        const c_signal: HierarchicalContext = .{
-+            .size = @sizeOf(HierarchicalContext),
 +            .action = command.action,
 +            .id = .init(command.id),
 +            .fields = .init(command.metadata),
@@ -166,23 +154,23 @@ index ee07fb71c..782ddfe5a 100644
      fn semanticPromptTrampoline(
          handler: *Handler,
          event: Handler.SemanticPrompt,
-@@ -883,6 +917,7 @@ fn wrap(
+@@ -887,6 +919,7 @@ fn wrap(
          .clipboard_write = null,
          .clipboard_read = null,
          .program_status = null,
 +        .hierarchical_context = null,
      };
  
-     wrapper.* = .{
-@@ -1487,6 +1522,7 @@ pub const Option = enum(c_int) {
-     xt_checksum_extension = 45,
-     program_status = 46,
-     resize_window = 47,
-+    hierarchical_context = 48,
+     // The C API leaves Glyph Protocol off until the embedder opts in. The
+@@ -1505,6 +1538,7 @@ pub const Option = enum(c_int) {
+     xt_checksum_extension = 46,
+     program_status = 47,
+     resize_window = 48,
++    hierarchical_context = 49,
  
-     /// Input type expected for setting the option.
-     pub fn InType(comptime self: Option) type {
-@@ -1503,6 +1539,7 @@ pub const Option = enum(c_int) {
+     _,
+ 
+@@ -1523,6 +1557,7 @@ pub const Option = enum(c_int) {
              .pwd_changed => ?Effects.PwdChangedFn,
              .progress_report => ?Effects.ProgressReportFn,
              .program_status => ?Effects.ProgramStatusFn,
@@ -190,7 +178,7 @@ index ee07fb71c..782ddfe5a 100644
              .size_cb => ?Effects.SizeFn,
              .clipboard_write => ?Effects.ClipboardWriteFn,
              .clipboard_read => ?Effects.ClipboardReadFn,
-@@ -1608,6 +1645,13 @@ fn setTyped(
+@@ -1626,6 +1661,13 @@ fn setTyped(
              else
                  null;
          },
@@ -204,7 +192,7 @@ index ee07fb71c..782ddfe5a 100644
          .unknown_sequence => {
              wrapper.effects.unknown_sequence = value;
              wrapper.stream.handler.unknown_sequence = if (value != null)
-@@ -5708,6 +5752,73 @@ test "set progress_report callback" {
+@@ -5906,6 +5948,70 @@ test "set progress_report callback" {
      try testing.expectEqual(@as(usize, cases.len), S.count);
  }
  
@@ -220,7 +208,6 @@ index ee07fb71c..782ddfe5a 100644
 +
 +    const S = struct {
 +        var count: usize = 0;
-+        var last_size: usize = 0;
 +        var last_action: HierarchicalContextAction = .end;
 +        var last_id: [64]u8 = undefined;
 +        var last_id_len: usize = 0;
@@ -233,7 +220,6 @@ index ee07fb71c..782ddfe5a 100644
 +            context: *const HierarchicalContext,
 +        ) callconv(lib.calling_conv) void {
 +            count += 1;
-+            last_size = context.size;
 +            last_action = context.action;
 +            last_id_len = context.id.len;
 +            @memcpy(last_id[0..last_id_len], context.id.ptr[0..last_id_len]);
@@ -250,7 +236,6 @@ index ee07fb71c..782ddfe5a 100644
 +    try testing.expectEqual(Result.success, set(t, .hierarchical_context, @ptrCast(&S.signal)));
 +    vt_write(t, start, start.len);
 +    try testing.expectEqual(1, S.count);
-+    try testing.expectEqual(@sizeOf(HierarchicalContext), S.last_size);
 +    try testing.expectEqual(HierarchicalContextAction.start, S.last_action);
 +    try testing.expectEqualStrings("a1", S.last_id[0..S.last_id_len]);
 +    try testing.expectEqualStrings(
@@ -279,10 +264,10 @@ index ee07fb71c..782ddfe5a 100644
      var t: Terminal = null;
      try testing.expectEqual(Result.success, new(
 diff --git a/src/terminal/c/types.zig b/src/terminal/c/types.zig
-index 74f882e1a..f1122542d 100644
+index dbc635068..ade187d12 100644
 --- a/src/terminal/c/types.zig
 +++ b/src/terminal/c/types.zig
-@@ -224,6 +224,7 @@ const type_decls = [_]TypeDecl{
+@@ -432,6 +432,7 @@ pub const type_decls = [_]TypeDecl{
      .initStruct("GhosttyTerminalMemoryUsage", terminal.TerminalMemoryUsage),
      .initStruct("GhosttyTerminalModeConfig", terminal.ModeConfig),
      .initStruct("GhosttyTerminalProgramStatus", terminal.ProgramStatus),
@@ -290,35 +275,43 @@ index 74f882e1a..f1122542d 100644
      .initStruct("GhosttyTerminalProgressReport", terminal.ProgressReport),
      .initTaggedStruct("GhosttyTerminalResizeWindow", terminal.ResizeWindow.C, "tag", "value", .generated),
      .initStruct("GhosttyTerminalResizeWindowGrid", terminal.ResizeWindowGrid),
-@@ -301,6 +302,7 @@ const type_decls = [_]TypeDecl{
+@@ -510,6 +511,7 @@ pub const type_decls = [_]TypeDecl{
      .initEnum("GhosttyPointTag", point.Tag, "GHOSTTY_POINT_TAG_"),
      .initEnum("GhosttyProgramStatusKind", terminal.ProgramStatusKind, "GHOSTTY_PROGRAM_STATUS_KIND_"),
      .initEnum("GhosttyProgramStatusState", terminal.ProgramStatusState, "GHOSTTY_PROGRAM_STATUS_STATE_"),
 +    .initEnum("GhosttyHierarchicalContextAction", terminal.HierarchicalContextAction, "GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_"),
-     .initEnum("GhosttyRenderStateCursorVisualStyle", render.CursorVisualStyle, "GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_"),
      .initEnum("GhosttyRenderStateData", render.Data, "GHOSTTY_RENDER_STATE_DATA_"),
      .initEnum("GhosttyRenderStateDirty", render.Dirty, "GHOSTTY_RENDER_STATE_DIRTY_"),
+     .initEnum("GhosttyRenderStateImageData", render.ImageData, "GHOSTTY_RENDER_STATE_IMAGE_DATA_"),
+@@ -607,6 +609,7 @@ pub const type_decls = [_]TypeDecl{
+     .initCallback("GhosttyTerminalDeviceAttributesFn", terminal.Effects.DeviceAttributesFn),
+     .initCallback("GhosttyTerminalEnquiryFn", terminal.Effects.EnquiryFn),
+     .initCallback("GhosttyTerminalProgramStatusFn", terminal.Effects.ProgramStatusFn),
++    .initCallback("GhosttyTerminalHierarchicalContextFn", terminal.Effects.HierarchicalContextFn),
+     .initCallback("GhosttyTerminalProgressReportFn", terminal.Effects.ProgressReportFn),
+     .initCallback("GhosttyTerminalPwdChangedFn", terminal.Effects.PwdChangedFn),
+     .initCallback("GhosttyTerminalRenderHoldFn", terminal.Effects.RenderHoldFn),
 diff --git a/src/terminal/stream.zig b/src/terminal/stream.zig
-index 397bd1bb4..ae42c62e9 100644
+index fba8383cc..6ed449ac3 100644
 --- a/src/terminal/stream.zig
 +++ b/src/terminal/stream.zig
-@@ -138,6 +138,7 @@ pub const Action = union(Key) {
-     xt_checksum_extension: XtChecksumExtension,
-     program_status: ProgramStatus,
-     soft_reset,
+@@ -142,6 +142,7 @@ pub const Action = union(Key) {
+     forward_index,
+     insert_columns: usize,
+     delete_columns: usize,
 +    hierarchical_context: HierarchicalContext,
  
      pub const Key = lib.Enum(
          lib.target,
-@@ -246,6 +247,7 @@ pub const Action = union(Key) {
-             "xt_checksum_extension",
-             "program_status",
-             "soft_reset",
+@@ -254,6 +255,7 @@ pub const Action = union(Key) {
+             "forward_index",
+             "insert_columns",
+             "delete_columns",
 +            "hierarchical_context",
          },
      );
  
-@@ -489,6 +491,8 @@ pub const Action = union(Key) {
+@@ -552,6 +554,8 @@ pub const Action = union(Key) {
      pub const KittyDnd = osc.Command.KittyDndProtocol;
  
      pub const ProgramStatus = osc.Command.ProgramStatus;
@@ -327,7 +320,7 @@ index 397bd1bb4..ae42c62e9 100644
  };
  
  /// Returns a type that can process a stream of tty control characters.
-@@ -2930,6 +2934,10 @@ pub fn Stream(comptime H: type) type {
+@@ -3083,6 +3087,10 @@ pub fn Stream(comptime H: type) type {
                      self.handler.vt(.program_status, v);
                  },
  
@@ -338,7 +331,7 @@ index 397bd1bb4..ae42c62e9 100644
                  .unknown => |v| {
                      @branchHint(.unlikely);
                      self.handler.vt(.osc_unknown, v);
-@@ -2946,7 +2954,6 @@ pub fn Stream(comptime H: type) type {
+@@ -3099,7 +3107,6 @@ pub fn Stream(comptime H: type) type {
                  .conemu_run_process,
                  .kitty_text_sizing,
                  .kitty_desktop_notification,
@@ -347,10 +340,10 @@ index 397bd1bb4..ae42c62e9 100644
                      log.debug("unimplemented OSC callback: {}", .{cmd});
                  },
 diff --git a/src/terminal/stream_terminal.zig b/src/terminal/stream_terminal.zig
-index e1b8e51ee..aaa17ed1e 100644
+index 4393aacee..8c596477d 100644
 --- a/src/terminal/stream_terminal.zig
 +++ b/src/terminal/stream_terminal.zig
-@@ -228,6 +228,12 @@ pub const Handler = struct {
+@@ -239,6 +239,12 @@ pub const Handler = struct {
          /// They are dropped.
          program_status: ?*const fn (*Handler, osc.Command.ProgramStatus.Report) void,
  
@@ -363,7 +356,7 @@ index e1b8e51ee..aaa17ed1e 100644
          /// Called when the shell reports a step of a command through
          /// shell integration: a prompt starts, input starts, output
          /// starts, or the command ends. See `SemanticPrompt` for the
-@@ -335,6 +341,7 @@ pub const Handler = struct {
+@@ -346,6 +352,7 @@ pub const Handler = struct {
              .enquiry = null,
              .progress_report = null,
              .program_status = null,
@@ -371,7 +364,7 @@ index e1b8e51ee..aaa17ed1e 100644
              .reset = null,
              .semantic_prompt = null,
              .resize_window = null,
-@@ -774,6 +781,7 @@ pub const Handler = struct {
+@@ -796,6 +803,7 @@ pub const Handler = struct {
              .report_pwd => try self.reportPwd(value.url),
              .progress_report => self.progressReport(value),
              .program_status => self.programStatus(value),
@@ -380,10 +373,10 @@ index e1b8e51ee..aaa17ed1e 100644
              .xtversion => self.reportXtversion(),
              .request_xt_checksum => self.reportXtChecksum(value),
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index f79b24529..3e02dbc4b 100644
+index c49e430af..1e2a63bc7 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
-@@ -423,6 +423,7 @@ pub const StreamHandler = struct {
+@@ -428,6 +428,7 @@ pub const StreamHandler = struct {
              .kitty_dnd,
              .osc_unknown,
              .program_status,

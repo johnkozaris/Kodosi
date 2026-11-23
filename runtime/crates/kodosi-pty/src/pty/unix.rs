@@ -1216,7 +1216,7 @@ mod tests {
             "TERM=xterm-256color",
             "COLORTERM=truecolor",
             "TERM_PROGRAM=ghostty",
-            "TERM_PROGRAM_VERSION=1.4.0",
+            "TERM_PROGRAM_VERSION=1.4.1-dev",
             "KODOSI_SESSION_ID=id",
         ] {
             assert!(variables.contains(&expected), "{expected}: {output}");

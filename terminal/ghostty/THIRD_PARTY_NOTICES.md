@@ -39,12 +39,12 @@ or application/runtime dependencies. The Android VT archive under
 - stb_image 2.28 and stb_image_resize 0.97 — MIT.
 - Wuffs `0.4.0-alpha.10+3966.20260623` — MIT (also offered under Apache-2.0).
 - libxev commit `819ffa180ca20e31c7eded74e2e1aceb1eab557f` — MIT.
-- vaxis 0.6.0 / commit `6fd944a27fb3d6f596e981076381a3131f2448b4` — MIT (macOS archive only).
-- z2d 0.13.0 / commit `40af3e84a4e15a9f31d126b3f281f23ce6a3dae5` — MPL-2.0,
+- vaxis 0.6.0 / commit `0620b34e091deaa6f64608922be3814147128dfb` — MIT (macOS archive only).
+- z2d 0.13.2 / commit `8787d71bac42d9aab00428ccb37a4fd453418761` — MPL-2.0,
   including the additional upstream notices preserved in
   `ThirdPartyNotices/licenses/z2d-NOTICE.txt`.
 - zf 0.11.0 / commit `87153bb86b75d21fbac897b738f316d449f5d0c9` — MIT (macOS archive only).
-- uucode 0.2.0 / commit `ea62149739404a73c202b48a33bf6dd2af4bd9b0` — MIT,
+- uucode 0.2.0 / commit `1fb73433bba5d93366c57f23ff2e9d7939746500` — MIT,
   including Bjoern Hoehrmann's MIT-licensed UTF-8 decoder and Unicode data under the
   Unicode License v3.
 - zig-objc commit `3352c12a868f8787ab71bf2ca6eab9fcfb635c52` — MIT.
@@ -84,7 +84,7 @@ these materials and the required relinking means with their distribution.
 
 z2d is incorporated in executable form under MPL-2.0. Its exact corresponding source is
 retained at
-`ThirdPartyNotices/corresponding-source/z2d-40af3e84a4e15a9f31d126b3f281f23ce6a3dae5.tar.gz`.
+`ThirdPartyNotices/corresponding-source/z2d-8787d71bac42d9aab00428ccb37a4fd453418761.tar.gz`.
 `ThirdPartyNotices/inventory.json` records the upstream and mirror URLs, acquisition method
 and date, exact commit, byte size, and SHA-256. Binary distributors must make that source,
 including any modifications to MPL-covered files, available as required by MPL-2.0 section

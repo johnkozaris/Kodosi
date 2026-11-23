@@ -1,8 +1,8 @@
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index 20a9b1952..44e1522ef 100644
+index 0141b1b85..35cb7e166 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
-@@ -738,6 +738,7 @@ pub fn terminalOptions(
+@@ -881,6 +881,7 @@ pub fn terminalOptions(
          .artifact = artifact,
          .simd = self.simd,
          .oniguruma = true,
@@ -11,22 +11,22 @@ index 20a9b1952..44e1522ef 100644
          // The application requires every feature; only lib artifacts
          // may trim them.
 diff --git a/src/build/GhosttyZig.zig b/src/build/GhosttyZig.zig
-index 9d987240b..ae30fac2e 100644
+index a5f60614a..6a45dfc97 100644
 --- a/src/build/GhosttyZig.zig
 +++ b/src/build/GhosttyZig.zig
-@@ -68,6 +68,7 @@ fn initInner(
+@@ -133,6 +133,7 @@ fn vtOptions(cfg: *const Config) TerminalBuildOptions {
      // We should expose this as a build option in the future so we can
      // conditionally do this.
      vt_options.oniguruma = false;
 +    vt_options.tmux_control_mode = false;
- 
-     var simd_libs: SharedDeps.LazyPathList = .empty;
+     return vt_options;
+ }
  
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index 51b0b14c7..0390ece7b 100644
+index 3cdf7c43e..2845a608b 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
-@@ -187,7 +187,10 @@ pub fn add(
+@@ -195,7 +195,10 @@ pub fn add(
  
      // Every exe needs the terminal options
      var terminal_options = self.config.terminalOptions(.ghostty, optimize);
@@ -39,7 +39,7 @@ index 51b0b14c7..0390ece7b 100644
  
      // Every exe needs the uucode module
 diff --git a/src/terminal/build_options.zig b/src/terminal/build_options.zig
-index 628ecbd3e..bd52136bc 100644
+index ea32129d4..b57f394ed 100644
 --- a/src/terminal/build_options.zig
 +++ b/src/terminal/build_options.zig
 @@ -13,13 +13,12 @@ pub const Options = struct {
@@ -94,10 +94,10 @@ index 628ecbd3e..bd52136bc 100644
      _ = Options.Features;
  }
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index 43656aa71..f79b24529 100644
+index 82afab5fe..c49e430af 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
-@@ -151,6 +151,7 @@ pub const StreamHandler = struct {
+@@ -153,6 +153,7 @@ pub const StreamHandler = struct {
      }
  
      inline fn messageWriter(self: *StreamHandler, msg: termio.Message) void {
