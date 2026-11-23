@@ -821,7 +821,6 @@ private fun KeyCap(
     cap: String,
     label: String = cap,
     on: Boolean = false,
-    enabled: Boolean = true,
     symbol: AppSymbol? = null,
     look: TerminalLook,
     press: () -> Unit
@@ -832,16 +831,12 @@ private fun KeyCap(
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
     val fill = if (on) colors.accentSoft else colors.lifted
-    val ink = when {
-        !enabled -> colors.inkFaint
-        on -> colors.accentStrong
-        else -> colors.inkMuted
-    }
+    val ink = if (on) colors.accentStrong else colors.inkMuted
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-            .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = press)
+            .clickable(interaction, indication = null, role = Role.Button, onClick = press)
             .semantics {
                 contentDescription = label
                 if (on) selected = true

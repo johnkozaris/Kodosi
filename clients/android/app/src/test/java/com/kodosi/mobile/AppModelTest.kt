@@ -88,7 +88,7 @@ class AppModelTest {
         model.receive(event("auth.error", """"operation":"auth.login.start","message":"No connection.""""))
 
         assertEquals(AppModel.Phase.Ready, model.phase.value)
-        assertEquals(SignInStage.Failed("No connection.", 0), model.account.state.value.stage)
+        assertEquals(SignInStage.Failed("No connection."), model.account.state.value.stage)
     }
 
     @Test
