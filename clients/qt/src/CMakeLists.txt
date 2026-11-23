@@ -426,7 +426,8 @@ qt_add_qml_module(kodosi-ui
         qml/assets/providers/opencode-dark.svg
 )
 
-target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 Qt6::WebEngineQuick kodosi-qml-modelsplugin)
+target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 Qt6::WebEngineQuick kodosi-qml-modelsplugin
+    PRIVATE Qt6::GuiPrivate)
 target_include_directories(kodosi-ui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/controls")
 set_source_files_properties(controls/KeyRecorder.cpp controls/LightTrack.cpp controls/SignClock.cpp
     PROPERTIES COMPILE_OPTIONS "${KODOSI_COMPILE_OPTIONS}")

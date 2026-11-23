@@ -10,10 +10,12 @@
 namespace kodosi {
 
 // The signs that loop take their steps from one clock, so that all of them share one frame per
-// step and nothing is drawn between steps.
+// step and nothing is drawn between steps. A window that a processor draws pays for every pixel
+// of every frame, so there the steps come less often.
 class SignClock final {
 public:
     static constexpr std::chrono::milliseconds step { 75 };
+    static constexpr std::chrono::milliseconds processorStep { 250 };
 
     static void join(const QObject* sign, std::function<void(std::int64_t now)> onStep);
     static void leave(const QObject* sign);

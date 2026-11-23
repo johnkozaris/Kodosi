@@ -2,15 +2,49 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QGuiApplication>
 #include <QPointer>
+#include <QQuickWindow>
 #include <QTimer>
+#include <rhi/qrhi.h>
 
 #include <algorithm>
+#include <atomic>
+#include <memory>
 #include <utility>
 #include <vector>
 
 namespace kodosi {
 namespace {
+
+enum class Drawing : int { Unknown, Processor, GraphicsProcessor };
+
+std::atomic<Drawing> drawing { Drawing::Unknown };
+
+bool drawsByProcessor(const QRhi* rhi)
+{
+    if (rhi == nullptr)
+        return false;
+    const auto info = rhi->driverInfo();
+    if (info.deviceType == QRhiDriverInfo::CpuDevice)
+        return true;
+    // OpenGL names no type of device, but Mesa's drivers that draw by the processor name themselves.
+    return rhi->backend() == QRhi::OpenGLES2
+        && (info.deviceName.contains("llvmpipe") || info.deviceName.contains("softpipe"));
+}
+
+// A window's QRhi belongs to its render thread, so the window is asked there, after a frame.
+void learnDrawing(QQuickWindow* window)
+{
+    auto connection = std::make_shared<QMetaObject::Connection>();
+    *connection = QObject::connect(
+        window, &QQuickWindow::afterFrameEnd, window,
+        [window, connection] {
+            drawing.store(drawsByProcessor(window->rhi()) ? Drawing::Processor : Drawing::GraphicsProcessor);
+            QObject::disconnect(*connection);
+        },
+        Qt::DirectConnection);
+}
 
 class Clock final : public QObject {
 public:
@@ -74,13 +108,24 @@ private:
     {
         if (m_signs.empty())
             return;
-        const std::int64_t interval = SignClock::step.count();
+        if (drawing.load() == Drawing::Unknown) {
+            for (auto* window : QGuiApplication::topLevelWindows()) {
+                auto* quick = qobject_cast<QQuickWindow*>(window);
+                if (quick != nullptr && !m_asked.contains(quick)) {
+                    m_asked.push_back(quick);
+                    learnDrawing(quick);
+                }
+            }
+        }
+        const std::int64_t interval
+            = (drawing.load() == Drawing::Processor ? SignClock::processorStep : SignClock::step).count();
         const std::int64_t now = QDateTime::currentMSecsSinceEpoch();
         m_timer.start(std::chrono::milliseconds((now / interval + 1) * interval - now));
     }
 
     QTimer m_timer;
     Signs m_signs;
+    QList<QPointer<QQuickWindow>> m_asked;
     std::int64_t m_now = QDateTime::currentMSecsSinceEpoch();
 };
 
