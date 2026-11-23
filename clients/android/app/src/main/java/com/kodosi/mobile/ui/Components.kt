@@ -122,6 +122,10 @@ private const val SIGN_STEP_MILLIS = 2400L / SIGN_STEPS
 private const val BREATHS = 3
 private const val SPIN_MILLIS = 800L
 
+// Each frame costs the phone's system about as much as it costs the app, so a sign this small asks only for the frames
+// that the eye needs. The rest ends after the third display frame at 120 Hz and the first at 60 Hz: 30 steps a second.
+private const val SPIN_REST_MILLIS = 28L
+
 private val FadeEasing = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 
 /** A state that changes in place fades as in the other apps, and at once with reduced motion. */
@@ -181,7 +185,10 @@ private fun SpinnerSteps(sign: SignNode) {
         val period = (SPIN_MILLIS * scale).toLong().coerceAtLeast(1)
         onMainLooper {
             val start = displayFrameMillis()
-            while (true) sign.turn(360f * ((displayFrameMillis() - start) % period) / period)
+            while (true) {
+                sign.turn(360f * ((displayFrameMillis() - start) % period) / period)
+                delay(SPIN_REST_MILLIS)
+            }
         }
     }
 }
