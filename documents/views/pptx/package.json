@@ -11,7 +11,7 @@
     "@documents/contract": "workspace:*",
     "@documents/words": "workspace:*",
     "@tiptap/pm": "catalog:",
-    "konva": "10.9.1",
+    "konva": "10.10.0",
     "lucide": "catalog:",
     "prosemirror-collab": "catalog:"
   }
