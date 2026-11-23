@@ -126,7 +126,7 @@ fun TerminalsScreen(
                         )
                     }
                 }
-                for ((folder, entries) in terminals.groupBy { it.workingDir }) {
+                for ((folder, entries) in TerminalCatalog.folders(terminals)) {
                     val key = "${group.place.id}/$host/$folder"
                     if (folder != null) {
                         item(key = "folder-$key") {

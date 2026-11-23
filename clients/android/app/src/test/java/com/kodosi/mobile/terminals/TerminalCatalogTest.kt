@@ -97,6 +97,25 @@ class TerminalCatalogTest {
     }
 
     @Test
+    fun ordersTheFoldersOfAComputerByPathWithTheTerminalsWithoutAFolderLast() {
+        val folders = TerminalCatalog.folders(
+            listOf(
+                session("a", workingDir = "/home/maya/workspace"),
+                session("b", workingDir = "/home/maya/project"),
+                session("c"),
+                session("d", workingDir = "/home/maya/project-amber-gecko"),
+                session("e", workingDir = "/home/maya/project")
+            )
+        )
+
+        assertEquals(
+            listOf("/home/maya/project", "/home/maya/project-amber-gecko", "/home/maya/workspace", null),
+            folders.map { it.first }
+        )
+        assertEquals(listOf("b", "e"), folders.first().second.map { it.id })
+    }
+
+    @Test
     fun signsWhatATerminalWaitsFor() {
         fun waiting(kind: ProgramStatus.Kind?) = session(
             "a",
