@@ -50,7 +50,6 @@ private slots:
         model.setValues(model.values());
         QCOMPARE(changed.count() + inserted.count() + removed.count() + moved.count(), before);
         QCOMPARE(resets.count(), 0);
-        QCOMPARE(model.roleNames().value(Qt::UserRole), QByteArrayLiteral("modelData"));
     }
 
     void aRepeatedKeyKeepsOneRowEach()

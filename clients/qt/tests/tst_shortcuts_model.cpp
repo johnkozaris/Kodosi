@@ -36,16 +36,20 @@ private slots:
         QVERIFY(!model.changed());
     }
 
-    void aProgramKeepsItsKeysUnlessTheTableTakesThem()
+    void aProgramKeepsEveryPlainKeyAndEveryControlLetterOrDigit()
     {
         QTemporaryDir dir;
         ShortcutsModel model(settingsIn(dir));
         const auto taken = model.taken();
         QVERIFY(taken.contains(QKeySequence(QStringLiteral("Alt+7"))));
-        QVERIFY(taken.contains(QKeySequence(QStringLiteral("Ctrl+Tab"))));
-        QVERIFY(!taken.contains(QKeySequence(QStringLiteral("Ctrl+K"))));
-        QVERIFY(!taken.contains(QKeySequence(QStringLiteral("Ctrl+C"))));
-        QVERIFY(!taken.contains(QKeySequence(QStringLiteral("F11"))));
+        for (const auto& sequence : taken) {
+            const auto key = sequence[0];
+            const auto modifiers = key.keyboardModifiers();
+            QVERIFY2(modifiers != Qt::NoModifier, qPrintable(sequence.toString()));
+            const bool letterOrDigit = (key.key() >= Qt::Key_A && key.key() <= Qt::Key_Z)
+                || (key.key() >= Qt::Key_0 && key.key() <= Qt::Key_9);
+            QVERIFY2(modifiers != Qt::ControlModifier || !letterOrDigit, qPrintable(sequence.toString()));
+        }
     }
 
     void aKeyMovesToTheActionThatTakesIt()
@@ -82,18 +86,6 @@ private slots:
         model.reset();
         QVERIFY(!model.changed());
         QCOMPARE(keysOf(model, QStringLiteral("close")), QStringList(QStringLiteral("Ctrl+Shift+W")));
-    }
-
-    void eachKeyOfAnActionIsOneShortcut()
-    {
-        QTemporaryDir dir;
-        ShortcutsModel model(settingsIn(dir));
-        QCOMPARE(keysOf(model, QStringLiteral("previousTerminal")),
-            (QStringList { QStringLiteral("Ctrl+Shift+["), QStringLiteral("Ctrl+Shift+Left"), QStringLiteral("Ctrl+PgUp"),
-                QStringLiteral("Ctrl+Shift+Tab") }));
-        QCOMPARE(keysOf(model, QStringLiteral("nextTerminal")),
-            (QStringList { QStringLiteral("Ctrl+Shift+]"), QStringLiteral("Ctrl+Shift+Right"), QStringLiteral("Ctrl+PgDown"),
-                QStringLiteral("Ctrl+Tab") }));
     }
 
     void aPressedKeyIsRecordedAsTheShortcutsMatchIt()

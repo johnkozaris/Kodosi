@@ -10,7 +10,6 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSet>
-#include <QTimer>
 #include <QUuid>
 
 #include <algorithm>

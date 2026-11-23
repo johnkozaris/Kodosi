@@ -1,5 +1,6 @@
 #include "presentation/DesktopSettings.hpp"
 #include "app/AppLanguage.hpp"
+#include "terminal/TerminalSettings.hpp"
 #include <QDir>
 #include <QFileInfo>
 #include <QList>
@@ -37,13 +38,13 @@ DesktopSettings::DesktopSettings(std::unique_ptr<QSettings> settings, bool keepR
         = m_settings->value(QStringLiteral("terminal/fontFamily"), QStringLiteral("monospace")).toString();
     if (!family.trimmed().isEmpty() && family.size() <= 256 && !family.contains(QChar::Null))
         m_fontFamily = family;
-    m_fontSize = std::clamp(m_settings->value(QStringLiteral("terminal/fontSize"), 13).toInt(), 8, 32);
+    m_fontSize = terminalFontPixels.clamp(m_settings->value(QStringLiteral("terminal/fontSize"), 13).toInt());
     m_scrollback
-        = std::clamp(m_settings->value(QStringLiteral("terminal/scrollback"), 10000).toInt(), 100, 100000);
+        = terminalScrollbackLines.clamp(m_settings->value(QStringLiteral("terminal/scrollback"), 10000).toInt());
     m_cursor = static_cast<CursorStyle>(
         std::clamp(m_settings->value(QStringLiteral("terminal/cursor"), 0).toInt(), 0, 2));
     const auto line = m_settings->value(QStringLiteral("terminal/lineHeight"), 1.0).toDouble();
-    m_lineHeight = std::isfinite(line) ? std::clamp(line, 0.8, 2.0) : 1.0;
+    m_lineHeight = std::isfinite(line) ? terminalLineHeights.clamp(line) : 1.0;
     m_blink = m_settings->value(QStringLiteral("terminal/blink"), false).toBool();
     m_directory = m_settings->value(QStringLiteral("terminal/directory")).toString();
     m_branchFolder = m_settings->value(QStringLiteral("terminal/branchFolder")).toString();
@@ -136,9 +137,9 @@ QString DesktopSettings::effectiveWorkingDirectory() const
 bool DesktopSettings::apply(
     const QString& family, int size, int cursor, double line, int scrollback, bool blink)
 {
-    if (family.trimmed().isEmpty() || family.size() > 256 || family.contains(QChar::Null) || size < 8
-        || size > 32 || cursor < 0 || cursor > 2 || !std::isfinite(line) || line < 0.8 || line > 2.0
-        || scrollback < 100 || scrollback > 100000) {
+    if (family.trimmed().isEmpty() || family.size() > 256 || family.contains(QChar::Null)
+        || !terminalFontPixels.holds(size) || cursor < 0 || cursor > 2 || !terminalLineHeights.holds(line)
+        || !terminalScrollbackLines.holds(scrollback)) {
         m_error = tr("Choose valid terminal settings.");
         emit settingsErrorChanged();
         return false;

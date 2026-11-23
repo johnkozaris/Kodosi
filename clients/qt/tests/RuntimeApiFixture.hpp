@@ -10,7 +10,6 @@ inline void* userdata = nullptr;
 inline QByteArray lastCommand;
 inline bool allowStart = false;
 inline uint32_t protocolVersion = kodosi::RuntimeBridge::protocolVersion;
-inline int commandResult = KODOSI_FFI_OK;
 inline std::optional<kodosi_start_failure_t> startFailure;
 inline int hostStops = 0;
 inline void sendEvent(const QByteArray& event)
@@ -26,7 +25,6 @@ inline void reset()
     lastCommand.clear();
     allowStart = false;
     protocolVersion = kodosi::RuntimeBridge::protocolVersion;
-    commandResult = KODOSI_FFI_OK;
     startFailure.reset();
     hostStops = 0;
 }
