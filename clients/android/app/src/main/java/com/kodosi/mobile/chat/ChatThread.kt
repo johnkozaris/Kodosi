@@ -409,7 +409,11 @@ private fun AgentRow(row: ChatRow, hold: () -> Unit) {
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.sign_key), style = KodosiType.caption, color = colors.ink)
                 }
-                Text(stringResource(R.string.chat_signed_out_detail), style = KodosiType.caption, color = colors.inkMuted)
+                Text(
+                    stringResource(R.string.chat_signed_out_detail),
+                    style = KodosiType.caption,
+                    color = colors.inkMuted
+                )
             }
 
             ChatNote.Compacted -> Unit
