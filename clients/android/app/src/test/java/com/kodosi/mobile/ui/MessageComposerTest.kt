@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -29,7 +28,6 @@ class MessageComposerTest {
     @get:Rule
     val compose = createEmptyComposeRule()
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
     fun enterStartsANewLineAndOnlySendSends() {
         val draft = TextFieldState()
