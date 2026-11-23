@@ -18,10 +18,8 @@ use windows_sys::Win32::{
     System::{
         Console::{COORD, HPCON, SetConsoleCtrlHandler},
         JobObjects::{
-            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-            JOBOBJECT_BASIC_PROCESS_ID_LIST, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-            JobObjectBasicProcessIdList, JobObjectExtendedLimitInformation,
-            QueryInformationJobObject, SetInformationJobObject, TerminateJobObject,
+            AssignProcessToJobObject, JOBOBJECT_BASIC_PROCESS_ID_LIST, JobObjectBasicProcessIdList,
+            QueryInformationJobObject, TerminateJobObject,
         },
         LibraryLoader::{
             GetProcAddress, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, LOAD_LIBRARY_SEARCH_SYSTEM32,
@@ -208,7 +206,7 @@ impl KodosiPty {
         let program = resolve_program(program, working_dir)?;
         let (application, mut line) = command_line(&program, arguments)?;
         let environment = environment_block(std::env::vars_os(), environment);
-        let job = create_job()?;
+        let job = kodosi_os::process::closing_job()?;
         let (input_read, input_write) = io::pipe()?;
         let (output_read, output_write) = io::pipe()?;
         let mut handle: HPCON = 0;
@@ -536,28 +534,6 @@ impl PtyReader {
         self.offset += count;
         count
     }
-}
-
-fn create_job() -> io::Result<OwnedHandle> {
-    let job = unsafe { CreateJobObjectW(ptr::null(), ptr::null()) };
-    if job.is_null() {
-        return Err(io::Error::last_os_error());
-    }
-    let job = unsafe { OwnedHandle::from_raw_handle(job) };
-    let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    if unsafe {
-        SetInformationJobObject(
-            job.as_raw_handle(),
-            JobObjectExtendedLimitInformation,
-            (&raw const limits).cast(),
-            u32::try_from(size_of_val(&limits)).unwrap_or(u32::MAX),
-        )
-    } == 0
-    {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(job)
 }
 
 struct AttributeList(LPPROC_THREAD_ATTRIBUTE_LIST);

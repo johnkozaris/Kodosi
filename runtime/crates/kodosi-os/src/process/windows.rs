@@ -20,11 +20,16 @@ use windows_sys::Win32::{
     System::{
         Console::{GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE},
         Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock},
+        JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, TerminateJobObject,
+        },
         SystemInformation::{ComputerNameDnsHostname, GetComputerNameExW},
         Threading::{
             CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW, DETACHED_PROCESS, GetCurrentProcess,
-            OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE,
-            WaitForSingleObject,
+            OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_QUOTA,
+            PROCESS_SYNCHRONIZE, PROCESS_TERMINATE, WaitForSingleObject,
         },
     },
     UI::WindowsAndMessaging::AllowSetForegroundWindow,
@@ -207,6 +212,51 @@ pub(super) fn host_name() -> Option<String> {
 
 pub(super) fn allow_foreground(pid: u32) {
     unsafe { AllowSetForegroundWindow(pid) };
+}
+
+/// The job of a program and the programs that it starts. Windows has no request to end for a
+/// program without a console, so each end is at once.
+pub(super) struct Group(OwnedHandle);
+
+impl Group {
+    pub(super) fn of(pid: u32) -> std::io::Result<Self> {
+        let job = closing_job()?;
+        let process = unsafe { OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, pid) };
+        if process.is_null() {
+            return Err(std::io::Error::last_os_error());
+        }
+        let process = unsafe { OwnedHandle::from_raw_handle(process) };
+        if unsafe { AssignProcessToJobObject(job.as_raw_handle(), process.as_raw_handle()) } == 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(Self(job))
+    }
+
+    pub(super) fn end(&self, _force: bool) {
+        unsafe { TerminateJobObject(self.0.as_raw_handle(), 1) };
+    }
+}
+
+pub(super) fn closing_job() -> std::io::Result<OwnedHandle> {
+    let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+    if job.is_null() {
+        return Err(std::io::Error::last_os_error());
+    }
+    let job = unsafe { OwnedHandle::from_raw_handle(job) };
+    let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if unsafe {
+        SetInformationJobObject(
+            job.as_raw_handle(),
+            JobObjectExtendedLimitInformation,
+            (&raw const limits).cast(),
+            u32::try_from(size_of_val(&limits)).unwrap_or(u32::MAX),
+        )
+    } == 0
+    {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(job)
 }
 
 #[cfg(test)]
