@@ -467,14 +467,6 @@ struct Scope {
 }
 
 #[cfg(feature = "host")]
-impl Local {
-    fn tell_canvas_who_shares(&self) {
-        let shared = !self.entry.shared_with.is_empty() || self.entry.project_id.is_some();
-        self.terminal.canvas.set_shared(shared);
-    }
-}
-
-#[cfg(feature = "host")]
 struct Local {
     terminal: TerminalSession,
     entry: SessionEntry,
@@ -507,6 +499,11 @@ impl Local {
 
     fn comes_back(&self) -> bool {
         !self.terminal.is_closed() && self.entry.status != SessionStatus::Closing
+    }
+
+    fn tell_canvas_who_shares(&self) {
+        let shared = !self.entry.shared_with.is_empty() || self.entry.project_id.is_some();
+        self.terminal.canvas.set_shared(shared);
     }
 
     fn publication(
@@ -1989,6 +1986,7 @@ impl Runtime {
             }
             self.catch_up();
             let due = self.next_deadline();
+            let background = self.network.inner.link.in_background();
             if let Some(at) = due
                 && timer.deadline() != at
             {
@@ -2048,7 +2046,7 @@ impl Runtime {
                 Some(()) = self.leaving.next() => self.consumers.retain(|_, lifetime| !lifetime.is_cancelled()),
                 Ok(()) = link.changed() => {}
                 () = &mut timer, if due.is_some() => {}
-                _ = retry.tick() => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); }
+                _ = retry.tick(), if !background => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); }
             }
         }
         self.send_waiting_list();
@@ -2482,7 +2480,6 @@ impl Runtime {
         }
     }
 
-    #[cfg(feature = "host")]
     fn project_name(&self, id: &str) -> Option<String> {
         self.cached_events
             .get("projects.snapshot")?

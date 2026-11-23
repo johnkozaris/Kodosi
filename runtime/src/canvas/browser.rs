@@ -31,6 +31,7 @@ pub(super) const MOST_OUTPUT: usize = 1024 * 1024;
 /// instead of showing a broken character.
 const MOST_READ: usize = MOST_OUTPUT + 3;
 const FIRST_SIZE: (u32, u32) = (1280, 720);
+const MOST_KEPT_ADDRESS: usize = 4096;
 /// agent-browser leaves the browser when the agent is idle, because a page can notice a client
 /// on its debug port.
 const DAEMON_IDLE_MS: &str = "60000";
@@ -302,13 +303,8 @@ impl Browser {
                 active: tab.active,
             })
             .collect();
-        if let Some(address) = tabs
-            .iter()
-            .find(|tab| tab.active)
-            .map(|tab| tab.url.clone())
-            .filter(|address| address.starts_with("http"))
-        {
-            self.activity(|activity| activity.address = Some(address));
+        if let Some(address) = kept_address(&window.tabs) {
+            self.activity(|activity| activity.address = Some(address.to_owned()));
         }
         for download in window.downloads.iter().filter(|download| download.done) {
             let new =
@@ -634,6 +630,15 @@ async fn follow(browser: Weak<Browser>, window: Window, closed: CancellationToke
 
 fn cut(text: &str, most: usize) -> String {
     text[..text.floor_char_boundary(most)].to_owned()
+}
+
+/// The page that the browser opens again after a restart, whole: the host saves it with its
+/// terminals, so a page with a longer address is not kept.
+pub(super) fn kept_address(tabs: &[shared_browser::Tab]) -> Option<&str> {
+    tabs.iter()
+        .find(|tab| tab.active)
+        .map(|tab| tab.address.as_str())
+        .filter(|address| address.starts_with("http") && address.len() <= MOST_KEPT_ADDRESS)
 }
 
 /// `--all` with `close` would close the browsers of the other terminals.

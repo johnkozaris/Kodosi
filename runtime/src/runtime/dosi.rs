@@ -295,17 +295,11 @@ impl Runtime {
                     )
                 })
         });
-        let project = context.project.as_ref().and_then(|id| {
-            self.cached_events
-                .get("projects.snapshot")?
-                .get("projects")?
-                .as_array()?
-                .iter()
-                .find(|project| project.get("id").and_then(Value::as_str) == Some(id))?
-                .get("name")?
-                .as_str()
-                .map(|name| format!("the project \"{name}\""))
-        });
+        let project = context
+            .project
+            .as_ref()
+            .and_then(|id| self.project_name(id))
+            .map(|name| format!("the project \"{name}\""));
         match (terminal, project) {
             (Some(terminal), Some(project)) => Some(format!(
                 "(In Kodosi the person has {terminal} open, in {project}.)"
