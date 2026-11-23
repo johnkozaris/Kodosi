@@ -92,7 +92,7 @@ futures-util = { workspace = true }
 qrcodegen = "1.8.0"
 quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-aws-lc-rs"] }
 reqwest = { workspace = true }
-rusqlite = { version = "0.42.0", default-features = false, features = ["bundled"], optional = true }
+rusqlite = { version = "0.43.0", default-features = false, features = ["bundled"], optional = true }
 rustls = { version = "0.23.46", default-features = false, features = ["aws-lc-rs", "prefer-post-quantum", "std"] }
 rustls-platform-verifier = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
