@@ -5,7 +5,7 @@ use crate::{
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     ffi::OsString,
     io::{self, IsTerminal as _, Write},
     path::{Path, PathBuf},
@@ -862,7 +862,7 @@ async fn start_command(
     }
     let (mut name, directory) = start_defaults(name, directory, branch.as_deref());
     if !chosen {
-        name = unused_name(name, &context.sessions);
+        name = crate::names::unused(name, &context.names());
     }
     let directory = match &computer {
         Some(computer) => remote_folder(client, context, computer, directory).await?,
@@ -1018,7 +1018,7 @@ async fn terminal_command(
             name,
         } => {
             let name = name.unwrap_or_else(|| {
-                unused_name(provider.agent().label().to_owned(), &context.sessions)
+                crate::names::unused(provider.agent().label().to_owned(), &context.names())
             });
             Ok(
                 json!({"type":"session.create","requestId":request,"name":name,"workingDir":path(Some(directory))?,"resume":{"provider":provider,"nativeConversationId":conversation}}),
@@ -1575,16 +1575,6 @@ fn start_defaults(
         directory.or_else(|| branch.map(|_| PathBuf::from("."))),
     )
 }
-fn unused_name(name: String, sessions: &[Value]) -> String {
-    let used = |candidate: &str| sessions.iter().any(|session| session["name"] == candidate);
-    if !used(&name) {
-        return name;
-    }
-    (2..=sessions.len() + 1)
-        .map(|number| format!("{name} {number}"))
-        .find(|candidate| !used(candidate))
-        .unwrap_or(name)
-}
 fn path(value: Option<PathBuf>) -> Result<Option<String>> {
     value
         .map(|path| {
@@ -1607,6 +1597,12 @@ struct Context {
     contents: BTreeMap<String, Value>,
 }
 impl Context {
+    fn names(&self) -> HashSet<&str> {
+        self.sessions
+            .iter()
+            .filter_map(|session| session["name"].as_str())
+            .collect()
+    }
     fn from_events(events: &[Value]) -> Self {
         let mut value = Self {
             user: None,
@@ -2107,17 +2103,6 @@ mod tests {
             start_defaults(None, None, None),
             ("Terminal".to_owned(), None)
         );
-        let sessions = [
-            json!({"name":"Terminal"}),
-            json!({"name":"Terminal 2"}),
-            json!({"name":"Claude Code"}),
-        ];
-        assert_eq!(unused_name("Terminal".into(), &sessions), "Terminal 3");
-        assert_eq!(
-            unused_name("Claude Code".into(), &sessions),
-            "Claude Code 2"
-        );
-        assert_eq!(unused_name("Codex".into(), &sessions), "Codex");
     }
     #[test]
     fn older_account_events_cannot_restore_old_sessions() {
@@ -2185,7 +2170,7 @@ mod tests {
         let mut command = Arguments::command();
         command.build();
         let text = help(&mut command).to_lowercase();
-        let words: std::collections::HashSet<_> = text
+        let words: HashSet<_> = text
             .split(|character: char| !character.is_ascii_alphanumeric())
             .collect();
         assert!(words.contains("terminal") && words.contains("project"));

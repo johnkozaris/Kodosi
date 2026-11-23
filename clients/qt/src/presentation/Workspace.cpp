@@ -317,6 +317,8 @@ void Workspace::receiveResult(const QString& type, const QJsonObject& event)
     notifyBusy();
     if (pending.operation == QStringLiteral("project.act"))
         m_projects.completeAction(pending.projectId, event.value(QStringLiteral("action")).toString(), pending.draft);
+    if (pending.operation == QStringLiteral("session.suggestBranch"))
+        emit m_sessionActions.branchSuggested(event.value(QStringLiteral("branch")).toString());
     const auto created = event.value(QStringLiteral("sessionId")).toString();
     if (pending.operation == QStringLiteral("session.create") && !created.isEmpty()) {
         const auto chat = pending.request.value(QStringLiteral("agent")).toObject().value(QStringLiteral("chat")).toBool();

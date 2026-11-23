@@ -1,7 +1,7 @@
 import Foundation
 
 public struct TerminalStart: Equatable, Sendable {
-    public var name: String
+    public var name: String?
     public var directory: String?
     public var computer: String?
     public var projectId: String?
@@ -14,7 +14,7 @@ public struct TerminalStart: Equatable, Sendable {
     public var size: JSONValue?
 
     public init(
-        name: String, directory: String? = nil, computer: String? = nil, projectId: String? = nil, command: String? = nil,
+        name: String? = nil, directory: String? = nil, computer: String? = nil, projectId: String? = nil, command: String? = nil,
         agent: AgentStart? = nil, like: String? = nil, prompt: String? = nil, branch: String? = nil, worktrees: String? = nil,
         size: JSONValue? = nil,
     ) {
@@ -32,9 +32,9 @@ public struct TerminalStart: Equatable, Sendable {
     }
 
     public var fields: [String: JSONValue] {
-        var fields: [String: JSONValue] = ["name": .string(name)]
+        var fields: [String: JSONValue] = [:]
         let words = [
-            ("projectId", projectId), ("workingDir", directory), ("computer", computer), ("command", command), ("like", like),
+            ("name", name), ("projectId", projectId), ("workingDir", directory), ("computer", computer), ("command", command), ("like", like),
             ("prompt", prompt), ("branch", branch), ("worktrees", worktrees),
         ]
         for case let (key, value?) in words {

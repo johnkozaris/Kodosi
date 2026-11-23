@@ -5030,6 +5030,48 @@
               }
             ]
           },
+          "computer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "type": {
+            "const": "session.suggestBranch"
+          }
+        },
+        "required": [
+          "accountUserId",
+          "accountEpoch",
+          "type",
+          "requestId"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "accountEpoch": {
+            "format": "u64",
+            "type": "integer"
+          },
+          "accountUserId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "agent": {
             "anyOf": [
               {
@@ -5317,8 +5359,7 @@
           "accountUserId",
           "accountEpoch",
           "type",
-          "requestId",
-          "name"
+          "requestId"
         ],
         "type": "object"
       },
@@ -12546,6 +12587,16 @@
               }
             ]
           },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "folders": {
             "anyOf": [
               {
@@ -17929,7 +17980,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 106,
+  "protocolVersion": 107,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

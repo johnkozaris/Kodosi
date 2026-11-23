@@ -210,6 +210,64 @@ async fn a_terminal_on_a_new_branch_keeps_its_folder_until_it_closes_unchanged()
     drop(runtime);
 }
 
+#[cfg(feature = "host")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_terminal_without_a_name_gets_a_new_pair_and_a_given_name_stays() {
+    async fn start(runtime: &TestRuntime, name: &str) -> String {
+        let (_, mut events) = runtime.handle.observe().await.unwrap();
+        let request = Uuid::now_v7().to_string();
+        runtime
+            .send(Command::CreateSession {
+                request_id: request.clone(),
+                name: name.to_owned(),
+                working_dir: None,
+                project_id: None,
+                resume: None,
+                branch: None,
+                worktrees: None,
+                command: None,
+                agent: None,
+                prompt: None,
+                like: None,
+                size: None,
+            })
+            .await;
+        created(&mut events, &request).await["name"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+    let runtime = TestRuntime::new().await;
+    assert_eq!(start(&runtime, "Build").await, "Build");
+    let first = start(&runtime, "").await;
+    let second = start(&runtime, "").await;
+    for name in [&first, &second] {
+        assert_eq!(name.split(' ').count(), 2, "{name}");
+    }
+    assert_ne!(first, second);
+
+    let (_, mut events) = runtime.handle.observe().await.unwrap();
+    let request = Uuid::now_v7().to_string();
+    runtime
+        .send(Command::SuggestBranch {
+            request_id: request.clone(),
+        })
+        .await;
+    let branch = timeout(Duration::from_secs(10), async {
+        loop {
+            let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if event["requestId"] == request {
+                break event["branch"].as_str().unwrap().to_owned();
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_ne!(branch, "");
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {

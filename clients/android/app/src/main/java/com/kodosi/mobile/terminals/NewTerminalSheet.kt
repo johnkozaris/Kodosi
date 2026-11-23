@@ -136,7 +136,6 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
     var failure by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
-    val unnamed = stringResource(R.string.new_terminal)
     val fading = fade<Float>()
     LaunchedEffect(launcher, attempt, account.online) {
         if (launcher == null || !account.online) return@LaunchedEffect
@@ -310,7 +309,6 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                                 scope.launch {
                                     try {
                                         launcher.start(
-                                            unnamed,
                                             folder,
                                             prompt.text.toString(),
                                             request.project

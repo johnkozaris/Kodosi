@@ -1437,7 +1437,8 @@ impl Runtime {
     }
 
     fn command(&mut self, envelope: &CommandEnvelope, consumer: Uuid, lifetime: CancellationToken) {
-        let command = &envelope.command;
+        let command = self.named(&envelope.command);
+        let command = command.as_ref();
         let own = self.network.identity().map(|identity| identity.device_id);
         let elsewhere = envelope
             .computer

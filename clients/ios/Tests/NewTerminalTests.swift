@@ -49,7 +49,6 @@ struct NewTerminalTests {
         #expect(create["prompt"] as? String == "fix the failing test")
         #expect(create["size"] == nil)
         #expect(create["projectId"] == nil)
-        #expect((create["name"] as? String)?.isEmpty == false)
         try deliver("session.result", ["requestId": create["requestId"] ?? "", "operation": "session.create", "sessionId": "s1"])
         #expect(await starting.value == "s1")
         #expect(defaults.string(forKey: NewTerminal.lastComputerKey) == "studio")

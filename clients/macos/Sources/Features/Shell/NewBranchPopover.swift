@@ -7,7 +7,7 @@ struct NewBranchPopover: View {
     @Environment(\.theme) private var theme
     @Environment(\.closePanel) private var dismiss
     let directory: String
-    @State private var branch = generateSessionName().lowercased().replacingOccurrences(of: " ", with: "-")
+    @State private var branch = ""
     @State private var starting = false
     @State private var error: String?
     @FocusState private var focused: Bool
@@ -36,7 +36,12 @@ struct NewBranchPopover: View {
         }
         .padding(16)
         .popoverSheet(width: 280)
-        .onAppear { focused = true }
+        .task {
+            if let suggested = try? await deps.commandSink.request("session.suggestBranch").string("branch"), branch.isEmpty {
+                branch = suggested
+            }
+            focused = true
+        }
     }
 
     private func start() {

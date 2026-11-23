@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use std::collections::BTreeSet;
 #[cfg(feature = "host")]
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::{borrow::Cow, collections::HashSet, time::Duration};
 #[cfg(feature = "host")]
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -155,6 +155,11 @@ impl Runtime {
             Command::ListSessionFolders { .. } => {
                 let mut value = super::answer(command, Ok(()));
                 value["folders"] = json!(self.session_folders());
+                self.emit(value);
+            }
+            Command::SuggestBranch { .. } => {
+                let mut value = super::answer(command, Ok(()));
+                value["branch"] = json!(crate::names::new_branch(&self.terminal_names()));
                 self.emit(value);
             }
             #[cfg(not(feature = "host"))]
@@ -412,6 +417,33 @@ impl Runtime {
             .collect::<Vec<_>>();
         running.sort_by_key(|(id, _)| std::cmp::Reverse(*id));
         running.into_iter().map(|(_, folder)| folder).collect()
+    }
+
+    /// A terminal for another computer gets its name here too, so that the command between
+    /// computers always carries one.
+    pub(super) fn named<'a>(&self, command: &'a Command) -> Cow<'a, Command> {
+        match command {
+            Command::CreateSession { name, .. } if name.is_empty() => {
+                let mut named = command.clone();
+                if let Command::CreateSession { name, .. } = &mut named {
+                    *name = crate::names::new_terminal(&self.terminal_names());
+                }
+                Cow::Owned(named)
+            }
+            _ => Cow::Borrowed(command),
+        }
+    }
+
+    fn terminal_names(&self) -> HashSet<&str> {
+        let names = self.remotes.values().map(|entry| entry.name.as_str());
+        #[cfg(feature = "host")]
+        let names = names
+            .chain(self.local.values().map(|local| local.entry.name.as_str()))
+            .chain(self.creating.values().filter_map(|command| match command {
+                Command::CreateSession { name, .. } => Some(name.as_str()),
+                _ => None,
+            }));
+        names.collect()
     }
 
     pub(super) fn ask_computer(&mut self, command: &Command, computer: String) -> Result<()> {

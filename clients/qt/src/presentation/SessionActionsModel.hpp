@@ -45,7 +45,7 @@ public:
     Q_INVOKABLE bool createQuick();
     Q_INVOKABLE bool createSameAgent();
     Q_INVOKABLE bool createOnBranch(const QString& directory, const QString& branch);
-    Q_INVOKABLE QString suggestedBranch() const;
+    Q_INVOKABLE void suggestBranch();
     Q_INVOKABLE bool resume(const QString& provider, const QString& nativeConversationId,
         const QString& workingDirectory);
     Q_INVOKABLE bool close(const QString& sessionId);
@@ -64,6 +64,7 @@ public:
 
 signals:
     void busyChanged();
+    void branchSuggested(QString branch);
     void activated(QString sessionId);
 
 private:

@@ -47,7 +47,7 @@ class LauncherTest {
         )
         loading.await()
         val starting = async(start = CoroutineStart.UNDISPATCHED) {
-            launcher.start(" Work ", "/code", " a\nb\tc ", "project")
+            launcher.start("/code", " a\nb\tc ", "project")
         }
         val command = sent.last("session.create")
         assertEquals("work", command["agent"]!!.jsonObject.string("account"))
@@ -77,7 +77,7 @@ class LauncherTest {
                 "effort":"high","permissions":"unrestricted","output":"quiet","fast":true}]}}"""
         )
         loading.await()
-        val starting = async(start = CoroutineStart.UNDISPATCHED) { launcher.start("Work", null, "", null) }
+        val starting = async(start = CoroutineStart.UNDISPATCHED) { launcher.start(null, "", null) }
         val plan = sent.last("session.create")["agent"]!!.jsonObject
         assertEquals("sonnet", plan.string("model"))
         assertEquals("high", plan.string("effort"))
@@ -151,7 +151,7 @@ class LauncherTest {
     @Test
     fun aShellStartDoesNotLeakAnAgentOrPrompt() = runTest {
         val starting =
-            async(start = CoroutineStart.UNDISPATCHED) { launcher.start("", null, "not a shell command", null) }
+            async(start = CoroutineStart.UNDISPATCHED) { launcher.start(null, "not a shell command", null) }
         val command = sent.last("session.create")
         assertEquals(JsonNull, command["agent"])
         assertEquals(JsonNull, command["prompt"])

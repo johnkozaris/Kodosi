@@ -1339,7 +1339,6 @@ private slots:
         QVERIFY(!sent.contains(QStringLiteral("command")));
         QCOMPARE(sent.value(QStringLiteral("agent")).toObject(), QJsonObject::fromVariantMap(agent));
         QCOMPARE(sent.value(QStringLiteral("prompt")).toString(), QStringLiteral("fix the test"));
-        QVERIFY(!sent.value(QStringLiteral("name")).toString().isEmpty());
     }
     void aTerminalOnANewBranchSendsTheBranchAndTheChosenFolder()
     {
@@ -1373,8 +1372,17 @@ private slots:
         QVERIFY(actions.create(QStringLiteral("Work"), QStringLiteral("/repo")));
         QVERIFY(!f.commands.values.last().contains(QStringLiteral("branch")));
         QVERIFY(!f.commands.values.last().contains(QStringLiteral("worktrees")));
-        const auto suggested = actions.suggestedBranch();
-        QVERIFY(!suggested.isEmpty() && !suggested.contains(QLatin1Char(' ')) && suggested == suggested.toLower());
+
+        QSignalSpy suggested(&actions, &kodosi::SessionActionsModel::branchSuggested);
+        actions.suggestBranch();
+        const auto asked = f.commands.values.last();
+        QCOMPARE(asked.value(QStringLiteral("type")).toString(), QStringLiteral("session.suggestBranch"));
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("session.result") },
+            { QStringLiteral("requestId"), asked.value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("session.suggestBranch") },
+            { QStringLiteral("branch"), QStringLiteral("amber-fox") } }, 0);
+        QCOMPARE(suggested.size(), 1);
+        QCOMPARE(suggested.first().first().toString(), QStringLiteral("amber-fox"));
     }
     void startupLinkSurvivesEmptyCatalogAndSignIn()
     {
