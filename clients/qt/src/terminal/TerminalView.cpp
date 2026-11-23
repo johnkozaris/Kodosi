@@ -309,8 +309,8 @@ QJsonObject TerminalView::startSize(
     }
     QFont font(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     configureTerminalFont(font, fontFamily.trimmed().isEmpty() ? QStringLiteral("JetBrains Mono") : fontFamily.trimmed());
-    font.setPixelSize(std::clamp(fontPixelSize, 8, 32));
-    const auto cell = TerminalRasterizer::cellSize(font, std::clamp(lineHeight, 0.8, 2.0), devicePixelRatio);
+    font.setPixelSize(terminalFontPixels.clamp(fontPixelSize));
+    const auto cell = TerminalRasterizer::cellSize(font, terminalLineHeights.clamp(lineHeight), devicePixelRatio);
     if (cell.width() <= 0.0 || cell.height() <= 0.0) {
         return {};
     }
@@ -465,7 +465,7 @@ void TerminalView::setFontFamily(const QString& family)
 void TerminalView::setFontPixelSize(const int size)
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    const auto bounded = std::clamp(size, 8, 32);
+    const auto bounded = terminalFontPixels.clamp(size);
     if (bounded == m_font.pixelSize()) {
         return;
     }
@@ -477,7 +477,7 @@ void TerminalView::setFontPixelSize(const int size)
 void TerminalView::setLineHeight(const double lineHeight)
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    const auto bounded = std::clamp(lineHeight, 0.8, 2.0);
+    const auto bounded = terminalLineHeights.clamp(lineHeight);
     if (qFuzzyCompare(bounded, m_lineHeight)) {
         return;
     }
@@ -517,7 +517,7 @@ void TerminalView::setCursorBlink(const bool enabled)
 void TerminalView::setScrollbackLines(const int lines)
 {
     Q_ASSERT(thread() == QThread::currentThread());
-    const auto bounded = std::clamp(lines, 100, 100'000);
+    const auto bounded = terminalScrollbackLines.clamp(lines);
     if (bounded == m_scrollbackLines) {
         return;
     }

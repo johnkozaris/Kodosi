@@ -41,7 +41,7 @@ CellMetrics metrics(const QFont& font, const qreal lineHeight, const qreal devic
     };
     const QFontMetricsF fontMetrics(font);
     const auto baseHeight = devicePixels(fontMetrics.height());
-    const auto height = devicePixels(baseHeight * std::clamp(lineHeight, 0.8, 2.0));
+    const auto height = devicePixels(baseHeight * terminalLineHeights.clamp(lineHeight));
     return {
         devicePixels(fontMetrics.horizontalAdvance(QLatin1Char('M'))),
         height,

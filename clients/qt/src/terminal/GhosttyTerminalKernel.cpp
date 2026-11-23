@@ -2335,7 +2335,8 @@ GhosttyTerminalKernel::selectedText(const TerminalSubscription& subscription)
 GhosttyTerminalKernel::ConfigureResult GhosttyTerminalKernel::configure(
     TerminalKernelSettings settings)
 {
-    if (settings.scrollbackLines < 100 || settings.scrollbackLines > 100'000
+    if (settings.scrollbackLines < static_cast<std::size_t>(terminalScrollbackLines.lowest)
+        || settings.scrollbackLines > static_cast<std::size_t>(terminalScrollbackLines.highest)
         || settings.scrollbackBytes
             != terminalScrollbackByteBudget(settings.scrollbackLines)) {
         return std::unexpected(Failure {
