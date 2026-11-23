@@ -455,6 +455,7 @@ mod tests {
                 event.event.kind()
             );
             assert_eq!(encoded["type"], value["type"]);
+            assert_eq!(encoded["type"], event.event.kind());
         }
     }
 
@@ -639,6 +640,7 @@ mod tests {
             }
             let command: protocol::CommandEnvelope = serde_json::from_value(value.clone())
                 .unwrap_or_else(|error| panic!("{value}: {error}"));
+            assert_eq!(value["type"], command.command.operation());
             assert!(matches(&schema, &serde_json::to_value(command).unwrap()));
         }
     }
