@@ -332,14 +332,7 @@ impl Chat {
 
 /// The start of `text` that ends at a character and has at most `most` bytes.
 pub(super) fn start_of(text: &str, most: usize) -> &str {
-    if text.len() <= most {
-        return text;
-    }
-    let mut end = most;
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    &text[..end]
+    &text[..text.floor_char_boundary(most)]
 }
 
 /// The start and the end of a long text, with a sign between them.
@@ -348,9 +341,6 @@ pub(super) fn ends_of(text: &str, most: usize) -> String {
         return text.to_owned();
     }
     let head = start_of(text, most * 3 / 5);
-    let mut tail = text.len() - most * 2 / 5;
-    while !text.is_char_boundary(tail) {
-        tail += 1;
-    }
+    let tail = text.ceil_char_boundary(text.len() - most * 2 / 5);
     format!("{head}\n…\n{}", &text[tail..])
 }

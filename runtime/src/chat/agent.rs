@@ -4,10 +4,7 @@
 //! does. An adapter turns the reports of one agent's link into changes of the chat, and a person's
 //! answer, message or stop into what that agent takes.
 
-use std::{
-    collections::{HashMap, HashSet},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::{HashMap, HashSet};
 
 use serde_json::Value;
 
@@ -112,15 +109,6 @@ pub(super) fn list<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a 
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
-}
-
-/// The time of this computer, in milliseconds since 1970.
-pub(super) fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| {
-            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
-        })
 }
 
 pub(super) fn person(words: &str, by: Option<ChatPerson>) -> ChatBody {

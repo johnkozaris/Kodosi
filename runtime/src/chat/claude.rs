@@ -13,8 +13,7 @@ use super::{
     ChatPerson, ChatQuestion, ChatStep, ChatTool, MOST_CALLS, MOST_OUTPUT, MOST_QUESTIONS,
     MOST_TARGET, MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Places, Stop, answer, list, now, person, question, show_state, stop_open, text,
-        words,
+        Agent, Places, Stop, answer, list, person, question, show_state, stop_open, text, words,
     },
     diff,
     state::{Chat, ends_of, start_of},
@@ -1180,7 +1179,7 @@ impl Agent for Claude {
         };
         chat.close_asks(|open| open.id == ask);
         if let Some((words, by)) = said {
-            chat.push(now(), person(&words, by));
+            chat.push(crate::identity::now_ms(), person(&words, by));
         }
         let allowed = text(decision, "behavior") == "allow";
         let item = asked

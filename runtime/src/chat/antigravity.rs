@@ -904,7 +904,7 @@ impl Agent for Antigravity {
             "p": {"sessionId": session, "prompt": [{"type": "text", "text": text}]},
         }));
         self.turn = Some(Turn {
-            at: super::agent::now(),
+            at: crate::identity::now_ms(),
             stopped: false,
             handed: Some(Handed { queued, text, by }),
         });

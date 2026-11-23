@@ -15,8 +15,8 @@ use super::{
     ChatOption, ChatPerson, ChatQuestion, ChatStep, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Places, Stop, answer, list, now, person, plan_command, remember, show_state,
-        stop_open, text, words,
+        Agent, Places, Stop, answer, list, person, plan_command, remember, show_state, stop_open,
+        text, words,
     },
     diff,
     state::{Chat, ends_of, start_of},
@@ -955,7 +955,7 @@ impl Agent for Copilot {
         };
         chat.close_asks(|open| open.id == ask);
         if let Some((words, by)) = said {
-            chat.push(now(), person(&words, by));
+            chat.push(crate::identity::now_ms(), person(&words, by));
         }
         let refused = text(decision, "kind") == "reject"
             || decision.get("approved").and_then(Value::as_bool) == Some(false)

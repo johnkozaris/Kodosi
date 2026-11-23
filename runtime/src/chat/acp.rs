@@ -28,11 +28,8 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::{
-    agent::now,
-    antigravity::{ASKING, Antigravity, SIGN_IN, ask_name},
-};
-use crate::text::Text;
+use super::antigravity::{ASKING, Antigravity, SIGN_IN, ask_name};
+use crate::{identity::now_ms, text::Text};
 
 /// The time that a server has to answer its first message.
 const START: Duration = Duration::from_secs(60);
@@ -474,7 +471,7 @@ async fn relay(
     let link = Arc::new(link);
     let greeting = json!({
         "k": "hello",
-        "t": now(),
+        "t": now_ms(),
         "agent": agent,
         "started": server.started.take(),
         "folder": std::env::current_dir().ok(),
@@ -515,12 +512,12 @@ async fn relay(
             },
             Some((id, decision)) = decisions.recv() => relay.decide(id, decision).await,
             written = typed.next() => match written {
-                Some(words) => relay.tell(json!({"k": "typed", "t": now(), "text": words})).await,
+                Some(words) => relay.tell(json!({"k": "typed", "t": now_ms(), "text": words})).await,
                 None => Some(Ended::Code(0)),
             },
             _ = interrupts.recv() => {
                 if relay.open.busy() {
-                    relay.tell(json!({"k": "interrupt", "t": now()})).await
+                    relay.tell(json!({"k": "interrupt", "t": now_ms()})).await
                 } else {
                     Some(Ended::Code(130))
                 }
@@ -540,7 +537,7 @@ async fn relay(
     } = relay;
     let code = server.end().await;
     if matches!(ended, Ended::Code(_)) {
-        drop(events.send(json!({"k": "end", "t": now()})).await);
+        drop(events.send(json!({"k": "end", "t": now_ms()})).await);
     }
     drop(events);
     drop(tokio::time::timeout(END, posting).await);
@@ -654,7 +651,7 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
             if method == "session/request_permission" {
                 Heard {
                     event: Some(
-                        json!({"k": "request", "t": now(), "id": id, "m": method, "p": params}),
+                        json!({"k": "request", "t": now_ms(), "id": id, "m": method, "p": params}),
                     ),
                     ask: Some(id.clone()),
                     ..Heard::default()
@@ -668,7 +665,7 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
         }
         (Some(method), None) => Heard {
             title: session_title(&params),
-            event: Some(json!({"k": "note", "t": now(), "m": method, "p": params})),
+            event: Some(json!({"k": "note", "t": now_ms(), "m": method, "p": params})),
             ..Heard::default()
         },
         (None, Some(id)) => {
@@ -687,7 +684,7 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
             Heard {
                 event: Some(json!({
                     "k": "reply",
-                    "t": now(),
+                    "t": now_ms(),
                     "tag": tag,
                     "r": result,
                     "e": message.get("error"),

@@ -26,7 +26,6 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::{
-    agent::now,
     codex::Codex,
     room::{Asked, Job},
 };
@@ -312,7 +311,7 @@ struct Reports {
 impl Reports {
     /// False when the chat does not follow this link.
     async fn tell(&mut self, mut event: Value) -> bool {
-        event["t"] = now().into();
+        event["t"] = crate::identity::now_ms().into();
         self.batch += 1;
         let (reply, heard) = oneshot::channel();
         let job = Job::Events {
