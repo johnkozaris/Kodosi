@@ -44,7 +44,6 @@ public:
     QString accountError() const { return m_accountError; }
     bool addingAccount() const;
     QVariantMap usage() const { return m_usage; }
-    bool usageRead() const { return m_usageRead; }
     bool usageAvailable() const;
     QVariantList usageSections() const;
     QVariant usageNearest() const;
