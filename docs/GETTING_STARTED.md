@@ -113,11 +113,10 @@ device off, open Settings in Kodosi on that device. Programs report their state 
 progress bar. A program that reports nothing shows no state.
 
 A terminal with Claude Code also shows as a chat, and so does one with Codex or Copilot
-CLI that Kodosi starts. On a Mac, an iPhone, an iPad or an Android phone, select Chat in
-the terminal's header. The chat shows what you wrote, what the agent answered and did, and
-the questions that it asks, with their answers as keys. Write to the agent there, or stop
-it. While it asks, the words that you write tell it what to do instead. What you do in the
-chat also happens in the terminal.
+CLI that Kodosi starts. Select Chat in the terminal's header. The chat shows what you
+wrote, what the agent answered and did, and the questions that it asks, with their answers
+as keys. Write to the agent there, or stop it. While it asks, the words that you write
+tell it what to do instead. What you do in the chat also happens in the terminal.
 
 ## 4. See what an agent shows
 
