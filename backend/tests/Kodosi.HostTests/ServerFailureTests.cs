@@ -47,7 +47,7 @@ public sealed class ServerFailureTests(PostgresFixture postgres)
         Assert.Equal(409, (await AnswerAsync(unique, metrics)).Status);
         Assert.Equal(0, metrics.Read().Failed);
 
-        var (unavailable, why) = await AnswerAsync(new InvalidOperationException("retry", new NpgsqlException("down", new TimeoutException())), metrics);
+        var (unavailable, why) = await AnswerAsync(new DbUpdateException("down", new NpgsqlException("down", new TimeoutException())), metrics);
         Assert.Equal(503, unavailable);
         Assert.Equal("The Kodosi server could not reach its database. Try again in a moment.", why!.Value.GetProperty("error").GetString());
         var (fault, text) = await AnswerAsync(new InvalidOperationException("a private detail"), metrics);
