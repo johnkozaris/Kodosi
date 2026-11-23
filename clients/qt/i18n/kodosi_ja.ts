@@ -3689,10 +3689,6 @@
         <translation>オフライン</translation>
     </message>
     <message>
-        <source>Not connected</source>
-        <translation>未接続</translation>
-    </message>
-    <message>
         <source>Terminal name</source>
         <translation>ターミナル名</translation>
     </message>

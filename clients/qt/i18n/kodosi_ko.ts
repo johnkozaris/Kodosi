@@ -3689,10 +3689,6 @@
         <translation>오프라인</translation>
     </message>
     <message>
-        <source>Not connected</source>
-        <translation>연결 안 됨</translation>
-    </message>
-    <message>
         <source>Terminal name</source>
         <translation>터미널 이름</translation>
     </message>

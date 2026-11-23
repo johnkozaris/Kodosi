@@ -3701,10 +3701,6 @@
         <translation>Sin conexión</translation>
     </message>
     <message>
-        <source>Not connected</source>
-        <translation>Sin conexión</translation>
-    </message>
-    <message>
         <source>Terminal name</source>
         <translation>Nombre del terminal</translation>
     </message>
