@@ -73,7 +73,7 @@ internal static class Failures
     {
         NpgsqlException npgsql => npgsql.IsTransient,
         TimeoutException => true,
-        DbUpdateException or InvalidOperationException => error.InnerException is { } inner && IsDatabaseUnavailable(inner),
+        DbUpdateException => error.InnerException is { } inner && IsDatabaseUnavailable(inner),
         _ => false,
     };
 
