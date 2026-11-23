@@ -83,8 +83,6 @@ private:
 
 }
 
-class LightClock;
-
 class LightTrack : public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
@@ -102,7 +100,6 @@ public:
 
     [[nodiscard]] double angle() const { return m_angle; }
     [[nodiscard]] bool turning() const { return m_turning; }
-    [[nodiscard]] static bool clockRunning();
 
 signals:
     void modeChanged();
@@ -119,8 +116,6 @@ protected:
     QSGNode* updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data) override;
 
 private:
-    friend class LightClock;
-
     void refresh();
     void turnTo(double angle);
 

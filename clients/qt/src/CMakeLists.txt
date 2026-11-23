@@ -268,6 +268,8 @@ qt_add_qml_module(kodosi-ui
         controls/KeyRecorder.hpp
         controls/LightTrack.cpp
         controls/LightTrack.hpp
+        controls/SignClock.cpp
+        controls/SignClock.hpp
     QML_FILES
         qml/Main.qml
         qml/Screens/PeopleView.qml
@@ -426,7 +428,7 @@ qt_add_qml_module(kodosi-ui
 
 target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 Qt6::WebEngineQuick kodosi-qml-modelsplugin)
 target_include_directories(kodosi-ui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/controls")
-set_source_files_properties(controls/KeyRecorder.cpp controls/LightTrack.cpp
+set_source_files_properties(controls/KeyRecorder.cpp controls/LightTrack.cpp controls/SignClock.cpp
     PROPERTIES COMPILE_OPTIONS "${KODOSI_COMPILE_OPTIONS}")
 
 target_link_libraries(kodosi-qt

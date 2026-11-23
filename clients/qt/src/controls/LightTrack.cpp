@@ -1,16 +1,13 @@
 #include "controls/LightTrack.hpp"
+#include "controls/SignClock.hpp"
 
-#include <QCoreApplication>
 #include <QDateTime>
-#include <QPointer>
 #include <QQuickWindow>
 #include <QRectF>
 #include <QSGGeometryNode>
 #include <QSGVertexColorMaterial>
-#include <QTimer>
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <numbers>
 #include <utility>
@@ -442,86 +439,6 @@ void Mesh::index()
 
 }
 
-class LightClock final : public QObject {
-public:
-    static void join(LightTrack* light);
-    static void leave(LightTrack* light);
-    [[nodiscard]] static bool running();
-
-private:
-    LightClock();
-    void tick();
-    void schedule();
-
-    QTimer m_timer;
-    std::vector<LightTrack*> m_lights;
-};
-
-namespace {
-
-QPointer<LightClock> sharedClock;
-
-std::int64_t nextSharedTick(const std::int64_t now)
-{
-    constexpr std::int64_t ticksPerSecond = 30;
-    return ((now * ticksPerSecond / 1000 + 1) * 1000 + ticksPerSecond - 1) / ticksPerSecond;
-}
-
-}
-
-LightClock::LightClock()
-    : QObject(QCoreApplication::instance())
-{
-    m_timer.setSingleShot(true);
-    m_timer.setTimerType(Qt::PreciseTimer);
-    connect(&m_timer, &QTimer::timeout, this, [this] { tick(); });
-}
-
-void LightClock::join(LightTrack* light)
-{
-    if (QCoreApplication::instance() == nullptr)
-        return;
-    if (sharedClock.isNull())
-        sharedClock = new LightClock;
-    auto& lights = sharedClock->m_lights;
-    if (std::find(lights.begin(), lights.end(), light) == lights.end())
-        lights.push_back(light);
-    if (!sharedClock->m_timer.isActive())
-        sharedClock->schedule();
-}
-
-void LightClock::leave(LightTrack* light)
-{
-    if (sharedClock.isNull())
-        return;
-    auto& lights = sharedClock->m_lights;
-    lights.erase(std::remove(lights.begin(), lights.end(), light), lights.end());
-    if (lights.empty())
-        sharedClock->m_timer.stop();
-}
-
-bool LightClock::running()
-{
-    return !sharedClock.isNull() && sharedClock->m_timer.isActive();
-}
-
-void LightClock::tick()
-{
-    const double angle = light::phase(QDateTime::currentMSecsSinceEpoch());
-    for (auto* light : m_lights)
-        light->turnTo(angle);
-    schedule();
-}
-
-void LightClock::schedule()
-{
-    if (m_lights.empty())
-        return;
-    const std::int64_t now = QDateTime::currentMSecsSinceEpoch();
-    const std::int64_t next = nextSharedTick(now);
-    m_timer.start(std::chrono::milliseconds(std::max<std::int64_t>(1, next - now)));
-}
-
 LightTrack::LightTrack(QQuickItem* parent)
     : QQuickItem(parent)
 {
@@ -536,12 +453,7 @@ LightTrack::LightTrack(QQuickItem* parent)
 LightTrack::~LightTrack()
 {
     if (m_turning)
-        LightClock::leave(this);
-}
-
-bool LightTrack::clockRunning()
-{
-    return LightClock::running();
+        SignClock::leave(this);
 }
 
 void LightTrack::geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry)
@@ -567,9 +479,9 @@ void LightTrack::refresh()
     if (turns != m_turning) {
         m_turning = turns;
         if (turns)
-            LightClock::join(this);
+            SignClock::join(this, [this](const std::int64_t now) { turnTo(light::phase(now)); });
         else
-            LightClock::leave(this);
+            SignClock::leave(this);
     }
     if (turns)
         m_angle = light::phase(QDateTime::currentMSecsSinceEpoch());
