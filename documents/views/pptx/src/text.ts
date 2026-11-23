@@ -181,6 +181,39 @@ export interface Measure {
   face(font: string): string;
 }
 
+const IDEOGRAPHIC = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+const NEVER_STARTS =
+  "、。，．・：；？！ー々〻ゝゞヽヾぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶ」』）〕】〉》〟’”…‥";
+const NEVER_ENDS = "「『（〔【〈《〝‘“";
+
+/**
+ * The pieces of a text after each of which a line may break: after a space, and between the
+ * characters of Chinese and Japanese, which have no spaces, as the editor breaks them too.
+ */
+function breakable(text: string): string[] {
+  const pieces: string[] = [];
+  for (const word of text.match(/\S+\s*|\s+/g) ?? []) {
+    let piece = "";
+    let before = "";
+    for (const character of word) {
+      if (
+        piece !== "" &&
+        (IDEOGRAPHIC.test(character) || IDEOGRAPHIC.test(before)) &&
+        !/\s/u.test(character) &&
+        !NEVER_STARTS.includes(character) &&
+        !NEVER_ENDS.includes(before)
+      ) {
+        pieces.push(piece);
+        piece = "";
+      }
+      piece += character;
+      before = character;
+    }
+    pieces.push(piece);
+  }
+  return pieces;
+}
+
 function wordsOf(
   paragraph: ProseNode,
   level: Level,
@@ -190,7 +223,7 @@ function wordsOf(
   const lines: TextWord[][] = [[]];
   const push = (text: string, style: TextStyle) => {
     const font = cssFont({ ...style, font: measure.face(style.font) });
-    for (const word of text.match(/\S+\s*|\s+/g) ?? []) {
+    for (const word of breakable(text)) {
       lines.at(-1)?.push({
         text: word,
         x: 0,
