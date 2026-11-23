@@ -63,6 +63,7 @@ Run the check of each part that you changed:
 | The backend | `just backend-check` |
 | The sign-in pages | `just sign-in-check` |
 | A text that people read | `just translations-check` |
+| Runtime code that only one system compiles (`cfg`) | `just windows-rust-lint`, which needs Docker |
 | The Mac app, the iPhone and iPad app or their shared code | `just mac-check`, `just ios-check` |
 | The Linux and Windows app | `just linux-check` on Linux or `just windows-check` on Windows |
 | The Android app | `just android-check` |
@@ -71,7 +72,8 @@ Run the check of each part that you changed:
 A pull request runs the first five again, in a few minutes. No workflow builds an app for
 a pull request. The Linux app, the Windows app and the Windows package build each night on
 main. When you changed the Linux and Windows app and have no computer with Linux or
-Windows, start the workflow `Linux app` or `Windows app` for your branch and wait for it:
+Windows, or changed such runtime code and have no Docker, start the workflow `Linux app` or
+`Windows app` for your branch and wait for it:
 
 ```sh
 gh workflow run "Linux app" --ref <branch>
