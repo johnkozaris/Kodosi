@@ -28,7 +28,10 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::{agent::now, antigravity::Antigravity};
+use super::{
+    agent::now,
+    antigravity::{ASKING, Antigravity, SIGN_IN, ask_name},
+};
 use crate::text::Text;
 
 /// The time that a server has to answer its first message.
@@ -42,10 +45,6 @@ const MOST_WAITING: usize = 256;
 const MOST_TITLE: usize = 120;
 /// The JSON-RPC code of a method that the other side does not have.
 const NO_METHOD: i64 = -32601;
-/// What Kodosi's chat calls on the terminal's side itself: the agent's own sign-in, and the
-/// state of an agent that asked the person a question in its answer and waits for the next message.
-pub(super) const SIGN_IN: &str = "kodosi/signIn";
-pub(super) const ASKING: &str = "kodosi/asking";
 
 /// The choices of the session that the line of the terminal gives. The chat's adapter makes them.
 pub(crate) struct Choices {
@@ -461,15 +460,6 @@ fn write_out(text: &str) {
     let mut out = io::stdout().lock();
     drop(out.write_all(text.as_bytes()));
     drop(out.flush());
-}
-
-/// The name of the question that a request of the server makes, which the adapter gives too.
-pub(super) fn ask_name(request: &Value) -> Option<String> {
-    match request {
-        Value::Number(number) => Some(format!("r{number}")),
-        Value::String(name) if !name.is_empty() => Some(format!("r{name}")),
-        _ => None,
-    }
 }
 
 /// Carries the messages between the server and the chat until the server ends, the chat leaves,

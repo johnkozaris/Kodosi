@@ -15,7 +15,6 @@ use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
-    acp::{ASKING, SIGN_IN, ask_name},
     agent::{
         Agent, Stop, answer, file_name, list, open_items, person, shown_rule, stop_open, text,
         words,
@@ -31,6 +30,10 @@ const SIGNED_OUT: i64 = -32000;
 /// the person's next message is the answer.
 const ASK_QUESTION: &str = "ask_question";
 const MOST_ITEMS: usize = 2048;
+/// What Kodosi's chat calls on the terminal's side itself: the agent's own sign-in, and the
+/// state of an agent that asked the person a question in its answer and waits for the next message.
+pub(super) const SIGN_IN: &str = "kodosi/signIn";
+pub(super) const ASKING: &str = "kodosi/asking";
 
 #[derive(Default)]
 pub(super) struct Antigravity {
@@ -1133,5 +1136,15 @@ fn news(tool: &mut ChatTool, update: &Value) {
                 });
             }
         }
+    }
+}
+
+/// The name of the question that a request of the server makes, which the terminal's side
+/// gives too.
+pub(super) fn ask_name(request: &Value) -> Option<String> {
+    match request {
+        Value::Number(number) => Some(format!("r{number}")),
+        Value::String(name) if !name.is_empty() => Some(format!("r{name}")),
+        _ => None,
     }
 }

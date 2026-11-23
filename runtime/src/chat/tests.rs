@@ -13,9 +13,8 @@
 use serde_json::{Value, json};
 
 use super::{
-    acp,
     agent::{Agent, Stop, shown_rule},
-    antigravity::Antigravity,
+    antigravity::{ASKING, Antigravity, SIGN_IN},
     claude::Claude,
     codex::Codex,
     copilot::Copilot,
@@ -2580,7 +2579,7 @@ fn a_signed_out_antigravity_signs_in_with_its_own_steps_in_its_terminal() {
             ..
         }]
     ));
-    assert_eq!(calls(&play, acp::SIGN_IN).len(), 1);
+    assert_eq!(calls(&play, SIGN_IN).len(), 1);
     assert_eq!(play.view.facts.version.as_deref(), Some("1.5.14"));
     assert_eq!(play.view.state, ChatState::Idle);
 }
@@ -2716,7 +2715,7 @@ fn antigravity_asks_its_own_question_in_the_chat_and_the_answer_is_its_next_mess
         Vec::<&str>::new(),
         "the agent's own words of the question show once, as the question"
     );
-    assert_eq!(calls(&play, acp::ASKING).len(), 1);
+    assert_eq!(calls(&play, ASKING).len(), 1);
 
     let rust = vec![vec!["(Recommended) Rust".to_owned()]];
     play.more(&after, &[ChatAnswer::Answers { answers: rust }]);
@@ -2745,7 +2744,7 @@ fn a_message_in_the_chat_answers_the_open_question_of_antigravity_once() {
 
     assert_eq!(play.view.asks, []);
     assert_eq!(
-        calls(&play, acp::ASKING).len(),
+        calls(&play, ASKING).len(),
         1,
         "the agent's news of the question that it takes asks nothing again"
     );

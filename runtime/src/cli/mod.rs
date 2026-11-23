@@ -579,16 +579,16 @@ async fn run_acp(
 }
 
 #[cfg(not(unix))]
-async fn run_acp(
+fn run_acp(
     _: Vec<String>,
     _: Option<String>,
     _: Option<String>,
     _: Option<String>,
     _: Option<String>,
-) -> Result<u8> {
-    Err(Error::Text(text!(
+) -> std::future::Ready<Result<u8>> {
+    std::future::ready(Err(Error::Text(text!(
         "The chat of a terminal follows an agent's server only on macOS and Linux."
-    )))
+    ))))
 }
 
 const fn hosted_kind(action: &Action) -> Option<HostKind> {
