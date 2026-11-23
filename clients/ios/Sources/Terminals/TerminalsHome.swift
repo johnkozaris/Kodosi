@@ -172,7 +172,6 @@ private struct ComputerHeader: View {
                     .appTextStyle(.caption)
                     .monospacedDigit()
                     .foregroundStyle(theme.colors.inkFaint)
-                    .contentTransition(.numericText(value: Double(count)))
                     .fixedSize()
             }
             .accessibilityElement(children: .combine)

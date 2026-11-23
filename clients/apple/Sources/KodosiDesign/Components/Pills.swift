@@ -197,7 +197,7 @@ public struct SectionDock: View {
                             Text(item.title).fixedSize()
                                 .transition(.opacity.combined(with: .offset(x: -6)))
                         } else if item.count > 0 {
-                            Text(item.count, format: .number).monospacedDigit().contentTransition(.numericText())
+                            Text(item.count, format: .number).monospacedDigit()
                                 .foregroundStyle(theme.colors.inkFaint)
                         }
                     }
@@ -284,7 +284,6 @@ public struct CountBadge: View {
     public var body: some View {
         Text(verbatim: count > 99 ? "99+" : "\(count)")
             .font(.system(size: 10, weight: .semibold, design: .rounded)).monospacedDigit()
-            .contentTransition(.numericText())
             .foregroundStyle(quiet ? theme.colors.inkMuted : theme.colors.onAccent)
             .padding(.horizontal, 5)
             .frame(minWidth: 17, minHeight: 17)

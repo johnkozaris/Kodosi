@@ -40,7 +40,6 @@ public struct PictureNotice: View {
             if !arrived {
                 Text(fraction, format: .percent.precision(.fractionLength(0)))
                     .appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkMuted)
-                    .contentTransition(.numericText(value: fraction))
                     .animation(theme.motion.snappy, value: fraction)
             }
         }

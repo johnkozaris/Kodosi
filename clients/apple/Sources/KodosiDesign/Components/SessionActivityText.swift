@@ -38,7 +38,7 @@ public struct SessionActivityText: View {
             }
             if let progress = session.progress {
                 Text(Double(progress) / 100, format: .percent).monospacedDigit().lineLimit(1)
-                    .contentTransition(.numericText(value: Double(progress))).layoutPriority(1)
+                    .layoutPriority(1)
             }
         }
         .animation(theme.motion.snappy, value: words)

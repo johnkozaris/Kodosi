@@ -20,7 +20,6 @@ private struct DosiMoreChip<List: View>: View {
         Button { open.toggle() } label: {
             HStack(spacing: 4) {
                 Text(verbatim: "\(count)").font(.system(size: 11.5, weight: .semibold).monospacedDigit())
-                    .contentTransition(.numericText(value: Double(count)))
                 Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
                     .rotationEffect(.degrees(open ? 180 : 0))
             }

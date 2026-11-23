@@ -75,7 +75,6 @@ public struct ProjectLatestKey: View {
             } icon: {
                 Image(systemName: "arrow.down")
             }
-            .contentTransition(.numericText())
         }
         .buttonStyle(.kodosi(unread > 0 ? .primary : .secondary, size: .small))
         .accessibilityIdentifier(identifier)
