@@ -15,8 +15,8 @@ use super::{
     ChatOption, ChatPerson, ChatQuestion, ChatState, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
     MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Stop, answer, file_name, list, open_items, person, plan_command, shown_rule,
-        stop_open, text, words,
+        Agent, Places, Stop, answer, list, open_items, person, plan_command, shown_rule, stop_open,
+        text, words,
     },
     diff,
     state::{Chat, ends_of, start_of},
@@ -534,6 +534,7 @@ impl Codex {
         {
             self.now = None;
         }
+        let places = &Places::of(chat);
         let shown = match (text(item, "type"), known) {
             ("userMessage", None) => self.said_by_person(chat, item, at),
             ("agentMessage", None) => Some(chat.push(at, answer(text(item, "text"), !done))),
@@ -566,7 +567,7 @@ impl Codex {
                 );
                 None
             }
-            ("commandExecution" | "fileChange", None) => described(item).map(|mut tool| {
+            ("commandExecution" | "fileChange", None) => described(item, places).map(|mut tool| {
                 end(&mut tool, item);
                 chat.push(
                     at,
@@ -586,7 +587,7 @@ impl Codex {
                 });
                 None
             }
-            (kind, None) => other(kind, item).map(|tool| {
+            (kind, None) => other(kind, item, places).map(|tool| {
                 chat.push(
                     at,
                     ChatBody::Tool {
@@ -1283,17 +1284,17 @@ fn state_of(item: &Value) -> ToolState {
 }
 
 /// A command or a change of files as the chat shows it.
-fn described(item: &Value) -> Option<ChatTool> {
+fn described(item: &Value, places: &Places) -> Option<ChatTool> {
     match text(item, "type") {
-        "commandExecution" => Some(command(item)),
-        "fileChange" => change(item),
+        "commandExecution" => Some(command(item, places)),
+        "fileChange" => change(item, places),
         _ => None,
     }
 }
 
 /// Codex gives a command as its shell runs it, and the parts that it understood: what the agent
 /// asked for, and which of them read a file or search.
-fn command(item: &Value) -> ChatTool {
+fn command(item: &Value, places: &Places) -> ChatTool {
     let actions = list(item, "commandActions").collect::<Vec<_>>();
     let asked = actions
         .iter()
@@ -1315,7 +1316,10 @@ fn command(item: &Value) -> ChatTool {
     let (kind, target) = if all(&["read"]) {
         let names = actions
             .iter()
-            .map(|action| text(action, "name"))
+            .map(|action| match text(action, "path") {
+                "" => text(action, "name").to_owned(),
+                path => places.file(path),
+            })
             .collect::<Vec<_>>()
             .join(", ");
         (ToolKind::Read, names)
@@ -1342,7 +1346,7 @@ fn command(item: &Value) -> ChatTool {
     }
 }
 
-fn change(item: &Value) -> Option<ChatTool> {
+fn change(item: &Value, places: &Places) -> Option<ChatTool> {
     let changes = list(item, "changes").collect::<Vec<_>>();
     let first = changes.first()?;
     let lines = changes
@@ -1358,7 +1362,7 @@ fn change(item: &Value) -> Option<ChatTool> {
         .reduce(diff::Change::then)?;
     let names = changes
         .iter()
-        .map(|change| file_name(text(change, "path")))
+        .map(|change| places.file(text(change, "path")))
         .collect::<Vec<_>>()
         .join(", ");
     Some(ChatTool {
@@ -1399,14 +1403,14 @@ fn plan(item: &Value, done: bool) -> ChatTool {
     }
 }
 
-fn other(kind: &str, item: &Value) -> Option<ChatTool> {
+fn other(kind: &str, item: &Value, places: &Places) -> Option<ChatTool> {
     let (shown, subject) = match kind {
         "webSearch" => (ToolKind::Web, words(item, "query")),
         "collabAgentToolCall" => (ToolKind::Agent, words(item, "prompt")),
         "mcpToolCall" | "dynamicToolCall" => (ToolKind::Other, words(item, "tool")),
         "imageView" => (
             ToolKind::Read,
-            words(item, "path").map(|path| file_name(&path).to_owned()),
+            words(item, "path").map(|path| places.file(&path)),
         ),
         "imageGeneration" => (ToolKind::Other, None),
         _ => return None,

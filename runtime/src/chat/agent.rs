@@ -155,6 +155,147 @@ pub(super) fn stop_open(chat: &mut Chat) {
     }
 }
 
+const SEPARATORS: [char; 2] = ['/', '\\'];
+
+/// The places from which a chat names a file: the terminal's folder that the agent reported for
+/// this moment, and the home folder of this computer.
+pub(super) struct Places {
+    folder: Option<String>,
+    home: Option<String>,
+}
+
+impl Places {
+    pub(super) fn of(chat: &Chat) -> Self {
+        Self {
+            folder: chat.facts().folder.clone(),
+            home: chat.home().map(str::to_owned),
+        }
+    }
+
+    /// A file in the terminal's folder or below it shows by its name, as a person expects there.
+    /// A file elsewhere shows its place, with the home folder as `~`, so that a person who allows
+    /// a call sees which file it is.
+    pub(super) fn file(&self, path: &str) -> String {
+        if path.is_empty() {
+            return String::new();
+        }
+        let folder = self
+            .folder
+            .as_deref()
+            .and_then(|folder| self.place(folder, None));
+        let Some(file) = self.place(path, folder.clone()) else {
+            return path.to_owned();
+        };
+        if folder.is_some_and(|folder| file.is_in(&folder)) {
+            return file
+                .names
+                .last()
+                .map_or_else(|| path.to_owned(), |name| (*name).to_owned());
+        }
+        let separator = if path.contains('\\') { "\\" } else { "/" };
+        match self.home().filter(|home| file.is_in(home)) {
+            Some(home) => std::iter::once("~")
+                .chain(file.names[home.names.len()..].iter().copied())
+                .collect::<Vec<_>>()
+                .join(separator),
+            None => file.shown(separator),
+        }
+    }
+
+    fn home(&self) -> Option<Place<'_>> {
+        let (start, rest) = rooted(self.home.as_deref()?)?;
+        Some(Place::at(start).along(rest))
+    }
+
+    /// Where `path` is: an absolute path, a path from the home folder, or a path from `from`.
+    fn place<'a>(&'a self, path: &'a str, from: Option<Place<'a>>) -> Option<Place<'a>> {
+        if is_home(path) {
+            return Some(self.home()?.along(&path[1..]));
+        }
+        match rooted(path) {
+            Some((start, rest)) => Some(Place::at(start).along(rest)),
+            None => Some(from?.along(path)),
+        }
+    }
+}
+
+fn is_home(path: &str) -> bool {
+    path.strip_prefix('~')
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with(SEPARATORS))
+}
+
+/// How an absolute path starts, and the rest: `/`, a drive such as `C:`, or the `\\` of a share.
+fn rooted(path: &str) -> Option<(&str, &str)> {
+    let bytes = path.as_bytes();
+    if path.starts_with(r"\\") {
+        Some(path.split_at(2))
+    } else if path.starts_with(SEPARATORS) {
+        Some(path.split_at(1))
+    } else if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        Some(path.split_at(2))
+    } else {
+        None
+    }
+}
+
+/// An absolute place: how its path starts, and its folders and name.
+#[derive(Clone)]
+struct Place<'a> {
+    start: &'a str,
+    names: Vec<&'a str>,
+}
+
+impl<'a> Place<'a> {
+    const fn at(start: &'a str) -> Self {
+        Self {
+            start,
+            names: Vec::new(),
+        }
+    }
+
+    /// The place that `path` leads to from here: into a folder at each name, out of one at `..`.
+    fn along(mut self, path: &'a str) -> Self {
+        for name in path.split(SEPARATORS) {
+            match name {
+                "" | "." => {}
+                ".." => {
+                    self.names.pop();
+                }
+                name => self.names.push(name),
+            }
+        }
+        self
+    }
+
+    /// Windows does not tell letters of another case apart in a path.
+    fn is_in(&self, folder: &Place<'_>) -> bool {
+        let windows = self.start != "/";
+        let same = |one: &str, other: &str| {
+            if windows {
+                one.to_lowercase() == other.to_lowercase()
+            } else {
+                one == other
+            }
+        };
+        same(self.start, folder.start)
+            && self.names.len() >= folder.names.len()
+            && self
+                .names
+                .iter()
+                .zip(&folder.names)
+                .all(|(name, folder)| same(name, folder))
+    }
+
+    fn shown(&self, separator: &str) -> String {
+        let names = self.names.join(separator);
+        if self.start.ends_with(SEPARATORS) {
+            format!("{}{names}", self.start)
+        } else {
+            format!("{}{separator}{names}", self.start)
+        }
+    }
+}
+
 pub(super) fn file_name(path: &str) -> &str {
     path.rsplit(['/', '\\']).next().unwrap_or(path)
 }

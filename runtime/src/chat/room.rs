@@ -87,7 +87,11 @@ impl ChatHandle {
             jobs: receiver,
             own: jobs.downgrade(),
             linked,
-            chat: Chat::default(),
+            chat: Chat::at_home(
+                kodosi_os::fs::home_dir()
+                    .ok()
+                    .and_then(|home| home.into_os_string().into_string().ok()),
+            ),
             agent: None,
             link: None,
             heard: 0,

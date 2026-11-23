@@ -13,7 +13,7 @@
 use serde_json::{Value, json};
 
 use super::{
-    agent::{Agent, Stop, shown_rule},
+    agent::{Agent, Places, Stop, shown_rule},
     antigravity::{ASKING, Antigravity, SIGN_IN},
     claude::Claude,
     codex::Codex,
@@ -61,15 +61,24 @@ struct Play {
 }
 
 impl Default for Play {
+    /// The records of Claude Code are of sessions in Sam's shop, whose folder the module reports
+    /// when it starts.
     fn default() -> Self {
-        Self::new(Box::new(Claude::default()))
+        let mut play = Self::new(Box::new(Claude::default()));
+        play.take(&json!({"k": "cwd", "cwd": "/home/sam/shop"}));
+        play
     }
 }
 
 impl Play {
+    /// A chat on Sam's computer.
     fn new(agent: Box<dyn Agent>) -> Self {
+        Self::at_home(agent, "/home/sam")
+    }
+
+    fn at_home(agent: Box<dyn Agent>, home: &str) -> Self {
         Self {
-            chat: Chat::default(),
+            chat: Chat::at_home(Some(home.to_owned())),
             agent,
             view: ChatSnapshot::default(),
             closed: Vec::new(),
@@ -90,10 +99,10 @@ impl Play {
         play
     }
 
-    /// Plays a record of Antigravity CLI's server from its start. Each question gets the next of
-    /// `answers`, and the person who answers is Sam.
+    /// Plays a record of Antigravity CLI's server on Ana's computer from its start. Each question
+    /// gets the next of `answers`, and the person who answers is Sam.
     fn antigravity(record: &str, answers: &[ChatAnswer]) -> Self {
-        let mut play = Self::new(Box::new(Antigravity::default()));
+        let mut play = Self::at_home(Box::new(Antigravity::default()), "/home/ana");
         play.answers_by = Some(sam());
         play.more(record, answers);
         play
@@ -401,12 +410,218 @@ fn the_words_of_a_refusal_go_to_the_agent_as_the_persons_and_the_change_shows_as
     assert_said_after_refusal(&play, "Do not change the file.");
 }
 
+/// The places of a chat whose agent reported `folder`, on a computer whose home folder is `home`.
+fn places(folder: Option<&str>, home: &str) -> Places {
+    let mut chat = Chat::at_home(Some(home.to_owned()));
+    chat.change_facts(|facts| facts.folder = folder.map(str::to_owned));
+    Places::of(&chat)
+}
+
+#[test]
+fn a_file_shows_its_name_in_the_terminals_folder_and_its_place_elsewhere() {
+    let places = places(Some("/home/sam/shop"), "/home/sam");
+
+    for (path, shown) in [
+        ("/home/sam/shop/prices.json", "prices.json"),
+        ("/home/sam/shop/data/prices.json", "prices.json"),
+        ("data/prices.json", "prices.json"),
+        (
+            "/home/sam/Repos/Kodosi/prices.json",
+            "~/Repos/Kodosi/prices.json",
+        ),
+        ("/home/sam/shop-old/prices.json", "~/shop-old/prices.json"),
+        ("/home/sam/shop/../other/prices.json", "~/other/prices.json"),
+        ("../other/prices.json", "~/other/prices.json"),
+        ("/home/samuel/prices.json", "/home/samuel/prices.json"),
+        ("/etc/hosts", "/etc/hosts"),
+    ] {
+        assert_eq!(places.file(path), shown, "{path}");
+    }
+}
+
+#[test]
+fn without_the_terminals_folder_a_file_shows_from_the_home_folder_or_whole() {
+    let places = places(None, "/home/sam");
+
+    assert_eq!(
+        places.file("/home/sam/shop/prices.json"),
+        "~/shop/prices.json"
+    );
+    assert_eq!(places.file("/etc/hosts"), "/etc/hosts");
+}
+
+#[test]
+fn a_windows_path_is_in_the_terminals_folder_with_either_separator_and_any_case() {
+    let places = places(Some(r"C:\Users\Sam\shop"), r"C:\Users\Sam");
+
+    for (path, shown) in [
+        (r"c:\users\sam\SHOP\prices.json", "prices.json"),
+        ("C:/Users/Sam/shop/data/prices.json", "prices.json"),
+        (
+            r"C:\Users\Sam\Repos\Kodosi\prices.json",
+            r"~\Repos\Kodosi\prices.json",
+        ),
+        (r"D:\shop\prices.json", r"D:\shop\prices.json"),
+    ] {
+        assert_eq!(places.file(path), shown, "{path}");
+    }
+}
+
 #[test]
 fn a_rule_for_an_absolute_path_names_only_its_folder() {
     assert_eq!(shown_rule("//home/sam/shop/**"), "shop/**");
     assert_eq!(shown_rule("/home/sam/shop"), "shop");
     assert_eq!(shown_rule("~/work/notes/*.md"), "notes/*.md");
     assert_eq!(shown_rule("npm test:*"), "npm test:*");
+}
+
+/// A file in another folder with the name of a file in Sam's shop.
+const OTHER_PRICES: &str = "/home/sam/Repos/Kodosi/prices.json";
+
+#[test]
+fn claude_code_asks_for_a_file_of_another_folder_with_its_place() {
+    let record = [
+        json!({"k": "row", "uuid": "r1", "door": "response", "content": [
+            {"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/home/sam/shop/prices.json"}},
+            {"type": "tool_use", "id": "t2", "name": "Read", "input": {"file_path": OTHER_PRICES}},
+        ]}),
+        json!({"k": "ask", "ask": "a1", "call": "t2", "tool": "Read", "input": {"file_path": OTHER_PRICES}}),
+    ]
+    .map(|line| line.to_string())
+    .join("\n");
+    let play = Play::of(&record, &[]);
+
+    assert_eq!(
+        play.tools()
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        ["prices.json", "~/Repos/Kodosi/prices.json"]
+    );
+    let [ask] = &play.view.asks[..] else {
+        panic!("one question is open");
+    };
+    assert!(matches!(
+        &ask.body,
+        AskBody::Permission { tool, .. } if tool.target == "~/Repos/Kodosi/prices.json"
+    ));
+}
+
+#[test]
+fn codex_asks_for_a_change_of_a_file_of_another_folder_with_its_place() {
+    let turn = |item: Value| {
+        json!({"k": "note", "m": "item/started", "p": {
+            "threadId": "00000001-0000-7000-8000-000000000000", "turnId": "turn9", "item": item}})
+        .to_string()
+    };
+    let record = [
+        turn(json!({"type": "commandExecution", "id": "x1", "status": "inProgress",
+            "command": "/bin/zsh -lc 'cat prices.json ../Repos/Kodosi/prices.json'",
+            "commandActions": [
+                {"type": "read", "command": "cat prices.json", "name": "prices.json", "path": "/home/sam/shop/prices.json"},
+                {"type": "read", "command": "cat ../Repos/Kodosi/prices.json", "name": "prices.json", "path": OTHER_PRICES},
+            ]})),
+        turn(json!({"type": "fileChange", "id": "x2", "status": "inProgress",
+            "changes": [{"path": OTHER_PRICES, "kind": {"type": "update"}, "diff": "@@ -1 +1 @@\n-1\n+2\n"}]})),
+        json!({"k": "request", "id": 9, "m": "item/fileChange/requestApproval", "p": {
+            "threadId": "00000001-0000-7000-8000-000000000000", "turnId": "turn9", "itemId": "x2"}})
+        .to_string(),
+    ]
+    .join("\n");
+    let play = Play::codex(&[codex!("first"), &record], &[]);
+
+    let tools = play.tools();
+    assert_eq!(
+        tools[tools.len() - 2..]
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "prices.json, ~/Repos/Kodosi/prices.json",
+            "~/Repos/Kodosi/prices.json"
+        ]
+    );
+    let [ask] = &play.view.asks[..] else {
+        panic!("one question is open");
+    };
+    assert!(matches!(
+        &ask.body,
+        AskBody::Permission { tool, .. } if tool.target == "~/Repos/Kodosi/prices.json"
+    ));
+}
+
+#[test]
+fn copilot_asks_for_a_change_of_a_file_of_another_folder_with_its_place() {
+    let record = [
+        json!({"k": "event", "type": "tool.execution_start", "data": {
+            "toolCallId": "c1", "toolName": "view", "arguments": {"path": "prices.json"}}}),
+        json!({"k": "event", "type": "tool.execution_start", "data": {
+            "toolCallId": "c2", "toolName": "edit",
+            "arguments": {"path": OTHER_PRICES, "old_str": "1", "new_str": "2"}}}),
+        json!({"k": "ask", "ask": "a1", "request": {
+            "kind": "write", "toolCallId": "c2", "intention": "Update file", "fileName": OTHER_PRICES}}),
+    ]
+    .map(|line| line.to_string())
+    .join("\n");
+    let play = Play::copilot(&[&record], &[]);
+
+    assert_eq!(
+        play.tools()
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        ["prices.json", "~/Repos/Kodosi/prices.json"]
+    );
+    let [ask] = &play.view.asks[..] else {
+        panic!("one question is open");
+    };
+    assert!(matches!(
+        &ask.body,
+        AskBody::Permission { tool, .. } if tool.target == "~/Repos/Kodosi/prices.json"
+    ));
+}
+
+#[test]
+fn antigravity_asks_for_a_file_of_another_folder_with_its_place() {
+    let started = antigravity!("allow")
+        .lines()
+        .take_while(|line| !line.contains("session/request_permission"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let session = "ab05ead0-ed08-43b7-b547-d2d6bc449422";
+    let read = |id: &str, path: &str| {
+        json!({"sessionUpdate": "tool_call", "toolCallId": id, "name": "read_file",
+            "status": "pending", "kind": "read", "locations": [{"path": path}]})
+    };
+    let record = [
+        json!({"k": "note", "m": "session/update", "p": {"sessionId": session,
+            "update": read("g1", "/home/ana/work/prices.json")}}),
+        json!({"k": "request", "id": "9", "m": "session/request_permission", "p": {
+        "sessionId": session, "toolCall": read("g2", "/home/ana/Repos/Kodosi/prices.json"),
+        "options": [
+            {"optionId": "allow", "name": "Allow", "kind": "allow_once"},
+            {"optionId": "always", "name": "Always", "kind": "allow_always"},
+        ]}}),
+    ]
+    .map(|line| line.to_string())
+    .join("\n");
+    let play = Play::antigravity(&format!("{started}\n{record}"), &[]);
+
+    let tools = play.tools();
+    assert_eq!(
+        tools[tools.len() - 2..]
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        ["prices.json", "~/Repos/Kodosi/prices.json"]
+    );
+    let [ask] = &play.view.asks[..] else {
+        panic!("one question is open");
+    };
+    assert!(matches!(
+        &ask.body,
+        AskBody::Permission { tool, .. } if tool.target == "~/Repos/Kodosi/prices.json"
+    ));
 }
 
 #[test]

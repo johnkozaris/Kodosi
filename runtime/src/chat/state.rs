@@ -17,9 +17,23 @@ pub(super) struct Chat {
     tasks: Vec<ChatTask>,
     changes: Vec<ChatChange>,
     made: u64,
+    /// The home folder of this computer, from which the chat names a file outside the terminal's
+    /// folder.
+    home: Option<String>,
 }
 
 impl Chat {
+    pub(super) fn at_home(home: Option<String>) -> Self {
+        Self {
+            home,
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn home(&self) -> Option<&str> {
+        self.home.as_deref()
+    }
+
     pub(super) fn snapshot(&self) -> ChatSnapshot {
         ChatSnapshot {
             revision: self.revision,

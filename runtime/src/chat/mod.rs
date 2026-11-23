@@ -228,7 +228,8 @@ pub struct ChatTool {
     pub name: String,
     pub kind: ToolKind,
     pub state: ToolState,
-    /// The short subject: a command, the name of a file, a pattern, an address.
+    /// The short subject: a command, a file, a pattern, an address. A file in the terminal's
+    /// folder shows by its name, and a file elsewhere by its place.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub target: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
