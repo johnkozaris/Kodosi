@@ -166,18 +166,25 @@ ApplicationWindow {
 
         Shape {
             id: glow
-            anchors.fill: parent
+
+            readonly property real reach: 560
+
+            // The light is clear beyond its reach, so the shape ends there and leaves the rest of the window undrawn.
+            width: Math.min(parent.width, light.centerX + reach)
+            height: Math.min(parent.height, light.centerY + reach)
             preferredRendererType: Shape.CurveRenderer
 
             ShapePath {
                 strokeColor: "transparent"
                 strokeWidth: 0
                 fillGradient: RadialGradient {
+                    id: light
+
                     centerX: 70
                     centerY: 10
                     focalX: centerX
                     focalY: centerY
-                    centerRadius: 560
+                    centerRadius: glow.reach
                     GradientStop { position: 0; color: KodosiTheme.alpha(KodosiTheme.accent, KodosiTheme.isDark ? 0.11 : 0.14) }
                     GradientStop { position: 1; color: KodosiTheme.alpha(KodosiTheme.accent, 0) }
                 }
