@@ -19,6 +19,17 @@ class LauncherTest {
     private val launcher = Launcher(sent.sink, "computer")
 
     @Test
+    fun aFolderOfTheHomeShowsFromTheHome() {
+        val folders = FolderList(path = "/home/maya/shop", home = "/home/maya")
+        assertEquals("~", folders.shown("/home/maya"))
+        assertEquals("~/shop/src", folders.shown("/home/maya/shop/src"))
+        assertEquals("/home/mayas-notes", folders.shown("/home/mayas-notes"))
+        assertEquals("/srv/www", folders.shown("/srv/www"))
+        val windows = FolderList(path = "C:\\Users\\maya", home = "C:\\Users\\maya")
+        assertEquals("~\\shop", windows.shown("C:\\Users\\maya\\shop"))
+    }
+
+    @Test
     fun startsTheShownAccountAndDropsAnEffortTheModelDoesNotOffer() = runTest {
         val loading = async(start = CoroutineStart.UNDISPATCHED) { launcher.refresh() }
         sent.reply(
