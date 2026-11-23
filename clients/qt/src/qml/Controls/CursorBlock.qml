@@ -11,19 +11,20 @@ Item {
     implicitHeight: 16
     Accessible.ignored: true
 
+    SignPhase {
+        id: blink
+        period: 1250
+        running: root.blinks && !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
+    }
     Rectangle {
-        id: block
+        readonly property real at: blink.value * blink.period
+
         anchors.fill: parent
         radius: Math.min(width, height) * 0.2
         color: root.color
-    }
-    SequentialAnimation {
-        running: root.blinks && !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
-        loops: Animation.Infinite
-        alwaysRunToEnd: true
-        PauseAnimation { duration: 520 }
-        NumberAnimation { target: block; property: "opacity"; from: 1; to: 0.2; duration: 90 }
-        PauseAnimation { duration: 420 }
-        NumberAnimation { target: block; property: "opacity"; from: 0.2; to: 1; duration: 90 }
+        opacity: !blink.running || at < 580 ? 1
+            : at < 680 ? 1 - 0.8 * (at - 580) / 100
+            : at < 1150 ? 0.2
+            : 0.2 + 0.8 * (at - 1150) / 100
     }
 }
