@@ -355,9 +355,10 @@ bool graphicsElement(const QString& grapheme)
         return false;
     }
     const auto first = grapheme.front();
-    const char32_t codepoint = first.isHighSurrogate() && grapheme.size() > 1
-        ? QChar::surrogateToUcs4(first, grapheme.at(1))
-        : first.unicode();
+    char32_t codepoint = first.unicode();
+    if (first.isHighSurrogate() && grapheme.size() > 1) {
+        codepoint = QChar::surrogateToUcs4(first, grapheme.at(1));
+    }
     return (codepoint >= 0x2500 && codepoint <= 0x259F) || (codepoint >= 0xE0B0 && codepoint <= 0xE0D7)
         || (codepoint >= 0x1FB00 && codepoint <= 0x1FBFF) || (codepoint >= 0x1CC00 && codepoint <= 0x1CEBF);
 }
