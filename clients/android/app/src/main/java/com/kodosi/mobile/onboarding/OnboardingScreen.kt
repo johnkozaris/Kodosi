@@ -118,7 +118,7 @@ fun OnboardingScreen(account: AccountStore, openSignIn: (String) -> Unit) {
 
                     is SignInStage.Failed -> Welcome(account, failure = stage.message, starting = false)
 
-                    is SignInStage.AwaitingBrowser -> Column(
+                    SignInStage.AwaitingBrowser -> Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(22.dp)
                     ) {
@@ -141,7 +141,7 @@ fun OnboardingScreen(account: AccountStore, openSignIn: (String) -> Unit) {
 
 private fun stageKey(stage: SignInStage): String = when (stage) {
     SignInStage.Idle, SignInStage.Starting, SignInStage.SignedIn, is SignInStage.Failed -> "welcome"
-    is SignInStage.AwaitingBrowser -> "browser"
+    SignInStage.AwaitingBrowser -> "browser"
     SignInStage.Finalizing -> "finalizing"
     is SignInStage.TrustingDevice -> "trust"
 }

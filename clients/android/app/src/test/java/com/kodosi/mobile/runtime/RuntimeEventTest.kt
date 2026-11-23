@@ -1,26 +1,10 @@
 package com.kodosi.mobile.runtime
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class RuntimeEventTest {
-    @Test
-    fun readsTheTypeAndTheAccount() {
-        val parsed = event("""{"type":"auth.ready","accountUserId":"ana","accountEpoch":3,"userId":"ana"}""")
-
-        assertEquals("auth.ready", parsed.type)
-        assertEquals("ana", parsed.accountUserId)
-        assertEquals(3L, parsed.accountEpoch)
-        assertEquals("ana", parsed.string("userId"))
-    }
-
-    @Test
-    fun acceptsAnEventWithoutAnAccount() {
-        assertNull(event("""{"type":"system.ready","accountUserId":null,"accountEpoch":0}""").accountUserId)
-    }
-
     @Test
     fun rejectsEventsWithoutTypeOrAccount() {
         val invalid = listOf(

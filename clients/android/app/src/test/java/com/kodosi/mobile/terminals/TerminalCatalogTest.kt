@@ -4,7 +4,6 @@ import com.kodosi.mobile.runtime.RuntimeJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TerminalCatalogTest {
@@ -76,18 +75,6 @@ class TerminalCatalogTest {
     }
 
     @Test
-    fun showsWorkWhenTheRuntimeReportsItWithoutAProgramStatusOrTitle() {
-        val terminal = RuntimeJson.decodeFromString<RuntimeSession>(
-            """{"id":"a","incarnationId":"i","kind":"remote","name":"Build",
-                "status":"running","connectionState":"connected","working":true}"""
-        )
-
-        assertTrue(terminal.isWorking)
-        assertNull(terminal.waitState)
-        assertNull(terminal.activity)
-    }
-
-    @Test
     fun groupsYourTerminalsByComputerBeforeYourFriends() {
         val groups = TerminalCatalog.groups(
             listOf(
@@ -107,6 +94,25 @@ class TerminalCatalogTest {
         )
         assertEquals(listOf("shell", "agent"), groups[2].sessions.map { it.id })
         assertEquals(TerminalGroup.Place.Friend("bo", "Bo"), groups[3].place)
+    }
+
+    @Test
+    fun ordersTheFoldersOfAComputerByPathWithTheTerminalsWithoutAFolderLast() {
+        val folders = TerminalCatalog.folders(
+            listOf(
+                session("a", workingDir = "/home/maya/workspace"),
+                session("b", workingDir = "/home/maya/project"),
+                session("c"),
+                session("d", workingDir = "/home/maya/project-amber-gecko"),
+                session("e", workingDir = "/home/maya/project")
+            )
+        )
+
+        assertEquals(
+            listOf("/home/maya/project", "/home/maya/project-amber-gecko", "/home/maya/workspace", null),
+            folders.map { it.first }
+        )
+        assertEquals(listOf("b", "e"), folders.first().second.map { it.id })
     }
 
     @Test

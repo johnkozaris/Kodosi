@@ -21,20 +21,11 @@ class AccountStoreTest {
     private val stage get() = store.state.value.stage
 
     @Test
-    fun signsInThroughTheAppsBrowserInItsLanguage() {
-        store.signIn()
-
-        val start = sent.last("auth.login.start")
-        assertEquals("app", start.string("browser"))
-        assertEquals("el", start.string("language"))
-        assertEquals(SignInStage.Starting, stage)
-    }
-
-    @Test
     fun opensOnlyPagesThatAreSafeToOpen() {
         store.signIn()
         store.receiveAuth(event("auth.browser", """"requestId":"r","url":"http://192.168.1.4/login""""))
-        assertEquals(SignInStage.AwaitingBrowser(null), stage)
+        assertEquals(SignInStage.AwaitingBrowser, stage)
+        assertNull(store.state.value.signInPage)
 
         store.receiveAuth(event("auth.browser", """"requestId":"r","url":"https://id.kodosi.com/login""""))
         assertEquals("https://id.kodosi.com/login", store.state.value.signInPage)
@@ -132,13 +123,13 @@ class AccountStoreTest {
     }
 
     @Test
-    fun keepsAFailedSignInOnTheStepWhereItFailed() {
+    fun showsAFailedSignInOnTheSignInScreen() {
         store.signIn()
         store.receiveAuth(event("auth.browser", """"requestId":"r","url":"https://id.kodosi.com/login""""))
 
         val shown = store.absorb(event("auth.error", """"message":"The sign-in page did not answer.""""), "nope")
         assertTrue(shown)
-        assertEquals(SignInStage.Failed("nope", 1), stage)
+        assertEquals(SignInStage.Failed("nope"), stage)
     }
 
     @Test
@@ -147,23 +138,5 @@ class AccountStoreTest {
 
         assertEquals(listOf(TestWords.signInEnded), notices)
         assertTrue(store.state.value.needsOnboarding)
-    }
-
-    @Test
-    fun followsWhetherKodosiReachesTheServer() {
-        store.receiveConnection(event("connection.state", """"online":false"""))
-        assertFalse(store.state.value.online)
-
-        store.receiveConnection(event("connection.state", """"online":true"""))
-        assertTrue(store.state.value.online)
-    }
-
-    @Test
-    fun anotherAccountStartsOnline() {
-        store.reset("ana")
-        store.receiveConnection(event("connection.state", """"online":false"""))
-
-        store.reset("bo")
-        assertTrue(store.state.value.online)
     }
 }

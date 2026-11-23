@@ -25,7 +25,7 @@ sealed interface SignInStage {
 
     data object Starting : SignInStage
 
-    data class AwaitingBrowser(val page: String?) : SignInStage
+    data object AwaitingBrowser : SignInStage
 
     data object Finalizing : SignInStage
 
@@ -33,19 +33,10 @@ sealed interface SignInStage {
 
     data object SignedIn : SignInStage
 
-    data class Failed(val message: String, val completed: Int) : SignInStage
+    data class Failed(val message: String) : SignInStage
 
     val isPending: Boolean
         get() = this is Starting || this is AwaitingBrowser || this is Finalizing || this is TrustingDevice
-
-    val completedSteps: Int
-        get() = when (this) {
-            Idle, Starting -> 0
-            is AwaitingBrowser -> 1
-            Finalizing, is TrustingDevice -> 2
-            SignedIn -> 3
-            is Failed -> completed
-        }
 }
 
 /** The system browser opens a sign-in page only over HTTPS, or over HTTP on this device. */

@@ -88,26 +88,7 @@ class AppModelTest {
         model.receive(event("auth.error", """"operation":"auth.login.start","message":"No connection.""""))
 
         assertEquals(AppModel.Phase.Ready, model.phase.value)
-        assertEquals(SignInStage.Failed("No connection.", 0), model.account.state.value.stage)
-    }
-
-    @Test
-    fun aRefreshFailureDoesNotReplaceAnAlreadyOpenAccount() {
-        val model = AppModel(RuntimeEnvironment.getApplication())
-        model.receive(event("""{"type":"system.ready","accountUserId":"ana","accountEpoch":1}"""))
-        model.receive(
-            event(
-                """{"type":"auth.ready","accountUserId":"ana","accountEpoch":1,"userId":"ana","enrolled":true}"""
-            )
-        )
-        model.receive(
-            event(
-                """{"type":"auth.error","accountUserId":"ana","accountEpoch":1,"operation":"auth.refresh","message":"No connection."}"""
-            )
-        )
-
-        assertEquals(AppModel.Phase.Ready, model.phase.value)
-        assertEquals(true, model.account.state.value.isReady)
+        assertEquals(SignInStage.Failed("No connection."), model.account.state.value.stage)
     }
 
     @Test

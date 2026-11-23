@@ -86,7 +86,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
 
     fun stored(session: String, item: CanvasItem): ByteArray? = cache[Cached(session, item.key, item.revision)]
 
-    suspend fun content(session: String, item: CanvasItem, progress: (Float) -> Unit = {}): ByteArray {
+    suspend fun content(session: String, item: CanvasItem): ByteArray {
         val cached = Cached(session, item.key, item.revision)
         cache[cached]?.let { return it }
         val epoch = generation
@@ -121,7 +121,6 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
                 }
                 total = size
                 result.write(part)
-                progress(if (size == 0L) 1f else result.size().toFloat() / size)
                 if (result.size().toLong() == total) {
                     val bytes = result.toByteArray()
                     if (epoch != generation) throw RuntimeFailure(words.accountChanged)
@@ -136,14 +135,7 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         throw RuntimeFailure(words.didNotWork)
     }
 
-    suspend fun attach(
-        session: String,
-        name: String,
-        bytes: ByteArray,
-        page: Boolean = false,
-        progress: (Float) -> Unit = {
-        }
-    ): String? {
+    suspend fun attach(session: String, name: String, bytes: ByteArray, page: Boolean = false): String? {
         require(bytes.size <= MAX_FILE_BYTES)
         val epoch = generation
         val upload = UuidV7.generate()
@@ -166,7 +158,6 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
             ).string("key")
             if (epoch != generation) throw RuntimeFailure(words.accountChanged)
             offset = end
-            progress(if (bytes.isEmpty()) 1f else offset.toFloat() / bytes.size)
         } while (offset < bytes.size)
         return key
     }

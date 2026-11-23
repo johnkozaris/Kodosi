@@ -529,6 +529,6 @@ fun StatusSign(form: StatusForm, size: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Glyph(@DrawableRes id: Int, tint: Color, size: Dp, modifier: Modifier = Modifier, description: String? = null) {
-    Icon(painterResource(id), contentDescription = description, tint = tint, modifier = modifier.size(size))
+fun Glyph(@DrawableRes id: Int, tint: Color, size: Dp, modifier: Modifier = Modifier) {
+    Icon(painterResource(id), contentDescription = null, tint = tint, modifier = modifier.size(size))
 }

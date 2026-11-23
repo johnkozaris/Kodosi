@@ -5,7 +5,6 @@ import kotlinx.serialization.json.JsonObject
 
 @Serializable
 data class Canvas(
-    val sequence: Long,
     val items: List<CanvasItem> = emptyList(),
     val browser: CanvasBrowser? = null,
     val open: CanvasOpen? = null,

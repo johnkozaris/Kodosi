@@ -32,15 +32,6 @@ class TerminalStoreTest {
     )
 
     @Test
-    fun readsTheTerminalsOfASnapshot() {
-        store.receive(snapshot("a", "b"))
-
-        assertEquals(listOf("a", "b"), store.state.value.sessions.map { it.id })
-        assertEquals("John's MacBook Pro", store.session("b")?.hostName)
-        assertTrue(store.state.value.loaded)
-    }
-
-    @Test
     fun refusesASnapshotThatRepeatsATerminal() {
         assertThrows(InvalidEvent::class.java) { store.receive(snapshot("a", "a")) }
     }

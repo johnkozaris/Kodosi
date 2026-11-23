@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
     private val signIn = AuthTabIntent.registerActivityResultLauncher(this) { result ->
         if (result.resultCode == AuthTabIntent.RESULT_OK && result.resultUri?.scheme == SIGN_IN_SCHEME) {
             model.account.finishSignIn(result.resultUri.toString())
-        } else if (model.account.state.value.stage is SignInStage.AwaitingBrowser) {
+        } else if (model.account.state.value.stage == SignInStage.AwaitingBrowser) {
             if (result.resultCode == AuthTabIntent.RESULT_CANCELED) {
                 model.account.cancelSignIn()
             } else {
