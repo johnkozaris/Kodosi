@@ -501,7 +501,9 @@ impl Agents {
     ) -> Result<Arc<tokio::sync::Mutex<Seat>>, Failed> {
         let key = (viewer.id.clone(), documents::real_path(path)?);
         let known = lock(&self.seats).get(&key).cloned();
-        if let Some(seat) = known {
+        if let Some(seat) = known
+            && !seat.lock().await.pipe.is_closed()
+        {
             return Ok(seat);
         }
         let seat = Arc::new(tokio::sync::Mutex::new(
