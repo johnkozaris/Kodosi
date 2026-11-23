@@ -92,11 +92,20 @@ Item {
         ColumnLayout {
             id: permissionCard
 
-            readonly property real commandRoom: root.room > 300 ? 140 : root.room > 210 ? 56 : 0
-            readonly property int lineRoom: root.room > 300 ? 14 : root.room > 210 ? 4 : 0
+            readonly property real detailRoom: root.room - 22 - 24 - keys.implicitHeight - 20
+                - (helperRow.visible ? helperRow.implicitHeight + 10 : 0)
+            readonly property real commandRoom: detailRoom >= 150 ? 140 : detailRoom >= 66 ? 56 : 0
+            readonly property int lineRoom: detailRoom >= 16 * changeLine.height + 30 ? 14
+                : detailRoom >= 6 * changeLine.height + 30 ? 4 : 0
 
             spacing: 10
 
+            FontMetrics {
+                id: changeLine
+
+                font.family: "monospace"
+                font.pixelSize: KodosiTheme.fontCaption
+            }
             Header {
                 Layout.fillWidth: true
                 sign: "hand"
@@ -130,6 +139,8 @@ Item {
                 }
             }
             RowLayout {
+                id: helperRow
+
                 visible: (root.ask.helper || "").length > 0
                 spacing: 5
 

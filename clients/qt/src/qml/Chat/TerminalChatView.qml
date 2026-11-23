@@ -63,13 +63,13 @@ FocusScope {
             id: dock
 
             Layout.fillWidth: true
-            Layout.maximumHeight: root.height * 0.75
+            Layout.maximumHeight: root.height
             chat: root.chat
             session: root.session
             sessionId: root.sessionId
             look: root.look
             agent: root.agent
-            askRoom: root.height * 0.75 - 110
+            room: root.height
             onSent: thread.toEnd(true)
         }
     }

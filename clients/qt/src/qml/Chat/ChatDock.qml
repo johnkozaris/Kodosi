@@ -14,7 +14,9 @@ Item {
     required property string sessionId
     required property Look look
     required property string agent
-    property real askRoom: 600
+    property real room: 600
+    readonly property real askRoom: room - 16 - composerArea.implicitHeight - factsRow.implicitHeight - 2 * dock.spacing
+        - (tasks.visible ? tasks.implicitHeight + dock.spacing : 0)
     readonly property bool typed: chat.draft.trim().length > 0
     readonly property bool stops: chat.working && !typed
     readonly property bool away: chat.loaded && chat.state === "away"
@@ -314,6 +316,8 @@ Item {
             objectName: "chat.away"
         }
         Item {
+            id: composerArea
+
             Layout.fillWidth: true
             visible: !root.away
             implicitHeight: Math.min(176, Math.max(40, field.implicitHeight + 10))
@@ -417,6 +421,8 @@ Item {
             }
         }
         ChatFacts {
+            id: factsRow
+
             Layout.fillWidth: true
             Layout.leftMargin: 6
             Layout.rightMargin: 6
