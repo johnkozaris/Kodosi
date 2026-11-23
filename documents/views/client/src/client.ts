@@ -35,7 +35,6 @@ export interface Editor {
   peers(peers: readonly Peer[]): void;
   saved(rev: number, waits: boolean): void;
   closed(reason: ClosedReason): void;
-  destroy(): void;
 }
 
 /**

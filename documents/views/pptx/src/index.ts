@@ -894,13 +894,6 @@ class PptxEditor implements Editor, Pictures {
     if (!state) return "";
     return state.doc.textBetween(state.selection.from, state.selection.to, "\n");
   }
-
-  destroy(): void {
-    this.bar.destroy();
-    this.resized?.disconnect();
-    this.closeText();
-    this.stage?.destroy();
-  }
 }
 
 export function createEditor(element: HTMLElement, client: Client): PptxEditor {

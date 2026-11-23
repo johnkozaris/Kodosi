@@ -53,7 +53,6 @@ function icon(node: IconNode): SVGElement {
 /** A press on the bar keeps the focus where it is, so the caret or the cell stays. */
 export class Bar {
   readonly element = document.createElement("div");
-  private readonly sizing: ResizeObserver;
 
   constructor(view: HTMLElement, label: string) {
     this.element.className = "document-bar";
@@ -62,21 +61,15 @@ export class Bar {
     this.element.addEventListener("mousedown", (event) => {
       if (!(event.target as HTMLElement).closest("input")) event.preventDefault();
     });
-    this.sizing = new ResizeObserver(() => {
+    new ResizeObserver(() => {
       const width = this.element.clientWidth;
       view.dataset.room = ROOMS.find(([, least]) => width >= least)?.[0] ?? "tiny";
-    });
-    this.sizing.observe(this.element);
+    }).observe(this.element);
   }
 
   show(...parts: HTMLElement[]): void {
     closePopover();
     this.element.replaceChildren(...parts);
-  }
-
-  destroy(): void {
-    closePopover();
-    this.sizing.disconnect();
   }
 }
 

@@ -284,30 +284,20 @@ fn text_attr<'n>(node: &'n Node, name: &str) -> Option<&'n str> {
     node.attrs().get(name).and_then(Value::as_str)
 }
 
-fn mark_named<'m>(marks: &'m [Mark], name: &str) -> Option<&'m Mark> {
-    marks
-        .iter()
-        .find(|mark| schema().mark_name(mark.kind()) == name)
-}
-
-fn mark_text<'m>(mark: &'m Mark, name: &str) -> Option<&'m str> {
-    mark.attrs().get(name).and_then(Value::as_str)
-}
-
 fn look_of(marks: &[Mark]) -> RunLook {
-    let style = mark_named(marks, "textStyle");
+    let style = schema().mark_in("textStyle", marks);
     let value = |name: &str| {
         style
-            .and_then(|mark| mark_text(mark, name))
+            .and_then(|mark| mark.text_attr(name))
             .map(str::to_owned)
     };
     RunLook {
-        bold: mark_named(marks, "bold").is_some(),
-        italic: mark_named(marks, "italic").is_some(),
-        underline: mark_named(marks, "underline").is_some(),
-        strike: mark_named(marks, "strike").is_some(),
-        superscript: mark_named(marks, "superscript").is_some(),
-        subscript: mark_named(marks, "subscript").is_some(),
+        bold: schema().mark_in("bold", marks).is_some(),
+        italic: schema().mark_in("italic", marks).is_some(),
+        underline: schema().mark_in("underline", marks).is_some(),
+        strike: schema().mark_in("strike", marks).is_some(),
+        superscript: schema().mark_in("superscript", marks).is_some(),
+        subscript: schema().mark_in("subscript", marks).is_some(),
         color: value("color"),
         size: value("size"),
         font: value("font"),
@@ -325,9 +315,9 @@ struct Wrappers {
 impl Wrappers {
     fn of(node: &Node) -> Self {
         Self {
-            link: mark_named(node.marks(), "link").cloned(),
-            insertion: mark_named(node.marks(), "insertion").cloned(),
-            deletion: mark_named(node.marks(), "deletion").cloned(),
+            link: schema().mark_in("link", node.marks()).cloned(),
+            insertion: schema().mark_in("insertion", node.marks()).cloned(),
+            deletion: schema().mark_in("deletion", node.marks()).cloned(),
         }
     }
 }
@@ -507,8 +497,8 @@ impl Out<'_> {
 
     fn change_open(&mut self, tag: &str, mark: &Mark) -> String {
         let attributes = self.change_attributes(
-            mark_text(mark, "author").unwrap_or_default(),
-            mark_text(mark, "date").unwrap_or_default(),
+            mark.text_attr("author").unwrap_or_default(),
+            mark.text_attr("date").unwrap_or_default(),
         );
         format!("<w:{tag}{attributes}>")
     }
@@ -525,8 +515,8 @@ impl Out<'_> {
 
     /// A link keeps the relation that it came with while that relation still goes to its address.
     fn link_open(&mut self, link: &Mark) -> String {
-        let href = mark_text(link, "href").unwrap_or_default().to_owned();
-        let id = match mark_text(link, "relation") {
+        let href = link.text_attr("href").unwrap_or_default().to_owned();
+        let id = match link.text_attr("relation") {
             Some(relation) if self.links_to(relation, &href) => relation.to_owned(),
             _ => {
                 let (id, new) = self.relation_to(HYPERLINK_KIND, &href, true);
@@ -639,7 +629,10 @@ impl Out<'_> {
 
     fn run_props(&self, marks: &[Mark]) -> Result<String, String> {
         let wanted = look_of(marks);
-        let raw = match mark_named(marks, "run").and_then(|mark| mark_text(mark, "props")) {
+        let raw = match schema()
+            .mark_in("run", marks)
+            .and_then(|mark| mark.text_attr("props"))
+        {
             Some(name) => self.raw(name)?.to_owned(),
             None => String::new(),
         };

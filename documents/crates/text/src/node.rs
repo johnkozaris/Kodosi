@@ -30,12 +30,23 @@ impl Mark {
         &self.attrs
     }
 
-    pub fn from_json(schema: &Schema, json: &Value) -> Result<Self, Failed> {
-        let name = json["type"].as_str().unwrap_or_default();
+    pub fn named(schema: &Schema, name: &str, attrs: Option<&Value>) -> Result<Self, Failed> {
         let Some(kind) = schema.mark_id(name) else {
             return failed(format!("There is no mark type {name} in this schema"));
         };
-        Self::new(schema, kind, json.get("attrs"))
+        Self::new(schema, kind, attrs)
+    }
+
+    pub fn text_attr(&self, name: &str) -> Option<&str> {
+        self.attrs.get(name).and_then(Value::as_str)
+    }
+
+    pub fn from_json(schema: &Schema, json: &Value) -> Result<Self, Failed> {
+        Self::named(
+            schema,
+            json["type"].as_str().unwrap_or_default(),
+            json.get("attrs"),
+        )
     }
 
     pub fn to_json(&self, schema: &Schema) -> Value {

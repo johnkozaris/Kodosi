@@ -202,10 +202,7 @@ fn node_kind(name: &str) -> text::NodeId {
 }
 
 fn mark_of(name: &str, attrs: Option<&Value>) -> Result<Mark, String> {
-    let kind = schema()
-        .mark_id(name)
-        .ok_or_else(|| format!("There is no mark {name}."))?;
-    Mark::new(schema(), kind, attrs).map_err(|failed| failed.0)
+    Mark::named(schema(), name, attrs).map_err(|failed| failed.0)
 }
 
 /// A change of an agent has no date.

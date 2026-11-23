@@ -253,11 +253,6 @@ pub(crate) fn empty_paragraph() -> Result<Node, text::Failed> {
     Node::new(schema(), kind, None, Fragment::default(), Vec::new())
 }
 
-fn mark(name: &str, attrs: Option<&Value>) -> Result<Mark, text::Failed> {
-    let kind = schema().mark_id(name).unwrap_or_default();
-    Mark::new(schema(), kind, attrs)
-}
-
 #[expect(
     clippy::needless_pass_by_value,
     reason = "each call builds its attributes here"
@@ -399,7 +394,8 @@ impl<'input> Reader<'_, 'input> {
         let Some(relation) = self.relations.get(id) else {
             return Ok(None);
         };
-        mark(
+        Mark::named(
+            schema(),
             "link",
             Some(&json!({ "href": relation.target, "relation": id })),
         )
@@ -444,7 +440,11 @@ impl<'input> Reader<'_, 'input> {
         let mut marks = marks.to_vec();
         if let Some(properties) = properties {
             let props = self.keep(self.xml_of(properties));
-            marks.push(mark("run", Some(&json!({ "props": props })))?);
+            marks.push(Mark::named(
+                schema(),
+                "run",
+                Some(&json!({ "props": props })),
+            )?);
             marks.extend(look_marks(&run_look(properties))?);
         }
         for child in children {
@@ -640,7 +640,7 @@ fn with_marks(name: &str, marks: &[Mark]) -> Result<Node, text::Failed> {
 }
 
 fn change_mark(name: &str, element: Xml<'_, '_>) -> Result<Mark, text::Failed> {
-    mark(name, Some(&change_attrs(element)))
+    Mark::named(schema(), name, Some(&change_attrs(element)))
 }
 
 pub(crate) fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {
@@ -654,7 +654,7 @@ pub(crate) fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {
         (look.subscript, "subscript"),
     ] {
         if on {
-            marks.push(mark(name, None)?);
+            marks.push(Mark::named(schema(), name, None)?);
         }
     }
     if look.color.is_some()
@@ -662,7 +662,8 @@ pub(crate) fn look_marks(look: &RunLook) -> Result<Vec<Mark>, text::Failed> {
         || look.font.is_some()
         || look.highlight.is_some()
     {
-        marks.push(mark(
+        marks.push(Mark::named(
+            schema(),
             "textStyle",
             Some(&json!({
                 "color": look.color,
