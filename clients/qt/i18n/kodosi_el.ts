@@ -297,6 +297,22 @@
         <translation>Αναλυτική</translation>
     </message>
     <message>
+        <source>Opens in</source>
+        <translation>Ανοίγει σε</translation>
+    </message>
+    <message>
+        <source>Its own app runs in the terminal.</source>
+        <translation>Η δική του εφαρμογή τρέχει στο τερματικό.</translation>
+    </message>
+    <message>
+        <source>Chat</source>
+        <translation>Συνομιλία</translation>
+    </message>
+    <message>
+        <source>It works in the chat of the terminal, in a conversation of its own.</source>
+        <translation>Δουλεύει στη συνομιλία του τερματικού, σε δική του συζήτηση.</translation>
+    </message>
+    <message>
         <source>Permissions</source>
         <translation>Άδειες</translation>
     </message>
@@ -753,6 +769,337 @@
     </message>
 </context>
 <context>
+    <name>ChatAskCard</name>
+    <message>
+        <source>Plan</source>
+        <translation>Σχέδιο</translation>
+    </message>
+    <message>
+        <source>Needs your answer</source>
+        <translation>Χρειάζεται την απάντησή σας</translation>
+    </message>
+    <message>
+        <source>Needs your approval</source>
+        <translation>Χρειάζεται την έγκρισή σας</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>Να επιτρέπεται</translation>
+    </message>
+    <message>
+        <source>Deny</source>
+        <translation>Απόρριψη</translation>
+    </message>
+    <message>
+        <source>Always %1</source>
+        <translation>Πάντα %1</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>Αποστολή</translation>
+    </message>
+    <message>
+        <source>Keep planning</source>
+        <translation>Συνέχιση σχεδιασμού</translation>
+    </message>
+</context>
+<context>
+    <name>ChatDock</name>
+    <message>
+        <source>Tasks: %1 of %2 done</source>
+        <translation>Εργασίες: %1 από %2 έτοιμες</translation>
+    </message>
+    <message>
+        <source>Hide the tasks</source>
+        <translation>Απόκρυψη εργασιών</translation>
+    </message>
+    <message>
+        <source>Show the tasks</source>
+        <translation>Εμφάνιση εργασιών</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Τέλος</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Αφαίρεση</translation>
+    </message>
+    <message>
+        <source>Waiting for %1</source>
+        <translation>Περιμένει το %1</translation>
+    </message>
+    <message>
+        <source>The agent takes the next message in its terminal.</source>
+        <translation>Ο agent δέχεται το επόμενο μήνυμα στο τερματικό του.</translation>
+    </message>
+    <message>
+        <source>No agent runs in this terminal</source>
+        <translation>Δεν τρέχει κανένας agent σε αυτό το τερματικό</translation>
+    </message>
+    <message>
+        <source>Or say what to do instead</source>
+        <translation>Ή πείτε τι να γίνει αντί γι’ αυτό</translation>
+    </message>
+    <message>
+        <source>Message %1</source>
+        <translation>Μήνυμα στο %1</translation>
+    </message>
+</context>
+<context>
+    <name>ChatFacts</name>
+    <message>
+        <source>Model</source>
+        <translation>Μοντέλο</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>Πλαίσιο: %1% σε χρήση</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n βοηθός δουλεύει</numerusform>
+            <numerusform>%n βοηθοί δουλεύουν</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n commands run in the background</source>
+        <translation>
+            <numerusform>%n εντολή εκτελείται στο παρασκήνιο</numerusform>
+            <numerusform>%n εντολές εκτελούνται στο παρασκήνιο</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatStep</name>
+    <message>
+        <source>Done</source>
+        <translation>Τέλος</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Απέτυχε</translation>
+    </message>
+    <message>
+        <source>denied</source>
+        <translation>απορρίφθηκε</translation>
+    </message>
+    <message>
+        <source>stopped</source>
+        <translation>σταμάτησε</translation>
+    </message>
+    <message>
+        <source>in the background</source>
+        <translation>στο παρασκήνιο</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n βήμα</numerusform>
+            <numerusform>%n βήματα</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatThread</name>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>compacted</source>
+        <translation>η συνομιλία συμπτύχθηκε</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>Σχέδιο</translation>
+    </message>
+    <message>
+        <source>Stopped</source>
+        <translation>Σταμάτησε</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Απέτυχε</translation>
+    </message>
+    <message>
+        <source>Refused</source>
+        <translation>Αρνήθηκε</translation>
+    </message>
+    <message>
+        <source>Needs you to sign in</source>
+        <translation>Χρειάζεται σύνδεση</translation>
+    </message>
+    <message>
+        <source>Sign in with its own steps in the terminal.</source>
+        <translation>Συνδεθείτε με τα δικά του βήματα στο τερματικό.</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWords</name>
+    <message numerus="yes">
+        <source>ran %n commands</source>
+        <translation>
+            <numerusform>εκτέλεσε %n εντολή</numerusform>
+            <numerusform>εκτέλεσε %n εντολές</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>read %n files</source>
+        <translation>
+            <numerusform>διάβασε %n αρχείο</numerusform>
+            <numerusform>διάβασε %n αρχεία</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>changed %n files</source>
+        <translation>
+            <numerusform>άλλαξε %n αρχείο</numerusform>
+            <numerusform>άλλαξε %n αρχεία</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>wrote %n files</source>
+        <translation>
+            <numerusform>έγραψε %n αρχείο</numerusform>
+            <numerusform>έγραψε %n αρχεία</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n searches</source>
+        <translation>
+            <numerusform>έκανε %n αναζήτηση</numerusform>
+            <numerusform>έκανε %n αναζητήσεις</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>fetched %n pages</source>
+        <translation>
+            <numerusform>ανέκτησε %n σελίδα</numerusform>
+            <numerusform>ανέκτησε %n σελίδες</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n helpers</source>
+        <translation>
+            <numerusform>ρώτησε %n βοηθό</numerusform>
+            <numerusform>ρώτησε %n βοηθούς</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n skills</source>
+        <translation>
+            <numerusform>χρησιμοποίησε %n δεξιότητα</numerusform>
+            <numerusform>χρησιμοποίησε %n δεξιότητες</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n questions</source>
+        <translation>
+            <numerusform>έκανε %n ερώτηση</numerusform>
+            <numerusform>έκανε %n ερωτήσεις</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n plans</source>
+        <translation>
+            <numerusform>έφτιαξε %n σχέδιο</numerusform>
+            <numerusform>έφτιαξε %n σχέδια</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n tools</source>
+        <translation>
+            <numerusform>χρησιμοποίησε %n εργαλείο</numerusform>
+            <numerusform>χρησιμοποίησε %n εργαλεία</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n denied</source>
+        <translation>
+            <numerusform>%n απορρίφθηκε</numerusform>
+            <numerusform>%n απορρίφθηκαν</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n stopped</source>
+        <translation>
+            <numerusform>%n σταμάτησε</numerusform>
+            <numerusform>%n σταμάτησαν</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Ερώτηση</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Αυτόματα</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Απεριόριστα</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>Αλλαγές</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>Σχέδιο</translation>
+    </message>
+    <message>
+        <source>Rules</source>
+        <translation>Κανόνες</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <translation>%1 ώ</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1 λ</translation>
+    </message>
+    <message>
+        <source>%1s</source>
+        <translation>%1 δ</translation>
+    </message>
+    <message>
+        <source>%1 %2</source>
+        <comment>the parts of a duration</comment>
+        <translation>%1 %2</translation>
+    </message>
+    <message>
+        <source>$</source>
+        <comment>the sign of US dollars</comment>
+        <translation>$</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWork</name>
+    <message>
+        <source>Hide the steps</source>
+        <translation>Απόκρυψη βημάτων</translation>
+    </message>
+    <message>
+        <source>Show the steps</source>
+        <translation>Εμφάνιση βημάτων</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Τέλος</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Απέτυχε</translation>
+    </message>
+</context>
+<context>
     <name>ClipboardReadDialog</name>
     <message>
         <source>Let a program read your clipboard?</source>
@@ -845,6 +1192,21 @@
     <message>
         <source>Cut</source>
         <translation>Αποκοπή</translation>
+    </message>
+</context>
+<context>
+    <name>DayDivider</name>
+    <message>
+        <source>Today</source>
+        <translation>Σήμερα</translation>
+    </message>
+    <message>
+        <source>Yesterday</source>
+        <translation>Χθες</translation>
+    </message>
+    <message>
+        <source>d MMMM</source>
+        <translation>d MMMM</translation>
     </message>
 </context>
 <context>
@@ -1190,16 +1552,8 @@
         <translation>Ρωτήστε το Dosi</translation>
     </message>
     <message>
-        <source>Stop</source>
-        <translation>Διακοπή</translation>
-    </message>
-    <message>
         <source>Stop (%1)</source>
         <translation>Διακοπή (%1)</translation>
-    </message>
-    <message>
-        <source>Send</source>
-        <translation>Αποστολή</translation>
     </message>
 </context>
 <context>
@@ -1489,10 +1843,6 @@
     <message>
         <source>Tell me when my terminals finish</source>
         <translation>Πες μου όταν τελειώσουν τα τερματικά μου</translation>
-    </message>
-    <message>
-        <source>Latest</source>
-        <translation>Πιο πρόσφατα</translation>
     </message>
 </context>
 <context>
@@ -2300,6 +2650,13 @@
     </message>
 </context>
 <context>
+    <name>LatestKey</name>
+    <message>
+        <source>Latest</source>
+        <translation>Πιο πρόσφατα</translation>
+    </message>
+</context>
+<context>
     <name>Link</name>
     <message>
         <source>The link is not a complete address.</source>
@@ -2796,18 +3153,6 @@
 </context>
 <context>
     <name>ProjectConversation</name>
-    <message>
-        <source>Today</source>
-        <translation>Σήμερα</translation>
-    </message>
-    <message>
-        <source>Yesterday</source>
-        <translation>Χθες</translation>
-    </message>
-    <message>
-        <source>d MMMM</source>
-        <translation>d MMMM</translation>
-    </message>
     <message>
         <source>Conversation</source>
         <translation>Συζήτηση</translation>
@@ -3394,6 +3739,13 @@
     </message>
 </context>
 <context>
+    <name>SendKey</name>
+    <message>
+        <source>Send</source>
+        <translation>Αποστολή</translation>
+    </message>
+</context>
+<context>
     <name>SessionDetails</name>
     <message>
         <source>Shared with %1</source>
@@ -3873,6 +4225,13 @@
     </message>
 </context>
 <context>
+    <name>StopKey</name>
+    <message>
+        <source>Stop</source>
+        <translation>Διακοπή</translation>
+    </message>
+</context>
+<context>
     <name>TerminalAccessible</name>
     <message>
         <source>Terminal</source>
@@ -3881,6 +4240,112 @@
     <message>
         <source>Live terminal</source>
         <translation>Ζωντανό τερματικό</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalActions</name>
+    <message>
+        <source>Start an agent</source>
+        <translation>Εκκίνηση agent</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Μοντέλο</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>Ένταση σκέψης</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Άδειες</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>Λεπτομέρεια</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>Canvas</translation>
+    </message>
+    <message>
+        <source>Open Browser</source>
+        <translation>Άνοιγμα browser</translation>
+    </message>
+    <message>
+        <source>Add a file…</source>
+        <translation>Προσθήκη αρχείου…</translation>
+    </message>
+    <message>
+        <source>Terminal</source>
+        <translation>Τερματικό</translation>
+    </message>
+    <message>
+        <source>Share…</source>
+        <translation>Κοινή χρήση…</translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation>Λεπτομέρειες</translation>
+    </message>
+    <message>
+        <source>Remove from project</source>
+        <translation>Αφαίρεση από το έργο</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>Μόνο στην εκκίνηση</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Γρήγορη λειτουργία</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Λιτή</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Αναλυτική</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Κανονική</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Προεπιλογή</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Απεριόριστα</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Αυτόματα</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Ερώτηση</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1, μετά από αυτή τη σειρά</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>Το %1 το αλλάζει όταν τελειώσει τη σειρά του.</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>Το %1 κρατά το μοντέλο, την ένταση σκέψης και τη γρήγορη λειτουργία και την επόμενη φορά που θα ξεκινήσει.</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalChatView</name>
+    <message>
+        <source>Chat</source>
+        <translation>Συνομιλία</translation>
     </message>
 </context>
 <context>
@@ -4098,48 +4563,12 @@
         <translation>%1 στο %2</translation>
     </message>
     <message>
+        <source>Chat</source>
+        <translation>Συνομιλία</translation>
+    </message>
+    <message>
         <source>Actions</source>
         <translation>Ενέργειες</translation>
-    </message>
-    <message>
-        <source>Start an agent</source>
-        <translation>Εκκίνηση agent</translation>
-    </message>
-    <message>
-        <source>Share…</source>
-        <translation>Κοινή χρήση…</translation>
-    </message>
-    <message>
-        <source>Open Browser</source>
-        <translation>Άνοιγμα browser</translation>
-    </message>
-    <message>
-        <source>Model</source>
-        <translation>Μοντέλο</translation>
-    </message>
-    <message>
-        <source>Effort</source>
-        <translation>Ένταση σκέψης</translation>
-    </message>
-    <message>
-        <source>Permissions</source>
-        <translation>Άδειες</translation>
-    </message>
-    <message>
-        <source>Canvas</source>
-        <translation>Canvas</translation>
-    </message>
-    <message>
-        <source>Add a file…</source>
-        <translation>Προσθήκη αρχείου…</translation>
-    </message>
-    <message>
-        <source>Details</source>
-        <translation>Λεπτομέρειες</translation>
-    </message>
-    <message>
-        <source>Remove from project</source>
-        <translation>Αφαίρεση από το έργο</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -4222,64 +4651,12 @@
         <translation>Κλείσιμο</translation>
     </message>
     <message>
-        <source>Only at start</source>
-        <translation>Μόνο στην εκκίνηση</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>Προεπιλογή</translation>
-    </message>
-    <message>
-        <source>Unrestricted</source>
-        <translation>Απεριόριστα</translation>
-    </message>
-    <message>
-        <source>Auto</source>
-        <translation>Αυτόματα</translation>
-    </message>
-    <message>
-        <source>Ask</source>
-        <translation>Ερώτηση</translation>
-    </message>
-    <message>
-        <source>%1, after this turn</source>
-        <translation>%1, μετά από αυτή τη σειρά</translation>
-    </message>
-    <message>
-        <source>%1 changes when it finishes its turn.</source>
-        <translation>Το %1 το αλλάζει όταν τελειώσει τη σειρά του.</translation>
-    </message>
-    <message>
-        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
-        <translation>Το %1 κρατά το μοντέλο, την ένταση σκέψης και τη γρήγορη λειτουργία και την επόμενη φορά που θα ξεκινήσει.</translation>
-    </message>
-    <message>
         <source>Copy</source>
         <translation>Αντιγραφή</translation>
     </message>
     <message>
         <source>Paste</source>
         <translation>Επικόλληση</translation>
-    </message>
-    <message>
-        <source>Verbosity</source>
-        <translation>Λεπτομέρεια</translation>
-    </message>
-    <message>
-        <source>Quiet</source>
-        <translation>Λιτή</translation>
-    </message>
-    <message>
-        <source>Standard</source>
-        <translation>Κανονική</translation>
-    </message>
-    <message>
-        <source>Detailed</source>
-        <translation>Αναλυτική</translation>
-    </message>
-    <message>
-        <source>Fast mode</source>
-        <translation>Γρήγορη λειτουργία</translation>
     </message>
 </context>
 <context>
@@ -5027,6 +5404,60 @@
     <message>
         <source>Full screen</source>
         <translation>Πλήρης οθόνη</translation>
+    </message>
+</context>
+<context>
+    <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Approve</source>
+        <translation>Έγκριση</translation>
+    </message>
+    <message>
+        <source>Approve, and ask before each change</source>
+        <translation>Έγκριση, με ερώτηση πριν από κάθε αλλαγή</translation>
+    </message>
+    <message>
+        <source>Approve, and allow its edits</source>
+        <translation>Έγκριση, με άδεια για τις αλλαγές του</translation>
+    </message>
+    <message>
+        <source>Approve, and use the safety check</source>
+        <translation>Έγκριση, με τον έλεγχο ασφαλείας</translation>
+    </message>
+    <message>
+        <source>Approve, and ask nothing</source>
+        <translation>Έγκριση, χωρίς ερωτήσεις</translation>
+    </message>
+    <message>
+        <source>Approve, and let helpers work alone</source>
+        <translation>Έγκριση, με βοηθούς που δουλεύουν μόνοι</translation>
+    </message>
+    <message>
+        <source>Leave plan mode</source>
+        <translation>Έξοδος από τη λειτουργία σχεδίου</translation>
+    </message>
+    <message>
+        <source>writing</source>
+        <translation>γράφει</translation>
+    </message>
+    <message>
+        <source>compacting</source>
+        <translation>συμπτύσσει τη συνομιλία</translation>
+    </message>
+    <message>
+        <source>thinking</source>
+        <translation>σκέφτεται</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n βήμα</numerusform>
+            <numerusform>%n βήματα</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>worked for %1</source>
+        <translation>δούλεψε για %1</translation>
     </message>
 </context>
 <context>

@@ -42,12 +42,6 @@ Item {
         editor.cursorPosition = editor.text.length;
         highlighted = 0;
     }
-    function dayLabel(date: var): string {
-        const today = new Date();
-        const start = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
-        const days = Math.round((start(today) - start(date)) / 86400000);
-        return days === 0 ? qsTr("Today") : days === 1 ? qsTr("Yesterday") : date.toLocaleDateString(Qt.locale(), qsTr("d MMMM"));
-    }
 
     objectName: "project.conversation"
     Accessible.id: objectName
@@ -244,19 +238,10 @@ Item {
                     topPadding: grouped ? 0 : 8
                     spacing: 6
 
-                    Item {
+                    DayDivider {
                         width: parent.width
-                        height: 26
                         visible: entry.newDay
-
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: day.implicitWidth + 20
-                            height: 20
-                            radius: 10
-                            color: KodosiTheme.alpha(KodosiTheme.ink, 0.07)
-                            PlainLabel { id: day; anchors.centerIn: parent; text: root.dayLabel(entry.sent); color: KodosiTheme.inkMuted; font.pixelSize: KodosiTheme.fontCaption; font.weight: Font.Medium }
-                        }
+                        date: entry.sent
                     }
                     PlainLabel {
                         width: parent.width
@@ -555,16 +540,7 @@ Item {
             Layout.topMargin: 4
             implicitHeight: Math.min(150, Math.max(40, editor.implicitHeight + 10))
 
-            Raised { anchors.fill: parent; radius: 20; fill: KodosiTheme.lifted; elevation: editor.activeFocus ? 2 : 1 }
-            Rectangle {
-                anchors.fill: parent
-                radius: 20
-                color: "transparent"
-                border.width: 1.5
-                border.color: KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.lifted, 0.5)
-                opacity: editor.activeFocus ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
-            }
+            ComposerBox { anchors.fill: parent; focused: editor.activeFocus }
             RowLayout {
                 anchors.fill: parent
                 anchors.margins: 5
@@ -633,34 +609,13 @@ Item {
                         }
                     }
                 }
-                AbstractButton {
-                    id: sendButton
+                SendKey {
                     Layout.alignment: Qt.AlignBottom
-                    implicitWidth: 30
-                    implicitHeight: 30
-                    enabled: root.canSend
-                    scale: pressed ? 0.95 : 1
+                    ready: root.canSend
+                    busy: Models.Projects.busy
                     Accessible.name: qsTr("Send message")
                     objectName: "project.message.send"
                     Accessible.id: objectName
-                    Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
-                    background: Item {
-                        Bezel { anchors.fill: parent; radius: 15; fill: KodosiTheme.accent; visible: root.canSend; pressed: sendButton.pressed }
-                        Rectangle { anchors.fill: parent; radius: 15; color: KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, 0.08); visible: !root.canSend }
-                        Loader {
-                            anchors.fill: parent
-                            anchors.margins: -4
-                            opacity: Models.Projects.busy ? 1 : 0
-                            active: opacity > 0
-
-                            Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionFade } }
-
-                            sourceComponent: LightRim {}
-                        }
-                    }
-                    contentItem: Item {
-                        KIcon { anchors.centerIn: parent; width: 14; height: 14; name: "send"; strokeWidth: 2.6; color: root.canSend ? KodosiTheme.accentInk : KodosiTheme.inkFaint }
-                    }
                     onClicked: root.send()
                 }
             }

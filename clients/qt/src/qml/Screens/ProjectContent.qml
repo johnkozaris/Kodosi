@@ -569,6 +569,7 @@ Item {
                                 readonly property var shown: Models.Sessions.sessions.find(item => item.id === root.shownTerminal) || ({})
 
                                 look: KodosiTheme.lookNamed(shown.look)
+                                chatting: (terminal.item as TerminalTile)?.chatting ?? false
                                 anchors.fill: parent
                                 anchors.leftMargin: 6
                                 anchors.rightMargin: 6

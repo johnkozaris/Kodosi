@@ -361,7 +361,8 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("projectName"), s->projectName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("stalled"), !local && s->stalled },
         { QStringLiteral("direct"), !local && s->direct }, { QStringLiteral("look"), s->look },
-        { QStringLiteral("isOwner"), s->isOwner },
+        { QStringLiteral("face"), s->face },
+        { QStringLiteral("isOwner"), s->isOwner }, { QStringLiteral("hostDeviceId"), local ? QString {} : s->hostDeviceId },
         { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
         { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden },
         { QStringLiteral("canvas"), s->canvas.isEmpty() ? QVariant {} : QVariant(s->canvas) } };
@@ -450,6 +451,10 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (!look.isUndefined() && look != QJsonValue(QStringLiteral("dark")) && look != QJsonValue(QStringLiteral("light")))
         return std::nullopt;
     s.look = look.toString(QStringLiteral("dark"));
+    const auto face = o.value(QStringLiteral("face"));
+    if (!face.isUndefined() && !face.isNull() && face != QJsonValue(QStringLiteral("terminal")) && face != QJsonValue(QStringLiteral("chat")))
+        return std::nullopt;
+    s.face = face.toString();
     const auto reported = o.value(QStringLiteral("programStatus"));
     if (!reported.isUndefined() && !reported.isNull()) {
         if (!reported.isObject())

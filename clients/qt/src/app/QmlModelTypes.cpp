@@ -6,7 +6,7 @@ void provideModels(QQmlEngine& engine, Workspace& workspace, ConversationHistory
     DesktopStateModel& desktop, SessionCatalogModel& sessions, TerminalTilingLayoutModel& tiling,
     DesktopFileIntegration& files, ApplicationLifecycleModel& lifecycle,
     TerminalSurfaceController& surfaces, DesktopTray& tray, CanvasModel& canvas, CanvasDocuments& documents,
-    CanvasWeb& canvasWeb, ShortcutsModel& shortcuts)
+    CanvasWeb& canvasWeb, ShortcutsModel& shortcuts, TerminalChats& chats, ChatProse& prose)
 {
     provide<AppStateForeign>(engine, workspace);
     provide<AccountModelForeign>(engine, workspace.account());
@@ -31,5 +31,7 @@ void provideModels(QQmlEngine& engine, Workspace& workspace, ConversationHistory
     provide<CanvasDocumentsForeign>(engine, documents);
     provide<CanvasWebForeign>(engine, canvasWeb);
     provide<ShortcutsModelForeign>(engine, shortcuts);
+    provide<TerminalChatsForeign>(engine, chats);
+    provide<ChatProseForeign>(engine, prose);
 }
 }

@@ -297,6 +297,22 @@
         <translation>Detallada</translation>
     </message>
     <message>
+        <source>Opens in</source>
+        <translation>Se abre en</translation>
+    </message>
+    <message>
+        <source>Its own app runs in the terminal.</source>
+        <translation>Su propia app se ejecuta en el terminal.</translation>
+    </message>
+    <message>
+        <source>Chat</source>
+        <translation>Chat</translation>
+    </message>
+    <message>
+        <source>It works in the chat of the terminal, in a conversation of its own.</source>
+        <translation>Trabaja en el chat del terminal, en una conversación propia.</translation>
+    </message>
+    <message>
         <source>Permissions</source>
         <translation>Permisos</translation>
     </message>
@@ -753,6 +769,337 @@
     </message>
 </context>
 <context>
+    <name>ChatAskCard</name>
+    <message>
+        <source>Plan</source>
+        <translation>Planificar</translation>
+    </message>
+    <message>
+        <source>Needs your answer</source>
+        <translation>Necesita tu respuesta</translation>
+    </message>
+    <message>
+        <source>Needs your approval</source>
+        <translation>Necesita tu aprobación</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>Permitir</translation>
+    </message>
+    <message>
+        <source>Deny</source>
+        <translation>Denegar</translation>
+    </message>
+    <message>
+        <source>Always %1</source>
+        <translation>Siempre %1</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>Enviar</translation>
+    </message>
+    <message>
+        <source>Keep planning</source>
+        <translation>Seguir planificando</translation>
+    </message>
+</context>
+<context>
+    <name>ChatDock</name>
+    <message>
+        <source>Tasks: %1 of %2 done</source>
+        <translation>Tareas: %1 de %2 listas</translation>
+    </message>
+    <message>
+        <source>Hide the tasks</source>
+        <translation>Ocultar las tareas</translation>
+    </message>
+    <message>
+        <source>Show the tasks</source>
+        <translation>Mostrar las tareas</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Listo</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Quitar</translation>
+    </message>
+    <message>
+        <source>Waiting for %1</source>
+        <translation>Esperando a %1</translation>
+    </message>
+    <message>
+        <source>The agent takes the next message in its terminal.</source>
+        <translation>El agente toma el siguiente mensaje en su terminal.</translation>
+    </message>
+    <message>
+        <source>No agent runs in this terminal</source>
+        <translation>No hay ningún agente en este terminal</translation>
+    </message>
+    <message>
+        <source>Or say what to do instead</source>
+        <translation>O di qué hacer en su lugar</translation>
+    </message>
+    <message>
+        <source>Message %1</source>
+        <translation>Mensaje a %1</translation>
+    </message>
+</context>
+<context>
+    <name>ChatFacts</name>
+    <message>
+        <source>Model</source>
+        <translation>Modelo</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>Contexto: %1 % usado</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1 %</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n ayudante trabaja</numerusform>
+            <numerusform>%n ayudantes trabajan</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n commands run in the background</source>
+        <translation>
+            <numerusform>%n comando se ejecuta en segundo plano</numerusform>
+            <numerusform>%n comandos se ejecutan en segundo plano</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatStep</name>
+    <message>
+        <source>Done</source>
+        <translation>Listo</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Error</translation>
+    </message>
+    <message>
+        <source>denied</source>
+        <translation>denegado</translation>
+    </message>
+    <message>
+        <source>stopped</source>
+        <translation>detenido</translation>
+    </message>
+    <message>
+        <source>in the background</source>
+        <translation>en segundo plano</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n paso</numerusform>
+            <numerusform>%n pasos</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatThread</name>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>compacted</source>
+        <translation>conversación compactada</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>Planificar</translation>
+    </message>
+    <message>
+        <source>Stopped</source>
+        <translation>Detenido</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Error</translation>
+    </message>
+    <message>
+        <source>Refused</source>
+        <translation>Rechazado</translation>
+    </message>
+    <message>
+        <source>Needs you to sign in</source>
+        <translation>Necesita que inicies sesión</translation>
+    </message>
+    <message>
+        <source>Sign in with its own steps in the terminal.</source>
+        <translation>Inicia sesión con sus propios pasos en el terminal.</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWords</name>
+    <message numerus="yes">
+        <source>ran %n commands</source>
+        <translation>
+            <numerusform>ejecutó %n comando</numerusform>
+            <numerusform>ejecutó %n comandos</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>read %n files</source>
+        <translation>
+            <numerusform>leyó %n archivo</numerusform>
+            <numerusform>leyó %n archivos</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>changed %n files</source>
+        <translation>
+            <numerusform>cambió %n archivo</numerusform>
+            <numerusform>cambió %n archivos</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>wrote %n files</source>
+        <translation>
+            <numerusform>escribió %n archivo</numerusform>
+            <numerusform>escribió %n archivos</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n searches</source>
+        <translation>
+            <numerusform>hizo %n búsqueda</numerusform>
+            <numerusform>hizo %n búsquedas</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>fetched %n pages</source>
+        <translation>
+            <numerusform>obtuvo %n página</numerusform>
+            <numerusform>obtuvo %n páginas</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n helpers</source>
+        <translation>
+            <numerusform>preguntó a %n ayudante</numerusform>
+            <numerusform>preguntó a %n ayudantes</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n skills</source>
+        <translation>
+            <numerusform>usó %n habilidad</numerusform>
+            <numerusform>usó %n habilidades</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n questions</source>
+        <translation>
+            <numerusform>hizo %n pregunta</numerusform>
+            <numerusform>hizo %n preguntas</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n plans</source>
+        <translation>
+            <numerusform>hizo %n plan</numerusform>
+            <numerusform>hizo %n planes</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n tools</source>
+        <translation>
+            <numerusform>usó %n herramienta</numerusform>
+            <numerusform>usó %n herramientas</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n denied</source>
+        <translation>
+            <numerusform>%n denegado</numerusform>
+            <numerusform>%n denegados</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n stopped</source>
+        <translation>
+            <numerusform>%n detenido</numerusform>
+            <numerusform>%n detenidos</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Preguntar</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Acceso total</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>Cambios</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>Planificar</translation>
+    </message>
+    <message>
+        <source>Rules</source>
+        <translation>Reglas</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <translation>%1 h</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1 min</translation>
+    </message>
+    <message>
+        <source>%1s</source>
+        <translation>%1 s</translation>
+    </message>
+    <message>
+        <source>%1 %2</source>
+        <comment>the parts of a duration</comment>
+        <translation>%1 %2</translation>
+    </message>
+    <message>
+        <source>$</source>
+        <comment>the sign of US dollars</comment>
+        <translation>US$</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWork</name>
+    <message>
+        <source>Hide the steps</source>
+        <translation>Ocultar los pasos</translation>
+    </message>
+    <message>
+        <source>Show the steps</source>
+        <translation>Mostrar los pasos</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Listo</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Error</translation>
+    </message>
+</context>
+<context>
     <name>ClipboardReadDialog</name>
     <message>
         <source>Let a program read your clipboard?</source>
@@ -845,6 +1192,21 @@
     <message>
         <source>Cut</source>
         <translation>Cortar</translation>
+    </message>
+</context>
+<context>
+    <name>DayDivider</name>
+    <message>
+        <source>Today</source>
+        <translation>Hoy</translation>
+    </message>
+    <message>
+        <source>Yesterday</source>
+        <translation>Ayer</translation>
+    </message>
+    <message>
+        <source>d MMMM</source>
+        <translation>d &apos;de&apos; MMMM</translation>
     </message>
 </context>
 <context>
@@ -1190,16 +1552,8 @@
         <translation>Preguntar a Dosi</translation>
     </message>
     <message>
-        <source>Stop</source>
-        <translation>Detener</translation>
-    </message>
-    <message>
         <source>Stop (%1)</source>
         <translation>Detener (%1)</translation>
-    </message>
-    <message>
-        <source>Send</source>
-        <translation>Enviar</translation>
     </message>
 </context>
 <context>
@@ -1489,10 +1843,6 @@
     <message>
         <source>Tell me when my terminals finish</source>
         <translation>Avísame cuando terminen mis terminales</translation>
-    </message>
-    <message>
-        <source>Latest</source>
-        <translation>Lo más reciente</translation>
     </message>
 </context>
 <context>
@@ -2300,6 +2650,13 @@
     </message>
 </context>
 <context>
+    <name>LatestKey</name>
+    <message>
+        <source>Latest</source>
+        <translation>Lo más reciente</translation>
+    </message>
+</context>
+<context>
     <name>Link</name>
     <message>
         <source>The link is not a complete address.</source>
@@ -2796,18 +3153,6 @@
 </context>
 <context>
     <name>ProjectConversation</name>
-    <message>
-        <source>Today</source>
-        <translation>Hoy</translation>
-    </message>
-    <message>
-        <source>Yesterday</source>
-        <translation>Ayer</translation>
-    </message>
-    <message>
-        <source>d MMMM</source>
-        <translation>d &apos;de&apos; MMMM</translation>
-    </message>
     <message>
         <source>Conversation</source>
         <translation>Conversación</translation>
@@ -3394,6 +3739,13 @@
     </message>
 </context>
 <context>
+    <name>SendKey</name>
+    <message>
+        <source>Send</source>
+        <translation>Enviar</translation>
+    </message>
+</context>
+<context>
     <name>SessionDetails</name>
     <message>
         <source>Shared with %1</source>
@@ -3873,6 +4225,13 @@
     </message>
 </context>
 <context>
+    <name>StopKey</name>
+    <message>
+        <source>Stop</source>
+        <translation>Detener</translation>
+    </message>
+</context>
+<context>
     <name>TerminalAccessible</name>
     <message>
         <source>Terminal</source>
@@ -3881,6 +4240,112 @@
     <message>
         <source>Live terminal</source>
         <translation>Terminal en directo</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalActions</name>
+    <message>
+        <source>Start an agent</source>
+        <translation>Iniciar un agente</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Modelo</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>Razonamiento</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>Permisos</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>Verbosidad</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>Lienzo</translation>
+    </message>
+    <message>
+        <source>Open Browser</source>
+        <translation>Abrir navegador</translation>
+    </message>
+    <message>
+        <source>Add a file…</source>
+        <translation>Añadir un archivo…</translation>
+    </message>
+    <message>
+        <source>Terminal</source>
+        <translation>Terminal</translation>
+    </message>
+    <message>
+        <source>Share…</source>
+        <translation>Compartir…</translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation>Detalles</translation>
+    </message>
+    <message>
+        <source>Remove from project</source>
+        <translation>Quitar del proyecto</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>Solo al iniciar</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>Modo rápido</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>Breve</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>Detallada</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>Estándar</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Predeterminado</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>Acceso total</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>Preguntar</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1, tras este turno</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1 lo cambia cuando termina su turno.</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1 también conserva el modelo, el razonamiento y el modo rápido la próxima vez que se inicie.</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalChatView</name>
+    <message>
+        <source>Chat</source>
+        <translation>Chat</translation>
     </message>
 </context>
 <context>
@@ -4098,48 +4563,12 @@
         <translation>%1 en %2</translation>
     </message>
     <message>
+        <source>Chat</source>
+        <translation>Chat</translation>
+    </message>
+    <message>
         <source>Actions</source>
         <translation>Acciones</translation>
-    </message>
-    <message>
-        <source>Start an agent</source>
-        <translation>Iniciar un agente</translation>
-    </message>
-    <message>
-        <source>Share…</source>
-        <translation>Compartir…</translation>
-    </message>
-    <message>
-        <source>Open Browser</source>
-        <translation>Abrir navegador</translation>
-    </message>
-    <message>
-        <source>Model</source>
-        <translation>Modelo</translation>
-    </message>
-    <message>
-        <source>Effort</source>
-        <translation>Razonamiento</translation>
-    </message>
-    <message>
-        <source>Permissions</source>
-        <translation>Permisos</translation>
-    </message>
-    <message>
-        <source>Canvas</source>
-        <translation>Lienzo</translation>
-    </message>
-    <message>
-        <source>Add a file…</source>
-        <translation>Añadir un archivo…</translation>
-    </message>
-    <message>
-        <source>Details</source>
-        <translation>Detalles</translation>
-    </message>
-    <message>
-        <source>Remove from project</source>
-        <translation>Quitar del proyecto</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -4222,64 +4651,12 @@
         <translation>Descartar</translation>
     </message>
     <message>
-        <source>Only at start</source>
-        <translation>Solo al iniciar</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>Predeterminado</translation>
-    </message>
-    <message>
-        <source>Unrestricted</source>
-        <translation>Acceso total</translation>
-    </message>
-    <message>
-        <source>Auto</source>
-        <translation>Auto</translation>
-    </message>
-    <message>
-        <source>Ask</source>
-        <translation>Preguntar</translation>
-    </message>
-    <message>
-        <source>%1, after this turn</source>
-        <translation>%1, tras este turno</translation>
-    </message>
-    <message>
-        <source>%1 changes when it finishes its turn.</source>
-        <translation>%1 lo cambia cuando termina su turno.</translation>
-    </message>
-    <message>
-        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
-        <translation>%1 también conserva el modelo, el razonamiento y el modo rápido la próxima vez que se inicie.</translation>
-    </message>
-    <message>
         <source>Copy</source>
         <translation>Copiar</translation>
     </message>
     <message>
         <source>Paste</source>
         <translation>Pegar</translation>
-    </message>
-    <message>
-        <source>Verbosity</source>
-        <translation>Verbosidad</translation>
-    </message>
-    <message>
-        <source>Quiet</source>
-        <translation>Breve</translation>
-    </message>
-    <message>
-        <source>Standard</source>
-        <translation>Estándar</translation>
-    </message>
-    <message>
-        <source>Detailed</source>
-        <translation>Detallada</translation>
-    </message>
-    <message>
-        <source>Fast mode</source>
-        <translation>Modo rápido</translation>
     </message>
 </context>
 <context>
@@ -5027,6 +5404,60 @@
     <message>
         <source>Full screen</source>
         <translation>Pantalla completa</translation>
+    </message>
+</context>
+<context>
+    <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Approve</source>
+        <translation>Aprobar</translation>
+    </message>
+    <message>
+        <source>Approve, and ask before each change</source>
+        <translation>Aprobar y preguntar antes de cada cambio</translation>
+    </message>
+    <message>
+        <source>Approve, and allow its edits</source>
+        <translation>Aprobar y permitir sus cambios</translation>
+    </message>
+    <message>
+        <source>Approve, and use the safety check</source>
+        <translation>Aprobar y usar la comprobación de seguridad</translation>
+    </message>
+    <message>
+        <source>Approve, and ask nothing</source>
+        <translation>Aprobar y no preguntar nada</translation>
+    </message>
+    <message>
+        <source>Approve, and let helpers work alone</source>
+        <translation>Aprobar y dejar que los ayudantes trabajen solos</translation>
+    </message>
+    <message>
+        <source>Leave plan mode</source>
+        <translation>Salir del modo de planificación</translation>
+    </message>
+    <message>
+        <source>writing</source>
+        <translation>escribiendo</translation>
+    </message>
+    <message>
+        <source>compacting</source>
+        <translation>compactando la conversación</translation>
+    </message>
+    <message>
+        <source>thinking</source>
+        <translation>pensando</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n paso</numerusform>
+            <numerusform>%n pasos</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>worked for %1</source>
+        <translation>trabajó durante %1</translation>
     </message>
 </context>
 <context>

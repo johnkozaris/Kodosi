@@ -169,8 +169,10 @@ void SessionActionsModel::giveTypedKeys(const QString& id)
     m_typeAhead.deliver(id);
 }
 
-void SessionActionsModel::completeCreation(const QString& id, const QString& projectId)
+void SessionActionsModel::completeCreation(const QString& id, const QString& projectId, bool chat)
 {
+    if (chat)
+        m_desktop.pickFace(id, QStringLiteral("chat"));
     if (m_created.size() > 64)
         m_created.clear();
     m_created.insert(id);

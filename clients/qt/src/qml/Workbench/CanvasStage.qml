@@ -10,6 +10,7 @@ Item {
 
     default property alias contents: holder.data
     required property Look look
+    property bool chatting: false
     property string canvasSessionId: ""
     property bool wide: false
     property real chosenWidth: 0
@@ -41,6 +42,7 @@ Item {
         anchors.fill: parent
         visible: root.joined
         look: root.look
+        chatting: root.chatting
         seam: root.zoomed ? 0 : root.beside ? root.width - root.panel : root.width
         depth: root.beside && !root.zoomed ? 14 : 0
         radius: root.radius
@@ -98,6 +100,7 @@ Item {
             anchors.fill: parent
             visible: root.part > 0.001
             look: root.look
+            chatting: root.chatting
             seam: width
             radius: root.radius
         }

@@ -11,6 +11,8 @@
 #include "runtime/RuntimeBridge.hpp"
 #include "presentation/AppearanceModel.hpp"
 #include "presentation/CanvasDocuments.hpp"
+#include "presentation/ChatProse.hpp"
+#include "presentation/TerminalChat.hpp"
 #include "presentation/CanvasModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
@@ -167,6 +169,8 @@ int main(int argc, char* argv[])
     workspace.attachCanvas(canvas);
     desktop.attachCanvas(&canvas);
     kodosi::CanvasDocuments documents(runtime, runtime, sessions);
+    kodosi::TerminalChats chats(documents, sessions);
+    kodosi::ChatProse prose;
     kodosi::CanvasWeb canvasWeb(canvas);
     kodosi::ConversationHistoryModel history(runtime);
     kodosi::ProviderFilesModel providerFiles(runtime);
@@ -261,7 +265,7 @@ int main(int argc, char* argv[])
     });
     QQmlApplicationEngine engine;
     kodosi::qml::provideModels(engine, workspace, history, providerFiles, launcher, appearance, desktopSettings,
-        desktop, sessions, tiling, files, lifecycle, surfaces, tray, canvas, documents, canvasWeb, shortcuts);
+        desktop, sessions, tiling, files, lifecycle, surfaces, tray, canvas, documents, canvasWeb, shortcuts, chats, prose);
     engine.addImageProvider(QStringLiteral("canvas"), new kodosi::CanvasImages(canvas));
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,

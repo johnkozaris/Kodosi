@@ -124,11 +124,11 @@ Kodosi. Programme melden ihren Zustand über das
 einen Fortschrittsbalken. Ein Programm, das nichts meldet, zeigt keinen Zustand.
 
 Ein Terminal mit Claude Code zeigt sich auch als Chat, ebenso eines mit Codex oder Copilot
-CLI, wenn Kodosi sie startet. Wähle auf einem Mac, iPhone, iPad oder Android-Telefon Chat
-in der Kopfzeile des Terminals. Der Chat zeigt, was du geschrieben hast, was der Agent
-geantwortet und getan hat, und seine Fragen, mit den Antworten als Buttons. Schreib dort
-dem Agent, oder stoppe ihn. Während er fragt, sagen ihm deine Worte, was er stattdessen
-tun soll. Was du im Chat tust, geschieht auch im Terminal.
+CLI, wenn Kodosi sie startet. Wähle Chat in der Kopfzeile des Terminals. Der Chat zeigt,
+was du geschrieben hast, was der Agent geantwortet und getan hat, und seine Fragen, mit
+den Antworten als Buttons. Schreib dort dem Agent, oder stoppe ihn. Während er fragt,
+sagen ihm deine Worte, was er stattdessen tun soll. Was du im Chat tust, geschieht auch im
+Terminal.
 
 ## 4. Sehen, was ein Agent zeigt
 

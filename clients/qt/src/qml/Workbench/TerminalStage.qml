@@ -263,6 +263,7 @@ Item {
 
                                         anchors.fill: parent
                                         look: terminalTile.look
+                                        chatting: terminalTile.chatting
                                         canvasSessionId: cell.canvasId
                                         wide: Models.DesktopState.canvasWide
                                         chosenWidth: Models.DesktopState.canvasWidth

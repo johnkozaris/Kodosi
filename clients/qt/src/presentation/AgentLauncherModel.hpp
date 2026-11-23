@@ -12,8 +12,7 @@
 namespace kodosi {
 class AgentLauncherModel final : public QObject {
     Q_OBJECT
-    Q_PROPERTY(kodosi::AgentLauncherModel* remote READ remote CONSTANT FINAL)
-    Q_PROPERTY(QString computer READ computer WRITE setComputer NOTIFY computerChanged FINAL)
+    Q_PROPERTY(QString computer READ computer CONSTANT FINAL)
     Q_PROPERTY(QVariantList agents READ agents NOTIFY agentsChanged FINAL)
     Q_PROPERTY(QVariantMap models READ models NOTIFY modelsChanged FINAL)
     Q_PROPERTY(QStringList loadingModels READ loadingModels NOTIFY modelsChanged FINAL)
@@ -31,11 +30,12 @@ class AgentLauncherModel final : public QObject {
     Q_PROPERTY(QString folderError READ folderError NOTIFY foldersChanged FINAL)
 
 public:
-    explicit AgentLauncherModel(CommandDispatcher& commands, QObject* parent = nullptr, bool remote = false);
+    explicit AgentLauncherModel(CommandDispatcher& commands, QObject* parent = nullptr, QString computer = {});
 
-    AgentLauncherModel* remote() const { return m_remote; }
     QString computer() const { return m_computer; }
-    void setComputer(const QString& computer);
+    // The launcher of another computer of this person, which keeps what that computer answered;
+    // this launcher for an empty computer.
+    Q_INVOKABLE kodosi::AgentLauncherModel* of(const QString& computer);
     QVariantList agents() const { return m_agents; }
     QVariantMap models() const { return m_models; }
     QStringList loadingModels() const { return m_loading; }
@@ -66,12 +66,16 @@ public:
     Q_INVOKABLE void listFolders(const QString& path = {}, bool browse = false);
     Q_INVOKABLE void closeFolders();
 
+    // A limit of a plan with its window and the words that say it.
+    [[nodiscard]] static QVariantMap describedLimit(QVariantMap limit);
+    // The limit nearest to its end, of those that count for `model` when one is given.
+    [[nodiscard]] static QVariant nearestLimit(const QVariantList& limits, const QString& model);
+
     void apply(const QJsonObject& event);
     void abandonPending(const QString& message);
     void reset();
 
 signals:
-    void computerChanged();
     void agentsChanged();
     void modelsChanged();
     void choiceChanged();
@@ -93,8 +97,8 @@ private:
     };
 
     CommandDispatcher& m_commands;
-    AgentLauncherModel* m_remote = nullptr;
     QString m_computer;
+    QHash<QString, AgentLauncherModel*> m_computers;
     QHash<QString, Pending> m_pending;
     QVariantList m_agents;
     QVariantMap m_models;

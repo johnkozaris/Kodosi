@@ -291,6 +291,19 @@ void DesktopStateModel::noteOutside(const QString& id)
     m_notedOutside.append(id);
     emit notedOutsideChanged();
 }
+QVariantMap DesktopStateModel::faces() const
+{
+    QVariantMap faces;
+    for (const auto& [id, pick] : m_faces.asKeyValueRange())
+        faces.insert(id, pick.face);
+    return faces;
+}
+void DesktopStateModel::pickFace(const QString& id, const QString& face)
+{
+    const auto session = m_sessions ? m_sessions->session(id) : std::nullopt;
+    m_faces.insert(id, { .face = face, .over = session ? session->face : QString {}, .listed = session.has_value() });
+    emit facesChanged();
+}
 void DesktopStateModel::switchAccount(const QString& userId)
 {
     saveStage();
@@ -320,6 +333,8 @@ void DesktopStateModel::switchAccount(const QString& userId)
     m_closing.clear();
     m_notedOutside.clear();
     emit notedOutsideChanged();
+    m_faces.clear();
+    emit facesChanged();
 }
 void DesktopStateModel::noteClosing(const QString& id)
 {
@@ -436,6 +451,19 @@ void DesktopStateModel::reconcile()
     m_closing.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); });
     if (m_notedOutside.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); }) > 0)
         emit notedOutsideChanged();
+    auto picksChanged = false;
+    for (auto pick = m_faces.begin(); pick != m_faces.end();) {
+        const auto session = m_sessions->session(pick.key());
+        if (session ? !session->face.isEmpty() && session->face != pick->over : pick->listed) {
+            pick = m_faces.erase(pick);
+            picksChanged = true;
+            continue;
+        }
+        pick->listed = session.has_value();
+        ++pick;
+    }
+    if (picksChanged)
+        emit facesChanged();
     reconcileCanvas();
     followPins();
     const auto followed = follow();

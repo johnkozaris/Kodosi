@@ -4,6 +4,7 @@ set_source_files_properties(
     qml/Theme/Mentions.qml
     qml/Dosi/Fold.qml
     qml/Controls/Tip.qml
+    qml/Controls/Prose.qml
     qml/Workbench/DocumentViews.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
@@ -82,6 +83,12 @@ qt_add_library(kodosi-application STATIC
     presentation/AppearanceModel.hpp
     presentation/CanvasDocuments.cpp
     presentation/CanvasDocuments.hpp
+    presentation/ChatProse.cpp
+    presentation/ChatProse.hpp
+    presentation/ChatWords.cpp
+    presentation/ChatWords.hpp
+    presentation/TerminalChat.cpp
+    presentation/TerminalChat.hpp
     presentation/CanvasModel.cpp
     presentation/Link.cpp
     presentation/Link.hpp
@@ -293,8 +300,25 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/BrowserSettings.qml
         qml/Settings/DocumentSettings.qml
         qml/Settings/DosiSettings.qml
+        qml/Chat/ChatAskCard.qml
+        qml/Chat/ChatDock.qml
+        qml/Chat/ChatFacts.qml
+        qml/Chat/ChatStep.qml
+        qml/Chat/ChatThread.qml
+        qml/Chat/ChatWork.qml
+        qml/Chat/TerminalChatView.qml
         qml/Controls/AccountMark.qml
+        qml/Controls/AgentProse.qml
         qml/Controls/Arrive.qml
+        qml/Controls/ChangeLines.qml
+        qml/Controls/CodeWell.qml
+        qml/Controls/ComposerBox.qml
+        qml/Controls/DayDivider.qml
+        qml/Controls/LatestKey.qml
+        qml/Controls/PersonBubble.qml
+        qml/Controls/Prose.qml
+        qml/Controls/SendKey.qml
+        qml/Controls/StopKey.qml
         qml/Controls/Cue.qml
         qml/Controls/DosiFace.qml
         qml/Controls/Spinner.qml
@@ -411,6 +435,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml
+        qml/Workbench/TerminalActions.qml
         qml/Workbench/TerminalDivider.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml

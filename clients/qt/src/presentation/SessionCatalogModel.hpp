@@ -58,6 +58,8 @@ public:
         QString status;
         QString connectionState;
         QString look;
+        // Where the agent that reports to the terminal's chat works, while one does.
+        QString face;
         bool stalled = false;
         bool direct = false;
         QString message;

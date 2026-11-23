@@ -13,6 +13,8 @@ Item {
     property var currentValue
     property bool compact: false
     property bool dock: false
+    property bool symbolic: false
+    property Look look: KodosiTheme.look
     property string identifier: "segment"
     readonly property int currentIndex: {
         for (let index = 0; index < options.length; ++index) {
@@ -32,9 +34,11 @@ Item {
     Well {
         anchors.fill: parent
         radius: height / 2
+        look: root.look
     }
     Raised {
         visible: root.currentItem !== null
+        look: root.look
         x: root.currentItem ? row.x + root.currentItem.x : 0
         y: 3
         width: root.currentItem ? root.currentItem.width : 0
@@ -75,10 +79,10 @@ Item {
                 activeFocusOnTab: true
                 hoverEnabled: true
                 height: row.height
-                width: content.implicitWidth + (root.compact || root.dock ? 22 : 28)
+                width: content.implicitWidth + (root.symbolic ? 20 : root.compact || root.dock ? 22 : 28)
                 clip: true
                 ToolTip.text: modelData.label
-                ToolTip.visible: root.dock && hovered && !selected
+                ToolTip.visible: (root.dock && !selected || root.symbolic) && hovered
                 ToolTip.delay: Tip.delay
 
                 Behavior on width { enabled: root.dock; NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
@@ -87,7 +91,7 @@ Item {
                     RowLayout {
                         id: content
                         anchors.verticalCenter: parent.verticalCenter
-                        x: root.compact || root.dock ? 11 : 14
+                        x: root.symbolic ? 10 : root.compact || root.dock ? 11 : 14
                         spacing: 6
 
                         ProgressRing {
@@ -95,22 +99,22 @@ Item {
                             Layout.preferredWidth: 14
                             Layout.preferredHeight: 14
                             progress: option.modelData.progress || 0
-                            track: KodosiTheme.alpha(KodosiTheme.ink, 0.16)
+                            track: KodosiTheme.alpha(root.look.ink, 0.16)
                         }
                         KIcon {
                             visible: !!option.modelData.icon && option.modelData.progress === undefined
                             Layout.preferredWidth: 13
                             Layout.preferredHeight: 13
                             name: option.modelData.icon || ""
-                            color: root.dock ? (option.selected ? KodosiTheme.accentStrong : KodosiTheme.inkMuted) : label.color
+                            color: root.dock ? (option.selected ? root.look.accentStrong : root.look.inkMuted) : label.color
                             strokeWidth: 2
                         }
                         Text {
                             id: label
-                            visible: option.selected || !root.dock
+                            visible: (option.selected || !root.dock) && !root.symbolic
                             text: option.modelData.label
                             textFormat: Text.PlainText
-                            color: option.selected ? KodosiTheme.ink : option.hovered ? KodosiTheme.ink : KodosiTheme.inkMuted
+                            color: option.selected ? root.look.ink : option.hovered ? root.look.ink : root.look.inkMuted
                             font.pixelSize: root.compact || root.dock ? KodosiTheme.fontFootnote : KodosiTheme.fontBody
                             font.weight: option.selected && !root.dock ? Font.DemiBold : Font.Medium
 
@@ -119,7 +123,7 @@ Item {
                         RollingText {
                             visible: root.dock && !option.selected && option.modelData.count > 0
                             text: String(option.modelData.count ?? "")
-                            color: KodosiTheme.inkFaint
+                            color: root.look.inkFaint
                             font.pixelSize: KodosiTheme.fontFootnote
                             font.weight: Font.Medium
                         }
@@ -129,14 +133,14 @@ Item {
                     radius: height / 2
                     color: "transparent"
                     border.width: option.visualFocus ? 1.5 : 0
-                    border.color: KodosiTheme.accentStrong
+                    border.color: root.look.accentStrong
                 }
 
                 BreathingDot {
                     x: option.width - width - 3
                     y: 3
                     size: 6
-                    color: KodosiTheme.glowOrange
+                    color: root.look.glowOrange
                     visible: option.modelData.fresh === true && !option.selected
                 }
 

@@ -2,8 +2,10 @@ import Kodosi 1.0
 import QtQuick
 
 Rectangle {
+    property Look look: KodosiTheme.look
+
     radius: KodosiTheme.radiusLg
-    color: KodosiTheme.well
+    color: look.well
     border.width: 1
-    border.color: Qt.tint(KodosiTheme.well, KodosiTheme.alpha(KodosiTheme.isDark ? "#000000" : KodosiTheme.hairline, KodosiTheme.isDark ? 0.4 : 0.6))
+    border.color: Qt.tint(look.well, KodosiTheme.alpha(look.dark ? "#000000" : look.hairline, look.dark ? 0.4 : 0.6))
 }

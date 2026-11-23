@@ -100,7 +100,8 @@ bool Workspace::sendTracked(PendingDomain domain, QString type, QJsonObject valu
         return false;
     }
     m_pending.insert(id,
-        { domain, std::move(type), std::move(sessionId), std::move(projectId), m_projects.presentation(), quiet });
+        { domain, std::move(type), std::move(sessionId), std::move(projectId), m_projects.presentation(), quiet,
+            std::move(values) });
     notifyBusy();
     clearError();
     return true;
@@ -317,8 +318,10 @@ void Workspace::receiveResult(const QString& type, const QJsonObject& event)
     if (pending.operation == QStringLiteral("project.act"))
         m_projects.completeAction(pending.projectId, event.value(QStringLiteral("action")).toString(), pending.draft);
     const auto created = event.value(QStringLiteral("sessionId")).toString();
-    if (pending.operation == QStringLiteral("session.create") && !created.isEmpty())
-        m_sessionActions.completeCreation(created, pending.projectId);
+    if (pending.operation == QStringLiteral("session.create") && !created.isEmpty()) {
+        const auto chat = pending.request.value(QStringLiteral("agent")).toObject().value(QStringLiteral("chat")).toBool();
+        m_sessionActions.completeCreation(created, pending.projectId, chat);
+    }
     if (pending.operation == QStringLiteral("project.open") && pending.projectId == m_projects.m_selectedId) {
         m_projects.m_selected = event.value(QStringLiteral("project")).toObject().toVariantMap();
         m_projects.m_members = list(event, "members");

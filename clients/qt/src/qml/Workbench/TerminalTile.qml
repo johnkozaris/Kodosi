@@ -27,7 +27,6 @@ Item {
     property var session: ({})
     readonly property Look look: KodosiTheme.lookNamed(session.look)
     readonly property string sessionName: session.name || qsTr("Terminal")
-    readonly property bool shareable: session.kind === "local" && session.isOwner === true
     readonly property var viewers: (session.connectedUsers || []).filter(user => user !== Models.Account.userId)
     readonly property bool away: session.kind === "remote" && session.status === "offline"
     readonly property string awayText: qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer"))
@@ -36,6 +35,8 @@ Item {
     readonly property string remoteState: !remoteConnected ? "" : unreachable ? qsTr("Offline") : away ? awayText : ""
     readonly property bool waitsForConnection: remoteConnected && (session.status === "reconnecting" || session.stalled === true)
     readonly property string notice: remoteConnected && !away && session.status !== "reconnecting" ? session.message || "" : ""
+    readonly property string shownFace: Models.DesktopState.faces[sessionId] || session.face || "terminal"
+    readonly property bool chatting: shownFace === "chat" && (session.kind === "local" || session.connectionState === "connected")
     property string terminalError: ""
     property bool connectingLong: false
     property string terminalOperationError: ""
@@ -52,8 +53,18 @@ Item {
             terminalError = qsTr("This terminal is not available now.");
     }
     function forceTerminalFocus(): void {
-        if (visible && enabled)
+        if (!visible || !enabled)
+            return;
+        const chat = chatView.item as TerminalChatView;
+        if (chatting && chat)
+            chat.focusComposer();
+        else
             terminal.forceActiveFocus(Qt.ShortcutFocusReason);
+    }
+    function pickFace(face: string): void {
+        select();
+        Models.DesktopState.pickFace(sessionId, face);
+        Qt.callLater(forceTerminalFocus);
     }
     function refreshSession(): void {
         const before = viewers;
@@ -135,7 +146,7 @@ Item {
         anchors.fill: parent
         visible: !root.joined
         radius: KodosiTheme.radiusTile
-        fill: root.look.terminal
+        fill: root.chatting ? root.look.sheet : root.look.terminal
         rim: false
     }
     ColumnLayout {
@@ -345,6 +356,17 @@ Item {
                     text: root.notice
                     visible: root.notice.length > 0
                 }
+                SegmentedPill {
+                    compact: true
+                    symbolic: true
+                    look: root.look
+                    visible: (root.session.face || "").length > 0 || root.shownFace === "chat"
+                    identifier: root.objectName + ".face"
+                    options: [{ value: "terminal", label: qsTr("Terminal"), icon: "terminal" },
+                        { value: "chat", label: qsTr("Chat"), icon: "chat" }]
+                    currentValue: root.shownFace
+                    onActivated: value => root.pickFace(value)
+                }
                 AvatarStack {
                     visible: root.viewers.length > 0
                     userIds: root.viewers
@@ -402,172 +424,15 @@ Item {
                         }
                         onClicked: actionsMenu.popup(actionsKey, actionsKey.width - actionsMenu.width, actionsKey.height + 4)
 
-                        KMenu {
+                        TerminalActions {
                             id: actionsMenu
 
-                            readonly property var agents: root.session.atPrompt === true ? Models.Launcher.agents.filter(agent => agent.installed) : []
-
-                            cascade: true
-                            onAboutToShow: agentChanges.loadModels()
-
-                            PlainLabel {
-                                visible: actionsMenu.agents.length > 0
-                                height: visible ? implicitHeight : 0
-                                leftPadding: 10
-                                topPadding: 4
-                                bottomPadding: 2
-                                text: qsTr("Start an agent")
-                                color: KodosiTheme.inkFaint
-                                font.pixelSize: KodosiTheme.fontCaption
-                                font.weight: Font.Medium
-                            }
-                            Instantiator {
-                                model: actionsMenu.agents
-                                onObjectAdded: (index, item) => actionsMenu.insertItem(index + 1, item)
-                                onObjectRemoved: (index, item) => actionsMenu.removeItem(item)
-                                delegate: KMenuItem {
-                                    required property var modelData
-
-                                    text: Models.DesktopSettings.agentLabel(modelData.agent)
-                                    agent: modelData.agent
-                                    objectName: root.objectName + ".start." + modelData.agent
-                                    onTriggered: Models.SessionActions.startAgent(root.sessionId, modelData.agent)
-                                }
-                            }
-                            MenuSeparator {
-                                visible: actionsMenu.agents.length > 0
-                                height: visible ? implicitHeight : 0
-                                contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
-                            }
-                            PlainLabel {
-                                visible: agentChanges.shown
-                                height: visible ? implicitHeight : 0
-                                leftPadding: 10
-                                topPadding: 4
-                                bottomPadding: 2
-                                text: agentChanges.shown ? Models.DesktopSettings.agentLabel(agentChanges.agent) : ""
-                                color: KodosiTheme.inkFaint
-                                font.pixelSize: KodosiTheme.fontCaption
-                                font.weight: Font.Medium
-                            }
-                            AgentChoiceMenu {
-                                title: qsTr("Model")
-                                objectName: root.objectName + ".agent.model"
-                                available: agentChanges.shown && agentChanges.live.model === true && agentChanges.models !== null
-                                hint: agentChanges.modelHint
-                                options: agentChanges.modelOptions
-                                current: agentChanges.model
-                                note: agentChanges.keepingNote
-                                onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { model: id })
-                            }
-                            AgentChoiceMenu {
-                                title: qsTr("Effort")
-                                objectName: root.objectName + ".agent.effort"
-                                available: agentChanges.shown && agentChanges.live.effort === true && agentChanges.effortOptions.length > 0
-                                hint: agentChanges.effortHint
-                                options: agentChanges.effortOptions
-                                current: agentChanges.effort
-                                note: agentChanges.keepingNote
-                                onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { effort: id })
-                            }
-                            KMenuItem {
-                                text: agentChanges.fastTitle
-                                checkable: true
-                                checked: agentChanges.fast
-                                visible: agentChanges.shown && agentChanges.live.fast === true
-                                objectName: root.objectName + ".agent.fast"
-                                onToggled: {
-                                    const wanted = checked;
-                                    checked = Qt.binding(() => agentChanges.fast);
-                                    Models.SessionActions.changeAgent(root.sessionId, { fast: wanted });
-                                }
-                            }
-                            AgentChoiceMenu {
-                                title: qsTr("Permissions")
-                                objectName: root.objectName + ".agent.permissions"
-                                available: agentChanges.shown && (agentChanges.live.permissions || []).length > 0
-                                hint: agentChanges.permissionsHint
-                                options: agentChanges.permissionOptions
-                                current: agentChanges.permissions
-                                note: agentChanges.turnNote
-                                onPicked: id => Models.SessionActions.changeAgent(root.sessionId, { permissions: id })
-                            }
-                            AgentChoiceMenu {
-                                title: qsTr("Verbosity")
-                                objectName: root.objectName + ".agent.output"
-                                available: agentChanges.shown && agentChanges.output.length > 0
-                                hint: agentChanges.outputHint
-                                options: agentChanges.outputOptions
-                                current: agentChanges.output
-                            }
-                            MenuSeparator {
-                                visible: agentChanges.shown
-                                height: visible ? implicitHeight : 0
-                                contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
-                            }
-                            PlainLabel {
-                                visible: root.session.canControl === true
-                                height: visible ? implicitHeight : 0
-                                leftPadding: 10
-                                topPadding: 4
-                                bottomPadding: 2
-                                text: qsTr("Canvas")
-                                color: KodosiTheme.inkFaint
-                                font.pixelSize: KodosiTheme.fontCaption
-                                font.weight: Font.Medium
-                            }
-                            KMenuItem {
-                                text: qsTr("Open Browser")
-                                iconName: "globe"
-                                visible: root.session.canControl === true
-                                objectName: root.objectName + ".browser"
-                                onTriggered: {
-                                    Models.Canvas.openBrowser(root.sessionId);
-                                    root.canvasRequested("browser");
-                                }
-                            }
-                            KMenuItem {
-                                text: qsTr("Add a file…")
-                                iconName: "files"
-                                visible: root.session.canControl === true
-                                objectName: root.objectName + ".addFile"
-                                onTriggered: Models.DesktopFiles.requestFiles(root.sessionId)
-                            }
-                            MenuSeparator {
-                                visible: root.session.canControl === true
-                                height: visible ? implicitHeight : 0
-                                contentItem: Rectangle { implicitHeight: 1; color: KodosiTheme.hairline }
-                            }
-                            PlainLabel {
-                                leftPadding: 10
-                                topPadding: 4
-                                bottomPadding: 2
-                                text: qsTr("Terminal")
-                                color: KodosiTheme.inkFaint
-                                font.pixelSize: KodosiTheme.fontCaption
-                                font.weight: Font.Medium
-                            }
-                            KMenuItem {
-                                text: qsTr("Share…")
-                                iconName: "share"
-                                visible: root.shareable
-                                objectName: root.objectName + ".share"
-                                onTriggered: root.shareSessionRequested(root.sessionId)
-                            }
-                            KMenuItem {
-                                text: qsTr("Details")
-                                iconName: "info"
-                                objectName: root.objectName + ".details"
-                                onTriggered: root.inspectSessionRequested(root.sessionId)
-                            }
-                            KMenuItem {
-                                text: qsTr("Remove from project")
-                                iconName: "leave"
-                                destructive: true
-                                visible: !!root.session.projectId && root.session.isOwner === true
-                                objectName: root.objectName + ".removeFromProject"
-                                onTriggered: Models.SessionActions.attachProject(root.sessionId, "")
-                            }
+                            session: root.session
+                            sessionId: root.sessionId
+                            identifier: root.objectName
+                            onCanvasRequested: section => root.canvasRequested(section)
+                            onShareRequested: root.shareSessionRequested(root.sessionId)
+                            onInspectRequested: root.inspectSessionRequested(root.sessionId)
                         }
                     }
                     KIconButton {
@@ -628,6 +493,7 @@ Item {
             Models.TerminalView {
                 id: terminal
                 enabled: root.interactionEnabled
+                visible: !root.chatting
 
                 Accessible.id: objectName
                 anchors.fill: parent
@@ -654,6 +520,20 @@ Item {
                 onPicturePasted: path => Models.SessionActions.pastePicture(root.sessionId, path)
                 onTerminalClosed: root.terminalError = qsTr("The terminal closed.")
                 onTerminalError: message => root.terminalError = message
+            }
+            Loader {
+                id: chatView
+
+                anchors.fill: parent
+                active: root.chatting
+                visible: active
+                sourceComponent: TerminalChatView {
+                    sessionId: root.sessionId
+                    session: root.session
+                    look: root.look
+
+                    onFocused: root.select()
+                }
             }
             ReconnectingNotice {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -727,7 +607,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 color: root.look.terminal
-                visible: !terminal.terminalReady || root.terminalError.length > 0
+                visible: !root.chatting && (!terminal.terminalReady || root.terminalError.length > 0)
 
                 ColumnLayout {
                     anchors.centerIn: parent
@@ -995,80 +875,6 @@ Item {
                 objectName: root.objectName + ".operationError.dismiss"
                 onClicked: { root.terminalOperationError = ""; operationFailure.close(); }
             }
-        }
-    }
-    QtObject {
-        id: agentChanges
-
-        readonly property string agent: root.session.program || ""
-        readonly property var live: root.session.programLive || ({})
-        readonly property var settings: root.session.programSettings || ({})
-        readonly property var pending: root.session.programPending || ({})
-        readonly property bool changesModes: agent.length > 0 && (live.permissions || []).length > 0
-        readonly property bool local: agent.length > 0 && (live.model === true || live.effort === true)
-            && root.session.kind === "local" && Models.Launcher.computer.length === 0
-        readonly property var models: local ? Models.Launcher.models[agent] || null : null
-        readonly property string output: settings.output ?? ""
-        readonly property bool shown: root.session.canControl === true
-            && (models !== null || changesModes || output.length > 0 || live.fast === true)
-        readonly property string model: pending.model ?? settings.model ?? ""
-        readonly property string effort: pending.model !== undefined ? pending.effort ?? "" : pending.effort ?? settings.effort ?? ""
-        readonly property bool fast: pending.fast ?? settings.fast ?? false
-        readonly property string permissions: pending.permissions ?? settings.permissions ?? ""
-        readonly property var modelOptions: (models ? models.models || [] : []).map(option => ({ id: option.id, label: option.label }))
-        readonly property var effortOptions: {
-            const offer = models ? models.models || [] : []
-            const allowed = (offer.find(option => option.id === model) || {}).efforts || []
-            return (models ? models.efforts || [] : []).filter(option => allowed.length === 0 || allowed.includes(option.id))
-                .map(option => ({ id: option.id, label: Models.DesktopSettings.effortLabel(option.id) }))
-        }
-        readonly property var knownPermissions: changesModes
-            ? (Models.Launcher.agents.find(info => info.agent === agent) || {}).permissions || [] : []
-        readonly property var permissionOptions: ["ask", "auto", "unrestricted"]
-            .filter(id => knownPermissions.includes(id) || (live.permissions || []).includes(id) || id === permissions)
-            .map(id => ({ id: id, label: permissionLabel(id), enabled: (live.permissions || []).includes(id),
-                detail: (live.permissions || []).includes(id) ? "" : qsTr("Only at start") }))
-        readonly property var knownOutputs: output.length > 0
-            ? (Models.Launcher.agents.find(info => info.agent === agent) || {}).outputs || [] : []
-        readonly property var outputOptions: ["quiet", "standard", "detailed"]
-            .filter(id => knownOutputs.includes(id) || id === output)
-            .map(id => ({ id: id, label: outputLabel(id), enabled: false, detail: id === output ? "" : qsTr("Only at start") }))
-        readonly property string modelHint: shownValue(modelLabel(model), pending.model !== undefined)
-        readonly property string effortHint: shownValue(effort.length > 0 ? Models.DesktopSettings.effortLabel(effort) : "",
-            pending.effort !== undefined)
-        readonly property string fastTitle: shownValue(qsTr("Fast mode"), pending.fast !== undefined)
-        readonly property string permissionsHint: shownValue(permissionLabel(permissions), pending.permissions !== undefined)
-        readonly property string outputHint: outputLabel(output)
-        readonly property string keepingNote: note(live.keeps === true)
-        readonly property string turnNote: note(false)
-
-        function outputLabel(id: string): string {
-            return id === "quiet" ? qsTr("Quiet") : id === "detailed" ? qsTr("Detailed") : id === "standard" ? qsTr("Standard") : ""
-        }
-
-        function loadModels(): void {
-            if (local)
-                Models.Launcher.loadModels(agent)
-        }
-        function modelLabel(id: string): string {
-            if (id.length === 0)
-                return qsTr("Default")
-            return ((models ? models.models || [] : []).find(option => option.id === id) || { label: id }).label
-        }
-        function permissionLabel(id: string): string {
-            return id === "unrestricted" ? qsTr("Unrestricted") : id === "auto" ? qsTr("Auto") : id === "ask" ? qsTr("Ask") : ""
-        }
-        function shownValue(value: string, waits: bool): string {
-            return waits ? qsTr("%1, after this turn").arg(value) : value
-        }
-        function note(keeps: bool): string {
-            if (!shown)
-                return ""
-            const label = Models.DesktopSettings.agentLabel(agent)
-            const busy = root.session.working === true || root.session.asks === true
-            return [busy ? qsTr("%1 changes when it finishes its turn.").arg(label) : "",
-                keeps ? qsTr("%1 also keeps the model, effort and fast mode the next time it starts.").arg(label) : ""]
-                .filter(text => text.length > 0).join(" ")
         }
     }
 

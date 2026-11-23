@@ -85,7 +85,7 @@ private:
     QSet<QString> m_created;
     TerminalTypeAhead m_typeAhead;
     std::function<QJsonObject()> m_startSize;
-    void completeCreation(const QString& sessionId, const QString& projectId);
+    void completeCreation(const QString& sessionId, const QString& projectId, bool chat = false);
     bool activateSession(const QString& sessionId, bool inProject);
     bool opening(const QString& sessionId) const;
     bool openRemote(const QString& sessionId, bool quiet = false);

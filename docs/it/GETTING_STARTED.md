@@ -117,11 +117,10 @@ dispositivo. I programmi comunicano il loro stato con il
 una barra di avanzamento. Un programma che non comunica nulla non mostra uno stato.
 
 Un terminale con Claude Code si vede anche come chat, come uno con Codex o Copilot CLI
-quando li avvia Kodosi. Su un Mac, un iPhone, un iPad o un telefono Android, seleziona
-Chat nell'intestazione del terminale. La chat mostra cosa hai scritto, cosa l'agente ha
-risposto e fatto, e le sue domande, con le risposte come pulsanti. Lì puoi scrivere
-all'agente o fermarlo. Mentre chiede, le parole che scrivi gli dicono cosa fare invece.
-Ciò che fai nella chat avviene anche nel terminale.
+quando li avvia Kodosi. Seleziona Chat nell'intestazione del terminale. La chat mostra
+cosa hai scritto, cosa l'agente ha risposto e fatto, e le sue domande, con le risposte
+come pulsanti. Lì puoi scrivere all'agente o fermarlo. Mentre chiede, le parole che
+scrivi gli dicono cosa fare invece. Ciò che fai nella chat avviene anche nel terminale.
 
 ## 4. Guarda cosa mostra un agente
 
