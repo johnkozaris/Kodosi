@@ -92,8 +92,9 @@ export KODOSI_POSTGRES_VOLUME=kodosi-dev-postgres
 just backend-docker-run
 ```
 
-`just backend-docker-stop` stops it and keeps the volume. To sign in with another
-identity provider, such as the disposable Keycloak of `sign-in/keycloak.sh`, set
+`just backend-docker-stop` stops it and keeps the volume. A new major version of PostgreSQL
+in compose.yaml starts only on a new volume; the old volume keeps its data. To sign in with
+another identity provider, such as the disposable Keycloak of `sign-in/keycloak.sh`, set
 `Auth__Authority` and `Auth__Audience` in a local Compose override. With that Keycloak,
 the client that `sign-in/keycloak.sh` prints for account deletions goes into the
 `Auth__AccountDeletion` settings of [Self-hosting](SELF-HOSTING.md).
