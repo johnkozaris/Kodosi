@@ -1205,12 +1205,13 @@ mod tests {
                 String::from_utf8_lossy_owned(output)
             });
         let variables: Vec<&str> = output.lines().map(str::trim_end).collect();
+        let version = format!("TERM_PROGRAM_VERSION={}", crate::GHOSTTY_VERSION);
         for expected in [
             "CLAUDECODE=1",
             "TERM=xterm-256color",
             "COLORTERM=truecolor",
             "TERM_PROGRAM=ghostty",
-            "TERM_PROGRAM_VERSION=1.4.1-dev",
+            version.as_str(),
             "KODOSI_SESSION_ID=id",
         ] {
             assert!(variables.contains(&expected), "{expected}: {output}");

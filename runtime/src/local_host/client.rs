@@ -4,7 +4,6 @@ pub struct Client {
     events: Events,
     commands: Commands,
     pub initial_events: Vec<Value>,
-    pub host: HostDescription,
 }
 pub struct Events(FrameReader<kodosi_os::ipc::ReadHalf>);
 pub struct Commands(kodosi_os::ipc::WriteHalf);
@@ -12,15 +11,11 @@ pub struct Commands(kodosi_os::ipc::WriteHalf);
 impl Client {
     pub async fn connect(root: &Path) -> Result<Self> {
         let (stream, welcome) = connect(root, None).await?;
-        let host = welcome
-            .host
-            .ok_or_else(|| Error::Invalid("the running host did not identify itself".into()))?;
         let (reader, writer) = stream.into_split();
         Ok(Self {
             events: Events(FrameReader::new(reader)),
             commands: Commands(writer),
             initial_events: welcome.events,
-            host,
         })
     }
     pub async fn command(&mut self, command: Value) -> Result<()> {

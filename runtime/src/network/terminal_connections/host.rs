@@ -1396,7 +1396,6 @@ impl<'a, T: Transport> Stream<'a, T> {
         tokio::time::timeout(
             Duration::from_secs(5),
             self.requests.send(HostRequest::Picture {
-                connection_id: self.controller.connection,
                 authorization: self.controller.authorization.clone(),
                 picture,
                 reply,

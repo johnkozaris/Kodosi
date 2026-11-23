@@ -414,7 +414,6 @@ pub enum HostRequest {
         reply: oneshot::Sender<std::result::Result<crate::canvas::PipeEnds, Text>>,
     },
     Picture {
-        connection_id: Uuid,
         authorization: tokio_util::sync::CancellationToken,
         picture: HostPicture,
         reply: oneshot::Sender<std::result::Result<Value, Text>>,

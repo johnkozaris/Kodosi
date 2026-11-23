@@ -346,7 +346,6 @@
 "{name} has this task. Take another task, or ask them to release it.": "このタスクは {name} さんが担当しています。別のタスクを選ぶか、担当を外れるよう頼んでください。",
 "{name} is missing. The agent can show it again.": "{name} が見つかりません。エージェントがもう一度表示できます。",
 "{name} is not on this computer.": "{name} はこのコンピュータにありません。",
-"{name} is offline. The terminal closes when it is back.": "{name} はオフラインです。オンラインに戻るとターミナルは閉じます。",
 "{name} keeps its sign-ins locked on this computer, so sign in on the canvas.": "{name} はこのコンピュータでサインイン情報をロックしています。キャンバスでサインインしてください。",
 "{program} did not start: {error}": "{program} を起動できませんでした: {error}",
 "{reason} Approve this device from another device, or start fresh here.": "{reason} 別のデバイスからこのデバイスを承認するか、ここで新しく始めてください。",

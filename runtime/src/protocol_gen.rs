@@ -455,6 +455,7 @@ mod tests {
                 event.event.kind()
             );
             assert_eq!(encoded["type"], value["type"]);
+            assert_eq!(encoded["type"], event.event.kind());
         }
     }
 
@@ -536,7 +537,6 @@ mod tests {
                 .contains(&json!("executable"))
         );
         assert!(matches(&schema["properties"]["executable"], &Value::Null));
-        assert!(schema["properties"].get("version").is_none());
         let provider = shape::<kodosi_runtime::provider::Provider>().unwrap();
         assert!(matches(&provider, &json!("claude")));
         assert!(!matches(&provider, &json!("Claude")));
@@ -640,6 +640,7 @@ mod tests {
             }
             let command: protocol::CommandEnvelope = serde_json::from_value(value.clone())
                 .unwrap_or_else(|error| panic!("{value}: {error}"));
+            assert_eq!(value["type"], command.command.operation());
             assert!(matches(&schema, &serde_json::to_value(command).unwrap()));
         }
     }

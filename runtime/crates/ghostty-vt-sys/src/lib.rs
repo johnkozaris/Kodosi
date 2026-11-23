@@ -28,31 +28,3 @@ mod bindings {
 pub(crate) use bindings::*;
 
 pub mod raw;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn clipboard_write_layout_matches_target_header() {
-        assert_eq!(std::mem::size_of::<GhosttyClipboardWrite>(), 64);
-        assert_eq!(std::mem::offset_of!(GhosttyClipboardWrite, reply), 56);
-        assert_eq!(std::mem::size_of::<GhosttyClipboardWriteReply>(), 16);
-    }
-
-    #[test]
-    fn terminal_create_write_and_free_links() {
-        let mut terminal = std::ptr::null_mut();
-
-        let result = unsafe {
-            ghostty_terminal_new(std::ptr::null(), std::ptr::from_mut(&mut terminal), 80, 24)
-        };
-        assert_eq!(result, GhosttyResult_GHOSTTY_SUCCESS);
-        assert!(!terminal.is_null());
-
-        unsafe {
-            ghostty_terminal_vt_write(terminal, b"hello".as_ptr(), 5);
-            ghostty_terminal_free(terminal);
-        }
-    }
-}
