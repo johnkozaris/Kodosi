@@ -76,9 +76,11 @@ QSGNode* TerminalView::updatePaintNode(
             delete node;
             return nullptr;
         }
+        // An opaque terminal lets the scene graph skip every surface under it in each frame.
         auto* texture = window()->createTextureFromImage(
             image,
-            QQuickWindow::TextureHasAlphaChannel);
+            m_frame->background.alpha() == 255 ? QQuickWindow::TextureIsOpaque
+                                               : QQuickWindow::TextureHasAlphaChannel);
         if (texture == nullptr) {
             queueRenderPerformance(
                 rasterTimer.elapsed(),

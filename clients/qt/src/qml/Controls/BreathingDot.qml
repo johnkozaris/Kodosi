@@ -11,8 +11,14 @@ Item {
     implicitHeight: size
     Accessible.ignored: true
 
+    SignPhase {
+        id: breath
+        period: 1600
+        running: !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
+    }
     Rectangle {
-        id: ring
+        readonly property real spread: 1 - (1 - breath.value) * (1 - breath.value)
+
         anchors.centerIn: parent
         width: root.size
         height: root.size
@@ -20,15 +26,8 @@ Item {
         color: "transparent"
         border.width: 1.5
         border.color: root.color
-        opacity: 0
-
-        ParallelAnimation {
-            running: !KodosiTheme.reduceMotion && KodosiTheme.shown && root.visible
-            loops: Animation.Infinite
-            NumberAnimation { target: ring; property: "scale"; from: 1; to: 2.4; duration: 1600; easing.type: Easing.OutQuad }
-            NumberAnimation { target: ring; property: "opacity"; from: 0.55; to: 0; duration: 1600; easing.type: Easing.OutQuad }
-            onStopped: ring.opacity = 0
-        }
+        scale: 1 + 1.4 * spread
+        opacity: breath.running ? 0.55 * (1 - spread) : 0
     }
     Rectangle {
         anchors.centerIn: parent
