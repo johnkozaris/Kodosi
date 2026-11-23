@@ -2,7 +2,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
-cargo_deny_version := "0.21.0"
+cargo_deny_version := "0.22.0"
 cargo_machete_version := "0.10.1"
 cargo_ndk_version := "4.1.2"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
