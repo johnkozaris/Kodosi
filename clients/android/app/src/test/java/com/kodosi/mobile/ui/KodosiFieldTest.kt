@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performImeAction
@@ -30,7 +29,6 @@ class KodosiFieldTest {
     @get:Rule
     val compose = createEmptyComposeRule()
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
     fun aOneLineFieldGivesEnterAndItsKeyboardActionToTheCaller() {
         val key = TextFieldState()

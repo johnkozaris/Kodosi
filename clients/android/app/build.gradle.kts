@@ -240,6 +240,7 @@ abstract class CollectJvmNotices @Inject constructor(private val files: FileSyst
             into(directory)
         }
         val inherited = parents.files.map(::readPom).associateBy { it.coordinate() }
+        val ownLicenses = mutableListOf<String>()
         val inventory = poms.files.sortedBy { it.name }.joinToString("\n\n") { pom ->
             val project = readPom(pom)
             val licenses = project.licenses(inherited)
@@ -259,6 +260,11 @@ abstract class CollectJvmNotices @Inject constructor(private val files: FileSyst
                         it.text("url") == "https://developer.android.com/studio/terms.html"
                 } ->
                     "Android Software Development Kit License; see Google-Android-SDK.txt."
+
+                licenses.any { it.text("url").contains("opensource.org/licenses/MIT") } -> {
+                    ownLicenses += pom.name.removeSuffix(".pom")
+                    "MIT; see the license file of its archive."
+                }
 
                 else -> error("Package the declared license of ${pom.name} before adding this dependency.")
             }
@@ -307,6 +313,12 @@ abstract class CollectJvmNotices @Inject constructor(private val files: FileSyst
                         }
                     }
                 }
+            }
+        }
+        val packaged = directory.list().orEmpty()
+        ownLicenses.forEach { name ->
+            check(packaged.any { it.startsWith("$name.") && it.contains("license", ignoreCase = true) }) {
+                "Package the MIT license of $name."
             }
         }
     }
