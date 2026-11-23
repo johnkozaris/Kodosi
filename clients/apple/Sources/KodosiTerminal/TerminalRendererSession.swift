@@ -251,12 +251,6 @@ public final class TerminalRendererSession: ObservableObject {
         accessibilityUpdateRelay.signal()
     }
 
-    #if DEBUG
-        func sendInputForTest(_ data: Data) {
-            backend.sendInput(data)
-        }
-    #endif
-
     public func setStyle(_ style: TerminalStyle) {
         objectWillChange.send()
         viewState.configuration = TerminalSurfaceOptions(

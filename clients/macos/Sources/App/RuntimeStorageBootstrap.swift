@@ -7,21 +7,8 @@ struct RuntimeStorageBootstrap {
     static let xctestTemporaryRoot = "__KODOSI_XCTEST_TMPDIR__"
 
     let dataRoot: URL?
-    let harnessHome: URL?
     let defaultWorkingDirectory: URL?
     let defaults: UserDefaults
-
-    init(
-        dataRoot: URL?,
-        harnessHome: URL?,
-        defaultWorkingDirectory: URL? = nil,
-        defaults: UserDefaults,
-    ) {
-        self.dataRoot = dataRoot
-        self.harnessHome = harnessHome
-        self.defaultWorkingDirectory = defaultWorkingDirectory
-        self.defaults = defaults
-    }
 
     var isIsolated: Bool {
         dataRoot != nil
@@ -45,7 +32,6 @@ struct RuntimeStorageBootstrap {
             }
             return RuntimeStorageBootstrap(
                 dataRoot: nil,
-                harnessHome: nil,
                 defaultWorkingDirectory: nil,
                 defaults: .standard,
             )
@@ -96,7 +82,6 @@ struct RuntimeStorageBootstrap {
         }
         return RuntimeStorageBootstrap(
             dataRoot: root,
-            harnessHome: harnessHome,
             defaultWorkingDirectory: defaultWorkingDirectory,
             defaults: defaults,
         )

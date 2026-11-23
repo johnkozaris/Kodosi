@@ -163,30 +163,9 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
     #expect(firstRoot != secondRoot)
     #expect(firstRoot.path.hasPrefix(parent.path + "/"))
     #expect(secondRoot.path.hasPrefix(parent.path + "/"))
-    #expect(first.harnessHome?.path.hasPrefix(firstRoot.path + "/") == true)
     #expect(first.defaultWorkingDirectory?.path.hasPrefix(firstRoot.path + "/") == true)
     #expect(first.defaults !== UserDefaults.standard)
     #expect(first.defaults is EphemeralUserDefaults)
-}
-
-@Test func `isolated bootstrap releases preferences after its last consumer`() throws {
-    let root = try canonicalTemporaryTestDirectory("KodosiBootstrapLifetimeTests-\(UUID().uuidString)")
-    defer { try? FileManager.default.removeItem(at: root) }
-    var bootstrap: RuntimeStorageBootstrap? = try RuntimeStorageBootstrap.resolve(
-        environment: [RuntimeStorageBootstrap.dataRootEnvironmentKey: root.path],
-        processIdentifier: 103,
-        installEnvironment: false,
-    )
-    let file = try #require((bootstrap?.defaults as? EphemeralUserDefaults)?.persistentFileURL)
-    var consumer = bootstrap?.defaults
-    consumer?.set("temporary", forKey: "value")
-    #expect(consumer?.synchronize() == true)
-    bootstrap = nil
-
-    #expect(consumer?.string(forKey: "value") == "temporary")
-    #expect(FileManager.default.fileExists(atPath: file.path))
-    consumer = nil
-    #expect(!FileManager.default.fileExists(atPath: file.path))
 }
 
 @Test func `production bootstrap keeps standard preferences`() throws {

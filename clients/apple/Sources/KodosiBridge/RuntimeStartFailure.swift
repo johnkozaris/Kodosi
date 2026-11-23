@@ -3,19 +3,7 @@ import KodosiKit
 
 public struct RuntimeStartFailure: Equatable, Sendable {
     public enum Code: Equatable, Sendable {
-        case invalidCallbacks, alreadyActive, hostOutdated, rejected, failed
-        case other(Int32)
-
-        public init(rawValue: Int32) {
-            switch rawValue {
-            case KODOSI_START_INVALID_CALLBACKS: self = .invalidCallbacks
-            case KODOSI_START_ALREADY_ACTIVE: self = .alreadyActive
-            case KODOSI_START_HOST_OUTDATED: self = .hostOutdated
-            case KODOSI_START_REJECTED: self = .rejected
-            case KODOSI_START_FAILED: self = .failed
-            default: self = .other(rawValue)
-            }
-        }
+        case hostOutdated, other
     }
 
     public enum HostKind: Equatable, Sendable {
@@ -56,7 +44,7 @@ public struct RuntimeStartFailure: Equatable, Sendable {
             }
         }
         self.init(
-            code: Code(rawValue: raw.code), hostKind: HostKind(rawValue: raw.host_kind),
+            code: raw.code == KODOSI_START_HOST_OUTDATED ? .hostOutdated : .other, hostKind: HostKind(rawValue: raw.host_kind),
             hostPID: raw.host_pid, hostTerminals: raw.host_terminals, message: message,
         )
     }
