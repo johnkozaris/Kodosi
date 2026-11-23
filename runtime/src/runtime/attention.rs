@@ -391,16 +391,17 @@ impl Attention {
         Some(self.cue(can_be_here, wait == Waiting::Blocked, now))
     }
 
-    /// A program's own notification shows also to a person in Kodosi who looks at another
-    /// terminal.
+    /// Only the device of its terminal has a program's own notification, so the devices that the
+    /// person uses elsewhere do not take it from this one.
     #[cfg(feature = "host")]
-    pub(super) fn notification_cue(&mut self, now: Instant) -> Cue {
+    pub(super) fn notification_cue(&mut self, now: Instant) -> Option<Cue> {
         let can_be_here = match self.device() {
-            Presence::Kodosi | Presence::Here => true,
+            Presence::Kodosi => return None,
+            Presence::Here => true,
             Presence::Idle => !self.elsewhere.kodosi && !self.elsewhere.here,
             Presence::Away => false,
         };
-        self.cue(can_be_here, true, now)
+        Some(self.cue(can_be_here, false, now))
     }
 
     fn cue(&mut self, can_be_here: bool, sounds: bool, now: Instant) -> Cue {
