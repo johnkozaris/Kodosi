@@ -362,7 +362,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("stalled"), !local && s->stalled },
         { QStringLiteral("direct"), !local && s->direct }, { QStringLiteral("look"), s->look },
         { QStringLiteral("face"), s->face },
-        { QStringLiteral("isOwner"), s->isOwner },
+        { QStringLiteral("isOwner"), s->isOwner }, { QStringLiteral("hostDeviceId"), local ? QString {} : s->hostDeviceId },
         { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
         { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden },
         { QStringLiteral("canvas"), s->canvas.isEmpty() ? QVariant {} : QVariant(s->canvas) } };

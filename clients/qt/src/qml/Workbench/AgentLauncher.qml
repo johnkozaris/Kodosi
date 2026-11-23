@@ -27,7 +27,7 @@ ColumnLayout {
     }
     readonly property string computerName: (computers.find(entry => entry.deviceId === computer) || {}).label || qsTr("This computer")
     readonly property bool offline: !Models.Account.online && Models.Devices.hasOtherDevices
-    readonly property var launcher: computer.length > 0 ? Models.Launcher.remote : Models.Launcher
+    readonly property var launcher: Models.Launcher.of(computer)
     readonly property var places: launcher.places
     readonly property var choice: root.launcher.choice
     readonly property var agents: root.launcher.agents
@@ -286,12 +286,7 @@ ColumnLayout {
     }
 
     function askFolders(): void {
-        if (computer.length === 0) {
-            Models.Launcher.listFolders()
-            return
-        }
-        Models.Launcher.remote.computer = computer
-        Models.Launcher.remote.listFolders()
+        root.launcher.listFolders()
     }
 
     spacing: centered ? 24 : 16

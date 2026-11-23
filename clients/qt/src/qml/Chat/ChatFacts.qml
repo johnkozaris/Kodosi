@@ -13,8 +13,9 @@ Item {
     required property string sessionId
     required property Look look
     readonly property string agent: session.program || ""
-    readonly property bool local: session.kind === "local" && Models.Launcher.computer.length === 0
-    readonly property var models: local ? Models.Launcher.models[agent] || null : null
+    readonly property var launcher: session.kind === "local" ? Models.Launcher
+        : session.isOwner === true && (session.hostDeviceId || "").length > 0 ? Models.Launcher.of(session.hostDeviceId) : null
+    readonly property var models: launcher ? launcher.models[agent] || null : null
     readonly property string model: facts.model || ""
     readonly property string modelName: Models.Chats.modelName(model, models || ({}))
     readonly property var levels: {
@@ -26,15 +27,28 @@ Item {
     readonly property bool full: row.implicitWidth + 10 + tail.implicitWidth <= width
 
     function loadModels(): void {
-        if (local && agent.length > 0 && models === null)
-            Models.Launcher.loadModels(agent)
+        if (launcher && agent.length > 0 && models === null)
+            launcher.loadModels(agent)
     }
 
     implicitHeight: 20
     objectName: "chat.facts"
 
-    Component.onCompleted: loadModels()
+    Component.onCompleted: {
+        if (launcher)
+            launcher.refresh(false)
+        loadModels()
+    }
     onAgentChanged: loadModels()
+    onLauncherChanged: loadModels()
+
+    Connections {
+        function onAgentsChanged() {
+            root.loadModels()
+        }
+
+        target: root.launcher
+    }
 
     component Fact: Item {
         id: fact

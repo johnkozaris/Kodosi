@@ -383,8 +383,7 @@ private slots:
     {
         ProviderCommands commands;
         kodosi::AgentLauncherModel launcher(commands);
-        auto& remote = *launcher.remote();
-        remote.setComputer(QStringLiteral("laptop"));
+        auto& remote = *launcher.of(QStringLiteral("laptop"));
         remote.listFolders();
         QCOMPARE(commands.values.size(), 2);
         for (const auto& command : std::as_const(commands.values))
@@ -441,9 +440,12 @@ private slots:
         QVERIFY(remote.listing().isEmpty());
 
         const auto sent = commands.values.size();
-        remote.setComputer({});
-        QVERIFY(remote.places().isEmpty() && remote.agents().isEmpty());
+        QCOMPARE(launcher.of(QStringLiteral("laptop")), &remote);
+        QCOMPARE(remote.agents().size(), 1);
         QCOMPARE(commands.values.size(), sent);
+        auto& desk = *launcher.of(QStringLiteral("desk"));
+        QCOMPARE(commands.values.last().value(QStringLiteral("computer")).toString(), QStringLiteral("desk"));
+        QVERIFY(desk.agents().isEmpty());
     }
 };
 QTEST_GUILESS_MAIN(ProviderModelsTest)

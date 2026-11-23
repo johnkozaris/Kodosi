@@ -98,42 +98,27 @@ QVariant AgentLauncherModel::nearestLimit(const QVariantList& limits, const QStr
     return nearest;
 }
 
-AgentLauncherModel::AgentLauncherModel(CommandDispatcher& commands, QObject* parent, bool remote)
+AgentLauncherModel::AgentLauncherModel(CommandDispatcher& commands, QObject* parent, QString computer)
     : QObject(parent)
     , m_commands(commands)
+    , m_computer(std::move(computer))
 {
     for (const auto signal : { &AgentLauncherModel::agentsChanged, &AgentLauncherModel::modelsChanged,
              &AgentLauncherModel::choiceChanged })
         connect(this, signal, this, &AgentLauncherModel::plansChanged);
     connect(this, &AgentLauncherModel::agentsChanged, this, &AgentLauncherModel::usageChanged);
-    if (!remote)
-        m_remote = new AgentLauncherModel(commands, this, true);
 }
 
-void AgentLauncherModel::setComputer(const QString& computer)
+AgentLauncherModel* AgentLauncherModel::of(const QString& computer)
 {
-    if (computer == m_computer)
-        return;
-    m_computer = computer;
-    reset();
-    m_agents.clear();
-    m_models.clear();
-    m_choice.clear();
-    m_places.clear();
-    m_listing.clear();
-    m_folderError.clear();
-    m_browsing.clear();
-    m_usage.clear();
-    m_usageRead = false;
-    m_refreshedAt = 0;
-    emit computerChanged();
-    emit agentsChanged();
-    emit choiceChanged();
-    emit foldersChanged();
-    emit usageChanged();
-    emit loadingUsageChanged();
-    if (!m_computer.isEmpty())
-        refresh(true);
+    if (computer.isEmpty() || computer == m_computer)
+        return this;
+    if (const auto known = m_computers.constFind(computer); known != m_computers.cend())
+        return *known;
+    auto* made = new AgentLauncherModel(m_commands, this, computer);
+    m_computers.insert(computer, made);
+    made->refresh(true);
+    return made;
 }
 
 void AgentLauncherModel::listFolders(const QString& path, bool browse)
@@ -433,8 +418,8 @@ void AgentLauncherModel::choose(const QString& kind, const QString& agent, const
 
 void AgentLauncherModel::apply(const QJsonObject& event)
 {
-    if (m_remote)
-        m_remote->apply(event);
+    for (auto* other : std::as_const(m_computers))
+        other->apply(event);
     const auto requestId = event.value(QStringLiteral("requestId")).toString();
     const auto found = m_pending.constFind(requestId);
     if (found == m_pending.constEnd())
@@ -546,16 +531,16 @@ void AgentLauncherModel::apply(const QJsonObject& event)
 
 void AgentLauncherModel::abandonPending(const QString& message)
 {
-    if (m_remote)
-        m_remote->abandonPending(message);
+    for (auto* other : std::as_const(m_computers))
+        other->abandonPending(message);
     for (const auto& [id, pending] : QHash(m_pending).asKeyValueRange())
         apply(lostAnswer(pending.operation, id, message));
 }
 
 void AgentLauncherModel::reset()
 {
-    if (m_remote)
-        m_remote->reset();
+    for (auto* other : std::as_const(m_computers))
+        other->reset();
     const bool adding = addingAccount();
     const bool loading = loadingUsage();
     m_pending.clear();
