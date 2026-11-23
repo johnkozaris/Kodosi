@@ -519,7 +519,10 @@ QSGNode* LightTrack::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData*)
         geometry->setVertexDataPattern(QSGGeometry::DynamicPattern);
         node->setGeometry(geometry);
         node->setFlag(QSGNode::OwnsGeometry);
-        node->setMaterial(new QSGVertexColorMaterial);
+        auto* material = new QSGVertexColorMaterial;
+        // The colors change at each step, and a merged batch would be transformed and uploaded again as a whole.
+        material->setFlag(QSGMaterial::NoBatching);
+        node->setMaterial(material);
         node->setFlag(QSGNode::OwnsMaterial);
     }
     auto* geometry = node->geometry();
