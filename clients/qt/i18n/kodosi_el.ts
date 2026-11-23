@@ -3701,10 +3701,6 @@
         <translation>Εκτός σύνδεσης</translation>
     </message>
     <message>
-        <source>Not connected</source>
-        <translation>Χωρίς σύνδεση</translation>
-    </message>
-    <message>
         <source>Terminal name</source>
         <translation>Όνομα τερματικού</translation>
     </message>

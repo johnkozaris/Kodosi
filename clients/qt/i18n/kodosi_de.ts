@@ -3701,10 +3701,6 @@
         <translation>Offline</translation>
     </message>
     <message>
-        <source>Not connected</source>
-        <translation>Nicht verbunden</translation>
-    </message>
-    <message>
         <source>Terminal name</source>
         <translation>Terminalname</translation>
     </message>

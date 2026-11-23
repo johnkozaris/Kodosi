@@ -1045,7 +1045,7 @@ Item {
                                 readonly property string detail: session.kind === "remote" && session.status === "offline"
                                     ? (unreachable ? qsTr("Offline") : qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer")))
                                     : session.activity || (session.kind === "remote" && session.connectionState !== "connected"
-                                        ? (unreachable ? qsTr("Offline") : session.message || qsTr("Not connected")) : "")
+                                        ? (unreachable ? qsTr("Offline") : session.message || "") : "")
                                 readonly property bool connected: session.connectionState === "local" || session.connectionState === "connected"
                                 readonly property string summary: Models.Appearance.leadingSummary(session, Models.Appearance.summaryFirst)
                                 readonly property bool troubled: session.connectionState === "blocked" || session.status === "offline"

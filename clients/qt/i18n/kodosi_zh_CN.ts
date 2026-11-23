@@ -3689,10 +3689,6 @@
         <translation>离线</translation>
     </message>
     <message>
-        <source>Not connected</source>
-        <translation>未连接</translation>
-    </message>
-    <message>
         <source>Terminal name</source>
         <translation>终端名称</translation>
     </message>
