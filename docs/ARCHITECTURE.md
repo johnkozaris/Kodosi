@@ -126,10 +126,21 @@ module in Kodosi's plugin, which reaches a socket of the host that the terminal 
 its environment. For Codex it is Codex's app server: a Codex that connects to the address
 that the terminal names gets a server that the host starts with Codex's own program, and
 the host follows that server as a second client. For Copilot CLI it is an extension in a
-plugin of Kodosi's, which Kodosi's start line of Copilot names. The host turns the reports
-into the chat of the terminal: the messages, the agent's answers, its tool calls, the
-questions that wait for a person, the list that the agent keeps of its work, and the facts
-of the session. A person's message, answer or stop goes back the same way.
+plugin of Kodosi's, which Kodosi's start line of Copilot names. Antigravity CLI's terminal
+app has no such interface. For its chat, `kodosi acp -- agy acp` runs the person's own
+server of Antigravity CLI in the terminal, with the terminal's folder and environment,
+speaks the Agent Client Protocol to it as an editor does, and carries its messages to the
+same socket of the host. Kodosi does not start this chat, because Google does not support
+agy inside another application on personal plans. The host turns the reports into the chat
+of the terminal: the messages, the agent's answers, its tool calls, the questions that wait
+for a person, the list that the agent keeps of its work, and the facts of the session. A
+person's message, answer or stop goes back the same way.
+
+The host also tells each client where the agent of a chat works: in its terminal, or in the
+chat for the conversation of Antigravity CLI, except while that agent waits for its sign-in
+in the terminal. Each app shows that view first. A view that a person picks holds until
+the agent reports another view, so a terminal whose agent waits for its sign-in shows the
+terminal again.
 
 The chat reads nothing from the terminal's screen and presses no key there, so a new
 look of the agent does not change it. Each part of a report is optional, and an agent

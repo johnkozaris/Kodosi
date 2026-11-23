@@ -192,7 +192,6 @@ private struct ChatTasks: View {
                         .accessibilityHidden(true)
                     Text(verbatim: "\(done)/\(tasks.count)").font(mac: 11, ios: .caption, design: .monospaced).monospacedDigit()
                         .foregroundStyle(theme.colors.inkMuted)
-                        .contentTransition(.numericText(value: Double(done)))
                     ZStack(alignment: .leading) {
                         if !open, let current {
                             Text(verbatim: current.text).appTextStyle(.footnote).foregroundStyle(theme.colors.ink)
@@ -338,7 +337,6 @@ private struct ContextMeter: View {
             UsageRing(used: percent, level: level, lineWidth: 1.75)
                 .frame(width: 11, height: 11)
             Text(verbatim: "\(percent)%").foregroundStyle(level == .normal ? theme.colors.inkFaint : level.color(theme.colors))
-                .contentTransition(.numericText(value: Double(percent)))
         }
         .animation(theme.motion.snappy, value: percent)
         .tip(Text("Context: \(percent)% used", bundle: .module))

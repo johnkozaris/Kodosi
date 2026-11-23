@@ -2157,7 +2157,8 @@ impl Runtime {
         let mut asking = Vec::new();
         for (id, local) in &mut self.local {
             let Some(program) = local.entry.program.clone().filter(|program| {
-                crate::agents::Agent::named(program).is_some_and(|agent| agent.home().is_some())
+                crate::agents::Agent::named(program)
+                    .is_some_and(|agent| agent.home().is_some() || agent.runs_in_chat())
             }) else {
                 continue;
             };
@@ -3589,7 +3590,7 @@ impl Runtime {
             } else {
                 None
             },
-            chat: live && previous.is_some_and(|entry| entry.chat),
+            face: previous.filter(|_| live).and_then(|entry| entry.face),
             look: previous.map_or_default(|entry| entry.look),
             id: remote.id.to_string(),
             incarnation_id: remote.incarnation_id.to_string(),
@@ -3805,13 +3806,12 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Canvas { id } => self.sync_canvas(&id.to_string()),
             #[cfg(feature = "host")]
-            SessionChange::Chat { id } => {
-                if let Some(local) = self.local.get_mut(&id) {
-                    let chat = *local.terminal.chat.linked().borrow();
-                    if local.entry.chat != chat {
-                        local.entry.chat = chat;
-                        self.publish_catalog();
-                    }
+            SessionChange::Chat { id, face } => {
+                if let Some(local) = self.local.get_mut(&id)
+                    && local.entry.face != face
+                {
+                    local.entry.face = face;
+                    self.publish_catalog();
                 }
             }
             #[cfg(feature = "host")]
@@ -3862,7 +3862,7 @@ impl Runtime {
                     entry.program_status = metadata.status;
                     entry.context = metadata.context;
                     entry.canvas = metadata.canvas.map(|canvas| *canvas);
-                    entry.chat = metadata.chat;
+                    entry.face = metadata.face;
                     entry.look = metadata.look;
                     self.publish_catalog();
                 }

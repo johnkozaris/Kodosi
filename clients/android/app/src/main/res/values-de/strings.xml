@@ -286,6 +286,8 @@
     <string name="save_copy">Kopie speichern…</string>
     <string name="ask_about_this">Dazu fragen</string>
     <string name="remove_from_canvas">Aus dem Canvas entfernen</string>
+    <string name="remove_all_from_canvas">Alle aus dem Canvas entfernen</string>
+    <string name="move_to_trash">In den Papierkorb verschieben</string>
     <string name="file_too_large">Das Canvas nimmt Dateien bis 32 MB an.</string>
     <string name="file_unavailable">Diese Datei ist nicht verfügbar.</string>
     <string name="uploading">Datei wird gesendet</string>
@@ -383,6 +385,9 @@
     <string name="hide_keyboard">Tastatur ausblenden</string>
     <string name="agent_permissions">Berechtigungen</string>
     <string name="agent_output">Ausführlichkeit</string>
+    <string name="opens_in">Öffnet in</string>
+    <string name="opens_in_terminal_detail">Seine eigene App läuft im Terminal.</string>
+    <string name="opens_in_chat_detail">Er arbeitet im Chat des Terminals, in einem eigenen Gespräch.</string>
     <string name="agent_ask">Fragen</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Vollzugriff</string>
@@ -424,6 +429,7 @@
     <string name="chat_approve_helpers">Freigeben und Helfer allein arbeiten lassen</string>
     <string name="chat_leave_plan">Planmodus verlassen</string>
     <string name="chat_compacted">Verlauf gekürzt</string>
+    <string name="chat_signed_out_detail">Melde dich mit seinen eigenen Schritten im Terminal an.</string>
     <string name="chat_stopped">Gestoppt</string>
     <string name="chat_refused">Verweigert</string>
     <string name="chat_worked_for">%1$s gearbeitet</string>

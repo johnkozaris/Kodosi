@@ -157,6 +157,11 @@ sealed interface ChatNote {
     @SerialName("compacted")
     data object Compacted : ChatNote
 
+    /** The agent is not signed in, and signs in with its own steps in its terminal. */
+    @Serializable
+    @SerialName("signedOut")
+    data object SignedOut : ChatNote
+
     /** The agent could not continue. [error] is the agent's word for the cause. */
     @Serializable
     @SerialName("failed")

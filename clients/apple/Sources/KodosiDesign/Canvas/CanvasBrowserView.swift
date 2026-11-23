@@ -407,7 +407,6 @@ public struct CanvasBrowserView: View {
                 if let getting = browser.getting {
                     Text("Getting the browser, \(getting)%", bundle: .module)
                         .appTextStyle(.footnote).monospacedDigit().foregroundStyle(theme.colors.inkMuted)
-                        .contentTransition(.numericText())
                 }
             }
         case .asleep:

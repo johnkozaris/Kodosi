@@ -370,7 +370,7 @@ struct ConversationKey: View {
                     .transition(theme.motion.reduced ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
                 if state.unread > 0 {
                     Text(state.unread, format: .number).appTextStyle(.caption).monospacedDigit()
-                        .foregroundStyle(theme.colors.accentStrong).contentTransition(.numericText())
+                        .foregroundStyle(theme.colors.accentStrong)
                         .transition(AnyTransition.pop)
                 }
             }

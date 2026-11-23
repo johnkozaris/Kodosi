@@ -716,6 +716,14 @@
         <translation>캔버스에서 제거</translation>
     </message>
     <message>
+        <source>Remove all from canvas</source>
+        <translation>모두 캔버스에서 제거</translation>
+    </message>
+    <message>
+        <source>Move to trash</source>
+        <translation>휴지통으로 이동</translation>
+    </message>
+    <message>
         <source>The file is missing</source>
         <translation>파일을 찾을 수 없어요</translation>
     </message>

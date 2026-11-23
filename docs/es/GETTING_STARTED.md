@@ -155,6 +155,9 @@ con Abrir.
   archivo te lleva allí.
 - Selecciona palabras en una página o en un documento y luego Preguntar sobre esto. Kodosi
   escribe el archivo y las palabras en el terminal, y tú escribes la pregunta.
+- Haz clic derecho en la pestaña de un archivo, o mantenla pulsada en un teléfono, para
+  guardar una copia, quitar el archivo o todos los archivos del lienzo, o trasladar el
+  archivo a la papelera del ordenador donde se ejecuta el terminal.
 - Haz clic y escribe en el navegador compartido como en el tuyo. El agente ve las mismas
   páginas y sesiones, y su siguiente comando le dice que has usado el navegador. Tras 10
   minutos sin uso, el navegador se duerme, y vuelve a abrir su última página cuando lo miras o

@@ -286,6 +286,8 @@
     <string name="save_copy">Salva una copia…</string>
     <string name="ask_about_this">Fai una domanda su questo</string>
     <string name="remove_from_canvas">Rimuovi dal canvas</string>
+    <string name="remove_all_from_canvas">Rimuovi tutto dal canvas</string>
+    <string name="move_to_trash">Sposta nel cestino</string>
     <string name="file_too_large">Il canvas accetta file fino a 32 MB.</string>
     <string name="file_unavailable">Questo file non è disponibile.</string>
     <string name="uploading">Invio del file</string>
@@ -389,6 +391,9 @@
     <string name="hide_keyboard">Nascondi tastiera</string>
     <string name="agent_permissions">Autorizzazioni</string>
     <string name="agent_output">Verbosità</string>
+    <string name="opens_in">Si apre in</string>
+    <string name="opens_in_terminal_detail">La sua app gira nel terminale.</string>
+    <string name="opens_in_chat_detail">Lavora nella chat del terminale, in una conversazione tutta sua.</string>
     <string name="agent_ask">Chiedi</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Accesso totale</string>
@@ -430,6 +435,7 @@
     <string name="chat_approve_helpers">Approva e lascia lavorare gli assistenti da soli</string>
     <string name="chat_leave_plan">Esci dalla modalità piano</string>
     <string name="chat_compacted">conversazione compattata</string>
+    <string name="chat_signed_out_detail">Accedi con i suoi passaggi nel terminale.</string>
     <string name="chat_stopped">Interrotto</string>
     <string name="chat_refused">Rifiutato</string>
     <string name="chat_worked_for">ha lavorato per %1$s</string>

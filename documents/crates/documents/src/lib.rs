@@ -16,7 +16,7 @@ use std::{
 };
 
 pub use document::Viewer;
-use document::{Input, PipeId};
+use document::{ClosedReason, Input, PipeId};
 pub use live::{Formats, Live, Opener, format};
 use memory::Memory;
 use sha2::{Digest as _, Sha256};
@@ -143,11 +143,25 @@ impl Documents {
     pub async fn close(&self) {
         let open: Vec<_> = self.lock().drain().map(|(_, open)| open.commands).collect();
         for commands in open {
-            let (done, finished) = tokio::sync::oneshot::channel();
-            if commands.send(Command::Close { done }).await.is_ok() {
-                drop(finished.await);
-            }
+            finish(commands, ClosedReason::Failed).await;
         }
+    }
+
+    /// Call it before a file goes: the file takes its last changes along, and no later save makes
+    /// it again.
+    pub async fn close_for_removal(&self, path: &Path) {
+        let Ok(path) = real_path(path) else { return };
+        let open = self.lock().remove(&path);
+        if let Some(open) = open {
+            finish(open.commands, ClosedReason::Removed).await;
+        }
+    }
+}
+
+async fn finish(commands: mpsc::Sender<Command>, reason: ClosedReason) {
+    let (done, finished) = tokio::sync::oneshot::channel();
+    if commands.send(Command::Close { reason, done }).await.is_ok() {
+        drop(finished.await);
     }
 }
 

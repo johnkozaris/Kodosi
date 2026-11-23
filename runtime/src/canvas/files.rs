@@ -117,6 +117,13 @@ impl Files {
         self.items.iter().map(|item| item.listed.clone()).collect()
     }
 
+    pub(super) fn take(&mut self, key: &str) -> Option<(PathBuf, String)> {
+        let at = self.items.iter().position(|item| item.listed.key == key)?;
+        let item = self.items.remove(at);
+        self.forget_unlisted_snapshot();
+        Some((item.path, item.listed.name))
+    }
+
     pub(super) fn show(&mut self, files: Vec<Examined>, stamp: &Stamp) -> Showing {
         let mut shown = Vec::new();
         for Examined {

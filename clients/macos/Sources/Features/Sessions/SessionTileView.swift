@@ -43,7 +43,7 @@ struct SessionTileView: View {
     }
 
     private var showsChat: Bool {
-        session.isConnected && deps.workbench.chatting.contains(session.id)
+        deps.workbench.showsChat(session)
     }
 
     var body: some View {

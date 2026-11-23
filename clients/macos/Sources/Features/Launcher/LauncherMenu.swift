@@ -7,9 +7,11 @@ enum LauncherMenu: String, Equatable {
 
     enum Pick: Equatable {
         case computer(String?), folder(String), anotherFolder, account(String), newAccount, model(String?)
-        case permissions(AgentPermissions), output(AgentOutput)
+        case permissions(AgentPermissions), output(AgentOutput), chat(Bool)
     }
 
+    static let terminal = "menu.terminal"
+    static let chat = "menu.chat"
     static let add = "menu.add"
     static let choose = "menu.choose"
     static let standard = "menu.default"
@@ -21,7 +23,12 @@ enum LauncherMenu: String, Equatable {
         case .folder: id == Self.choose ? .anotherFolder : .folder(id)
         case .account: id == Self.add ? .newAccount : .account(id)
         case .model: .model(id == Self.standard ? nil : id)
-        case .modes: AgentOutput(rawValue: id).map(Pick.output) ?? .permissions(AgentPermissions(rawValue: id) ?? .ask)
+        case .modes:
+            if id == Self.terminal || id == Self.chat {
+                .chat(id == Self.chat)
+            } else {
+                AgentOutput(rawValue: id).map(Pick.output) ?? .permissions(AgentPermissions(rawValue: id) ?? .ask)
+            }
         }
     }
 

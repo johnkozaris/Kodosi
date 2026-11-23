@@ -286,6 +286,8 @@
     <string name="save_copy">사본 저장…</string>
     <string name="ask_about_this">이것에 대해 묻기</string>
     <string name="remove_from_canvas">캔버스에서 제거</string>
+    <string name="remove_all_from_canvas">모두 캔버스에서 제거</string>
+    <string name="move_to_trash">휴지통으로 이동</string>
     <string name="file_too_large">캔버스에는 32MB까지 파일을 올릴 수 있어요.</string>
     <string name="file_unavailable">이 파일을 사용할 수 없습니다.</string>
     <string name="uploading">파일을 보내는 중</string>
@@ -377,6 +379,9 @@
     <string name="hide_keyboard">키보드 숨기기</string>
     <string name="agent_permissions">권한</string>
     <string name="agent_output">상세도</string>
+    <string name="opens_in">여는 곳</string>
+    <string name="opens_in_terminal_detail">자체 앱이 터미널에서 실행됩니다.</string>
+    <string name="opens_in_chat_detail">터미널의 채팅에서 자체 대화로 작업합니다.</string>
     <string name="agent_ask">묻기</string>
     <string name="agent_auto">자동</string>
     <string name="agent_unrestricted">제한 없음</string>
@@ -418,6 +423,7 @@
     <string name="chat_approve_helpers">승인하고 서브에이전트에 맡기기</string>
     <string name="chat_leave_plan">계획 모드 나가기</string>
     <string name="chat_compacted">대화 압축됨</string>
+    <string name="chat_signed_out_detail">터미널에 나오는 단계로 로그인하세요.</string>
     <string name="chat_stopped">중지됨</string>
     <string name="chat_refused">응답 거부</string>
     <string name="chat_worked_for">%1$s 동안 작업함</string>

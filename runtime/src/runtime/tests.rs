@@ -3456,7 +3456,7 @@ async fn a_terminal_shows_the_status_of_its_host_while_nobody_here_has_it_open()
             }),
             context: None,
             canvas: None,
-            chat: false,
+            face: None,
             look: crate::terminal::TerminalLook::Dark,
         },
     });
@@ -3531,7 +3531,7 @@ async fn a_closed_terminal_keeps_its_title_only_while_the_same_agent_runs_there(
             status: None,
             context: None,
             canvas: None,
-            chat: false,
+            face: None,
             look: crate::terminal::TerminalLook::Dark,
         },
     });
@@ -3854,6 +3854,49 @@ async fn folders_from_another_computer_fill_only_its_terminals_and_an_open_view_
         json!([]),
         "a device gives no folders of the terminals of other computers"
     );
+}
+
+#[cfg(feature = "host")]
+#[test]
+fn a_restored_server_of_the_chat_loads_its_conversation_again() {
+    let id = "c0ffee00-1111-4222-8333-444455556666";
+    let line = |arguments: &[&str]| {
+        let arguments = arguments
+            .iter()
+            .map(|argument| (*argument).to_owned())
+            .collect::<Vec<_>>();
+        restore::resumed_server_line(&arguments, id, Path::new("/bin/zsh"))
+    };
+    assert_eq!(
+        line(&[
+            "kodosi",
+            "acp",
+            "--mode",
+            "auto",
+            "--",
+            "agy",
+            "acp",
+            "--dangerously-skip-permissions"
+        ])
+        .unwrap(),
+        format!("kodosi acp --resume {id} --mode auto -- agy acp --dangerously-skip-permissions")
+    );
+    assert_eq!(
+        line(&[
+            "kodosi",
+            "acp",
+            "--resume",
+            "old",
+            "--model=Gemini 3 Pro",
+            "--",
+            "agy",
+            "acp"
+        ])
+        .unwrap(),
+        format!("kodosi acp --resume {id} '--model=Gemini 3 Pro' -- agy acp")
+    );
+    assert_eq!(line(&["agy", "acp"]), None);
+    assert_eq!(line(&["kodosi", "acp", "agy", "acp"]), None);
 }
 
 #[cfg(feature = "host")]
@@ -5582,6 +5625,7 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
         permissions: Some(Permissions::Ask),
         output: Some(crate::agents::Output::Standard),
         fast: false,
+        chat: false,
     }));
     let folder = |name: &str| {
         let folder = root.join(name);

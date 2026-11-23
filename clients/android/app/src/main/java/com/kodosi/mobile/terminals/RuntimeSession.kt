@@ -71,11 +71,16 @@ data class RuntimeSession(
     val projectId: String? = null,
     val restoredFrom: String? = null,
     val canvas: Canvas? = null,
-    /** An agent of the terminal reports to the terminal's chat. */
-    val chat: Boolean = false,
+    /** Where the agent that reports to the terminal's chat works, while one does. */
+    val face: TerminalFace? = null,
     /** The terminal's computer chooses it for everyone who sees the terminal. */
     val look: TerminalLook = TerminalLook.DARK
 ) {
+    /** The face that the apps show: the person's pick while it holds, else where the agent works. */
+    fun shownFace(pick: FacePick?): TerminalFace = pick?.face ?: face ?: TerminalFace.TERMINAL
+
+    fun keeps(pick: FacePick): Boolean = face == null || pick.over == face
+
     @Serializable
     enum class Kind {
         @SerialName("local")
@@ -136,6 +141,22 @@ data class RuntimeSession(
 
     val folderName: String? get() = workingDir?.trimEnd('/', '\\')?.substringAfterLast('/')?.substringAfterLast('\\')
 }
+
+/** The two faces of a terminal: its screen, and its chat. */
+@Serializable
+enum class TerminalFace {
+    @SerialName("terminal")
+    TERMINAL,
+
+    @SerialName("chat")
+    CHAT
+}
+
+/**
+ * The face that a person picked for a terminal. It holds until the terminal's agent reports another
+ * face, so a terminal whose agent goes to the chat or waits for its sign-in shows its own face.
+ */
+data class FacePick(val face: TerminalFace, val over: TerminalFace?)
 
 @Serializable
 enum class TerminalLook {

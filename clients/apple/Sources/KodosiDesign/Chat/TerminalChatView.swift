@@ -37,10 +37,6 @@ public struct TerminalChatView<ModelKey: View>: View {
     }
 }
 
-public enum TerminalFace: Hashable, Sendable {
-    case terminal, chat
-}
-
 /// The switch between a terminal's screen and its chat.
 public struct TerminalFaceSwitch: View {
     @Binding var face: TerminalFace

@@ -196,6 +196,13 @@ impl Agent {
         }
     }
 
+    /// Antigravity CLI's terminal app reports to no chat, so its chat has a session of its own
+    /// that `kodosi acp` runs in the terminal, where the chat's link reaches a socket file.
+    #[cfg(feature = "host")]
+    pub(crate) const fn runs_in_chat(self) -> bool {
+        CHAT_SESSIONS && cfg!(unix) && matches!(self, Self::Antigravity)
+    }
+
     #[cfg(feature = "host")]
     pub(crate) const fn has_fast(self) -> bool {
         self.fast_words(true).is_some()
@@ -535,6 +542,11 @@ const ANTIGRAVITY_QUIET: &str =
     r#"{"verbosity":"low","showTips":false,"showFeedbackSurvey":false}"#;
 #[cfg(feature = "host")]
 const ANTIGRAVITY_DETAILED: &str = r#"{"verbosity":"high","showThinking":true}"#;
+/// Kodosi starts no agent in a chat session of its own: Google's FAQ says that agy inside
+/// another application is not supported on personal plans, and no check with a signed-in
+/// account showed yet that Google takes it.
+#[cfg(feature = "host")]
+pub(crate) const CHAT_SESSIONS: bool = false;
 #[cfg(feature = "host")]
 pub(crate) const SKILL: &str = include_str!("../../skills/kodosi/SKILL.md");
 #[cfg(feature = "host")]
@@ -923,6 +935,8 @@ pub struct AgentInfo {
     pub default_permissions: Permissions,
     pub default_output: Output,
     pub fast: bool,
+    /// The agent also runs in the chat of its terminal, in a session of its own.
+    pub chat: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -1046,6 +1060,8 @@ pub struct AgentPick {
     pub output: Option<Output>,
     #[serde(default)]
     pub fast: bool,
+    #[serde(default)]
+    pub chat: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -1064,6 +1080,9 @@ pub struct AgentStart {
     pub output: Option<Output>,
     #[serde(default)]
     pub fast: Option<bool>,
+    /// Starts the agent in the chat of its terminal, in a session of its own.
+    #[serde(default)]
+    pub chat: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

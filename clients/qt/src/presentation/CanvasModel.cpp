@@ -445,6 +445,23 @@ void CanvasModel::remove(const QString& sessionId, const QString& key)
         emit problem(error);
 }
 
+// To the canvas, no key names every file.
+void CanvasModel::removeAll(const QString& sessionId)
+{
+    if (const auto error = ask(Asked::Remove, sessionId,
+            { { QStringLiteral("type"), QStringLiteral("remove") }, { QStringLiteral("keys"), QJsonArray {} } }, {});
+        !error.isEmpty())
+        emit problem(error);
+}
+
+void CanvasModel::trash(const QString& sessionId, const QString& key)
+{
+    if (const auto error = ask(Asked::Remove, sessionId,
+            { { QStringLiteral("type"), QStringLiteral("trash") }, { QStringLiteral("key"), key } }, key);
+        !error.isEmpty())
+        emit problem(error);
+}
+
 QString CanvasModel::question(const QString& sessionId, const QString& key, const QString& words) const
 {
     if (key != browserItem)

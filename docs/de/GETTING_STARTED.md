@@ -162,6 +162,10 @@ Leiste des Terminals, und ein Banner nennt, was der Agent zeigt oder ändert, mi
   eine Zelle derselben Datei springt dorthin.
 - Markiere Wörter auf einer Seite oder in einem Dokument und wähle dann Dazu fragen. Kodosi
   tippt die Datei und die Wörter in das Terminal, und du schreibst die Frage.
+- Klicke mit der rechten Maustaste auf den Tab einer Datei oder halte ihn auf einem Telefon
+  gedrückt, um eine Kopie zu speichern, die Datei oder alle Dateien aus dem Canvas zu
+  entfernen oder die Datei in den Papierkorb des Computers zu legen, auf dem das Terminal
+  läuft.
 - Klicke und tippe im geteilten Browser wie in deinem eigenen. Der Agent sieht dieselben
   Seiten und Anmeldungen, und sein nächster Befehl sagt ihm, dass du den Browser benutzt
   hast. Nach 10 Minuten ohne Nutzung schläft der Browser, und er öffnet seine letzte Seite

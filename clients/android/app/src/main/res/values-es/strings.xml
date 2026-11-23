@@ -286,6 +286,8 @@
     <string name="save_copy">Guardar una copia…</string>
     <string name="ask_about_this">Preguntar sobre esto</string>
     <string name="remove_from_canvas">Quitar del lienzo</string>
+    <string name="remove_all_from_canvas">Quitar todo del lienzo</string>
+    <string name="move_to_trash">Mover a la papelera</string>
     <string name="file_too_large">El lienzo admite archivos de hasta 32 MB.</string>
     <string name="file_unavailable">Este archivo no está disponible.</string>
     <string name="uploading">Enviando archivo</string>
@@ -389,6 +391,9 @@
     <string name="hide_keyboard">Ocultar teclado</string>
     <string name="agent_permissions">Permisos</string>
     <string name="agent_output">Verbosidad</string>
+    <string name="opens_in">Se abre en</string>
+    <string name="opens_in_terminal_detail">Su propia app se ejecuta en el terminal.</string>
+    <string name="opens_in_chat_detail">Trabaja en el chat del terminal, en una conversación propia.</string>
     <string name="agent_ask">Preguntar</string>
     <string name="agent_auto">Auto</string>
     <string name="agent_unrestricted">Acceso total</string>
@@ -430,6 +435,7 @@
     <string name="chat_approve_helpers">Aprobar y dejar que los ayudantes trabajen solos</string>
     <string name="chat_leave_plan">Salir del modo de planificación</string>
     <string name="chat_compacted">conversación compactada</string>
+    <string name="chat_signed_out_detail">Inicia sesión con sus propios pasos en el terminal.</string>
     <string name="chat_stopped">Detenido</string>
     <string name="chat_refused">Rechazado</string>
     <string name="chat_worked_for">trabajó durante %1$s</string>

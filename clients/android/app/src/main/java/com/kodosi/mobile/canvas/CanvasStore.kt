@@ -176,6 +176,17 @@ class CanvasStore(private val commands: CommandSink, private val words: Words) {
         cache.keys.removeAll { it.session == session && it.key == key }
     }
 
+    // To the canvas, no key names every file.
+    suspend fun removeAll(session: String) {
+        ask(session, fields("type" to "remove", "keys" to emptyList<String>()))
+        cache.keys.removeAll { it.session == session }
+    }
+
+    suspend fun trash(session: String, key: String) {
+        ask(session, fields("type" to "trash", "key" to key))
+        cache.keys.removeAll { it.session == session && it.key == key }
+    }
+
     suspend fun wake(session: String) {
         ask(session, fields("type" to "act", "action" to fields("do" to "wake")))
     }

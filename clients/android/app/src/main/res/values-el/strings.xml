@@ -286,6 +286,8 @@
     <string name="save_copy">Αποθήκευση αντιγράφου…</string>
     <string name="ask_about_this">Ερώτηση γι\' αυτό</string>
     <string name="remove_from_canvas">Αφαίρεση από το canvas</string>
+    <string name="remove_all_from_canvas">Αφαίρεση όλων από το canvas</string>
+    <string name="move_to_trash">Μετακίνηση στον κάδο</string>
     <string name="file_too_large">Το canvas δέχεται αρχεία έως 32 MB.</string>
     <string name="file_unavailable">Αυτό το αρχείο δεν είναι διαθέσιμο.</string>
     <string name="uploading">Αποστολή αρχείου</string>
@@ -383,6 +385,9 @@
     <string name="hide_keyboard">Απόκρυψη πληκτρολογίου</string>
     <string name="agent_permissions">Άδειες</string>
     <string name="agent_output">Λεπτομέρεια</string>
+    <string name="opens_in">Ανοίγει σε</string>
+    <string name="opens_in_terminal_detail">Η δική του εφαρμογή τρέχει στο τερματικό.</string>
+    <string name="opens_in_chat_detail">Δουλεύει στη συνομιλία του τερματικού, σε δική του συζήτηση.</string>
     <string name="agent_ask">Ερώτηση</string>
     <string name="agent_auto">Αυτόματα</string>
     <string name="agent_unrestricted">Απεριόριστα</string>
@@ -424,6 +429,7 @@
     <string name="chat_approve_helpers">Έγκριση, με βοηθούς που δουλεύουν μόνοι</string>
     <string name="chat_leave_plan">Έξοδος από τη λειτουργία σχεδίου</string>
     <string name="chat_compacted">η συνομιλία συμπτύχθηκε</string>
+    <string name="chat_signed_out_detail">Συνδεθείτε με τα δικά του βήματα στο τερματικό.</string>
     <string name="chat_stopped">Σταμάτησε</string>
     <string name="chat_refused">Αρνήθηκε</string>
     <string name="chat_worked_for">δούλεψε για %1$s</string>

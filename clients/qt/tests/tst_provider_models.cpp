@@ -232,7 +232,7 @@ private slots:
             return QVariantMap { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("account"), account },
                 { QStringLiteral("model"), model }, { QStringLiteral("effort"), effort },
                 { QStringLiteral("permissions"), QStringLiteral("unrestricted") }, { QStringLiteral("output"), QStringLiteral("quiet") },
-                { QStringLiteral("fast"), false } };
+                { QStringLiteral("fast"), false }, { QStringLiteral("chat"), false } };
         };
         QCOMPARE(start(QStringLiteral("claude")), starts(QStringLiteral("work"), QStringLiteral("opus"), QStringLiteral("max")));
         QVERIFY(start(QStringLiteral("codex")).isEmpty());
@@ -259,7 +259,8 @@ private slots:
             QJsonObject({ { QStringLiteral("type"), QStringLiteral("pick") }, { QStringLiteral("agent"), QStringLiteral("claude") },
                 { QStringLiteral("account"), QStringLiteral("default") }, { QStringLiteral("model"), QStringLiteral("opus") },
                 { QStringLiteral("effort"), QStringLiteral("high") }, { QStringLiteral("permissions"), QStringLiteral("unrestricted") },
-                { QStringLiteral("output"), QStringLiteral("quiet") }, { QStringLiteral("fast"), false } }));
+                { QStringLiteral("output"), QStringLiteral("quiet") }, { QStringLiteral("fast"), false },
+                { QStringLiteral("chat"), false } }));
 
         launcher.choose(QStringLiteral("permissions"), QStringLiteral("claude"), QStringLiteral("ask"));
         launcher.choose(QStringLiteral("output"), QStringLiteral("claude"), QStringLiteral("standard"));

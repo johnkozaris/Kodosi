@@ -203,6 +203,16 @@ pub enum TerminalLook {
     Light,
 }
 
+/// Where the agent that reports to a terminal's chat works, which is the face of the terminal that
+/// the apps show first: the terminal, or the chat for an agent that works in a session of its own
+/// there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum TerminalFace {
+    Terminal,
+    Chat,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalMetadata {
@@ -222,9 +232,9 @@ pub struct TerminalMetadata {
     pub context: Option<super::TerminalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canvas: Option<Box<crate::canvas::Canvas>>,
-    /// An agent of the terminal reports to the terminal's chat.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub chat: bool,
+    /// Where the agent that reports to the terminal's chat works, while one does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub face: Option<TerminalFace>,
     pub look: TerminalLook,
 }
 

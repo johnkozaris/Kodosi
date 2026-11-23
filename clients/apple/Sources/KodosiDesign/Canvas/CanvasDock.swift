@@ -129,7 +129,7 @@ public struct CanvasDock: View {
                         .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
                         .transition(.opacity.combined(with: .offset(x: -6)))
                 } else if count > 1 {
-                    Text(count, format: .number).monospacedDigit().contentTransition(.numericText())
+                    Text(count, format: .number).monospacedDigit()
                         .appTextStyle(.caption).foregroundStyle(theme.colors.inkFaint)
                 }
             }

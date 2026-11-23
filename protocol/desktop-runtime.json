@@ -1275,6 +1275,18 @@
                                   {
                                     "additionalProperties": false,
                                     "properties": {
+                                      "kind": {
+                                        "const": "signedOut"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
                                       "error": {
                                         "type": "string"
                                       },
@@ -1985,6 +1997,18 @@
                                             "properties": {
                                               "kind": {
                                                 "const": "compacted"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "kind": {
+                                                "const": "signedOut"
                                               }
                                             },
                                             "required": [
@@ -5043,6 +5067,16 @@
                       }
                     ]
                   },
+                  "chat": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "effort": {
                     "anyOf": [
                       {
@@ -5493,6 +5527,16 @@
                       },
                       {
                         "const": "antigravity"
+                      }
+                    ]
+                  },
+                  "chat": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
                       }
                     ]
                   },
@@ -7158,6 +7202,22 @@
               {
                 "additionalProperties": false,
                 "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "const": "trash"
+                  }
+                },
+                "required": [
+                  "type",
+                  "key"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
                   "data": {
                     "type": "string"
                   },
@@ -8798,6 +8858,9 @@
                       }
                     ]
                   },
+                  "chat": {
+                    "type": "boolean"
+                  },
                   "effort": {
                     "anyOf": [
                       {
@@ -9492,6 +9555,9 @@
                         "const": "antigravity"
                       }
                     ]
+                  },
+                  "chat": {
+                    "type": "boolean"
                   },
                   "effort": {
                     "anyOf": [
@@ -11817,9 +11883,6 @@
                     }
                   ]
                 },
-                "chat": {
-                  "type": "boolean"
-                },
                 "connectedUsers": {
                   "items": {
                     "type": "string"
@@ -11899,6 +11962,23 @@
                 },
                 "direct": {
                   "type": "boolean"
+                },
+                "face": {
+                  "anyOf": [
+                    {
+                      "oneOf": [
+                        {
+                          "const": "terminal"
+                        },
+                        {
+                          "const": "chat"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "hidden": {
                   "type": "boolean"
@@ -14756,6 +14836,9 @@
                             }
                           ]
                         },
+                        "chat": {
+                          "type": "boolean"
+                        },
                         "defaultOutput": {
                           "oneOf": [
                             {
@@ -14842,7 +14925,8 @@
                         "outputs",
                         "defaultPermissions",
                         "defaultOutput",
-                        "fast"
+                        "fast",
+                        "chat"
                       ],
                       "type": "object"
                     },
@@ -14916,6 +15000,9 @@
                                 }
                               ]
                             },
+                            "chat": {
+                              "type": "boolean"
+                            },
                             "effort": {
                               "anyOf": [
                                 {
@@ -14987,7 +15074,8 @@
                             "effort",
                             "permissions",
                             "output",
-                            "fast"
+                            "fast",
+                            "chat"
                           ],
                           "type": "object"
                         },
@@ -15126,6 +15214,9 @@
                                 }
                               ]
                             },
+                            "chat": {
+                              "type": "boolean"
+                            },
                             "effort": {
                               "anyOf": [
                                 {
@@ -15197,7 +15288,8 @@
                             "effort",
                             "permissions",
                             "output",
-                            "fast"
+                            "fast",
+                            "chat"
                           ],
                           "type": "object"
                         },
@@ -15613,6 +15705,9 @@
                             }
                           ]
                         },
+                        "chat": {
+                          "type": "boolean"
+                        },
                         "effort": {
                           "anyOf": [
                             {
@@ -15684,7 +15779,8 @@
                         "effort",
                         "permissions",
                         "output",
-                        "fast"
+                        "fast",
+                        "chat"
                       ],
                       "type": "object"
                     },
@@ -16664,6 +16760,9 @@
                             }
                           ]
                         },
+                        "chat": {
+                          "type": "boolean"
+                        },
                         "effort": {
                           "anyOf": [
                             {
@@ -16735,7 +16834,8 @@
                         "effort",
                         "permissions",
                         "output",
-                        "fast"
+                        "fast",
+                        "chat"
                       ],
                       "type": "object"
                     },
@@ -17829,7 +17929,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 104,
+  "protocolVersion": 106,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

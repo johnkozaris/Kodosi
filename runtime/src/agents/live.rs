@@ -311,6 +311,8 @@ impl Agent {
             Self::Cursor if has(&["--force", "-f", "--yolo"]) => Some(Permissions::Unrestricted),
             Self::Antigravity => match value("--mode") {
                 Some("auto") => Some(Permissions::Auto),
+                // Kodosi's `acp` takes the empty mode as the mode that asks, and agy as no mode.
+                Some("") if runs_acp(arguments) => Some(Permissions::Ask),
                 Some(_) => None,
                 None => match antigravity_setting(arguments, "agentMode").as_deref() {
                     Some("") => Some(Permissions::Ask),
@@ -351,6 +353,13 @@ impl Agent {
             Self::Copilot | Self::Cursor | Self::Opencode => None,
         }
     }
+}
+
+/// The line runs an agent's server for the chat with Kodosi's `acp`.
+#[cfg(feature = "host")]
+fn runs_acp(arguments: &[String]) -> bool {
+    matches!(arguments, [program, action, ..]
+        if action == "acp" && std::path::Path::new(program).file_name().is_some_and(|name| name == "kodosi"))
 }
 
 /// A setting of the last `--settings` of Antigravity CLI's line, the only one that it takes.

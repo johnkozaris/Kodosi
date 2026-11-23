@@ -1708,7 +1708,7 @@ impl Runtime {
                     activity: None,
                     context: None,
                     canvas: None,
-                    chat: false,
+                    face: None,
                     look: self.look.now(),
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),

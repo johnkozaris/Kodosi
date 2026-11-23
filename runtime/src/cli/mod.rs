@@ -107,6 +107,27 @@ enum Action {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         arguments: Vec<String>,
     },
+    #[command(
+        hide = !crate::agents::CHAT_SESSIONS,
+        about = "Run an agent's server for programs (ACP) in this terminal, and show its conversation in the terminal's chat: kodosi acp -- agy acp."
+    )]
+    Acp {
+        /// The agent's model.
+        #[arg(long)]
+        model: Option<String>,
+        /// The agent's thinking level.
+        #[arg(long)]
+        effort: Option<String>,
+        /// The agent's own mode, such as auto. An empty mode is the agent's default.
+        #[arg(long)]
+        mode: Option<String>,
+        /// The conversation to go on with.
+        #[arg(long)]
+        resume: Option<String>,
+        /// The agent's server and its arguments, after --.
+        #[arg(last = true, required = true)]
+        command: Vec<String>,
+    },
     #[command(about = "Run the local terminal host until interrupted, or stop the host that runs.")]
     Host {
         #[command(subcommand)]
@@ -122,6 +143,7 @@ const PERMISSIONS: &str = "How the agent asks before it acts: ask; auto, where t
 const LIVE_PERMISSIONS: &str = "How the agent asks before it acts: ask, auto or unrestricted, as far as the agent can change it while it runs";
 const OUTPUT: &str = "How much of its work the agent shows: quiet, standard or detailed for Claude Code, Codex and Antigravity CLI, and quiet or standard for Copilot CLI. It starts with your last choice, else quiet";
 const FAST: &str = "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off. Each start is off unless you turn it on";
+const CHAT: &str = "Antigravity CLI in the chat of the terminal, in a conversation of its own, on macOS and Linux: on, or off for its own app in the terminal. It starts with your last choice";
 const LIVE_FAST: &str =
     "Fast mode of Claude Code and Codex: on for faster answers that cost more, or off";
 
@@ -247,6 +269,8 @@ enum TerminalAction {
         output: Option<String>,
         #[arg(long, requires = "agent", help = FAST, value_parser = on_off())]
         fast: Option<bool>,
+        #[arg(long, requires = "agent", help = CHAT, value_parser = on_off(), hide = !crate::agents::CHAT_SESSIONS)]
+        chat: Option<bool>,
         /// The agent's first prompt.
         #[arg(long, requires = "agent")]
         prompt: Option<String>,
@@ -273,6 +297,8 @@ enum TerminalAction {
         output: Option<String>,
         #[arg(long, help = FAST, value_parser = on_off())]
         fast: Option<bool>,
+        #[arg(long, help = CHAT, value_parser = on_off(), hide = !crate::agents::CHAT_SESSIONS)]
+        chat: Option<bool>,
     },
     /// Start a terminal that resumes a saved conversation of Claude Code or Copilot CLI.
     Resume {
@@ -528,6 +554,43 @@ pub fn is_invocation(args: &[OsString]) -> bool {
         .any(|command| command.get_name() == first)
 }
 
+#[cfg(unix)]
+async fn run_acp(
+    command: Vec<String>,
+    model: Option<String>,
+    effort: Option<String>,
+    mode: Option<String>,
+    resume: Option<String>,
+) -> Result<u8> {
+    if !crate::agents::CHAT_SESSIONS {
+        return Err(Error::Text(text!(
+            "Kodosi does not start Antigravity CLI in the chat now. Start agy in the terminal."
+        )));
+    }
+    let choices = crate::chat::AcpChoices {
+        model,
+        effort,
+        mode,
+        resume,
+    };
+    crate::chat::run_acp(command, choices)
+        .await
+        .map_err(Error::Text)
+}
+
+#[cfg(not(unix))]
+async fn run_acp(
+    _: Vec<String>,
+    _: Option<String>,
+    _: Option<String>,
+    _: Option<String>,
+    _: Option<String>,
+) -> Result<u8> {
+    Err(Error::Text(text!(
+        "The chat of a terminal follows an agent's server only on macOS and Linux."
+    )))
+}
+
 const fn hosted_kind(action: &Action) -> Option<HostKind> {
     match action {
         Action::Host { action: None } => Some(HostKind::Foreground),
@@ -542,6 +605,16 @@ const fn hosted_kind(action: &Action) -> Option<HostKind> {
 )]
 #[expect(clippy::too_many_lines, reason = "one dispatch for every command")]
 async fn dispatch(args: Arguments) -> Result<u8> {
+    if let Action::Acp {
+        model,
+        effort,
+        mode,
+        resume,
+        command,
+    } = args.command
+    {
+        return run_acp(command, model, effort, mode, resume).await;
+    }
     let mut config = Config::load()?;
     if let Some(kind) = hosted_kind(&args.command) {
         config.host = kind;
@@ -744,6 +817,7 @@ async fn command(
         | Action::Canvas { .. }
         | Action::Browser { .. }
         | Action::Doc { .. }
+        | Action::Acp { .. }
         | Action::Host { .. }
         | Action::InternalHost
         | Action::Status => {
@@ -909,6 +983,7 @@ async fn terminal_command(
             permissions,
             output,
             fast,
+            chat,
             prompt,
         } => {
             let agent = agent
@@ -919,7 +994,7 @@ async fn terminal_command(
                         [model.as_deref(), effort.as_deref()],
                         permissions.as_deref(),
                         output.as_deref(),
-                        fast,
+                        [fast, chat],
                     )
                 })
                 .transpose()?;
@@ -980,6 +1055,7 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
             permissions,
             output,
             fast,
+            chat,
         } => {
             let agent = agent_start(
                 &agent,
@@ -987,7 +1063,7 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
                 [model.as_deref(), effort.as_deref()],
                 permissions.as_deref(),
                 output.as_deref(),
-                fast,
+                [fast, chat],
             )?;
             (terminal, "session.run", false, json!({"agent":agent}))
         }
@@ -1433,10 +1509,10 @@ fn agent_start(
     [model, effort]: [Option<&str>; 2],
     permissions: Option<&str>,
     output: Option<&str>,
-    fast: Option<bool>,
+    [fast, chat]: [Option<bool>; 2],
 ) -> Result<Value> {
     Ok(
-        json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort,"permissions":permissions,"output":output,"fast":fast}),
+        json!({"agent":agent_name(agent)?,"account":account,"model":model,"effort":effort,"permissions":permissions,"output":output,"fast":fast,"chat":chat}),
     )
 }
 

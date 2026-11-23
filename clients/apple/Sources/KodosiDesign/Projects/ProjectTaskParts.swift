@@ -106,7 +106,6 @@ public struct ProjectTaskLaneTitle: View {
                 .appTextStyle(.footnote)
                 .monospacedDigit()
                 .foregroundStyle(theme.colors.inkFaint)
-                .contentTransition(.numericText())
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
@@ -141,7 +140,7 @@ public struct ProjectDoneTasksKey: View {
                     .font(.system(size: chevron, weight: .bold))
                     .rotationEffect(.degrees(state.showsDone ? 90 : 0))
                 Text("Done", bundle: .module).appTextStyle(.subhead)
-                Text(count, format: .number).appTextStyle(.footnote).monospacedDigit().contentTransition(.numericText())
+                Text(count, format: .number).appTextStyle(.footnote).monospacedDigit()
                 Spacer(minLength: 0)
             }
             .foregroundStyle(theme.colors.inkMuted)

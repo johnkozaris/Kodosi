@@ -46,7 +46,7 @@ public struct CanvasFilesBar<Actions: View>: View {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "rectangle.stack").font(.system(size: 11, weight: .semibold))
-                    Text(files.count, format: .number).monospacedDigit().contentTransition(.numericText())
+                    Text(files.count, format: .number).monospacedDigit()
                 }
                 .appTextStyle(.footnote).fontWeight(.medium)
                 .foregroundStyle(shelf ? theme.colors.ink : theme.colors.inkMuted)
