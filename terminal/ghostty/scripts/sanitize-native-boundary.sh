@@ -67,25 +67,15 @@ static void write_pty(
 }
 
 static void format_screen(GhosttyTerminal terminal, GhosttyFormatterFormat emit) {
-    GhosttyFormatterTerminalOptions options =
-        GHOSTTY_INIT_SIZED(GhosttyFormatterTerminalOptions);
-    options.emit = emit;
-    options.trim = true;
-    options.extra.screen.cursor = true;
-    options.extra.screen.style = true;
-    options.extra.screen.hyperlink = true;
-    options.extra.palette = true;
-    options.extra.modes = true;
-    options.extra.scrolling_region = true;
-    options.extra.tabstops = true;
-    options.extra.keyboard = true;
-
     GhosttyFormatter formatter = NULL;
-    assert(ghostty_formatter_terminal_new(
-        NULL,
-        &formatter,
-        terminal,
-        options) == GHOSTTY_SUCCESS);
+    assert(ghostty_formatter_terminal_new(NULL, &formatter, terminal) == GHOSTTY_SUCCESS);
+    const GhosttyFormatterExtras extras =
+        GHOSTTY_FORMATTER_EXTRA_CURSOR | GHOSTTY_FORMATTER_EXTRA_STYLE |
+        GHOSTTY_FORMATTER_EXTRA_HYPERLINK | GHOSTTY_FORMATTER_EXTRA_PALETTE |
+        GHOSTTY_FORMATTER_EXTRA_MODES | GHOSTTY_FORMATTER_EXTRA_SCROLLING_REGION |
+        GHOSTTY_FORMATTER_EXTRA_TABSTOPS | GHOSTTY_FORMATTER_EXTRA_KEYBOARD;
+    assert(ghostty_formatter_set(formatter, GHOSTTY_FORMATTER_OPT_EMIT, &emit) == GHOSTTY_SUCCESS);
+    assert(ghostty_formatter_set(formatter, GHOSTTY_FORMATTER_OPT_EXTRAS, &extras) == GHOSTTY_SUCCESS);
 
     size_t required = 0;
     assert(ghostty_formatter_format_buf(

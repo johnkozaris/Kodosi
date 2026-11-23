@@ -11,10 +11,10 @@ index 63740550a..2fdf1a229 100644
  
      const lib = b.addLibrary(.{
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index 44e1522ef..43d27b3ee 100644
+index 35cb7e166..086759f2e 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
-@@ -139,7 +139,7 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
+@@ -171,7 +171,7 @@ pub fn init(b: *std.Build, versions: Versions) !Config {
  
          // The full Ghostty build no longer supports iOS; Fail early
          // with a clear message rather than partway through the build.

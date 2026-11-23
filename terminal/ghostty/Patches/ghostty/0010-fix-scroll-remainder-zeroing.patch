@@ -1,5 +1,5 @@
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 66b229be2..4947bc254 100644
+index 9876a0c1b..7f71cdd50 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -3653,7 +3653,7 @@ pub fn scrollCallback(

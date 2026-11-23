@@ -67,12 +67,12 @@ QImage convert(
     return image;
 }
 
-TerminalImagePlacement::Layer layer(const GhosttyRenderStateImageLayer value)
+TerminalImagePlacement::Layer layer(const GhosttyImageLayer value)
 {
     switch (value) {
-    case GHOSTTY_RENDER_STATE_IMAGE_LAYER_BELOW_BACKGROUND:
+    case GHOSTTY_IMAGE_LAYER_BELOW_BACKGROUND:
         return TerminalImagePlacement::Layer::BelowBackground;
-    case GHOSTTY_RENDER_STATE_IMAGE_LAYER_BELOW_TEXT:
+    case GHOSTTY_IMAGE_LAYER_BELOW_TEXT:
         return TerminalImagePlacement::Layer::BelowText;
     default:
         return TerminalImagePlacement::Layer::AboveText;
@@ -145,7 +145,7 @@ QVector<TerminalImagePlacement> TerminalImages::capture(
     std::vector<Placed> placed;
     while (ghostty_render_state_image_iterator_next(iterator)) {
         auto protocol = GHOSTTY_IMAGE_PROTOCOL_KITTY;
-        auto drawLayer = GHOSTTY_RENDER_STATE_IMAGE_LAYER_ABOVE_TEXT;
+        auto drawLayer = GHOSTTY_IMAGE_LAYER_ABOVE_TEXT;
         std::uint32_t imageId = 0;
         std::int32_t z = 0;
         std::int32_t column = 0;
@@ -244,8 +244,8 @@ QImage TerminalImages::pixels(const GhosttyKittyGraphicsImage image, Cache& prev
     std::uint32_t id = 0;
     std::uint64_t generation = 0;
     const GhosttyKittyGraphicsImageData identity[] {
-        GHOSTTY_KITTY_IMAGE_DATA_ID,
-        GHOSTTY_KITTY_IMAGE_DATA_GENERATION,
+        GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_ID,
+        GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_GENERATION,
     };
     void* identityValues[] {&id, &generation};
     if (ghostty_kitty_graphics_image_get_multi(
@@ -263,22 +263,20 @@ QImage TerminalImages::pixels(const GhosttyKittyGraphicsImage image, Cache& prev
     std::uint32_t width = 0;
     std::uint32_t height = 0;
     auto format = GHOSTTY_KITTY_IMAGE_FORMAT_RGBA;
-    std::size_t length = 0;
-    const std::uint8_t* data = nullptr;
+    GhosttyString data {};
     const GhosttyKittyGraphicsImageData keys[] {
-        GHOSTTY_KITTY_IMAGE_DATA_WIDTH,
-        GHOSTTY_KITTY_IMAGE_DATA_HEIGHT,
-        GHOSTTY_KITTY_IMAGE_DATA_FORMAT,
-        GHOSTTY_KITTY_IMAGE_DATA_DATA_LEN,
-        GHOSTTY_KITTY_IMAGE_DATA_DATA_PTR,
+        GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_WIDTH,
+        GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_HEIGHT,
+        GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_FORMAT,
+        GHOSTTY_KITTY_GRAPHICS_IMAGE_DATA_PIXELS,
     };
-    void* values[] {&width, &height, &format, &length, &data};
+    void* values[] {&width, &height, &format, &data};
     if (ghostty_kitty_graphics_image_get_multi(image, std::size(keys), keys, values, nullptr)
             != GHOSTTY_SUCCESS
-        || data == nullptr) {
+        || data.ptr == nullptr) {
         return {};
     }
-    auto converted = convert(data, length, width, height, format);
+    auto converted = convert(data.ptr, data.len, width, height, format);
     if (converted.isNull()) {
         return {};
     }

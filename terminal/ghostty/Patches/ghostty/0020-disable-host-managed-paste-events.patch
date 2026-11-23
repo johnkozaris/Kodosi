@@ -1,5 +1,5 @@
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 81ca9abfe..5371ad8c0 100644
+index 0675267ac..86c40ad86 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -6442,7 +6442,8 @@ fn startClipboardRequest(

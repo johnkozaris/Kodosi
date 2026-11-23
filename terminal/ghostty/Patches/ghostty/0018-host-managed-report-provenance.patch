@@ -1,5 +1,5 @@
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 61842f849..81ca9abfe 100644
+index dd72228b8..0675267ac 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -921,6 +921,9 @@ fn queueIo(
@@ -99,7 +99,7 @@ index eb98d9c10..38464f80e 100644
          .{ .columns = 120, .rows = 40 },
          .{ .width = 1200, .height = 900 },
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index b4b30797b..53b0b64ad 100644
+index d2c2098a1..e4ef729cf 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -403,7 +403,7 @@ pub fn threadEnter(
@@ -131,7 +131,7 @@ index b4b30797b..53b0b64ad 100644
  }
  
  /// Update the configuration.
-@@ -583,7 +584,7 @@ fn sizeReportLocked(self: *Termio, td: *ThreadData, style: termio.Message.SizeRe
+@@ -591,7 +592,7 @@ fn sizeReportLocked(self: *Termio, td: *ThreadData, style: termio.Message.SizeRe
          report_size,
      );
  
@@ -140,7 +140,7 @@ index b4b30797b..53b0b64ad 100644
  }
  
  /// Reset the synchronized output mode. This is usually called by timer
-@@ -648,7 +649,7 @@ pub fn clearScreen(self: *Termio, td: *ThreadData, history: bool) !void {
+@@ -656,7 +657,7 @@ pub fn clearScreen(self: *Termio, td: *ThreadData, history: bool) !void {
      }
  
      // If we reached here it means we're at a prompt, so we send a form-feed.
@@ -149,7 +149,7 @@ index b4b30797b..53b0b64ad 100644
  }
  
  /// Scroll the viewport
-@@ -686,7 +687,7 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
+@@ -694,7 +695,7 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
              log.err("error encoding focus event err={}", .{err});
              return;
          };
@@ -158,7 +158,7 @@ index b4b30797b..53b0b64ad 100644
      }
  
      // We always notify our backend of focus changes.
-@@ -946,7 +947,7 @@ pub fn colorSchemeReportLocked(self: *Termio, td: *ThreadData, force: bool) !voi
+@@ -959,7 +960,7 @@ pub fn colorSchemeReportLocked(self: *Termio, td: *ThreadData, force: bool) !voi
      var buf: [terminalpkg.device_status.max_color_scheme_report_encode_size]u8 = undefined;
      var writer: std.Io.Writer = .fixed(&buf);
      try terminalpkg.device_status.encodeColorSchemeReport(&writer, scheme);
@@ -167,7 +167,7 @@ index b4b30797b..53b0b64ad 100644
  }
  
  /// Sends a visibility report to the pty. Unforced reports are only sent while
-@@ -970,7 +971,7 @@ pub fn visibilityReport(
+@@ -983,7 +984,7 @@ pub fn visibilityReport(
          &writer,
          if (visible) .potentially_visible else .not_visible,
      );
@@ -311,10 +311,10 @@ index 3cd602dff..b6e096205 100644
              .kitty_clipboard_grant_write,
              => |v| v.alloc.free(v.pw),
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index 12383f6e9..43656aa71 100644
+index 12c4b5d70..82afab5fe 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
-@@ -151,7 +151,7 @@ pub const StreamHandler = struct {
+@@ -153,7 +153,7 @@ pub const StreamHandler = struct {
      }
  
      inline fn messageWriter(self: *StreamHandler, msg: termio.Message) void {
@@ -323,7 +323,7 @@ index 12383f6e9..43656aa71 100644
          self.termio_messaged = true;
      }
  
-@@ -2179,7 +2179,7 @@ test "kitty clipboard write: oversized text replies EFBIG" {
+@@ -2245,7 +2245,7 @@ test "kitty clipboard write: oversized text replies EFBIG" {
      const msg = response.?;
      defer msg.deinit();
      switch (msg) {

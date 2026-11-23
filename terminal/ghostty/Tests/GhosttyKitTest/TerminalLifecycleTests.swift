@@ -223,7 +223,7 @@ struct TerminalLifecycleTests {
             Array(text.utf8).withUnsafeBufferPointer { bytes in
                 InMemoryTerminalSession.receiveBufferCallback(
                     Unmanaged.passUnretained(bridge).toOpaque(),
-                    bytes.baseAddress,
+                    bytes.baseAddress!,
                     bytes.count
                 )
             }
@@ -460,24 +460,24 @@ struct TerminalLifecycleTests {
     @Test
     func `host managed clipboard reads require canonical plain text`() {
         "text/plain".withCString { plainText in
-            let supported: [UnsafePointer<CChar>?] = [plainText]
+            let supported = [plainText]
             supported.withUnsafeBufferPointer { mimeTypes in
                 #expect(terminalClipboardRequestsPlainText(
-                    mimeTypes: mimeTypes.baseAddress,
+                    mimeTypes: mimeTypes.baseAddress!,
                     count: mimeTypes.count
                 ))
+                #expect(!terminalClipboardRequestsPlainText(mimeTypes: mimeTypes.baseAddress!, count: 0))
             }
         }
         "application/json".withCString { json in
-            let unsupported: [UnsafePointer<CChar>?] = [json]
+            let unsupported = [json]
             unsupported.withUnsafeBufferPointer { mimeTypes in
                 #expect(!terminalClipboardRequestsPlainText(
-                    mimeTypes: mimeTypes.baseAddress,
+                    mimeTypes: mimeTypes.baseAddress!,
                     count: mimeTypes.count
                 ))
             }
         }
-        #expect(!terminalClipboardRequestsPlainText(mimeTypes: nil, count: 0))
     }
 
     @Test

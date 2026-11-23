@@ -1,0 +1,61 @@
+diff --git a/src/terminal/PageList.zig b/src/terminal/PageList.zig
+index 3474ae290..5962fe998 100644
+--- a/src/terminal/PageList.zig
++++ b/src/terminal/PageList.zig
+@@ -1223,7 +1223,7 @@ pub fn clone(
+             const last = result.pages.last.?;
+             const page = last.page();
+             const row = &page.rows.ptr(page.memory)[last.rows() - 1];
+-            page.clearCells(row, 0, result.cols);
++            page.clearCells(row, 0, page.size.cols);
+         }
+ 
+         // Update our total rows to be our row size.
+@@ -16019,6 +16019,35 @@ test "PageList clone less than active" {
+     try testing.expectEqual(@as(usize, s.rows), s2.totalRows());
+ }
+ 
++test "PageList clone less than active on a narrower page" {
++    const testing = std.testing;
++    const alloc = testing.allocator;
++
++    // The list has 4 columns, but its page has only 2. When the
++    // clone adds blank rows, it must clear only 2 columns per row.
++    var s: PageList = s: {
++        var builder = try Builder.init(alloc, .{
++            .cols = 4,
++            .rows = 3,
++        });
++        defer builder.deinit();
++
++        const page = try builder.allocatePage(.{
++            .cols = 2,
++            .rows = 3,
++        });
++        page.size.rows = 3;
++        break :s try builder.finish();
++    };
++    defer s.deinit();
++
++    var s2 = try s.clone(alloc, .{
++        .top = .{ .active = .{ .y = 2 } },
++    });
++    defer s2.deinit();
++    try testing.expectEqual(@as(usize, s.rows), s2.totalRows());
++}
++
+ test "PageList clone remap tracked pin" {
+     const testing = std.testing;
+     const alloc = testing.allocator;
+diff --git a/src/terminal/page.zig b/src/terminal/page.zig
+index 2a66d5b1e..b78783b78 100644
+--- a/src/terminal/page.zig
++++ b/src/terminal/page.zig
+@@ -1273,6 +1273,7 @@ pub const Page = struct {
+         left: usize,
+         end: usize,
+     ) void {
++        assert(left <= end and end <= self.size.cols);
+         defer self.assertIntegrity();
+ 
+         const cells = row.cells.ptr(self.memory)[left..end];

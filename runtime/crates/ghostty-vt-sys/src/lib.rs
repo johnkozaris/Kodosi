@@ -35,8 +35,8 @@ mod tests {
 
     #[test]
     fn clipboard_write_layout_matches_target_header() {
-        assert_eq!(std::mem::size_of::<GhosttyClipboardWrite>(), 72);
-        assert_eq!(std::mem::offset_of!(GhosttyClipboardWrite, reply), 64);
+        assert_eq!(std::mem::size_of::<GhosttyClipboardWrite>(), 64);
+        assert_eq!(std::mem::offset_of!(GhosttyClipboardWrite, reply), 56);
         assert_eq!(std::mem::size_of::<GhosttyClipboardWriteReply>(), 16);
     }
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "ghosttyCommit": "83fb95624b0439ee660c2679b43b38c8b63769cd",
+  "ghosttyCommit": "108cacb17ed8990840cd14abfce43d8ed8503ca1",
   "zig": {
     "version": "0.17.1",
     "target": "aarch64-macos",
@@ -12,7 +12,7 @@
   "components": [
     {
       "id": "ghostty",
-      "identity": "commit 83fb95624b0439ee660c2679b43b38c8b63769cd",
+      "identity": "commit 108cacb17ed8990840cd14abfce43d8ed8503ca1",
       "spdx": "MIT",
       "notices": ["LICENSE-GHOSTTY"]
     },
@@ -34,13 +34,13 @@
     },
     {
       "id": "uucode",
-      "identity": "0.2.0 / ea62149739404a73c202b48a33bf6dd2af4bd9b0",
+      "identity": "0.2.0 / 1fb73433bba5d93366c57f23ff2e9d7939746500",
       "spdx": "MIT",
       "notices": ["uucode.txt", "uucode-Bjoern-Hoehrmann.txt"]
     },
     {
       "id": "unicode-data",
-      "identity": "uucode ea62149739404a73c202b48a33bf6dd2af4bd9b0 UCD",
+      "identity": "uucode 1fb73433bba5d93366c57f23ff2e9d7939746500 UCD",
       "spdx": "Unicode-3.0",
       "notices": ["unicode-data.txt"]
     },

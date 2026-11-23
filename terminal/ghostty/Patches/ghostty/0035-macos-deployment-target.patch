@@ -1,8 +1,8 @@
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index b9629bb38..015b69e25 100644
+index 086759f2e..3a12dfa7a 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
-@@ -107,7 +107,14 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
+@@ -134,7 +134,14 @@ pub fn init(b: *std.Build, versions: Versions) !Config {
          if (result.result.os.tag == .macos and
              builtin.target.os.tag.isDarwin())
          {

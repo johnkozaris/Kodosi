@@ -1,9 +1,9 @@
 #pragma once
 
-#include "terminal/GhosttyC.hpp"
 #include "terminal/TerminalFrame.hpp"
 
 #include <cstdint>
+#include <ghostty/vt.h>
 #include <memory>
 #include <type_traits>
 #include <unordered_map>

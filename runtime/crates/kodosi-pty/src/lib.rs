@@ -62,7 +62,7 @@ pub use pty::{
 
 macro_rules! ghostty_version {
     () => {
-        "1.4.0"
+        "1.4.1-dev"
     };
 }
 

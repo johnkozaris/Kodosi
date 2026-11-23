@@ -100,11 +100,12 @@ subprocess.run(["ranlib", "-D", destination], check=True)
 PY
 rm -rf "$OUTPUT_DIR/.archive-objects"
 cp -R "$PREFIX/include/." "$OUTPUT_DIR/include/"
-if [ -f "$PREFIX/lib/libghostty-vt.so.0.1.0" ]; then
-    cp "$PREFIX/lib/libghostty-vt.so.0.1.0" "$OUTPUT_DIR/lib/"
-    strip --strip-unneeded "$OUTPUT_DIR/lib/libghostty-vt.so.0.1.0"
-    ln -s libghostty-vt.so.0.1.0 "$OUTPUT_DIR/lib/libghostty-vt.so.0"
-    ln -s libghostty-vt.so.0 "$OUTPUT_DIR/lib/libghostty-vt.so"
+SHARED=$(cd "$PREFIX/lib" && find . -maxdepth 1 -type f -name 'libghostty-vt.so.*.*.*' -exec basename {} \;)
+if [ -n "$SHARED" ]; then
+    cp "$PREFIX/lib/$SHARED" "$OUTPUT_DIR/lib/"
+    strip --strip-unneeded "$OUTPUT_DIR/lib/$SHARED"
+    ln -s "$SHARED" "$OUTPUT_DIR/lib/${SHARED%.*.*}"
+    ln -s "${SHARED%.*.*}" "$OUTPUT_DIR/lib/libghostty-vt.so"
 fi
 
 mkdir -p "$OUTPUT_DIR/symbols"
