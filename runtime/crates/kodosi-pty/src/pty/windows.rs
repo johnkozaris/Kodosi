@@ -1201,6 +1201,7 @@ mod tests {
         let block = environment_block(inherited, &[("KODOSI_SESSION_ID", "id")]);
         let text = String::from_utf16_lossy(&block);
         let variables: Vec<&str> = text.split('\0').filter(|entry| !entry.is_empty()).collect();
+        let version = format!("TERM_PROGRAM_VERSION={}", crate::GHOSTTY_VERSION);
         assert_eq!(
             variables,
             [
@@ -1209,7 +1210,7 @@ mod tests {
                 r"Path=C:\bin",
                 "TERM=xterm-256color",
                 "TERM_PROGRAM=ghostty",
-                "TERM_PROGRAM_VERSION=1.4.1-dev",
+                version.as_str(),
                 "WT_SESSION=1",
             ]
         );
