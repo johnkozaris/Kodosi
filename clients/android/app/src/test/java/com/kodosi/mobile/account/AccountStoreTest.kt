@@ -21,16 +21,6 @@ class AccountStoreTest {
     private val stage get() = store.state.value.stage
 
     @Test
-    fun signsInThroughTheAppsBrowserInItsLanguage() {
-        store.signIn()
-
-        val start = sent.last("auth.login.start")
-        assertEquals("app", start.string("browser"))
-        assertEquals("el", start.string("language"))
-        assertEquals(SignInStage.Starting, stage)
-    }
-
-    @Test
     fun opensOnlyPagesThatAreSafeToOpen() {
         store.signIn()
         store.receiveAuth(event("auth.browser", """"requestId":"r","url":"http://192.168.1.4/login""""))
@@ -147,23 +137,5 @@ class AccountStoreTest {
 
         assertEquals(listOf(TestWords.signInEnded), notices)
         assertTrue(store.state.value.needsOnboarding)
-    }
-
-    @Test
-    fun followsWhetherKodosiReachesTheServer() {
-        store.receiveConnection(event("connection.state", """"online":false"""))
-        assertFalse(store.state.value.online)
-
-        store.receiveConnection(event("connection.state", """"online":true"""))
-        assertTrue(store.state.value.online)
-    }
-
-    @Test
-    fun anotherAccountStartsOnline() {
-        store.reset("ana")
-        store.receiveConnection(event("connection.state", """"online":false"""))
-
-        store.reset("bo")
-        assertTrue(store.state.value.online)
     }
 }

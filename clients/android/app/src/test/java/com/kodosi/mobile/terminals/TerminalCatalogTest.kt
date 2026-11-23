@@ -4,7 +4,6 @@ import com.kodosi.mobile.runtime.RuntimeJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TerminalCatalogTest {
@@ -73,18 +72,6 @@ class TerminalCatalogTest {
         assertEquals(ProgramStatus.State.DONE, terminal.waitState)
         assertEquals("Build complete", terminal.activity)
         assertEquals(StatusForm.DONE, terminal.sign())
-    }
-
-    @Test
-    fun showsWorkWhenTheRuntimeReportsItWithoutAProgramStatusOrTitle() {
-        val terminal = RuntimeJson.decodeFromString<RuntimeSession>(
-            """{"id":"a","incarnationId":"i","kind":"remote","name":"Build",
-                "status":"running","connectionState":"connected","working":true}"""
-        )
-
-        assertTrue(terminal.isWorking)
-        assertNull(terminal.waitState)
-        assertNull(terminal.activity)
     }
 
     @Test

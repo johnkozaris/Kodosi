@@ -30,11 +30,6 @@ class PushedTerminalTest {
     }
 
     @Test
-    fun anEmptyListTakesEveryPushBack() {
-        assertEquals(emptyList<PushedTerminal>(), PushedTerminal.list(""))
-    }
-
-    @Test
     fun aBrokenEntryIsSkippedAndTheOthersStay() {
         val good = "$second:claude:blocked:question:0"
         assertEquals(

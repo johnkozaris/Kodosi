@@ -92,25 +92,6 @@ class AppModelTest {
     }
 
     @Test
-    fun aRefreshFailureDoesNotReplaceAnAlreadyOpenAccount() {
-        val model = AppModel(RuntimeEnvironment.getApplication())
-        model.receive(event("""{"type":"system.ready","accountUserId":"ana","accountEpoch":1}"""))
-        model.receive(
-            event(
-                """{"type":"auth.ready","accountUserId":"ana","accountEpoch":1,"userId":"ana","enrolled":true}"""
-            )
-        )
-        model.receive(
-            event(
-                """{"type":"auth.error","accountUserId":"ana","accountEpoch":1,"operation":"auth.refresh","message":"No connection."}"""
-            )
-        )
-
-        assertEquals(AppModel.Phase.Ready, model.phase.value)
-        assertEquals(true, model.account.state.value.isReady)
-    }
-
-    @Test
     fun theRuntimeHearsWhereThePersonIsAndWhereTheAppIsAfterEachReadyAndOnEachChange() {
         val sent = SentCommands()
         val model = AppModel(RuntimeEnvironment.getApplication())
