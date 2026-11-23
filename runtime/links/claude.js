@@ -163,12 +163,10 @@ function earlier(rows) {
       text: brief(row.text, 0),
       uuid: row.uuid,
       toolUses: (row.toolUses || []).map(use => ({
-        tool_use_id: use.tool_use_id,
         tool: use.tool,
         input: brief(use.input, 0),
         text: brief(use.text, 0),
         isError: use.isError === true,
-        agentId: use.agentId,
         durationMs: use.durationMs,
       })),
     })
@@ -191,7 +189,7 @@ async function hello($) {
     Object.assign(facts, await modesOff($))
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
-    facts.error = String(error)
+    rows = []
   }
   facts.mode = mode || undefined
   facts.bypass = bypass
@@ -315,8 +313,6 @@ export function register(on) {
         origin: e.origin,
         uuid: e.uuid,
         agent: e.agentId,
-        type: message.type,
-        meta: message.isMeta === true,
         content: blocks(message.content),
       })
     }
@@ -325,14 +321,14 @@ export function register(on) {
 
   on('turn.start', async ($, e, next) => {
     if (!e.agentId) turn = e.turnId
-    tell($, 'turn', { turn: e.turnId, agent: e.agentId })
+    tell($, 'turn', { agent: e.agentId })
     return next(e)
   })
 
   // The chat shows a helper's steps from its rows, so only the main conversation reports as it writes.
   on('turn.step', async function* ($, e, next) {
     if (!socket || e.agentId) return yield* next(e)
-    tell($, 'step', { step: e.index, model: e.model, effort: e.effort })
+    tell($, 'step', { model: e.model, effort: e.effort })
     const stream = next(e)
     let thought = -1
     let item = await stream.next()
@@ -347,13 +343,13 @@ export function register(on) {
       yield piece
       item = await stream.next()
     }
-    tell($, 'stepEnd', { step: e.index })
+    tell($, 'stepEnd', {})
     return item.value
   })
 
   on('turn.complete', async ($, e, next) => {
     if (!e.agentId && turn === e.turnId) turn = ''
-    tell($, 'turnEnd', { turn: e.turnId, agent: e.agentId, ms: e.durationMs, reason: e.reason })
+    tell($, 'turnEnd', { agent: e.agentId, ms: e.durationMs, reason: e.reason })
     return next(e)
   })
 
@@ -405,7 +401,6 @@ export function register(on) {
       tell($, 'decided', {
         id: e.attributes.tool_use_id,
         decision: e.attributes.decision,
-        source: e.attributes.source,
         mode: e.attributes.permission_mode,
       })
     } else if (e.event === 'permission_mode_changed' && e.attributes) {
@@ -425,7 +420,7 @@ export function register(on) {
 
   on('agent.spawn', async ($, e, next) => {
     const spawned = await next(e)
-    tell($, 'agent', { call: e.tool_use_id, id: spawned ? spawned.agentId : undefined, type: e.subagentType, description: e.description })
+    tell($, 'agent', { call: e.tool_use_id, id: spawned ? spawned.agentId : undefined, description: e.description })
     return spawned
   })
 

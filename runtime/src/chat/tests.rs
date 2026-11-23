@@ -1,7 +1,7 @@
-//! The records in `fixtures/claude` are what the link module sent from real sessions of Claude Code.
+//! The records in `fixtures/claude` are what the link module sends in real sessions of Claude Code.
 //! Those in `fixtures/codex` are the messages of Codex's app-server in real sessions, as the link
 //! gives them to the chat, without the messages that the chat does not read. Those in
-//! `fixtures/copilot` are what the extension sent from real sessions of Copilot CLI 1.0.115.
+//! `fixtures/copilot` are what the extension sends in real sessions of Copilot CLI 1.0.115.
 //! Those in `fixtures/antigravity` are the messages of `agy acp` 1.5.14 as `kodosi acp` gives them
 //! to the chat: signed out, and in sessions whose model was a local stand-in of the Gemini API
 //! (`GOOGLE_GEMINI_BASE_URL`) that answered with written calls and words.
