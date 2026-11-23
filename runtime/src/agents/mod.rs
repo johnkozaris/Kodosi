@@ -750,10 +750,8 @@ fn copilot_plugin(notes: &Path) -> Option<String> {
 /// starts Copilot, so that the chat can answer from the start.
 #[cfg(feature = "host")]
 pub(crate) fn allow_copilot_link(home: &Path, folder: &Path) -> std::io::Result<()> {
-    use std::io::Read as _;
     const APPROVALS: &str = "permissions-config.json";
     const APPROVALS_LOCK: &str = "permissions-config.json.transaction.lock";
-    const MOST_BYTES: u64 = 1024 * 1024;
     let invalid = |message: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, message);
     let folder = kodosi_os::fs::canonicalize(folder)?;
     let location = folder
@@ -766,22 +764,8 @@ pub(crate) fn allow_copilot_link(home: &Path, folder: &Path) -> std::io::Result<
     std::fs::create_dir_all(home)?;
     let file = home.join(APPROVALS);
     let _lock = quiet::lock_beside(&file, APPROVALS_LOCK)?;
-    let mut approvals = match std::fs::symlink_metadata(&file) {
-        Ok(metadata) if metadata.is_file() => {
-            let mut bytes = Vec::new();
-            std::fs::File::open(&file)?
-                .take(MOST_BYTES + 1)
-                .read_to_end(&mut bytes)?;
-            if bytes.len() as u64 > MOST_BYTES {
-                return Err(invalid("Copilot's approvals are too long"));
-            }
-            serde_json::from_slice::<serde_json::Value>(&bytes)
-                .map_err(|_| invalid("Copilot's approvals are not JSON"))?
-        }
-        Ok(_) => return Err(invalid("Copilot's approvals are not a file")),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => serde_json::json!({}),
-        Err(error) => return Err(error),
-    };
+    let mut approvals =
+        quiet::read::<serde_json::Value>(&file)?.unwrap_or_else(|| serde_json::json!({}));
     let approval = serde_json::json!({
         "kind": "extension-permission-access",
         "extensionName": COPILOT_EXTENSION,
