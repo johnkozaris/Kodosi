@@ -737,7 +737,8 @@ QVariantMap TerminalChat::shapedAsk(const QJsonObject& ask)
 QVariantMap TerminalChat::shapedFacts() const
 {
     const auto& facts = m_chat->facts;
-    QVariantMap shaped { { QStringLiteral("model"), text(facts, "model") }, { QStringLiteral("effort"), text(facts, "effort") },
+    QVariantMap shaped { { QStringLiteral("agent"), text(facts, "agent") }, { QStringLiteral("model"), text(facts, "model") },
+        { QStringLiteral("effort"), text(facts, "effort") },
         { QStringLiteral("helpers"), facts.value(QStringLiteral("helpers")).toInt() },
         { QStringLiteral("background"), facts.value(QStringLiteral("background")).toInt() } };
     const auto mode = text(facts, "mode");

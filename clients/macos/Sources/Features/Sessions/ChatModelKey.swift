@@ -35,7 +35,7 @@ struct ChatModelKey: View {
                 await launcher?.loadModels(session.agent.rawValue)
             }
             .animation(theme.motion.snappy, value: open)
-            .tip("Model")
+            .help("Model")
             .accessibilityLabel(Text("Model"))
             .accessibilityValue(Text(verbatim: face.title))
             .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).chat.model")

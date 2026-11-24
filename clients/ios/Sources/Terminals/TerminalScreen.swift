@@ -366,7 +366,6 @@ private struct TerminalScreenContent: View {
     }
 }
 
-/// The model in a chat's facts opens the agent's part of the terminal menu, which changes its model.
 /// The model in a chat's facts opens the agent's model, effort and fast mode in a sheet, which
 /// `/model` also opens.
 private struct ChatModelMenu: View {

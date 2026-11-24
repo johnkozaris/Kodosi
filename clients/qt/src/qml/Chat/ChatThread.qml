@@ -17,6 +17,7 @@ Item {
     required property var session
     required property Look look
     required property string agent
+    required property string program
     readonly property real column: Math.min(760, width - 28)
     readonly property real side: (width - column) / 2
     property bool following: true
@@ -266,7 +267,7 @@ Item {
                         y: 2
                         visible: entry.lead
                         size: 26
-                        program: root.session.program || ""
+                        program: root.program
                         account: root.session.programAccount ?? -1
                         working: entry.line.working === true
                     }
@@ -491,7 +492,7 @@ Item {
     AgentMark {
         anchors.centerIn: parent
         size: 40
-        program: root.session.program || ""
+        program: root.program
         account: root.session.programAccount ?? -1
         working: false
         opacity: root.chat.empty ? 1 : 0

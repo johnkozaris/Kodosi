@@ -198,7 +198,9 @@ struct ChatDock<ModelKey: View>: View {
             chat.draft = ""
             open(control)
         } else {
-            chat.draft = "/\(command.name) "
+            let draft = "/\(command.name) "
+            chat.draft = draft
+            selection = TextSelection(insertionPoint: draft.endIndex)
             focused.wrappedValue = true
         }
     }
@@ -427,7 +429,7 @@ struct ChatModeLabel: View {
             }
         }
         .appTextStyle(.callout)
-        .tip(Text(verbatim: ChatWords.mode(mode)))
+        .help(Text(verbatim: ChatWords.mode(mode)))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: ChatWords.mode(mode)))
     }
@@ -487,7 +489,7 @@ private struct ChatUsageKey: View {
                     Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
                 }
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
                     .rotationEffect(.degrees(open ? 180 : 0))
                     .accessibilityHidden(true)
@@ -498,12 +500,30 @@ private struct ChatUsageKey: View {
         }
         .buttonStyle(.kodosi(open ? .tinted : .secondary, size: .small))
         .animation(theme.motion.snappy, value: open)
-        .kodosiPopover(isPresented: $open, arrowEdge: .top, alignment: .leading) {
-            ChatUsage(facts: facts)
-        }
-        .tip(Text("Usage", bundle: .module))
-        .accessibilityLabel(Text("Usage", bundle: .module))
-        .accessibilityIdentifier("chat.usage.key")
+        #if os(iOS)
+            .sheet(isPresented: $open) {
+                NavigationStack {
+                    ChatUsage(facts: facts)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(20)
+                        .navigationTitle(Text("Usage", bundle: .module))
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button { open = false } label: { Text("Done", bundle: .module) }
+                            }
+                        }
+                }
+                .presentationDetents([.medium])
+            }
+        #else
+            .kodosiPopover(isPresented: $open, arrowEdge: .top, alignment: .leading) {
+                ChatUsage(facts: facts)
+            }
+        #endif
+            .help(Text("Usage", bundle: .module))
+            .accessibilityLabel(Text("Usage", bundle: .module))
+            .accessibilityIdentifier("chat.usage.key")
     }
 }
 
@@ -568,7 +588,7 @@ public struct ChatModelFace: View {
             if let effort {
                 if let level = levels.firstIndex(where: { $0.id == effort }) {
                     EffortBars(level: level, count: levels.count, height: 10, width: 2)
-                        .tip(Text(verbatim: levels[level].label))
+                        .help(Text(verbatim: levels[level].label))
                 } else {
                     Text(verbatim: effort)
                 }
@@ -578,7 +598,7 @@ public struct ChatModelFace: View {
                 ChatModeLabel(mode: mode, named: !short)
             }
             if opens {
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
                     .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
                     .rotationEffect(.degrees(open ? 180 : 0))
                     .accessibilityHidden(true)
