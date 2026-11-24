@@ -198,7 +198,9 @@ struct ChatDock<ModelKey: View>: View {
             chat.draft = ""
             open(control)
         } else {
-            chat.draft = "/\(command.name) "
+            let draft = "/\(command.name) "
+            chat.draft = draft
+            selection = TextSelection(insertionPoint: draft.endIndex)
             focused.wrappedValue = true
         }
     }
