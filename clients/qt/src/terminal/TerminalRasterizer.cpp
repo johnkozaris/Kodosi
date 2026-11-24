@@ -726,14 +726,6 @@ QSizeF TerminalRasterizer::cellSize(
 QImage TerminalRasterizer::render(
     const TerminalFrame& frame,
     const QFont& font,
-    const qreal devicePixelRatio)
-{
-    return render(frame, font, devicePixelRatio, Options {});
-}
-
-QImage TerminalRasterizer::render(
-    const TerminalFrame& frame,
-    const QFont& font,
     const qreal devicePixelRatio,
     const Options& options)
 {

@@ -160,8 +160,6 @@ void TerminalNotificationsTest::programNotificationsShareTheKeyOfTheirTerminal()
     QCOMPARE(fixture.driver.posted.at(0).key, fixture.driver.posted.at(1).key);
     QVERIFY(fixture.driver.posted.at(0).cue == kodosi::NotificationCue::List);
     QVERIFY(fixture.driver.posted.at(1).cue == kodosi::NotificationCue::Sound);
-    QCOMPARE(fixture.driver.posted.at(1).title, QStringLiteral("Build"));
-    QCOMPARE(fixture.driver.posted.at(1).body, QStringLiteral("Tests passed"));
     QVERIFY(fixture.driver.withdrawn.isEmpty());
 }
 

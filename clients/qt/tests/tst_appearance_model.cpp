@@ -154,12 +154,12 @@ void AppearanceModelTest::followsLiveSystemSchemeAfterUnsettingOverride()
 
     QVERIFY(!model.dark());
     style.systemScheme = Qt::ColorScheme::Dark;
-    model.injectSystemColorSchemeForTesting(Qt::ColorScheme::Dark);
+    model.followSystemColorScheme(Qt::ColorScheme::Dark);
     QVERIFY(model.dark());
 
     QVERIFY(model.setPreference(
         static_cast<int>(kodosi::AppearanceModel::Preference::Light)));
-    model.injectSystemColorSchemeForTesting(Qt::ColorScheme::Dark);
+    model.followSystemColorScheme(Qt::ColorScheme::Dark);
     QVERIFY(!model.dark());
 
     QVERIFY(model.setPreference(
@@ -191,10 +191,10 @@ void AppearanceModelTest::reducedMotionIsKeptAndTheSystemChoiceWins()
     QVERIFY(reloaded.setReducesMotion(false));
     QVERIFY(!reloaded.reduceMotion());
 
-    reloaded.injectSystemReducedMotionForTesting(true);
+    reloaded.followSystemMotion(true);
     QVERIFY(reloaded.systemReducesMotion());
     QVERIFY(reloaded.reduceMotion());
-    reloaded.injectSystemReducedMotionForTesting(false);
+    reloaded.followSystemMotion(false);
     QVERIFY(!reloaded.reduceMotion());
 }
 
@@ -210,11 +210,11 @@ void AppearanceModelTest::terminalsFollowTheAppearanceUnlessTheyAreKeptDark()
             style.hooks());
         QSignalSpy changes(&model, &kodosi::AppearanceModel::terminalLookChanged);
         QCOMPARE(model.terminalLook(), QStringLiteral("light"));
-        model.injectSystemColorSchemeForTesting(Qt::ColorScheme::Dark);
+        model.followSystemColorScheme(Qt::ColorScheme::Dark);
         QCOMPARE(model.terminalLook(), QStringLiteral("dark"));
         QCOMPARE(changes.count(), 1);
         QVERIFY(model.setKeepsTerminalsDark(true));
-        model.injectSystemColorSchemeForTesting(Qt::ColorScheme::Light);
+        model.followSystemColorScheme(Qt::ColorScheme::Light);
         QVERIFY(!model.dark());
         QCOMPARE(model.terminalLook(), QStringLiteral("dark"));
     }

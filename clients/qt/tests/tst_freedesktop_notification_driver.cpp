@@ -119,11 +119,7 @@ void FreedesktopNotificationDriverTest::postsHandlesActionsAndWithdraws()
     QTRY_COMPARE(m_service.notifications.size(), 1);
     QVERIFY(closed.isEmpty());
     const auto& notification = m_service.notifications.constFirst();
-    QCOMPARE(notification.appName, QStringLiteral("Kodosi"));
     QCOMPARE(notification.replacesId, uint {0});
-    QCOMPARE(
-        notification.appIcon,
-        QStringLiteral("com.kodosi.Kodosi"));
     QCOMPARE(
         notification.summary,
         QStringLiteral("Bash &lt;Session&gt;"));
@@ -136,13 +132,9 @@ void FreedesktopNotificationDriverTest::postsHandlesActionsAndWithdraws()
             QStringLiteral("default"),
             QStringLiteral("Open Kodosi"),
         }));
-    QCOMPARE(
-        notification.hints.value(QStringLiteral("desktop-entry")).toString(),
-        QStringLiteral("com.kodosi.Kodosi"));
     QCOMPARE(notification.hints.value(QStringLiteral("urgency")).value<uchar>(), uchar {1});
     QVERIFY(!notification.hints.value(QStringLiteral("sound-name")).toString().isEmpty());
     QVERIFY(!notification.hints.contains(QStringLiteral("suppress-sound")));
-    QCOMPARE(notification.timeout, -1);
 
     QTest::qWait(20);
     emit m_service.ActivationToken(

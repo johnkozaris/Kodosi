@@ -61,22 +61,16 @@ AppearanceModel::AppearanceModel(std::unique_ptr<QSettings> settings, QObject* p
     : AppearanceModel(std::move(settings), applicationStyleHooks(), parent)
 {
     auto* hints = QGuiApplication::styleHints();
-    connect(
-        hints,
-        &QStyleHints::colorSchemeChanged,
-        this,
-        [this](const Qt::ColorScheme scheme) {
-            updateDark(scheme);
-        });
+    connect(hints, &QStyleHints::colorSchemeChanged, this, &AppearanceModel::followSystemColorScheme);
     const auto* accessibility = hints->accessibility();
     connect(
         accessibility,
         &QAccessibilityHints::motionPreferenceChanged,
         this,
         [this](const Qt::MotionPreference motion) {
-            updateMotion(motion == Qt::MotionPreference::ReducedMotion, m_reducesMotion);
+            followSystemMotion(motion == Qt::MotionPreference::ReducedMotion);
         });
-    updateMotion(accessibility->motionPreference() == Qt::MotionPreference::ReducedMotion, m_reducesMotion);
+    followSystemMotion(accessibility->motionPreference() == Qt::MotionPreference::ReducedMotion);
 }
 
 AppearanceModel::AppearanceModel(
@@ -247,15 +241,14 @@ bool AppearanceModel::setSummaryFirst(const bool enabled)
     return true;
 }
 
-void AppearanceModel::injectSystemColorSchemeForTesting(
-    const Qt::ColorScheme scheme)
+void AppearanceModel::followSystemColorScheme(const Qt::ColorScheme scheme)
 {
     updateDark(scheme);
 }
 
-void AppearanceModel::injectSystemReducedMotionForTesting(const bool enabled)
+void AppearanceModel::followSystemMotion(const bool reduced)
 {
-    updateMotion(enabled, m_reducesMotion);
+    updateMotion(reduced, m_reducesMotion);
 }
 
 bool AppearanceModel::store(const QString& key, const QVariant& value)

@@ -60,8 +60,8 @@ public:
     /// still name the terminal, rather than say its state.
     Q_INVOKABLE [[nodiscard]] static QString leadingSummary(const QVariantMap& session, bool summaryFirst);
 
-    void injectSystemColorSchemeForTesting(Qt::ColorScheme scheme);
-    void injectSystemReducedMotionForTesting(bool enabled);
+    void followSystemColorScheme(Qt::ColorScheme scheme);
+    void followSystemMotion(bool reduced);
 
 signals:
     void preferenceChanged();

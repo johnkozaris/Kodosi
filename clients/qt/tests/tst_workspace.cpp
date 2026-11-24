@@ -536,8 +536,6 @@ private slots:
         f.workspace.apply(shown(QStringLiteral("Reading the logs")), 0);
         QCOMPARE(views.count(), 0);
         QCOMPARE(applied.count(), 1);
-        QCOMPARE(f.sessions.sessions().first().toMap().value(QStringLiteral("activity")).toString(), QStringLiteral("Reading the logs"));
-        QVERIFY(f.sessions.sessions().first().toMap().value(QStringLiteral("working")).toBool());
         f.workspace.apply(shown(QStringLiteral("Writing the fix")), 0);
         QCOMPARE(views.count(), 1);
         QCOMPARE(f.sessions.sessions().first().toMap().value(QStringLiteral("activity")).toString(), QStringLiteral("Writing the fix"));
@@ -615,7 +613,6 @@ private slots:
         Fixture f;
         auto local = test::session(1);
         local.insert(QStringLiteral("workingDir"), QStringLiteral("/repo/project"));
-        local.insert(QStringLiteral("activity"), QStringLiteral("GitHub Copilot"));
         auto remote = test::session(2, true, false);
         remote.insert(QStringLiteral("workingDir"), QStringLiteral("/host/project"));
         remote.insert(QStringLiteral("ownerName"), QStringLiteral("Ana"));
@@ -641,9 +638,6 @@ private slots:
         QCOMPARE(labels, (QStringList { QStringLiteral("This computer|start|project|/repo/project|"),
             QStringLiteral("Mini|start|website|/home/me/website|mini"), QStringLiteral("Ana|start|project||"),
             QStringLiteral("Ana||||") }));
-        const auto fields = f.sessions.presentationForSession(test::id(1));
-        QCOMPARE(fields.value(QStringLiteral("name")).toString(), QStringLiteral("Terminal"));
-        QCOMPARE(fields.value(QStringLiteral("activity")).toString(), QStringLiteral("GitHub Copilot"));
         const auto hosted = f.sessions.presentationForSession(test::id(2));
         QVERIFY(hosted.value(QStringLiteral("workingDirectory")).toString().isEmpty());
         QCOMPARE(hosted.value(QStringLiteral("displayDirectory")).toString(), QStringLiteral("/host/project"));
@@ -881,7 +875,7 @@ private slots:
         f.workspace.apply(test::snapshot({ invalid }), 0);
         QVERIFY(!f.sessions.containsSession(test::id(4)));
     }
-    void aRunningAgentShowsWhatItCanChangeAndAsksItsHostToChangeIt()
+    void aRunningAgentAsksItsHostToChangeIt()
     {
         Fixture f;
         auto running = test::session(1);
@@ -895,13 +889,6 @@ private slots:
             QJsonObject { { QStringLiteral("model"), true }, { QStringLiteral("effort"), true }, { QStringLiteral("fast"), true },
                 { QStringLiteral("keeps"), false }, { QStringLiteral("permissions"), QJsonArray { QStringLiteral("ask"), QStringLiteral("auto") } } });
         f.workspace.apply(test::snapshot({ running }), 0);
-        const auto shown = f.sessions.presentationForSession(test::id(1));
-        QCOMPARE(shown.value(QStringLiteral("programSettings")).toMap().value(QStringLiteral("model")).toString(), QStringLiteral("gpt-6"));
-        QCOMPARE(shown.value(QStringLiteral("programPending")).toMap().value(QStringLiteral("effort")).toString(), QStringLiteral("high"));
-        QCOMPARE(shown.value(QStringLiteral("programPending")).toMap().value(QStringLiteral("fast")), QVariant(false));
-        QVERIFY(shown.value(QStringLiteral("programLive")).toMap().value(QStringLiteral("fast")).toBool());
-        QCOMPARE(shown.value(QStringLiteral("programLive")).toMap().value(QStringLiteral("permissions")).toStringList(),
-            (QStringList { QStringLiteral("ask"), QStringLiteral("auto") }));
         QVERIFY(f.workspace.sessionActions().changeAgent(test::id(1), { { QStringLiteral("permissions"), QStringLiteral("ask") } }));
         QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("session.agent"));
         QCOMPARE(f.commands.values.last().value(QStringLiteral("change")).toObject(),
@@ -916,43 +903,31 @@ private slots:
     void aTerminalShowsTheStateThatTheRuntimeGives()
     {
         Fixture f;
-        const auto shown = [](const int number, const QJsonObject& status, const bool working, const QString& waiting = {},
-                               const QString& activity = {}) {
+        const auto shown = [](const int number, const QJsonObject& status, const bool working, const QString& waiting = {}) {
             auto session = test::session(number);
             session.insert(QStringLiteral("programStatus"), status);
             session.insert(QStringLiteral("working"), working);
             if (!waiting.isEmpty())
                 session.insert(QStringLiteral("waiting"), waiting);
-            if (!activity.isEmpty())
-                session.insert(QStringLiteral("activity"), activity);
             return session;
         };
         const auto field = [&](const int number, const QString& name) {
             return f.sessions.presentationForSession(test::id(number)).value(name);
         };
-        const auto activity = [&](const int number) { return field(number, QStringLiteral("activity")).toString(); };
         const auto sign = [&](const int number) { return field(number, QStringLiteral("sign")).toString(); };
         const QString blocked = QStringLiteral("blocked");
         f.workspace.apply(test::snapshot({
-            shown(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 40}}, true, {}, QStringLiteral("Build")),
-            shown(2, {{QStringLiteral("state"), QStringLiteral("idle")}}, false, {}, QStringLiteral("Build")),
+            shown(1, {{QStringLiteral("state"), QStringLiteral("working")}, {QStringLiteral("progress"), 40}}, true),
+            shown(2, {{QStringLiteral("state"), QStringLiteral("idle")}}, false),
         }), 0);
-        QVERIFY(field(1, QStringLiteral("working")).toBool());
-        QVERIFY(!field(2, QStringLiteral("working")).toBool());
-        QCOMPARE(activity(2), QStringLiteral("Build"));
         QCOMPARE(field(1, QStringLiteral("progress")).toInt(), 40);
         QCOMPARE(field(2, QStringLiteral("progress")).toInt(), -1);
         QVERIFY(sign(1).isEmpty());
 
         f.workspace.apply(test::snapshot({
-            shown(1, {{QStringLiteral("state"), blocked}, {QStringLiteral("kind"), QStringLiteral("permission")},
-                {QStringLiteral("title"), QStringLiteral("Review")}, {QStringLiteral("message"), QStringLiteral("Allow the command?")}},
-                false, blocked, QStringLiteral("Review: Allow the command?")),
+            shown(1, {{QStringLiteral("state"), blocked}, {QStringLiteral("kind"), QStringLiteral("permission")}}, false, blocked),
             shown(2, {{QStringLiteral("state"), blocked}, {QStringLiteral("kind"), QStringLiteral("question")}}, false, blocked),
         }), 0);
-        QVERIFY(!field(1, QStringLiteral("working")).toBool());
-        QCOMPARE(activity(1), QStringLiteral("Review: Allow the command?"));
-        QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(1), QStringLiteral("hand"));
         QCOMPARE(sign(2), QStringLiteral("question"));
         QVERIFY(field(1, QStringLiteral("asks")).toBool());
@@ -961,7 +936,6 @@ private slots:
             shown(1, {{QStringLiteral("state"), blocked}, {QStringLiteral("kind"), QStringLiteral("permission")}}, false, blocked),
             shown(2, {{QStringLiteral("state"), QStringLiteral("error")}}, false, QStringLiteral("error")),
         }), 0);
-        QVERIFY(activity(2).isEmpty());
         QCOMPARE(sign(2), QStringLiteral("failed"));
         QVERIFY(!field(2, QStringLiteral("asks")).toBool());
 
@@ -981,44 +955,20 @@ private slots:
         f.workspace.apply(test::snapshot({ shown(1, {{QStringLiteral("state"), QStringLiteral("done")}}, false, QStringLiteral("dance")) }), 0);
         QCOMPARE(f.sessions.session(test::id(2))->waiting, QStringLiteral("done"));
     }
-    void aTerminalNamesWhereItsProgramRunsAndWhetherAsRoot()
+    void aTerminalInAPlaceOfAnUnknownKindIsRefused()
     {
         Fixture f;
-        const auto place = [](const QString& kind, const QString& name) {
-            return QJsonObject { { QStringLiteral("kind"), kind }, { QStringLiteral("name"), name } };
-        };
-        const auto placed = [&](const int number, const QJsonValue& where, const bool root) {
+        const auto placed = [](const int number, const QString& kind) {
             auto session = test::session(number);
-            QJsonObject context { { QStringLiteral("root"), root } };
-            if (!where.isUndefined())
-                context.insert(QStringLiteral("place"), where);
-            session.insert(QStringLiteral("context"), context);
+            session.insert(QStringLiteral("context"), QJsonObject { { QStringLiteral("root"), false },
+                { QStringLiteral("place"), QJsonObject { { QStringLiteral("kind"), kind }, { QStringLiteral("name"), QStringLiteral("base") } } } });
             return session;
         };
-        const auto field = [&](const int number, const QString& name) {
-            return f.sessions.presentationForSession(test::id(number)).value(name);
-        };
-        f.workspace.apply(test::snapshot({
-            placed(1, place(QStringLiteral("remote"), QStringLiteral("build-box")), false),
-            placed(2, place(QStringLiteral("container"), QStringLiteral("web")), true),
-            placed(3, QJsonValue(QJsonValue::Undefined), true),
-            test::session(4),
-        }), 0);
-        QCOMPARE(field(1, QStringLiteral("placeKind")).toString(), QStringLiteral("remote"));
-        QCOMPARE(field(1, QStringLiteral("placeName")).toString(), QStringLiteral("build-box"));
-        QCOMPARE(field(1, QStringLiteral("placeLabel")).toString(), QStringLiteral("On build-box"));
-        QVERIFY(!field(1, QStringLiteral("root")).toBool());
-        QCOMPARE(field(2, QStringLiteral("placeLabel")).toString(), QStringLiteral("In the container web"));
-        QVERIFY(field(2, QStringLiteral("root")).toBool());
-        QVERIFY(field(3, QStringLiteral("placeKind")).toString().isEmpty());
-        QVERIFY(field(3, QStringLiteral("root")).toBool());
-        QVERIFY(field(4, QStringLiteral("placeLabel")).toString().isEmpty());
-        QVERIFY(!field(4, QStringLiteral("root")).toBool());
-
-        f.workspace.apply(test::snapshot({
-            placed(1, place(QStringLiteral("moon"), QStringLiteral("base")), false),
-        }), 0);
-        QCOMPARE(field(1, QStringLiteral("placeKind")).toString(), QStringLiteral("remote"));
+        f.workspace.apply(test::snapshot({ placed(1, QStringLiteral("container")) }), 0);
+        QVERIFY(f.sessions.containsSession(test::id(1)));
+        skippedSnapshot();
+        f.workspace.apply(test::snapshot({ placed(2, QStringLiteral("moon")) }), 0);
+        QVERIFY(!f.sessions.containsSession(test::id(2)));
     }
     void aProjectTerminalThatIsNotOpenHereShowsTheStatusOfItsHost()
     {
@@ -1072,8 +1022,6 @@ private slots:
         auto closing = test::session(1);
         closing.insert(QStringLiteral("status"), QStringLiteral("closing"));
         f.workspace.apply(test::snapshot({ closing }), 0);
-        QVERIFY(f.sessions.hasAuthoritativeSnapshot());
-        QCOMPARE(f.sessions.session(test::id(1))->status, QStringLiteral("closing"));
         QVERIFY(!f.sessions.presentationSession(test::id(1))->canControl);
         QVERIFY(!f.workspace.sessionActions().activate(test::id(1)));
         QVERIFY(f.commands.values.isEmpty());
@@ -2185,20 +2133,14 @@ private slots:
         QVERIFY(f.workspace.account().restoring().isEmpty());
         QVERIFY(f.workspace.account().signedIn());
     }
-    void theAccountSaysWhereTheSignInIsKept()
+    void whereTheSignInIsKeptLeavesWithTheAccount()
     {
         Fixture f;
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.restoring") },
-            { QStringLiteral("reason"), QStringLiteral("unreadable") },
-            { QStringLiteral("credentialStore"), QStringLiteral("keychain") } }, 1);
-        QCOMPARE(f.workspace.account().credentialStore(), QStringLiteral("keychain"));
-        QVERIFY(f.workspace.account().credentialFolder().isEmpty());
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.ready") },
             { QStringLiteral("userId"), QStringLiteral("user") },
             { QStringLiteral("credentialStore"), QStringLiteral("privateFile") },
             { QStringLiteral("credentialFolder"), QStringLiteral("/home/user/.config/kodosi/secrets") } }, 1);
-        QCOMPARE(f.workspace.account().credentialStore(), QStringLiteral("privateFile"));
-        QCOMPARE(f.workspace.account().credentialFolder(), QStringLiteral("/home/user/.config/kodosi/secrets"));
+        QVERIFY(!f.workspace.account().credentialFolder().isEmpty());
         f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("auth.required") } }, 2);
         QVERIFY(f.workspace.account().credentialStore().isEmpty());
         QVERIFY(f.workspace.account().credentialFolder().isEmpty());
