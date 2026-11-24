@@ -822,6 +822,36 @@
         <translation>Fertig</translation>
     </message>
     <message>
+        <source>Hide the helpers</source>
+        <translation>Helfer ausblenden</translation>
+    </message>
+    <message>
+        <source>Show the helpers</source>
+        <translation>Helfer anzeigen</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n Helfer arbeitet</numerusform>
+            <numerusform>%n Helfer arbeiten</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n Schritt</numerusform>
+            <numerusform>%n Schritte</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Hide what the helper said</source>
+        <translation>Ausblenden, was der Helfer schrieb</translation>
+    </message>
+    <message>
+        <source>Show what the helper said</source>
+        <translation>Zeigen, was der Helfer schrieb</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>Entfernen</translation>
     </message>
@@ -891,13 +921,6 @@
     <message>
         <source>This conversation</source>
         <translation>Dieses Gespräch</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n helpers work</source>
-        <translation>
-            <numerusform>%n Helfer arbeitet</numerusform>
-            <numerusform>%n Helfer arbeiten</numerusform>
-        </translation>
     </message>
     <message numerus="yes">
         <source>%n commands run in the background</source>
@@ -2562,6 +2585,16 @@
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
         <translation>Die Terminals auf diesem Computer laufen weiter. Du kannst das nicht rückgängig machen.</translation>
+    </message>
+</context>
+<context>
+    <name>HelperMarks</name>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n Helfer arbeitet</numerusform>
+            <numerusform>%n Helfer arbeiten</numerusform>
+        </translation>
     </message>
 </context>
 <context>

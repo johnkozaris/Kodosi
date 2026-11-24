@@ -10,7 +10,8 @@ namespace Kodosi.TerminalConnections;
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record TerminalStatus(string? Program = null, string? State = null, string? Kind = null, int? Account = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Attention = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Attention = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Helpers = null)
 {
     private static readonly SearchValues<char> ProgramCharacters = SearchValues.Create("abcdefghijklmnopqrstuvwxyz0123456789-");
 
@@ -24,6 +25,7 @@ public sealed record TerminalStatus(string? Program = null, string? State = null
         && (Account is null || (Program is not null && Account is >= 0 and <= 255))
         && State is null or "idle" or "working" or "blocked" or "done" or "error"
         && (Kind is null || (State == "blocked" && Kind is "permission" or "question" or "auth"))
+        && (Helpers is null || (Program is not null && Helpers is >= 1 and <= 255))
         && (Attention is null || (Attention == true && State is "blocked" or "done" or "error"));
 }
 

@@ -213,12 +213,6 @@ impl Claude {
 
     /// The state that the reports so far give.
     fn show(&self, chat: &mut Chat) {
-        let helpers = self
-            .helpers
-            .values()
-            .filter(|helper| helper.working && helper.call.is_some())
-            .count();
-        chat.change_facts(|facts| facts.helpers = u32::try_from(helpers).unwrap_or(u32::MAX));
         let now = if self.compacting {
             Some(ChatNow::Compacting)
         } else {

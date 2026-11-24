@@ -73,6 +73,7 @@ fn the_server_hears_the_agent_and_its_state_but_not_its_text() {
         }),
         canvas: None,
         face: None,
+        helpers: 0,
         look: crate::terminal::TerminalLook::Light,
     });
     let bytes = serde_json::to_vec(&status).unwrap();

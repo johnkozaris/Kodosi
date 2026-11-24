@@ -821,6 +821,34 @@
         <translation>완료</translation>
     </message>
     <message>
+        <source>Hide the helpers</source>
+        <translation>서브에이전트 숨기기</translation>
+    </message>
+    <message>
+        <source>Show the helpers</source>
+        <translation>서브에이전트 보기</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>서브에이전트 %n개 작업 중</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n단계</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Hide what the helper said</source>
+        <translation>서브에이전트가 한 말 숨기기</translation>
+    </message>
+    <message>
+        <source>Show what the helper said</source>
+        <translation>서브에이전트가 한 말 보기</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>제거</translation>
     </message>
@@ -890,12 +918,6 @@
     <message>
         <source>This conversation</source>
         <translation>이 대화</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n helpers work</source>
-        <translation>
-            <numerusform>서브에이전트 %n개 작업 중</numerusform>
-        </translation>
     </message>
     <message numerus="yes">
         <source>%n commands run in the background</source>
@@ -2542,6 +2564,15 @@
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
         <translation>이 컴퓨터의 터미널은 계속 실행돼요. 되돌릴 수 없어요.</translation>
+    </message>
+</context>
+<context>
+    <name>HelperMarks</name>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>서브에이전트 %n개 작업 중</numerusform>
+        </translation>
     </message>
 </context>
 <context>

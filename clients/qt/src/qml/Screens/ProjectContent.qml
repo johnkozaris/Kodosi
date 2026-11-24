@@ -496,6 +496,7 @@ Item {
                                                             font.weight: Font.Medium
                                                         }
                                                         AvatarStack { visible: tab.viewers.length > 0; userIds: tab.viewers; size: 16; limit: 2; look: tab.selected ? tab.look : KodosiTheme.look; ring: tab.selected ? tab.look.bandSelected : KodosiTheme.well }
+                                                        HelperMarks { session: tab.session }
                                                         StatusSign { session: tab.session; look: tab.selected ? tab.look : KodosiTheme.look; unseen: Models.Sessions.attention.indexOf(tab.sessionId) >= 0 && !tab.selected; size: 12 }
                                                     }
                                                 }
@@ -718,7 +719,13 @@ Item {
                                                             }
                                                         }
                                                     }
+                                                    HelperMarks {
+                                                        Layout.rightMargin: cardSign.visible || card.viewers.length > 0 ? 0 : 12
+                                                        session: card.session
+                                                    }
                                                     StatusSign {
+                                                        id: cardSign
+
                                                         Layout.rightMargin: card.viewers.length > 0 ? 0 : 12
                                                         session: card.session
                                                         unseen: Models.Sessions.attention.indexOf(card.modelData) >= 0

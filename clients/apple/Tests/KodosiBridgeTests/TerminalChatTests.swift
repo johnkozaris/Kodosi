@@ -19,7 +19,7 @@ import Testing
     try runtime.send(#"""
     {"update":{"revision":6,"changes":[
       {"change":"item","item":{"id":"i2","at":2,"body":{"kind":"tool","tool":{"name":"Edit","kind":"edit","state":"running","target":"app.py"}}}},
-      {"change":"facts","facts":{"model":"sonnet","mode":"edits","context":{"tokens":650,"window":1000},"helpers":1}},
+      {"change":"facts","facts":{"model":"sonnet","mode":"edits","context":{"tokens":650,"window":1000}}},
       {"change":"state","state":"working","now":{"kind":"tool","item":"i2"}}]}}
     """#)
     try runtime.send(#"{"update":{"revision":7,"changes":[{"change":"item","item":{"id":"i3","at":3,"body":{"kind":"text","text":"I made","live":true}}}]}}"#)

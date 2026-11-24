@@ -100,6 +100,7 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
     public let canvas: Canvas?
     /// Where the agent that reports to the terminal's chat works, while one does.
     public let face: TerminalFace?
+    private let helpers: Int?
     private let look: TerminalLook?
     public let name: String
     public let workingDir: String?
@@ -140,6 +141,11 @@ public struct RuntimeSession: Decodable, Equatable, Identifiable, Sendable {
 
     public var terminalLook: TerminalLook {
         look ?? .dark
+    }
+
+    /// The helpers of the terminal's agent that work now.
+    public var workingHelpers: Int {
+        helpers ?? 0
     }
 
     public var needsUser: Bool {

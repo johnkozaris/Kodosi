@@ -34,6 +34,7 @@ class TerminalChat final : public QObject {
     Q_PROPERTY(QVariantMap answers READ answers NOTIFY asksChanged FINAL)
     Q_PROPERTY(QVariantList queued READ queued NOTIFY queuedChanged FINAL)
     Q_PROPERTY(QVariantList tasks READ tasks NOTIFY tasksChanged FINAL)
+    Q_PROPERTY(QVariantList helpers READ helpers NOTIFY helpersChanged FINAL)
     Q_PROPERTY(QVariantMap facts READ facts NOTIFY factsChanged FINAL)
     Q_PROPERTY(QVariantList commands READ commands NOTIFY commandsChanged FINAL)
     Q_PROPERTY(QString draft READ draft WRITE setDraft NOTIFY draftChanged FINAL)
@@ -59,6 +60,9 @@ public:
     [[nodiscard]] QVariantMap answers() const;
     [[nodiscard]] QVariantList queued() const { return m_queued; }
     [[nodiscard]] QVariantList tasks() const { return m_tasks; }
+    // The helpers that work now, in the order that the agent started them. A helper that goes on
+    // after its turn is here until it ends.
+    [[nodiscard]] QVariantList helpers() const { return m_helpers; }
     [[nodiscard]] QVariantMap facts() const { return m_facts; }
     [[nodiscard]] QVariantList commands() const { return m_commands; }
     [[nodiscard]] QString draft() const { return m_draft; }
@@ -95,6 +99,7 @@ signals:
     void asksChanged();
     void queuedChanged();
     void tasksChanged();
+    void helpersChanged();
     void factsChanged();
     void commandsChanged();
     void draftChanged();
@@ -155,6 +160,7 @@ private:
     QVariantMap m_ask;
     QVariantList m_queued;
     QVariantList m_tasks;
+    QVariantList m_helpers;
     QVariantMap m_facts;
     QVariantList m_commands;
 };

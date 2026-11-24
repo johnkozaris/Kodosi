@@ -86,7 +86,7 @@ There are three levels: resting, lifted (hover, focused composer, popovers) and 
 Tags and pills are capsules, buttons are rounded rectangles, agents, projects and kinds of things are squircles, and people are circles. A slot you can fill has a dashed outline.
 
 ## Components
-- **Marks.** An agent is a squircle in its program's color with its glyph. A person is a circle and a project a squircle of four tiles, each colored from its identifier; your own circle is copper. A file is a sheet with a turned corner in the color that people know for its kind.
+- **Marks.** An agent is a squircle in its program's color with its glyph, and each helper that it started shows as a small squircle of that color before the status sign while the helper works. A person is a circle and a project a squircle of four tiles, each colored from its identifier; your own circle is copper. A file is a sheet with a turned corner in the color that people know for its kind.
 - **Status sign.** Each row, card, tab and tile header ends with one status sign, and it is the only sign that a program waits: copper while it waits, a green check for done and a `caution` triangle for failed. While a program works, a warm light circles the edge of its mark, and nothing glows outside the mark. A breathing copper dot marks news out of view.
 - **Buttons.** A button is a rounded rectangle with a flat face lit from the top left. Primary is copper and the others are quiet. A symbol-only button turns copper only while it is on, and names itself in a tip after a short pause.
 - **Selection.** The selection is a raised pill with a copper caret, and segmented controls and tabs slide a raised thumb.

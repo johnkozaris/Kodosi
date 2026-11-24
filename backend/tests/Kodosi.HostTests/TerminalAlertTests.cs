@@ -94,6 +94,19 @@ public sealed class TerminalAlertTests
     }
 
     [Fact]
+    public async Task AChangeOfOnlyTheHelpersKeepsTheWaitOfAPushAndThePushHasTheNewestStatus()
+    {
+        await using var computer = Connect("computer", hosts: true);
+        var terminal = Hosted(computer);
+        directory.Present(computer, Presence.Away);
+        Report(computer, terminal, "done");
+        clock.Advance(TerminalAlerts.Delay - TimeSpan.FromSeconds(1));
+        var helping = new TerminalStatus("claude", "done", null, 1, true, Helpers: 2);
+        directory.Share(computer, terminal.Id, terminal.IncarnationId, helping);
+        Assert.Equal(helping, Alert(After(TimeSpan.FromSeconds(1))).Status);
+    }
+
+    [Fact]
     public async Task AWaitThatTheOwnerDidNotSeeIsPushedThirtySecondsAfterTheOwnerLeavesUnlessTheOwnerComesBack()
     {
         await using var computer = Connect("computer", hosts: true);

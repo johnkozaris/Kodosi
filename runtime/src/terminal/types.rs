@@ -213,6 +213,23 @@ pub enum TerminalFace {
     Chat,
 }
 
+/// The agent that reports to a terminal's chat, as the terminal shows it.
+#[cfg(feature = "host")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ChatAgent {
+    pub face: TerminalFace,
+    /// The agent's helpers that work now.
+    pub helpers: u8,
+}
+
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde gives the field by reference"
+)]
+pub(crate) const fn no_helpers(helpers: &u8) -> bool {
+    *helpers == 0
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TerminalMetadata {
@@ -235,6 +252,9 @@ pub struct TerminalMetadata {
     /// Where the agent that reports to the terminal's chat works, while one does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub face: Option<TerminalFace>,
+    /// The helpers of the agent that reports to the terminal's chat that work now.
+    #[serde(default, skip_serializing_if = "no_helpers")]
+    pub helpers: u8,
     pub look: TerminalLook,
 }
 

@@ -775,9 +775,8 @@ fn a_helper_shows_in_its_call_and_its_end_starts_no_message_of_a_person() {
         (ToolKind::Agent, ToolState::Running)
     );
     assert_eq!(helper.target, "Find tax rate file");
-    assert_eq!(play.view.facts.helpers, 1);
+    assert_eq!(play.chat.helpers(), 1);
     assert_eq!(play.view.state, ChatState::Idle, "the main turn ended");
-    assert_eq!(play.view.facts.background, 1);
 
     play.more(rest, &[]);
 
@@ -800,7 +799,7 @@ fn a_helper_shows_in_its_call_and_its_end_starts_no_message_of_a_person() {
         Some(ToolKind::Command)
     );
     assert!(said.starts_with("The tax rate is defined in `/home/sam/shop/app.py`"));
-    assert_eq!(play.view.facts.helpers, 0);
+    assert_eq!(play.chat.helpers(), 0);
     assert_eq!(
         play.people(),
         [
@@ -1569,7 +1568,7 @@ async fn the_chat_tells_the_terminal_where_its_agent_works() {
     assert_eq!(*claude.linked().borrow(), None);
     assert!(report(&claude, "one", 1, events(record!("text"))).await);
     assert_eq!(
-        *claude.linked().borrow(),
+        claude.linked().borrow().map(|agent| agent.face),
         Some(crate::terminal::TerminalFace::Terminal),
         "Claude Code works in its terminal, and the chat follows it"
     );
@@ -1578,9 +1577,26 @@ async fn the_chat_tells_the_terminal_where_its_agent_works() {
     let hello = events(antigravity!("allow")).into_iter().take(2).collect();
     assert!(report(&antigravity, "one", 1, hello).await);
     assert_eq!(
-        *antigravity.linked().borrow(),
+        antigravity.linked().borrow().map(|agent| agent.face),
         Some(crate::terminal::TerminalFace::Chat),
         "Antigravity CLI works in the chat, and its terminal holds only its link"
+    );
+}
+
+#[tokio::test]
+async fn the_chat_tells_the_terminal_how_many_helpers_work() {
+    let chat = ChatHandle::spawn();
+    let record = record!("helper");
+    let ended = record
+        .find("{\"k\":\"turnEnd\"")
+        .expect("the first turn ends");
+    let first = &record[..=record[ended..].find('\n').expect("a line") + ended];
+    assert!(report(&chat, "one", 1, events(record!("text"))).await);
+    assert!(report(&chat, "one", 2, events(first)).await);
+    assert_eq!(
+        chat.linked().borrow().map(|agent| agent.helpers),
+        Some(1),
+        "the helper works on after the turn that started it"
     );
 }
 
@@ -3028,7 +3044,7 @@ fn the_steps_of_a_helper_of_copilot_show_in_the_call_that_started_it() {
             && matches!(&ask.body, AskBody::Permission { helper, .. } if helper == "Run arithmetic command")))
     });
     assert!(helper_asked, "the helper's question named its task");
-    assert_eq!(play.view.facts.helpers, 0);
+    assert_eq!(play.chat.helpers(), 0);
     assert_eq!(play.view.facts.model.as_deref(), Some("mai-code-2-flash"));
 }
 

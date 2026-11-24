@@ -821,6 +821,34 @@
         <translation>完了</translation>
     </message>
     <message>
+        <source>Hide the helpers</source>
+        <translation>サブエージェントを非表示</translation>
+    </message>
+    <message>
+        <source>Show the helpers</source>
+        <translation>サブエージェントを表示</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n 個のサブエージェントが作業中</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n ステップ</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Hide what the helper said</source>
+        <translation>サブエージェントの発言を非表示</translation>
+    </message>
+    <message>
+        <source>Show what the helper said</source>
+        <translation>サブエージェントの発言を表示</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>削除</translation>
     </message>
@@ -890,12 +918,6 @@
     <message>
         <source>This conversation</source>
         <translation>この会話</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n helpers work</source>
-        <translation>
-            <numerusform>%n 個のサブエージェントが作業中</numerusform>
-        </translation>
     </message>
     <message numerus="yes">
         <source>%n commands run in the background</source>
@@ -2542,6 +2564,15 @@
     <message>
         <source>The terminals on this computer keep running. You cannot undo this.</source>
         <translation>このコンピュータのターミナルは実行を続けます。この操作は元に戻せません。</translation>
+    </message>
+</context>
+<context>
+    <name>HelperMarks</name>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n 個のサブエージェントが作業中</numerusform>
+        </translation>
     </message>
 </context>
 <context>
