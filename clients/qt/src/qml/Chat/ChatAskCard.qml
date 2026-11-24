@@ -17,6 +17,8 @@ Item {
     property real room: 600
     readonly property string given: (chat.answers[ask.id] || {}).key || ""
 
+    signal linkActivated(string link)
+
     implicitHeight: content.implicitHeight + 22
     objectName: "chat.ask." + ask.id
     Accessible.role: Accessible.Grouping
@@ -567,6 +569,7 @@ Item {
                         width: parent.width - 24
                         blocks: root.ask.blocks || []
                         look: root.look
+                        onLinkActivated: link => root.linkActivated(link)
                     }
                 }
             }

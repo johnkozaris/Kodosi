@@ -305,6 +305,11 @@
     <string name="usage_week">This week</string>
     <string name="usage_scope_month">%1$s, this month</string>
     <string name="usage_scope_week">%1$s, this week</string>
+    <string name="usage_window_month">month</string>
+    <string name="usage_window_day">day</string>
+    <string name="usage_window_week">week</string>
+    <string name="usage_window_days">%1$dd</string>
+    <string name="usage_window_hours">%1$dh</string>
     <plurals name="usage_hours">
         <item quantity="one">Last %d hour</item>
         <item quantity="other">Last %d hours</item>
@@ -503,6 +508,8 @@
     <string name="today">Today</string>
     <string name="yesterday">Yesterday</string>
     <string name="chat_usage_used">%1$s: %2$d%% used</string>
+    <string name="chat_context_percent">%1$d%% context</string>
+    <string name="chat_limit_percent">%1$s %2$d%%</string>
     <plurals name="chat_ran_commands">
         <item quantity="one">ran %d command</item>
         <item quantity="other">ran %d commands</item>
@@ -558,6 +565,18 @@
     <plurals name="chat_count_stopped">
         <item quantity="one">%d stopped</item>
         <item quantity="other">%d stopped</item>
+    </plurals>
+    <string name="chat_recap">Recap</string>
+    <string name="chat_shows_in_terminal">%1$s shows this in its terminal.</string>
+    <string name="chat_show_terminal">Show the terminal</string>
+    <string name="chat_commands">Commands</string>
+    <string name="chat_tokens_of">%1$s of %2$s tokens</string>
+    <string name="chat_resets_in">Resets in %1$s</string>
+    <string name="chat_this_conversation">This conversation</string>
+    <string name="chat_usage">Usage</string>
+    <plurals name="chat_count_failed">
+        <item quantity="one">%d failed</item>
+        <item quantity="other">%d failed</item>
     </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="one">Tasks: %1$d of %2$d done</item>

@@ -297,6 +297,11 @@
     <string name="usage_week">今週</string>
     <string name="usage_scope_month">%1$s、今月</string>
     <string name="usage_scope_week">%1$s、今週</string>
+    <string name="usage_window_month">月</string>
+    <string name="usage_window_day">日</string>
+    <string name="usage_window_week">週</string>
+    <string name="usage_window_days">%1$d日</string>
+    <string name="usage_window_hours">%1$d時間</string>
     <plurals name="usage_hours">
         <item quantity="other">過去 %d 時間</item>
     </plurals>
@@ -488,6 +493,8 @@
     <string name="today">今日</string>
     <string name="yesterday">昨日</string>
     <string name="chat_usage_used">%1$s：%2$d%% 使用</string>
+    <string name="chat_context_percent">コンテキスト %1$d%%</string>
+    <string name="chat_limit_percent">%1$s %2$d%%</string>
     <plurals name="chat_ran_commands">
         <item quantity="other">コマンドを %d 回実行</item>
     </plurals>
@@ -529,6 +536,17 @@
     </plurals>
     <plurals name="chat_count_stopped">
         <item quantity="other">%d 件停止</item>
+    </plurals>
+    <string name="chat_recap">振り返り</string>
+    <string name="chat_shows_in_terminal">%1$s はこれをターミナルに表示しています。</string>
+    <string name="chat_show_terminal">ターミナルを表示</string>
+    <string name="chat_commands">コマンド</string>
+    <string name="chat_tokens_of">%2$s トークン中 %1$s</string>
+    <string name="chat_resets_in">%1$s後にリセット</string>
+    <string name="chat_this_conversation">この会話</string>
+    <string name="chat_usage">使用量</string>
+    <plurals name="chat_count_failed">
+        <item quantity="other">%d 件失敗</item>
     </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="other">タスク: %2$d 件中 %1$d 件完了</item>

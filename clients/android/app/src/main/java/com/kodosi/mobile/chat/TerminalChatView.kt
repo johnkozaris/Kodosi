@@ -1,20 +1,12 @@
 package com.kodosi.mobile.chat
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -32,30 +24,24 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
-import com.kodosi.mobile.R
+import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.AgentSettingsSection
 import com.kodosi.mobile.terminals.RuntimeSession
+import com.kodosi.mobile.terminals.TerminalFace
 import com.kodosi.mobile.terminals.changesAgent
 import com.kodosi.mobile.terminals.rememberAgentModels
-import com.kodosi.mobile.ui.AppIcon
-import com.kodosi.mobile.ui.AppSymbol
-import com.kodosi.mobile.ui.KodosiMenu
-import com.kodosi.mobile.ui.KodosiTheme
-import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.LinkOpener
 import com.kodosi.mobile.ui.LocalLinkOpener
 import kotlinx.coroutines.launch
 
 /**
  * The chat of a terminal in the place of its screen, on the app's surface. The pipe of the chat is
- * open while the chat shows, and a link in it follows the rules of the terminal's computer.
+ * open while the chat shows, and a link in it follows the rules of the terminal's computer. Its rows
+ * keep the name of the agent that wrote them after the agent ends.
  */
 @Composable
 fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifier = Modifier) {
@@ -96,10 +82,11 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
     val opener = remember(links, session.hostName) {
         LinkOpener { address, _ -> links.open(address, session.hostName) }
     }
-    CompositionLocalProvider(LocalLinkOpener provides opener) {
+    CompositionLocalProvider(LocalLinkOpener provides opener, LocalProseFolder provides view.facts.folder) {
         Box(modifier, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 760.dp).fillMaxSize()) {
-                ChatThread(view, session.agent, account.userId, sent, hideKeyboard, Modifier.weight(1f).fillMaxWidth())
+                val writer = AgentKind.of(view.facts.agent).takeIf { it.isAgent } ?: session.agent
+                ChatThread(view, writer, account.userId, sent, hideKeyboard, Modifier.weight(1f).fillMaxWidth())
                 ChatDock(
                     chat,
                     view,
@@ -112,48 +99,14 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
                             sent++
                             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                         }
-                    }
-                ) { label -> ModelKey(model, session, label) }
+                    },
+                    showTerminal = {
+                        hideKeyboard()
+                        model.terminals.pick(TerminalFace.TERMINAL, session.id, session.face)
+                    },
+                    changesAgent = session.changesAgent()
+                ) { AgentSettingsSection(model, session) }
             }
         }
-    }
-}
-
-/** The model in a chat's facts opens the agent's part of the terminal's actions, which changes its model. */
-@Composable
-private fun ModelKey(model: AppModel, session: RuntimeSession, label: String) {
-    val colors = KodosiTheme.colors
-    var open by remember { mutableStateOf(false) }
-    val changes = session.changesAgent()
-    Box {
-        Row(
-            Modifier.heightIn(min = 48.dp).then(
-                if (changes) {
-                    Modifier.clickable(
-                        remember { MutableInteractionSource() },
-                        indication = null,
-                        role = Role.Button,
-                        onClickLabel = stringResource(R.string.model)
-                    ) { open = true }
-                } else {
-                    Modifier
-                }
-            ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                label,
-                style = KodosiType.caption,
-                color = colors.inkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis,
-                modifier = Modifier.widthIn(max = 180.dp)
-            )
-            if (changes) {
-                Spacer(Modifier.width(4.dp))
-                AppIcon(AppSymbol.CHEVRONS, Modifier.size(8.dp), tint = colors.inkFaint)
-            }
-        }
-        KodosiMenu(open, { open = false }) { AgentSettingsSection(model, session) }
     }
 }

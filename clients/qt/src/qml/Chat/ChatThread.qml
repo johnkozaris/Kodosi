@@ -11,11 +11,13 @@ Item {
     id: root
 
     signal tapped
+    signal linkActivated(string link)
 
     required property Models.TerminalChat chat
     required property var session
     required property Look look
     required property string agent
+    required property string program
     readonly property real column: Math.min(760, width - 28)
     readonly property real side: (width - column) / 2
     property bool following: true
@@ -172,7 +174,7 @@ Item {
                     html: entry.line.html || ""
                     text: entry.line.text || ""
                     look: root.look
-                    onLinkActivated: link => Prose.open(link)
+                    onLinkActivated: link => root.linkActivated(link)
                 }
             }
             Component {
@@ -225,7 +227,7 @@ Item {
                         selectionColor: root.look.accent
                         selectedTextColor: root.look.accentInk
                         Accessible.ignored: true
-                        onLinkActivated: link => Prose.open(link)
+                        onLinkActivated: link => root.linkActivated(link)
                     }
                 }
             }
@@ -265,7 +267,7 @@ Item {
                         y: 2
                         visible: entry.lead
                         size: 26
-                        program: root.session.program || ""
+                        program: root.program
                         account: root.session.programAccount ?? -1
                         working: entry.line.working === true
                     }
@@ -323,6 +325,7 @@ Item {
                         blocks: entry.line.blocks || []
                         live: entry.line.live === true
                         look: root.look
+                        onLinkActivated: link => root.linkActivated(link)
                     }
                 }
             }
@@ -370,6 +373,7 @@ Item {
                             blocks: entry.line.blocks || []
                             live: entry.line.live === true
                             look: root.look
+                            onLinkActivated: link => root.linkActivated(link)
                         }
                     }
                 }
@@ -383,6 +387,7 @@ Item {
                     chat: root.chat
                     look: root.look
                     onHeld: root.hold()
+                    onLinkActivated: link => root.linkActivated(link)
                 }
             }
             Component {
@@ -425,6 +430,10 @@ Item {
                 id: noteView
 
                 Row {
+                    id: notice
+
+                    readonly property bool recap: entry.line.note === "recap"
+
                     topPadding: 10
                     spacing: 8
 
@@ -432,18 +441,19 @@ Item {
                         width: 13
                         height: 13
                         y: 12
-                        name: entry.line.note === "signedOut" ? "key" : "warning"
+                        name: notice.recap ? "text" : entry.line.note === "signedOut" ? "key" : "warning"
                         strokeWidth: 2.4
-                        color: entry.line.note === "signedOut" ? root.look.accent : root.look.caution
+                        color: notice.recap ? root.look.inkFaint : entry.line.note === "signedOut" ? root.look.accent : root.look.caution
                     }
                     Column {
                         width: parent.width - 21
-                        spacing: 4
+                        spacing: notice.recap ? 3 : 4
 
                         KReadOnlyText {
                             width: parent.width
-                            text: entry.line.note === "signedOut" ? qsTr("Needs you to sign in") : entry.line.error || ""
-                            color: root.look.ink
+                            text: notice.recap ? qsTr("Recap")
+                                : entry.line.note === "signedOut" ? qsTr("Needs you to sign in") : entry.line.error || ""
+                            color: notice.recap ? root.look.inkMuted : root.look.ink
                             font.pixelSize: KodosiTheme.fontFootnote
                             font.weight: Font.DemiBold
                             selectionColor: root.look.accent
@@ -482,7 +492,7 @@ Item {
     AgentMark {
         anchors.centerIn: parent
         size: 40
-        program: root.session.program || ""
+        program: root.program
         account: root.session.programAccount ?? -1
         working: false
         opacity: root.chat.empty ? 1 : 0

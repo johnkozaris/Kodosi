@@ -297,6 +297,11 @@
     <string name="usage_week">이번 주</string>
     <string name="usage_scope_month">%1$s, 이번 달</string>
     <string name="usage_scope_week">%1$s, 이번 주</string>
+    <string name="usage_window_month">월</string>
+    <string name="usage_window_day">일</string>
+    <string name="usage_window_week">주</string>
+    <string name="usage_window_days">%1$d일</string>
+    <string name="usage_window_hours">%1$d시간</string>
     <plurals name="usage_hours">
         <item quantity="other">최근 %d시간</item>
     </plurals>
@@ -488,6 +493,8 @@
     <string name="today">오늘</string>
     <string name="yesterday">어제</string>
     <string name="chat_usage_used">%1$s: %2$d%% 사용</string>
+    <string name="chat_context_percent">컨텍스트 %1$d%%</string>
+    <string name="chat_limit_percent">%1$s %2$d%%</string>
     <plurals name="chat_ran_commands">
         <item quantity="other">명령 %d개 실행함</item>
     </plurals>
@@ -529,6 +536,17 @@
     </plurals>
     <plurals name="chat_count_stopped">
         <item quantity="other">%d개 중지됨</item>
+    </plurals>
+    <string name="chat_recap">요약</string>
+    <string name="chat_shows_in_terminal">%1$s의 터미널에 표시돼요.</string>
+    <string name="chat_show_terminal">터미널 보기</string>
+    <string name="chat_commands">명령</string>
+    <string name="chat_tokens_of">%2$s 토큰 중 %1$s</string>
+    <string name="chat_resets_in">%1$s 후 초기화</string>
+    <string name="chat_this_conversation">이 대화</string>
+    <string name="chat_usage">사용량</string>
+    <plurals name="chat_count_failed">
+        <item quantity="other">%d개 실패</item>
     </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="other">작업: %2$d개 중 %1$d개 완료</item>

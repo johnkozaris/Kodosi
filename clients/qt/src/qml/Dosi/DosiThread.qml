@@ -312,6 +312,7 @@ Item {
                 AgentProse {
                     blocks: Models.Markdown.blocks(entry.row.text || "")
                     live: entry.row.live === true
+                    onLinkActivated: link => Prose.open(link)
                 }
             }
             Component {

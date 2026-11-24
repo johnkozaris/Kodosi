@@ -29,9 +29,10 @@ public struct ChatSnapshot: Decodable, Equatable, Sendable {
     public var asks: [ChatAsk]
     public var queued: [ChatQueued]
     public var tasks: [ChatTask]
+    public var commands: [ChatCommand]
 
     private enum Key: String, CodingKey {
-        case revision, state, now, facts, items, asks, queued, tasks
+        case revision, state, now, facts, items, asks, queued, tasks, commands
     }
 
     public init(from decoder: any Decoder) throws {
@@ -44,6 +45,7 @@ public struct ChatSnapshot: Decodable, Equatable, Sendable {
         asks = try fields.decodeIfPresent([ChatAsk].self, forKey: .asks) ?? []
         queued = try fields.decodeIfPresent([ChatQueued].self, forKey: .queued) ?? []
         tasks = try fields.decodeIfPresent([ChatTask].self, forKey: .tasks) ?? []
+        commands = try fields.decodeIfPresent([ChatCommand].self, forKey: .commands) ?? []
     }
 }
 
@@ -60,12 +62,14 @@ public enum ChatChange: Decodable, Equatable, Sendable {
     case queued([ChatQueued])
     /// The agent's list of its work, whole.
     case tasks([ChatTask])
+    /// The agent's slash commands, whole.
+    case commands([ChatCommand])
     case facts(ChatFacts)
     case state(ChatState, now: ChatNow?)
     case reset
 
     private enum Key: String, CodingKey {
-        case change, item, id, text, asks, queued, tasks, facts, state, now
+        case change, item, id, text, asks, queued, tasks, commands, facts, state, now
     }
 
     public init(from decoder: any Decoder) throws {
@@ -77,6 +81,7 @@ public enum ChatChange: Decodable, Equatable, Sendable {
         case "asks": self = try .asks(fields.decode([ChatAsk].self, forKey: .asks))
         case "queued": self = try .queued(fields.decode([ChatQueued].self, forKey: .queued))
         case "tasks": self = try .tasks(fields.decode([ChatTask].self, forKey: .tasks))
+        case "commands": self = try .commands(fields.decode([ChatCommand].self, forKey: .commands))
         case "facts": self = try .facts(fields.decode(ChatFacts.self, forKey: .facts))
         case "state": self = try .state(fields.decode(ChatState.self, forKey: .state), now: fields.decodeIfPresent(ChatNow.self, forKey: .now))
         case "reset": self = .reset
@@ -178,6 +183,8 @@ public enum ChatNote: Decodable, Equatable, Sendable {
     case compacted
     /// The agent is not signed in, and signs in with its own steps in its terminal.
     case signedOut
+    /// What the agent says happened while the person was away.
+    case recap(String)
     /// The agent could not continue. `error` is the agent's word for the cause.
     case failed(error: String, text: String)
 
@@ -190,6 +197,7 @@ public enum ChatNote: Decodable, Equatable, Sendable {
         switch try fields.decode(String.self, forKey: .kind) {
         case "compacted": self = .compacted
         case "signedOut": self = .signedOut
+        case "recap": self = try .recap(fields.decode(String.self, forKey: .text))
         case "failed":
             self = try .failed(error: fields.decode(String.self, forKey: .error), text: fields.decodeIfPresent(String.self, forKey: .text) ?? "")
         case let kind:
@@ -318,6 +326,51 @@ public struct ChatQueued: Decodable, Equatable, Identifiable, Sendable {
     /// The agent did not take the message, in the agent's words. The message waits until a person
     /// sends another, removes it, or writes to the agent in the terminal.
     public let refused: String?
+    /// The agent shows this command in its terminal, where a person finishes it.
+    public let terminal: Bool
+
+    private enum Key: String, CodingKey {
+        case id, text, refused, terminal
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let fields = try decoder.container(keyedBy: Key.self)
+        id = try fields.decode(String.self, forKey: .id)
+        text = try fields.decode(String.self, forKey: .text)
+        refused = try fields.decodeIfPresent(String.self, forKey: .refused)
+        terminal = try fields.decodeIfPresent(Bool.self, forKey: .terminal) ?? false
+    }
+}
+
+/// A slash command of the agent, as its own menu lists it.
+public struct ChatCommand: Decodable, Equatable, Identifiable, Sendable {
+    public let name: String
+    public let description: String
+    /// The control of the chat that does what the command does, in place of the agent's own view
+    /// in its terminal.
+    public let opens: ChatControl?
+
+    public var id: String {
+        name
+    }
+
+    private enum Key: String, CodingKey {
+        case name, description, opens
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let fields = try decoder.container(keyedBy: Key.self)
+        name = try fields.decode(String.self, forKey: .name)
+        description = try fields.decodeIfPresent(String.self, forKey: .description) ?? ""
+        opens = try fields.decodeIfPresent(ChatControl.self, forKey: .opens)
+    }
+}
+
+public enum ChatControl: String, Decodable, Sendable {
+    /// The agent's model, effort and fast mode.
+    case model
+    /// The limits of the agent's plan, its context and the cost of the conversation.
+    case usage
 }
 
 /// A person of the terminal: the account, or for a person with no account the view that sent.
@@ -327,7 +380,11 @@ public struct ChatPerson: Decodable, Equatable, Sendable {
 }
 
 public struct ChatFacts: Decodable, Equatable, Sendable {
+    /// The agent of the conversation, by the name of its program. It stays after the agent ends.
+    public var agent: String?
     public var model: String?
+    /// The folder that the agent works in, on the terminal's computer.
+    public var folder: String?
     public var effort: String?
     public var mode: ChatMode?
     public var context: ChatContext?
@@ -340,7 +397,7 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
     public var background: Int
 
     private enum Key: String, CodingKey {
-        case model, effort, mode, context, limits, cost, helpers, background
+        case agent, model, folder, effort, mode, context, limits, cost, helpers, background
     }
 
     public init() {
@@ -351,7 +408,9 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: Key.self)
+        agent = try fields.decodeIfPresent(String.self, forKey: .agent)
         model = try fields.decodeIfPresent(String.self, forKey: .model)
+        folder = try fields.decodeIfPresent(String.self, forKey: .folder)
         effort = try fields.decodeIfPresent(String.self, forKey: .effort)
         mode = try fields.decodeIfPresent(ChatMode.self, forKey: .mode)
         context = try fields.decodeIfPresent(ChatContext.self, forKey: .context)

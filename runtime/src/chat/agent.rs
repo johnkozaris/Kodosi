@@ -62,6 +62,12 @@ pub(super) trait Agent: Send {
     /// How the turn stops for a person in the chat.
     fn stop(&mut self, chat: &Chat) -> Stop;
 
+    /// The command for the link that changes the agent's model, effort or fast mode by the line
+    /// that a person would type, when the link runs it as the agent's own command.
+    fn change(&mut self, _line: &str) -> Option<Value> {
+        None
+    }
+
     /// The conversation that the agent shows in its terminal, when only the chat knows it: Codex
     /// keeps its conversations in the server of the terminal, outside the terminal's programs.
     fn conversation(&self) -> Option<&str> {

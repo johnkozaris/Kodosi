@@ -17,8 +17,9 @@ public:
 
     // Each block is a map with its `key`, its place, and its `kind`: `lines` and `heading` with
     // `html`, `code` with `text`, and `table` with `header` and `rows` of cells as `html`, `sides`
-    // and `columns`. A fence that is still open while the agent writes holds the rest.
-    Q_INVOKABLE [[nodiscard]] static QVariantList blocks(const QString& text);
+    // and `columns`. A fence that is still open while the agent writes holds the rest. In `lines`
+    // a path of a file is a link to it from `folder`, or `~/` and the path from the home folder.
+    Q_INVOKABLE [[nodiscard]] static QVariantList blocks(const QString& text, const QString& folder = {});
     // A link goes only to a secure web address.
     [[nodiscard]] static QString html(QStringView text);
     Q_INVOKABLE [[nodiscard]] static QString text(const QString& text);

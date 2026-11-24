@@ -582,6 +582,17 @@ internal fun usageWindow(hours: Int?, scope: String?): String {
     }
 }
 
+/** The window of a limit in one short word, such as 5h or week. */
+@Composable
+internal fun shortUsageWindow(hours: Int?, scope: String?): String = when {
+    scope != null -> scope
+    hours == null -> stringResource(R.string.usage_window_month)
+    hours == DAY_HOURS -> stringResource(R.string.usage_window_day)
+    hours == WEEK_HOURS -> stringResource(R.string.usage_window_week)
+    hours % DAY_HOURS == 0 -> stringResource(R.string.usage_window_days, hours / DAY_HOURS)
+    else -> stringResource(R.string.usage_window_hours, hours)
+}
+
 private const val DAY_HOURS = 24
 private const val WEEK_HOURS = 7 * DAY_HOURS
 

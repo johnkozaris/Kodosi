@@ -55,6 +55,8 @@ pub enum KodosiError {
     NoFreePty,
 }
 
+#[cfg(unix)]
+pub use pty::process_session;
 pub use pty::{
     CONSOLE_HOST, KodosiPty, ProcessStart, PtyReader, ShutdownStage, Transfer, WaitOutcome,
     open_files, process_group, process_start,

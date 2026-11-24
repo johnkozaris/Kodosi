@@ -7,7 +7,7 @@ mod prompt_marks;
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
-pub use unix::{KodosiPty, PtyReader, open_files, process_group, process_start};
+pub use unix::{KodosiPty, PtyReader, open_files, process_group, process_session, process_start};
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]

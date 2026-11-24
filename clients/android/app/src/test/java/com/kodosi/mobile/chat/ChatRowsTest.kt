@@ -7,7 +7,7 @@ class ChatRowsTest {
     private var at = 0L
 
     @Test
-    fun theWorkOfATurnFoldsIntoOneRowBeforeItsAnswer() {
+    fun theAgentsWordsBetweenItsStepsShowAndTheStepsBetweenThemFold() {
         val items = listOf(
             person("p1", "Where is the tax?"),
             text("t1", "I will look."),
@@ -18,10 +18,11 @@ class ChatRowsTest {
 
         val rows = ChatRow.rows(items, live = false)
 
-        assertEquals(listOf("p1", "work.t1", "t2", "e1"), rows.map { it.id })
-        assertEquals(listOf("t1", "c1"), (rows[1].kind as ChatRow.Kind.Work).items.map { it.id })
-        assertEquals(ChatRow.Kind.Answer("It is in app.py.", live = false), rows[2].kind)
-        assertEquals(ChatRow.Kind.End(TurnEnd.DONE, 40_000), rows[3].kind)
+        assertEquals(listOf("p1", "t1", "work.c1", "t2", "e1"), rows.map { it.id })
+        assertEquals(ChatRow.Kind.Answer("I will look.", live = false), rows[1].kind)
+        assertEquals(listOf("c1"), (rows[2].kind as ChatRow.Kind.Work).items.map { it.id })
+        assertEquals(ChatRow.Kind.Answer("It is in app.py.", live = false), rows[3].kind)
+        assertEquals(ChatRow.Kind.End(TurnEnd.DONE, 40_000), rows[4].kind)
     }
 
     @Test
@@ -31,12 +32,12 @@ class ChatRowsTest {
             text("t1", "Running them now."),
             tool("c1", ChatToolKind.COMMAND, ChatToolState.RUNNING)
         )
-        assertEquals(listOf("p1", "work.t1"), ChatRow.rows(working, live = true).map { it.id })
+        assertEquals(listOf("p1", "t1", "work.c1"), ChatRow.rows(working, live = true).map { it.id })
 
         val writing = working + ChatItem("t2", at++, ChatBody.Text("All 12 pass", live = true))
         val rows = ChatRow.rows(writing, live = true)
 
-        assertEquals(listOf("p1", "work.t1", "t2"), rows.map { it.id })
+        assertEquals(listOf("p1", "t1", "work.c1", "t2"), rows.map { it.id })
         assertEquals(ChatRow.Kind.Answer("All 12 pass", live = true), rows.last().kind)
     }
 

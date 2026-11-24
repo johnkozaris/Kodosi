@@ -9,9 +9,10 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use serde_json::{Value, json};
 
 use super::{
-    AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatPerson, ChatQuestion, ChatStep, ChatTool, MOST_CALLS, MOST_OUTPUT, MOST_QUESTIONS,
-    MOST_TARGET, MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
+    AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatCommand, ChatContext, ChatControl,
+    ChatMode, ChatNote, ChatNow, ChatPerson, ChatQuestion, ChatStep, ChatTool, MOST_CALLS,
+    MOST_OUTPUT, MOST_QUESTIONS, MOST_QUEUED, MOST_TARGET, MOST_TEXT, PlanChoice, ToolDetail,
+    ToolKind, ToolState, TurnEnd,
     agent::{
         Agent, Places, Stop, answer, list, person, question, show_state, stop_open, text, words,
     },
@@ -25,6 +26,9 @@ const REFUSED_WITH_WORDS: &str = "The user doesn't want to proceed with this too
     use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To \
     tell you how to proceed, the user said:\n";
 const MOST_ROWS: usize = 4096;
+/// Claude Code writes this text for a message of the agent or the output of a command that has no
+/// text.
+const NO_CONTENT: &str = "(no content)";
 const MOST_SAID: usize = 400;
 
 #[derive(Default)]
@@ -38,6 +42,15 @@ pub(super) struct Claude {
     now: Option<ChatNow>,
     compacting: bool,
     handed: VecDeque<Handed>,
+    /// The handed command whose picker can stay open in the terminal after Claude Code ran it. A
+    /// person can close the picker there with no word to the module, so the next message goes on.
+    picker: Option<u64>,
+    /// The last command of the chat, which the chat showed when it ended. Claude Code writes the
+    /// row of some commands only after their end, and of others none.
+    ran: Option<String>,
+    /// The changes of the model, the effort or fast mode that Kodosi's controls gave the module,
+    /// whose rows Claude Code has not written yet.
+    changes: VecDeque<String>,
     sent: u64,
     /// Claude Code refused a message of the chat. After a person's stop in the terminal it takes
     /// the next message only there.
@@ -265,13 +278,15 @@ impl Claude {
     }
 
     /// A module that loads again in its session keeps the chat. Claude Code that starts again in
-    /// the terminal has another conversation, and the chat starts again with it.
+    /// the terminal has another conversation, and the chat starts again with it, as it does after a
+    /// rewind took the conversation back.
     fn hello(&mut self, chat: &mut Chat, event: &Value) -> Vec<String> {
         let session = text(event, "session");
-        let closed = if self.session.is_empty() || session.is_empty() || self.session == session {
-            Vec::new()
-        } else {
+        let other = !self.session.is_empty() && !session.is_empty() && self.session != session;
+        let closed = if other || event.get("rewound").and_then(Value::as_bool) == Some(true) {
             self.renew(chat)
+        } else {
+            Vec::new()
         };
         session.clone_into(&mut self.session);
         self.linked = true;
@@ -293,6 +308,14 @@ impl Claude {
         if let Some(usage) = event.get("usage") {
             measure(chat, usage);
         }
+        chat.set_commands(list(event, "commands").filter_map(|command| {
+            let name = words(command, "name")?;
+            Some(ChatCommand {
+                opens: opens(&name),
+                description: start_of(text(command, "description"), MOST_TARGET).to_owned(),
+                name,
+            })
+        }));
         closed
     }
 
@@ -327,7 +350,7 @@ impl Claude {
                 }
                 continue;
             }
-            if !words.is_empty() {
+            if !words.is_empty() && words != NO_CONTENT {
                 chat.push(0, answer(words, false));
             }
             for used in list(row, "toolUses") {
@@ -372,7 +395,7 @@ impl Claude {
                 }
                 ("response", "text") if helper.is_empty() => {
                     self.end_writing(chat, Some(text(block, "text")));
-                    if self.writing.take().is_none() {
+                    if self.writing.take().is_none() && text(block, "text") != NO_CONTENT {
                         chat.push(at, answer(text(block, "text"), false));
                     }
                 }
@@ -400,8 +423,10 @@ impl Claude {
     /// A slash command that a person ran in the terminal or the chat, or what it printed.
     fn command(&mut self, chat: &mut Chat, event: &Value, row: &str, at: u64) {
         if let Some(output) = between(row, "<local-command-stdout>", "</local-command-stdout>") {
-            if !output.trim().is_empty() {
-                chat.push(at, answer(output.trim(), false));
+            let output = without_escapes(output);
+            let output = output.trim();
+            if !output.is_empty() && output != NO_CONTENT {
+                chat.push(at, answer(output, false));
             }
             return;
         }
@@ -410,7 +435,7 @@ impl Claude {
                 at,
                 ChatBody::Note {
                     note: ChatNote::Failed {
-                        error: start_of(error.trim(), MOST_TARGET).to_owned(),
+                        error: start_of(without_escapes(error).trim(), MOST_TARGET).to_owned(),
                         text: String::new(),
                     },
                 },
@@ -420,15 +445,64 @@ impl Claude {
         let Some(name) = between(row, "<command-name>", "</command-name>") else {
             return;
         };
+        let arguments = between(row, "<command-args>", "</command-args>").unwrap_or_default();
+        let words = format!("{} {}", name.trim(), arguments.trim());
+        let words = words.trim_end();
+        if self.ran.take_if(|ran| ran == words).is_some() {
+            return;
+        }
         let origin = event.get("origin").unwrap_or(&Value::Null);
-        let from_chat =
-            text(origin, "kind") == "plugin" && text(origin, "name") == crate::agents::PLUGIN_NAME;
+        // Claude Code writes a command that only shows something as a row of its own, whoever ran
+        // it.
+        let from_chat = (text(origin, "kind") == "plugin"
+            && text(origin, "name") == crate::agents::PLUGIN_NAME)
+            || (text(origin, "kind") == "engine"
+                && self.handed.iter().any(|handed| handed.text == words));
         if !from_chat && text(origin, "kind") != "composer" {
             return;
         }
-        let arguments = between(row, "<command-args>", "</command-args>").unwrap_or_default();
-        let words = format!("{} {}", name.trim(), arguments.trim());
-        self.person_said(chat, words.trim_end(), from_chat, at);
+        if from_chat && self.changes.front().is_some_and(|change| change == words) {
+            self.changes.pop_front();
+            return;
+        }
+        self.person_said(chat, words, from_chat, at);
+    }
+
+    /// Claude Code shows the recap of a conversation when a person comes back to it.
+    fn recap(&mut self, chat: &mut Chat, event: &Value, at: u64) {
+        if !self.rows.is_new(text(event, "uuid")) {
+            return;
+        }
+        let words = list(event, "content")
+            .filter(|block| text(block, "type") == "text")
+            .map(|block| text(block, "text").trim())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !words.is_empty() {
+            chat.push(
+                at,
+                ChatBody::Note {
+                    note: ChatNote::Recap {
+                        text: start_of(&words, MOST_OUTPUT).to_owned(),
+                    },
+                },
+            );
+        }
+    }
+
+    /// A command that Claude Code shows in a view of its terminal ends when a person closes the
+    /// view there, so the message waits with that word.
+    fn waits(&mut self, chat: &mut Chat, event: &Value) {
+        let n = event.get("n").and_then(Value::as_u64);
+        if self.turn.is_some() || self.compacting {
+            return;
+        }
+        if let Some(handed) = self.handed.iter().find(|handed| Some(handed.n) == n) {
+            chat.in_terminal(&handed.queued);
+            if event.get("picker").and_then(Value::as_bool) == Some(true) {
+                self.picker = n;
+            }
+        }
     }
 
     fn person_said(&mut self, chat: &mut Chat, words: &str, from_chat: bool, at: u64) {
@@ -928,12 +1002,19 @@ impl Claude {
         let Some(handed) = self.handed.remove(index) else {
             return;
         };
+        if self.picker == Some(handed.n) {
+            self.picker = None;
+        }
         if !drop.is_empty() {
             chat.refuse(&handed.queued, start_of(drop, MOST_TARGET).to_owned());
             self.held = true;
             return;
         }
-        chat.unqueue(&handed.queued);
+        if handed.text.starts_with('/') {
+            self.ran_command(chat, handed, at);
+        } else {
+            chat.unqueue(&handed.queued);
+        }
         if !error.is_empty() {
             chat.push(
                 at,
@@ -945,6 +1026,15 @@ impl Claude {
                 },
             );
         }
+    }
+
+    /// A command of the chat shows as its person's message when it ends, or when its compaction
+    /// starts.
+    fn ran_command(&mut self, chat: &mut Chat, handed: Handed, at: u64) {
+        chat.unqueue(&handed.queued);
+        self.end_writing(chat, None);
+        chat.push(at, person(&handed.text, handed.by));
+        self.ran = Some(handed.text);
     }
 
     /// The module stopped a command that the end of the turn had moved to the background.
@@ -1026,6 +1116,15 @@ impl Agent for Claude {
             }),
             "compact" => {
                 self.compacting = text(event, "phase") == "start";
+                let compact = self
+                    .handed
+                    .iter()
+                    .position(|handed| handed.text.split_whitespace().next() == Some("/compact"));
+                if self.compacting
+                    && let Some(handed) = compact.and_then(|index| self.handed.remove(index))
+                {
+                    self.ran_command(chat, handed, at);
+                }
                 if !self.compacting {
                     chat.push(
                         at,
@@ -1053,6 +1152,8 @@ impl Agent for Claude {
             }
             "end" => closed = self.end(chat, text(event, "reason")),
             "did" => self.did(chat, event, at),
+            "recap" => self.recap(chat, event, at),
+            "waits" => self.waits(chat, event),
             _ => {}
         }
         self.show(chat);
@@ -1066,7 +1167,19 @@ impl Agent for Claude {
         self.turn = None;
         self.now = None;
         self.compacting = false;
+        // A command that Claude Code showed in a view of its terminal ended with that view.
+        let shown = chat
+            .queued()
+            .iter()
+            .filter(|queued| queued.terminal)
+            .map(|queued| queued.id.clone())
+            .collect::<Vec<_>>();
+        for queued in shown {
+            chat.unqueue(&queued);
+        }
         self.handed.clear();
+        self.picker = None;
+        self.changes.clear();
         for helper in self.helpers.values_mut() {
             helper.working = false;
         }
@@ -1203,18 +1316,26 @@ impl Agent for Claude {
     }
 
     /// The next message of the queue, as a command for the module, when Claude Code can start it:
-    /// no turn runs, no question is open and no earlier message waits in Claude Code.
+    /// no turn runs, no question is open and no earlier message waits in Claude Code, other than a
+    /// command whose picker can be open in the terminal.
     fn commands(&mut self, chat: &Chat) -> Vec<Value> {
         if !self.linked
             || self.held
             || self.turn.is_some()
             || self.compacting
-            || !self.handed.is_empty()
+            || self
+                .handed
+                .iter()
+                .any(|handed| Some(handed.n) != self.picker)
             || !chat.asks().is_empty()
         {
             return Vec::new();
         }
-        let Some(queued) = chat.queued().first() else {
+        let Some(queued) = chat
+            .queued()
+            .iter()
+            .find(|queued| self.handed.iter().all(|handed| handed.queued != queued.id))
+        else {
             return Vec::new();
         };
         self.sent += 1;
@@ -1225,6 +1346,18 @@ impl Agent for Claude {
             by: queued.by.clone(),
         });
         vec![json!({"do": "prompt", "n": self.sent, "text": queued.text})]
+    }
+
+    fn change(&mut self, line: &str) -> Option<Value> {
+        if !self.linked {
+            return None;
+        }
+        self.sent += 1;
+        self.changes.push_back(line.to_owned());
+        if self.changes.len() > MOST_QUEUED {
+            self.changes.pop_front();
+        }
+        Some(json!({"do": "change", "n": self.sent, "text": line}))
     }
 
     /// How the turn of the main conversation stops for a person in the chat.
@@ -1245,10 +1378,54 @@ impl Agent for Claude {
     }
 }
 
+/// The commands whose own view in the terminal a control of the chat takes the place of.
+fn opens(name: &str) -> Option<ChatControl> {
+    match name {
+        "model" | "effort" => Some(ChatControl::Model),
+        "usage" | "context" => Some(ChatControl::Usage),
+        _ => None,
+    }
+}
+
 /// The text between two marks that Claude Code puts around a part of a row.
 fn between<'a>(row: &'a str, start: &str, end: &str) -> Option<&'a str> {
     let after = &row[row.find(start)? + start.len()..];
     Some(&after[..after.find(end)?])
+}
+
+/// A command prints its output for a terminal, with the escape codes of its colors and styles,
+/// which the chat does not draw.
+fn without_escapes(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut letters = text.chars().peekable();
+    while let Some(letter) = letters.next() {
+        if letter != '\u{1b}' {
+            plain.push(letter);
+            continue;
+        }
+        match letters.next() {
+            Some('[') => {
+                for code in letters.by_ref() {
+                    if ('\u{40}'..='\u{7e}').contains(&code) {
+                        break;
+                    }
+                }
+            }
+            Some(']' | 'P' | '_' | '^') => {
+                while let Some(code) = letters.next() {
+                    if code == '\u{7}' || (code == '\u{1b}' && letters.next_if_eq(&'\\').is_some())
+                    {
+                        break;
+                    }
+                }
+            }
+            Some(code) if ('\u{20}'..='\u{2f}').contains(&code) => {
+                letters.next();
+            }
+            _ => {}
+        }
+    }
+    plain
 }
 
 fn refusal(words: &str) -> Value {

@@ -318,6 +318,7 @@ impl Reports {
             link: self.link.clone(),
             batch: self.batch,
             events: vec![event],
+            session: None,
             reply,
         };
         self.room.send(job).await.is_ok() && heard.await == Ok(true)

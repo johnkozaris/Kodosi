@@ -297,6 +297,11 @@
     <string name="usage_week">本周</string>
     <string name="usage_scope_month">%1$s，本月</string>
     <string name="usage_scope_week">%1$s，本周</string>
+    <string name="usage_window_month">月</string>
+    <string name="usage_window_day">天</string>
+    <string name="usage_window_week">周</string>
+    <string name="usage_window_days">%1$d天</string>
+    <string name="usage_window_hours">%1$d小时</string>
     <plurals name="usage_hours">
         <item quantity="other">过去 %d 小时</item>
     </plurals>
@@ -488,6 +493,8 @@
     <string name="today">今天</string>
     <string name="yesterday">昨天</string>
     <string name="chat_usage_used">%1$s：已用 %2$d%%</string>
+    <string name="chat_context_percent">上下文 %1$d%%</string>
+    <string name="chat_limit_percent">%1$s %2$d%%</string>
     <plurals name="chat_ran_commands">
         <item quantity="other">运行了 %d 条命令</item>
     </plurals>
@@ -529,6 +536,17 @@
     </plurals>
     <plurals name="chat_count_stopped">
         <item quantity="other">%d 个已停止</item>
+    </plurals>
+    <string name="chat_recap">回顾</string>
+    <string name="chat_shows_in_terminal">%1$s 在它的终端中显示此内容。</string>
+    <string name="chat_show_terminal">显示终端</string>
+    <string name="chat_commands">命令</string>
+    <string name="chat_tokens_of">%2$s 个 token 中的 %1$s</string>
+    <string name="chat_resets_in">%1$s后重置</string>
+    <string name="chat_this_conversation">此对话</string>
+    <string name="chat_usage">用量</string>
+    <plurals name="chat_count_failed">
+        <item quantity="other">%d 个失败</item>
     </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="other">任务：已完成 %1$d/%2$d</item>

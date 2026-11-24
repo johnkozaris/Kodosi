@@ -13,6 +13,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,10 +27,16 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -49,17 +56,22 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -68,8 +80,6 @@ import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
 import com.kodosi.mobile.terminals.agentLabel
-import com.kodosi.mobile.terminals.effortLabel
-import com.kodosi.mobile.terminals.usageWindow
 import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
@@ -100,12 +110,38 @@ internal fun ChatDock(
     draft: TextFieldState,
     models: KnownModels,
     send: () -> Unit,
-    modelKey: @Composable (String) -> Unit
+    showTerminal: () -> Unit,
+    changesAgent: Boolean,
+    agentMenu: @Composable () -> Unit
 ) {
     val colors = KodosiTheme.colors
     val tasks = view.tasks.takeIf { list -> list.any { it.state != TaskState.DONE } }.orEmpty()
     val leaving = remember { mutableStateOf(tasks) }
     SideEffect { if (tasks.isNotEmpty()) leaving.value = tasks }
+    var modelOpen by remember { mutableStateOf(false) }
+    var usageOpen by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val open: (ChatControl) -> Unit = { control ->
+        focus.clearFocus()
+        keyboard?.hide()
+        when (control) {
+            ChatControl.MODEL -> modelOpen = changesAgent
+            ChatControl.USAGE -> usageOpen = true
+        }
+    }
+    val choose: (ChatCommand) -> Unit = { command ->
+        val control = command.opens
+        if (control != null) {
+            draft.clearText()
+            open(control)
+        } else {
+            draft.setTextAndPlaceCursorAtEnd("/${command.name} ")
+        }
+    }
+    val suggestions = ChatCommandMatch.commands(view.commands, draft.text.toString())
+    val shownSuggestions = remember { mutableStateOf(suggestions) }
+    SideEffect { if (suggestions.isNotEmpty()) shownSuggestions.value = suggestions }
     val ask = view.asks.firstOrNull()
     val fading = fade<Float>()
     val rising = snappy<IntOffset>()
@@ -116,7 +152,7 @@ internal fun ChatDock(
             Unfolding(tasks.isNotEmpty()) {
                 ChatTasks(tasks.ifEmpty { leaving.value }, Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
-            view.queued.forEach { queued -> Queued(chat, queued) }
+            view.queued.forEach { queued -> Queued(chat, queued, agent, showTerminal) }
         },
         card = {
             AnimatedContent(
@@ -154,10 +190,25 @@ internal fun ChatDock(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = 14.dp)
                 )
             } else {
+                Unfolding(suggestions.isNotEmpty()) {
+                    ChatCommandList(
+                        suggestions.ifEmpty { shownSuggestions.value },
+                        choose,
+                        Modifier.padding(start = 10.dp, end = 10.dp, top = 4.dp)
+                    )
+                }
                 MessageComposer(
                     draft,
                     busy = false,
-                    send = send,
+                    send = {
+                        val control = view.control(draft.text.toString())
+                        if (control != null && view.canWrite) {
+                            draft.clearText()
+                            open(control)
+                        } else {
+                            send()
+                        }
+                    },
                     enabled = view.canWrite,
                     placeholder = if (view.question != null) {
                         stringResource(R.string.chat_say_instead)
@@ -166,7 +217,12 @@ internal fun ChatDock(
                     },
                     stop = if (view.working) chat::stop else null
                 )
-                FactsRow(view.facts, models, modelKey)
+                FactsRow(
+                    view.facts,
+                    models,
+                    changesAgent,
+                    FactsMenus(modelOpen, { modelOpen = it }, usageOpen, { usageOpen = it }, agentMenu)
+                )
             }
         }
     )
@@ -201,36 +257,58 @@ private val ThreadKeeps = 72.dp
 private val CardKeeps = 140.dp
 
 @Composable
-private fun Queued(chat: TerminalChat, queued: ChatQueued) {
+private fun Queued(chat: TerminalChat, queued: ChatQueued, agent: AgentKind, showTerminal: () -> Unit) {
     val colors = KodosiTheme.colors
     Row(
         Modifier.fillMaxWidth().padding(start = 48.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AppIcon(AppSymbol.CLOCK, Modifier.size(12.dp), tint = colors.inkFaint)
-        Spacer(Modifier.width(6.dp))
         Column(Modifier.weight(1f, fill = false), horizontalAlignment = Alignment.End) {
-            Text(
-                queued.text,
-                style = KodosiType.footnote,
-                color = colors.ink,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.background(
-                    colors.accentSoft,
-                    RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 14.dp, bottomEnd = 4.dp)
-                ).padding(horizontal = 12.dp, vertical = 8.dp)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AppIcon(AppSymbol.CLOCK, Modifier.size(12.dp), tint = colors.inkFaint)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    queued.text,
+                    style = KodosiType.footnote,
+                    color = colors.ink,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).background(
+                        colors.accentSoft,
+                        RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomStart = 14.dp, bottomEnd = 4.dp)
+                    ).padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
             if (queued.refused != null) {
                 Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     StatusSign(StatusForm.FAILED, 10.dp)
                     Spacer(Modifier.width(5.dp))
                     Text(stringResource(R.string.chat_takes_next), style = KodosiType.caption, color = colors.inkMuted)
                 }
+            } else if (queued.terminal) {
+                FlowRow(
+                    Modifier.padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    itemVerticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        stringResource(R.string.chat_shows_in_terminal, agentLabel(agent)),
+                        style = KodosiType.caption,
+                        color = colors.inkMuted
+                    )
+                    Text(
+                        stringResource(R.string.chat_show_terminal),
+                        style = KodosiType.caption,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.accentStrong,
+                        modifier = Modifier.heightIn(min = 32.dp).clickable(role = Role.Button, onClick = showTerminal)
+                            .wrapContentHeight()
+                    )
+                }
             }
         }
-        ActionIcon(AppSymbol.CLOSE, R.string.remove, { chat.unqueue(queued) }, face = 24.dp)
+        if (!queued.terminal) ActionIcon(AppSymbol.CLOSE, R.string.remove, { chat.unqueue(queued) }, face = 24.dp)
     }
 }
 
@@ -299,32 +377,104 @@ private fun TaskLine(task: ChatTask) {
     }
 }
 
+/** Whether the menus of the facts are open, and the agent's part of the terminal's actions. */
+private class FactsMenus(
+    val model: Boolean,
+    val setModel: (Boolean) -> Unit,
+    val usage: Boolean,
+    val setUsage: (Boolean) -> Unit,
+    val agent: @Composable () -> Unit
+)
+
+private enum class FactsSlot { MODEL, USE, SHOWN }
+
+/** The facts in one line with their words, in two lines with their words, or in one short line. */
+private enum class FactsForm { LINE, LINES, SHORT }
+
+private val FactsEdge = 12.dp
+private val FactsGap = 8.dp
+
+/**
+ * The facts under the composer, with the model and the use of the agent as keys. Without room for
+ * one line the use goes to a second line, and without room for a key by itself the keys take their
+ * short form in one line, which scrolls.
+ */
 @Composable
-private fun FactsRow(facts: ChatFacts, models: KnownModels, modelKey: @Composable (String) -> Unit) {
-    val colors = KodosiTheme.colors
-    FlowRow(
-        Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 12.dp).heightIn(min = 36.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.Center,
-        itemVerticalAlignment = Alignment.CenterVertically,
-        maxLines = 1
-    ) {
-        facts.model?.let { modelKey(models.label(it)) }
-        facts.effort?.let { effort ->
-            val levels = models.levels(facts.model)
-            val level = levels.indexOf(effort)
-            if (level >= 0 && levels.size > 1) {
-                Tipped(effortLabel(effort)) { EffortBars(level, levels.size) }
+private fun FactsRow(facts: ChatFacts, models: KnownModels, changesAgent: Boolean, menus: FactsMenus) {
+    val scroll = rememberScrollState()
+    SubcomposeLayout(Modifier.fillMaxWidth().navigationBarsPadding().heightIn(min = 36.dp)) { constraints ->
+        val room = constraints.maxWidth - 2 * FactsEdge.roundToPx()
+        val model = subcompose(FactsSlot.MODEL) { ModelFact(facts, models, true, changesAgent, null) }
+            .maxOfOrNull { it.measure(Constraints()).width } ?: 0
+        val use = subcompose(FactsSlot.USE) { UseFacts(facts, true, null) }
+            .maxOfOrNull { it.measure(Constraints()).width } ?: 0
+        val gap = if (model > 0 && use > 0) FactsGap.roundToPx() else 0
+        val form = when {
+            model + gap + use <= room -> FactsForm.LINE
+            maxOf(model, use) <= room -> FactsForm.LINES
+            else -> FactsForm.SHORT
+        }
+        val shown = subcompose(FactsSlot.SHOWN) {
+            if (form == FactsForm.LINES) {
+                Column(Modifier.padding(horizontal = FactsEdge), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ModelFact(facts, models, true, changesAgent, menus)
+                    UseFacts(facts, true, menus)
+                }
             } else {
-                Text(effortLabel(effort), style = KodosiType.caption, color = colors.inkFaint, maxLines = 1)
+                Row(
+                    Modifier.horizontalScroll(scroll).padding(horizontal = FactsEdge),
+                    horizontalArrangement = Arrangement.spacedBy(FactsGap),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ModelFact(facts, models, form == FactsForm.LINE, changesAgent, menus)
+                    UseFacts(facts, form == FactsForm.LINE, menus)
+                }
             }
+        }.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+        val height = maxOf(constraints.minHeight, shown.maxOfOrNull { it.height } ?: 0)
+        layout(constraints.maxWidth, height) {
+            shown.forEach { it.placeRelative(0, (height - it.height) / 2) }
         }
-        facts.mode?.let { mode ->
-            Tipped(ChatWords.mode(mode)) {
-                AppIcon(ChatWords.modeSymbol(mode), Modifier.size(12.dp), tint = colors.inkFaint)
-            }
+    }
+}
+
+/** The model key, or the mode alone; without [menus] it only takes its room. */
+@Composable
+private fun ModelFact(
+    facts: ChatFacts,
+    models: KnownModels,
+    named: Boolean,
+    changesAgent: Boolean,
+    menus: FactsMenus?
+) {
+    val model = facts.model
+    val mode = facts.mode
+    if (model != null) {
+        ChatModelKey(
+            models.label(model),
+            facts.effort,
+            models.levels(model),
+            mode,
+            named,
+            changesAgent,
+            menus?.model == true,
+            menus?.setModel ?: {},
+            menus?.agent
+        )
+    } else if (mode != null) {
+        CompositionLocalProvider(LocalContentColor provides KodosiTheme.colors.inkMuted) {
+            Tipped(ChatWords.mode(mode)) { ChatModeLabel(mode, named, FactWords, Modifier.padding(horizontal = 4.dp)) }
         }
-        facts.context?.let { ContextMeter(it) }
+    }
+}
+
+/** The use key with the helpers and the background commands after it; without [menus] it only takes its room. */
+@Composable
+private fun UseFacts(facts: ChatFacts, named: Boolean, menus: FactsMenus?) {
+    Row(horizontalArrangement = Arrangement.spacedBy(FactsGap), verticalAlignment = Alignment.CenterVertically) {
+        if (facts.context != null || facts.limits.isNotEmpty() || (facts.cost ?: 0.0) > 0) {
+            ChatUsageKey(facts, named, menus?.usage == true, menus?.setUsage ?: {}, menus != null)
+        }
         if (facts.helpers > 0) {
             Count(
                 AppSymbol.FRIENDS,
@@ -339,10 +489,6 @@ private fun FactsRow(facts: ChatFacts, models: KnownModels, modelKey: @Composabl
                 pluralStringResource(R.plurals.chat_background_commands, facts.background, facts.background)
             )
         }
-        UsageLimit.nearest(facts.limits)?.let { UsageDial(it) }
-        facts.cost?.takeIf { it > 0 }?.let {
-            Text(ChatWords.cost(it), style = KodosiType.caption, color = colors.inkFaint, maxLines = 1)
-        }
     }
 }
 
@@ -354,18 +500,18 @@ private fun Count(symbol: AppSymbol, count: Int, words: String) {
             Modifier.clearAndSetSemantics { contentDescription = words },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AppIcon(symbol, Modifier.size(11.dp), tint = colors.inkFaint)
-            Spacer(Modifier.width(3.dp))
-            Text("$count", style = KodosiType.caption, color = colors.inkFaint, maxLines = 1)
+            AppIcon(symbol, Modifier.size(15.dp), tint = colors.inkMuted)
+            Spacer(Modifier.width(4.dp))
+            Text("$count", style = FactWords, color = colors.inkMuted, maxLines = 1)
         }
     }
 }
 
 @Composable
-private fun EffortBars(level: Int, count: Int) {
+internal fun EffortBars(level: Int, count: Int, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
     val quiet = lerp(colors.surface, colors.ink, 0.2f)
-    Canvas(Modifier.size(width = (count * 4 - 1.5f).dp, height = 10.dp)) {
+    Canvas(modifier.size(width = (count * 4 - 1.5f).dp, height = 10.dp)) {
         val bar = 2.5.dp.toPx()
         val gap = 1.5.dp.toPx()
         for (index in 0 until count) {
@@ -381,60 +527,36 @@ private fun EffortBars(level: Int, count: Int) {
 }
 
 @Composable
-private fun ContextMeter(context: ChatContext) {
+internal fun UsageDial(limit: UsageLimit, size: Dp) {
     val colors = KodosiTheme.colors
-    val percent = (context.used * 100).toInt()
-    val level = when {
-        context.used > 0.85f -> UsageLevel.REACHED
-        context.used >= 0.65f -> UsageLevel.NEAR
-        else -> UsageLevel.NORMAL
-    }
-    Tipped(stringResource(R.string.chat_context_used, percent)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            UsageRing(context.used, level, Modifier.size(11.dp))
-            Spacer(Modifier.width(4.dp))
-            RollingText(
-                "$percent%",
-                ChatType.monoCaption,
-                if (level == UsageLevel.NORMAL) colors.inkFaint else level.tint()
-            )
-        }
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        UsageRing(limit.used / 100f, limit.level, Modifier.size(size))
+        Text(
+            "${limit.used}",
+            style = ChatType.monoCaption.copy(fontSize = with(LocalDensity.current) { (size * 0.36f).toSp() }),
+            color = if (limit.level == UsageLevel.NORMAL) colors.ink else limit.level.tint(),
+            maxLines = 1
+        )
     }
 }
 
 @Composable
-private fun UsageDial(limit: UsageLimit) {
-    val colors = KodosiTheme.colors
-    Tipped(stringResource(R.string.chat_usage_used, usageWindow(limit.hours, limit.scope), limit.used)) {
-        Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
-            UsageRing(limit.used / 100f, limit.level, Modifier.size(18.dp))
-            Text(
-                "${limit.used}",
-                style = ChatType.monoCaption.copy(fontSize = with(LocalDensity.current) { 6.5.dp.toSp() }),
-                color = if (limit.level == UsageLevel.NORMAL) colors.ink else limit.level.tint(),
-                maxLines = 1
-            )
-        }
-    }
-}
-
-@Composable
-private fun UsageRing(used: Float, level: UsageLevel, modifier: Modifier = Modifier) {
+internal fun UsageRing(used: Float, level: UsageLevel, modifier: Modifier = Modifier, stroke: Dp = 1.75.dp) {
     val colors = KodosiTheme.colors
     val track = lerp(colors.surface, colors.ink, 0.12f)
     val tint = if (level == UsageLevel.NORMAL) colors.inkMuted else level.tint()
     val drawn by animateFloatAsState(used.coerceIn(0f, 1f), snappy(), label = "usage")
     Canvas(modifier) {
-        val stroke = Stroke(1.75.dp.toPx(), cap = StrokeCap.Round)
-        val inset = stroke.width / 2
-        val box = Size(size.width - stroke.width, size.height - stroke.width)
-        drawArc(track, 0f, 360f, false, Offset(inset, inset), box, style = Stroke(stroke.width))
-        if (drawn > 0f) drawArc(tint, -90f, 360f * drawn, false, Offset(inset, inset), box, style = stroke)
+        val line = Stroke(stroke.toPx(), cap = StrokeCap.Round)
+        val inset = line.width / 2
+        val box = Size(size.width - line.width, size.height - line.width)
+        drawArc(track, 0f, 360f, false, Offset(inset, inset), box, style = Stroke(line.width))
+        if (drawn > 0f) drawArc(tint, -90f, 360f * drawn, false, Offset(inset, inset), box, style = line)
     }
 }
 
 @Composable
-private fun UsageLevel.tint() = when (this) {
+internal fun UsageLevel.tint() = when (this) {
     UsageLevel.NORMAL -> KodosiTheme.colors.inkMuted
     UsageLevel.NEAR -> KodosiTheme.colors.caution
     UsageLevel.REACHED -> KodosiTheme.colors.danger

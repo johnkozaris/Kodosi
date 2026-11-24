@@ -834,8 +834,20 @@
         <translation>Ο agent δέχεται το επόμενο μήνυμα στο τερματικό του.</translation>
     </message>
     <message>
+        <source>%1 shows this in its terminal.</source>
+        <translation>Το %1 το δείχνει στο τερματικό του.</translation>
+    </message>
+    <message>
+        <source>Show the terminal</source>
+        <translation>Εμφάνιση τερματικού</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>Δεν τρέχει κανένας agent σε αυτό το τερματικό</translation>
+    </message>
+    <message>
+        <source>Commands</source>
+        <translation>Εντολές</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -853,12 +865,32 @@
         <translation>Μοντέλο</translation>
     </message>
     <message>
-        <source>Context: %1% used</source>
-        <translation>Πλαίσιο: %1% σε χρήση</translation>
+        <source>Usage</source>
+        <translation>Χρήση</translation>
     </message>
     <message>
         <source>%1%</source>
         <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>Πλαίσιο: %1% σε χρήση</translation>
+    </message>
+    <message>
+        <source>%1% context</source>
+        <translation>%1% πλαισίου</translation>
+    </message>
+    <message>
+        <source>%1 %2%</source>
+        <translation>%1 %2%</translation>
+    </message>
+    <message>
+        <source>Resets in %1</source>
+        <translation>Ανανεώνεται σε %1</translation>
+    </message>
+    <message>
+        <source>This conversation</source>
+        <translation>Αυτή η συνομιλία</translation>
     </message>
     <message numerus="yes">
         <source>%n helpers work</source>
@@ -930,6 +962,10 @@
     <message>
         <source>Refused</source>
         <translation>Αρνήθηκε</translation>
+    </message>
+    <message>
+        <source>Recap</source>
+        <translation>Ανακεφαλαίωση</translation>
     </message>
     <message>
         <source>Needs you to sign in</source>
@@ -1020,6 +1056,13 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>%n failed</source>
+        <translation>
+            <numerusform>%n απέτυχε</numerusform>
+            <numerusform>%n απέτυχαν</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%n denied</source>
         <translation>
             <numerusform>%n απορρίφθηκε</numerusform>
@@ -1093,10 +1136,6 @@
     <message>
         <source>Done</source>
         <translation>Τέλος</translation>
-    </message>
-    <message>
-        <source>Failed</source>
-        <translation>Απέτυχε</translation>
     </message>
 </context>
 <context>
@@ -5443,6 +5482,10 @@
     <message>
         <source>thinking</source>
         <translation>σκέφτεται</translation>
+    </message>
+    <message>
+        <source>%1 of %2 tokens</source>
+        <translation>%1 από %2 tokens</translation>
     </message>
     <message numerus="yes">
         <source>%n steps</source>

@@ -9,8 +9,7 @@ struct ChatModelKey: View {
     let session: RuntimeSession
     let name: String
     let effort: String?
-    @State private var open = false
-    @State private var hovered = false
+    @Binding var open: Bool
     @State private var flyout: AgentActions.Flyout?
 
     private var launcher: LauncherState? {
@@ -22,22 +21,21 @@ struct ChatModelKey: View {
     }
 
     private var face: ChatModelFace {
-        ChatModelFace(models: launcher?.models[session.agent.rawValue], model: name, effort: effort)
+        ChatModelFace(models: launcher?.models[session.agent.rawValue], model: name, effort: effort, opens: session.canControl && session.programLive != nil)
     }
 
     var body: some View {
         if session.canControl, let live = session.programLive {
             Button { open.toggle() } label: {
-                face.foregroundStyle(hovered || open ? theme.colors.ink : theme.colors.inkFaint)
+                face.padding(.horizontal, -3)
             }
-            .buttonStyle(.plain)
-            .onHover { hovered = $0 }
+            .buttonStyle(.kodosi(open ? .tinted : .secondary, size: .small))
             .task(id: session.program) {
                 await launcher?.refresh()
                 await launcher?.loadModels(session.agent.rawValue)
             }
-            .animation(theme.motion.hover, value: hovered)
-            .tip("Model")
+            .animation(theme.motion.snappy, value: open)
+            .help("Model")
             .accessibilityLabel(Text("Model"))
             .accessibilityValue(Text(verbatim: face.title))
             .accessibilityIdentifier("\(AccessibilityIdentifier.stageSession(session.id)).chat.model")
@@ -54,7 +52,7 @@ struct ChatModelKey: View {
                 }
             }
         } else {
-            face
+            face.foregroundStyle(theme.colors.inkMuted).padding(.horizontal, 4)
         }
     }
 }

@@ -17,6 +17,12 @@ const FAILURES = 3
 const HISTORY = 120
 const HISTORY_PART = 20
 const ASKED = 64
+const COMMAND_WORDS = 160
+// A command that Claude Code shows in its own view of the terminal ends only when a person closes the view
+// there.
+const SHOWN_MS = 1500
+// Claude Code ends the run of these commands while their picker stays open in the terminal.
+const PICKERS = new Set(['rewind'])
 // The host takes at most 8 MiB in a request, and a character of the JSON takes up to three bytes there.
 const MOST_BATCH = 2 * 1024 * 1024
 const pending = []
@@ -38,6 +44,13 @@ let asks = 0
 // only in a session that started without them.
 let mode = ''
 let bypass = false
+// The person's prompts in the conversation. A rewind takes the conversation back to an earlier prompt.
+let turns = 0
+// The command of the chat whose picker can still be open in the terminal.
+let picking = 0
+// The model that a person chose in Kodosi. Claude Code asks before it leaves a warm cache, in its
+// terminal, where a person of the chat does not see the question.
+let chosen = ''
 
 function post($, path, body) {
   return $.http.fetch('http://kodosi' + path, {
@@ -120,6 +133,33 @@ async function modesOff($) {
   }
 }
 
+// The count of the person's prompts in the conversation as Claude Code has it now.
+async function prompts($) {
+  try {
+    return await $.session.turns()
+  } catch (error) {
+    return turns
+  }
+}
+
+// The slash commands of the session, in the order of Claude Code's own menu.
+async function slashCommands($) {
+  try {
+    return (await $.command.list())
+      .filter(command => !command.name.startsWith('_'))
+      .map(command => ({ name: command.name, description: String(command.description || '').slice(0, COMMAND_WORDS) }))
+  } catch (error) {
+    return []
+  }
+}
+
+// Claude Code names its module call before the reason of a refusal, as in "kodosi: $.command.run: no command
+// named /x in this session".
+function reason(error) {
+  const words = String(error && error.message ? error.message : error).replace(/^[\w-]+: \$\.[\w.]+: /, '')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 // The host has each event that came before, so a request that follows finds what it names.
 function settled($) {
   if (!sending && pending.length === 0) return Promise.resolve()
@@ -176,10 +216,11 @@ function earlier(rows) {
 
 // The host follows the module from its hello, so what happens while the module reads the session waits
 // until the hello and the history are out. The host knows each row of the history by its id.
-async function hello($) {
+async function hello($, rewound) {
   greeting = true
-  const facts = { agent: 'claude' }
+  const facts = { agent: 'claude', rewound: rewound || undefined }
   let rows = []
+  let read = true
   try {
     facts.session = await $.session.id()
     facts.version = (await $.session.version()).version
@@ -187,15 +228,23 @@ async function hello($) {
     facts.cwd = await $.session.cwd()
     facts.usage = await $.session.usage()
     Object.assign(facts, await modesOff($))
+    facts.commands = await slashCommands($)
+    turns = await prompts($)
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
-    rows = []
+    read = false
   }
-  facts.mode = mode || undefined
-  facts.bypass = bypass
   greeting = false
-  tell($, 'hello', facts)
-  for (let at = 0; at < rows.length; at += HISTORY_PART) tell($, 'history', { rows: rows.slice(at, at + HISTORY_PART) })
+  // A module that can no longer read its session, as at the end of Claude Code or after a reload of
+  // its plugins, counts no prompts, and that is no rewind.
+  if (read || !rewound) {
+    if (picking) tell($, 'did', { n: picking })
+    picking = 0
+    facts.mode = mode || undefined
+    facts.bypass = bypass
+    tell($, 'hello', facts)
+    for (let at = 0; at < rows.length; at += HISTORY_PART) tell($, 'history', { rows: rows.slice(at, at + HISTORY_PART) })
+  }
   pending.push(...early.splice(0))
   flush($)
 }
@@ -231,17 +280,37 @@ async function stop($) {
 }
 
 // A message goes in as the person's own words, and one that starts with a slash runs that command, as in the
-// terminal. Claude Code starts its turn when the session is idle.
+// terminal. Claude Code starts its turn when the session is idle. A change of the model, the effort or fast
+// mode from Kodosi's own controls runs as its command.
 function run($, command) {
   if (command.do === 'stop') stop($)
-  if (command.do !== 'prompt') return
+  if (command.do !== 'prompt' && command.do !== 'change') return
+  if (picking) tell($, 'did', { n: picking })
+  picking = 0
   const text = String(command.text)
   const slash = /^\s*\/(\S+)\s*([\s\S]*)$/.exec(text)
+  const model = slash && slash[1] === 'model' ? slash[2].trim().toLowerCase() : ''
+  if (model) chosen = model
   const sent = slash ? $.command.run({ command: slash[1], args: slash[2] }) : $.prompt.submit({ text, asUser: true })
+  let ended = false
   sent.then(
-    result => tell($, 'did', { n: command.n, drop: result && result.drop ? String(result.drop) : undefined }),
-    error => tell($, 'did', { n: command.n, error: String(error) }),
-  )
+    result => {
+      const drop = result && result.drop ? String(result.drop) : undefined
+      if (slash && PICKERS.has(slash[1]) && !drop) {
+        picking = command.n
+        tell($, 'waits', { n: command.n, picker: true })
+      } else tell($, 'did', { n: command.n, drop })
+    },
+    error => tell($, 'did', { n: command.n, error: reason(error) }),
+  ).finally(() => {
+    ended = true
+    if (model && chosen === model) chosen = ''
+  })
+  if (slash) {
+    $.clock.sleep(SHOWN_MS).then(() => {
+      if (!ended && !turn) tell($, 'waits', { n: command.n })
+    })
+  }
 }
 
 // What the person sends from Kodosi. The loop ends with the session, or when the host is away.
@@ -306,8 +375,8 @@ export function register(on) {
 
   on('session.append', async ($, e, next) => {
     const door = e.door
-    if (door === 'prompt' || door === 'command' || door === 'response' || door === 'tool-result' || door === 'note' || door === 'compaction') {
-      const message = e.message || {}
+    const message = e.message || {}
+    if (door === 'prompt' || door === 'command' || door === 'response' || door === 'tool-result') {
       tell($, 'row', {
         door,
         origin: e.origin,
@@ -315,14 +384,26 @@ export function register(on) {
         agent: e.agentId,
         content: blocks(message.content),
       })
+    } else if (message.type === 'system' && message.name === 'away_summary' && !e.agentId) {
+      tell($, 'recap', { uuid: e.uuid, content: blocks(message.content) })
     }
     return next(e)
   })
 
   on('turn.start', async ($, e, next) => {
-    if (!e.agentId) turn = e.turnId
+    if (!e.agentId) {
+      turn = e.turnId
+      turns = await prompts($)
+    }
     tell($, 'turn', { agent: e.agentId })
     return next(e)
+  })
+
+  // A rewind puts the prompt it went back to in the prompt box again.
+  on('prompt.change', async ($, e, next) => {
+    const changed = await next(e)
+    if (socket && !greeting && (await prompts($)) < turns) hello($, true)
+    return changed
   })
 
   // The chat shows a helper's steps from its rows, so only the main conversation reports as it writes.
@@ -441,14 +522,22 @@ export function register(on) {
     return next(e)
   })
 
+  // A helper compacts its own conversation too, and the chat shows the main one.
   on('classic.PreCompact', async ($, e, next) => {
-    tell($, 'compact', { phase: 'start' })
+    if (!e.agent_id) tell($, 'compact', { phase: 'start' })
     return next(e)
   })
 
   on('classic.PostCompact', async ($, e, next) => {
-    tell($, 'compact', { phase: 'end' })
+    if (!e.agent_id) tell($, 'compact', { phase: 'end' })
     return next(e)
+  })
+
+  on('classic.PreModelSwitch', async ($, e, next) => {
+    const decided = await next(e)
+    const requested = String(e.requested_model || 'default').toLowerCase()
+    if (!chosen || e.source !== 'command' || requested !== chosen) return decided
+    return decided && decided.permissionDecision ? decided : { ...decided, permissionDecision: 'allow' }
   })
 
   on('classic.StopFailure', async ($, e, next) => {

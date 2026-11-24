@@ -112,6 +112,7 @@ enum class AppSymbol {
     SHEET,
     PRESENTATION,
     CHEVRONS,
+    CHEVRON_DOWN,
     STACK,
     SEARCH,
     TEXT,
@@ -401,6 +402,8 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
                 path(8f, 9f, 12f, 5f, 16f, 9f)
                 path(8f, 15f, 12f, 19f, 16f, 15f)
             }
+
+            AppSymbol.CHEVRON_DOWN -> path(6f, 9f, 12f, 15f, 18f, 9f)
 
             AppSymbol.STACK -> {
                 rect(3f, 9f, 18f, 12f)
@@ -853,7 +856,7 @@ fun rememberWords(text: String, markdown: Boolean): AnnotatedString {
                     addLink(LinkAnnotation.Clickable(address, linked) { links.open(address) }, start, length)
                 }
             }
-            LinkPolicy.inText(toString()).forEach { link ->
+            LinkPolicy.inText(toAnnotatedString().text).forEach { link ->
                 if (named.none { it.first <= link.range.last && link.range.first <= it.last }) {
                     addLink(
                         LinkAnnotation.Clickable(link.address, linked) { links.open(link.address) },

@@ -81,6 +81,8 @@ const MOST_LINES: usize = 160;
 const MOST_ASKS: usize = 16;
 #[cfg(feature = "host")]
 const MOST_TASKS: usize = 64;
+#[cfg(feature = "host")]
+const MOST_COMMANDS: usize = 256;
 
 /// What the terminal's computer sends on the chat pipe: the chat as it is, then each change in order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -105,6 +107,8 @@ pub struct ChatSnapshot {
     pub queued: Vec<ChatQueued>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tasks: Vec<ChatTask>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commands: Vec<ChatCommand>,
 }
 
 /// The changes that make the chat of one revision from the chat of the revision before.
@@ -139,6 +143,10 @@ pub enum ChatChange {
     /// The agent's list of its work, whole.
     Tasks {
         tasks: Vec<ChatTask>,
+    },
+    /// The agent's slash commands, whole.
+    Commands {
+        commands: Vec<ChatCommand>,
     },
     Facts {
         facts: Box<ChatFacts>,
@@ -227,6 +235,8 @@ pub enum ChatNote {
     Compacted,
     /// The agent is not signed in, and signs in with its own steps in its terminal.
     SignedOut,
+    /// What the agent says happened while the person was away.
+    Recap { text: String },
     /// The agent could not continue. `error` is the agent's word for the cause.
     Failed {
         error: String,
@@ -470,6 +480,31 @@ pub struct ChatQueued {
     /// sends another, removes it, or writes to the agent in the terminal.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refused: Option<String>,
+    /// The agent shows this command in its terminal, where a person finishes it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub terminal: bool,
+}
+
+/// A slash command of the agent, as its own menu lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatCommand {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
+    /// The control of the chat that does what the command does, in place of the agent's own view
+    /// in its terminal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opens: Option<ChatControl>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ChatControl {
+    /// The agent's model, effort and fast mode.
+    Model,
+    /// The limits of the agent's plan, its context and the cost of the conversation.
+    Usage,
 }
 
 /// A step of the list that the agent keeps of its work.

@@ -104,17 +104,22 @@ QString ChatWords::summary(const QList<QJsonObject>& tools)
     return sentence;
 }
 
-QStringList ChatWords::setbacks(const QList<QJsonObject>& tools)
+QVariantList ChatWords::setbacks(const QList<QJsonObject>& tools)
 {
     const auto count = [&tools](const QString& state) {
         return static_cast<int>(std::ranges::count_if(
             tools, [&state](const QJsonObject& tool) { return tool.value(QStringLiteral("state")).toString() == state; }));
     };
-    QStringList words;
+    QVariantList words;
+    const auto add = [&](const QString& state, const QString& said) {
+        words.append(QVariantMap { { QStringLiteral("state"), state }, { QStringLiteral("words"), said } });
+    };
+    if (const auto failed = count(QStringLiteral("failed")))
+        add(QStringLiteral("failed"), tr("%n failed", "", failed));
     if (const auto denied = count(QStringLiteral("denied")))
-        words.append(tr("%n denied", "", denied));
+        add(QStringLiteral("denied"), tr("%n denied", "", denied));
     if (const auto stopped = count(QStringLiteral("stopped")))
-        words.append(tr("%n stopped", "", stopped));
+        add(QStringLiteral("stopped"), tr("%n stopped", "", stopped));
     return words;
 }
 

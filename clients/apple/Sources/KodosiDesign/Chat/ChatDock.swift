@@ -8,10 +8,14 @@ struct ChatDock<ModelKey: View>: View {
     @Bindable var chat: TerminalChat
     let agent: AgentKind
     var focused: FocusState<Bool>.Binding
-    let modelKey: (_ model: String, _ effort: String?) -> ModelKey
+    let modelKey: (_ model: String, _ effort: String?, _ open: Binding<Bool>) -> ModelKey
+    let showTerminal: () -> Void
     let sent: () -> Void
     @State private var sends = 0
     @State private var selection: TextSelection?
+    @State private var picked = 0
+    @State private var modelOpen = false
+    @State private var usageOpen = false
 
     private var typed: Bool {
         !chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -19,6 +23,10 @@ struct ChatDock<ModelKey: View>: View {
 
     private var stops: Bool {
         chat.working && !typed
+    }
+
+    private var suggestions: [ChatCommand] {
+        ChatCommandMatch.commands(chat.commands, for: chat.draft)
     }
 
     private var placeholder: String {
@@ -35,7 +43,7 @@ struct ChatDock<ModelKey: View>: View {
                 ChatTasks(tasks: tasks).transition(AnyTransition.rise)
             }
             ForEach(chat.queued) { queued in
-                ChatQueuedRow(chat: chat, queued: queued, agent: agent).transition(AnyTransition.rise)
+                ChatQueuedRow(chat: chat, queued: queued, agent: agent, showTerminal: showTerminal).transition(AnyTransition.rise)
             }
             if let ask {
                 // The card takes the room before the composer, which needs only its own line.
@@ -57,8 +65,14 @@ struct ChatDock<ModelKey: View>: View {
                     .accessibilityIdentifier("chat.away")
                     .transition(.opacity)
             } else {
+                let suggestions = suggestions
+                if !suggestions.isEmpty {
+                    ChatCommandList(commands: suggestions, picked: min(picked, suggestions.count - 1), choose: choose)
+                        .transition(AnyTransition.rise)
+                }
                 composer
-                ChatFactsRow(facts: chat.facts, modelKey: modelKey).padding(.horizontal, 6)
+                ChatFactsRow(facts: chat.facts, modelKey: modelKey, modelOpen: $modelOpen, usageOpen: $usageOpen)
+                    .padding(.horizontal, 6)
             }
         }
         .padding(.horizontal, 10).padding(.top, 4).padding(.bottom, 8)
@@ -71,6 +85,8 @@ struct ChatDock<ModelKey: View>: View {
         .animation(theme.motion.snappy, value: stops)
         .animation(theme.motion.snappy, value: typed)
         .animation(theme.motion.hover, value: focused.wrappedValue)
+        .animation(theme.motion.snappy, value: suggestions.isEmpty)
+        .onChange(of: chat.draft) { _, _ in picked = 0 }
         #if os(iOS)
             .sensoryFeedback(.impact(weight: .light), trigger: sends)
             // The keyboard of a phone would leave a new question little room.
@@ -95,12 +111,17 @@ struct ChatDock<ModelKey: View>: View {
                 .disabled(!chat.canWrite)
                 .onKeyPress(.return, phases: .down) { press in
                     if press.modifiers.isDisjoint(with: [.shift, .option]) {
-                        send()
+                        if !complete() {
+                            send()
+                        }
                     } else {
                         breakLine()
                     }
                     return .handled
                 }
+                .onKeyPress(.tab) { complete() ? .handled : .ignored }
+                .onKeyPress(.upArrow) { move(-1) }
+                .onKeyPress(.downArrow) { move(1) }
                 .onKeyPress(.escape) { .handled }
                 .accessibilityIdentifier("chat.input")
             if stops {
@@ -135,9 +156,53 @@ struct ChatDock<ModelKey: View>: View {
 
     private func send() {
         guard typed, chat.canWrite else { return }
+        if let control = chat.control(of: chat.draft) {
+            chat.draft = ""
+            open(control)
+            return
+        }
         chat.submit()
         sends += 1
         sent()
+    }
+
+    private func open(_ control: ChatControl) {
+        switch control {
+        case .model: modelOpen = true
+        case .usage: usageOpen = true
+        }
+    }
+
+    private func move(_ step: Int) -> KeyPress.Result {
+        let count = suggestions.count
+        guard count > 0 else { return .ignored }
+        picked = (min(picked, count - 1) + step + count) % count
+        return .handled
+    }
+
+    /// Return and Tab take the picked command while the draft is a part of its name.
+    private func complete() -> Bool {
+        let suggestions = suggestions
+        guard !suggestions.isEmpty else { return false }
+        let command = suggestions[min(picked, suggestions.count - 1)]
+        guard chat.draft != "/\(command.name)" else { return false }
+        choose(command)
+        return true
+    }
+
+    /// A command that a control of the chat does opens that control, and another goes into the
+    /// draft, where a person adds what it takes.
+    private func choose(_ command: ChatCommand) {
+        picked = 0
+        if let control = command.opens {
+            chat.draft = ""
+            open(control)
+        } else {
+            let draft = "/\(command.name) "
+            chat.draft = draft
+            selection = TextSelection(insertionPoint: draft.endIndex)
+            focused.wrappedValue = true
+        }
     }
 }
 
@@ -148,14 +213,17 @@ private struct ChatQueuedRow: View {
     let chat: TerminalChat
     let queued: ChatQueued
     let agent: AgentKind
+    let showTerminal: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
             Spacer(minLength: 40)
-            IconButton(title: "Remove", bundle: .module, symbol: "xmark",
-                       identifier: "chat.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 22)
-            {
-                chat.unqueue(queued)
+            if !queued.terminal {
+                IconButton(title: "Remove", bundle: .module, symbol: "xmark",
+                           identifier: "chat.queued.remove.\(AccessibilityIdentifier.token(queued.id))", size: 22)
+                {
+                    chat.unqueue(queued)
+                }
             }
             VStack(alignment: .trailing, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -168,6 +236,17 @@ private struct ChatQueuedRow: View {
                     Text("The agent takes the next message in its terminal.", bundle: .module)
                         .appTextStyle(.caption).fontWeight(.regular).foregroundStyle(theme.colors.caution)
                         .help(refused)
+                } else if queued.terminal {
+                    HStack(spacing: 8) {
+                        Text("\(agent.label) shows this in its terminal.", bundle: .module)
+                            .appTextStyle(.caption).foregroundStyle(theme.colors.inkMuted)
+                        Button(action: showTerminal) {
+                            Text("Show the terminal", bundle: .module).appTextStyle(.caption).fontWeight(.semibold)
+                                .foregroundStyle(theme.colors.accentStrong)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("chat.queued.terminal")
+                    }
                 }
             }
         }
@@ -265,30 +344,58 @@ private struct ChatTaskLine: View {
 private struct ChatFactsRow<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     let facts: ChatFacts
-    let modelKey: (_ model: String, _ effort: String?) -> ModelKey
+    let modelKey: (_ model: String, _ effort: String?, _ open: Binding<Bool>) -> ModelKey
+    @Binding var modelOpen: Bool
+    @Binding var usageOpen: Bool
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            row(full: true)
-            row(full: false)
+            line(full: true)
+            VStack(alignment: .leading, spacing: 6) {
+                model(full: true)
+                HStack(spacing: 8) {
+                    usage(full: true)
+                    others
+                }
+            }
+            .lineLimit(1)
+            .fixedSize()
+            line(full: false)
+            ScrollView(.horizontal) { line(full: false) }.scrollIndicators(.hidden)
         }
-        .appTextStyle(.caption2)
-        .foregroundStyle(theme.colors.inkFaint)
     }
 
-    private func row(full: Bool) -> some View {
-        HStack(spacing: 10) {
-            if let model = facts.model {
-                modelKey(model, facts.effort)
-            }
-            if let mode = facts.mode {
-                Image(systemName: Self.symbol(mode)).font(mac: 10, ios: .caption2, weight: .semibold)
-                    .tip(Text(verbatim: ChatWords.mode(mode)))
-                    .accessibilityLabel(Text(verbatim: ChatWords.mode(mode)))
-            }
-            if let context = facts.context {
-                ContextMeter(context: context)
-            }
+    private func line(full: Bool) -> some View {
+        HStack(spacing: 8) {
+            model(full: full)
+            usage(full: full)
+            others
+        }
+        .lineLimit(1)
+        .fixedSize()
+    }
+
+    @ContentBuilder private func model(full: Bool) -> some View {
+        if let model = facts.model {
+            modelKey(model, facts.effort, $modelOpen)
+                .environment(\.chatMode, facts.mode)
+                .environment(\.chatFactsShort, !full)
+                .environment(\.chatModelOpen, modelOpen)
+        } else if let mode = facts.mode {
+            ChatModeLabel(mode: mode, named: full)
+                .padding(.horizontal, 4)
+                .foregroundStyle(theme.colors.inkMuted)
+        }
+    }
+
+    @ContentBuilder private func usage(full: Bool) -> some View {
+        if facts.context != nil || !facts.limits.isEmpty || (facts.cost ?? 0) > 0 {
+            ChatUsageKey(facts: facts, open: $usageOpen, named: full)
+        }
+    }
+
+    private var others: some View {
+        Group {
             if facts.helpers > 0 {
                 Label { Text(verbatim: "\(facts.helpers)") } icon: { Image(systemName: "person.2") }
                     .labelStyle(.titleAndIcon)
@@ -303,18 +410,31 @@ private struct ChatFactsRow<ModelKey: View>: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text("\(facts.background) commands run in the background", bundle: .module))
             }
-            if full, let limit = UsageLimit.nearest(of: facts.limits) {
-                UsageDial(limit: limit, size: 18)
-            }
-            if full, let cost = facts.cost, cost > 0 {
-                Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
+        }
+        .appTextStyle(.callout)
+        .foregroundStyle(theme.colors.inkMuted)
+    }
+}
+
+/// The permission mode of the agent: its symbol and, where there is room, its word.
+struct ChatModeLabel: View {
+    let mode: ChatMode
+    var named = true
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: Self.symbol(mode)).font(mac: 12, ios: .subheadline, weight: .semibold)
+            if named {
+                Text(verbatim: ChatWords.mode(mode))
             }
         }
-        .lineLimit(1)
-        .fixedSize()
+        .appTextStyle(.callout)
+        .help(Text(verbatim: ChatWords.mode(mode)))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: ChatWords.mode(mode)))
     }
 
-    private static func symbol(_ mode: ChatMode) -> String {
+    static func symbol(_ mode: ChatMode) -> String {
         switch mode {
         case .ask: AgentPermissions.ask.symbol
         case .auto: AgentPermissions.auto.symbol
@@ -326,20 +446,113 @@ private struct ChatFactsRow<ModelKey: View>: View {
     }
 }
 
-private struct ContextMeter: View {
+extension EnvironmentValues {
+    /// The permission mode that the model key of a chat shows with the model.
+    @Entry var chatMode: ChatMode?
+    /// The facts row has room only for the short form of its keys.
+    @Entry var chatFactsShort = false
+    /// The menu of the model key is open.
+    @Entry var chatModelOpen = false
+}
+
+/// The context and the nearest limit of the agent's plan, which open all that the agent reports
+/// of its use.
+private struct ChatUsageKey: View {
+    @Environment(\.theme) private var theme
+    let facts: ChatFacts
+    @Binding var open: Bool
+    var named = true
+
+    var body: some View {
+        Button { open.toggle() } label: {
+            HStack(spacing: 6) {
+                if let context = facts.context {
+                    ContextMeter(context: context, named: named)
+                }
+                if let limit = UsageLimit.nearest(of: facts.limits) {
+                    HStack(spacing: 4) {
+                        UsageRing(used: limit.used, level: limit.level, lineWidth: 2).frame(width: 14, height: 14)
+                        Group {
+                            if named {
+                                Text("\(limit.window) \(limit.used)%", bundle: .module)
+                            } else {
+                                Text(verbatim: "\(limit.used)%")
+                            }
+                        }
+                        .monospacedDigit()
+                        .foregroundStyle(limit.level == .normal ? theme.colors.ink : limit.level.color(theme.colors))
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(verbatim: limit.spoken))
+                }
+                if facts.context == nil, facts.limits.isEmpty, let cost = facts.cost {
+                    Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
+                }
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
+                    .rotationEffect(.degrees(open ? 180 : 0))
+                    .accessibilityHidden(true)
+            }
+            .appTextStyle(.callout)
+            .fontWeight(.medium)
+            .padding(.horizontal, -3)
+        }
+        .buttonStyle(.kodosi(open ? .tinted : .secondary, size: .small))
+        .animation(theme.motion.snappy, value: open)
+        #if os(iOS)
+            .sheet(isPresented: $open) {
+                NavigationStack {
+                    ChatUsage(facts: facts)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(20)
+                        .navigationTitle(Text("Usage", bundle: .module))
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button { open = false } label: { Text("Done", bundle: .module) }
+                            }
+                        }
+                }
+                .presentationDetents([.medium])
+            }
+        #else
+            .kodosiPopover(isPresented: $open, arrowEdge: .top, alignment: .leading) {
+                ChatUsage(facts: facts)
+            }
+        #endif
+            .help(Text("Usage", bundle: .module))
+            .accessibilityLabel(Text("Usage", bundle: .module))
+            .accessibilityIdentifier("chat.usage.key")
+    }
+}
+
+struct ContextMeter: View {
     @Environment(\.theme) private var theme
     let context: ChatContext
+    var named = false
+
+    static func level(_ context: ChatContext) -> UsageLevel {
+        context.used > 0.85 ? .reached : context.used >= 0.65 ? .near : .normal
+    }
 
     var body: some View {
         let percent = Int((context.used * 100).rounded())
-        let level: UsageLevel = context.used > 0.85 ? .reached : context.used >= 0.65 ? .near : .normal
+        let level = Self.level(context)
         HStack(spacing: 4) {
-            UsageRing(used: percent, level: level, lineWidth: 1.75)
-                .frame(width: 11, height: 11)
-            Text(verbatim: "\(percent)%").foregroundStyle(level == .normal ? theme.colors.inkFaint : level.color(theme.colors))
+            UsageRing(used: percent, level: level, lineWidth: 2)
+                .frame(width: 14, height: 14)
+            Group {
+                if named {
+                    Text("\(percent)% context", bundle: .module)
+                } else {
+                    Text(verbatim: "\(percent)%")
+                }
+            }
+            .monospacedDigit()
+            .foregroundStyle(level == .normal ? theme.colors.ink : level.color(theme.colors))
         }
         .animation(theme.motion.snappy, value: percent)
-        .tip(Text("Context: \(percent)% used", bundle: .module))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Context: \(percent)% used", bundle: .module))
     }
@@ -347,14 +560,21 @@ private struct ContextMeter: View {
 
 /// The agent's model by its name, and its effort as bars, as the key in a chat's facts shows them.
 public struct ChatModelFace: View {
+    @Environment(\.theme) private var theme
+    @Environment(\.chatMode) private var mode
+    @Environment(\.chatFactsShort) private var short
+    @Environment(\.chatModelOpen) private var open
     let models: AgentModels?
     let model: String
     let effort: String?
+    /// The face is the key of a menu that changes the model.
+    let opens: Bool
 
-    public init(models: AgentModels?, model: String, effort: String?) {
+    public init(models: AgentModels?, model: String, effort: String?, opens: Bool = false) {
         self.models = models
         self.model = model
         self.effort = effort
+        self.opens = opens
     }
 
     public var title: String {
@@ -363,17 +583,29 @@ public struct ChatModelFace: View {
 
     public var body: some View {
         let levels = models?.efforts(for: model) ?? []
-        HStack(spacing: 5) {
+        HStack(spacing: 6) {
             Text(verbatim: title).lineLimit(1)
             if let effort {
                 if let level = levels.firstIndex(where: { $0.id == effort }) {
-                    EffortBars(level: level, count: levels.count, height: 9, width: 2)
-                        .tip(Text(verbatim: levels[level].label))
+                    EffortBars(level: level, count: levels.count, height: 10, width: 2)
+                        .help(Text(verbatim: levels[level].label))
                 } else {
                     Text(verbatim: effort)
                 }
             }
+            if let mode {
+                Text(verbatim: "·").foregroundStyle(theme.colors.inkFaint).accessibilityHidden(true)
+                ChatModeLabel(mode: mode, named: !short)
+            }
+            if opens {
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
+                    .rotationEffect(.degrees(open ? 180 : 0))
+                    .accessibilityHidden(true)
+            }
         }
+        .appTextStyle(.callout)
+        .fontWeight(.medium)
     }
 
     /// An agent reports its model by its full ID, such as claude-sonnet-5-5 or
