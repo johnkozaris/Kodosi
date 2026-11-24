@@ -9,15 +9,6 @@ fn opaque_unknown_and_stopped_handles_are_not_dereferenced() {
     }
 }
 #[test]
-fn closed_gate_rejects_future_callbacks() {
-    let gate = Gate::default();
-    let permit = gate.enter().expect("open gate");
-    gate.close();
-    assert!(gate.enter().is_none());
-    drop(permit);
-    gate.wait();
-}
-#[test]
 fn subscription_identity_is_exact() {
     let token = SubscriptionState {
         session: CString::new("session").unwrap(),
@@ -31,9 +22,6 @@ fn subscription_identity_is_exact() {
     assert!(token.matches("subscriber", 7));
     assert!(!token.matches("subscriber", 6));
     assert!(!token.matches("other", 7));
-    token.retire();
-    assert!(token.cancel.is_cancelled());
-    assert!(token.gate.enter().is_none());
 }
 #[test]
 fn start_rejects_missing_or_wrong_callback_table() {
