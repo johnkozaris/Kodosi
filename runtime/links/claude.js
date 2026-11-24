@@ -153,6 +153,13 @@ async function slashCommands($) {
   }
 }
 
+// Claude Code names its module call before the reason of a refusal, as in "kodosi: $.command.run: no command
+// named /x in this session".
+function reason(error) {
+  const words = String(error && error.message ? error.message : error).replace(/^[\w-]+: \$\.[\w.]+: /, '')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 // The host has each event that came before, so a request that follows finds what it names.
 function settled($) {
   if (!sending && pending.length === 0) return Promise.resolve()
@@ -289,7 +296,7 @@ function run($, command) {
         tell($, 'waits', { n: command.n, picker: true })
       } else tell($, 'did', { n: command.n, drop })
     },
-    error => tell($, 'did', { n: command.n, error: String(error) }),
+    error => tell($, 'did', { n: command.n, error: reason(error) }),
   ).finally(() => {
     ended = true
     if (model && chosen === model) chosen = ''
