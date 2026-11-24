@@ -23,6 +23,8 @@
 "Close this tab and go back to Kodosi.": "Κλείστε αυτή την καρτέλα και επιστρέψτε στο Kodosi.",
 "Connect your GitHub account with gh auth login, then try again.": "Συνδέστε τον λογαριασμό σας στο GitHub με gh auth login και δοκιμάστε ξανά.",
 "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again.": "Συνδέστε τον λογαριασμό σας στο Gitea μέσω των διαπιστευτηρίων Git ή των KODOSI_GITEA_URL και KODOSI_GITEA_TOKEN και δοκιμάστε ξανά.",
+"Copilot CLI has extensions turned off, so it has no chat. Run copilot config extensions.enabled true, then start it again.": "Το Copilot CLI έχει απενεργοποιημένες τις επεκτάσεις, οπότε δεν έχει συνομιλία. Εκτελέστε copilot config extensions.enabled true και ξεκινήστε το ξανά.",
+"Copilot CLI turned off Kodosi's extension, so it has no chat. Turn it on in /extensions, then start it again.": "Το Copilot CLI απενεργοποίησε την επέκταση του Kodosi, οπότε δεν έχει συνομιλία. Ενεργοποιήστε την στο /extensions και ξεκινήστε το ξανά.",
 "Create issues from a computer.": "Δημιουργήστε issues από υπολογιστή.",
 "Credential deletion is still waiting for the system store.": "Η διαγραφή των διαπιστευτηρίων περιμένει ακόμη τον χώρο αποθήκευσης του συστήματος.",
 "Delete your account on the account page of the sign-in service.": "Διαγράψτε τον λογαριασμό σας στη σελίδα λογαριασμού της υπηρεσίας σύνδεσης.",

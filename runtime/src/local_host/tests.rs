@@ -522,3 +522,32 @@ fn a_started_host_gets_the_session_environment_and_this_commands_settings() {
         ])
     );
 }
+
+#[tokio::test]
+async fn initial_events_render_text_values_like_later_events() {
+    let storage = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
+    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root).unwrap())
+        .await
+        .unwrap();
+    let note = crate::text!(
+        "Copilot CLI has extensions turned off, so it has no chat. Run copilot config extensions.enabled true, then start it again."
+    );
+    let fault = crate::text::Text::plain("detail");
+    let expected_note = note.to_string();
+    let expected_fault = fault.to_string();
+    let host = tokio::spawn(async move {
+        let mut snapshot = scoped("sessions.snapshot", None, 1);
+        snapshot["sessions"] = json!([{
+            "id": "11111111-1111-4111-8111-111111111111",
+            "programNote": note,
+            "message": fault,
+        }]);
+        welcome_client(&mut listener, vec![snapshot], Vec::new()).await
+    });
+    let client = Client::connect(&root).await.unwrap();
+    let session = &client.initial_events[0]["sessions"][0];
+    assert_eq!(session["programNote"], expected_note);
+    assert_eq!(session["message"], expected_fault);
+    drop(host.await.unwrap());
+}

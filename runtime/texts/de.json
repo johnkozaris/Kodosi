@@ -23,6 +23,8 @@
 "Close this tab and go back to Kodosi.": "Schließe diesen Tab und kehre zu Kodosi zurück.",
 "Connect your GitHub account with gh auth login, then try again.": "Verbinde dein GitHub-Konto mit gh auth login und versuche es dann erneut.",
 "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again.": "Verbinde dein Gitea-Konto über Git-Zugangsdaten oder KODOSI_GITEA_URL und KODOSI_GITEA_TOKEN und versuche es dann erneut.",
+"Copilot CLI has extensions turned off, so it has no chat. Run copilot config extensions.enabled true, then start it again.": "Copilot CLI hat Erweiterungen ausgeschaltet und deshalb keinen Chat. Führe copilot config extensions.enabled true aus und starte es dann neu.",
+"Copilot CLI turned off Kodosi's extension, so it has no chat. Turn it on in /extensions, then start it again.": "Copilot CLI hat die Kodosi-Erweiterung ausgeschaltet und deshalb keinen Chat. Schalte sie in /extensions ein und starte es dann neu.",
 "Create issues from a computer.": "Erstelle Issues an einem Computer.",
 "Credential deletion is still waiting for the system store.": "Das Löschen der Anmeldedaten wartet noch auf den Systemspeicher.",
 "Delete your account on the account page of the sign-in service.": "Lösche dein Konto auf der Kontoseite des Anmeldedienstes.",

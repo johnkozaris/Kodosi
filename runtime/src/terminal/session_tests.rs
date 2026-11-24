@@ -1290,7 +1290,7 @@ async fn spinner_frames_of_one_title_are_published_once() {
     .await;
     let mut titles = Vec::new();
     tokio::time::timeout(Duration::from_secs(3), async {
-        while titles.last().map(String::as_str) != Some("✳ Task") {
+        while titles.last().and_then(Option::as_deref) != Some("✳ Task") {
             match receiver.recv().await {
                 Some(SessionChange::Title { title, .. }) => titles.push(title),
                 Some(_) => {}
@@ -1301,10 +1301,30 @@ async fn spinner_frames_of_one_title_are_published_once() {
     .await
     .expect("the idle title");
     assert_eq!(titles.len(), 2, "{titles:?}");
+    let first = titles[0].as_deref().unwrap();
     assert!(
-        crate::terminal::title_spins(&titles[0]) && titles[0].ends_with(" Task"),
+        crate::terminal::title_spins(first) && first.ends_with(" Task"),
         "{titles:?}"
     );
+    local.close().await.expect("closed");
+}
+
+#[tokio::test]
+async fn a_blank_title_clears_an_earlier_title() {
+    let (local, mut receiver, _root) =
+        shell(r"printf '\033]2;Old task\007'; sleep 0.15; printf '\033]2; \007'; exec /bin/cat")
+            .await;
+    let mut titles = Vec::new();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while titles.len() < 2 {
+            if let Some(SessionChange::Title { title, .. }) = receiver.recv().await {
+                titles.push(title);
+            }
+        }
+    })
+    .await
+    .expect("cleared title");
+    assert_eq!(titles, [Some("Old task".to_owned()), None]);
     local.close().await.expect("closed");
 }
 

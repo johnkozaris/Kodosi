@@ -12296,6 +12296,16 @@
                     }
                   ]
                 },
+                "programNote": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "programOutside": {
                   "type": "boolean"
                 },

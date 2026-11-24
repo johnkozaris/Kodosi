@@ -981,6 +981,8 @@ pub struct SessionEntry {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub program_outside: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub program_note: Option<Text>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub program_settings: Option<crate::agents::AgentSettings>,
     /// What the agent in front can change while it runs.
     #[serde(default, skip_serializing_if = "Option::is_none")]

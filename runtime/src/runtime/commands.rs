@@ -894,6 +894,12 @@ impl Runtime {
             })
             .ok_or_else(|| Error::Text(run_on_host()))?;
         let launcher = Arc::clone(&self.launcher);
+        let antigravity_mount = self.config.manages_home().then(|| {
+            (
+                self.config.home.clone(),
+                crate::agents::notes_folder(&self.config.data_root),
+            )
+        });
         let (line, agent) = (line.clone(), agent.clone());
         let command = command.clone();
         self.spawn(async move {
@@ -901,6 +907,11 @@ impl Runtime {
                 let (line, quiet_settings) = match (line, agent) {
                     (Some(line), None) => (line, None),
                     (None, Some(agent)) => {
+                        if agent.agent == crate::agents::Agent::Antigravity
+                            && let Some((home, notes)) = antigravity_mount
+                        {
+                            mount_antigravity_plugin(home, notes).await;
+                        }
                         let launch = launcher.line(&agent).await.map_err(Error::Invalid)?;
                         if let (Some(home), Some(folder)) = (launch.copilot_home, folder) {
                             allow_copilot_link(home, folder).await;
@@ -1462,20 +1473,24 @@ impl Runtime {
                 folder,
                 agent,
                 outside,
+                note,
                 settings,
             } => {
                 if let Some(local) = self.local.get_mut(&id) {
                     drop(local.terminal.set_account(group, account));
-                    if local.entry.program.as_deref() == Some(agent.name()) {
+                    let same_program = local.entry.program.as_deref() == Some(agent.name());
+                    if same_program {
                         local.account_folder = folder;
                     }
                     let settings = settings.changed(&local.changed);
                     if !settings.is_empty() {
                         drop(local.terminal.set_settings(group, settings));
                     }
-                    let outside = outside && local.entry.program.as_deref() == Some(agent.name());
-                    if local.entry.program_outside != outside {
+                    let outside = outside && same_program;
+                    let note = note.filter(|_| same_program && local.entry.face.is_none());
+                    if local.entry.program_outside != outside || local.entry.program_note != note {
                         local.entry.program_outside = outside;
+                        local.entry.program_note = note;
                         self.publish_catalog();
                     }
                 }
@@ -1727,6 +1742,7 @@ impl Runtime {
                     program: None,
                     program_account: None,
                     program_outside: false,
+                    program_note: None,
                     program_settings: None,
                     program_live: None,
                     program_pending: None,
@@ -2136,6 +2152,13 @@ async fn start_line(
             copilot_home: None,
         }));
     };
+    if config.manages_home() && agent.agent == crate::agents::Agent::Antigravity {
+        mount_antigravity_plugin(
+            config.home.clone(),
+            crate::agents::notes_folder(&config.data_root),
+        )
+        .await;
+    }
     let launch = launcher.line(agent).await.map_err(Error::Invalid)?;
     let flag = agent.agent.prompt_flag().map(str::to_owned);
     Ok(Some(Launch {
@@ -2321,6 +2344,17 @@ pub(super) async fn allow_copilot_link(home: PathBuf, folder: PathBuf) {
             .await;
     if let Ok(Err(error)) = allowed {
         tracing::warn!(%error, "Copilot will ask before its chat can answer its questions");
+    }
+}
+
+#[cfg(feature = "host")]
+async fn mount_antigravity_plugin(home: PathBuf, notes: PathBuf) {
+    let mounted = tokio::task::spawn_blocking(move || {
+        crate::agents::mount_antigravity_plugin(&home, &notes, true)
+    })
+    .await;
+    if let Ok(Err(error)) = mounted {
+        tracing::warn!(%error, "Kodosi's plugin for Antigravity CLI was not linked");
     }
 }
 

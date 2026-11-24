@@ -358,6 +358,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("displayDirectory"), s->workingDirectory },
         { QStringLiteral("program"), s->program }, { QStringLiteral("programAccount"), s->programAccount },
         { QStringLiteral("programOutside"), local && s->programOutside },
+        { QStringLiteral("programNote"), local && s->face.isEmpty() ? s->programNote : QString {} },
         { QStringLiteral("programSettings"), s->programSettings }, { QStringLiteral("programLive"), s->programLive },
         { QStringLiteral("programPending"), s->programPending },
         { QStringLiteral("connectedUsers"), s->connectedUsers },
@@ -395,7 +396,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
             .contains(s.connectionState)
         || !o.value(QStringLiteral("sharedWith")).isArray())
         return std::nullopt;
-    for (const auto* key : {"ownerUserId", "ownerName", "hostDeviceId", "hostName", "projectName", "message", "workingDir", "activity", "program", "restoredFrom"}) {
+    for (const auto* key : {"ownerUserId", "ownerName", "hostDeviceId", "hostName", "projectName", "message", "workingDir", "activity", "program", "programNote", "restoredFrom"}) {
         const auto value = o.value(QLatin1String(key));
         if (!value.isNull() && !value.isUndefined() && (!value.isString() || value.toString().size()>4096)) return std::nullopt;
     }
@@ -429,6 +430,7 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (!outside.isUndefined() && !outside.isBool())
         return std::nullopt;
     s.programOutside = outside.toBool();
+    s.programNote = text("programNote");
     const auto settings = decodeAgentSettings(o.value(QStringLiteral("programSettings")));
     const auto pending = decodeAgentSettings(o.value(QStringLiteral("programPending")));
     const auto live = decodeAgentLive(o.value(QStringLiteral("programLive")));

@@ -291,6 +291,13 @@ void DesktopStateModel::noteOutside(const QString& id)
     m_notedOutside.append(id);
     emit notedOutsideChanged();
 }
+void DesktopStateModel::dismissNote(const QString& id, const QString& note)
+{
+    if (m_dismissedNotes.value(id).toString() == note)
+        return;
+    m_dismissedNotes.insert(id, note);
+    emit dismissedNotesChanged();
+}
 QVariantMap DesktopStateModel::faces() const
 {
     QVariantMap faces;
@@ -333,6 +340,8 @@ void DesktopStateModel::switchAccount(const QString& userId)
     m_closing.clear();
     m_notedOutside.clear();
     emit notedOutsideChanged();
+    m_dismissedNotes.clear();
+    emit dismissedNotesChanged();
     m_faces.clear();
     emit facesChanged();
 }
@@ -451,6 +460,17 @@ void DesktopStateModel::reconcile()
     m_closing.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); });
     if (m_notedOutside.removeIf([this](const QString& id) { return !m_sessions->containsSession(id); }) > 0)
         emit notedOutsideChanged();
+    auto notesChanged = false;
+    for (auto note = m_dismissedNotes.begin(); note != m_dismissedNotes.end();) {
+        if (!m_sessions->containsSession(note.key())) {
+            note = m_dismissedNotes.erase(note);
+            notesChanged = true;
+        } else {
+            ++note;
+        }
+    }
+    if (notesChanged)
+        emit dismissedNotesChanged();
     auto picksChanged = false;
     for (auto pick = m_faces.begin(); pick != m_faces.end();) {
         const auto session = m_sessions->session(pick.key());

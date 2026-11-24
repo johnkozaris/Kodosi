@@ -456,6 +456,38 @@ private slots:
         f.workspace.apply(invite, 1);
         QCOMPARE(copied.count(), 1);
     }
+    void aLocalTerminalShowsAProgramNoteUntilChatOpensOrThePersonDismissesIt()
+    {
+        Fixture f;
+        const auto text = QStringLiteral("Copilot CLI has extensions turned off.");
+        auto local = test::session(1);
+        local.insert(QStringLiteral("program"), QStringLiteral("copilot"));
+        local.insert(QStringLiteral("programNote"), text);
+        auto chatting = test::session(2);
+        chatting.insert(QStringLiteral("program"), QStringLiteral("copilot"));
+        chatting.insert(QStringLiteral("programNote"), text);
+        chatting.insert(QStringLiteral("face"), QStringLiteral("chat"));
+        auto remote = test::session(3, true);
+        remote.insert(QStringLiteral("program"), QStringLiteral("copilot"));
+        remote.insert(QStringLiteral("programNote"), text);
+        f.workspace.apply(test::snapshot({ local, chatting, remote }), 0);
+        const auto note = [&](const int number) {
+            return f.sessions.presentationForSession(test::id(number)).value(QStringLiteral("programNote")).toString();
+        };
+        QCOMPARE(note(1), text);
+        QVERIFY(note(2).isEmpty());
+        QVERIFY(note(3).isEmpty());
+        f.desktop.dismissNote(test::id(1), text);
+        QCOMPARE(f.desktop.dismissedNotes().value(test::id(1)).toString(), text);
+        f.workspace.apply(test::snapshot({ chatting, remote }), 0);
+        QVERIFY(f.desktop.dismissedNotes().isEmpty());
+        auto invalid = test::session(4);
+        invalid.insert(QStringLiteral("programNote"), 42);
+        QTest::ignoreMessage(QtWarningMsg,
+            "the app could not read the event sessions.snapshot: terminal 0 of its list is invalid or repeats");
+        f.workspace.apply(test::snapshot({ invalid }), 0);
+        QVERIFY(!f.sessions.containsSession(test::id(4)));
+    }
 };
 QTEST_MAIN(WorkspaceTest)
 #include "tst_workspace.moc"

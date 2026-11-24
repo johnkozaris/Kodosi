@@ -857,6 +857,71 @@ fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
             .unwrap()
             .ends_with(plugin.join("skills").to_str().unwrap())
     );
+    let antigravity = notes.join(ANTIGRAVITY_PLUGIN);
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(antigravity.join("plugin.json")).unwrap())
+            .unwrap();
+    assert_eq!(manifest["name"], "kodosi");
+    let hooks: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(antigravity.join("hooks.json")).unwrap()).unwrap();
+    let command = hooks["kodosi"]["SessionStart"][0]["command"]
+        .as_str()
+        .unwrap();
+    assert!(
+        command.contains("KODOSI_SESSION_ID") && command.contains("kodosi internal-agy-context")
+    );
+    for (skill, text) in [
+        ("kodosi", SKILL),
+        ("kodosi-canvas", CANVAS_SKILL),
+        ("kodosi-documents", DOCUMENTS_SKILL),
+    ] {
+        assert_eq!(
+            fs::read_to_string(antigravity.join("skills").join(skill).join("SKILL.md")).unwrap(),
+            text
+        );
+    }
+}
+
+#[test]
+fn antigravity_plugin_mounts_while_kodosi_runs_and_keeps_a_person_s_own_plugin() {
+    let root = tempfile::tempdir().unwrap();
+    let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
+    let notes = root.join("data").join("agents");
+    write_notes(&notes).unwrap();
+    let home = root.join("home");
+    fs::create_dir_all(&home).unwrap();
+    let target = home.join(".gemini/config/plugins/kodosi");
+
+    mount_antigravity_plugin(&home, &notes, false).unwrap();
+    assert!(
+        !home.join(".gemini").exists(),
+        "host startup does not create .gemini where it does not exist"
+    );
+
+    mount_antigravity_plugin(&home, &notes, true).unwrap();
+    mount_antigravity_plugin(&home, &notes, false).unwrap();
+    assert!(target.join("plugin.json").is_file());
+    assert!(target.join("hooks.json").is_file());
+    assert!(target.join("skills/kodosi/SKILL.md").is_file());
+
+    unmount_antigravity_plugin(&home, &notes).unwrap();
+    assert!(!target.exists());
+    unmount_antigravity_plugin(&home, &notes).unwrap();
+
+    fs::create_dir_all(&target).unwrap();
+    fs::write(target.join("custom.txt"), "mine").unwrap();
+    mount_antigravity_plugin(&home, &notes, false).unwrap();
+    assert_eq!(
+        fs::read_to_string(target.join("custom.txt")).unwrap(),
+        "mine"
+    );
+    assert!(!target.join("plugin.json").exists());
+    unmount_antigravity_plugin(&home, &notes).unwrap();
+    assert_eq!(
+        fs::read_to_string(target.join("custom.txt")).unwrap(),
+        "mine",
+        "unmount never deletes a plugin Kodosi did not create"
+    );
 }
 
 fn claude_with_accounts() -> AgentInfo {
@@ -940,7 +1005,7 @@ fn an_agent_start_takes_the_last_choice_and_explicit_values_win() {
     };
     let plan =
         |info: &AgentInfo, models: Option<&AgentModels>, saved: &AgentPick, start: &AgentStart| {
-            plan(info, models, saved, start, Path::new("/bin/zsh"))
+            plan(info, models, saved, start, Path::new("/bin/zsh"), false)
         };
     let (line, pick) = plan(&info, Some(&models), &saved, &start(None, None, None)).unwrap();
     assert_eq!(
@@ -1172,6 +1237,7 @@ fn line(
         &saved,
         &start,
         Path::new("/bin/zsh"),
+        false,
     )
     .map(|(line, pick)| (line, pick.permissions))
 }
@@ -1259,7 +1325,7 @@ fn antigravity_in_the_chat_runs_its_server_with_the_choices_of_the_session() {
             chat: true,
             ..installed(Agent::Antigravity)
         };
-        plan(&info, None, &saved, &start, Path::new("/bin/zsh"))
+        plan(&info, None, &saved, &start, Path::new("/bin/zsh"), true)
             .map(|(line, pick)| (line, pick.chat))
             .unwrap()
     };
@@ -1278,7 +1344,8 @@ fn antigravity_in_the_chat_runs_its_server_with_the_choices_of_the_session() {
     assert_eq!(
         chat(true, Some(false), Permissions::Auto),
         (
-            format!("agy --mode auto --settings '{ANTIGRAVITY_DETAILED}'"),
+            r#"agy --mode auto --settings '{"showThinking":true,"title":{"command":"kodosi internal-title","type":"command"},"verbosity":"high"}'"#
+                .to_owned(),
             false
         )
     );
@@ -1339,6 +1406,131 @@ fn antigravity_starts_in_its_own_auto_mode_unless_a_person_chooses() {
 }
 
 #[test]
+fn antigravity_gets_kodosi_s_title_command_unless_its_settings_have_one() {
+    let root = tempfile::tempdir().unwrap();
+    let home = root.path();
+    assert!(!antigravity_has_title(home));
+    put(
+        home,
+        ".gemini/antigravity-cli/settings.json",
+        r#"{"title":true}"#,
+    );
+    assert!(!antigravity_has_title(home));
+    put(
+        home,
+        ".gemini/antigravity-cli/settings.json",
+        r#"{"title":{"type":"command","command":"   "}}"#,
+    );
+    assert!(!antigravity_has_title(home));
+    put(
+        home,
+        ".gemini/antigravity-cli/settings.json",
+        r#"{"title":{"type":"command","command":"my-title"}}"#,
+    );
+    assert!(antigravity_has_title(home));
+
+    let saved = AgentPick {
+        agent: Agent::Antigravity,
+        account: None,
+        model: None,
+        effort: None,
+        permissions: None,
+        output: None,
+        fast: false,
+        chat: false,
+    };
+    let start = |permissions, output| AgentStart {
+        agent: Agent::Antigravity,
+        account: None,
+        model: None,
+        effort: None,
+        permissions: Some(permissions),
+        output: Some(output),
+        fast: None,
+        chat: None,
+    };
+    assert_eq!(
+        plan(
+            &installed(Agent::Antigravity),
+            None,
+            &saved,
+            &start(Permissions::Auto, Output::Standard),
+            Path::new("/bin/zsh"),
+            true,
+        )
+        .unwrap()
+        .0,
+        format!("agy --mode auto --settings '{ANTIGRAVITY_TITLE}'")
+    );
+    assert_eq!(
+        plan(
+            &installed(Agent::Antigravity),
+            None,
+            &saved,
+            &start(Permissions::Ask, Output::Quiet),
+            Path::new("/bin/zsh"),
+            true,
+        )
+        .unwrap()
+        .0,
+        r#"agy --settings '{"agentMode":"","showFeedbackSurvey":false,"showTips":false,"title":{"command":"kodosi internal-title","type":"command"},"verbosity":"low"}'"#
+    );
+}
+
+#[test]
+fn copilot_reports_when_its_settings_turn_off_extensions() {
+    let root = tempfile::tempdir().unwrap();
+    let home = root.path();
+    assert_eq!(copilot_chat_note(home), None);
+
+    put(
+        home,
+        "settings.json",
+        r#"{"extensions":{"enabled":true,"mode":"disabled"}}"#,
+    );
+    assert_eq!(
+        copilot_chat_note(home),
+        None,
+        "boolean enabled takes precedence over legacy mode"
+    );
+
+    put(home, "settings.json", r#"{"extensions":{"enabled":false}}"#);
+    assert!(
+        copilot_chat_note(home)
+            .unwrap()
+            .to_string()
+            .contains("copilot config extensions.enabled true")
+    );
+
+    for mode in ["disabled", "load_only"] {
+        put(
+            home,
+            "settings.json",
+            &format!(r#"{{"extensions":{{"mode":"{mode}"}}}}"#),
+        );
+        assert!(
+            copilot_chat_note(home)
+                .unwrap()
+                .to_string()
+                .contains("copilot config extensions.enabled true"),
+            "{mode}"
+        );
+    }
+
+    put(
+        home,
+        "settings.json",
+        r#"{"extensions":{"enabled":true,"disabledExtensions":["plugin:kodosi:kodosi"]}}"#,
+    );
+    assert!(
+        copilot_chat_note(home)
+            .unwrap()
+            .to_string()
+            .contains("/extensions")
+    );
+}
+
+#[test]
 fn an_agent_starts_fast_only_when_chosen_and_the_next_start_chooses_again() {
     let line = |agent: Agent, saved: bool, fast: Option<bool>| {
         let saved = AgentPick {
@@ -1367,6 +1559,7 @@ fn an_agent_starts_fast_only_when_chosen_and_the_next_start_chooses_again() {
             &saved,
             &start,
             Path::new("/bin/zsh"),
+            false,
         )
         .map(|(line, pick)| (line, pick.fast))
     };

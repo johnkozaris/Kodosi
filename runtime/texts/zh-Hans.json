@@ -23,6 +23,8 @@
 "Close this tab and go back to Kodosi.": "关闭此标签页并返回 Kodosi。",
 "Connect your GitHub account with gh auth login, then try again.": "请用 gh auth login 连接你的 GitHub 账号，然后重试。",
 "Connect your Gitea account through Git credentials or KODOSI_GITEA_URL and KODOSI_GITEA_TOKEN, then try again.": "请通过 Git 凭据或 KODOSI_GITEA_URL 和 KODOSI_GITEA_TOKEN 连接你的 Gitea 账号，然后重试。",
+"Copilot CLI has extensions turned off, so it has no chat. Run copilot config extensions.enabled true, then start it again.": "Copilot CLI 关闭了扩展，因此无法打开聊天。请运行 copilot config extensions.enabled true，然后重新启动它。",
+"Copilot CLI turned off Kodosi's extension, so it has no chat. Turn it on in /extensions, then start it again.": "Copilot CLI 关闭了 Kodosi 的扩展，因此无法打开聊天。请在 /extensions 中开启它，然后重新启动。",
 "Create issues from a computer.": "请在电脑上创建 Issue。",
 "Credential deletion is still waiting for the system store.": "系统凭据存储仍在删除凭据。",
 "Delete your account on the account page of the sign-in service.": "请在登录服务的账号页面删除你的账号。",
