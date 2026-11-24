@@ -386,28 +386,49 @@ private class FactsMenus(
     val agent: @Composable () -> Unit
 )
 
-private enum class FactsForm { MEASURED, SHOWN }
+private enum class FactsSlot { MODEL, USE, SHOWN }
+
+/** The facts in one line with their words, in two lines with their words, or in one short line. */
+private enum class FactsForm { LINE, LINES, SHORT }
+
+private val FactsEdge = 12.dp
+private val FactsGap = 8.dp
 
 /**
- * The facts under the composer, with the model and the use of the agent as keys. Without room the
- * keys take their short form, and without room for that the row scrolls.
+ * The facts under the composer, with the model and the use of the agent as keys. Without room for
+ * one line the use goes to a second line, and without room for a key by itself the keys take their
+ * short form in one line, which scrolls.
  */
 @Composable
 private fun FactsRow(facts: ChatFacts, models: KnownModels, changesAgent: Boolean, menus: FactsMenus) {
     val scroll = rememberScrollState()
     SubcomposeLayout(Modifier.fillMaxWidth().navigationBarsPadding().heightIn(min = 36.dp)) { constraints ->
-        val named = subcompose(FactsForm.MEASURED) {
-            Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FactsKeys(facts, models, true, changesAgent, null)
-            }
-        }.sumOf { it.measure(Constraints()).width } <= constraints.maxWidth
-        val shown = subcompose(FactsForm.SHOWN) {
-            Row(
-                Modifier.horizontalScroll(scroll).padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FactsKeys(facts, models, named, changesAgent, menus)
+        val room = constraints.maxWidth - 2 * FactsEdge.roundToPx()
+        val model = subcompose(FactsSlot.MODEL) { ModelFact(facts, models, true, changesAgent, null) }
+            .maxOfOrNull { it.measure(Constraints()).width } ?: 0
+        val use = subcompose(FactsSlot.USE) { UseFacts(facts, true, null) }
+            .maxOfOrNull { it.measure(Constraints()).width } ?: 0
+        val gap = if (model > 0 && use > 0) FactsGap.roundToPx() else 0
+        val form = when {
+            model + gap + use <= room -> FactsForm.LINE
+            maxOf(model, use) <= room -> FactsForm.LINES
+            else -> FactsForm.SHORT
+        }
+        val shown = subcompose(FactsSlot.SHOWN) {
+            if (form == FactsForm.LINES) {
+                Column(Modifier.padding(horizontal = FactsEdge), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ModelFact(facts, models, true, changesAgent, menus)
+                    UseFacts(facts, true, menus)
+                }
+            } else {
+                Row(
+                    Modifier.horizontalScroll(scroll).padding(horizontal = FactsEdge),
+                    horizontalArrangement = Arrangement.spacedBy(FactsGap),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ModelFact(facts, models, form == FactsForm.LINE, changesAgent, menus)
+                    UseFacts(facts, form == FactsForm.LINE, menus)
+                }
             }
         }.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
         val height = maxOf(constraints.minHeight, shown.maxOfOrNull { it.height } ?: 0)
@@ -417,9 +438,9 @@ private fun FactsRow(facts: ChatFacts, models: KnownModels, changesAgent: Boolea
     }
 }
 
-/** The keys and facts of the row, in their full or short form; without [menus] they only take their room. */
+/** The model key, or the mode alone; without [menus] it only takes its room. */
 @Composable
-private fun FactsKeys(
+private fun ModelFact(
     facts: ChatFacts,
     models: KnownModels,
     named: Boolean,
@@ -445,22 +466,29 @@ private fun FactsKeys(
             Tipped(ChatWords.mode(mode)) { ChatModeLabel(mode, named, FactWords, Modifier.padding(horizontal = 4.dp)) }
         }
     }
-    if (facts.context != null || facts.limits.isNotEmpty() || (facts.cost ?: 0.0) > 0) {
-        ChatUsageKey(facts, named, menus?.usage == true, menus?.setUsage ?: {}, menus != null)
-    }
-    if (facts.helpers > 0) {
-        Count(
-            AppSymbol.FRIENDS,
-            facts.helpers,
-            pluralStringResource(R.plurals.chat_helpers, facts.helpers, facts.helpers)
-        )
-    }
-    if (facts.background > 0) {
-        Count(
-            AppSymbol.REFRESH,
-            facts.background,
-            pluralStringResource(R.plurals.chat_background_commands, facts.background, facts.background)
-        )
+}
+
+/** The use key with the helpers and the background commands after it; without [menus] it only takes its room. */
+@Composable
+private fun UseFacts(facts: ChatFacts, named: Boolean, menus: FactsMenus?) {
+    Row(horizontalArrangement = Arrangement.spacedBy(FactsGap), verticalAlignment = Alignment.CenterVertically) {
+        if (facts.context != null || facts.limits.isNotEmpty() || (facts.cost ?: 0.0) > 0) {
+            ChatUsageKey(facts, named, menus?.usage == true, menus?.setUsage ?: {}, menus != null)
+        }
+        if (facts.helpers > 0) {
+            Count(
+                AppSymbol.FRIENDS,
+                facts.helpers,
+                pluralStringResource(R.plurals.chat_helpers, facts.helpers, facts.helpers)
+            )
+        }
+        if (facts.background > 0) {
+            Count(
+                AppSymbol.REFRESH,
+                facts.background,
+                pluralStringResource(R.plurals.chat_background_commands, facts.background, facts.background)
+            )
+        }
     }
 }
 
