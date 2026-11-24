@@ -35,6 +35,10 @@ const PAGE_SCALE: f32 = 1.0;
 const RELOAD_WAIT: Duration = Duration::from_mins(1);
 /// A page with no ground of its own shows white, as in a browser, not see-through.
 pub(crate) const OPAQUE_WHITE: u32 = 0xFFFF_FFFF;
+const SEEN_FRAME_RATE: c_int = 60;
+/// A page that no device shows stays visible to its scripts, as an agent can still work in it,
+/// and draws only a few times a second.
+const UNSEEN_FRAME_RATE: c_int = 4;
 
 thread_local! {
     static ENGINE: RefCell<Option<Engine>> = const { RefCell::new(None) };
@@ -208,6 +212,19 @@ impl Shared {
             #[cfg(target_os = "macos")]
             layer: Rc::default(),
         }
+    }
+
+    fn seen(&self) -> bool {
+        #[cfg(target_os = "macos")]
+        if self
+            .layer
+            .borrow()
+            .as_ref()
+            .is_some_and(|layer| layer.tab.is_some())
+        {
+            return true;
+        }
+        self.capture.borrow().is_some()
     }
 }
 
@@ -1023,8 +1040,31 @@ fn capture(command: &ToEngine) {
         _ => None,
     })
     .flatten();
+    if let ToEngine::Capture { window, .. } | ToEngine::Stop { window } = *command {
+        pace(window);
+    }
     if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
         host.invalidate(PaintElementType::VIEW);
+    }
+}
+
+fn pace(window: i64) {
+    let Some((browsers, seen)) = with(|engine| {
+        let shared = engine.shared_of(window)?;
+        Some((engine.browsers_of(window), shared.seen()))
+    })
+    .flatten() else {
+        return;
+    };
+    let rate = if seen {
+        SEEN_FRAME_RATE
+    } else {
+        UNSEEN_FRAME_RATE
+    };
+    for browser in browsers {
+        if let Some(host) = browser.host() {
+            host.set_windowless_frame_rate(rate);
+        }
     }
 }
 
@@ -1048,6 +1088,7 @@ fn layer(window: i64, tab: Option<i64>) {
         engine.browser_of(tab?)
     })
     .flatten();
+    pace(window);
     if let Some(host) = repaint_tab.and_then(|browser| browser.host()) {
         host.invalidate(PaintElementType::VIEW);
     }
@@ -1246,7 +1287,7 @@ pub(crate) fn window_info() -> WindowInfo {
 
 pub(crate) fn browser_settings() -> BrowserSettings {
     BrowserSettings {
-        windowless_frame_rate: 60,
+        windowless_frame_rate: SEEN_FRAME_RATE,
         background_color: OPAQUE_WHITE,
         ..Default::default()
     }
@@ -1277,6 +1318,7 @@ pub(crate) fn after_created(browser: &mut Browser, origin: Origin) {
     let id = i64::from(browser.identifier());
     if let Origin::Tab { window, .. } = origin {
         show(with(|engine| engine.shown(window)).unwrap_or_default());
+        pace(window);
     }
     let Some(host) = browser.host() else {
         return;
