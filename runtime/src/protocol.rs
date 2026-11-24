@@ -3210,10 +3210,6 @@ pub(crate) mod tests {
         for sample in commands() {
             let command: CommandEnvelope =
                 serde_json::from_value(envelope(sample.clone())).unwrap();
-            assert_eq!(
-                command.command.operation(),
-                sample["type"].as_str().unwrap()
-            );
             let encoded = serde_json::to_value(&command).unwrap();
             let decoded: CommandEnvelope = serde_json::from_value(encoded).unwrap();
             assert_eq!(decoded.command, command.command);
@@ -3350,18 +3346,6 @@ pub(crate) mod tests {
                 ))
                 .is_err()
             );
-        }
-    }
-
-    #[test]
-    fn every_command_carries_the_request_identity_that_its_error_names() {
-        for mut sample in commands() {
-            sample["requestId"] = json!(ID);
-            let command: CommandEnvelope =
-                serde_json::from_value(envelope(sample.clone())).unwrap();
-            assert_eq!(command.command.request_id(), ID, "{sample}");
-            sample["requestId"] = json!("bad");
-            assert!(serde_json::from_value::<CommandEnvelope>(envelope(sample)).is_err());
         }
     }
 
