@@ -200,6 +200,8 @@ impl TerminalSession {
         })
         .await
         .map_err(|error| Error::Other(format!("Terminal startup failed: {error}")))??;
+        #[cfg(unix)]
+        chat.runs_in(pty.child_pid()).await;
         let (commands, receiver) = mpsc::channel(COMMAND_CAPACITY);
         let (host_requests, host_receiver) = mpsc::channel(COMMAND_CAPACITY);
         let (output, _) = broadcast::channel(256);

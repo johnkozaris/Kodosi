@@ -48,7 +48,13 @@ pub(super) enum Job {
         /// The module counts its batches, and sends a batch again when it got no answer.
         batch: u64,
         events: Vec<Value>,
+        /// The session of the process that sent them.
+        session: Option<u32>,
         reply: oneshot::Sender<bool>,
+    },
+    /// The session of the terminal's own program.
+    Terminal {
+        session: u32,
     },
     Ask {
         link: String,
@@ -98,6 +104,7 @@ impl ChatHandle {
             ),
             agent: None,
             link: None,
+            terminal: None,
             heard: 0,
             seen: Instant::now(),
             gone: None,
@@ -130,6 +137,11 @@ impl ChatHandle {
         let (reply, conversation) = oneshot::channel();
         self.jobs.send(Job::Conversation { reply }).await.ok()?;
         conversation.await.ok().flatten()
+    }
+
+    /// The terminal's own program started with this session.
+    pub(crate) async fn runs_in(&self, session: u32) {
+        self.jobs.send(Job::Terminal { session }).await.ok();
     }
 
     /// Gives the link of the agent a change of its model, effort or fast mode, as the line that a
@@ -170,6 +182,8 @@ struct Room {
     agent: Option<Box<dyn Agent>>,
     /// The link that the chat follows: the last that started in the terminal.
     link: Option<String>,
+    /// The session of the terminal's own program, where an agent of the terminal runs.
+    terminal: Option<u32>,
     /// The last batch of the followed module that the chat took.
     heard: u64,
     seen: Instant,
@@ -222,13 +236,21 @@ impl Room {
                 link,
                 batch,
                 events,
+                session,
                 reply,
             } => {
                 let greeting = events
                     .iter()
                     .find(|event| event.get("k").and_then(Value::as_str) == Some("hello"));
+                // A program can move its session into a background job that a daemon runs. The
+                // job keeps the terminal's environment, but the terminal no longer shows it.
+                let in_terminal = self
+                    .terminal
+                    .zip(session)
+                    .is_none_or(|(terminal, session)| terminal == session);
                 if let Some(greeting) = greeting
                     && self.link.as_deref() != Some(&link)
+                    && in_terminal
                 {
                     self.follow(link.clone(), greeting);
                 }
@@ -281,6 +303,7 @@ impl Room {
                     .map(str::to_owned);
                 drop(reply.send(conversation));
             }
+            Job::Terminal { session } => self.terminal = Some(session),
             Job::Change { line, reply } => {
                 let command = self
                     .agent
