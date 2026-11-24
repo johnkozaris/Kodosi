@@ -335,6 +335,8 @@ fn local_session_counts_ignore_remote_entries() {
     assert_eq!(local_sessions(&events), 2);
     assert_eq!(local_sessions(&[]), 0);
 }
+
+#[cfg(unix)]
 async fn answered(client: &mut Client, request: &str) -> Value {
     loop {
         let frame = client.next().await.unwrap();
