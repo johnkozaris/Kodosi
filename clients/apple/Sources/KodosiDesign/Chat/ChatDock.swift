@@ -500,12 +500,30 @@ private struct ChatUsageKey: View {
         }
         .buttonStyle(.kodosi(open ? .tinted : .secondary, size: .small))
         .animation(theme.motion.snappy, value: open)
-        .kodosiPopover(isPresented: $open, arrowEdge: .top, alignment: .leading) {
-            ChatUsage(facts: facts)
-        }
-        .help(Text("Usage", bundle: .module))
-        .accessibilityLabel(Text("Usage", bundle: .module))
-        .accessibilityIdentifier("chat.usage.key")
+        #if os(iOS)
+            .sheet(isPresented: $open) {
+                NavigationStack {
+                    ChatUsage(facts: facts)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(20)
+                        .navigationTitle(Text("Usage", bundle: .module))
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button { open = false } label: { Text("Done", bundle: .module) }
+                            }
+                        }
+                }
+                .presentationDetents([.medium])
+            }
+        #else
+            .kodosiPopover(isPresented: $open, arrowEdge: .top, alignment: .leading) {
+                ChatUsage(facts: facts)
+            }
+        #endif
+            .help(Text("Usage", bundle: .module))
+            .accessibilityLabel(Text("Usage", bundle: .module))
+            .accessibilityIdentifier("chat.usage.key")
     }
 }
 
