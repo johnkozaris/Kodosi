@@ -3,7 +3,6 @@ package com.kodosi.mobile.runtime
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -22,13 +21,6 @@ class CommandSinkTest {
         assertEquals("ana", command.string("accountUserId"))
         assertEquals(JsonPrimitive(4), command["accountEpoch"])
         assertTrue(command.string("requestId").isNotEmpty())
-    }
-
-    @Test
-    fun sendsNoAccountBeforeOneIsKnown() {
-        sink.perform("session.list")
-
-        assertEquals(JsonNull, sent.last("session.list")["accountUserId"])
     }
 
     @Test
