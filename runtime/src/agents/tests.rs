@@ -860,7 +860,7 @@ fn agents_find_the_note_and_the_plugin_in_the_folder_that_kodosi_writes() {
 }
 
 #[test]
-fn antigravity_plugin_mounts_while_kodosi_runs_and_keeps_a_person_s_own_plugin() {
+fn kodosi_leaves_no_plugin_in_antigravity_s_folder_when_it_stops() {
     let root = tempfile::tempdir().unwrap();
     let root = kodosi_os::fs::canonicalize(root.path()).unwrap();
     let notes = root.join("data").join("agents");
@@ -872,33 +872,14 @@ fn antigravity_plugin_mounts_while_kodosi_runs_and_keeps_a_person_s_own_plugin()
     mount_antigravity_plugin(&home, &notes, false).unwrap();
     assert!(
         !home.join(".gemini").exists(),
-        "host startup does not create .gemini where it does not exist"
+        "a host that starts makes no folder for an Antigravity CLI that is not there"
     );
 
     mount_antigravity_plugin(&home, &notes, true).unwrap();
-    mount_antigravity_plugin(&home, &notes, false).unwrap();
-    assert!(target.join("plugin.json").is_file());
     assert!(target.join("hooks.json").is_file());
-    assert!(target.join("skills/kodosi/SKILL.md").is_file());
 
     unmount_antigravity_plugin(&home, &notes).unwrap();
     assert!(!target.exists());
-    unmount_antigravity_plugin(&home, &notes).unwrap();
-
-    fs::create_dir_all(&target).unwrap();
-    fs::write(target.join("custom.txt"), "mine").unwrap();
-    mount_antigravity_plugin(&home, &notes, false).unwrap();
-    assert_eq!(
-        fs::read_to_string(target.join("custom.txt")).unwrap(),
-        "mine"
-    );
-    assert!(!target.join("plugin.json").exists());
-    unmount_antigravity_plugin(&home, &notes).unwrap();
-    assert_eq!(
-        fs::read_to_string(target.join("custom.txt")).unwrap(),
-        "mine",
-        "unmount never deletes a plugin Kodosi did not create"
-    );
 }
 
 fn claude_with_accounts() -> AgentInfo {

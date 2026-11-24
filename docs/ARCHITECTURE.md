@@ -109,8 +109,10 @@ and the [encryption design](CRYPTOGRAPHY.md).
 
 Kodosi reaches an agent only through what the agent's own CLI offers. Each terminal
 carries Kodosi's note for agents and the place of Kodosi's skills in its environment, and
-the host writes them into a folder of its own. Kodosi writes nothing into an agent's own
-folders, so an agent outside a Kodosi terminal does not change.
+the host writes them into a folder of its own. Kodosi leaves nothing behind in an agent's
+own folders. What it changes there while it runs, such as the link to its plugin that
+Antigravity CLI loads only from its own folder, it takes back when it stops, and a host
+that starts after a crash takes over what the one before left.
 
 The host types a project message that names one of its terminals into the agent in that
 terminal, and the `kodosi` command sends such a line to an agent on any computer. A change
