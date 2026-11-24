@@ -122,16 +122,15 @@ internal object ChatWords {
         return remember(clauses, locale) { sentence(ListFormatter.getInstance(locale).format(clauses), locale) }
     }
 
-    /** The calls that did not go as the agent wanted and that no sign shows, such as "1 denied". */
+    /** The calls that did not go as the agent wanted, such as "1 failed" or "1 denied". */
     @Composable
-    fun setbacks(tools: List<ChatTool>): List<String> = listOfNotNull(
-        tools.count { it.state == ChatToolState.DENIED }.takeIf { it > 0 }?.let {
-            pluralStringResource(R.plurals.chat_count_denied, it, it)
-        },
-        tools.count { it.state == ChatToolState.STOPPED }.takeIf { it > 0 }?.let {
-            pluralStringResource(R.plurals.chat_count_stopped, it, it)
-        }
-    )
+    fun setbacks(tools: List<ChatTool>): List<Pair<ChatToolState, String>> = listOf(
+        ChatToolState.FAILED to R.plurals.chat_count_failed,
+        ChatToolState.DENIED to R.plurals.chat_count_denied,
+        ChatToolState.STOPPED to R.plurals.chat_count_stopped
+    ).mapNotNull { (state, words) ->
+        tools.count { it.state == state }.takeIf { it > 0 }?.let { state to pluralStringResource(words, it, it) }
+    }
 
     /** What a call does or did, with its subject, such as "running npm test" or "ran npm test". */
     @Composable

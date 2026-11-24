@@ -56,8 +56,8 @@ import com.kodosi.mobile.ui.snappy
 private const val SHOWN_CHANGE_LINES = 40
 
 /**
- * The work of a turn as one quiet line: what the steps did and the one sign of how they ended.
- * The line is there from the first step, so a person can open a step while it runs.
+ * Steps of a turn as one quiet line: what they did, and the steps that did not go as the agent
+ * wanted. The line is there from the first step, so a person can open a step while it runs.
  */
 @Composable
 internal fun ChatWork(items: List<ChatItem>, hold: () -> Unit) {
@@ -65,17 +65,14 @@ internal fun ChatWork(items: List<ChatItem>, hold: () -> Unit) {
     var open by rememberSaveable(items.first().id) { mutableStateOf(false) }
     val tools = items.tools
     val ended = tools.filter { !it.state.isOpen }
-    val did = ended.filter { it.state == ChatToolState.DONE || it.state == ChatToolState.FAILED }
-    val summary = did.takeIf { it.isNotEmpty() }?.let { ChatWords.summary(it) }
-    val words = (listOfNotNull(summary) + ChatWords.setbacks(ended))
-        .ifEmpty { listOf(pluralStringResource(R.plurals.chat_steps, tools.size, tools.size)) }
-        .joinToString(" · ")
-    val sign = when {
-        tools.any { it.state.isOpen } -> null
-        tools.any { it.state == ChatToolState.FAILED } -> StatusForm.FAILED
-        tools.all { it.state == ChatToolState.DONE } -> StatusForm.DONE
+    val done = ended.filter { it.state == ChatToolState.DONE }
+    val summary = when {
+        done.isNotEmpty() -> ChatWords.summary(done)
+        ended.isEmpty() -> pluralStringResource(R.plurals.chat_steps, tools.size, tools.size)
         else -> null
     }
+    val setbacks = ChatWords.setbacks(ended)
+    val sign = if (tools.isNotEmpty() && done.size == tools.size) StatusForm.DONE else null
     val turn by animateFloatAsState(if (open) 90f else 0f, snappy(), label = "steps chevron")
     val action = stringResource(if (open) R.string.chat_hide_steps else R.string.chat_show_steps)
     Column {
@@ -95,14 +92,26 @@ internal fun ChatWork(items: List<ChatItem>, hold: () -> Unit) {
                 AppIcon(ChatWords.symbol(it), Modifier.size(12.dp), tint = colors.inkFaint)
                 Spacer(Modifier.width(7.dp))
             }
-            RollingText(
-                words,
-                KodosiType.caption,
-                colors.inkMuted,
-                Modifier.weight(1f, fill = false).padding(vertical = 4.dp),
-                maxLines = 2
-            )
-            Spacer(Modifier.width(6.dp))
+            summary?.let {
+                RollingText(
+                    it,
+                    KodosiType.caption,
+                    colors.inkMuted,
+                    Modifier.weight(1f, fill = false).padding(vertical = 4.dp),
+                    maxLines = 2
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            setbacks.forEach { (state, words) ->
+                Text(
+                    words,
+                    style = KodosiType.caption,
+                    color = if (state == ChatToolState.FAILED) colors.caution else colors.inkFaint,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Spacer(Modifier.width(6.dp))
+            }
             PoppingSign(sign, 11.dp)
             Spacer(Modifier.width(6.dp))
             AppIcon(
@@ -180,13 +189,6 @@ private fun ChatStepLine(item: ChatItem, hold: () -> Unit) {
                 Unfolding(open) { StepDetail(tool, Modifier.padding(start = 19.dp, bottom = 8.dp)) }
             }
         }
-
-        is ChatBody.Text -> Text(
-            rememberWords(body.text, true),
-            style = KodosiType.footnote,
-            color = colors.inkMuted,
-            modifier = Modifier.padding(vertical = 4.dp)
-        )
 
         else -> Unit
     }

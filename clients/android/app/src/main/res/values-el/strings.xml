@@ -552,6 +552,18 @@
         <item quantity="one">%d σταμάτησε</item>
         <item quantity="other">%d σταμάτησαν</item>
     </plurals>
+    <string name="chat_recap">Ανακεφαλαίωση</string>
+    <string name="chat_shows_in_terminal">Το %1$s το δείχνει στο τερματικό του.</string>
+    <string name="chat_show_terminal">Εμφάνιση τερματικού</string>
+    <string name="chat_commands">Εντολές</string>
+    <string name="chat_tokens_of">%1$s από %2$s tokens</string>
+    <string name="chat_resets_in">Ανανεώνεται σε %1$s</string>
+    <string name="chat_this_conversation">Αυτή η συνομιλία</string>
+    <string name="chat_usage">Χρήση</string>
+    <plurals name="chat_count_failed">
+        <item quantity="one">%d απέτυχε</item>
+        <item quantity="other">%d απέτυχαν</item>
+    </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="one">Εργασίες: %1$d από %2$d έτοιμη</item>
         <item quantity="other">Εργασίες: %1$d από %2$d έτοιμες</item>

@@ -574,6 +574,19 @@
         <item quantity="many">%d arrêtés</item>
         <item quantity="other">%d arrêtés</item>
     </plurals>
+    <string name="chat_recap">Récapitulatif</string>
+    <string name="chat_shows_in_terminal">%1$s l’affiche dans son terminal.</string>
+    <string name="chat_show_terminal">Afficher le terminal</string>
+    <string name="chat_commands">Commandes</string>
+    <string name="chat_tokens_of">%1$s sur %2$s jetons</string>
+    <string name="chat_resets_in">Se réinitialise dans %1$s</string>
+    <string name="chat_this_conversation">Cette conversation</string>
+    <string name="chat_usage">Utilisation</string>
+    <plurals name="chat_count_failed">
+        <item quantity="one">%d a échoué</item>
+        <item quantity="many">%d ont échoué</item>
+        <item quantity="other">%d ont échoué</item>
+    </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="one">Tâches : %1$d sur %2$d terminée</item>
         <item quantity="many">Tâches : %1$d sur %2$d terminées</item>

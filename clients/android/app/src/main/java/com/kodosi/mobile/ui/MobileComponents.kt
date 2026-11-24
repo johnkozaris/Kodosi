@@ -853,7 +853,7 @@ fun rememberWords(text: String, markdown: Boolean): AnnotatedString {
                     addLink(LinkAnnotation.Clickable(address, linked) { links.open(address) }, start, length)
                 }
             }
-            LinkPolicy.inText(toString()).forEach { link ->
+            LinkPolicy.inText(toAnnotatedString().text).forEach { link ->
                 if (named.none { it.first <= link.range.last && link.range.first <= it.last }) {
                     addLink(
                         LinkAnnotation.Clickable(link.address, linked) { links.open(link.address) },

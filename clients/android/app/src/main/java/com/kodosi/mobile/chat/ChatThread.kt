@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +54,8 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
@@ -414,6 +417,22 @@ private fun AgentRow(row: ChatRow, hold: () -> Unit) {
                     style = KodosiType.caption,
                     color = colors.inkMuted
                 )
+            }
+
+            is ChatNote.Recap -> Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
+                AppIcon(AppSymbol.TEXT, Modifier.padding(top = 3.dp).size(12.dp), tint = colors.inkFaint)
+                Spacer(Modifier.width(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        stringResource(R.string.chat_recap),
+                        style = KodosiType.footnote,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.inkMuted
+                    )
+                    SelectionContainer {
+                        Text(note.text, style = KodosiType.footnote, color = colors.inkMuted)
+                    }
+                }
             }
 
             ChatNote.Compacted -> Unit

@@ -17,19 +17,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
+import com.kodosi.mobile.ui.LocalLinkOpener
 import com.kodosi.mobile.ui.rememberWords
+import java.net.URI
 
 internal sealed interface ProseBlock {
     data class Lines(val text: String) : ProseBlock
@@ -287,7 +295,18 @@ private val WidestCell = 260.dp
 @Composable
 private fun ProseLines(text: String, live: Boolean) {
     val colors = KodosiTheme.colors
-    val words = rememberWords(text, true)
+    val folder = LocalProseFolder.current
+    val links = LocalLinkOpener.current
+    val marked = rememberWords(text, true)
+    val words = remember(marked, folder, links, colors.accent) {
+        ProsePaths.linked(
+            marked,
+            folder,
+            TextLinkStyles(SpanStyle(color = colors.accent, textDecoration = TextDecoration.Underline))
+        ) {
+            links.open(it)
+        }
+    }
     val shown = remember(words, live) {
         if (live) {
             buildAnnotatedString {
@@ -316,3 +335,49 @@ private val cursor = mapOf(
         TypingCursor(Modifier.fillMaxSize())
     }
 )
+
+/** The folder of the terminal, from which a path in an agent's prose names a file. */
+internal val LocalProseFolder = staticCompositionLocalOf<String?> { null }
+
+/**
+ * A path in an agent's prose is a link to its file, as Ghostty finds one: names with slashes
+ * between them, and a line after a colon. A path that does not start at a folder ends with the
+ * extension of a file, so words such as "and/or" and numbers such as 3/4 stay text.
+ */
+internal object ProsePaths {
+    private val path = Regex("""(?<![\w/.:@-])(?:~/|\.{1,2}/|/)?(?:[\w.-]+/)+[\w.-]+(?::\d+){0,2}""")
+    private val line = Regex("""(?::\d+){1,2}$""")
+    private val extension = Regex("""\.[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*$""")
+
+    fun linked(
+        words: AnnotatedString,
+        folder: String?,
+        style: TextLinkStyles,
+        open: (String) -> Unit
+    ): AnnotatedString {
+        val found = path.findAll(words.text).mapNotNull { match ->
+            val end = match.range.last + 1
+            file(match.value, folder)?.takeIf { words.getLinkAnnotations(match.range.first, end).isEmpty() }
+                ?.let { match.range.first until end to it }
+        }.toList()
+        if (found.isEmpty()) return words
+        return buildAnnotatedString {
+            append(words)
+            for ((range, address) in found) {
+                addLink(LinkAnnotation.Clickable(address, style) { open(address) }, range.first, range.last + 1)
+            }
+        }
+    }
+
+    fun file(found: String, folder: String?): String? {
+        val path = found.replace(line, "")
+        val rooted = listOf("/", "~/", "./", "../").any { path.startsWith(it) }
+        if (!rooted && !extension.containsMatchIn(path.substringAfterLast('/'))) return null
+        return when {
+            path.startsWith("/") -> URI("file", null, path, null).normalize().toString()
+            path.startsWith("~/") -> "file:$path"
+            folder == null -> null
+            else -> URI("file", null, "${folder.trimEnd('/')}/$path", null).normalize().toString()
+        }
+    }
+}

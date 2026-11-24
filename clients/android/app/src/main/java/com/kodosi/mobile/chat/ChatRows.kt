@@ -1,6 +1,9 @@
 package com.kodosi.mobile.chat
 
-/** The chat as a person reads it: the work of a turn folds into one row before its answer. */
+/**
+ * The chat as a person reads it: what the agent writes during a turn shows as the agent's words,
+ * and the steps between them fold into one row each.
+ */
 data class ChatRow(val id: String, val at: Long, val kind: Kind) {
     sealed interface Kind {
         data class Person(val text: String, val by: ChatPerson?) : Kind
@@ -10,7 +13,7 @@ data class ChatRow(val id: String, val at: Long, val kind: Kind) {
         /** A plan that the agent wrote at the end of its turn, which is what the turn gives. */
         data class Plan(val text: String, val live: Boolean) : Kind
 
-        /** The calls of a turn and what the agent wrote between them, as far as they came. */
+        /** The calls of a turn between two things that the agent wrote, as far as they came. */
         data class Work(val items: List<ChatItem>) : Kind
 
         data class End(val end: TurnEnd, val ms: Long) : Kind
@@ -31,16 +34,29 @@ data class ChatRow(val id: String, val at: Long, val kind: Kind) {
                     turn.last().answers -> turn.lastIndex
                     else -> null
                 }
-                val work = turn.filterIndexed { index, _ -> index != answer }
-                if (work.tools.isEmpty()) {
-                    for (item in work) {
-                        val text = (item.body as? ChatBody.Text)?.text ?: continue
-                        add(ChatRow(item.id, item.at, Kind.Answer(text, false)))
-                    }
-                } else {
-                    add(ChatRow("work.${work.first().id}", work.first().at, Kind.Work(work)))
+                val work = mutableListOf<ChatItem>()
+                fun endWork() {
+                    val first = work.firstOrNull() ?: return
+                    add(ChatRow("work.${first.id}", first.at, Kind.Work(work.toList())))
+                    work.clear()
                 }
-                answer?.let { answerRow(turn[it], ended) }?.let(::add)
+                turn.forEachIndexed { index, item ->
+                    val body = item.body
+                    when {
+                        index == answer -> {
+                            endWork()
+                            answerRow(item, ended)?.let(::add)
+                        }
+
+                        body is ChatBody.Text -> {
+                            endWork()
+                            add(ChatRow(item.id, item.at, Kind.Answer(body.text, false)))
+                        }
+
+                        else -> work += item
+                    }
+                }
+                endWork()
                 turn.clear()
             }
             for (item in items) {
