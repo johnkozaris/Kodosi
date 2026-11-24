@@ -34,7 +34,7 @@ private let catalog: JSONValue = .object([
             "permissions": .array(["ask", "auto", "unrestricted"].map(JSONValue.string)),
             "outputs": .array(["quiet", "standard", "detailed"].map(JSONValue.string)),
             "defaultPermissions": .string("unrestricted"), "defaultOutput": .string("quiet"), "fast": .bool(true), "chat": .bool(false),
-            "accounts": .array([
+            "dosi": .bool(true), "accounts": .array([
                 .object(["name": .string("default"), "command": .string("claude"), "identity": .string("ada@example.com"),
                          "folder": .string("~/.claude")]),
                 .object(["name": .string("work"), "command": .string("env CLAUDE_CONFIG_DIR=/Users/ada/.claude-work claude"),
@@ -47,7 +47,7 @@ private let catalog: JSONValue = .object([
             "reportsUsage": .bool(true), "permissions": .array(["ask", "auto", "unrestricted"].map(JSONValue.string)),
             "outputs": .array(["quiet", "standard", "detailed"].map(JSONValue.string)),
             "defaultPermissions": .string("unrestricted"), "defaultOutput": .string("quiet"), "fast": .bool(true), "chat": .bool(false),
-            "accounts": .array([]),
+            "dosi": .bool(true), "accounts": .array([]),
         ]),
     ]),
 ])

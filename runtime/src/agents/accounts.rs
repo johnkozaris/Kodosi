@@ -40,6 +40,7 @@ pub(super) fn catalog(home: &Path, facts: &Facts) -> AgentCatalog {
                     default_output: agent.default_output(),
                     fast: agent.has_fast(),
                     chat: agent.runs_in_chat(),
+                    dosi: crate::dosi::runs_on(agent),
                 }
             })
             .collect(),

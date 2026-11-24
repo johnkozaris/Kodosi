@@ -921,6 +921,8 @@ pub struct AgentInfo {
     pub fast: bool,
     /// The agent also runs in the chat of its terminal, in a session of its own.
     pub chat: bool,
+    /// Dosi can run on the agent.
+    pub dosi: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]

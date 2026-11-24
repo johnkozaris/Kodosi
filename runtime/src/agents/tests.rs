@@ -886,6 +886,7 @@ fn claude_with_accounts() -> AgentInfo {
         default_output: Agent::Claude.default_output(),
         fast: true,
         chat: false,
+        dosi: true,
     }
 }
 
@@ -1135,6 +1136,7 @@ fn installed(agent: Agent) -> AgentInfo {
         default_output: agent.default_output(),
         fast: agent.has_fast(),
         chat: agent.runs_in_chat(),
+        dosi: false,
     }
 }
 

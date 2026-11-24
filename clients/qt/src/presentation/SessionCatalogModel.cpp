@@ -1,4 +1,5 @@
 #include "presentation/SessionCatalogModel.hpp"
+#include <QCollator>
 #include <QHash>
 #include <QJsonArray>
 #include <QSet>
@@ -101,13 +102,18 @@ QVariantList SessionCatalogModel::folderGroups() const
             && entry.place != Place::Friend && !group.value(QStringLiteral("offline")).toBool());
         sorted.push_back(entry);
     }
-    std::ranges::sort(sorted, [](const Folder& a, const Folder& b) {
-        const auto order = [](const Folder& folder) {
+    QCollator collator;
+    collator.setCaseSensitivity(Qt::CaseInsensitive);
+    std::ranges::sort(sorted, [&collator](const Folder& a, const Folder& b) {
+        if (a.place != b.place)
+            return a.place < b.place;
+        if (const auto order = collator.compare(a.title, b.title); order != 0)
+            return order < 0;
+        const auto rest = [](const Folder& folder) {
             const bool named = folder.group.value(QStringLiteral("folder")).toBool();
-            return std::tuple(folder.place, folder.title, folder.computer, named ? 0 : 1,
-                folder.group.value(QStringLiteral("directory")).toString());
+            return std::tuple(folder.computer, named ? 0 : 1, folder.group.value(QStringLiteral("directory")).toString());
         };
-        return order(a) < order(b);
+        return rest(a) < rest(b);
     });
     QVariantList result;
     QString previous;

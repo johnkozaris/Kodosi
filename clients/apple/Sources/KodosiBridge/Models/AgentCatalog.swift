@@ -20,12 +20,14 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
     public var fast: Bool
     /// The agent also runs in the chat of its terminal, in a conversation of its own.
     public var chat: Bool
+    /// Dosi can run on the agent.
+    public var dosi: Bool
 
     public init(
         agent: String, program: String, installed: Bool, accounts: [AgentAccount], install: String, addsAccounts: Bool,
         reportsUsage: Bool, permissions: [AgentPermissions] = [.ask], outputs: [AgentOutput] = [],
         defaultPermissions: AgentPermissions = .ask, defaultOutput: AgentOutput = .standard, fast: Bool = false,
-        chat: Bool = false,
+        chat: Bool = false, dosi: Bool = false,
     ) {
         self.agent = agent
         self.program = program
@@ -40,6 +42,7 @@ public struct AgentInfo: Decodable, Equatable, Identifiable, Sendable {
         self.defaultOutput = defaultOutput
         self.fast = fast
         self.chat = chat
+        self.dosi = dosi
     }
 
     public var id: String {
