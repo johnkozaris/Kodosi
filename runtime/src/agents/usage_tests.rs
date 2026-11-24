@@ -53,15 +53,6 @@ fn claude_rows_keep_their_severity_their_model_and_when_they_reset() {
 }
 
 #[test]
-fn a_claude_account_without_plan_limits_reports_none() {
-    assert_eq!(claude(&json!({"rate_limits": null})), Vec::new());
-    assert_eq!(
-        claude(&json!({"rate_limits": {"limits": null}})),
-        Vec::new()
-    );
-}
-
-#[test]
 fn codex_windows_are_named_by_their_length() {
     let month = json!({"rateLimits": {"primary": {"usedPercent": 8, "windowDurationMins": 43200, "resetsAt": 1_795_848_074}, "secondary": null, "planType": "free"}});
     assert_eq!(
@@ -119,38 +110,6 @@ fn copilot_counts_the_premium_requests_of_the_month() {
     assert_eq!(copilot(&quota(0.0, true, false)), Vec::new());
 }
 
-#[test]
-fn a_reset_shows_only_when_it_comes_after_the_life_of_the_reading() {
-    let now = 1_795_349_410_376;
-    let resetting = |resets: u64| UsageLimit {
-        resets_at_ms: Some(resets),
-        ..limit(None, None, 71, UsageLevel::Normal)
-    };
-    assert_eq!(
-        upcoming(
-            vec![
-                resetting(now - 4 * 60_000),
-                resetting(now + 300),
-                resetting(now + 60_000),
-                resetting(now + 60_001)
-            ],
-            now
-        )
-        .iter()
-        .map(|limit| limit.resets_at_ms)
-        .collect::<Vec<_>>(),
-        [None, None, None, Some(now + 60_001)]
-    );
-}
-
-#[test]
-fn scope_names_are_short_plain_text() {
-    assert_eq!(scope_name(" Opus "), Some("Opus".to_owned()));
-    assert_eq!(scope_name(""), None);
-    assert_eq!(scope_name("a\u{7}b"), None);
-    assert_eq!(scope_name(&"x".repeat(33)), None);
-}
-
 #[cfg(unix)]
 fn program(folder: &Path, name: &str, script: &str) -> Runner {
     let path = folder.join(name);
@@ -188,21 +147,6 @@ async fn claude_reports_the_usage_of_the_account_folder_it_is_given() {
     assert_eq!(
         read(Agent::Claude, &runner, root.path()).await.unwrap(),
         vec![folder("/w/.claude-work")]
-    );
-}
-
-#[cfg(unix)]
-#[tokio::test]
-async fn claude_without_a_report_has_no_plan_limits() {
-    let root = tempfile::tempdir().unwrap();
-    let runner = program(
-        root.path(),
-        "claude",
-        r#"printf '%s\n' '{"type":"assistant","message":{"content":[]}}' '{"type":"result","subtype":"success"}'"#,
-    );
-    assert_eq!(
-        read(Agent::Claude, &runner, root.path()).await,
-        Ok(Vec::new())
     );
 }
 

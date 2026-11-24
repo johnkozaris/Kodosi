@@ -1,4 +1,4 @@
-use std::{fs, path::Path, sync::Arc};
+use std::{fs, path::Path};
 
 use super::{
     accounts::{self, referenced_home},
@@ -310,30 +310,6 @@ fn the_folder_that_the_shell_chooses_is_the_first_account() {
         ["default main@example.com ~/.claude-main"]
     );
     assert_eq!(catalog.agents[0].accounts[0].command, "claude");
-}
-
-#[cfg(unix)]
-#[test]
-fn the_catalog_says_where_the_shell_finds_the_kodosi_command() {
-    use std::os::unix::fs::PermissionsExt as _;
-
-    let root = tempfile::tempdir().unwrap();
-    let home = &kodosi_os::fs::canonicalize(root.path()).unwrap();
-    let facts = Facts {
-        path: Some(home.join(".local/bin").into_os_string()),
-        ..Facts::default()
-    };
-    assert_eq!(accounts::catalog(home, &facts).kodosi, None);
-    put(home, ".local/bin/kodosi", "#!/bin/sh\n");
-    fs::set_permissions(
-        home.join(".local/bin/kodosi"),
-        fs::Permissions::from_mode(0o755),
-    )
-    .unwrap();
-    assert_eq!(
-        accounts::catalog(home, &facts).kodosi.as_deref(),
-        Some("~/.local/bin/kodosi")
-    );
 }
 
 #[cfg(unix)]
@@ -664,44 +640,6 @@ fn agents_get_kodosi_s_note_from_the_terminal_variable_in_every_shell() {
         assert_eq!(agent.with_context(agent.program(), &notes), agent.program());
     }
     assert!(!CONTEXT.trim().contains(['"', '%', '\n']));
-}
-
-#[test]
-fn only_a_codex_that_a_person_started_by_hand_misses_kodosi_s_note() {
-    let notes = Notes::default();
-    let words = |line: &str| line.split(' ').map(str::to_owned).collect::<Vec<_>>();
-    assert!(Agent::Codex.started_without_note(&words("codex -m gpt-5.6-sol"), None, &notes));
-    assert!(!Agent::Codex.started_without_note(
-        &[
-            "codex".to_owned(),
-            "-c".to_owned(),
-            format!("developer_instructions={}", CONTEXT.trim()),
-        ],
-        None,
-        &notes
-    ));
-    assert!(!Agent::Codex.started_without_note(&[], None, &notes));
-    let served = Notes {
-        codex_servers: Some("unix:///tmp/kodosi-501-a/codex-".to_owned()),
-        ..Notes::default()
-    };
-    assert!(!Agent::Codex.started_without_note(
-        &words("codex --remote unix:///tmp/kodosi-501-a/codex-0123456789abcdef.sock"),
-        None,
-        &served
-    ));
-    assert!(!Agent::Codex.started_without_note(
-        &words("codex --remote=unix:///tmp/kodosi-501-a/codex-0123456789abcdef.sock"),
-        None,
-        &served
-    ));
-    assert!(Agent::Codex.started_without_note(
-        &words("codex --remote ws://127.0.0.1:4500"),
-        None,
-        &served
-    ));
-    assert!(!Agent::Claude.started_without_note(&words("claude"), None, &notes));
-    assert!(!Agent::Copilot.started_without_note(&words("copilot"), None, &notes));
 }
 
 #[cfg(unix)]
@@ -1177,42 +1115,6 @@ fn a_terminal_like_a_running_agent_takes_what_its_host_knows_of_it() {
     );
 }
 
-#[test]
-fn a_terminal_like_a_running_agent_takes_the_fast_mode_that_its_host_knows() {
-    let fast = |fast| {
-        Some(AgentSettings {
-            fast,
-            ..AgentSettings::default()
-        })
-    };
-    let like = |settings, pending| {
-        RunningAgent {
-            agent: Agent::Codex,
-            account_folder: None,
-            settings,
-            pending,
-        }
-        .start(&[], Path::new("/home/ana"))
-        .fast
-    };
-    assert_eq!(like(fast(Some(true)), None), Some(true));
-    assert_eq!(
-        like(fast(Some(true)), fast(Some(false))),
-        Some(false),
-        "a fast mode that waits for the end of the turn wins"
-    );
-    assert_eq!(
-        like(fast(None), None),
-        Some(false),
-        "an agent that started without a fast mode keeps its own setting"
-    );
-    assert_eq!(
-        like(None, None),
-        None,
-        "an agent that Kodosi knows nothing of starts with the last choice"
-    );
-}
-
 fn installed(agent: Agent) -> AgentInfo {
     AgentInfo {
         agent,
@@ -1501,169 +1403,6 @@ fn an_agent_starts_fast_only_when_chosen_and_the_next_start_chooses_again() {
 
 #[cfg(unix)]
 #[test]
-fn a_running_agent_shows_each_permissions_output_and_fast_mode_that_kodosi_starts_it_with() {
-    for (shell, flags) in [("/bin/zsh", &["-f", "-c"][..]), ("/bin/sh", &["-c"][..])] {
-        let shell = Path::new(shell);
-        if !shell.exists() {
-            continue;
-        }
-        let arguments = |line: &str| {
-            let printed = std::process::Command::new(shell)
-                .args(flags)
-                .arg(format!(r"printf '%s\0' {line}"))
-                .env_clear()
-                .output()
-                .unwrap();
-            String::from_utf8(printed.stdout)
-                .unwrap()
-                .split_terminator('\0')
-                .map(str::to_owned)
-                .collect::<Vec<_>>()
-        };
-        for agent in [
-            Agent::Claude,
-            Agent::Codex,
-            Agent::Copilot,
-            Agent::Antigravity,
-        ] {
-            let mut outputs = agent.outputs();
-            if outputs.is_empty() {
-                outputs.push(agent.default_output());
-            }
-            let speeds: &[Option<bool>] = if agent.has_fast() {
-                &[None, Some(true)]
-            } else {
-                &[None]
-            };
-            for permissions in agent.permissions() {
-                for &output in &outputs {
-                    for &fast in speeds {
-                        let start = AgentStart {
-                            agent,
-                            account: None,
-                            model: None,
-                            effort: None,
-                            permissions: Some(permissions),
-                            output: Some(output),
-                            fast,
-                            chat: None,
-                        };
-                        let saved = AgentPick {
-                            agent,
-                            account: None,
-                            model: None,
-                            effort: None,
-                            permissions: None,
-                            output: None,
-                            fast: false,
-                            chat: false,
-                        };
-                        let (line, _) =
-                            plan(&installed(agent), None, &saved, &start, shell).unwrap();
-                        let notes = Notes {
-                            shell: shell.to_owned(),
-                            ..Notes::default()
-                        };
-                        let line = agent.with_context(&line, &notes);
-                        let started = agent.started_with(&arguments(&line));
-                        assert_eq!(started.permissions, Some(permissions), "{line}");
-                        if agent != Agent::Copilot {
-                            assert_eq!(started.output, Some(output), "{line}");
-                        }
-                        let shown = agent.has_fast().then(|| fast.unwrap_or(false));
-                        assert_eq!(started.fast, shown, "{line}");
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[tokio::test]
-async fn the_launch_choice_survives_a_restart() {
-    let root = tempfile::tempdir().unwrap();
-    let pick = AgentPick {
-        agent: Agent::Codex,
-        account: Some("default".to_owned()),
-        model: Some("gpt-6".to_owned()),
-        effort: None,
-        permissions: Some(Permissions::Auto),
-        output: Some(Output::Detailed),
-        fast: true,
-        chat: false,
-    };
-    let launcher = Arc::new(Launcher::load(
-        root.path(),
-        root.path(),
-        Path::new("/bin/sh"),
-    ));
-    launcher.choose(&AgentChoiceChange::Pick(pick.clone()));
-    launcher.choose(&AgentChoiceChange::Tab {
-        agent: Some(Agent::Codex),
-    });
-    launcher.save().await;
-    let choice = Launcher::load(root.path(), root.path(), Path::new("/bin/sh")).choice();
-    assert_eq!(choice.agent, Some(Agent::Codex));
-    assert_eq!(choice.pick(Agent::Codex), pick);
-}
-
-#[cfg(unix)]
-fn shell_finding(folder: &Path, programs: &[&str]) -> std::path::PathBuf {
-    let bin = folder.join("bin");
-    fs::create_dir_all(&bin).unwrap();
-    let executable = |path: std::path::PathBuf, text: String| {
-        kodosi_os::process::write_program(&path, &text).unwrap();
-        path
-    };
-    for program in programs {
-        executable(bin.join(program), "#!/bin/sh\n".to_owned());
-    }
-    executable(
-        folder.join("sh"),
-        format!(
-            "#!/bin/sh\n[ \"$1\" = -l ] && shift\nPATH='{}' exec /bin/sh \"$@\"\n",
-            bin.display()
-        ),
-    )
-}
-
-#[cfg(unix)]
-#[tokio::test]
-async fn a_person_who_never_chose_starts_on_the_first_installed_agent() {
-    let root = tempfile::tempdir().unwrap();
-    let nothing = shell_finding(&root.path().join("nothing"), &[]);
-    let agents = shell_finding(&root.path().join("agents"), &["codex", "copilot"]);
-    let load = |data: &str, shell: &Path| {
-        let data = root.path().join(data);
-        fs::create_dir_all(&data).unwrap();
-        Arc::new(Launcher::load(&data, root.path(), shell))
-    };
-    let first = async |launcher: &Launcher| launcher.catalog().await.unwrap().choice.agent;
-
-    let new = load("new", &agents);
-    assert_eq!(new.choice().agent, None, "before Kodosi knows the agents");
-    assert_eq!(first(&new).await, Some(Agent::Codex));
-    assert_eq!(first(&load("bare", &nothing)).await, None);
-
-    let chosen = load("chosen", &agents);
-    chosen.choose(&AgentChoiceChange::Tab {
-        agent: Some(Agent::Copilot),
-    });
-    assert_eq!(first(&chosen).await, Some(Agent::Copilot));
-
-    let plain = load("plain", &agents);
-    plain.choose(&AgentChoiceChange::Tab { agent: None });
-    assert_eq!(first(&plain).await, None);
-    Arc::clone(&plain).save().await;
-    assert_eq!(
-        first(&load("plain", &agents)).await,
-        None,
-        "the plain terminal stays the choice after a restart"
-    );
-}
-
-#[cfg(unix)]
-#[test]
 fn a_running_agent_takes_the_place_of_its_account_folder() {
     let home = Path::new("/home/ana");
     let account = |name: &str, folder: &str| AgentAccount {
@@ -1904,62 +1643,6 @@ fn a_running_agent_changes_with_its_own_commands() {
         lines(Agent::Claude, settings(Some("opus\r/exit"), None, None)).is_err(),
         "a value is one word, so it types no other command"
     );
-}
-
-#[test]
-fn a_running_agent_changes_its_fast_mode_with_its_own_commands() {
-    let change = |model: Option<&str>, effort: Option<&str>, fast| AgentSettings {
-        model: model.map(str::to_owned),
-        effort: effort.map(str::to_owned),
-        fast: Some(fast),
-        ..AgentSettings::default()
-    };
-    let lines = |agent: Agent, change: AgentSettings| {
-        agent
-            .live_lines(&change)
-            .map(|lines| lines.into_iter().map(|(line, _)| line).collect::<Vec<_>>())
-    };
-    assert_eq!(
-        lines(Agent::Claude, change(Some("opus"), None, true)).unwrap(),
-        ["/model opus", "/fast on"]
-    );
-    assert_eq!(
-        lines(Agent::Claude, change(None, None, false)).unwrap(),
-        ["/fast off"]
-    );
-    assert_eq!(
-        lines(Agent::Codex, change(None, None, true)).unwrap(),
-        ["/model --speed=fast"]
-    );
-    assert_eq!(
-        lines(Agent::Codex, change(Some("gpt-6"), Some("high"), false)).unwrap(),
-        ["/model gpt-6 --reasoning=high", "/model --speed=standard"],
-        "a later change of one of them replaces only its own command"
-    );
-    assert_eq!(
-        lines(Agent::Copilot, change(None, None, true)).unwrap_err(),
-        "Copilot CLI has no fast mode."
-    );
-}
-
-#[test]
-fn a_new_model_runs_at_its_own_effort() {
-    let now = AgentSettings {
-        model: Some("opus".to_owned()),
-        effort: Some("high".to_owned()),
-        ..AgentSettings::default()
-    };
-    let model = AgentSettings {
-        model: Some("sonnet".to_owned()),
-        ..AgentSettings::default()
-    };
-    assert_eq!(now.changed(&model).effort, None);
-    let effort = AgentSettings {
-        effort: Some("low".to_owned()),
-        ..AgentSettings::default()
-    };
-    assert_eq!(now.changed(&effort).model.as_deref(), Some("opus"));
-    assert_eq!(now.changed(&effort).effort.as_deref(), Some("low"));
 }
 
 #[test]

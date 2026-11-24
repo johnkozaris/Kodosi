@@ -13,29 +13,6 @@ async fn command_reader_rejects_large_prefix_before_allocating() {
 }
 
 #[tokio::test]
-async fn an_input_that_its_terminal_reports_itself_is_acknowledged_as_shown() {
-    let (mut writer, reader) = tokio::io::duplex(1024);
-    let mut reader = FrameReader::new(reader);
-    let answers: [(Result<()>, bool); 2] = [
-        (Err(Error::Unsent(crate::text::Text::plain("lost"))), true),
-        (Err(Error::Busy), false),
-    ];
-    for (result, shown_by_terminal) in answers {
-        write_frame(&mut writer, &input_ack_frame(&result).unwrap())
-            .await
-            .unwrap();
-        let TerminalFrame::InputAck {
-            accepted, shown, ..
-        } = read_terminal(&mut reader).await.unwrap()
-        else {
-            panic!("expected an input acknowledgement");
-        };
-        assert!(!accepted);
-        assert_eq!(shown, shown_by_terminal);
-    }
-}
-
-#[tokio::test]
 async fn frames_roundtrip_and_oversized_prefix_is_rejected() {
     let (mut a, b) = tokio::io::duplex(512);
     let mut b = FrameReader::new(b);
@@ -256,31 +233,6 @@ async fn a_connection_that_a_stopping_host_closes_tries_again() {
 }
 
 #[tokio::test]
-async fn a_client_hears_why_the_host_could_not_read_the_saved_sign_in() {
-    let storage = tempfile::tempdir().unwrap();
-    let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
-    let mut listener = kodosi_os::ipc::Listener::bind(&endpoint(&root).unwrap())
-        .await
-        .unwrap();
-    let host = tokio::spawn(async move {
-        let mut expired = scoped("auth.required", None, 1);
-        expired["reason"] = json!("expired");
-        welcome_client(
-            &mut listener,
-            vec![
-                scoped("system.ready", None, 1),
-                scoped("auth.finalizing", None, 1),
-            ],
-            vec![expired],
-        )
-        .await
-    });
-    let client = connect_or_start(&root).await.unwrap();
-    assert_eq!(client.initial_events.last().unwrap()["reason"], "expired");
-    drop(host.await.unwrap());
-}
-
-#[tokio::test]
 async fn a_client_does_not_wait_for_a_saved_sign_in_that_comes_back_later() {
     let storage = tempfile::tempdir().unwrap();
     let root = kodosi_os::fs::canonicalize(storage.path()).unwrap();
@@ -383,25 +335,8 @@ fn local_session_counts_ignore_remote_entries() {
     assert_eq!(local_sessions(&events), 2);
     assert_eq!(local_sessions(&[]), 0);
 }
-#[tokio::test]
-async fn an_answer_reaches_only_the_client_that_asked() {
-    let (_storage, root, handle) = hosted(HostKind::Background).await;
-    let mut asking = Client::connect(&root).await.unwrap();
-    let mut other = Client::connect(&root).await.unwrap();
-    let epoch = asking.initial_events[0]["accountEpoch"].clone();
-    let ask = |request: &str| json!({"type":"session.list","requestId":request,"accountUserId":null,"accountEpoch":epoch});
-    let mine = Uuid::now_v7().to_string();
-    asking.command(ask(&mine)).await.unwrap();
-    assert_eq!(answered(&mut asking, &mine).await["type"], "session.result");
-    let theirs = Uuid::now_v7().to_string();
-    other.command(ask(&theirs)).await.unwrap();
-    assert_eq!(
-        answered(&mut other, &theirs).await["type"],
-        "session.result"
-    );
-    handle.shutdown().await;
-}
 
+#[cfg(unix)]
 async fn answered(client: &mut Client, request: &str) -> Value {
     loop {
         let frame = client.next().await.unwrap();

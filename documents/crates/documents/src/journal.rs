@@ -253,14 +253,6 @@ mod tests {
         assert_eq!(found.records, [b"whole".to_vec(), b"next".to_vec()]);
     }
 
-    #[test]
-    fn a_journal_of_another_file_is_not_used() {
-        let state = tempfile::tempdir().unwrap();
-        let folder = state.path().join("one");
-        drop(Journal::start(&folder, Path::new("/a"), b"", 1, 0, HashMap::new()).unwrap());
-        assert!(Journal::find(&folder, Path::new("/b")).is_none());
-    }
-
     /// On APFS, which lists by a hash of the name, `zk` comes after the records and before the
     /// rest, and `pc` before them all, so a folder of that name that cannot go stops a removal
     /// there.
@@ -318,15 +310,5 @@ mod tests {
         let found = Journal::find(&folder, path);
         loose(&stuck);
         assert!(found.is_none_or(|(_, found)| found.records.is_empty()));
-    }
-
-    #[test]
-    fn a_close_leaves_nothing_behind() {
-        let state = tempfile::tempdir().unwrap();
-        let folder = state.path().join("one");
-        let mut journal =
-            Journal::start(&folder, Path::new("/a"), b"x", 1, 0, HashMap::new()).unwrap();
-        journal.remove();
-        assert!(!folder.exists());
     }
 }

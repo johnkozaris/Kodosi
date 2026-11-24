@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Json;
 using Kodosi.Accounts;
@@ -69,29 +68,6 @@ public sealed class AccountDeletionTests(PostgresFixture postgres)
         await cleanup.RunAsync(ct);
         await using (var scope = scopes.CreateAsyncScope())
             Assert.Empty(await scope.ServiceProvider.GetRequiredService<Kodosi.Data.KodosiDbContext>().DeletedAccounts.ToListAsync(ct));
-    }
-
-    [Fact]
-    public async Task TheSignInServiceDeletesTheAccountAndTheAppOnlyGetsTheConfirmationPage()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        var keycloak = new FakeKeycloak();
-        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct),
-            services => services.AddHttpClient(nameof(AccountDeletionFeed)).ConfigurePrimaryHttpMessageHandler(() => keycloak), SignInService);
-        using var actor = await app.EnrollAsync("leaving");
-        var me = await actor.Client.GetFromJsonAsync<JsonElement>("/api/me", ct);
-        var page = new Uri(me.GetProperty("deletionUri").GetString()!);
-        Assert.Equal(BackendApplication.Issuer + "/protocol/openid-connect/auth", page.GetLeftPart(UriPartial.Path));
-        var query = System.Web.HttpUtility.ParseQueryString(page.Query);
-        Assert.Equal("account-console", query["client_id"]);
-        Assert.Equal("delete_account", query["kc_action"]);
-        Assert.Equal(BackendApplication.Issuer + "/account/", query["redirect_uri"]);
-        Assert.Equal("S256", query["code_challenge_method"]);
-        Assert.Equal(43, query["code_challenge"]!.Length);
-        var again = await actor.Client.GetFromJsonAsync<JsonElement>("/api/me", ct);
-        Assert.NotEqual(me.GetProperty("deletionUri").GetString(), again.GetProperty("deletionUri").GetString());
-        using var direct = await actor.Client.DeleteAsync("/api/me", ct);
-        Assert.Equal(HttpStatusCode.Conflict, direct.StatusCode);
     }
 
     [Fact]

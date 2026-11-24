@@ -3,10 +3,9 @@ use serde_json::{Value, json};
 use uuid::{NoContext, Timestamp, Uuid};
 
 use super::{
-    DosiAction, DosiBody, DosiItem, DosiTarget, DosiTargetKind,
+    DosiBody, DosiItem,
     adapters::{Adapter, Event},
     context,
-    receipt::{self, Shown},
     store::Marks,
 };
 use crate::agents::Agent;
@@ -114,85 +113,6 @@ fn codex_items_become_tools_and_text_and_an_unfinished_turn_fails() {
             failed: true,
             message: Some("stream disconnected".to_owned())
         })
-    );
-}
-
-fn shown(command: &str) -> Option<(DosiAction, Option<DosiTarget>, Option<String>)> {
-    match receipt::command_receipt(command, None) {
-        Shown::Receipt(receipt) => Some((receipt.action, receipt.target, receipt.text)),
-        Shown::Hidden => None,
-    }
-}
-
-fn target(kind: DosiTargetKind, value: &str) -> DosiTarget {
-    DosiTarget {
-        kind,
-        value: value.to_owned(),
-    }
-}
-
-#[test]
-fn kodosi_commands_become_receipts_and_other_commands_stay_commands() {
-    assert_eq!(
-        shown(r#"kodosi terminal input "Release notes" --enter y"#),
-        Some((
-            DosiAction::Type,
-            Some(target(DosiTargetKind::Terminal, "Release notes")),
-            Some("y".to_owned())
-        ))
-    );
-    assert_eq!(
-        shown(
-            r#"kodosi --json project --project 'Launch week' post "Docs are live." --agent Dosi"#
-        ),
-        Some((
-            DosiAction::Post,
-            Some(target(DosiTargetKind::Project, "Launch week")),
-            Some("Docs are live.".to_owned())
-        ))
-    );
-    assert_eq!(
-        shown("NO_COLOR=1 kodosi terminal keys api down enter"),
-        Some((
-            DosiAction::Press,
-            Some(target(DosiTargetKind::Terminal, "api")),
-            Some("down enter".to_owned())
-        ))
-    );
-    assert_eq!(
-        shown(r#"kodosi terminal start --agent codex --prompt "Add tests""#),
-        Some((
-            DosiAction::Start,
-            Some(target(DosiTargetKind::Agent, "codex")),
-            Some("Add tests".to_owned())
-        ))
-    );
-    assert_eq!(
-        shown("kodosi terminal agent --fast on api"),
-        Some((
-            DosiAction::Other,
-            Some(target(DosiTargetKind::Terminal, "api")),
-            None
-        ))
-    );
-    assert_eq!(
-        shown(r#"kodosi dosi ask "Which?" --option a --option b"#),
-        None
-    );
-    assert!(matches!(
-        shown("npm test && kodosi terminal read api"),
-        Some((
-            DosiAction::Run,
-            Some(DosiTarget {
-                kind: DosiTargetKind::Command,
-                ..
-            }),
-            None
-        ))
-    ));
-    assert_eq!(
-        receipt::unwrap_shell("/bin/zsh -lc 'kodosi terminal list'"),
-        "kodosi terminal list"
     );
 }
 

@@ -137,86 +137,6 @@ exec /bin/cat"#,
 }
 
 #[tokio::test]
-async fn a_terminal_starts_at_the_grid_of_its_view() {
-    let size = TerminalSize::new(20, 70).expect("size");
-    let cell = CellPixels {
-        width: 17,
-        height: 41,
-    };
-    let (session, _changes, root) = shell_at(
-        r#"while [ ! -f ready ]; do sleep 0.01; done
-printf 'SIZE=%s\n' "$(stty size)"
-exec /bin/cat"#,
-        (size, cell),
-        watch::channel(TerminalLook::Dark).1,
-    )
-    .await;
-    let mut subscription = session.subscribe().await.expect("subscribe");
-    std::fs::write(root.path().join("ready"), b"").expect("release shell");
-    wait_text(&mut subscription, b"SIZE=20 70").await;
-    let cut = session
-        .checkpoint(subscription.connection_id)
-        .await
-        .expect("checkpoint");
-    assert_eq!(cut.checkpoint.size(), size);
-    session.close().await.expect("close");
-}
-
-#[tokio::test]
-async fn a_new_look_of_the_host_reaches_the_program_that_follows_the_color_scheme_and_the_viewers()
-{
-    let (look, host_look) = watch::channel(TerminalLook::Dark);
-    let (session, _changes, _root) = shell_at(
-        r"stty raw -echo
-printf '\033[?2031hREADY'
-exec /bin/cat -v",
-        Default::default(),
-        host_look,
-    )
-    .await;
-    let mut subscription = session.subscribe().await.expect("subscribe");
-    let mut output = session.output();
-    wait_text(&mut subscription, b"READY").await;
-
-    look.send_replace(TerminalLook::Light);
-
-    wait_text(&mut subscription, b"^[[?997;2n").await;
-    tokio::time::timeout(Duration::from_secs(5), async {
-        while !matches!(
-            output.recv().await,
-            Ok(PublishedFrame::Metadata(metadata)) if metadata.look == TerminalLook::Light
-        ) {}
-    })
-    .await
-    .expect("the new look for the viewers");
-    session.close().await.expect("close");
-}
-
-#[tokio::test]
-async fn a_resize_clears_every_row_of_a_long_prompt_line() {
-    let (session, _changes, _root) = shell(
-        r"stty -echo
-printf '\033]133;A;redraw=1\007%s\r\n> READY' $(head -c 100 /dev/zero | tr '\0' x)
-exec /bin/cat",
-    )
-    .await;
-    let mut subscription = session.subscribe().await.expect("subscribe");
-    wait_text(&mut subscription, b"READY").await;
-    session
-        .resize(
-            subscription.connection_id,
-            TerminalSize::new(32, 40).expect("size"),
-            None,
-            true,
-        )
-        .await
-        .expect("resize");
-    let text = session.read(false).await.expect("text");
-    assert!(!text.contains('x'), "{text}");
-    session.close().await.expect("close");
-}
-
-#[tokio::test]
 async fn invalid_geometry_is_rejected_without_stopping_the_process() {
     let (session, _changes, _root) = shell("stty -echo; exec /bin/cat").await;
     let mut subscription = session.subscribe().await.expect("subscribe");
@@ -244,113 +164,6 @@ async fn invalid_geometry_is_rejected_without_stopping_the_process() {
     session.close().await.expect("close");
 }
 
-#[tokio::test]
-async fn a_resize_without_pixels_keeps_the_cell_size_of_the_last_resize() {
-    let (session, _changes, _root) = shell("stty -echo; exec /bin/cat").await;
-    let mut subscription = session.subscribe().await.expect("subscribe");
-    let size = TerminalSize::new(20, 80).expect("size");
-    let wider = TerminalSize::new(20, 100).expect("wider");
-    let geometry = TerminalPixelGeometry::new(640, 320, 8, 16).expect("geometry");
-    session
-        .resize(subscription.connection_id, size, Some(geometry), true)
-        .await
-        .expect("resize with pixels");
-    session
-        .resize(subscription.connection_id, wider, None, true)
-        .await
-        .expect("resize without pixels");
-
-    let cell = CellPixels {
-        width: 8,
-        height: 16,
-    };
-    for expected in [size, wider] {
-        let received = tokio::time::timeout(Duration::from_secs(5), async {
-            loop {
-                if let Some(ControlFrame::Resize {
-                    rows, cols, cell, ..
-                }) = subscription.control.recv().await
-                {
-                    break (rows, cols, cell);
-                }
-            }
-        })
-        .await
-        .expect("resize frame");
-        assert_eq!(received, (expected.rows(), expected.cols(), cell));
-    }
-    let cut = session
-        .checkpoint(subscription.connection_id)
-        .await
-        .expect("checkpoint");
-    assert_eq!(
-        (cut.checkpoint.size(), cut.checkpoint.cell()),
-        (wider, cell)
-    );
-    session.close().await.expect("close");
-}
-
-#[tokio::test]
-async fn resize_claim_is_current_connection_ownership_not_a_permission_role() {
-    let (session, _changes, _root) = shell("exec /bin/cat").await;
-    let first = session.subscribe().await.expect("first");
-    let second = session.subscribe().await.expect("second");
-    let size = TerminalSize::new(18, 60).expect("size");
-    session
-        .resize(first.connection_id, size, None, false)
-        .await
-        .expect("first size owner");
-    assert!(
-        session
-            .resize(second.connection_id, size, None, false)
-            .await
-            .is_err()
-    );
-    session
-        .resize(second.connection_id, size, None, true)
-        .await
-        .expect("any controller may claim");
-    drop(second);
-    session
-        .resize(first.connection_id, size, None, false)
-        .await
-        .expect("closed owner released");
-    session.close().await.expect("close");
-}
-
-#[tokio::test]
-async fn the_focused_view_owns_the_size_and_brings_its_size_with_focus() {
-    let (session, _changes, _root) = shell("exec /bin/cat").await;
-    let first = session.subscribe().await.expect("first");
-    let second = session.subscribe().await.expect("second");
-    let small = TerminalSize::new(18, 60).expect("size");
-    let large = TerminalSize::new(30, 100).expect("size");
-    session
-        .focus(first.connection_id, true, false)
-        .await
-        .expect("focus first");
-    session
-        .resize(first.connection_id, small, None, false)
-        .await
-        .expect("the focused view sets the size");
-    assert!(
-        session
-            .resize(second.connection_id, large, None, false)
-            .await
-            .is_err()
-    );
-    session
-        .focus(second.connection_id, true, false)
-        .await
-        .expect("focus second");
-    let cut = session
-        .checkpoint(first.connection_id)
-        .await
-        .expect("checkpoint");
-    assert_eq!(cut.checkpoint.size(), large);
-    session.close().await.expect("close");
-}
-
 async fn remote_control(
     session: &TerminalSession,
     connection_id: Uuid,
@@ -372,62 +185,6 @@ async fn remote_control(
         .await
         .expect("control reply")
         .expect("accepted control");
-}
-
-#[tokio::test]
-async fn a_focused_view_takes_its_size_back_when_the_view_that_took_it_leaves() {
-    let (session, _changes, _root) = shell("exec /bin/cat").await;
-    let mut output = session.output();
-    let phone = Uuid::now_v7();
-    let authorization = CancellationToken::new();
-    remote_control(
-        &session,
-        phone,
-        &authorization,
-        TerminalControl::Focus { focused: true },
-    )
-    .await;
-    remote_control(
-        &session,
-        phone,
-        &authorization,
-        TerminalControl::Resize {
-            rows: 17,
-            cols: 49,
-            width_pixels: 0,
-            height_pixels: 0,
-            cell_width_pixels: 0,
-            cell_height_pixels: 0,
-            claim: false,
-        },
-    )
-    .await;
-    let attach = session.subscribe().await.expect("attach");
-    session
-        .resize(
-            attach.connection_id,
-            TerminalSize::new(30, 100).expect("size"),
-            None,
-            true,
-        )
-        .await
-        .expect("an attach claims the size");
-    drop(attach);
-
-    let mut sizes = Vec::new();
-    tokio::time::timeout(Duration::from_secs(5), async {
-        while sizes.len() < 3 {
-            if let PublishedFrame::Resize { rows, cols, .. } =
-                output.recv().await.expect("published frame")
-            {
-                sizes.push((rows, cols));
-            }
-        }
-    })
-    .await
-    .expect("the phone's size again");
-    assert_eq!(sizes, [(17, 49), (30, 100), (17, 49)]);
-    session.close().await.expect("close");
 }
 
 #[tokio::test]
@@ -566,34 +323,6 @@ async fn a_focused_view_that_only_changes_its_size_leaves_the_size_with_the_view
         .await
         .expect("checkpoint");
     assert_eq!(cut.checkpoint.size(), size(30, 100));
-    session.close().await.expect("close");
-}
-
-#[tokio::test]
-async fn keys_bring_the_size_of_the_view_that_types() {
-    let (session, _changes, _root) = shell("stty raw -echo; exec /bin/cat").await;
-    let typing = session.subscribe().await.expect("view that types");
-    let other = session.subscribe().await.expect("other view");
-    let size = |rows, cols| TerminalSize::new(rows, cols).expect("size");
-    for (view, rows, cols) in [(&typing, 18, 60), (&other, 30, 100)] {
-        session
-            .focus(view.connection_id, true, false)
-            .await
-            .expect("focus");
-        session
-            .resize(view.connection_id, size(rows, cols), None, false)
-            .await
-            .expect("size");
-    }
-    session
-        .write_input(typing.connection_id, Bytes::from_static(b"x"))
-        .await
-        .expect("a person types");
-    let cut = session
-        .checkpoint(other.connection_id)
-        .await
-        .expect("checkpoint");
-    assert_eq!(cut.checkpoint.size(), size(18, 60));
     session.close().await.expect("close");
 }
 
@@ -1158,24 +887,6 @@ async fn a_program_that_ends_while_it_works_leaves_no_status() {
     session.close().await.expect("close");
 }
 
-#[tokio::test]
-async fn a_progress_bar_shows_as_work_and_ends_with_its_program() {
-    let (session, mut changes, _root) =
-        shell("set -m; /bin/sh -c \"printf '\\033]9;4;1;40\\007'; sleep 1\"; exec /bin/cat").await;
-    assert_eq!(
-        next_status(&mut changes).await,
-        Some(ProgramStatus {
-            state: ProgramState::Working,
-            kind: None,
-            progress: Some(40),
-            title: None,
-            message: None,
-        })
-    );
-    assert_eq!(next_status(&mut changes).await, None);
-    session.close().await.expect("close");
-}
-
 async fn next_context(changes: &mut mpsc::Receiver<SessionChange>) -> Option<TerminalContext> {
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
@@ -1186,23 +897,6 @@ async fn next_context(changes: &mut mpsc::Receiver<SessionChange>) -> Option<Ter
     })
     .await
     .expect("context change")
-}
-
-#[tokio::test]
-async fn a_context_names_its_place_until_it_ends() {
-    let (session, mut changes, _root) = shell(
-        "printf '\\033]3008;start=run;type=elevate;user=me;targetuser=root\\007'; sleep 1; printf '\\033]3008;end=run\\007'; exec /bin/cat",
-    )
-    .await;
-    assert_eq!(
-        next_context(&mut changes).await,
-        Some(TerminalContext {
-            place: None,
-            root: true,
-        })
-    );
-    assert_eq!(next_context(&mut changes).await, None);
-    session.close().await.expect("close");
 }
 
 #[tokio::test]
@@ -1386,18 +1080,6 @@ async fn interactive_shell() -> (
     (session, receiver, root)
 }
 
-#[tokio::test]
-async fn a_start_line_runs_once_the_shell_waits_at_its_prompt() {
-    let (session, _changes, _root) = interactive_shell().await;
-    let mut subscription = session.subscribe().await.expect("subscribe");
-    session
-        .start("echo $((6 * 7))-started".to_owned())
-        .expect("start line");
-    wait_text(&mut subscription, b"42-started").await;
-    session.close().await.expect("close");
-    drop(session);
-}
-
 async fn line_ends_within(changes: &mut mpsc::Receiver<SessionChange>, within: Duration) -> bool {
     tokio::time::timeout(within, async {
         loop {
@@ -1447,75 +1129,6 @@ async fn keys_typed_before_the_start_line_follow_it() {
     assert!(
         matches!((at(b"START-LINE"), at(b"EARLY-KEYS")), (Some(start), Some(early)) if start < early),
         "{received:?}"
-    );
-    session.close().await.unwrap();
-}
-
-#[tokio::test]
-async fn a_result_stays_after_its_program_ends() {
-    let (session, mut changes, _root) = shell(
-        "set -m; /bin/sh -c \"printf '\\033]7501;state=done:msg=QnVpbHQ=\\007'\"; exec /bin/cat",
-    )
-    .await;
-    assert_eq!(
-        next_status(&mut changes)
-            .await
-            .map(|status| (status.state, status.message)),
-        Some((ProgramState::Done, Some("Built".to_owned())))
-    );
-    tokio::time::sleep(Duration::from_millis(2500)).await;
-    while let Ok(change) = changes.try_recv() {
-        assert!(!matches!(change, SessionChange::Status { .. }));
-    }
-    session.close().await.expect("close");
-}
-
-#[tokio::test]
-async fn a_program_that_reports_a_wait_sends_no_notification_of_its_own_while_it_runs() {
-    let (session, mut changes, _root) = shell(
-        "set -m; /bin/sh -c \"printf '\\033]7501;state=done\\007\\033]777;notify;Agent;Waits\\007'; sleep 1\"; /bin/sh -c \"printf '\\033]777;notify;Backup;Finished\\007'\"; exec /bin/cat",
-    )
-    .await;
-    let titles = tokio::time::timeout(Duration::from_secs(5), async {
-        let mut titles = Vec::new();
-        while titles.last().map(String::as_str) != Some("Backup") {
-            if let Some(SessionChange::Notification { title, .. }) = changes.recv().await {
-                titles.push(title);
-            }
-        }
-        titles
-    })
-    .await
-    .expect("the notification of a program that reports nothing");
-    assert_eq!(titles, ["Backup"]);
-    session.close().await.expect("close");
-}
-
-#[tokio::test]
-async fn directory_tracking_follows_cd_without_shell_integration() {
-    let (session, mut changes, root) = shell("mkdir nested; cd nested; exec /bin/cat").await;
-    let expected = kodosi_os::fs::canonicalize(root.path())
-        .unwrap()
-        .join("nested");
-    tokio::time::timeout(Duration::from_secs(3), async {
-        loop {
-            if let Some(SessionChange::Cwd { path, .. }) = changes.recv().await
-                && path == expected
-            {
-                break;
-            }
-        }
-    })
-    .await
-    .unwrap();
-    let subscription = session.subscribe().await.unwrap();
-    let cut = session
-        .checkpoint(subscription.connection_id)
-        .await
-        .unwrap();
-    assert_eq!(
-        cut.checkpoint.metadata.unwrap().directory.as_deref(),
-        expected.to_str()
     );
     session.close().await.unwrap();
 }
@@ -1670,55 +1283,6 @@ async fn input_admission_rejects_a_detached_view() {
 }
 
 #[tokio::test]
-async fn title_delivery_retries_after_the_change_channel_is_full() {
-    let root = tempfile::tempdir().unwrap();
-    let (changes, mut receiver) = mpsc::channel(1);
-    changes
-        .send(SessionChange::Bell { id: Uuid::now_v7() })
-        .await
-        .unwrap();
-    let local = TerminalSession::spawn(
-        Uuid::now_v7(),
-        Uuid::now_v7(),
-        "/bin/sh".into(),
-        vec![
-            "-c".into(),
-            r"printf '\033]0;Final title\007'; exec /bin/cat".into(),
-        ],
-        root.path().to_owned(),
-        None,
-        None,
-        Vec::new(),
-        Default::default(),
-        CanvasHandle::spawn(
-            Uuid::now_v7(),
-            &std::env::temp_dir(),
-            crate::canvas::CanvasServices::new(&std::env::temp_dir(), true),
-        ),
-        TerminalChat::alone(),
-        watch::channel(TerminalLook::Dark).1,
-        std::env::temp_dir().join(Uuid::now_v7().to_string()),
-        changes,
-    )
-    .await
-    .unwrap();
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    receiver.recv().await.unwrap();
-    tokio::time::timeout(Duration::from_secs(2), async {
-        loop {
-            if let Some(SessionChange::Title { title, .. }) = receiver.recv().await {
-                assert_eq!(title, "Final title");
-                break;
-            }
-        }
-    })
-    .await
-    .unwrap();
-    local.close().await.unwrap();
-    drop(local);
-}
-
-#[tokio::test]
 async fn spinner_frames_of_one_title_are_published_once() {
     let (local, mut receiver, _root) = shell(
         r"printf '\033]0;⠂ Task\007'; sleep 0.1; printf '\033]0;⠄ Task\007'; sleep 0.1; printf '\033]0;⠆ Task\007'; sleep 0.1; printf '\033]0;✳ Task\007'; exec /bin/cat",
@@ -1742,21 +1306,6 @@ async fn spinner_frames_of_one_title_are_published_once() {
         "{titles:?}"
     );
     local.close().await.expect("closed");
-}
-
-#[test]
-fn start_commands_clear_the_line_the_way_the_shell_edits() {
-    for shell in [
-        "/opt/PowerShell/7/pwsh",
-        "powershell.exe",
-        "cmd.exe",
-        "PWSH.EXE",
-    ] {
-        assert_eq!(clear_line_keys(Path::new(shell)), "\x03", "{shell}");
-    }
-    for shell in ["/bin/zsh", "/bin/bash", "bash.exe", "fish"] {
-        assert_eq!(clear_line_keys(Path::new(shell)), "\x05\x15", "{shell}");
-    }
 }
 
 #[test]

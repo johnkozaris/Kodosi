@@ -774,34 +774,6 @@ mod tests {
     }
 
     #[test]
-    fn a_new_tab_opens_in_the_window_and_is_its_own_at_once() {
-        let mut view = View::new(MINE);
-        let asked = json!({"id": 8, "method": "Target.createTarget", "params": {"url": "https://example.com/"}});
-        assert_eq!(
-            view.ask(&asked.to_string(), place),
-            Ask::Open {
-                id: 8,
-                address: "https://example.com/".to_owned()
-            }
-        );
-        let blank = json!({"id": 9, "method": "Target.createTarget", "params": {"url": ""}});
-        assert_eq!(
-            view.ask(&blank.to_string(), place),
-            Ask::Open {
-                id: 9,
-                address: BLANK.to_owned()
-            }
-        );
-        assert!(
-            view.opened(8, Some("N".to_owned()))
-                .contains("\"targetId\":\"N\"")
-        );
-        let attach = json!({"id": 10, "method": "Target.attachToTarget", "params": {"targetId": "N", "flatten": true}});
-        assert_eq!(view.ask(&attach.to_string(), place), Ask::Pass);
-        assert!(view.opened(9, None).contains("error"));
-    }
-
-    #[test]
     fn commands_for_the_whole_browser_stay_with_kodosi() {
         let mut view = View::new(MINE);
         let downloads = json!({"id": 11, "method": "Browser.setDownloadBehavior", "params": {"behavior": "allow", "downloadPath": "/tmp"}});

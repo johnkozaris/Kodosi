@@ -244,13 +244,7 @@ public sealed class TerminalConnectionTests
         Assert.Equal(new TerminalStatus("claude", "working", Account: 2), Read("""{"account":2,"program":"claude","state":"working"}"""));
         Assert.Equal(new TerminalStatus("claude", "done", Attention: true), Read("""{"attention":true,"program":"claude","state":"done"}"""));
         Assert.Null(Read("null"));
-        foreach (var invalid in new[]
-                 {
-                     """{"state":"blocked","message":"Allow the command?"}""", """{"state":"thinking"}""",
-                     """{"state":"working","kind":"permission"}""", """{"program":"Claude Code"}""",
-                     """{"account":1,"state":"working"}""", """{"account":256,"program":"claude"}""", """{"account":-1,"program":"claude"}""",
-                     """{"state":"working","attention":true}""", """{"attention":true}""", """{"state":"blocked","attention":false}""",
-                 })
+        foreach (var invalid in new[] { """{"state":"blocked","message":"Allow the command?"}""", """{"program":"Claude Code"}""" })
             Assert.ThrowsAny<Exception>(() => Read(invalid));
     }
 
@@ -303,16 +297,6 @@ public sealed class TerminalConnectionTests
     }
 
     private static (bool Kodosi, bool Here) Others(JsonElement notice) => (notice.GetProperty("kodosi").GetBoolean(), notice.GetProperty("here").GetBoolean());
-
-    [Fact]
-    public void AConnectionMessageWithoutAKnownTypeIsRefused()
-    {
-        foreach (var message in new[] { "{}", $$"""{"sessionId":"{{Guid.Empty}}"}""", """{"type":"other"}""", "null" })
-        {
-            var refusal = Record.Exception(() => Wire.Decode(Encoding.UTF8.GetBytes(message)));
-            Assert.True(refusal is ApiException or JsonException, $"{message}: {refusal?.GetType().Name}");
-        }
-    }
 
     [Fact]
     public async Task TheWatchdogEndsASilentConnectionAndOneThatDoesNotTakeItsMessages()

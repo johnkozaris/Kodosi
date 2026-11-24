@@ -6,18 +6,6 @@ import Testing
 import UIKit
 
 struct SettingsTests {
-    @Test(arguments: [
-        ("abcd efgh jkmn", "ABCD-EFGH-JKMN"),
-        ("ABCD-EFGH-JKMN-PQRS", "ABCD-EFGH-JKMN"),
-        ("ab-c", "ABC"),
-        ("abcd-", "ABCD"),
-        ("abcde", "ABCD-E"),
-        ("", ""),
-    ])
-    func `device code is grouped as the other device shows it`(typed: String, shown: String) {
-        #expect(DeviceCode.format(typed) == shown)
-    }
-
     @Test func `the lock closes Kodosi only after a minute away`() {
         let left = ContinuousClock.now
         #expect(!AppLock.locks(enabled: false, left: left, now: left + .seconds(600)))

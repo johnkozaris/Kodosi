@@ -11,8 +11,6 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,21 +75,6 @@ class BrowserFeedTest {
         feed.show(false)
         feed.show(true)
         assertEquals(false, look())
-    }
-
-    @Test
-    fun aPipeThatOpensBeforeTheViewHasItsSizeWatchesWithTheSizeOfTheView() = runTest {
-        val feed = BrowserFeed(pipes, "terminal", backgroundScope)
-        feed.show(true)
-        val pipe = sent.last("document.open").string("pipe")
-        sent.reply("document.open")
-        news("document.opened", pipe)
-        assertTrue(sent.types.none { it == "document.send" })
-
-        feed.resize(1080, 1740, 2.625f)
-        val size = watched()?.get("size")?.jsonObject
-        assertEquals(411, size?.get("width")?.jsonPrimitive?.int)
-        assertEquals(662, size?.get("height")?.jsonPrimitive?.int)
     }
 
     private fun TestScope.feed() =

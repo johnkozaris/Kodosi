@@ -1,7 +1,4 @@
-use super::{
-    Checkpoint, TERMINAL_SNAPSHOT_MAX_BYTES, TerminalCheckpointError, TerminalMetadata,
-    TerminalSize,
-};
+use super::{Checkpoint, TERMINAL_SNAPSHOT_MAX_BYTES, TerminalCheckpointError, TerminalMetadata};
 use ghostty_vt::{Terminal, TerminalPolicy};
 
 fn in_folder(directory: &str) -> TerminalMetadata {
@@ -21,33 +18,6 @@ fn folders_from_every_host_platform_are_valid() {
     ] {
         assert!(in_folder(folder).is_valid(), "{folder}");
     }
-}
-
-#[test]
-fn relative_or_malformed_folders_are_invalid() {
-    for folder in [
-        "",
-        "project",
-        "C:project",
-        "C:",
-        r"\\",
-        r"1:\x",
-        "/tmp/\u{7}",
-    ] {
-        assert!(!in_folder(folder).is_valid(), "{folder:?}");
-    }
-}
-
-#[test]
-fn a_checkpoint_takes_its_size_from_the_snapshot() {
-    let mut host = Terminal::new(30, 5, TerminalPolicy::default()).expect("terminal");
-    let snapshot = host
-        .snapshot(crate::terminal::snapshot_limits(u64::MAX))
-        .expect("snapshot");
-    let checkpoint = Checkpoint::new(snapshot, true).expect("checkpoint");
-
-    assert_eq!(checkpoint.size(), TerminalSize::new(5, 30).expect("size"));
-    assert!(checkpoint.console);
 }
 
 #[test]

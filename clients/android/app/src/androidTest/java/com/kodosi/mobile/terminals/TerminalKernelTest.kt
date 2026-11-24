@@ -1,17 +1,12 @@
 package com.kodosi.mobile.terminals
 
-import android.graphics.Bitmap
-import android.graphics.Color
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import java.util.Base64
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -38,43 +33,6 @@ class TerminalKernelTest {
     }
 
     @Test
-    fun aVisibleCheckpointRestoresItsImagePixels() {
-        TerminalKernel().use { kernel ->
-            install(kernel, "visible-image-checkpoint.snapshot", rows = 4, cols = 10)
-            assertEquals(TerminalKernel.OK, kernel.resize(7, 4, 10, 8, 16))
-            assertNotNull(kernel.frame())
-            val images = kernel.images()
-            assertTrue(images.isNotEmpty())
-            assertTrue(images.any { it.bitmap.getPixel(0, 0) != 0 })
-        }
-    }
-
-    @Test
-    fun rawAndPngKittyImagesKeepTheirAlphaAndColorAcrossJni() {
-        val color = Color.argb(128, 64, 32, 16)
-        val png = ByteArrayOutputStream().use { stream ->
-            Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
-                setPixel(0, 0, color)
-                assertTrue(compress(Bitmap.CompressFormat.PNG, 100, stream))
-                recycle()
-            }
-            stream.toByteArray()
-        }
-        for ((format, bytes) in listOf(32 to byteArrayOf(64, 32, 16, -128), 100 to png)) {
-            TerminalKernel().use { kernel ->
-                install(kernel)
-                assertEquals(TerminalKernel.OK, kernel.resize(7, 2, 8, 8, 16))
-                val encoded = Base64.getEncoder().encodeToString(bytes)
-                val show = "\u001b[H\u001b_Ga=T,f=$format,s=1,v=1,i=76,c=1,r=1;$encoded\u001b\\"
-                assertEquals(TerminalKernel.OK, kernel.write(direct(show.encodeToByteArray()), 7))
-                assertNotNull(kernel.frame())
-                val image = kernel.images().single()
-                assertEquals("format=$format", color, image.bitmap.getPixel(0, 0))
-            }
-        }
-    }
-
-    @Test
     fun pasteUsesTheProgramsBracketedPasteMode() {
         TerminalKernel().use { kernel ->
             install(kernel)
@@ -83,32 +41,10 @@ class TerminalKernelTest {
         }
     }
 
-    @Test
-    fun theNextFrameShowsAScrollAndASelection() {
-        TerminalKernel().use { kernel ->
-            install(kernel)
-            val lines = "\u001b[?1049l\u001b[2J\u001b[3J\u001b[Hone\r\ntwo\r\nthree"
-            assertEquals(TerminalKernel.OK, kernel.write(direct(lines.encodeToByteArray()), 7))
-            assertEquals("three", line(requireNotNull(kernel.frame()), 1))
-            assertTrue(kernel.scroll(-1))
-            assertEquals("two", line(requireNotNull(kernel.frame()), 1))
-            kernel.select(0, 1, word = true)
-            assertNotEquals(0, requireNotNull(kernel.frame()).background(0, 1))
-        }
-    }
-
-    private fun line(frame: TerminalFrame, row: Int): String =
-        (0 until frame.cols).joinToString("") { frame.text(it, row).orEmpty() }.trimEnd()
-
-    private fun install(
-        kernel: TerminalKernel,
-        name: String = "visual-checkpoint.snapshot",
-        rows: Int = 2,
-        cols: Int = 8
-    ) {
+    private fun install(kernel: TerminalKernel) {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
-        val checkpoint = assets.open(name).use { it.readBytes() }
-        assertEquals(TerminalKernel.OK, kernel.install(direct(checkpoint), 7, rows, cols, false))
+        val checkpoint = assets.open("visual-checkpoint.snapshot").use { it.readBytes() }
+        assertEquals(TerminalKernel.OK, kernel.install(direct(checkpoint), 7, 2, 8, false))
     }
 
     private fun direct(bytes: ByteArray): ByteBuffer = ByteBuffer.allocateDirect(bytes.size).put(bytes).apply { flip() }

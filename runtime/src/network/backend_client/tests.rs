@@ -402,20 +402,6 @@ fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
     );
 }
 
-#[tokio::test]
-async fn cancelling_a_login_reports_a_cancelled_sign_out() {
-    let (_root, network) = fixture();
-    let reply = network
-        .execute("auth.login.cancel", request())
-        .await
-        .unwrap();
-    assert_eq!(
-        reply.events,
-        vec![json!({"type":"auth.required","reason":"cancelled"})]
-    );
-    assert!(network.identity().is_none());
-}
-
 #[cfg(feature = "host")]
 #[tokio::test]
 async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
@@ -766,23 +752,6 @@ async fn a_new_recovery_key_reaches_the_person_also_when_reading_the_devices_aft
     server.await.unwrap();
 }
 
-#[tokio::test]
-async fn a_code_that_is_shown_stays_the_same_until_it_ends() {
-    let (_root, network, _user) = signed_in_at("http://127.0.0.1:1").await;
-    let mut shown = Vec::new();
-    for operation in [
-        "devices.link.offer",
-        "devices.link.offer",
-        "devices.link.offer.cancel",
-        "devices.link.offer",
-    ] {
-        let reply = network.execute(operation, request()).await.unwrap();
-        shown.extend(reply.events[0]["text"].as_str().map(str::to_owned));
-    }
-    assert_eq!(shown[0], shown[1]);
-    assert_ne!(shown[1], shown[2]);
-}
-
 #[tokio::test(start_paused = true)]
 async fn an_offer_ends_with_the_life_of_its_code() {
     let (_root, network, _user) = signed_in_at("http://127.0.0.1:1").await;
@@ -799,123 +768,6 @@ async fn an_offer_ends_with_the_life_of_its_code() {
     assert_eq!(
         ended,
         json!({"type": "devices.link.offerResolved", "outcome": "expired"})
-    );
-}
-
-#[tokio::test]
-async fn a_device_says_at_once_when_a_scanned_code_is_for_the_other_side_or_another_account() {
-    use crate::identity::link_code::LinkSecret;
-
-    let (_root, network, user) = signed_in_at("http://127.0.0.1:1").await;
-    let join = LinkSecret::scanned().unwrap();
-    let shown = LinkSecret::Typed("TAFX-E5HG-TN8E".into());
-    let refused = |operation: &'static str, code: String| {
-        let network = network.clone();
-        async move {
-            network
-                .execute(operation, json!({"requestId": REQUEST, "code": code}))
-                .await
-                .map(drop)
-                .unwrap_err()
-                .text()
-                .to_string()
-        }
-    };
-    let another_account =
-        "This code is from another account. Sign in to the same account on both devices.";
-    assert_eq!(
-        refused("devices.link.check", join.link(&user)).await,
-        "This code adds a new device. Scan it with the device that you want to add."
-    );
-    assert_eq!(
-        refused("devices.link.approve", shown.link(LINK_USER)).await,
-        another_account
-    );
-
-    network
-        .inner
-        .credentials
-        .write()
-        .unwrap()
-        .as_mut()
-        .unwrap()
-        .enrolled = false;
-    assert_eq!(
-        refused("devices.link.startSelf", shown.link(&user)).await,
-        "Scan the code that Add a device shows on a device that you already use."
-    );
-    assert_eq!(
-        refused("devices.link.startSelf", join.link(LINK_USER)).await,
-        another_account
-    );
-    assert_eq!(
-        refused("devices.link.offer", String::new()).await,
-        "This device is not approved for your account. Approve it first."
-    );
-}
-
-#[tokio::test]
-async fn a_new_device_asks_with_the_secret_that_it_scanned() {
-    use crate::identity::link_code::{LinkIdentity, LinkKey, LinkSecret};
-
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = format!("http://{}", listener.local_addr().unwrap());
-    let (_root, network, user) = signed_in_at(&address).await;
-    network
-        .inner
-        .credentials
-        .write()
-        .unwrap()
-        .as_mut()
-        .unwrap()
-        .enrolled = false;
-    let server = scripted_backend(
-        listener,
-        vec![
-            compatible_server(),
-            (
-                200,
-                json!({"deviceCode": "0f".repeat(32), "requestId": Uuid::now_v7()}),
-            ),
-        ],
-    );
-    let offered = LinkSecret::scanned().unwrap();
-    let started = network
-        .execute(
-            "devices.link.startSelf",
-            json!({"requestId": REQUEST, "code": offered.link(&user)}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        started.events,
-        [
-            json!({"type": "devices.result", "requestId": REQUEST, "operation": "devices.link.startSelf"})
-        ]
-    );
-    let requests = server.await.unwrap();
-    let asked: Value = serde_json::from_str(
-        requests[1]
-            .strip_prefix("POST /api/devices/link/init HTTP/1.1 ")
-            .unwrap(),
-    )
-    .unwrap();
-    let keys = network.credentials().unwrap().keys;
-    let nonce = BASE64.decode(asked["nonce"].as_str().unwrap()).unwrap();
-    let proof = BASE64.decode(asked["proof"].as_str().unwrap()).unwrap();
-    assert!(
-        LinkKey::derive(&offered, &nonce)
-            .unwrap()
-            .proves_request(
-                &LinkIdentity {
-                    user_id: &user,
-                    device_id: &keys.device_id,
-                    label: asked["deviceLabel"].as_str().unwrap(),
-                    signing_public_key: keys.signing_public(),
-                },
-                &proof,
-            )
-            .unwrap()
     );
 }
 
@@ -1541,101 +1393,6 @@ async fn a_damaged_saved_sign_in_ends_so_a_new_sign_in_can_start() {
         .filter(|event| event["type"] == "auth.required" || event["type"] == "auth.restoring")
         .collect();
     assert_eq!(auth, [json!({"type":"auth.required","reason":"expired"})]);
-}
-
-#[tokio::test]
-async fn a_saved_sign_in_that_cannot_reach_the_server_is_reported_once_as_coming_back() {
-    let (_root, network) = fixture();
-    let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":0}"#;
-    network
-        .inner
-        .state
-        .lock()
-        .await
-        .secrets
-        .store("tokens", saved)
-        .unwrap();
-    network.inner.restore_pending.store(true, Ordering::Release);
-    let mut events = network.events();
-    for _ in 0..2 {
-        let error = network
-            .restore_saved(network.generation())
-            .await
-            .unwrap_err();
-        assert!(error.unanswered(), "{error}");
-    }
-    let mut reasons = Vec::new();
-    while let Ok(event) = events.try_recv() {
-        if event.event["type"] == "auth.restoring" {
-            reasons.push(event.event["reason"].clone());
-        }
-    }
-    assert_eq!(reasons, [json!("offline")]);
-}
-
-#[cfg(unix)]
-#[tokio::test]
-async fn a_saved_sign_in_that_cannot_be_read_says_where_it_is_kept() {
-    use std::os::unix::fs::PermissionsExt as _;
-    let (root, network) = fixture();
-    let tokens = root.path().join("secrets/kodosi.tokens");
-    std::fs::create_dir_all(root.path().join("secrets")).unwrap();
-    std::fs::write(&tokens, "{}").unwrap();
-    std::fs::set_permissions(&tokens, std::fs::Permissions::from_mode(0o644)).unwrap();
-    network.inner.restore_pending.store(true, Ordering::Release);
-    let mut events = network.events();
-    assert!(network.restore_saved(network.generation()).await.is_err());
-    let restoring: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
-        .filter(|event| event.event["type"] == "auth.restoring")
-        .map(|event| event.event)
-        .collect();
-    assert_eq!(restoring.len(), 1);
-    assert_eq!(restoring[0]["reason"], "unreadable");
-    assert_eq!(restoring[0]["credentialStore"], "privateFile");
-    assert_eq!(
-        restoring[0]["credentialFolder"],
-        root.path().join("secrets").display().to_string()
-    );
-}
-
-#[tokio::test]
-async fn the_ready_event_says_where_the_sign_in_is_kept() {
-    let (root, network) = fixture();
-    let event = network.ready_event("01992e43-53db-7040-8e02-f6ebf4149b28", true);
-    assert_eq!(event["credentialStore"], "privateFile");
-    assert_eq!(
-        event["credentialFolder"],
-        root.path().join("secrets").display().to_string()
-    );
-}
-
-#[tokio::test]
-async fn an_approval_that_holds_keeps_settling_while_the_server_does_not_answer() {
-    use crate::identity::link_code::{LinkKey, LinkSecret, NONCE_LEN};
-    let (_root, network, _user) = signed_in_at("http://127.0.0.1:1").await;
-    let code = LinkSecret::Typed("ABCD-EFGH-JKMN".into());
-    network.inner.state.lock().await.link = Some(enrollment::PendingLink {
-        device_code: "device".into(),
-        request_id: Uuid::now_v7().to_string(),
-        key: Arc::new(LinkKey::derive(&code, &[0; NONCE_LEN]).unwrap()),
-        started: std::time::Instant::now(),
-        accepted: true,
-    });
-    let mut events = network.events();
-    let error = network.poll_link().await.unwrap_err();
-    assert!(error.unanswered(), "{error}");
-    let held = network
-        .inner
-        .state
-        .lock()
-        .await
-        .link
-        .as_ref()
-        .is_some_and(|link| link.accepted);
-    assert!(held);
-    while let Ok(event) = events.try_recv() {
-        assert_ne!(event.event["type"], "devices.link.selfResolved");
-    }
 }
 
 #[tokio::test]

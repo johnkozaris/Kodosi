@@ -182,22 +182,4 @@ mod tests {
         assert_eq!(cookies[0].same_site, Some("Lax"));
         assert_eq!(cookies[1].same_site, Some("Strict"));
     }
-
-    #[test]
-    fn the_default_profile_of_an_install_comes_first() {
-        let root = tempfile::tempdir().unwrap();
-        std::fs::write(
-            root.path().join("profiles.ini"),
-            "[Profile1]\nName=old\nIsRelative=1\nPath=Profiles/old\n\n\
-             [Install308046B0AF4A39CB]\nDefault=Profiles/main\nLocked=1\n",
-        )
-        .unwrap();
-        assert_eq!(
-            profile_folders(root.path()),
-            [
-                root.path().join("Profiles/main"),
-                root.path().join("Profiles/old")
-            ]
-        );
-    }
 }

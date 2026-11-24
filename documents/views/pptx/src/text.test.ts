@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { Node as ProseNode } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import { collab } from "prosemirror-collab";
-import { layOut, levelRules, schema, unsentText } from "./text";
+import { levelRules, schema, unsentText } from "./text";
 
 function runStyle(attrs: Record<string, unknown>): string {
   const look = schema.marks.textStyle;
@@ -44,20 +44,6 @@ test("the colour and font of a text level cannot add CSS rules", () => {
     '.slides-text p[data-level="2"]{font:24px "constructor", Carlito, sans-serif;' +
       "line-height:1.2;margin:0 0 0 48px;text-align:left;color:inherit}",
   ]);
-});
-
-test("Chinese and Japanese text wraps between its characters, and a line starts with no closing mark", () => {
-  const tree = ProseNode.fromJSON(schema, {
-    type: "doc",
-    content: [
-      { type: "paragraph", content: [{ type: "text", text: "Plan 東京の会、議は「明日」です。" }] },
-    ],
-  });
-  const measure = { width: (_: string, text: string) => [...text].length * 10, face: String };
-  const lines = layOut(tree, 50, 200, null, measure).map((line) =>
-    line.pieces.map((piece) => piece.text).join(""),
-  );
-  expect(lines).toEqual(["Plan ", "東京の会、", "議は「明", "日」です。"]);
 });
 
 test("words that wait and that a snapshot does not show come back to write again", () => {

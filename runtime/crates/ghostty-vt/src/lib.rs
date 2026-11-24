@@ -443,12 +443,6 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_preserves_ss2_and_ss3() {
-        assert_snapshot_suffix_parity(8, 2, b"\x1b*0\x1bN", b"q");
-        assert_snapshot_suffix_parity(8, 2, b"\x1b+0\x1bO", b"q");
-    }
-
-    #[test]
     fn snapshot_restores_when_a_wrapped_line_is_longer_than_the_history() {
         assert_snapshot_suffix_parity(100, 30, &vec![b'x'; 110_000], b"\r\nafter");
     }

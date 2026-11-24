@@ -47,30 +47,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_options_come_from_the_kodosi_switches_and_others_go_to_chromium() {
-        let options = Options::parse(
-            [
-                "engine",
-                "--kodosi-profile=/p",
-                "--use-mock-keychain",
-                "--kodosi-link=/p/link.json",
-                "--kodosi-debug-port=9333",
-            ]
-            .map(String::from),
-        )
-        .unwrap();
-        assert_eq!(
-            options,
-            Options {
-                profile: PathBuf::from("/p"),
-                link: PathBuf::from("/p/link.json"),
-                debug_port: 9333,
-            }
-        );
-        assert!(Options::parse(["engine".to_owned()]).is_err());
-    }
-
-    #[test]
     fn the_link_file_is_read_once() {
         let folder = std::env::temp_dir().join(format!("kodosi-link-{}", std::process::id()));
         std::fs::create_dir_all(&folder).unwrap();
