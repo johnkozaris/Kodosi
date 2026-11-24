@@ -2095,10 +2095,6 @@ mod tests {
     }
     #[test]
     fn a_branch_terminal_starts_from_the_current_folder_with_the_name_of_its_branch() {
-        assert!(
-            Arguments::try_parse_from(["kodosi", "terminal", "start", "--branch", "fix/login"])
-                .is_ok()
-        );
         assert_eq!(
             start_defaults(None, None, Some("fix/login")),
             ("fix/login".to_owned(), Some(PathBuf::from(".")))

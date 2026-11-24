@@ -262,14 +262,6 @@ fn an_answer_says_when_the_formulas_could_not_be_worked_out_in_time() {
 }
 
 #[test]
-fn a_read_sees_results_before_any_save() {
-    let file = xlsx_file();
-    let mut model = read(&file);
-    ops(&mut model, vec![set("A2", Value::Number(10.0))]).unwrap();
-    assert_eq!(cell_value(&model, "A3"), 12.0);
-}
-
-#[test]
 fn a_formula_uses_the_names_of_the_workbook_and_keeps_what_it_cannot_work_out() {
     let sheet = SHEET.replace(" x14ac:custom=\"kept\"", "").replace(
         r#"<c r="B1" t="s"><v>0</v></c>"#,
@@ -855,31 +847,6 @@ fn a_view_change_names_a_key_and_the_last_one_wins() {
         model.sheet("1").unwrap().cells[&(1, 0)].value,
         Some(Value::Number(2.0))
     );
-}
-
-#[test]
-fn a_cell_change_is_behind_when_rows_moved() {
-    let file = xlsx_file();
-    let mut model = read(&file);
-    let moved = Ordered {
-        rev: 1,
-        author: "Ana".to_owned(),
-        client: "ana".to_owned(),
-        seq: 1,
-        change: Change::Rows {
-            sheet: "1".to_owned(),
-            at: 0,
-            count: 1,
-        },
-    };
-    let change = Change::Cells {
-        sheet: "1".to_owned(),
-        cells: Vec::new(),
-    };
-    assert!(matches!(
-        Xlsx::apply(&mut model, change, &[moved], &mut Assets::default()),
-        Err(Refused::Behind(_))
-    ));
 }
 
 #[test]

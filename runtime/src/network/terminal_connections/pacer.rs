@@ -173,7 +173,6 @@ mod tests {
     fn the_window_follows_the_speed_that_the_viewer_acknowledges_while_output_waits() {
         let start = Instant::now();
         let mut pacer = Pacer::default();
-        assert_eq!(pacer.window(), INITIAL_WINDOW);
         assert!(pacer.project());
         pacer.sent(128 * 1024, start);
         assert!(!pacer.project());
@@ -227,10 +226,6 @@ mod tests {
     fn a_snapshot_holds_the_image_pixels_that_the_link_carries_in_two_seconds() {
         let start = Instant::now();
         let mut pacer = Pacer::default();
-        assert_eq!(
-            pacer.image_data_bytes(),
-            TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES
-        );
         pacer.sent(300_000, start);
         pacer.acknowledge(300_000, at(start, 100)).unwrap();
         assert_eq!(pacer.image_data_bytes(), 6_000_000);

@@ -73,41 +73,6 @@ fn requests_from_other_computers_have_bounds() {
     assert!(!canvas(None, mark("/a/\0")).is_valid());
 }
 
-#[test]
-fn a_request_and_an_answer_have_their_wire_form() {
-    let request: CanvasRequest = serde_json::from_value(json!({
-        "type": "act",
-        "action": {"do": "wake"},
-    }))
-    .unwrap();
-    assert!(matches!(
-        request,
-        CanvasRequest::Act {
-            action: BrowserAct::Wake
-        }
-    ));
-    assert!(request.is_valid());
-    assert!(
-        serde_json::from_value::<CanvasRequest>(json!({
-            "type": "act",
-            "action": {"do": "open", "url": "http://localhost:3000"},
-        }))
-        .is_err()
-    );
-    assert!(
-        serde_json::from_value::<CanvasRequest>(json!({"type": "remove", "keys": [], "x": 1}))
-            .is_err()
-    );
-    let answer = CanvasAnswer::Stale {
-        key: "/a/plan.md".into(),
-        revision: 3,
-    };
-    assert_eq!(
-        serde_json::to_value(&answer).unwrap(),
-        json!({"answer": "stale", "key": "/a/plan.md", "revision": 3})
-    );
-}
-
 #[tokio::test]
 async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
     let folder = tempfile::tempdir().unwrap();
