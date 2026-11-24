@@ -1,7 +1,6 @@
 package com.kodosi.mobile
 
 import android.app.Application
-import com.google.firebase.installations.FirebaseInstallations
 import com.google.firebase.messaging.FirebaseMessaging
 import com.kodosi.mobile.account.AccountStore
 import com.kodosi.mobile.account.AppLock
@@ -11,6 +10,7 @@ import com.kodosi.mobile.canvas.CanvasStore
 import com.kodosi.mobile.canvas.DocumentPages
 import com.kodosi.mobile.dosi.DosiStore
 import com.kodosi.mobile.notifications.FirebaseConfiguration
+import com.kodosi.mobile.notifications.MessagingService
 import com.kodosi.mobile.notifications.PushRegistration
 import com.kodosi.mobile.people.PeopleStore
 import com.kodosi.mobile.projects.ProjectStore
@@ -69,12 +69,15 @@ class AppModel(
     val push = PushRegistration(
         commands,
         scope,
-        installation = { FirebaseInstallations.getInstance().id.await() },
         register = {
             val messaging = FirebaseMessaging.getInstance()
+            val id = MessagingService.awaitRegistration { messaging.register().await() }
+                ?: error(words.didNotWork)
             // Enabling auto-init waits for the installation ID, which Play services refuses on the main thread.
-            withContext(Dispatchers.IO) { messaging.isAutoInitEnabled = true }
-            messaging.register().await()
+            withContext(Dispatchers.IO) {
+                if (!messaging.isAutoInitEnabled) messaging.isAutoInitEnabled = true
+            }
+            id
         },
         unregister = {
             val messaging = FirebaseMessaging.getInstance()
@@ -203,14 +206,14 @@ class AppModel(
         projects.refresh()
     }
 
-    fun updatePush(force: Boolean = false): Long? {
+    fun updatePush(force: Boolean = false, registered: String? = null): Long? {
         val current = account.state.value
         if (!current.authResolved) return null
         if (!preferences.state.value.notifications) notifications.dismiss()
         val user = current.userId.takeIf { current.isReady }
         notifications.account(user)
         if (!FirebaseConfiguration.available) return null
-        return push.update(user, commands.accountEpoch, notifications.allowed, force)
+        return push.update(user, commands.accountEpoch, notifications.allowed, force, registered)
     }
 
     internal suspend fun synchronizePush(): Boolean = withContext(Dispatchers.Main) {
