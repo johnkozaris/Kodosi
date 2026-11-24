@@ -1,5 +1,8 @@
 use crate::{
-    Config, Error, EventBody, HostKind, Result, local_host, protocol::SessionKind,
+    Config, Error, EventBody, HostKind, Result,
+    agents::{Output, Permissions},
+    local_host,
+    protocol::SessionKind,
     provider::Provider,
 };
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
@@ -263,10 +266,10 @@ enum TerminalAction {
         /// The agent's effort. An empty value starts without one.
         #[arg(long, requires = "agent")]
         effort: Option<String>,
-        #[arg(long, requires = "agent", help = PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
-        permissions: Option<String>,
-        #[arg(long, requires = "agent", help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
-        output: Option<String>,
+        #[arg(long, requires = "agent", help = PERMISSIONS)]
+        permissions: Option<Permissions>,
+        #[arg(long, requires = "agent", help = OUTPUT)]
+        output: Option<Output>,
         #[arg(long, requires = "agent", help = FAST, value_parser = on_off())]
         fast: Option<bool>,
         #[arg(long, requires = "agent", help = CHAT, value_parser = on_off(), hide = !crate::agents::CHAT_SESSIONS)]
@@ -291,10 +294,10 @@ enum TerminalAction {
         /// The agent's effort. An empty value starts without one.
         #[arg(long)]
         effort: Option<String>,
-        #[arg(long, help = PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
-        permissions: Option<String>,
-        #[arg(long, help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
-        output: Option<String>,
+        #[arg(long, help = PERMISSIONS)]
+        permissions: Option<Permissions>,
+        #[arg(long, help = OUTPUT)]
+        output: Option<Output>,
         #[arg(long, help = FAST, value_parser = on_off())]
         fast: Option<bool>,
         #[arg(long, help = CHAT, value_parser = on_off(), hide = !crate::agents::CHAT_SESSIONS)]
@@ -336,8 +339,8 @@ enum TerminalAction {
         effort: Option<String>,
         #[arg(long, help = LIVE_FAST, value_parser = on_off())]
         fast: Option<bool>,
-        #[arg(long, help = LIVE_PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
-        permissions: Option<String>,
+        #[arg(long, help = LIVE_PERMISSIONS)]
+        permissions: Option<Permissions>,
     },
     /// Type text into a terminal. It stops with a message while a person types there.
     Input {
@@ -1008,8 +1011,8 @@ async fn terminal_command(
                         &agent,
                         account.as_deref(),
                         [model.as_deref(), effort.as_deref()],
-                        permissions.as_deref(),
-                        output.as_deref(),
+                        permissions,
+                        output,
                         [fast, chat],
                     )
                 })
@@ -1077,8 +1080,8 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
                 &agent,
                 account.as_deref(),
                 [model.as_deref(), effort.as_deref()],
-                permissions.as_deref(),
-                output.as_deref(),
+                permissions,
+                output,
                 [fast, chat],
             )?;
             (terminal, "session.run", false, json!({"agent":agent}))
@@ -1523,8 +1526,8 @@ fn agent_start(
     agent: &str,
     account: Option<&str>,
     [model, effort]: [Option<&str>; 2],
-    permissions: Option<&str>,
-    output: Option<&str>,
+    permissions: Option<Permissions>,
+    output: Option<Output>,
     [fast, chat]: [Option<bool>; 2],
 ) -> Result<Value> {
     Ok(
