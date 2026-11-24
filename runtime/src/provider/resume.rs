@@ -7,6 +7,7 @@ use std::{
 use super::{Provider, storage};
 
 const MAX_CLAUDE_STATE_BYTES: u64 = 256 * 1024;
+const CLAUDE_TAIL_BYTES: u64 = 1024 * 1024;
 const MAX_COPILOT_HEAD_BYTES: u64 = 64 * 1024;
 const MAX_COPILOT_TAIL_BYTES: u64 = 1024 * 1024;
 
@@ -94,6 +95,58 @@ pub(super) fn claude_conversation(state_root: &Path, group: u32) -> Option<Strin
                 .then(|| record_conversation(&record))
                 .flatten()
                 .and_then(|id| storage::conversation_id(id).ok())
+        })
+}
+
+pub(super) fn claude_continuation(state_root: &Path, folder: &Path, id: &str) -> Option<String> {
+    let folder = storage::canonical_directory(folder.to_str()?).ok()?;
+    let mut file = storage::conversation_file(state_root, Provider::Claude, &folder, id).ok()?;
+    let length = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(length.saturating_sub(CLAUDE_TAIL_BYTES)))
+        .ok()?;
+    let mut tail = Vec::new();
+    file.take(CLAUDE_TAIL_BYTES).read_to_end(&mut tail).ok()?;
+    for line in tail.split(|byte| *byte == b'\n').rev() {
+        let Ok(record) = serde_json::from_slice::<serde_json::Value>(line) else {
+            continue;
+        };
+        match record.get("type").and_then(serde_json::Value::as_str) {
+            Some("continued-in") => {
+                return record
+                    .get("continuedInSessionId")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(|session| storage::conversation_id(session).ok());
+            }
+            Some("user" | "assistant") => return None,
+            _ => {}
+        }
+    }
+    None
+}
+
+pub(super) fn claude_job(state_root: &Path, id: &str) -> bool {
+    let root = state_root.join("sessions");
+    let (Ok(entries), Ok(directory)) = (std::fs::read_dir(&root), kodosi_os::fs::open_dir(&root))
+    else {
+        return false;
+    };
+    entries
+        .take(storage::MAX_DIRECTORY_ENTRIES)
+        .filter_map(Result::ok)
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| is_record(name))
+        .filter_map(|name| claude_record(&directory, &name).ok())
+        .any(|record| {
+            record_conversation(&record) == Some(id)
+                && record
+                    .get("kind")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|kind| kind != "interactive")
+                && record
+                    .get("pid")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|pid| u32::try_from(pid).ok())
+                    .is_some_and(kodosi_os::process::is_running)
         })
 }
 

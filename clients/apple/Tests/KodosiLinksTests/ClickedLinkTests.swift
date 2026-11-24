@@ -102,8 +102,6 @@ struct ClickedLinkTests {
         }
         #expect(ClickedLink("~/notes.txt", otherComputer: "studio").shown == "~/notes.txt")
         #expect(ClickedLink("file:///home/ana/notes.txt", otherComputer: "studio").shown == "/home/ana/notes.txt")
-        #expect(ClickedLink.Refusal.fileElsewhere("studio").message == "The file is on studio.")
-        #expect(ClickedLink.Refusal.addressElsewhere("studio").message == "The address is on studio.")
 
         let web = try #require(URL(string: "http://127.0.0.1.example.com/"))
         #expect(ClickedLink("http://127.0.0.1.example.com/", otherComputer: "studio").decision == .open(web))

@@ -27,9 +27,6 @@ jobs:
         with:
           tool: just,uv
           fallback: none
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: .bun-version
       - name: Install Rust and NASM
         run: |
           rustup toolchain install

@@ -3,7 +3,7 @@
     <string name="app_name" translatable="false">Kodosi</string>
     <string name="agent_claude" translatable="false">Claude Code</string>
     <string name="agent_codex" translatable="false">Codex</string>
-    <string name="agent_copilot" translatable="false">Copilot</string>
+    <string name="agent_copilot" translatable="false">Copilot CLI</string>
     <string name="agent_cursor" translatable="false">Cursor</string>
     <string name="agent_opencode" translatable="false">OpenCode</string>
     <string name="agent_antigravity" translatable="false">Antigravity CLI</string>

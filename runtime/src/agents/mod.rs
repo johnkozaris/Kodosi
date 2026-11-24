@@ -924,6 +924,7 @@ pub struct AgentInfo {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+#[cfg_attr(feature = "host", derive(clap::ValueEnum))]
 #[serde(rename_all = "lowercase")]
 pub enum Permissions {
     Ask,
@@ -944,6 +945,7 @@ impl Permissions {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+#[cfg_attr(feature = "host", derive(clap::ValueEnum))]
 #[serde(rename_all = "lowercase")]
 pub enum Output {
     Quiet,

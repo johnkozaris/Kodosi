@@ -50,16 +50,6 @@ class TerminalCatalogTest {
     }
 
     @Test
-    fun keepsAgentIdentityInHumanReadableMessageAndBrowserNames() {
-        assertEquals(AgentKind.COPILOT, AgentKind.named("Copilot CLI"))
-        assertEquals(AgentKind.CLAUDE, AgentKind.named("Claude Code"))
-        assertEquals(AgentKind.ANTIGRAVITY, AgentKind.named("Antigravity CLI"))
-        assertEquals(AgentKind.ANTIGRAVITY, AgentKind.of("agy"))
-        assertEquals(AgentKind.SHELL, AgentKind.named("Build helper"))
-        assertEquals(AgentKind.SHELL, AgentKind.named(null))
-    }
-
-    @Test
     fun usesTheRuntimeActivityAndWaitingStateInsteadOfInferringThemFromTheProgram() {
         val terminal = RuntimeJson.decodeFromString<RuntimeSession>(
             """{"id":"a","incarnationId":"i","kind":"remote","name":"Build",

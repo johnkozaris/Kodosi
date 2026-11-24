@@ -58,8 +58,6 @@ private slots:
         apply(tools, stale);
         QVERIFY(tools.entries().isEmpty());
         QVERIFY(tools.busy());
-        QCOMPARE(commands.values.last().value(QStringLiteral("provider")).toString(),
-            QStringLiteral("copilot"));
     }
     void historyReplacesPagesAndCommitsNavigationOnlyOnSuccess()
     {

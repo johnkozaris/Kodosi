@@ -51,8 +51,6 @@ internal object ChatWords {
         if (tool.kind == ChatToolKind.SKILL || tool.kind == ChatToolKind.OTHER) tool.name else null
     }
 
-    fun lastName(path: String): String = path.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\')
-
     /**
      * An agent reports its model by its full id, such as claude-sonnet-5-5 or
      * claude-sonnet-4-5-20250929, where the launcher knows the model by a shorter one, such as

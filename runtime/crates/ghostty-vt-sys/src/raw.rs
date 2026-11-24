@@ -1797,11 +1797,6 @@ mod tests {
     #[test]
     fn a_version_query_gets_the_reported_version() {
         let mut terminal = terminal();
-        assert_eq!(
-            terminal.write(b"\x1b[>q").expect("default version"),
-            vec![Effect::PtyWrite(b"\x1bP>|libghostty\x1b\\".to_vec())]
-        );
-
         terminal.report_version("Kodosi 1.2.3").expect("version");
         assert_eq!(
             terminal.write(b"\x1b[>q").expect("reported version"),

@@ -90,7 +90,6 @@ public enum DosiBody: Decodable, Equatable, Sendable {
     case reasoning(String, live: Bool, seconds: Int?)
     case tool(DosiTool)
     case question(DosiQuestion)
-    case note(String)
     case notice(DosiNotice)
 
     private enum Key: String, CodingKey {
@@ -107,7 +106,6 @@ public enum DosiBody: Decodable, Equatable, Sendable {
                                   seconds: fields.decodeIfPresent(Int.self, forKey: .seconds))
         case "tool": self = try .tool(DosiTool(from: decoder))
         case "question": self = try .question(DosiQuestion(from: decoder))
-        case "note": self = try .note(fields.decode(String.self, forKey: .text))
         case "notice": self = try .notice(DosiNotice(from: decoder))
         case let kind:
             throw DecodingError.dataCorruptedError(forKey: .kind, in: fields, debugDescription: "Unknown Dosi item \(kind)")

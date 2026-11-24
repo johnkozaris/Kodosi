@@ -36,7 +36,6 @@ compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeB
 compose-foundation = { module = "androidx.compose.foundation:foundation" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-ui = { module = "androidx.compose.ui:ui" }
-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-ui-test = { module = "androidx.compose.ui:ui-test-junit4" }
 compose-navigation-suite = { module = "androidx.compose.material3:material3-adaptive-navigation-suite" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }

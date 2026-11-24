@@ -45,9 +45,5 @@ jobs:
           mkdir -p .tools/rust/bin
           ln -s "$(command -v cargo-deny)" .tools/rust/bin/
       - run: just rust-advisories-check
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        if: ${{ !cancelled() }}
-        with:
-          bun-version-file: .bun-version
       - if: ${{ !cancelled() }}
         run: just bun-advisories-check

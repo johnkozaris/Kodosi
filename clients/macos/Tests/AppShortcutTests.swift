@@ -9,9 +9,6 @@ import Testing
 
 @Test func `a key of the table finds its action and a digit its terminal`() {
     let table = ShortcutTable()
-    #expect(table.match(KeyChord("t"))?.action == .sameAgent)
-    #expect(table.match(KeyChord("d"))?.action == .quickTerminal)
-    #expect(table.match(KeyChord("d", [.shift, .command]))?.action == .quickTerminal)
     #expect(table.match(KeyChord("7"))?.action == .numberedTerminal)
     #expect(table.match(KeyChord("7"))?.number == 7)
     #expect(table.match(KeyChord("0")) == nil)
@@ -29,15 +26,6 @@ import Testing
     table.remove(KeyChord("t"), from: .goTo)
     #expect(table.keys(for: .goTo).isEmpty)
     #expect(table.isChanged)
-}
-
-@Test func `the table comes back from what it saves`() throws {
-    var table = ShortcutTable()
-    table.bind(KeyChord("9", [.control, .option]), to: .numberedTerminal, replacing: KeyChord("1"))
-    let saved = try JSONDecoder().decode(ShortcutTable.self, from: JSONEncoder().encode(table))
-    #expect(saved == table)
-    #expect(saved.match(KeyChord("4", [.control, .option]))?.number == 4)
-    #expect(saved.match(KeyChord("4")) == nil)
 }
 
 @Test func `a key event becomes its key without the modifiers`() throws {

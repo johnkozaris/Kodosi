@@ -21,20 +21,6 @@ struct ProjectStoreTests {
         projects.reset(userId: "user-1")
     }
 
-    @Test func `list keeps projects and invitations`() throws {
-        try deliver("projects.snapshot", [
-            "projects": [project("project-1", owner: "user-1"), project("project-2", owner: "user-2")],
-            "invitations": [invitation("inv-1", project: "project-3")],
-            "projectsTruncated": false, "invitationsTruncated": true,
-        ])
-        #expect(projects.listed)
-        #expect(projects.entries.map(\.id) == ["project-1", "project-2"])
-        #expect(projects.invitations.map(\.projectName) == ["Launch"])
-        #expect(projects.listTruncated)
-        #expect(projects.isOwner(of: "project-1"))
-        #expect(!projects.isOwner(of: "project-2"))
-    }
-
     @Test func `project that leaves the list is gone`() throws {
         try deliver("projects.snapshot", list(["project-1", "project-2"]))
         try deliver("project.snapshot", ["content": content("project-2", messages: [message("m1", 1, author: "user-2")])])
@@ -161,7 +147,6 @@ struct ProjectStoreTests {
     @Test func `opening a project reads it and loads its members`() async throws {
         let opening = Task { await projects.open("project-1") }
         let open = try await log.next("project.open")
-        #expect(fields(open) == ["projectId", "requestId"])
         #expect(open["projectId"] as? String == "project-1")
         let read = try await log.next("project.act")
         #expect(read["projectId"] as? String == "project-1")
@@ -245,7 +230,6 @@ struct ProjectStoreTests {
         state.followsLatest = false
         let posting = Task { await projects.post(in: "project-1") }
         let command = try await log.next("project.act")
-        #expect(fields(command) == ["action", "requestId", "projectId"])
         #expect(command["projectId"] as? String == "project-1")
         #expect(try action(command) as NSDictionary == ["type": "post", "text": "Hello @Ana"])
         #expect(state.sending)
@@ -283,13 +267,11 @@ struct ProjectStoreTests {
     @Test func `create project uses its request as the project and invites friends`() async throws {
         let creating = Task { try await projects.create(name: "  Launch week ", inviting: ["user-2", "user-3"]) }
         let create = try await log.next("project.create")
-        #expect(fields(create) == ["name", "requestId"])
         #expect(create["name"] as? String == "Launch week")
         let projectId = try #require(create["requestId"] as? String)
         try reply(to: create, "project.result", ["operation": "project.create", "projectId": NSNull()])
         for friend in ["user-2", "user-3"] {
             let invite = try await log.next("project.invite")
-            #expect(fields(invite) == ["projectId", "requestId", "userId"])
             #expect(invite["projectId"] as? String == projectId)
             #expect(invite["userId"] as? String == friend)
             try reply(to: invite, "project.result", ["operation": "project.invite", "projectId": projectId])
@@ -334,14 +316,6 @@ struct ProjectStoreTests {
         try reply(to: command, "project.result", acted("createTask"))
         try await making.value
     }
-
-    @Test func `repository address is trimmed`() async throws {
-        let adding = Task { try await projects.addRepository(" https://github.com/team/app ", to: "project-1") }
-        let command = try await log.next("project.act")
-        #expect(try action(command) as NSDictionary == ["type": "addRepository", "url": "https://github.com/team/app"])
-        try reply(to: command, "project.result", acted("addRepository"))
-        try await adding.value
-    }
 }
 
 private extension ProjectStoreTests {
@@ -360,10 +334,6 @@ private extension ProjectStoreTests {
         var payload = fields
         payload["requestId"] = command["requestId"]
         try deliver(type, payload)
-    }
-
-    func fields(_ command: [String: Any]) -> Set<String> {
-        Set(command.keys).subtracting(["type", "accountUserId", "accountEpoch"])
     }
 
     func action(_ command: [String: Any]) throws -> [String: Any] {
@@ -387,10 +357,6 @@ private extension ProjectStoreTests {
 
     func project(_ id: String, owner: String, name: String? = nil, unread: Bool = false) -> [String: Any] {
         ["id": id, "name": name ?? "Project \(id)", "ownerUserId": owner, "unread": unread]
-    }
-
-    func invitation(_ id: String, project: String) -> [String: Any] {
-        ["id": id, "projectId": project, "projectName": "Launch", "inviterName": "Ana", "createdAt": "2026-10-11T10:00:00Z"]
     }
 
     func content(

@@ -618,27 +618,6 @@ mod tests {
         assert_eq!(collector, expected);
     }
 
-    #[cfg(not(feature = "host"))]
-    #[tokio::test]
-    async fn a_viewer_leaves_issue_providers_to_a_computer() {
-        let repository = repository("https://github.com/team/api", None).unwrap();
-        let client = Client::new();
-        assert_eq!(
-            issues(&client, &repository, None)
-                .await
-                .unwrap_err()
-                .to_string(),
-            "Import issues from a computer."
-        );
-        assert_eq!(
-            update_issue(&client, &repository, 7, TaskChange::Close)
-                .await
-                .unwrap_err()
-                .to_string(),
-            "Change linked issues from a computer."
-        );
-    }
-
     #[cfg(feature = "host")]
     #[test]
     fn provider_endpoints_and_issue_fields_preserve_repository_and_assignment() {

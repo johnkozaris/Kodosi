@@ -214,6 +214,21 @@ pub(super) async fn agent_line(
     };
     let foreground = terminal.foreground(variable).await.unwrap_or_default();
     let account = agent.account_folder(&home, account_variable(foreground.variable, variable))?;
+    let attached = |session: &str| {
+        Some(AgentLine {
+            line: attach_line(
+                &crate::agents::account_command(agent, &home, &account),
+                session,
+            ),
+            named: true,
+        })
+    };
+    if agent == Agent::Claude
+        && let [_, action, session] = foreground.arguments.as_slice()
+        && action == "attach"
+    {
+        return attached(session);
+    }
     let command = restart_command(
         agent,
         &home,
@@ -230,14 +245,28 @@ pub(super) async fn agent_line(
     let conversation = match (terminal.chat.conversation().await, foreground.group) {
         (Some(conversation), _) => Some(conversation),
         (None, Some(group)) => {
-            crate::provider::shown_conversation(agent, account, group, folder).await
+            crate::provider::shown_conversation(agent, account.clone(), group, folder.clone()).await
         }
         (None, None) => None,
     };
+    if agent == Agent::Claude
+        && let Some(conversation) = &conversation
+        && let Some(session) =
+            crate::provider::claude_background(account.clone(), folder, conversation.clone()).await
+    {
+        return attached(&session);
+    }
     resume_line(agent, &command, conversation.as_deref()).map(|line| AgentLine {
         line,
         named: conversation.is_some(),
     })
+}
+
+/// Claude Code shows a session of its background in a terminal again by the short ID that it
+/// gives the session.
+pub(super) fn attach_line(command: &str, session: &str) -> String {
+    let short = session.split('-').next().unwrap_or(session);
+    format!("{command} attach {short}")
 }
 
 /// An agent without accounts comes back only to the conversation of its chat, with the line of

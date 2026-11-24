@@ -142,15 +142,7 @@ class AppModel(
         accountKnown = false
         accountEpoch = 0
         commands.setAccount(null, 0)
-        account.reset(null)
-        terminals.reset()
-        notifications.reset()
-        projects.reset(null)
-        people.reset()
-        dosi.reset()
-        documents.reset()
-        canvas.reset()
-        browser.reset()
+        resetStores(null)
         start()
     }
 
@@ -277,18 +269,22 @@ class AppModel(
             accountKnown = true
             accountEpoch = event.accountEpoch
             if (event.type != "system.ready" || event.accountUserId != null) preferences.account(event.accountUserId)
-            account.reset(event.accountUserId)
-            terminals.reset()
-            notifications.reset()
-            projects.reset(event.accountUserId)
-            people.reset()
-            dosi.reset()
-            documents.reset()
-            canvas.reset()
-            browser.reset()
+            resetStores(event.accountUserId)
             commands.setAccount(event.accountUserId, event.accountEpoch)
         }
         return event.accountEpoch == accountEpoch && event.accountUserId == account.state.value.userId
+    }
+
+    private fun resetStores(userId: String?) {
+        account.reset(userId)
+        terminals.reset()
+        notifications.reset()
+        projects.reset(userId)
+        people.reset()
+        dosi.reset()
+        documents.reset()
+        canvas.reset()
+        browser.reset()
     }
 
     fun receive(event: RuntimeEvent) {

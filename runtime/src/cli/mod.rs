@@ -1,5 +1,8 @@
 use crate::{
-    Config, Error, EventBody, HostKind, Result, local_host, protocol::SessionKind,
+    Config, Error, EventBody, HostKind, Result,
+    agents::{Output, Permissions},
+    local_host,
+    protocol::SessionKind,
     provider::Provider,
 };
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
@@ -235,8 +238,8 @@ enum TerminalAction {
     },
     /// Start a terminal on this computer, or on another computer of yours with --computer.
     Start {
-        /// The name of the terminal. The default is the name of the new branch, or the agent's
-        /// name or Terminal, with a number when another terminal has that name.
+        /// The name of the terminal. The default is the name of the new branch, or two words that
+        /// no other terminal has, as in the apps.
         #[arg(long)]
         name: Option<String>,
         /// The folder to start in. The default is your home folder.
@@ -263,10 +266,10 @@ enum TerminalAction {
         /// The agent's effort. An empty value starts without one.
         #[arg(long, requires = "agent")]
         effort: Option<String>,
-        #[arg(long, requires = "agent", help = PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
-        permissions: Option<String>,
-        #[arg(long, requires = "agent", help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
-        output: Option<String>,
+        #[arg(long, requires = "agent", help = PERMISSIONS)]
+        permissions: Option<Permissions>,
+        #[arg(long, requires = "agent", help = OUTPUT)]
+        output: Option<Output>,
         #[arg(long, requires = "agent", help = FAST, value_parser = on_off())]
         fast: Option<bool>,
         #[arg(long, requires = "agent", help = CHAT, value_parser = on_off(), hide = !crate::agents::CHAT_SESSIONS)]
@@ -291,10 +294,10 @@ enum TerminalAction {
         /// The agent's effort. An empty value starts without one.
         #[arg(long)]
         effort: Option<String>,
-        #[arg(long, help = PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
-        permissions: Option<String>,
-        #[arg(long, help = OUTPUT, value_parser = ["quiet", "standard", "detailed"])]
-        output: Option<String>,
+        #[arg(long, help = PERMISSIONS)]
+        permissions: Option<Permissions>,
+        #[arg(long, help = OUTPUT)]
+        output: Option<Output>,
         #[arg(long, help = FAST, value_parser = on_off())]
         fast: Option<bool>,
         #[arg(long, help = CHAT, value_parser = on_off(), hide = !crate::agents::CHAT_SESSIONS)]
@@ -336,8 +339,8 @@ enum TerminalAction {
         effort: Option<String>,
         #[arg(long, help = LIVE_FAST, value_parser = on_off())]
         fast: Option<bool>,
-        #[arg(long, help = LIVE_PERMISSIONS, value_parser = ["ask", "auto", "unrestricted"])]
-        permissions: Option<String>,
+        #[arg(long, help = LIVE_PERMISSIONS)]
+        permissions: Option<Permissions>,
     },
     /// Type text into a terminal. It stops with a message while a person types there.
     Input {
@@ -492,8 +495,8 @@ enum ProviderAction {
     clippy::future_not_send,
     reason = "CLI execution keeps the Ghostty mirror on the main thread"
 )]
-pub async fn run_with(args: Vec<OsString>) -> u8 {
-    let args = match Arguments::try_parse_from(args) {
+pub async fn run_with(invocation: Vec<OsString>) -> u8 {
+    let args = match Arguments::try_parse_from(&invocation) {
         Ok(args) => args,
         Err(error) => {
             drop(error.print());
@@ -504,21 +507,24 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
     match Box::pin(dispatch(args)).await {
         Ok(code) => code,
         Err(error) => {
+            #[cfg(target_os = "linux")]
+            if let Error::HostOutdated { pid, .. } = error {
+                drop(run_in_host_program(pid, &invocation));
+            }
             let message = match error {
                 Error::HostOutdated {
                     kind: HostKind::Background,
                     terminals,
                     ..
-                } => {
-                    let stopped = match terminals {
-                        0 => "it".to_owned(),
-                        1 => "it and its terminal".to_owned(),
-                        count => format!("it and its {count} terminals"),
-                    };
-                    format!(
-                        "{error} Run `kodosi host stop --force` to stop {stopped}. The next command starts the new host."
-                    )
-                }
+                } => match terminals {
+                    0 => format!("{error} Restart Kodosi to use the update."),
+                    1 => format!(
+                        "{error} Restart Kodosi to use the update, when its terminal can end."
+                    ),
+                    count => format!(
+                        "{error} Restart Kodosi to use the update, when its {count} terminals can end."
+                    ),
+                },
                 Error::HostOutdated { .. } => {
                     format!("{error} Stop `kodosi host` in its terminal and start it again.")
                 }
@@ -532,6 +538,19 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
             1
         }
     }
+}
+
+/// A package update on Linux replaces this program while the host of the earlier version runs, and
+/// that host's own program, which Linux keeps for the process, still serves the command until
+/// Kodosi restarts.
+#[cfg(target_os = "linux")]
+fn run_in_host_program(pid: u32, invocation: &[OsString]) -> io::Error {
+    use std::os::unix::process::CommandExt as _;
+    let mut command = std::process::Command::new(format!("/proc/{pid}/exe"));
+    if let Some((program, words)) = invocation.split_first() {
+        command.arg0(program).args(words);
+    }
+    command.exec()
 }
 
 pub fn is_invocation(args: &[OsString]) -> bool {
@@ -843,14 +862,6 @@ async fn start_command(
     } else {
         None
     };
-    let chosen = name.is_some() || branch.is_some();
-    let name = name.or_else(|| {
-        agent
-            .as_ref()
-            .and_then(|agent| agent["agent"].as_str())
-            .and_then(crate::agents::Agent::named)
-            .map(|known| known.label().to_owned())
-    });
     let computer = match computer {
         Some(reference) => computer_id(client, context, &reference).await?,
         None => None,
@@ -860,10 +871,7 @@ async fn start_command(
             "Give --directory, the repository on that computer, for a new branch there.".into(),
         ));
     }
-    let (mut name, directory) = start_defaults(name, directory, branch.as_deref());
-    if !chosen {
-        name = crate::names::unused(name, &context.names());
-    }
+    let (name, directory) = start_defaults(name, directory, branch.as_deref());
     let directory = match &computer {
         Some(computer) => remote_folder(client, context, computer, directory).await?,
         None => path(directory)?,
@@ -992,8 +1000,8 @@ async fn terminal_command(
                         &agent,
                         account.as_deref(),
                         [model.as_deref(), effort.as_deref()],
-                        permissions.as_deref(),
-                        output.as_deref(),
+                        permissions,
+                        output,
                         [fast, chat],
                     )
                 })
@@ -1061,8 +1069,8 @@ fn on_terminal(action: TerminalAction) -> Result<(String, &'static str, bool, Va
                 &agent,
                 account.as_deref(),
                 [model.as_deref(), effort.as_deref()],
-                permissions.as_deref(),
-                output.as_deref(),
+                permissions,
+                output,
                 [fast, chat],
             )?;
             (terminal, "session.run", false, json!({"agent":agent}))
@@ -1507,8 +1515,8 @@ fn agent_start(
     agent: &str,
     account: Option<&str>,
     [model, effort]: [Option<&str>; 2],
-    permissions: Option<&str>,
-    output: Option<&str>,
+    permissions: Option<Permissions>,
+    output: Option<Output>,
     [fast, chat]: [Option<bool>; 2],
 ) -> Result<Value> {
     Ok(
@@ -1571,7 +1579,7 @@ fn start_defaults(
 ) -> (String, Option<PathBuf>) {
     (
         name.or_else(|| branch.map(str::to_owned))
-            .unwrap_or_else(|| "Terminal".into()),
+            .unwrap_or_default(),
         directory.or_else(|| branch.map(|_| PathBuf::from("."))),
     )
 }
@@ -2087,10 +2095,6 @@ mod tests {
     }
     #[test]
     fn a_branch_terminal_starts_from_the_current_folder_with_the_name_of_its_branch() {
-        assert!(
-            Arguments::try_parse_from(["kodosi", "terminal", "start", "--branch", "fix/login"])
-                .is_ok()
-        );
         assert_eq!(
             start_defaults(None, None, Some("fix/login")),
             ("fix/login".to_owned(), Some(PathBuf::from(".")))
@@ -2099,10 +2103,7 @@ mod tests {
             start_defaults(Some("Work".to_owned()), Some("/repo".into()), Some("fix")),
             ("Work".to_owned(), Some(PathBuf::from("/repo")))
         );
-        assert_eq!(
-            start_defaults(None, None, None),
-            ("Terminal".to_owned(), None)
-        );
+        assert_eq!(start_defaults(None, None, None), (String::new(), None));
     }
     #[test]
     fn older_account_events_cannot_restore_old_sessions() {

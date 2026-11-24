@@ -56,7 +56,6 @@ fn line(item: &DosiItem) -> Option<String> {
             ),
             _ => format!("You asked: {question} ({}).", options.join(" / ")),
         },
-        DosiBody::Note { text } => text.clone(),
         DosiBody::Notice { tone, text } => match tone {
             DosiTone::Stopped => "[The person stopped that turn.]".to_owned(),
             DosiTone::Failed | DosiTone::SignIn => {

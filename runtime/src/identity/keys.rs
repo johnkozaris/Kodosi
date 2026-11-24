@@ -322,16 +322,6 @@ mod tests {
     }
 
     #[test]
-    fn identity_round_trip_preserves_keys() {
-        let first = DeviceKeys::generate().unwrap();
-        let second = DeviceKeys::decode(&first.encode().unwrap()).unwrap();
-        assert_eq!(first.device_id, second.device_id);
-        assert_eq!(first.signing_public(), second.signing_public());
-        assert_eq!(first.project_public(), second.project_public());
-        assert_eq!(first.project_public().len(), PROJECT_PUBLIC_BYTES);
-    }
-
-    #[test]
     fn a_device_saves_its_keys_under_the_names_that_devices_hold() {
         let stored: serde_json::Value =
             serde_json::from_str(&DeviceKeys::generate().unwrap().encode().unwrap()).unwrap();

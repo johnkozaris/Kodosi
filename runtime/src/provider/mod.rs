@@ -232,5 +232,24 @@ pub(crate) async fn shown_conversation(
     .flatten()
 }
 
+/// The session of Claude Code's background that holds a conversation now: the one that it went on
+/// in when a person moved it there, as Claude Code marks at the end of the conversation, or a job
+/// of the background that runs it.
+#[cfg(feature = "host")]
+pub(crate) async fn claude_background(
+    root: PathBuf,
+    folder: Option<PathBuf>,
+    conversation: String,
+) -> Option<String> {
+    tokio::task::spawn_blocking(move || {
+        folder
+            .and_then(|folder| resume::claude_continuation(&root, &folder, &conversation))
+            .or_else(|| resume::claude_job(&root, &conversation).then_some(conversation))
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 #[cfg(all(test, feature = "host"))]
 mod tests;

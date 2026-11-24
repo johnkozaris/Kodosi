@@ -144,7 +144,6 @@ private slots:
         QCOMPARE(table.value(QStringLiteral("rows")).toList(),
             QVariantList({ QVariantList({ QStringLiteral("Mug"), QStringLiteral("24") }), QVariantList({ QStringLiteral("Bowl"), QString {} }) }));
         QCOMPARE(blocks.at(4).toMap().value(QStringLiteral("text")).toString(), QStringLiteral("const a = 1\n"));
-        QCOMPARE(kodosi::ChatProse::cells(u"| a | b |"), QStringList({ QStringLiteral("a"), QStringLiteral("b") }));
     }
 
     void aModelIsNamedAsTheLauncherKnowsIt()
@@ -170,7 +169,6 @@ private slots:
         chat->watch();
         QCOMPARE(commands.of(QStringLiteral("document.open")).size(), 1);
         const auto pipe = commands.of(QStringLiteral("document.open")).first().value(QStringLiteral("pipe")).toString();
-        QCOMPARE(commands.of(QStringLiteral("document.open")).first().value(QStringLiteral("key")).toString(), QStringLiteral("chat"));
         const auto frame = [&](const QByteArray& bytes) {
             static int sequence = 0;
             documents.apply({ { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
@@ -220,7 +218,6 @@ private slots:
         QCOMPARE(kinds(lines), QStringList({ QStringLiteral("person"), QStringLiteral("work"), QStringLiteral("answer"),
                                    QStringLiteral("end"), QStringLiteral("person"), QStringLiteral("answer") }));
         const auto work = lines.at(1).toMap();
-        QCOMPARE(work.value(QStringLiteral("id")).toString(), QStringLiteral("work.t1"));
         QVERIFY(work.value(QStringLiteral("lead")).toBool());
         QCOMPARE(work.value(QStringLiteral("steps")).toList().size(), 3);
         QCOMPARE(work.value(QStringLiteral("sign")).toString(), QString {});

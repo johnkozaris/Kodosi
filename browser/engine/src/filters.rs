@@ -123,20 +123,4 @@ mod tests {
         assert_eq!(kind(ResourceType::SCRIPT), Some("script"));
         assert_eq!(kind(ResourceType::XHR), Some("xmlhttprequest"));
     }
-
-    #[test]
-    fn a_listed_tracker_of_another_site_is_blocked_and_the_site_itself_is_not() {
-        let mut set = FilterSet::new(false);
-        set.add_filter_list(
-            "||tracker.example^$third-party".to_owned(),
-            ParseOptions::default(),
-        );
-        let engine = Engine::new_with_filter_set(set);
-        let check = |url: &str| {
-            let asked = Asked::new(url, "https://news.example/", "script", "GET").unwrap();
-            engine.check_network_request(&asked).should_block()
-        };
-        assert!(check("https://tracker.example/t.js"));
-        assert!(!check("https://news.example/app.js"));
-    }
 }

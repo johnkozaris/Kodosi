@@ -58,7 +58,8 @@ class RuntimeEvent(val type: String, val accountUserId: String?, val accountEpoc
 object UuidV7 {
     private val random = SecureRandom()
 
-    fun generate(now: Long = System.currentTimeMillis()): String {
+    fun generate(): String {
+        val now = System.currentTimeMillis()
         val bytes = ByteArray(16)
         random.nextBytes(bytes)
         for (index in 0 until 6) {

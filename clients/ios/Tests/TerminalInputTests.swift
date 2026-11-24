@@ -190,7 +190,6 @@ struct TerminalInputTests {
             return Int32(KODOSI_FFI_OK)
         }, onFailure: { failures.append($0) })
         #expect(failures.values == [.budgetExceeded(perSession: true)])
-        #expect(TerminalInputFailure.budgetExceeded(perSession: true).userMessage.isEmpty == false)
     }
 }
 

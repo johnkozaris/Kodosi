@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.StatusForm
+import com.kodosi.mobile.terminals.lastName
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.KodosiTheme
@@ -51,6 +52,8 @@ import com.kodosi.mobile.ui.Unfolding
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.rememberWords
 import com.kodosi.mobile.ui.snappy
+
+private const val SHOWN_CHANGE_LINES = 40
 
 /**
  * The work of a turn as one quiet line: what the steps did and the one sign of how they ended.
@@ -244,7 +247,7 @@ private fun StepDetail(tool: ChatTool, modifier: Modifier = Modifier) {
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        ChatWords.lastName(detail.path),
+                        lastName(detail.path),
                         style = ChatType.monoCaption,
                         color = colors.inkMuted,
                         maxLines = 1,
@@ -254,7 +257,7 @@ private fun StepDetail(tool: ChatTool, modifier: Modifier = Modifier) {
                     Text("+${detail.added}", style = ChatType.monoCaption, color = colors.ready)
                     Text("−${detail.removed}", style = ChatType.monoCaption, color = colors.danger)
                 }
-                ChangeLines(detail.lines, most = 40)
+                ChangeLines(detail.lines)
             }
 
             is ChatToolDetail.Output -> Printed("", detail.text)
@@ -334,12 +337,12 @@ private fun Printed(text: String, output: String) {
 }
 
 @Composable
-internal fun ChangeLines(lines: List<ChangeLine>, most: Int, modifier: Modifier = Modifier) {
+internal fun ChangeLines(lines: List<ChangeLine>, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
     CodeWell(modifier.fillMaxWidth()) {
         SelectionContainer {
             Column {
-                lines.take(most).forEach { line ->
+                lines.take(SHOWN_CHANGE_LINES).forEach { line ->
                     val color = when (line.sign) {
                         ChangeSign.ADDED -> colors.ready
                         ChangeSign.REMOVED -> colors.danger
@@ -365,7 +368,7 @@ internal fun ChangeLines(lines: List<ChangeLine>, most: Int, modifier: Modifier 
                         )
                     }
                 }
-                if (lines.size > most) Text("…", style = ChatType.mono, color = colors.inkFaint)
+                if (lines.size > SHOWN_CHANGE_LINES) Text("…", style = ChatType.mono, color = colors.inkFaint)
             }
         }
     }

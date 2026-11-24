@@ -87,6 +87,10 @@ public final class ProjectStore {
         details[projectId]?.members.first { $0.userId == userId }
     }
 
+    public func member(_ userId: String) -> ProjectMemberEntry? {
+        details.values.lazy.flatMap(\.members).first { $0.userId == userId }
+    }
+
     /// A message of your own agent has you as its author, and you cannot block or report yourself.
     public func otherAuthor(of message: ProjectMessage, in projectId: String) -> ProjectMemberEntry? {
         message.authorId == userId ? nil : member(message.authorId, in: projectId)

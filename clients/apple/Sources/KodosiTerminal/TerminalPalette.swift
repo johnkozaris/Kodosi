@@ -28,7 +28,7 @@ public extension TerminalPalette {
         background: "0d0b09",
         foreground: "e8e1d9",
         cursor: "cc7a45",
-        selectionBackground: "2b2520",
+        selectionBackground: "5c3825",
         selectionForeground: "e8e1d9",
         ansiColors: [
             "1a1613", "c44040", "52b36b", "c4993d",

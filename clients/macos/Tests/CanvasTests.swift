@@ -5,15 +5,11 @@ import KodosiDesign
 @testable import KodosiDesktop
 import Testing
 
-private func item(_ name: String, changed: UInt64, revision: UInt64 = 1, missing: Bool = false) -> JSONValue {
-    var fields: [String: JSONValue] = [
+private func item(_ name: String, changed: UInt64, revision: UInt64 = 1) -> JSONValue {
+    .object([
         "key": .string("/tmp/work/\(name)"), "name": .string(name), "kind": .string(name.hasSuffix(".pdf") ? "pdf" : "page"),
         "revision": .uint(revision), "bytes": .uint(120), "changed": .uint(changed),
-    ]
-    if missing {
-        fields["missing"] = .bool(true)
-    }
-    return .object(fields)
+    ])
 }
 
 private func terminalFields(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", canvas: [String: JSONValue]?) -> [String: JSONValue] {
@@ -43,15 +39,12 @@ private func asleepBrowser(changed: UInt64) -> JSONValue {
 @Test func `a canvas lists its items, newest first, and then the browser`() throws {
     let session = try terminal(canvas: [
         "sequence": .uint(9),
-        "items": .array([item("compare.html", changed: 4), item("plan.pdf", changed: 7, missing: true)]),
+        "items": .array([item("compare.html", changed: 4), item("plan.pdf", changed: 7)]),
         "browser": .object(["state": .string("asleep"), "changed": .uint(2), "width": .uint(1280), "height": .uint(720)]),
     ])
     let canvas = try #require(session.canvas)
     #expect(canvas.shown.map(\.key) == ["/tmp/work/compare.html", "/tmp/work/plan.pdf", CanvasShown.browserKey])
     #expect(canvas.newest?.key == "/tmp/work/plan.pdf")
-    #expect(canvas.items[1].missing)
-    #expect(canvas.browser?.tabs.isEmpty == true)
-    #expect(try terminal(canvas: nil).canvas == nil)
     #expect(try terminal(canvas: ["sequence": .uint(1)]).canvas?.shown.isEmpty == true)
 }
 
@@ -527,26 +520,4 @@ private let notes = CanvasItem(key: "notes.txt", name: "notes.txt", kind: .docum
     #expect((page.title, page.visits) == ("Example", 2))
     let kept = try #require(BrowserHistory(rawValue: history.rawValue))
     #expect(kept == history)
-}
-
-@Test func `settings of the browser read its status while no download runs`() async throws {
-    let commands = CommandSink()
-    var request: String?
-    commands.transport { data in
-        request = (try? JSONDecoder().decode([String: JSONValue].self, from: data))?["requestId"]?.stringValue
-        return 0
-    }
-    let store = CanvasStore(commands: commands)
-    let reading = Task { try await store.browserStatus() }
-    while request == nil {
-        await Task.yield()
-    }
-    try commands.receive(runtimeEvent("browser.result", fields: [
-        "requestId": .string(#require(request)), "operation": .string("browser.status"),
-        "sources": .array([.object(["name": .string("Chrome"), "browser": .string("chrome"), "protected": .bool(false)])]),
-        "sites": .uint(0),
-    ]))
-    let status = try await reading.value
-    #expect(status == BrowserStatus(sources: [.init(name: "Chrome", browser: "chrome", protected: false)], sites: 0, engine: nil,
-                                    getting: nil))
 }

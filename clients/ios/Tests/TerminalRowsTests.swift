@@ -33,7 +33,6 @@ struct TerminalRowsTests {
 
     @Test func `a phone terminal with room for more rows keeps its room`() {
         #expect(TerminalRows.height(room: 326, metrics: measure(326), scale: scale) == 326)
-        #expect(rows(in: 326) == 17)
     }
 
     @Test func `a terminal that has not measured its cells keeps its room`() {

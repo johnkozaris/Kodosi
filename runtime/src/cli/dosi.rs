@@ -181,7 +181,6 @@ fn line(body: &DosiBody) -> Option<String> {
     Some(match body {
         DosiBody::Person { text } => format!("You: {text}"),
         DosiBody::Text { text, .. } => format!("Dosi: {text}"),
-        DosiBody::Note { text } => text.clone(),
         DosiBody::Tool { status, .. } => {
             let failed = if *status == DosiToolStatus::Failed {
                 " (failed)"

@@ -15,7 +15,7 @@ extension AppDependencies {
         if let name = people.name(of: id) {
             return name
         }
-        if let member = projects.details.values.lazy.flatMap(\.members).first(where: { $0.userId == id }) {
+        if let member = projects.member(id) {
             return member.personName
         }
         return String(localized: "Guest")

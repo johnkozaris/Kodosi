@@ -704,8 +704,8 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         return true
     }
 
-    private fun click(x: Float, y: Float, button: String) {
-        if (mouse("press", x, y, button, 1)) mouse("release", x, y, button, 1)
+    private fun rightClick(x: Float, y: Float) {
+        if (mouse("press", x, y, "right", 1)) mouse("release", x, y, "right", 1)
     }
 
     /**
@@ -730,7 +730,7 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
 
             MotionEvent.ACTION_POINTER_UP -> {
                 if (pairAt >= 0 && event.eventTime - pairAt <= ViewConfiguration.getLongPressTimeout()) {
-                    click(pairX, pairY, "right")
+                    rightClick(pairX, pairY)
                 }
                 pairAt = -1L
             }
@@ -752,7 +752,7 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
                 if (dragging) {
                     mouse("release", event.x, event.y, "left", 1)
                 } else if (held && event.actionMasked == MotionEvent.ACTION_UP) {
-                    click(holdX, holdY, "right")
+                    rightClick(holdX, holdY)
                 }
                 held = false
                 dragging = false
