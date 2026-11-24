@@ -139,8 +139,12 @@ data class RuntimeSession(
 
     val agent: AgentKind get() = AgentKind.of(program)
 
-    val folderName: String? get() = workingDir?.trimEnd('/', '\\')?.substringAfterLast('/')?.substringAfterLast('\\')
+    val folderName: String? get() = workingDir?.let(::lastName)
 }
+
+/** The last name of a path of any computer, and the path itself for its root. */
+fun lastName(path: String): String =
+    path.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\').ifEmpty { path }
 
 /** The two faces of a terminal: its screen, and its chat. */
 @Serializable

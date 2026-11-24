@@ -145,9 +145,7 @@ fun TerminalsScreen(
                             ) {
                                 AppIcon(AppSymbol.FOLDER, tint = colors.inkFaint)
                                 Text(
-                                    folder.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\').ifEmpty {
-                                        folder
-                                    },
+                                    lastName(folder),
                                     style = KodosiType.footnote,
                                     color = colors.inkMuted,
                                     modifier = Modifier.weight(1f),

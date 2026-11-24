@@ -179,7 +179,7 @@ private fun PermissionBody(tool: ChatTool, whole: String?) {
                 SelectionContainer { Text(whole, style = ChatType.mono, color = KodosiTheme.colors.ink) }
             }
         } else if (change != null && change.lines.isNotEmpty()) {
-            ChangeLines(change.lines, most = 40)
+            ChangeLines(change.lines)
         }
     }
 }
