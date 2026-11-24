@@ -74,6 +74,7 @@ let package = Package(
             ],
             swiftSettings: swiftSettings,
             linkerSettings: [
+                // The terminal links the link rule of the runtime library, which no test here calls.
                 .unsafeFlags(["-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup"]),
             ],
         ),
@@ -91,8 +92,7 @@ let package = Package(
             dependencies: ["KodosiLinks"],
             swiftSettings: swiftSettings,
             linkerSettings: [
-                // The link rule is the runtime's, which the Mac app's tests run with. These test only
-                // what is this app's own part.
+                // The link rule is the runtime's and has its tests there; these test only the app's part.
                 .unsafeFlags(["-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup"]),
             ],
         ),
