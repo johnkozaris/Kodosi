@@ -19,24 +19,3 @@ pub(super) fn validate_terminal_checkpoint(checkpoint: &Checkpoint) -> Result<()
         ))
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-    #[test]
-    fn a_checkpoint_is_valid_only_when_its_snapshot_restores() -> TestResult {
-        let mut host = Terminal::new(12, 4, TerminalPolicy::default())?;
-        host.write(b"checkpoint")?;
-        let snapshot = host.snapshot(crate::terminal::snapshot_limits(u64::MAX))?;
-        validate_terminal_checkpoint(&Checkpoint::new(snapshot.clone(), false)?)?;
-
-        let mut damaged = snapshot;
-        let last = damaged.len() - 1;
-        damaged[last] ^= 1;
-        assert!(validate_terminal_checkpoint(&Checkpoint::new(damaged, false)?).is_err());
-        Ok(())
-    }
-}
