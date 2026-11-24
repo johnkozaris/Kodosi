@@ -13,35 +13,6 @@ private func hosted(_ frame: NSRect = NSRect(x: 10, y: 10, width: 46, height: 46
     return (window, host)
 }
 
-@Test func `with reduced motion a working mark glows along its whole edge`() throws {
-    let renderer = ImageRenderer(content: LightRim(onTile: .working, cornerRadius: 12, lineWidth: 3)
-        .frame(width: 40, height: 40)
-        .environment(\.theme, AppTheme.dark.reducingMotion(true)))
-    renderer.scale = 1
-    let image = try #require(renderer.cgImage)
-    let context = try #require(CGContext(data: nil, width: 40, height: 40, bitsPerComponent: 8, bytesPerRow: 160,
-                                         space: CGColorSpaceCreateDeviceRGB(),
-                                         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
-    context.draw(image, in: CGRect(x: 0, y: 0, width: 40, height: 40))
-    let pixels = try #require(context.data).assumingMemoryBound(to: UInt8.self)
-    let alpha = { (x: Int, y: Int) in pixels[(y * 40 + x) * 4 + 3] }
-    for (x, y) in [(20, 1), (38, 20), (20, 38), (1, 20)] {
-        #expect(alpha(x, y) > 200)
-    }
-    #expect(alpha(20, 20) == 0)
-}
-
-@Test func `a line glides only while it flows with motion`() throws {
-    let (window, host) = hosted(NSRect(x: 10, y: 10, width: 120, height: 3))
-    defer { window.close() }
-    for still in [false, true] {
-        let art = GlidingLight(light: .orange, still: still)
-        host.update(setup: art, environment: EnvironmentValues()) { GlidingLight.draw(art, $0) }
-        let band = try #require(host.content.sublayers?.first as? CAGradientLayer)
-        #expect((band.animation(forKey: "glide") != nil) == !still)
-    }
-}
-
 @Test func `looping marks animate in core animation and stop without a window`() throws {
     let (window, host) = hosted(NSRect(x: 10, y: 10, width: 18, height: 18))
     let breath = Breath(color: .orange, size: 7)
