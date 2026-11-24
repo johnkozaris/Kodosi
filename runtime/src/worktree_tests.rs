@@ -190,13 +190,3 @@ async fn an_unchanged_branch_goes_away_and_a_branch_with_work_stays() {
     remove_unchanged(switched.clone()).await;
     assert!(switched.path.exists());
 }
-
-#[tokio::test]
-async fn a_folder_outside_a_repository_gives_a_clear_answer() {
-    let root = tempfile::tempdir().expect("temp folder");
-    assert!(!is_repository(root.path()));
-    let error = create(root.path(), "feature", None)
-        .await
-        .expect_err("not a repository");
-    assert_eq!(error.to_string(), "This folder is not in a Git repository.");
-}

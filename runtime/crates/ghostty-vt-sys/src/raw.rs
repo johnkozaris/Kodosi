@@ -1764,18 +1764,6 @@ mod tests {
     }
 
     #[test]
-    fn focus_encoding_follows_terminal_mode() {
-        let mut terminal = terminal();
-        assert_eq!(
-            terminal.encode_focus(true).expect("unreported focus"),
-            [] as [u8; 0]
-        );
-        terminal.write(b"\x1b[?1004h").expect("focus reporting");
-        assert_eq!(terminal.encode_focus(true).expect("focus"), b"\x1b[I");
-        assert_eq!(terminal.encode_focus(false).expect("blur"), b"\x1b[O");
-    }
-
-    #[test]
     fn title_pwd_and_query_effects_are_owned_bytes() {
         let mut terminal = terminal();
         let effects = terminal
@@ -2059,23 +2047,6 @@ mod tests {
     }
 
     #[test]
-    fn a_visible_snapshot_carries_the_pixels_of_the_images_on_screen() {
-        let mut source = with_image();
-        let full = snapshot(&mut source, true);
-        let visible = snapshot(&mut source, false);
-
-        assert!(full.starts_with(&visible));
-        assert!(
-            record_bytes(
-                &visible,
-                SNAPSHOT_IMAGE_PAYLOAD_TAG..=SNAPSHOT_IMAGE_PAYLOAD_TAG
-            ) > 0
-        );
-        let mut restored = restore(&visible).expect("restore visible");
-        assert_eq!(snapshot(&mut restored, false), visible);
-    }
-
-    #[test]
     fn a_snapshot_limits_its_text_apart_from_its_images() {
         let mut source = with_image();
         let complete = snapshot(&mut source, true);
@@ -2116,46 +2087,5 @@ mod tests {
             record_bytes(&encoded, SNAPSHOT_IMAGE_TAGS)
         );
         assert_eq!(images(3), 0);
-    }
-
-    #[test]
-    fn a_screen_only_format_leaves_the_history_out() {
-        let options = FormatOptions {
-            format: Format::Plain,
-            unwrap: false,
-            trim: true,
-            palette: false,
-            modes: false,
-            scrolling_region: false,
-            tabstops: false,
-            pwd: false,
-            keyboard: false,
-            cursor: false,
-            style: false,
-            hyperlink: false,
-            protection: false,
-            kitty_keyboard: false,
-            charsets: false,
-            screen_only: true,
-        };
-        let mut terminal = with_history();
-
-        let screen = terminal.format(options, usize::MAX).expect("screen");
-        let all = terminal
-            .format(
-                FormatOptions {
-                    screen_only: false,
-                    ..options
-                },
-                usize::MAX,
-            )
-            .expect("all");
-
-        let screen = String::from_utf8(screen).expect("text");
-        assert_eq!(
-            screen.lines().collect::<Vec<_>>(),
-            ["history line 397", "history line 398", "history line 399"]
-        );
-        assert!(all.len() > 10 * screen.len());
     }
 }

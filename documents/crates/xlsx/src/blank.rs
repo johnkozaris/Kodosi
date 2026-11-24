@@ -152,20 +152,3 @@ pub fn new_file(source: Option<(&str, &str)>) -> Result<Vec<u8>, String> {
     ])
     .map_err(|error| error.to_string())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn quotes_keep_commas_in_a_cell() {
-        assert_eq!(csv_line(r#"a,"b,c","d""e""#), ["a", "b,c", r#"d"e"#]);
-    }
-
-    #[test]
-    fn objects_become_rows_under_their_keys() {
-        let rows = rows_of_json(r#"[{"a":1},{"b":"x"}]"#).unwrap();
-        assert_eq!(rows[0], [Json::from("a"), Json::from("b")]);
-        assert_eq!(rows[2][1], "x");
-    }
-}

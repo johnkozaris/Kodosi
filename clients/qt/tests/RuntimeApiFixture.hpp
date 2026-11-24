@@ -9,7 +9,6 @@ inline kodosi_callbacks_t callbacks {};
 inline void* userdata = nullptr;
 inline QByteArray lastCommand;
 inline bool allowStart = false;
-inline uint32_t protocolVersion = kodosi::RuntimeBridge::protocolVersion;
 inline std::optional<kodosi_start_failure_t> startFailure;
 inline int hostStops = 0;
 inline void sendEvent(const QByteArray& event)
@@ -24,7 +23,6 @@ inline void reset()
     userdata = nullptr;
     lastCommand.clear();
     allowStart = false;
-    protocolVersion = kodosi::RuntimeBridge::protocolVersion;
     startFailure.reset();
     hostStops = 0;
 }

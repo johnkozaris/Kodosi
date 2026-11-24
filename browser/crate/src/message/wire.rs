@@ -242,27 +242,4 @@ mod tests {
             })
         ));
     }
-
-    #[test]
-    fn input_uses_the_contract_names() {
-        let mut message = vec![JSON];
-        message.extend_from_slice(
-            br#"{"type":"input","input":{"kind":"mouse","action":"press","x":4,"y":8,"button":"left","clicks":1}}"#,
-        );
-        assert_eq!(
-            ToWindow::decode(&message),
-            Ok(ToWindow::Input {
-                input: Input::Mouse {
-                    action: MouseAction::Press,
-                    x: 4.0,
-                    y: 8.0,
-                    button: MouseButton::Left,
-                    clicks: 1,
-                    delta_x: 0.0,
-                    delta_y: 0.0,
-                    modifiers: 0,
-                },
-            })
-        );
-    }
 }

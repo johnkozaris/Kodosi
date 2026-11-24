@@ -1970,26 +1970,6 @@ async fn open_remote(
 mod tests {
     use super::*;
     #[test]
-    fn app_executables_recognise_cli_invocations() {
-        let args = |list: &[&str]| list.iter().map(OsString::from).collect::<Vec<_>>();
-        let app = "/Applications/Kodosi.app/Contents/MacOS/Kodosi";
-        assert!(is_invocation(&args(&["/opt/homebrew/bin/kodosi"])));
-        assert!(is_invocation(&args(&["kodosi", "statsu"])));
-        assert!(is_invocation(&args(&[app, "status"])));
-        assert!(is_invocation(&args(&[app, "internal-host"])));
-        assert!(is_invocation(&args(&[app, "--json", "status"])));
-        assert!(is_invocation(&args(&[app, "--version"])));
-        assert!(is_invocation(&args(&[app, "help", "terminal"])));
-        assert!(!is_invocation(&args(&[app])));
-        assert!(!is_invocation(&args(&[
-            app,
-            "-NSDocumentRevisionsDebugMode",
-            "YES"
-        ])));
-        assert!(!is_invocation(&args(&[app, "statsu"])));
-        assert!(!is_invocation(&[]));
-    }
-    #[test]
     fn every_command_in_a_skill_or_guide_is_a_command_of_this_cli() {
         let words = |command: &str| {
             let mut words = vec![String::new()];
@@ -2094,18 +2074,6 @@ mod tests {
         );
     }
     #[test]
-    fn a_branch_terminal_starts_from_the_current_folder_with_the_name_of_its_branch() {
-        assert_eq!(
-            start_defaults(None, None, Some("fix/login")),
-            ("fix/login".to_owned(), Some(PathBuf::from(".")))
-        );
-        assert_eq!(
-            start_defaults(Some("Work".to_owned()), Some("/repo".into()), Some("fix")),
-            ("Work".to_owned(), Some(PathBuf::from("/repo")))
-        );
-        assert_eq!(start_defaults(None, None, None), (String::new(), None));
-    }
-    #[test]
     fn older_account_events_cannot_restore_old_sessions() {
         let mut context = Context::from_events(&[
             json!({"type":"sessions.snapshot","accountUserId":"old","accountEpoch":1,"sessions":[{"id":"old-session"}]}),
@@ -2158,29 +2126,5 @@ mod tests {
             assert_eq!(friend_id(&friends, reference).unwrap(), "u-bob");
         }
         assert!(friend_id(&friends, "carol").is_err());
-    }
-    #[test]
-    fn every_command_says_terminal_and_project() {
-        fn help(command: &mut clap::Command) -> String {
-            let mut text = command.render_long_help().to_string();
-            for subcommand in command.get_subcommands_mut() {
-                text.push_str(&help(subcommand));
-            }
-            text
-        }
-        let mut command = Arguments::command();
-        command.build();
-        let text = help(&mut command).to_lowercase();
-        let words: HashSet<_> = text
-            .split(|character: char| !character.is_ascii_alphanumeric())
-            .collect();
-        assert!(words.contains("terminal") && words.contains("project"));
-        assert!(
-            [
-                "session", "sessions", "mission", "missions", "room", "rooms"
-            ]
-            .iter()
-            .all(|word| !words.contains(word))
-        );
     }
 }

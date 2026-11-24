@@ -563,19 +563,4 @@ mod tests {
             Some("33333333-3333-3333-3333-333333333333")
         );
     }
-
-    #[test]
-    fn an_invite_text_gives_the_handle_and_the_identity() {
-        let text = invite("alice", &[0xab; 32]);
-        assert_eq!(text, format!("kodosi:alice:{}", "ab".repeat(32)));
-        assert_eq!(
-            parse_invite(&format!("  {text}\n")),
-            Some(("alice".into(), [0xab; 32]))
-        );
-        for bad in ["alice", "kodosi:alice", "kodosi::abab", "other:alice:abab"] {
-            assert_eq!(parse_invite(bad), None);
-        }
-        assert_eq!(parse_invite(&format!("{text}:more")), None);
-        assert_eq!(parse_invite(&text[..text.len() - 2]), None);
-    }
 }

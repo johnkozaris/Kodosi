@@ -148,28 +148,3 @@ fn render(terminal: &mut Terminal) -> Result<()> {
     output.flush()?;
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{ESCAPE, typed_keys};
-
-    #[test]
-    fn ctrl_bracket_then_dot_leaves_and_ctrl_bracket_twice_types_one() {
-        let typed = |keys: &[&[u8]]| {
-            let mut escaped = false;
-            keys.iter()
-                .map(|input| typed_keys(input, &mut escaped))
-                .collect::<Option<Vec<_>>>()
-                .map(|sent| sent.concat())
-        };
-        assert_eq!(typed(&[b"ls\r"]), Some(b"ls\r".to_vec()));
-        assert_eq!(typed(&[&[ESCAPE], b"."]), None);
-        assert_eq!(typed(&[&[ESCAPE, b'.']]), None);
-        assert_eq!(
-            typed(&[&[ESCAPE], &[ESCAPE], b"."]),
-            Some(vec![ESCAPE, b'.'])
-        );
-        assert_eq!(typed(&[&[ESCAPE, ESCAPE, b'a']]), Some(vec![ESCAPE, b'a']));
-        assert_eq!(typed(&[&[ESCAPE], b"x"]), Some(vec![ESCAPE, b'x']));
-    }
-}

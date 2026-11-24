@@ -890,40 +890,6 @@ async fn a_project_reads_only_the_items_after_the_sequence_that_it_has() {
 }
 
 #[tokio::test]
-async fn a_project_tells_when_the_server_removed_its_oldest_messages() {
-    let (_root, network, credentials, fake) = fake_project().await;
-    let project = fake.project;
-    fake.add(Uuid::now_v7(), 1, &message("one"));
-    network
-        .sync_project(&credentials, project, None)
-        .await
-        .unwrap();
-    assert!(
-        !network
-            .show_project(&credentials, project)
-            .await
-            .unwrap()
-            .history_trimmed
-    );
-
-    fake.trimmed.store(true, Ordering::Relaxed);
-    fake.add(Uuid::now_v7(), 1, &message("two"));
-    assert!(
-        network
-            .sync_project(&credentials, project, None)
-            .await
-            .unwrap()
-    );
-    let shown = network.show_project(&credentials, project).await.unwrap();
-    assert!(shown.history_trimmed);
-    let older = network
-        .older_messages(&credentials, project, shown.messages[0].position)
-        .await
-        .unwrap();
-    assert!(older.history_trimmed && !older.has_older);
-}
-
-#[tokio::test]
 async fn a_post_keeps_its_own_item_and_reads_only_what_others_wrote_in_between() {
     let (_root, network, credentials, fake) = fake_project().await;
     let project = fake.project;

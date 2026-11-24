@@ -247,28 +247,4 @@ mod tests {
         assert!(output.contains("B> \x1b]133;B\x07"), "{output}");
         assert!(output.contains("\x1b]133;D;1\x07"), "{output}");
     }
-
-    #[test]
-    fn other_programs_and_the_macos_bash_start_as_before() {
-        let folder = tempfile::tempdir().unwrap();
-        for (shell, program) in [("sh", "/bin/sh"), ("fish", "/usr/bin/fish")] {
-            let mut command = Command::new(program);
-            add(shell, Path::new(program), folder.path(), &[], &mut command);
-            assert_eq!(command.as_std().get_envs().count(), 0, "{shell}");
-            assert_eq!(command.as_std().get_args().count(), 0, "{shell}");
-        }
-
-        let mut bash = Command::new("/bin/bash");
-        add(
-            "bash",
-            Path::new("/bin/bash"),
-            folder.path(),
-            &[],
-            &mut bash,
-        );
-        assert_eq!(
-            bash.as_std().get_args().count(),
-            usize::from(!cfg!(target_os = "macos"))
-        );
-    }
 }

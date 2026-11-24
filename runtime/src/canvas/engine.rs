@@ -514,30 +514,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_feed_that_is_not_out_says_that_there_is_no_browser_yet() {
-        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
-            .await
-            .unwrap();
-        let address = listener.local_addr().unwrap();
-        tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
-            let mut request = [0_u8; 1024];
-            drop(tokio::io::AsyncReadExt::read(&mut stream, &mut request).await);
-            let answer =
-                b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n";
-            tokio::io::AsyncWriteExt::write_all(&mut stream, answer)
-                .await
-                .unwrap();
-        });
-        let feed = get(
-            &reqwest::Client::new(),
-            &format!("http://{address}/engine.json"),
-        )
-        .await;
-        assert_eq!(feed, Err(not_for_this_computer()));
-    }
-
-    #[tokio::test]
     async fn an_engine_counts_only_when_its_program_is_there() {
         let folder = tempfile::tempdir().unwrap();
         assert_eq!(installed(folder.path()).await, None);

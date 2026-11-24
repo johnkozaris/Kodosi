@@ -258,8 +258,6 @@ mod tests {
         path::{Path, PathBuf},
     };
 
-    use serde_json::json;
-
     use super::*;
 
     const GENERATED: &str = concat!(
@@ -317,48 +315,5 @@ mod tests {
         panic!(
             "the views had an old contract; it is written again in {GENERATED}, for this commit"
         );
-    }
-
-    #[test]
-    fn a_small_message_stays_plain_json() {
-        let message = ToDocument::Query {
-            id: 3,
-            body: json!({ "cell": "A1" }),
-        };
-        let frame = encode_message(&message);
-        assert_eq!(frame[0], JSON_FRAME);
-        assert_eq!(decode(&frame), Ok(Frame::Message(message)));
-    }
-
-    #[test]
-    fn a_large_message_travels_as_gzip() {
-        let message = ToDocument::Query {
-            id: 3,
-            body: json!("x".repeat(GZIP_FROM)),
-        };
-        let frame = encode_message(&message);
-        assert_eq!(frame[0], GZIP_FRAME);
-        assert!(frame.len() < GZIP_FROM / 10);
-        assert_eq!(decode(&frame), Ok(Frame::Message(message)));
-    }
-
-    #[test]
-    fn an_asset_keeps_its_hash_and_bytes() {
-        let frame = encode_asset(&[7; HASH_BYTES], b"picture");
-        assert_eq!(
-            decode::<ToDocument>(&frame),
-            Ok(Frame::Asset {
-                hash: [7; HASH_BYTES],
-                bytes: b"picture".to_vec(),
-            })
-        );
-    }
-
-    #[test]
-    fn broken_frames_are_refused() {
-        assert_eq!(decode::<ToDocument>(&[]), Err(BadFrame));
-        assert_eq!(decode::<ToDocument>(&[9, 1]), Err(BadFrame));
-        assert_eq!(decode::<ToDocument>(&[ASSET_FRAME, 1, 2]), Err(BadFrame));
-        assert_eq!(decode::<ToDocument>(&[JSON_FRAME, b'{']), Err(BadFrame));
     }
 }

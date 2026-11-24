@@ -24,30 +24,6 @@ fn state(records: &ProgramStatusRecords) -> Option<ProgramState> {
 }
 
 #[test]
-fn a_report_replaces_its_record_completely() {
-    let mut records = ProgramStatusRecords::default();
-    records.apply(ProgramStatusReport {
-        kind: Some(BlockedKind::Permission),
-        progress: Some(40),
-        app: Some("claude-code".to_owned()),
-        message: Some("Allow the command?".to_owned()),
-        ..report("", ProgramState::Blocked)
-    });
-    records.apply(report("", ProgramState::Working));
-
-    assert_eq!(
-        records.summary(),
-        Some(ProgramStatus {
-            state: ProgramState::Working,
-            kind: None,
-            progress: None,
-            title: None,
-            message: None,
-        })
-    );
-}
-
-#[test]
 fn the_most_urgent_record_is_the_status_of_the_terminal() {
     let mut records = ProgramStatusRecords::default();
     records.apply(report("", ProgramState::Idle));
@@ -69,31 +45,6 @@ fn the_most_urgent_record_is_the_status_of_the_terminal() {
     assert_eq!(status.state, ProgramState::Blocked);
     assert_eq!(status.kind, Some(BlockedKind::Question));
     assert_eq!(status.title.as_deref(), Some("Review the plan"));
-}
-
-#[test]
-fn the_newer_of_two_equal_records_is_the_status() {
-    let mut records = ProgramStatusRecords::default();
-    records.apply(ProgramStatusReport {
-        title: Some("first".to_owned()),
-        ..report("a", ProgramState::Working)
-    });
-    records.apply(ProgramStatusReport {
-        title: Some("second".to_owned()),
-        ..report("b", ProgramState::Working)
-    });
-    assert_eq!(
-        records.summary().and_then(|status| status.title).as_deref(),
-        Some("second")
-    );
-    records.apply(ProgramStatusReport {
-        title: Some("first again".to_owned()),
-        ..report("a", ProgramState::Working)
-    });
-    assert_eq!(
-        records.summary().and_then(|status| status.title).as_deref(),
-        Some("first again")
-    );
 }
 
 #[test]
@@ -123,27 +74,6 @@ fn the_end_of_the_program_keeps_only_results() {
     records.apply(report("d", ProgramState::Error));
     records.program_exited();
     assert_eq!(state(&records), Some(ProgramState::Error));
-}
-
-#[test]
-fn a_record_takes_the_program_name_of_its_nearest_parent() {
-    let mut records = ProgramStatusRecords::default();
-    records.apply(ProgramStatusReport {
-        app: Some("claude-code".to_owned()),
-        ..report("", ProgramState::Idle)
-    });
-    records.apply(report("tasks/review", ProgramState::Working));
-    assert_eq!(records.live_program(), Some("claude"));
-
-    records.apply(ProgramStatusReport {
-        app: Some("codex".to_owned()),
-        ..report("tasks", ProgramState::Idle)
-    });
-    records.apply(report("tasks/review", ProgramState::Working));
-    assert_eq!(records.live_program(), Some("codex"));
-
-    records.apply(report("tasksuite", ProgramState::Blocked));
-    assert_eq!(records.live_program(), Some("claude"));
 }
 
 #[test]

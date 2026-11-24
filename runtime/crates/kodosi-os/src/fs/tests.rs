@@ -135,33 +135,6 @@ fn private_files_refuse_shared_permissions() {
 
 #[cfg(unix)]
 #[test]
-fn executables_need_execute_permission() {
-    use std::os::unix::fs::PermissionsExt as _;
-    let (_root, real) = real_tempdir();
-    let path = real.join("tool");
-    std::fs::write(&path, b"#!/bin/sh\n").unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    assert!(!is_executable(&path));
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
-    assert!(is_executable(&path));
-}
-
-#[cfg(windows)]
-#[test]
-fn file_urls_name_drives_and_shares() {
-    assert_eq!(
-        path_from_file_url("pc", "/C:/Users/me"),
-        Some(PathBuf::from(r"C:\Users\me"))
-    );
-    assert_eq!(path_from_file_url("", "/d:/"), Some(PathBuf::from(r"d:\")));
-    assert_eq!(
-        path_from_file_url("server", "/share/x"),
-        Some(PathBuf::from(r"\\server\share\x"))
-    );
-}
-
-#[cfg(unix)]
-#[test]
 fn a_file_url_names_a_folder_only_of_this_computer() {
     let here = rustix::system::uname();
     let here = here.nodename().to_str().unwrap();

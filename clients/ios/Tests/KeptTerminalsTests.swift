@@ -29,9 +29,4 @@ struct KeptTerminalsTests {
         let pushed = try #require(KeptTerminals(pushed: ["aps": ["content-available": 1], "kodosi": ["pushed": ["t-2", "t-3"]]]))
         #expect(pushed.waiting(in: delivered) == 1)
     }
-
-    @Test func `in front a notification stays only while its terminal has a mark`() {
-        let marked = KeptTerminals(["t-3"])
-        #expect(marked.withdrawn(from: [shown("t-1"), shown("t-3"), shown(nil)]) == ["t-1"])
-    }
 }

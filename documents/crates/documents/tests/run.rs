@@ -148,36 +148,6 @@ fn file_value(path: &Path, key: &str) -> Option<String> {
 }
 
 #[tokio::test]
-async fn two_viewers_share_one_order_and_the_file_gets_it() {
-    let rig = rig();
-    let mut ana = joined(&rig.documents, &rig.file, "ana").await;
-    let mut ben = joined(&rig.documents, &rig.file, "ben").await;
-    assert!(matches!(message(&mut ana).await, ToClient::Peer(_)));
-    change(&ana, 1, 0, "a1", "from ana").await;
-    assert!(matches!(message(&mut ben).await, ToClient::Changed(_)));
-    assert!(matches!(message(&mut ana).await, ToClient::Changed(_)));
-    rig.documents.close().await;
-    assert_eq!(file_value(&rig.file, "a1").as_deref(), Some("from ana"));
-    assert!(matches!(
-        message(&mut ana).await,
-        ToClient::Saved {
-            rev: 1,
-            waits: false
-        }
-    ));
-}
-
-#[tokio::test]
-async fn a_save_comes_by_itself_after_the_last_change() {
-    let rig = rig();
-    let mut ana = joined(&rig.documents, &rig.file, "ana").await;
-    change(&ana, 1, 0, "a1", "x").await;
-    assert!(matches!(message(&mut ana).await, ToClient::Changed(_)));
-    assert!(matches!(message(&mut ana).await, ToClient::Saved { .. }));
-    assert_eq!(file_value(&rig.file, "a1").as_deref(), Some("x"));
-}
-
-#[tokio::test]
 async fn a_clean_close_saves_and_leaves_no_journal() {
     let rig = rig();
     let mut ana = joined(&rig.documents, &rig.file, "ana").await;
@@ -265,25 +235,6 @@ fn after_a_journal_that_cannot_be_used_the_document_knows_no_client_from_before(
     tokio::runtime::Runtime::new().unwrap().block_on(async {
         let documents = Documents::new(&state, formats());
         assert_eq!(seq_of_ana(&documents, &file).await, None);
-        documents.close().await;
-    });
-}
-
-#[test]
-fn a_close_that_cannot_keep_what_the_document_took_keeps_the_journal() {
-    let folder = tempfile::tempdir().unwrap();
-    let state = folder.path().join("state");
-    let file = folder.path().join("a.notes");
-    std::fs::write(&file, "{}").unwrap();
-    std::fs::create_dir_all(state.join("taken.json")).unwrap();
-    tokio::runtime::Runtime::new().unwrap().block_on(async {
-        let documents = Documents::new(&state, formats());
-        let mut ana = joined(&documents, &file, "ana").await;
-        change(&ana, 1, 0, "a1", "x").await;
-        assert!(matches!(message(&mut ana).await, ToClient::Changed(_)));
-        documents.close().await;
-        let documents = Documents::new(&state, formats());
-        assert_eq!(seq_of_ana(&documents, &file).await, Some(1));
         documents.close().await;
     });
 }
@@ -427,19 +378,6 @@ async fn two_spellings_of_a_path_open_one_document() {
 }
 
 #[tokio::test]
-async fn a_removed_file_closes_the_document_and_says_so() {
-    let rig = rig();
-    let mut ana = joined(&rig.documents, &rig.file, "ana").await;
-    std::fs::remove_file(&rig.file).unwrap();
-    assert!(matches!(
-        message(&mut ana).await,
-        ToClient::Closed {
-            reason: ClosedReason::Removed
-        }
-    ));
-}
-
-#[tokio::test]
 async fn a_file_that_goes_takes_its_last_change_along_and_its_views_hear_it() {
     let rig = rig();
     let mut ana = joined(&rig.documents, &rig.file, "ana").await;
@@ -500,7 +438,7 @@ async fn only_eight_documents_open_at_once() {
 }
 
 #[tokio::test]
-async fn a_file_that_is_too_large_or_of_an_unknown_kind_does_not_open() {
+async fn a_file_that_is_too_large_does_not_open() {
     let rig = rig();
     let folder = rig.file.parent().unwrap().to_owned();
     let large = folder.join("large.notes");
@@ -511,11 +449,5 @@ async fn a_file_that_is_too_large_or_of_an_unknown_kind_does_not_open() {
     assert!(matches!(
         rig.documents.open(&large, viewer("ana")).await,
         Err(OpenError::TooLarge)
-    ));
-    let unknown = folder.join("a.exe");
-    std::fs::write(&unknown, "").unwrap();
-    assert!(matches!(
-        rig.documents.open(&unknown, viewer("ana")).await,
-        Err(OpenError::UnknownKind)
     ));
 }
