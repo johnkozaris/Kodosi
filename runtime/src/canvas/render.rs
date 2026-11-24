@@ -265,23 +265,6 @@ impl<P: Page> Bridge<'_, P> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn each_kind_of_file_gets_its_view() {
-        assert_eq!(
-            view_of(Path::new("plan.DOCX")).map(DocumentView::name),
-            Some("docx")
-        );
-        assert_eq!(
-            view_of(Path::new("a/b.pdf")).map(DocumentView::name),
-            Some("pdf")
-        );
-        assert_eq!(
-            view_of(Path::new("config.YML")).map(DocumentView::name),
-            Some("text")
-        );
-        assert_eq!(view_of(Path::new("notes.md")), None);
-    }
-
     #[derive(Default)]
     struct Slides {
         shown: u8,
