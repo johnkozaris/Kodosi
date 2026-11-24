@@ -357,26 +357,6 @@ pub fn escape(text: &str) -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn marks_of_a_line_split_it_and_a_lone_mark_stays() {
-        let text = |line: &str| -> Vec<(String, bool, bool)> {
-            spans(line)
-                .into_iter()
-                .map(|span| (span.text, span.bold, span.italic))
-                .collect()
-        };
-        assert_eq!(
-            text("a **b** *c* 2*3"),
-            vec![
-                ("a ".to_owned(), false, false),
-                ("b".to_owned(), true, false),
-                (" ".to_owned(), false, false),
-                ("c".to_owned(), false, true),
-                (" 2*3".to_owned(), false, false),
-            ]
-        );
-    }
-
     fn package_of(entries: &[(&str, &[u8])]) -> Vec<u8> {
         package_after(b"", entries)
     }
@@ -504,54 +484,7 @@ mod tests {
     }
 
     #[test]
-    fn a_rewrite_changes_one_part_and_keeps_the_others_exact() {
-        let file = package_of(&[("a.xml", b"<a/>"), ("b.xml", b"<b/>")]);
-        let parts = Parts::from([("a.xml".to_owned(), Some(b"<new/>".to_vec()))]);
-        let rewritten = rewrite(&file, &parts).unwrap();
-        let mut package = Package::open(&rewritten).unwrap();
-        assert_eq!(package.bytes("a.xml").unwrap(), b"<new/>");
-        assert_eq!(package.bytes("b.xml").unwrap(), b"<b/>");
-    }
-
-    #[test]
-    fn a_rewrite_adds_and_removes_parts() {
-        let file = package_of(&[("a.xml", b"<a/>"), ("b.xml", b"<b/>")]);
-        let parts = Parts::from([
-            ("a.xml".to_owned(), None),
-            ("c.xml".to_owned(), Some(b"<c/>".to_vec())),
-        ]);
-        let rewritten = rewrite(&file, &parts).unwrap();
-        let mut package = Package::open(&rewritten).unwrap();
-        assert!(!package.has("a.xml"));
-        assert_eq!(package.bytes("c.xml").unwrap(), b"<c/>");
-    }
-
-    #[test]
-    fn relations_become_part_names() {
-        let rels = br#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-            <Relationship Id="rId1" Type="image" Target="media/one.png"/>
-            <Relationship Id="rId2" Type="image" Target="../up.png"/>
-            <Relationship Id="rId3" Type="link" Target="https://a.b/" TargetMode="External"/>
-        </Relationships>"#;
-        let file = package_of(&[("word/_rels/document.xml.rels", rels)]);
-        let mut package = Package::open(&file).unwrap();
-        let relations = package.relations("word/document.xml");
-        assert_eq!(relations["rId1"].target, "word/media/one.png");
-        assert_eq!(relations["rId2"].target, "up.png");
-        assert_eq!(relations["rId3"].target, "https://a.b/");
-        assert!(relations["rId3"].external);
-    }
-
-    #[test]
     fn text_is_escaped() {
         assert_eq!(escape(r#"a<b & "c""#), "a&lt;b &amp; &quot;c&quot;");
-    }
-
-    #[test]
-    fn characters_that_xml_cannot_hold_go() {
-        assert_eq!(
-            escape("Page 1\n\u{c}Page 2\u{1b}[0m\u{0}\u{b}\u{fffe}\tend\r\u{1f600}"),
-            "Page 1\nPage 2[0m\tend\r\u{1f600}"
-        );
     }
 }

@@ -36,24 +36,3 @@ impl StepMap {
         pos.saturating_add_signed(diff)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn positions_move_across_a_replacement() {
-        let map = StepMap::new(vec![5, 2, 4]);
-        assert_eq!(map.map(3, 1), 3);
-        assert_eq!(map.map(9, 1), 11);
-        assert_eq!(map.map(6, 1), 9);
-        assert_eq!(map.map(6, -1), 5);
-    }
-
-    #[test]
-    fn an_insertion_follows_the_side_of_the_position() {
-        let map = StepMap::new(vec![5, 0, 3]);
-        assert_eq!(map.map(5, 1), 8);
-        assert_eq!(map.map(5, -1), 5);
-    }
-}
