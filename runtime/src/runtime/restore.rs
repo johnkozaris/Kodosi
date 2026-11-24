@@ -214,6 +214,21 @@ pub(super) async fn agent_line(
     };
     let foreground = terminal.foreground(variable).await.unwrap_or_default();
     let account = agent.account_folder(&home, account_variable(foreground.variable, variable))?;
+    let attached = |session: &str| {
+        Some(AgentLine {
+            line: attach_line(
+                &crate::agents::account_command(agent, &home, &account),
+                session,
+            ),
+            named: true,
+        })
+    };
+    if agent == Agent::Claude
+        && let [_, action, session] = foreground.arguments.as_slice()
+        && action == "attach"
+    {
+        return attached(session);
+    }
     let command = restart_command(
         agent,
         &home,
@@ -235,18 +250,11 @@ pub(super) async fn agent_line(
         (None, None) => None,
     };
     if agent == Agent::Claude
-        && let (Some(conversation), Some(folder)) = (&conversation, folder)
+        && let Some(conversation) = &conversation
         && let Some(session) =
-            crate::provider::claude_continuation(account.clone(), folder, conversation.clone())
-                .await
+            crate::provider::claude_background(account.clone(), folder, conversation.clone()).await
     {
-        return Some(AgentLine {
-            line: attach_line(
-                &crate::agents::account_command(agent, &home, &account),
-                &session,
-            ),
-            named: true,
-        });
+        return attached(&session);
     }
     resume_line(agent, &command, conversation.as_deref()).map(|line| AgentLine {
         line,

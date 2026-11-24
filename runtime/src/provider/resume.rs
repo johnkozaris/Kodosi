@@ -124,6 +124,32 @@ pub(super) fn claude_continuation(state_root: &Path, folder: &Path, id: &str) ->
     None
 }
 
+pub(super) fn claude_job(state_root: &Path, id: &str) -> bool {
+    let root = state_root.join("sessions");
+    let (Ok(entries), Ok(directory)) = (std::fs::read_dir(&root), kodosi_os::fs::open_dir(&root))
+    else {
+        return false;
+    };
+    entries
+        .take(storage::MAX_DIRECTORY_ENTRIES)
+        .filter_map(Result::ok)
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| is_record(name))
+        .filter_map(|name| claude_record(&directory, &name).ok())
+        .any(|record| {
+            record_conversation(&record) == Some(id)
+                && record
+                    .get("kind")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|kind| kind != "interactive")
+                && record
+                    .get("pid")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|pid| u32::try_from(pid).ok())
+                    .is_some_and(kodosi_os::process::is_running)
+        })
+}
+
 fn is_record(name: &str) -> bool {
     Path::new(name)
         .extension()

@@ -1094,3 +1094,24 @@ fn a_conversation_moved_to_the_background_goes_on_in_its_session_until_it_has_a_
     claude_transcript(home.path(), &directory, 4, "{\"type\":\"user\"}\n");
     assert_eq!(went_on(4), None);
 }
+
+#[test]
+fn a_conversation_that_a_job_of_the_background_runs_is_held_there_and_not_by_a_terminal() {
+    let home = tempfile::tempdir().unwrap();
+    let root = home.path().join(".claude");
+    let sessions = root.join("sessions");
+    fs::create_dir_all(&sessions).unwrap();
+    let record = |name: &str, conversation: u128, kind: &str, pid: u32| {
+        fs::write(
+            sessions.join(name),
+            serde_json::json!({"sessionId":id(conversation),"kind":kind,"pid":pid}).to_string(),
+        )
+        .unwrap();
+    };
+    record("job.json", 1, "bg", std::process::id());
+    record("terminal.json", 2, "interactive", std::process::id());
+    record("ended.json", 3, "bg", u32::MAX - 1);
+    assert!(resume::claude_job(&root, &id(1)));
+    assert!(!resume::claude_job(&root, &id(2)));
+    assert!(!resume::claude_job(&root, &id(3)));
+}
