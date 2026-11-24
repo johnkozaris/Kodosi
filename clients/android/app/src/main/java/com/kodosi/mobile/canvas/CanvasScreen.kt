@@ -135,7 +135,7 @@ fun CanvasScreen(model: AppModel, sessionId: String, back: () -> Unit, ask: () -
         val terminal = session ?: return
         scope.launch {
             model.runAction {
-                val place = key ?: canvas?.browser?.tabs?.firstOrNull { it.active }?.url.orEmpty()
+                val place = writtenOut(key ?: canvas?.browser?.tabs?.firstOrNull { it.active }?.url.orEmpty())
                 val line = words()?.replace(Regex("[\\p{Cntrl}\\s]+"), " ")?.trim()?.take(600)
                 val prompt = if (line.isNullOrEmpty()) {
                     resources.getString(R.string.canvas_question, place)
@@ -519,3 +519,12 @@ internal suspend fun readPickedFile(context: android.content.Context, uri: Uri):
             ?: throw RuntimeFailure(context.getString(R.string.file_unavailable))
         name to data
     }
+
+/** A name of a file can hold a line break, which would end the line that the agent reads. */
+private fun writtenOut(text: String): String = buildString {
+    text.codePoints().forEach { point ->
+        val breaks = Character.isISOControl(point) || Character.getType(point) == Character.FORMAT.toInt() ||
+            point == 0x2028 || point == 0x2029
+        if (breaks) append("\\u{%X}".format(point)) else appendCodePoint(point)
+    }
+}
