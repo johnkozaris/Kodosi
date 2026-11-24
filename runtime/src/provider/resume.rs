@@ -7,6 +7,7 @@ use std::{
 use super::{Provider, storage};
 
 const MAX_CLAUDE_STATE_BYTES: u64 = 256 * 1024;
+const CLAUDE_TAIL_BYTES: u64 = 1024 * 1024;
 const MAX_COPILOT_HEAD_BYTES: u64 = 64 * 1024;
 const MAX_COPILOT_TAIL_BYTES: u64 = 1024 * 1024;
 
@@ -95,6 +96,32 @@ pub(super) fn claude_conversation(state_root: &Path, group: u32) -> Option<Strin
                 .flatten()
                 .and_then(|id| storage::conversation_id(id).ok())
         })
+}
+
+pub(super) fn claude_continuation(state_root: &Path, folder: &Path, id: &str) -> Option<String> {
+    let folder = storage::canonical_directory(folder.to_str()?).ok()?;
+    let mut file = storage::conversation_file(state_root, Provider::Claude, &folder, id).ok()?;
+    let length = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(length.saturating_sub(CLAUDE_TAIL_BYTES)))
+        .ok()?;
+    let mut tail = Vec::new();
+    file.take(CLAUDE_TAIL_BYTES).read_to_end(&mut tail).ok()?;
+    for line in tail.split(|byte| *byte == b'\n').rev() {
+        let Ok(record) = serde_json::from_slice::<serde_json::Value>(line) else {
+            continue;
+        };
+        match record.get("type").and_then(serde_json::Value::as_str) {
+            Some("continued-in") => {
+                return record
+                    .get("continuedInSessionId")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(|session| storage::conversation_id(session).ok());
+            }
+            Some("user" | "assistant") => return None,
+            _ => {}
+        }
+    }
+    None
 }
 
 fn is_record(name: &str) -> bool {

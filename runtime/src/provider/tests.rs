@@ -1065,3 +1065,32 @@ async fn history_paging_does_not_repeat_entries_when_new_conversations_arrive() 
     .unwrap();
     assert_eq!(second.items[0].native_conversation_id, id(20));
 }
+
+#[test]
+fn a_conversation_moved_to_the_background_goes_on_in_its_session_until_it_has_a_newer_message() {
+    let home = tempfile::tempdir().unwrap();
+    let directory = workspace(home.path());
+    let root = home.path().join(".claude");
+    let moved = format!(
+        r#"{{"type":"continued-in","sessionId":"{}","continuedInSessionId":"{}"}}"#,
+        id(1),
+        id(2)
+    );
+    let went_on = |index| resume::claude_continuation(&root, &directory, &id(index));
+    claude_transcript(
+        home.path(),
+        &directory,
+        1,
+        &format!("{{\"type\":\"user\"}}\n{moved}\n{{\"type\":\"last-prompt\"}}\n"),
+    );
+    assert_eq!(went_on(1), Some(id(2)));
+    claude_transcript(
+        home.path(),
+        &directory,
+        3,
+        &format!("{moved}\n{{\"type\":\"assistant\"}}\n"),
+    );
+    assert_eq!(went_on(3), None);
+    claude_transcript(home.path(), &directory, 4, "{\"type\":\"user\"}\n");
+    assert_eq!(went_on(4), None);
+}

@@ -232,5 +232,19 @@ pub(crate) async fn shown_conversation(
     .flatten()
 }
 
+/// The session of Claude Code's background that a conversation went on in, when a person moved it
+/// there: Claude Code then marks the end of the conversation with that session.
+#[cfg(feature = "host")]
+pub(crate) async fn claude_continuation(
+    root: PathBuf,
+    folder: PathBuf,
+    conversation: String,
+) -> Option<String> {
+    tokio::task::spawn_blocking(move || resume::claude_continuation(&root, &folder, &conversation))
+        .await
+        .ok()
+        .flatten()
+}
+
 #[cfg(all(test, feature = "host"))]
 mod tests;
