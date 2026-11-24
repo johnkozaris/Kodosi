@@ -241,8 +241,6 @@ struct DosiItemContent: View {
             DosiReceipt(tool: tool)
         case let .question(question):
             DosiQuestionView(item: item, question: question)
-        case let .note(text):
-            Text(text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).textSelection(.enabled)
         case let .notice(notice):
             DosiNoticeView(notice: notice)
         case .person:

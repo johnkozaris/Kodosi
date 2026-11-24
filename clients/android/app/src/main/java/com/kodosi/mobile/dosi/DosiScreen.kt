@@ -312,7 +312,7 @@ private fun DosiItemView(model: AppModel, item: DosiItem, open: (String, String)
             }
         }
 
-        "text", "note", "notice" -> body.string("text")?.let { SelectableWords(it, markdown = true) }
+        "text", "notice" -> body.string("text")?.let { SelectableWords(it, markdown = true) }
 
         "reasoning" -> {
             var expanded by remember { mutableStateOf(false) }

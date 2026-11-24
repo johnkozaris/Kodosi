@@ -16614,22 +16614,6 @@
                           "additionalProperties": false,
                           "properties": {
                             "kind": {
-                              "const": "note"
-                            },
-                            "text": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "text"
-                          ],
-                          "type": "object"
-                        },
-                        {
-                          "additionalProperties": false,
-                          "properties": {
-                            "kind": {
                               "const": "notice"
                             },
                             "text": {
@@ -17273,22 +17257,6 @@
                     "additionalProperties": false,
                     "properties": {
                       "kind": {
-                        "const": "note"
-                      },
-                      "text": {
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "kind",
-                      "text"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "kind": {
                         "const": "notice"
                       },
                       "text": {
@@ -17698,22 +17666,6 @@
                                 "multiple",
                                 "terminal",
                                 "answer"
-                              ],
-                              "type": "object"
-                            },
-                            {
-                              "additionalProperties": false,
-                              "properties": {
-                                "kind": {
-                                  "const": "note"
-                                },
-                                "text": {
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "kind",
-                                "text"
                               ],
                               "type": "object"
                             },

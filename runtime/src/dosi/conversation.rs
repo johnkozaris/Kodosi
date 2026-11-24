@@ -511,8 +511,7 @@ fn size(item: &DosiItem) -> usize {
     match &item.body {
         DosiBody::Person { text }
         | DosiBody::Text { text, .. }
-        | DosiBody::Reasoning { text, .. }
-        | DosiBody::Note { text } => text.len(),
+        | DosiBody::Reasoning { text, .. } => text.len(),
         DosiBody::Tool { text, output, .. } => {
             text.as_ref().map_or(0, String::len) + output.as_ref().map_or(0, String::len)
         }

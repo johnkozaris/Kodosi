@@ -303,8 +303,7 @@ Item {
                         sourceComponent: entry.kind === "text" ? proseView
                             : entry.kind === "reasoning" ? thoughtView
                             : entry.kind === "tool" || entry.kind === "tools" ? stepsView
-                            : entry.kind === "question" ? questionView
-                            : entry.kind === "notice" ? noticeView : noteView
+                            : entry.kind === "question" ? questionView : noticeView
                     }
                 }
             }
@@ -388,14 +387,6 @@ Item {
                 id: questionView
                 DosiQuestion {
                     row: entry.row
-                }
-            }
-            Component {
-                id: noteView
-                KReadOnlyText {
-                    text: entry.row.text || ""
-                    color: KodosiTheme.inkMuted
-                    font.pixelSize: KodosiTheme.fontFootnote
                 }
             }
             Component {

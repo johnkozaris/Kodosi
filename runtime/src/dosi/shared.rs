@@ -251,9 +251,6 @@ fn fit(record: DosiRecord) -> DosiRecord {
             status,
             output: output.map(|output| clip(&output, TOOL_BYTES)),
         },
-        DosiBody::Note { text } => DosiBody::Note {
-            text: clip(&text, TEXT_BYTES),
-        },
         body => body,
     };
     DosiRecord::Item { conversation, item }

@@ -166,9 +166,6 @@ pub enum DosiBody {
         terminal: Option<String>,
         answer: Option<Vec<String>>,
     },
-    Note {
-        text: String,
-    },
     Notice {
         tone: DosiTone,
         text: Option<String>,
