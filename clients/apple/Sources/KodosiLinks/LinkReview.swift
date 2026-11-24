@@ -129,3 +129,16 @@ public extension ClickedLink {
         }
     }
 #endif
+
+@MainActor
+public extension ClickedLink {
+    /// Asks or explains in the window that a person works in, for a link that does not open at once.
+    func reviewInKeyWindow(from origin: Origin) {
+        #if os(macOS)
+            review(in: NSApp.keyWindow, from: origin)
+        #elseif os(iOS)
+            let window = UIApplication.shared.connectedScenes.lazy.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first
+            review(from: window?.rootViewController, origin: origin)
+        #endif
+    }
+}

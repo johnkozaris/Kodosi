@@ -1,4 +1,10 @@
+import Foundation
 import SwiftUI
+
+extension EnvironmentValues {
+    /// The folder of the terminal, from which a path in an agent's prose names a file.
+    @Entry var proseFolder: String?
+}
 
 struct PersonBubble: View {
     @Environment(\.theme) private var theme
@@ -18,6 +24,7 @@ struct PersonBubble: View {
 /// a table has its columns, and the other lines keep their breaks with their inline marks.
 struct AgentProse: View {
     @Environment(\.theme) private var theme
+    @Environment(\.proseFolder) private var folder
     let text: String
     let live: Bool
 
@@ -29,7 +36,7 @@ struct AgentProse: View {
                 switch blocks[index] {
                 case let .lines(lines):
                     HStack(alignment: .lastTextBaseline, spacing: 3) {
-                        Text(ProjectMessageText.formatted(lines))
+                        Text(Self.marked(lines, folder: folder, code: theme.colors.ink.opacity(0.08)))
                             .appTextStyle(.body).lineSpacing(3).foregroundStyle(theme.colors.ink).textSelection(.enabled)
                             .tint(theme.colors.accentStrong)
                         if last, live {
@@ -54,6 +61,42 @@ struct AgentProse: View {
             }
         }
         .animation(theme.motion.fade, value: live)
+    }
+}
+
+extension AgentProse {
+    /// Inline code stands out as it does in the agent's terminal, and a path of a file is a link to
+    /// it, from the terminal's folder.
+    static func marked(_ text: String, folder: String?, code: Color) -> AttributedString {
+        var value = ProjectMessageText.formatted(text)
+        for run in value.runs where run.inlinePresentationIntent?.contains(.code) == true {
+            value[run.range].backgroundColor = code
+        }
+        guard let filePath else { return value }
+        let plain = String(value.characters)
+        for match in filePath.matches(in: plain, range: NSRange(plain.startIndex..., in: plain)) {
+            guard let found = Range(match.range, in: plain), let range = Range(match.range, in: value), value[range].link == nil,
+                  let file = fileURL(String(plain[found]), folder: folder)
+            else { continue }
+            value[range].link = file
+        }
+        return value
+    }
+
+    /// A path as Ghostty finds one: names with slashes between them, and a line after a colon. A
+    /// path that does not start at a folder ends with the extension of a file, so words such as
+    /// "and/or" and numbers such as 3/4 stay text.
+    private static let filePath = try? NSRegularExpression(pattern: #"(?<![\w/.:@-])(?:~/|\.{1,2}/|/)?(?:[\w.-]+/)+[\w.-]+(?::\d+){0,2}"#)
+
+    private static func fileURL(_ found: String, folder: String?) -> URL? {
+        let path = found.replacing(/(?::\d+){1,2}$/, with: "")
+        let rooted = ["/", "~/", "./", "../"].contains { path.hasPrefix($0) }
+        guard rooted || path.split(separator: "/").last?.contains(/\.[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*$/) == true else { return nil }
+        if path.hasPrefix("/") || path.hasPrefix("~/") {
+            return URL(filePath: NSString(string: path).expandingTildeInPath)
+        }
+        guard let folder else { return nil }
+        return URL(filePath: folder).appending(path: path).standardizedFileURL
     }
 }
 

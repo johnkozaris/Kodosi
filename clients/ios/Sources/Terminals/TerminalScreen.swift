@@ -318,8 +318,12 @@ private struct TerminalScreenContent: View {
                                    failure: controller.openFailure, render: surface.map { _ in controller.renderState })
             ZStack {
                 if chatting, session.isConnected {
-                    TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId) { name, effort in
-                        ChatModelMenu(session: session, name: name, effort: effort)
+                    TerminalChatView(chat: model.terminals.canvas.chat(session.id), agent: session.agent, me: model.terminals.userId,
+                                     otherComputer: session.otherComputer)
+                    {
+                        model.terminals.pick(.terminal, of: session.id, over: session.face)
+                    } modelKey: { name, effort, open in
+                        ChatModelMenu(session: session, name: name, effort: effort, open: open)
                     }
                     .transition(.identity)
                 }
@@ -363,30 +367,43 @@ private struct TerminalScreenContent: View {
 }
 
 /// The model in a chat's facts opens the agent's part of the terminal menu, which changes its model.
+/// The model in a chat's facts opens the agent's model, effort and fast mode in a sheet, which
+/// `/model` also opens.
 private struct ChatModelMenu: View {
     @Environment(AppModel.self) private var model
     let session: RuntimeSession
     let name: String
     let effort: String?
+    @Binding var open: Bool
 
     private var face: ChatModelFace {
         var models: AgentModels?
         if session.isOwner, let host = session.hostDeviceId {
             models = model.launcher(for: host).models[session.agent.rawValue]
         }
-        return ChatModelFace(models: models, model: name, effort: effort)
+        return ChatModelFace(models: models, model: name, effort: effort, opens: session.canControl && session.programLive != nil)
     }
 
     var body: some View {
         if session.canControl, let live = session.programLive {
-            Menu {
-                AgentMenuSection(session: session, live: live)
-            } label: {
+            Button { open = true } label: {
                 face.touchTarget()
             }
-            .menuStyle(.button)
             .buttonStyle(.plain)
             .loadsAgentModels(of: session)
+            .sheet(isPresented: $open) {
+                NavigationStack {
+                    Form {
+                        AgentMenuSection(session: session, live: live)
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { open = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
             .accessibilityLabel(Text("Model"))
             .accessibilityValue(Text(verbatim: face.title))
             .accessibilityIdentifier("terminal.chat.model")

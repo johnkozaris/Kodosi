@@ -49,6 +49,18 @@ public final class TerminalChat {
         chat?.tasks ?? []
     }
 
+    public var commands: [ChatCommand] {
+        chat?.commands ?? []
+    }
+
+    /// The control of the chat that a draft of only a command's name opens in place of sending it.
+    public func control(of draft: String) -> ChatControl? {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.hasPrefix("/") else { return nil }
+        let name = text.dropFirst()
+        return commands.first { $0.name == name }?.opens
+    }
+
     public var facts: ChatFacts {
         chat?.facts ?? ChatFacts()
     }
@@ -232,6 +244,8 @@ extension ChatSnapshot {
             self.queued = queued
         case let .tasks(tasks):
             self.tasks = tasks
+        case let .commands(commands):
+            self.commands = commands
         case let .facts(facts):
             self.facts = facts
         case let .state(state, now):
