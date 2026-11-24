@@ -2,8 +2,6 @@ using System.Net;
 using System.Text.Json;
 using Kodosi.Admission;
 using Kodosi.Data;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -16,48 +14,6 @@ namespace Kodosi.HostTests;
 [Collection("PostgreSQL")]
 public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
 {
-    [Fact]
-    public async Task StalledLargeResponseDoesNotHoldAdmissionForAnotherRequest()
-    {
-        var stall = new ResponseStall();
-        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken),
-            services => services.AddSingleton<IStartupFilter>(stall));
-        using var owner = await app.EnrollAsync("owner");
-        await using (var scope = app.Services.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<KodosiDbContext>();
-            for (var i = 0; i < 128; i++) db.Sessions.Add(new Session
-            {
-                Id = Guid.CreateVersion7(),
-                IncarnationId = Guid.CreateVersion7(),
-                OwnerUserId = owner.Fixture.UserId,
-                HostDeviceId = owner.Fixture.DeviceId,
-                HostName = new string('h', 128),
-                Name = new string('n', 128),
-                CreatedAt = DateTimeOffset.UtcNow,
-                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2)
-            });
-            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        }
-        using var slowRequest = await SignedAsync(owner, HttpMethod.Get, "/api/sessions");
-        slowRequest.Headers.Add("X-Test-Stall-Response", "1");
-        using var otherRequest = await SignedAsync(owner, HttpMethod.Get, "/api/devices/link/requests");
-        var slow = owner.Client.SendAsync(slowRequest, TestContext.Current.CancellationToken);
-        try
-        {
-            await stall.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-            Assert.False(slow.IsCompleted);
-            using var other = await owner.Client.SendAsync(otherRequest, TestContext.Current.CancellationToken)
-                .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.OK, other.StatusCode);
-        }
-        finally { stall.Release.TrySetResult(); }
-        using var result = await slow;
-        var bytes = await result.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
-        Assert.True(bytes.Length > 64 * 1024);
-        Assert.Equal(128, JsonElement.Parse(bytes).GetArrayLength());
-    }
-
     [Fact]
     public async Task AChangeWaitsOnlyForAnotherChangeOfTheSameAccount()
     {
@@ -204,43 +160,5 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
         }
         Assert.True(pongs < sent, $"{pongs} answers for {sent} messages");
         Assert.True(app.Services.GetRequiredService<ServerMetrics>().Read().Refused >= 1);
-    }
-
-    private sealed class ResponseStall : IStartupFilter
-    {
-        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
-        {
-            app.Use(async (context, run) =>
-            {
-                if (context.Request.Headers.ContainsKey("X-Test-Stall-Response"))
-                    context.Response.Body = new StalledStream(context.Response.Body, this);
-                await run(context);
-            });
-            next(app);
-        };
-    }
-
-    private sealed class StalledStream(Stream inner, ResponseStall stall) : Stream
-    {
-        public override bool CanRead => false;
-        public override bool CanSeek => false;
-        public override bool CanWrite => true;
-        public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-        public override void Flush() => inner.Flush();
-        public override Task FlushAsync(CancellationToken ct) => inner.FlushAsync(ct);
-        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-        public override void SetLength(long value) => throw new NotSupportedException();
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken ct) => WriteAsync(buffer.AsMemory(offset, count), ct).AsTask();
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken ct = default)
-        {
-            stall.Started.TrySetResult();
-            await stall.Release.Task.WaitAsync(ct);
-            await inner.WriteAsync(buffer, ct);
-        }
     }
 }

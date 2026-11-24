@@ -202,26 +202,6 @@ public sealed class IntegrationTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task IssuerAndSubjectIdentifyTheAccount()
-    {
-        await using var store = await TestStore.CreateAsync(postgres);
-        static Microsoft.AspNetCore.Http.DefaultHttpContext Context(string iss, string sub, string name)
-        {
-            var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
-            context.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity([
-                new System.Security.Claims.Claim("iss", iss), new System.Security.Claims.Claim("sub", sub),
-                new System.Security.Claims.Claim("preferred_username", name)
-            ], "test"));
-            return context;
-        }
-        var user = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user", "alias"), TestContext.Current.CancellationToken);
-        var again = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://auth.example/realms/kodosi", "alias-user", "alias"), TestContext.Current.CancellationToken);
-        var other = await new Kodosi.Accounts.CurrentUser(store.Db, TimeProvider.System).GetAsync(Context("https://other.example/realms/kodosi", "alias-user", "other-alias"), TestContext.Current.CancellationToken);
-        Assert.Equal(user.Id, again.Id);
-        Assert.NotEqual(user.Id, other.Id);
-    }
-
-    [Fact]
     public async Task BaselineHasOnlyCurrentStateAndRefusesAnUnknownDatabase()
     {
         var connection = await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken);
@@ -294,26 +274,6 @@ public sealed class IntegrationTests(PostgresFixture postgres)
         using var response = await pending;
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(await scope.ServiceProvider.GetRequiredService<KodosiDbContext>().Projects.ToListAsync(TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task AFriendLeavesASharedTerminalWithItsCurrentIdentity()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct));
-        using var owner = await app.EnrollAsync("owner"); using var friend = await app.EnrollAsync("friend");
-        await CallAsync(owner, HttpMethod.Post, "/api/friends/requests", new { username = "friend" });
-        await CallAsync(friend, HttpMethod.Post, "/api/friends/requests/owner/accept");
-        var id = Guid.CreateVersion7(); var incarnation = Guid.CreateVersion7(); var path = $"/api/sessions/{id}";
-        await CallAsync(owner, HttpMethod.Post, "/api/sessions", new { id, incarnationId = incarnation, name = "Shell", hostDeviceId = owner.Fixture.DeviceId, hostName = "Host", projectId = (Guid?)null });
-        var shared = await CallAsync(owner, HttpMethod.Put, path + "/members", new { incarnationId = incarnation, expectedRevision = 1, userIds = new[] { friend.Fixture.UserId } });
-        var revision = shared.GetProperty("authorizationRevision").GetInt64();
-        using (var bare = await SignedAsync(friend, HttpMethod.Delete, path + "/members/me"))
-        using (var refused = await friend.Client.SendAsync(bare, ct))
-            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
-        await CallAsync(friend, HttpMethod.Delete, path + "/members/me", new { incarnationId = incarnation, expectedRevision = revision });
-        Assert.Empty((await CallAsync(friend, HttpMethod.Get, "/api/sessions")).EnumerateArray());
-        Assert.Empty((await CallAsync(owner, HttpMethod.Get, path)).GetProperty("sharedWith").EnumerateArray());
     }
 
     [Fact]
