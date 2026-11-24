@@ -205,6 +205,7 @@ impl Play {
                 ChatChange::Asks { asks } => self.view.asks.clone_from(asks),
                 ChatChange::Queued { queued } => self.view.queued.clone_from(queued),
                 ChatChange::Tasks { tasks } => self.view.tasks.clone_from(tasks),
+                ChatChange::Commands { commands } => self.view.commands.clone_from(commands),
                 ChatChange::Facts { facts } => self.view.facts = (**facts).clone(),
                 ChatChange::State { state, now } => {
                     self.view.state = *state;

@@ -17,6 +17,10 @@ const FAILURES = 3
 const HISTORY = 120
 const HISTORY_PART = 20
 const ASKED = 64
+const COMMAND_WORDS = 160
+// A command that Claude Code shows in its own view of the terminal ends only when a person closes the view
+// there.
+const SHOWN_MS = 1500
 // The host takes at most 8 MiB in a request, and a character of the JSON takes up to three bytes there.
 const MOST_BATCH = 2 * 1024 * 1024
 const pending = []
@@ -38,6 +42,9 @@ let asks = 0
 // only in a session that started without them.
 let mode = ''
 let bypass = false
+// The model that a person chose in Kodosi. Claude Code asks before it leaves a warm cache, in its
+// terminal, where a person of the chat does not see the question.
+let chosen = ''
 
 function post($, path, body) {
   return $.http.fetch('http://kodosi' + path, {
@@ -120,6 +127,17 @@ async function modesOff($) {
   }
 }
 
+// The slash commands of the session, in the order of Claude Code's own menu.
+async function slashCommands($) {
+  try {
+    return (await $.command.list())
+      .filter(command => !command.name.startsWith('_'))
+      .map(command => ({ name: command.name, description: String(command.description || '').slice(0, COMMAND_WORDS) }))
+  } catch (error) {
+    return []
+  }
+}
+
 // The host has each event that came before, so a request that follows finds what it names.
 function settled($) {
   if (!sending && pending.length === 0) return Promise.resolve()
@@ -187,6 +205,7 @@ async function hello($) {
     facts.cwd = await $.session.cwd()
     facts.usage = await $.session.usage()
     Object.assign(facts, await modesOff($))
+    facts.commands = await slashCommands($)
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
     rows = []
@@ -231,17 +250,29 @@ async function stop($) {
 }
 
 // A message goes in as the person's own words, and one that starts with a slash runs that command, as in the
-// terminal. Claude Code starts its turn when the session is idle.
+// terminal. Claude Code starts its turn when the session is idle. A change of the model, the effort or fast
+// mode from Kodosi's own controls runs as its command.
 function run($, command) {
   if (command.do === 'stop') stop($)
-  if (command.do !== 'prompt') return
+  if (command.do !== 'prompt' && command.do !== 'change') return
   const text = String(command.text)
   const slash = /^\s*\/(\S+)\s*([\s\S]*)$/.exec(text)
+  const model = slash && slash[1] === 'model' ? slash[2].trim().toLowerCase() : ''
+  if (model) chosen = model
   const sent = slash ? $.command.run({ command: slash[1], args: slash[2] }) : $.prompt.submit({ text, asUser: true })
+  let ended = false
   sent.then(
     result => tell($, 'did', { n: command.n, drop: result && result.drop ? String(result.drop) : undefined }),
     error => tell($, 'did', { n: command.n, error: String(error) }),
-  )
+  ).finally(() => {
+    ended = true
+    if (model && chosen === model) chosen = ''
+  })
+  if (slash) {
+    $.clock.sleep(SHOWN_MS).then(() => {
+      if (!ended && !turn) tell($, 'waits', { n: command.n })
+    })
+  }
 }
 
 // What the person sends from Kodosi. The loop ends with the session, or when the host is away.
@@ -306,8 +337,8 @@ export function register(on) {
 
   on('session.append', async ($, e, next) => {
     const door = e.door
-    if (door === 'prompt' || door === 'command' || door === 'response' || door === 'tool-result' || door === 'note' || door === 'compaction') {
-      const message = e.message || {}
+    const message = e.message || {}
+    if (door === 'prompt' || door === 'command' || door === 'response' || door === 'tool-result') {
       tell($, 'row', {
         door,
         origin: e.origin,
@@ -315,6 +346,8 @@ export function register(on) {
         agent: e.agentId,
         content: blocks(message.content),
       })
+    } else if (message.type === 'system' && message.name === 'away_summary' && !e.agentId) {
+      tell($, 'recap', { uuid: e.uuid, content: blocks(message.content) })
     }
     return next(e)
   })
@@ -441,14 +474,22 @@ export function register(on) {
     return next(e)
   })
 
+  // A helper compacts its own conversation too, and the chat shows the main one.
   on('classic.PreCompact', async ($, e, next) => {
-    tell($, 'compact', { phase: 'start' })
+    if (!e.agent_id) tell($, 'compact', { phase: 'start' })
     return next(e)
   })
 
   on('classic.PostCompact', async ($, e, next) => {
-    tell($, 'compact', { phase: 'end' })
+    if (!e.agent_id) tell($, 'compact', { phase: 'end' })
     return next(e)
+  })
+
+  on('classic.PreModelSwitch', async ($, e, next) => {
+    const decided = await next(e)
+    const requested = String(e.requested_model || 'default').toLowerCase()
+    if (!chosen || e.source !== 'command' || requested !== chosen) return decided
+    return decided && decided.permissionDecision ? decided : { ...decided, permissionDecision: 'allow' }
   })
 
   on('classic.StopFailure', async ($, e, next) => {

@@ -9,9 +9,10 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use serde_json::{Value, json};
 
 use super::{
-    AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatPerson, ChatQuestion, ChatStep, ChatTool, MOST_CALLS, MOST_OUTPUT, MOST_QUESTIONS,
-    MOST_TARGET, MOST_TEXT, PlanChoice, ToolDetail, ToolKind, ToolState, TurnEnd,
+    AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatCommand, ChatContext, ChatControl,
+    ChatMode, ChatNote, ChatNow, ChatPerson, ChatQuestion, ChatStep, ChatTool, MOST_CALLS,
+    MOST_OUTPUT, MOST_QUESTIONS, MOST_QUEUED, MOST_TARGET, MOST_TEXT, PlanChoice, ToolDetail,
+    ToolKind, ToolState, TurnEnd,
     agent::{
         Agent, Places, Stop, answer, list, person, question, show_state, stop_open, text, words,
     },
@@ -38,6 +39,9 @@ pub(super) struct Claude {
     now: Option<ChatNow>,
     compacting: bool,
     handed: VecDeque<Handed>,
+    /// The changes of the model, the effort or fast mode that Kodosi's controls gave the module,
+    /// whose rows Claude Code has not written yet.
+    changes: VecDeque<String>,
     sent: u64,
     /// Claude Code refused a message of the chat. After a person's stop in the terminal it takes
     /// the next message only there.
@@ -293,6 +297,14 @@ impl Claude {
         if let Some(usage) = event.get("usage") {
             measure(chat, usage);
         }
+        chat.set_commands(list(event, "commands").filter_map(|command| {
+            let name = words(command, "name")?;
+            Some(ChatCommand {
+                opens: opens(&name),
+                description: start_of(text(command, "description"), MOST_TARGET).to_owned(),
+                name,
+            })
+        }));
         closed
     }
 
@@ -428,7 +440,50 @@ impl Claude {
         }
         let arguments = between(row, "<command-args>", "</command-args>").unwrap_or_default();
         let words = format!("{} {}", name.trim(), arguments.trim());
+        if from_chat
+            && self
+                .changes
+                .front()
+                .is_some_and(|change| change == words.trim_end())
+        {
+            self.changes.pop_front();
+            return;
+        }
         self.person_said(chat, words.trim_end(), from_chat, at);
+    }
+
+    /// Claude Code shows the recap of a conversation when a person comes back to it.
+    fn recap(&mut self, chat: &mut Chat, event: &Value, at: u64) {
+        if !self.rows.is_new(text(event, "uuid")) {
+            return;
+        }
+        let words = list(event, "content")
+            .filter(|block| text(block, "type") == "text")
+            .map(|block| text(block, "text").trim())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !words.is_empty() {
+            chat.push(
+                at,
+                ChatBody::Note {
+                    note: ChatNote::Recap {
+                        text: start_of(&words, MOST_OUTPUT).to_owned(),
+                    },
+                },
+            );
+        }
+    }
+
+    /// A command that Claude Code shows in a view of its terminal ends when a person closes the
+    /// view there, so the message waits with that word.
+    fn waits(&self, chat: &mut Chat, event: &Value) {
+        let n = event.get("n").and_then(Value::as_u64);
+        if self.turn.is_some() || self.compacting {
+            return;
+        }
+        if let Some(handed) = self.handed.iter().find(|handed| Some(handed.n) == n) {
+            chat.in_terminal(&handed.queued);
+        }
     }
 
     fn person_said(&mut self, chat: &mut Chat, words: &str, from_chat: bool, at: u64) {
@@ -1053,6 +1108,8 @@ impl Agent for Claude {
             }
             "end" => closed = self.end(chat, text(event, "reason")),
             "did" => self.did(chat, event, at),
+            "recap" => self.recap(chat, event, at),
+            "waits" => self.waits(chat, event),
             _ => {}
         }
         self.show(chat);
@@ -1067,6 +1124,7 @@ impl Agent for Claude {
         self.now = None;
         self.compacting = false;
         self.handed.clear();
+        self.changes.clear();
         for helper in self.helpers.values_mut() {
             helper.working = false;
         }
@@ -1227,6 +1285,18 @@ impl Agent for Claude {
         vec![json!({"do": "prompt", "n": self.sent, "text": queued.text})]
     }
 
+    fn change(&mut self, line: &str) -> Option<Value> {
+        if !self.linked {
+            return None;
+        }
+        self.sent += 1;
+        self.changes.push_back(line.to_owned());
+        if self.changes.len() > MOST_QUEUED {
+            self.changes.pop_front();
+        }
+        Some(json!({"do": "change", "n": self.sent, "text": line}))
+    }
+
     /// How the turn of the main conversation stops for a person in the chat.
     fn stop(&mut self, chat: &Chat) -> Stop {
         if !chat.asks().is_empty() {
@@ -1242,6 +1312,15 @@ impl Agent for Claude {
         } else {
             Stop::Nothing
         }
+    }
+}
+
+/// The commands whose own view in the terminal a control of the chat takes the place of.
+fn opens(name: &str) -> Option<ChatControl> {
+    match name {
+        "model" | "effort" => Some(ChatControl::Model),
+        "usage" | "context" => Some(ChatControl::Usage),
+        _ => None,
     }
 }
 
