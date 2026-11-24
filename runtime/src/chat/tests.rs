@@ -1606,6 +1606,7 @@ async fn reports_of_a_module_that_the_chat_does_not_follow_are_refused() {
     );
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn an_agent_that_left_the_session_of_the_terminal_does_not_take_the_chat() {
     let chat = ChatHandle::spawn();
