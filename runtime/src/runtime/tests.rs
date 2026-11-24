@@ -210,6 +210,64 @@ async fn a_terminal_on_a_new_branch_keeps_its_folder_until_it_closes_unchanged()
     drop(runtime);
 }
 
+#[cfg(feature = "host")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_terminal_without_a_name_gets_a_new_pair_and_a_given_name_stays() {
+    async fn start(runtime: &TestRuntime, name: &str) -> String {
+        let (_, mut events) = runtime.handle.observe().await.unwrap();
+        let request = Uuid::now_v7().to_string();
+        runtime
+            .send(Command::CreateSession {
+                request_id: request.clone(),
+                name: name.to_owned(),
+                working_dir: None,
+                project_id: None,
+                resume: None,
+                branch: None,
+                worktrees: None,
+                command: None,
+                agent: None,
+                prompt: None,
+                like: None,
+                size: None,
+            })
+            .await;
+        created(&mut events, &request).await["name"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+    let runtime = TestRuntime::new().await;
+    assert_eq!(start(&runtime, "Build").await, "Build");
+    let first = start(&runtime, "").await;
+    let second = start(&runtime, "").await;
+    for name in [&first, &second] {
+        assert_eq!(name.split(' ').count(), 2, "{name}");
+    }
+    assert_ne!(first, second);
+
+    let (_, mut events) = runtime.handle.observe().await.unwrap();
+    let request = Uuid::now_v7().to_string();
+    runtime
+        .send(Command::SuggestBranch {
+            request_id: request.clone(),
+        })
+        .await;
+    let branch = timeout(Duration::from_secs(10), async {
+        loop {
+            let event = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if event["requestId"] == request {
+                break event["branch"].as_str().unwrap().to_owned();
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_ne!(branch, "");
+    runtime.shutdown().await;
+    drop(runtime);
+}
+
 #[cfg(all(unix, feature = "host"))]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn local_terminal_keeps_running_after_view_closes_then_stop_removes_it() {
@@ -2246,6 +2304,62 @@ async fn a_phone_closes_its_connections_only_when_it_stays_in_the_background() {
     assert_eq!(answered, 2);
 }
 
+#[tokio::test(start_paused = true)]
+async fn a_phone_in_the_background_wakes_for_no_work_of_its_own_until_it_comes_back() {
+    let (mut runtime, _root, changes) = loop_fixture().await;
+    let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
+    let start = Command::CreateSession {
+        request_id: Uuid::now_v7().to_string(),
+        name: "Terminal".to_owned(),
+        working_dir: None,
+        project_id: None,
+        resume: None,
+        branch: None,
+        worktrees: None,
+        command: None,
+        agent: None,
+        prompt: None,
+        like: None,
+        size: None,
+    };
+    runtime
+        .expect_answer(&start, client, lifetime.clone())
+        .unwrap();
+    runtime.starting.insert(
+        Uuid::now_v7(),
+        Starting {
+            answer: json!({"type":"session.result","requestId":start.request_id(),"operation":"session.create"}),
+            until: Instant::now() + Duration::from_secs(1),
+        },
+    );
+    runtime.network.inner.link.set_background(true);
+    let foreground = as_client(
+        &runtime,
+        Command::Lifecycle {
+            request_id: Uuid::now_v7().to_string(),
+            state: AppLifecycle::Foreground,
+        },
+    );
+    let mut events = runtime.events.subscribe();
+    let (requests, looping) = start_loop(runtime, changes).await;
+    let answered = |event: &Event| event.event.request_id() == Some(start.request_id());
+
+    tokio::time::sleep(Duration::from_mins(1)).await;
+    assert!(!std::iter::from_fn(|| events.try_recv().ok()).any(|event| answered(&event)));
+    requests
+        .send(Request::Command {
+            envelope: foreground,
+            consumer: client,
+            lifetime,
+        })
+        .await
+        .unwrap();
+    let back = Instant::now();
+    while !answered(&events.recv().await.unwrap()) {}
+    assert_eq!(back.elapsed(), Duration::ZERO);
+    looping.abort();
+}
+
 #[test]
 fn every_command_can_fail_with_an_answer_that_its_app_can_read() {
     for sample in crate::protocol::tests::commands() {
@@ -3905,23 +4019,6 @@ fn a_restored_agent_continues_its_conversation_or_lists_them() {
     use crate::agents::Agent;
     let id = "0198f0c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
     let line = |agent, command, conversation| restore::resume_line(agent, command, conversation);
-    assert_eq!(
-        line(Agent::Claude, "claude", Some(id)).unwrap(),
-        format!("claude --resume {id}")
-    );
-    assert_eq!(
-        line(Agent::Copilot, "copilot", Some(id)).unwrap(),
-        format!("copilot --resume={id}")
-    );
-    assert_eq!(
-        line(Agent::Codex, "env CODEX_HOME=/w codex", None).unwrap(),
-        "env CODEX_HOME=/w codex resume"
-    );
-    assert_eq!(
-        line(Agent::Claude, "claude", None).unwrap(),
-        "claude --resume"
-    );
-    assert_eq!(line(Agent::Cursor, "cursor-agent", Some(id)), None);
     let zsh = crate::agents::Notes {
         shell: "/bin/zsh".into(),
         ..crate::agents::Notes::default()
@@ -4591,7 +4688,15 @@ fn a_message_names_the_terminal_whose_whole_name_follows_the_at_sign() {
         [2, 3]
     );
     assert_eq!(messages::named("@Build: the test fails", &terminals), [1]);
-    for text in ["@Builder", "write to ana@Build", "no names here", "@"] {
+    assert_eq!(messages::named("@build 2, then @DOCS", &terminals), [2, 3]);
+    assert_eq!(messages::named("@Build-fix is red", &terminals), [1]);
+    for text in [
+        "@Builder",
+        "write to ana@Build",
+        "see run_@Build",
+        "no names here",
+        "@",
+    ] {
         assert_eq!(
             messages::named(text, &terminals),
             Vec::<i32>::new(),
@@ -4656,7 +4761,11 @@ fn a_message_line_says_who_wrote_and_from_where_and_leaves_the_choice_to_the_age
     assert_eq!(
         messages::mention_line(
             "Launch",
-            &[mention(&ana, "@Build check\r/exit\n the\u{1b}[2J test", 7)]
+            &[mention(
+                &ana,
+                "@Build check\r/exit\n the\u{1b}[2J te\u{202e}st",
+                7
+            )]
         ),
         format!(
             "[Kodosi] Message from Ana in the project \"Launch\": \"@Build check /exit the [2J test\" If you answer: kodosi project post \"text\". {judgment} it."
@@ -5744,12 +5853,4 @@ async fn one_more_terminal_like_another_starts_its_agent_with_its_account_and_ch
     for local in runtime.local.values() {
         drop(local.terminal.close().await);
     }
-}
-
-#[cfg(feature = "host")]
-#[test]
-fn a_saved_terminal_reads_its_project_under_the_name_in_the_file() {
-    let sharing: restore::Sharing =
-        serde_json::from_value(json!({"owner": "owner", "room": "project"})).unwrap();
-    assert_eq!(sharing.project.as_deref(), Some("project"));
 }

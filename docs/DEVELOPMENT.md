@@ -63,6 +63,7 @@ Run the check of each part that you changed:
 | The backend | `just backend-check` |
 | The sign-in pages | `just sign-in-check` |
 | A text that people read | `just translations-check` |
+| Runtime code that only one system compiles (`cfg`) | `just windows-rust-lint`, which needs Docker |
 | The Mac app, the iPhone and iPad app or their shared code | `just mac-check`, `just ios-check` |
 | The Linux and Windows app | `just linux-check` on Linux or `just windows-check` on Windows |
 | The Android app | `just android-check` |
@@ -71,7 +72,8 @@ Run the check of each part that you changed:
 A pull request runs the first five again, in a few minutes. No workflow builds an app for
 a pull request. The Linux app, the Windows app and the Windows package build each night on
 main. When you changed the Linux and Windows app and have no computer with Linux or
-Windows, start the workflow `Linux app` or `Windows app` for your branch and wait for it:
+Windows, or changed such runtime code and have no Docker, start the workflow `Linux app` or
+`Windows app` for your branch and wait for it:
 
 ```sh
 gh workflow run "Linux app" --ref <branch>
@@ -90,8 +92,9 @@ export KODOSI_POSTGRES_VOLUME=kodosi-dev-postgres
 just backend-docker-run
 ```
 
-`just backend-docker-stop` stops it and keeps the volume. To sign in with another
-identity provider, such as the disposable Keycloak of `sign-in/keycloak.sh`, set
+`just backend-docker-stop` stops it and keeps the volume. A new major version of PostgreSQL
+in compose.yaml starts only on a new volume; the old volume keeps its data. To sign in with
+another identity provider, such as the disposable Keycloak of `sign-in/keycloak.sh`, set
 `Auth__Authority` and `Auth__Audience` in a local Compose override. With that Keycloak,
 the client that `sign-in/keycloak.sh` prints for account deletions goes into the
 `Auth__AccountDeletion` settings of [Self-hosting](SELF-HOSTING.md).

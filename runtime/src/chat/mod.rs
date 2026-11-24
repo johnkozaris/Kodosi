@@ -15,7 +15,7 @@ mod antigravity;
 mod claude;
 #[cfg(feature = "host")]
 mod codex;
-#[cfg(all(feature = "host", unix))]
+#[cfg(feature = "host")]
 mod codex_link;
 #[cfg(feature = "host")]
 mod copilot;
@@ -43,18 +43,32 @@ pub(crate) use link::{Links, TerminalChat};
 #[cfg(feature = "host")]
 pub(crate) use room::ChatHandle;
 
-/// The variable that gives the programs of a terminal the address where an agent reports to the chat.
+/// The variable that gives the programs of a terminal the socket file where an agent reports to
+/// the chat.
 #[cfg(feature = "host")]
 pub(crate) const LINK_VARIABLE: &str = "KODOSI_AGENT_LINK";
+/// The variable that gives the programs of a Windows terminal the named pipe where an agent that
+/// runs in Node reports to the chat.
+#[cfg(feature = "host")]
+pub(crate) const PIPE_VARIABLE: &str = "KODOSI_AGENT_PIPE";
 /// The variable that gives a terminal the address of its own app-server of Codex.
 #[cfg(feature = "host")]
 pub(crate) const CODEX_VARIABLE: &str = "KODOSI_CODEX_SERVER";
 
 /// The key of the pipe that carries a terminal's chat.
 pub const CHAT_PIPE: &str = "chat";
-pub const MOST_ITEMS: usize = 400;
-pub const MOST_QUEUED: usize = 16;
-pub const MOST_MESSAGE: usize = 64 * 1024;
+#[cfg(feature = "host")]
+const MOST_ITEMS: usize = 400;
+#[cfg(feature = "host")]
+const MOST_QUEUED: usize = 16;
+#[cfg(feature = "host")]
+const MOST_MESSAGE: usize = 64 * 1024;
+#[cfg(feature = "host")]
+const MOST_CALLS: usize = 2048;
+#[cfg(feature = "host")]
+const MOST_QUESTIONS: usize = 8;
+#[cfg(feature = "host")]
+const MOST_OPTIONS: usize = 16;
 #[cfg(feature = "host")]
 const MOST_TEXT: usize = 48 * 1024;
 #[cfg(feature = "host")]
@@ -228,7 +242,8 @@ pub struct ChatTool {
     pub name: String,
     pub kind: ToolKind,
     pub state: ToolState,
-    /// The short subject: a command, the name of a file, a pattern, an address.
+    /// The short subject: a command, a file, a pattern, an address. A file in the terminal's
+    /// folder shows by its name, and a file elsewhere by its place.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub target: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -28,8 +28,8 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::{agent::now, antigravity::Antigravity};
-use crate::text::Text;
+use super::antigravity::{ASKING, Antigravity, SIGN_IN, ask_name};
+use crate::{identity::now_ms, text::Text};
 
 /// The time that a server has to answer its first message.
 const START: Duration = Duration::from_secs(60);
@@ -42,10 +42,6 @@ const MOST_WAITING: usize = 256;
 const MOST_TITLE: usize = 120;
 /// The JSON-RPC code of a method that the other side does not have.
 const NO_METHOD: i64 = -32601;
-/// What Kodosi's chat calls on the terminal's side itself: the agent's own sign-in, and the
-/// state of an agent that asked the person a question in its answer and waits for the next message.
-pub(super) const SIGN_IN: &str = "kodosi/signIn";
-pub(super) const ASKING: &str = "kodosi/asking";
 
 /// The choices of the session that the line of the terminal gives. The chat's adapter makes them.
 pub(crate) struct Choices {
@@ -463,15 +459,6 @@ fn write_out(text: &str) {
     drop(out.flush());
 }
 
-/// The name of the question that a request of the server makes, which the adapter gives too.
-pub(super) fn ask_name(request: &Value) -> Option<String> {
-    match request {
-        Value::Number(number) => Some(format!("r{number}")),
-        Value::String(name) if !name.is_empty() => Some(format!("r{name}")),
-        _ => None,
-    }
-}
-
 /// Carries the messages between the server and the chat until the server ends, the chat leaves,
 /// or the agent asks for a sign-in.
 async fn relay(
@@ -484,7 +471,7 @@ async fn relay(
     let link = Arc::new(link);
     let greeting = json!({
         "k": "hello",
-        "t": now(),
+        "t": now_ms(),
         "agent": agent,
         "started": server.started.take(),
         "folder": std::env::current_dir().ok(),
@@ -525,12 +512,12 @@ async fn relay(
             },
             Some((id, decision)) = decisions.recv() => relay.decide(id, decision).await,
             written = typed.next() => match written {
-                Some(words) => relay.tell(json!({"k": "typed", "t": now(), "text": words})).await,
+                Some(words) => relay.tell(json!({"k": "typed", "t": now_ms(), "text": words})).await,
                 None => Some(Ended::Code(0)),
             },
             _ = interrupts.recv() => {
                 if relay.open.busy() {
-                    relay.tell(json!({"k": "interrupt", "t": now()})).await
+                    relay.tell(json!({"k": "interrupt", "t": now_ms()})).await
                 } else {
                     Some(Ended::Code(130))
                 }
@@ -550,7 +537,7 @@ async fn relay(
     } = relay;
     let code = server.end().await;
     if matches!(ended, Ended::Code(_)) {
-        drop(events.send(json!({"k": "end", "t": now()})).await);
+        drop(events.send(json!({"k": "end", "t": now_ms()})).await);
     }
     drop(events);
     drop(tokio::time::timeout(END, posting).await);
@@ -664,7 +651,7 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
             if method == "session/request_permission" {
                 Heard {
                     event: Some(
-                        json!({"k": "request", "t": now(), "id": id, "m": method, "p": params}),
+                        json!({"k": "request", "t": now_ms(), "id": id, "m": method, "p": params}),
                     ),
                     ask: Some(id.clone()),
                     ..Heard::default()
@@ -678,7 +665,7 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
         }
         (Some(method), None) => Heard {
             title: session_title(&params),
-            event: Some(json!({"k": "note", "t": now(), "m": method, "p": params})),
+            event: Some(json!({"k": "note", "t": now_ms(), "m": method, "p": params})),
             ..Heard::default()
         },
         (None, Some(id)) => {
@@ -697,7 +684,7 @@ fn hear(open: &mut Open, message: &Value) -> Heard {
             Heard {
                 event: Some(json!({
                     "k": "reply",
-                    "t": now(),
+                    "t": now_ms(),
                     "tag": tag,
                     "r": result,
                     "e": message.get("error"),

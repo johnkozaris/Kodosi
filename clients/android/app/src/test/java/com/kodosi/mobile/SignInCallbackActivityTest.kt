@@ -69,7 +69,7 @@ class SignInCallbackActivityTest {
             Intent(Intent.ACTION_VIEW, Uri.parse("https://example.invalid/"))
         ).create()
 
-        assertEquals(SignInStage.AwaitingBrowser("https://id.kodosi.com/login"), model.account.state.value.stage)
+        assertEquals(SignInStage.AwaitingBrowser, model.account.state.value.stage)
         assertFalse("auth.login.finish" in sent.types)
     }
 }

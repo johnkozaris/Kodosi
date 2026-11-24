@@ -1,16 +1,16 @@
 {"k":"mode","t":1795227221186,"mode":"default"}
-{"k":"row","t":1795227221189,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"602f95b9-61ba-44cd-a911-3240abb60a31","type":"user","meta":false,"content":[{"type":"text","text":"Run this exact command with the Bash tool: python3 -c \"import time; time.sleep(25)\""}]}
-{"k":"turn","t":1795227221192,"turn":"3ab8f5b2-10bd-4b8d-8a97-1e6c0c3707cf"}
+{"k":"row","t":1795227221189,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"602f95b9-61ba-44cd-a911-3240abb60a31","content":[{"type":"text","text":"Run this exact command with the Bash tool: python3 -c \"import time; time.sleep(25)\""}]}
+{"k":"turn","t":1795227221192}
 {"k":"did","t":1795227221192,"n":1}
-{"k":"step","t":1795227221195,"step":0,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"step","t":1795227221195,"model":"claude-sonnet-5-5","effort":"medium"}
 {"k":"tool","t":1795227221816,"id":"toolu_01JLL1HjH2A3hLjhP41zWA7D","name":"Bash"}
-{"k":"row","t":1795227222044,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"c3f4e29d-1969-4191-98ae-452c2a96066f","type":"assistant","meta":false,"content":[{"type":"tool_use","id":"toolu_01JLL1HjH2A3hLjhP41zWA7D","name":"Bash","input":{"command":"python3 -c \"import time; time.sleep(25)\""}}]}
+{"k":"row","t":1795227222044,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"c3f4e29d-1969-4191-98ae-452c2a96066f","content":[{"type":"tool_use","id":"toolu_01JLL1HjH2A3hLjhP41zWA7D","name":"Bash","input":{"command":"python3 -c \"import time; time.sleep(25)\""}}]}
 {"k":"ask","t":1795227222057,"ask":"mwprn9k5-15","call":"toolu_01JLL1HjH2A3hLjhP41zWA7D","tool":"Bash","input":{"command":"python3 -c \"import time; time.sleep(25)\""},"suggestions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"python3 -c \"import time; time.sleep(25)\""}],"behavior":"allow","destination":"localSettings"}],"mode":"default"}
-{"k":"stepEnd","t":1795227222067,"step":0}
+{"k":"stepEnd","t":1795227222067}
 {"answer":{"ask":"mwprn9k5-15","decision":{"behavior":"allow"}}}
-{"k":"decided","t":1795227222242,"id":"toolu_01JLL1HjH2A3hLjhP41zWA7D","decision":"accept","source":"hook","mode":"default"}
+{"k":"decided","t":1795227222242,"id":"toolu_01JLL1HjH2A3hLjhP41zWA7D","decision":"accept","mode":"default"}
 {"k":"stop","t":1795227225577}
-{"k":"row","t":1795227225596,"door":"tool-result","origin":{"kind":"tool","tool":"Bash"},"uuid":"3e2e998a-4854-4644-b2c9-86d95857e93a","type":"user","meta":false,"content":[{"type":"tool_result","tool_use_id":"toolu_01JLL1HjH2A3hLjhP41zWA7D","is_error":true,"content":[{"type":"text","text":"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.\n\nNote: The user's next message may contain a correction or preference. Pay close attention — if they explain what went wrong or how they'd prefer you to work, consider saving that to memory for future sessions."}]}]}
-{"k":"row","t":1795227225602,"door":"note","origin":{"kind":"engine"},"uuid":"a9b0d448-82a0-4655-b894-3f487adcd4d7","type":"user","meta":false,"content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]}
-{"k":"turnEnd","t":1795227225610,"turn":"3ab8f5b2-10bd-4b8d-8a97-1e6c0c3707cf","ms":4421,"reason":"aborted"}
+{"k":"row","t":1795227225596,"door":"tool-result","origin":{"kind":"tool","tool":"Bash"},"uuid":"3e2e998a-4854-4644-b2c9-86d95857e93a","content":[{"type":"tool_result","tool_use_id":"toolu_01JLL1HjH2A3hLjhP41zWA7D","is_error":true,"content":[{"type":"text","text":"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.\n\nNote: The user's next message may contain a correction or preference. Pay close attention — if they explain what went wrong or how they'd prefer you to work, consider saving that to memory for future sessions."}]}]}
+{"k":"row","t":1795227225602,"door":"note","origin":{"kind":"engine"},"uuid":"a9b0d448-82a0-4655-b894-3f487adcd4d7","content":[{"type":"text","text":"[Request interrupted by user for tool use]"}]}
+{"k":"turnEnd","t":1795227225610,"ms":4421,"reason":"aborted"}
 {"k":"measure","t":1795227225614,"context":{"tokens":45276,"window":1000000,"percent":5},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.37379970000000007}}

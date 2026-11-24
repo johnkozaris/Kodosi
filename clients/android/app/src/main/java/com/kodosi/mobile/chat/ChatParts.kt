@@ -92,8 +92,7 @@ internal fun RollingText(
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
-    maxLines: Int = 1,
-    overflow: TextOverflow = TextOverflow.Ellipsis
+    maxLines: Int = 1
 ) {
     val sliding = snappy<IntOffset>()
     val fading = fade<Float>()
@@ -107,7 +106,7 @@ internal fun RollingText(
                 SizeTransform(clip = true) { _, _ -> sizing }
         },
         label = "rolling text"
-    ) { shown -> Text(shown, style = style, color = color, maxLines = maxLines, overflow = overflow) }
+    ) { shown -> Text(shown, style = style, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis) }
 }
 
 @Composable

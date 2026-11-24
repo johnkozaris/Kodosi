@@ -410,15 +410,20 @@ pub(super) fn resume_line(
     command: &str,
     conversation: Option<&str>,
 ) -> Option<String> {
-    let resume = match (agent, conversation) {
-        (Agent::Claude, Some(id)) => format!("--resume {id}"),
-        (Agent::Copilot, Some(id)) => format!("--resume={id}"),
-        (Agent::Codex, Some(id)) => format!("resume {id}"),
-        (Agent::Claude | Agent::Copilot, None) => "--resume".to_owned(),
-        (Agent::Codex, None) => "resume".to_owned(),
+    let words = resume_words(agent, conversation)?;
+    Some(format!("{command} {}", words.join(" ")))
+}
+
+/// Without a conversation, the agent lists its conversations to continue one.
+pub(super) fn resume_words(agent: Agent, conversation: Option<&str>) -> Option<Vec<String>> {
+    Some(match (agent, conversation) {
+        (Agent::Claude, Some(id)) => vec!["--resume".to_owned(), id.to_owned()],
+        (Agent::Copilot, Some(id)) => vec![format!("--resume={id}")],
+        (Agent::Codex, Some(id)) => vec!["resume".to_owned(), id.to_owned()],
+        (Agent::Claude | Agent::Copilot, None) => vec!["--resume".to_owned()],
+        (Agent::Codex, None) => vec!["resume".to_owned()],
         (Agent::Cursor | Agent::Opencode | Agent::Antigravity, _) => return None,
-    };
-    Some(format!("{command} {resume}"))
+    })
 }
 
 pub(super) fn nearest_folder(folder: Option<&str>) -> Option<String> {

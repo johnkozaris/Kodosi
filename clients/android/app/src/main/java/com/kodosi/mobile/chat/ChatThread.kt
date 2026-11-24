@@ -30,7 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.computedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -294,7 +294,7 @@ internal fun ChatThread(
         if (loaded && rows.isEmpty() && view.state != ChatState.WORKING) {
             AgentMark(agent, 40.dp, Modifier.align(Alignment.Center))
         }
-        val latest by remember { derivedStateOf { !following && list.canScrollForward } }
+        val latest by remember { computedStateOf { !following && list.canScrollForward } }
         val sliding = snappy<IntOffset>()
         val fading = fade<Float>()
         AnimatedVisibility(

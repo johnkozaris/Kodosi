@@ -56,8 +56,6 @@ public sealed class AccountService(KodosiDbContext db, ConnectionDirectory conne
         db.Friendships.RemoveRange(friendships);
         await db.SaveChangesAsync(ct);
         db.DeviceLists.RemoveRange(await db.DeviceLists.Where(x => x.UserId == userId).ToListAsync(ct));
-        db.DeviceLinks.RemoveRange(await db.DeviceLinks.Where(x => x.UserId == userId).ToListAsync(ct));
-        db.FriendLists.RemoveRange(await db.FriendLists.Where(x => x.UserId == userId).ToListAsync(ct));
         db.Devices.RemoveRange(devices);
         db.Users.Remove(user);
         await RememberAsync(user.Issuer, user.Subject, deletedAt, ct);

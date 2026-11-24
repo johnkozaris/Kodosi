@@ -1,7 +1,7 @@
 #include "terminal/GhosttyTerminalKernel.hpp"
-#include "terminal/GhosttyC.hpp"
 #include "terminal/TerminalImages.hpp"
 
+#include <ghostty/vt.h>
 #include <kodosi_runtime.h>
 
 #include <QByteArray>
@@ -113,6 +113,20 @@ public:
     KeyEventHandle& operator=(const KeyEventHandle&) = delete;
 
     GhosttyKeyEvent value = nullptr;
+};
+
+class FormatterHandle final {
+public:
+    FormatterHandle() = default;
+    ~FormatterHandle()
+    {
+        ghostty_formatter_free(value);
+    }
+
+    FormatterHandle(const FormatterHandle&) = delete;
+    FormatterHandle& operator=(const FormatterHandle&) = delete;
+
+    GhosttyFormatter value = nullptr;
 };
 
 class MouseEncoderHandle final {
@@ -682,7 +696,7 @@ FrameResult buildFrame(
                 return std::unexpected(grapheme.error());
             }
 
-            GhosttyStyle style = GHOSTTY_INIT_SIZED(GhosttyStyle);
+            GhosttyStyle style {};
             result = ghostty_render_state_row_cells_get(
                 rowCells.value,
                 GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE,
@@ -696,7 +710,7 @@ FrameResult buildFrame(
                 rowCells.value,
                 GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_FG_COLOR,
                 &foreground);
-            if (foregroundResult != GHOSTTY_SUCCESS && foregroundResult != GHOSTTY_INVALID_VALUE) {
+            if (foregroundResult != GHOSTTY_SUCCESS && foregroundResult != GHOSTTY_NO_VALUE) {
                 return std::unexpected(
                     ghosttyFailure(QStringLiteral("cell foreground"), foregroundResult));
             }
@@ -706,7 +720,7 @@ FrameResult buildFrame(
                 rowCells.value,
                 GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_BG_COLOR,
                 &background);
-            if (backgroundResult != GHOSTTY_SUCCESS && backgroundResult != GHOSTTY_INVALID_VALUE) {
+            if (backgroundResult != GHOSTTY_SUCCESS && backgroundResult != GHOSTTY_NO_VALUE) {
                 return std::unexpected(
                     ghosttyFailure(QStringLiteral("cell background"), backgroundResult));
             }
@@ -736,26 +750,29 @@ FrameResult buildFrame(
             auto cellBackground = backgroundResult == GHOSTTY_SUCCESS
                 ? color(background)
                 : frame->background;
-            if (style.inverse) {
+            const auto styled = [&style](const GhosttyStyleFlags flag) {
+                return (style.flags & flag) != 0;
+            };
+            if (styled(GHOSTTY_STYLE_FLAG_INVERSE)) {
                 std::swap(cellForeground, cellBackground);
             }
-            if (style.faint) {
+            if (styled(GHOSTTY_STYLE_FLAG_FAINT)) {
                 cellForeground.setAlpha(160);
             }
 
             frame->cells.push_back({
-                .grapheme = style.invisible ? QString {} : *grapheme,
+                .grapheme = styled(GHOSTTY_STYLE_FLAG_INVISIBLE) ? QString {} : *grapheme,
                 .foreground = cellForeground,
                 .background = cellBackground,
-                .bold = style.bold,
-                .italic = style.italic,
-                .invisible = style.invisible,
-                .strikethrough = style.strikethrough,
-                .overline = style.overline,
+                .bold = styled(GHOSTTY_STYLE_FLAG_BOLD),
+                .italic = styled(GHOSTTY_STYLE_FLAG_ITALIC),
+                .invisible = styled(GHOSTTY_STYLE_FLAG_INVISIBLE),
+                .strikethrough = styled(GHOSTTY_STYLE_FLAG_STRIKETHROUGH),
+                .overline = styled(GHOSTTY_STYLE_FLAG_OVERLINE),
                 .selected = selectionResult == GHOSTTY_SUCCESS
                     && column >= selection.start_x
                     && column <= selection.end_x,
-                .underline = style.underline,
+                .underline = GHOSTTY_STYLE_UNDERLINE(style),
                 .width = wide == GHOSTTY_CELL_WIDE_WIDE ? std::uint8_t {2}
                     : (wide == GHOSTTY_CELL_WIDE_NARROW ? std::uint8_t {1}
                                                        : std::uint8_t {0}),
@@ -872,15 +889,15 @@ GhosttyTerminalKernel::ConfigureResult applySettings(
     const auto cursorStyle = [&] {
         switch (settings.cursorStyle) {
         case TerminalCursorStyle::Block:
-            return GHOSTTY_TERMINAL_CURSOR_STYLE_BLOCK;
+            return GHOSTTY_CURSOR_STYLE_BLOCK;
         case TerminalCursorStyle::Bar:
-            return GHOSTTY_TERMINAL_CURSOR_STYLE_BAR;
+            return GHOSTTY_CURSOR_STYLE_BAR;
         case TerminalCursorStyle::Underline:
-            return GHOSTTY_TERMINAL_CURSOR_STYLE_UNDERLINE;
+            return GHOSTTY_CURSOR_STYLE_UNDERLINE;
         case TerminalCursorStyle::HollowBlock:
-            return GHOSTTY_TERMINAL_CURSOR_STYLE_BLOCK_HOLLOW;
+            return GHOSTTY_CURSOR_STYLE_BLOCK_HOLLOW;
         }
-        return GHOSTTY_TERMINAL_CURSOR_STYLE_BLOCK;
+        return GHOSTTY_CURSOR_STYLE_BLOCK;
     }();
     auto result = ghostty_terminal_set(
         terminal,
@@ -960,7 +977,7 @@ public:
         void* const userdata,
         const GhosttyClipboardWrite* const write)
     {
-        if (userdata == nullptr || write == nullptr || write->size < sizeof(GhosttyClipboardWrite)) {
+        if (userdata == nullptr || write == nullptr) {
             return;
         }
         std::optional<QString> text;
@@ -1136,7 +1153,7 @@ public:
         }
         renderHeldSince.reset();
         const GhosttyTerminalModeConfig synchronizedOutput {
-            .mode = GHOSTTY_MODE_SYNC_OUTPUT,
+            .mode = GHOSTTY_MODE_SYNCHRONIZED_OUTPUT,
             .value = false,
         };
         return ghostty_terminal_set(
@@ -1157,7 +1174,7 @@ public:
         GhosttyPoint point {};
         point.tag = GHOSTTY_POINT_TAG_VIEWPORT;
         point.value.coordinate = {pointer.column, pointer.row};
-        GhosttyGridRef ref = GHOSTTY_INIT_SIZED(GhosttyGridRef);
+        GhosttyGridRef ref {};
         if (ghostty_terminal_grid_ref(terminal.value, point, &ref) != GHOSTTY_SUCCESS) {
             return std::nullopt;
         }
@@ -1260,7 +1277,7 @@ public:
 
     Result applyGesture(const GhosttySelectionGestureEvent event)
     {
-        GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+        GhosttySelection selection {};
         auto result = ghostty_selection_gesture_event(gesture, terminal.value, event, &selection);
         if (result == GHOSTTY_SUCCESS) {
             result = installSelection(&selection);
@@ -1285,7 +1302,7 @@ public:
         if (selectionAnchor.value == nullptr || selectionEndpoint.value == nullptr) {
             return GHOSTTY_SUCCESS;
         }
-        GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+        GhosttySelection selection {};
         auto result = ghostty_tracked_grid_ref_snapshot(
             selectionAnchor.value,
             &selection.start);
@@ -1710,7 +1727,7 @@ GhosttyTerminalKernel::encodeKey(
         });
     }
 
-    ghostty_key_encoder_setopt_from_terminal(
+    ghostty_key_encoder_set_from_terminal(
         m_impl->keyEncoder.value,
         m_impl->terminal.value);
     KeyEventHandle event;
@@ -1725,8 +1742,10 @@ GhosttyTerminalKernel::encodeKey(
     if (!utf8.isEmpty()) {
         ghostty_key_event_set_utf8(
             event.value,
-            utf8.constData(),
-            static_cast<std::size_t>(utf8.size()));
+            {
+                .ptr = reinterpret_cast<const std::uint8_t*>(utf8.constData()),
+                .len = static_cast<std::size_t>(utf8.size()),
+            });
     }
     if (keyEvent.unshiftedCodepoint != 0) {
         ghostty_key_event_set_unshifted_codepoint(
@@ -1755,7 +1774,7 @@ GhosttyTerminalKernel::encodeKey(
     result = ghostty_key_encoder_encode(
         m_impl->keyEncoder.value,
         event.value,
-        encoded.data(),
+        reinterpret_cast<std::uint8_t*>(encoded.data()),
         static_cast<std::size_t>(encoded.size()),
         &written);
     if (result != GHOSTTY_SUCCESS || written > static_cast<std::size_t>(encoded.size())) {
@@ -1819,7 +1838,7 @@ GhosttyTerminalKernel::encodePaste(
         text.data(),
         static_cast<std::size_t>(text.size()),
         bracketed.value,
-        encoded.data(),
+        reinterpret_cast<std::uint8_t*>(encoded.data()),
         static_cast<std::size_t>(encoded.size()),
         &written);
     if (result != GHOSTTY_SUCCESS
@@ -1857,7 +1876,7 @@ GhosttyTerminalKernel::encodeMouse(
         });
     }
 
-    ghostty_mouse_encoder_setopt_from_terminal(
+    ghostty_mouse_encoder_set_from_terminal(
         m_impl->mouseEncoder.value,
         m_impl->terminal.value);
     const GhosttyMouseEncoderSize size {
@@ -1871,16 +1890,16 @@ GhosttyTerminalKernel::encodeMouse(
         .padding_right = 0,
         .padding_left = 0,
     };
-    ghostty_mouse_encoder_setopt(
+    ghostty_mouse_encoder_set(
         m_impl->mouseEncoder.value,
         GHOSTTY_MOUSE_ENCODER_OPT_SIZE,
         &size);
-    ghostty_mouse_encoder_setopt(
+    ghostty_mouse_encoder_set(
         m_impl->mouseEncoder.value,
         GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED,
         &mouseEvent.anyButtonPressed);
     const bool trackLastCell = true;
-    ghostty_mouse_encoder_setopt(
+    ghostty_mouse_encoder_set(
         m_impl->mouseEncoder.value,
         GHOSTTY_MOUSE_ENCODER_OPT_TRACK_LAST_CELL,
         &trackLastCell);
@@ -1931,7 +1950,7 @@ GhosttyTerminalKernel::encodeMouse(
     result = ghostty_mouse_encoder_encode(
         m_impl->mouseEncoder.value,
         event.value,
-        encoded.data(),
+        reinterpret_cast<std::uint8_t*>(encoded.data()),
         static_cast<std::size_t>(encoded.size()),
         &written);
     if (result != GHOSTTY_SUCCESS
@@ -1952,7 +1971,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewport(
         return std::unexpected(std::move(*refused));
     }
     return m_impl->moveViewport({
-        .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA,
+        .tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_DELTA,
         .value = {.delta = static_cast<intptr_t>(rows)},
     });
 }
@@ -1965,7 +1984,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewportToBottom(
         return std::unexpected(std::move(*refused));
     }
     return m_impl->moveViewport({
-        .tag = GHOSTTY_SCROLL_VIEWPORT_BOTTOM,
+        .tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_BOTTOM,
         .value = {},
     });
 }
@@ -1978,7 +1997,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::scrollViewportToTop(
         return std::unexpected(std::move(*refused));
     }
     return m_impl->moveViewport({
-        .tag = GHOSTTY_SCROLL_VIEWPORT_TOP,
+        .tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_TOP,
         .value = {},
     });
 }
@@ -1992,7 +2011,7 @@ GhosttyTerminalKernel::Result GhosttyTerminalKernel::jumpToPrompt(
         return std::unexpected(std::move(*refused));
     }
     return m_impl->moveViewport({
-        .tag = GHOSTTY_SCROLL_VIEWPORT_DELTA_PROMPT,
+        .tag = GHOSTTY_TERMINAL_SCROLL_VIEWPORT_DELTA_PROMPT,
         .value = {.delta_prompt = static_cast<intptr_t>(prompts)},
     });
 }
@@ -2034,7 +2053,7 @@ GhosttyTerminalKernel::linkAt(
     GhosttyPoint point {};
     point.tag = GHOSTTY_POINT_TAG_VIEWPORT;
     point.value.coordinate = {column, row};
-    GhosttyGridRef reference = GHOSTTY_INIT_SIZED(GhosttyGridRef);
+    GhosttyGridRef reference {};
     auto result = ghostty_terminal_grid_ref(
         m_impl->terminal.value,
         point,
@@ -2268,19 +2287,32 @@ GhosttyTerminalKernel::selectedText(const TerminalSubscription& subscription)
             QStringLiteral("Terminal selection belongs to a stale subscription."),
         });
     }
-    GhosttyTerminalSelectionFormatOptions options =
-        GHOSTTY_INIT_SIZED(GhosttyTerminalSelectionFormatOptions);
-    kodosi_ghostty_selection_emit(&options, GHOSTTY_FORMATTER_FORMAT_PLAIN);
-    options.unwrap = true;
-    options.trim = true;
-    std::size_t required = 0;
-    auto result = ghostty_terminal_selection_format_buf(
+    GhosttySelection selection {};
+    auto result = ghostty_terminal_get(
         m_impl->terminal.value,
-        options,
-        nullptr,
-        0,
-        &required);
+        GHOSTTY_TERMINAL_DATA_SELECTION,
+        &selection);
     if (result == GHOSTTY_NO_VALUE) {
+        return QString {};
+    }
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("selection"), result));
+    }
+    FormatterHandle formatter;
+    result = ghostty_formatter_terminal_new(nullptr, &formatter.value, m_impl->terminal.value);
+    const bool unwrap = true;
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_formatter_set(formatter.value, GHOSTTY_FORMATTER_OPT_UNWRAP, &unwrap);
+    }
+    if (result == GHOSTTY_SUCCESS) {
+        result = ghostty_formatter_set(formatter.value, GHOSTTY_FORMATTER_OPT_SELECTION, &selection);
+    }
+    if (result != GHOSTTY_SUCCESS) {
+        return std::unexpected(ghosttyFailure(QStringLiteral("selection formatter"), result));
+    }
+    std::size_t required = 0;
+    result = ghostty_formatter_format_buf(formatter.value, nullptr, 0, &required);
+    if (result == GHOSTTY_SUCCESS) {
         return QString {};
     }
     if (result != GHOSTTY_OUT_OF_SPACE || required > KODOSI_MAX_FRAME_BYTES) {
@@ -2288,9 +2320,8 @@ GhosttyTerminalKernel::selectedText(const TerminalSubscription& subscription)
     }
     QByteArray bytes(static_cast<qsizetype>(required), Qt::Uninitialized);
     std::size_t written = 0;
-    result = ghostty_terminal_selection_format_buf(
-        m_impl->terminal.value,
-        options,
+    result = ghostty_formatter_format_buf(
+        formatter.value,
         reinterpret_cast<std::uint8_t*>(bytes.data()),
         static_cast<std::size_t>(bytes.size()),
         &written);
@@ -2304,7 +2335,8 @@ GhosttyTerminalKernel::selectedText(const TerminalSubscription& subscription)
 GhosttyTerminalKernel::ConfigureResult GhosttyTerminalKernel::configure(
     TerminalKernelSettings settings)
 {
-    if (settings.scrollbackLines < 100 || settings.scrollbackLines > 100'000
+    if (settings.scrollbackLines < static_cast<std::size_t>(terminalScrollbackLines.lowest)
+        || settings.scrollbackLines > static_cast<std::size_t>(terminalScrollbackLines.highest)
         || settings.scrollbackBytes
             != terminalScrollbackByteBudget(settings.scrollbackLines)) {
         return std::unexpected(Failure {

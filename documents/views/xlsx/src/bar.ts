@@ -268,11 +268,6 @@ export class XlsxBar {
     });
   }
 
-  destroy(): void {
-    cancelAnimationFrame(this.pending);
-    this.bar.destroy();
-  }
-
   private formatPicker(control: SheetControl, fits?: "mid") {
     const picker = pickerOf({
       label: say("Number format"),

@@ -18,6 +18,7 @@ public sealed class ConnectionDirectory
     private readonly Dictionary<Guid, Hosted> hosted = [];
     private readonly ConcurrentDictionary<Guid, Pipe> pipes = new();
     private readonly Dictionary<Guid, Dictionary<string, DevicePresence>> present = [];
+    private bool stopped;
 
     internal event Action<Guid>? HostChanged;
     internal event Action<TerminalReport>? Reported;
@@ -90,6 +91,7 @@ public sealed class ConnectionDirectory
         var afterUnlock = new AfterUnlock();
         lock (sync)
         {
+            if (stopped) throw new ApiException(503, "The Kodosi server is restarting.");
             var devices = accounts.GetValueOrDefault(connection.UserId);
             var previous = devices?.GetValueOrDefault(connection.DeviceId);
             if (previous is null && ((devices?.Count ?? 0) >= Limits.MaxDevicesPerUser || entries.Count >= MaximumDeviceConnections))
@@ -328,11 +330,14 @@ public sealed class ConnectionDirectory
         lock (sync) accounts.GetValueOrDefault(userId)?.GetValueOrDefault(deviceId)?.Connection.ExtendUntil(expires);
     }
 
+    // A device connects again the moment its connection closes. A connection that came after this would
+    // stay open and hold the stop of the server until its time limit.
     public void StopAll()
     {
         DeviceConnection[] all;
         lock (sync)
         {
+            stopped = true;
             all = entries.Keys.ToArray();
             accounts.Clear(); entries.Clear(); hosted.Clear(); pipes.Clear(); present.Clear();
         }

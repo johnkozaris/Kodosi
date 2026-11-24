@@ -208,6 +208,11 @@ impl Pipe {
         self.waiting.fetch_sub(frame.len(), Ordering::Relaxed);
         Some(frame)
     }
+
+    /// The document let go of this pipe: it closed, or the pipe fell behind.
+    pub fn is_closed(&self) -> bool {
+        self.incoming.is_closed()
+    }
 }
 
 impl Drop for Pipe {

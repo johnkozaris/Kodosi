@@ -21,7 +21,7 @@ public sealed class AccountDeletionSettings
 
     public static AccountDeletionSettings From(IConfiguration config)
     {
-        var issuer = (config["Auth:Authority"] ?? "").Trim().TrimEnd('/');
+        var issuer = Authentication.Authority(config);
         var section = config.GetSection("Auth:AccountDeletion");
         var clientId = section["ClientId"]?.Trim();
         if (string.IsNullOrEmpty(clientId)) return new(issuer, null, null, null, null);

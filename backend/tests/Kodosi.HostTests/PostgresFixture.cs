@@ -11,7 +11,7 @@ public sealed class PostgresCollection : ICollectionFixture<PostgresFixture>;
 
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:18.7-alpine@sha256:b6972e1115a4ff8eba5d7f7d19184926d1e16d7d1136ae1e1a7ebf286da0f015").Build();
+    private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:19.0-alpine@sha256:8b0ff4cdf221f0c53d7fcda681d3b461be725c492cd881c5ec9c0ad25023f188").Build();
     public ValueTask InitializeAsync() => new(container.StartAsync());
     public ValueTask DisposeAsync() => container.DisposeAsync();
 

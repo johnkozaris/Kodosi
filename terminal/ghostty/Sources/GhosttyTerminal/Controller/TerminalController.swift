@@ -173,7 +173,7 @@ public final class TerminalController {
     private static func initializeRuntimeIfNeeded() {
         guard !runtimeInitialized else { return }
         runtimeInitialized = true
-        ghostty_init(0, nil)
+        ghostty_init(0, CommandLine.unsafeArgv)
     }
 
     deinit {

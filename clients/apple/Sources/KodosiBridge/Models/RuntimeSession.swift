@@ -24,10 +24,8 @@ public func referred<Item>(_ reference: String, in items: [Item], id: KeyPath<It
 }
 
 public struct ProgramStatus: Decodable, Equatable, Sendable {
-    public enum State: String, Decodable, Sendable { case idle, working, done, blocked, error }
     public enum Kind: String, Decodable, Sendable { case permission, question, auth }
 
-    public let state: State
     public let kind: Kind?
     public let progress: Int?
     public let title: String?

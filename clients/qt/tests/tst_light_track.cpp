@@ -1,7 +1,7 @@
 #include "app/QmlModelTypes.hpp"
 #include "controls/LightTrack.hpp"
+#include "controls/SignClock.hpp"
 
-#include <QColor>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickWindow>
@@ -22,7 +22,7 @@ private slots:
         kodosi::LightTrack alone;
         alone.setSize(QSizeF(30, 30));
         QVERIFY(!alone.turning());
-        QVERIFY(!kodosi::LightTrack::clockRunning());
+        QVERIFY(!kodosi::SignClock::running());
 
         QQuickWindow window;
         window.resize(120, 80);
@@ -33,7 +33,7 @@ private slots:
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         QVERIFY(first.turning() && second.turning());
-        QVERIFY(kodosi::LightTrack::clockRunning());
+        QVERIFY(kodosi::SignClock::running());
         const double before = first.angle();
         QTRY_VERIFY(first.angle() != before);
         QCOMPARE(first.angle(), second.angle());
@@ -41,16 +41,16 @@ private slots:
         first.setProperty("mode", QStringLiteral("progress"));
         first.setProperty("fraction", 0.4);
         QVERIFY(!first.turning());
-        QVERIFY(kodosi::LightTrack::clockRunning());
+        QVERIFY(kodosi::SignClock::running());
         second.setProperty("still", true);
-        QVERIFY(!kodosi::LightTrack::clockRunning());
+        QVERIFY(!kodosi::SignClock::running());
         second.setProperty("still", false);
-        QVERIFY(kodosi::LightTrack::clockRunning());
+        QVERIFY(kodosi::SignClock::running());
         second.setVisible(false);
-        QVERIFY(!kodosi::LightTrack::clockRunning());
+        QVERIFY(!kodosi::SignClock::running());
     }
 
-    void aRimHoldsStillWhileItsWindowIsHiddenOrMotionIsReduced()
+    void theSignsHoldStillWhileTheirWindowIsHiddenOrMotionIsReduced()
     {
         QTemporaryDir directory;
         kodosi::AppearanceModel appearance(
@@ -66,6 +66,7 @@ private slots:
                 width: 120; height: 80; visible: true
                 LightRim { objectName: "ring"; width: 38; height: 38 }
                 LightRim { objectName: "tile"; x: 50; width: 44; height: 44; tile: true }
+                BreathingDot { x: 100 }
             }
         )", {});
         std::unique_ptr<QObject> root(component.create());
@@ -73,21 +74,20 @@ private slots:
         auto* ring = root->findChild<kodosi::LightTrack*>(QStringLiteral("ring"));
         auto* tile = root->findChild<kodosi::LightTrack*>(QStringLiteral("tile"));
         QVERIFY(ring && tile);
-        QCOMPARE(ring->property("light").value<QColor>(), QColor(0xb8, 0x5a, 0x26));
-        QCOMPARE(tile->property("light").value<QColor>(), QColor(0xea, 0xa4, 0x7e));
         QVERIFY(ring->turning() && tile->turning());
 
         auto* theme = engine.singletonInstance<QObject*>("Kodosi", "KodosiTheme");
         QVERIFY(theme);
         theme->setProperty("shown", false);
         QVERIFY(!ring->turning() && !tile->turning());
-        QVERIFY(!kodosi::LightTrack::clockRunning());
+        QVERIFY(!kodosi::SignClock::running());
         QVERIFY(tile->property("still").toBool());
         theme->setProperty("shown", true);
         QVERIFY(tile->turning());
         QVERIFY(appearance.setReducesMotion(true));
         QVERIFY(!ring->turning() && !tile->turning());
         QVERIFY(tile->property("still").toBool());
+        QVERIFY(!kodosi::SignClock::running());
     }
 };
 

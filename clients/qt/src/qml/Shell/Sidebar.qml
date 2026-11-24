@@ -1045,7 +1045,7 @@ Item {
                                 readonly property string detail: session.kind === "remote" && session.status === "offline"
                                     ? (unreachable ? qsTr("Offline") : qsTr("%1 is offline").arg(session.hostLabel || qsTr("Remote computer")))
                                     : session.activity || (session.kind === "remote" && session.connectionState !== "connected"
-                                        ? (unreachable ? qsTr("Offline") : session.message || qsTr("Not connected")) : "")
+                                        ? (unreachable ? qsTr("Offline") : session.message || "") : "")
                                 readonly property bool connected: session.connectionState === "local" || session.connectionState === "connected"
                                 readonly property string summary: Models.Appearance.leadingSummary(session, Models.Appearance.summaryFirst)
                                 readonly property bool troubled: session.connectionState === "blocked" || session.status === "offline"
@@ -1440,7 +1440,8 @@ Item {
             x = point.x
             y = point.y
             directory = folder
-            branchName.text = Models.SessionActions.suggestedBranch()
+            branchName.clear()
+            Models.SessionActions.suggestBranch()
             open()
         }
         function start(): void {
@@ -1456,6 +1457,16 @@ Item {
         onOpened: {
             branchName.selectAll()
             branchName.forceActiveFocus(Qt.PopupFocusReason)
+        }
+        Connections {
+            target: Models.SessionActions
+
+            function onBranchSuggested(branch: string): void {
+                if (branchPopover.visible && branchName.length === 0) {
+                    branchName.text = branch
+                    branchName.selectAll()
+                }
+            }
         }
         contentItem: ColumnLayout {
             spacing: 10

@@ -8,7 +8,6 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonValue>
-#include <QRandomGenerator>
 #include <QUuid>
 
 #include <algorithm>
@@ -56,7 +55,8 @@ bool SessionActionsModel::busy() const
 {
     return std::ranges::any_of(m_workspace.m_pending, [](const Workspace::Pending& pending) {
         return pending.domain == Workspace::PendingDomain::Session
-            && pending.operation != QStringLiteral("session.close");
+            && pending.operation != QStringLiteral("session.close")
+            && pending.operation != QStringLiteral("session.suggestBranch");
     });
 }
 
@@ -169,8 +169,10 @@ void SessionActionsModel::giveTypedKeys(const QString& id)
     m_typeAhead.deliver(id);
 }
 
-void SessionActionsModel::completeCreation(const QString& id, const QString& projectId)
+void SessionActionsModel::completeCreation(const QString& id, const QString& projectId, bool chat)
 {
+    if (chat)
+        m_desktop.pickFace(id, QStringLiteral("chat"));
     if (m_created.size() > 64)
         m_created.clear();
     m_created.insert(id);
@@ -220,24 +222,10 @@ bool SessionActionsModel::resume(
     return true;
 }
 
-namespace {
-QString generatedName()
+void SessionActionsModel::suggestBranch()
 {
-    const QStringList adjectives { QStringLiteral("Amber"), QStringLiteral("Cedar"),
-        QStringLiteral("Copper"), QStringLiteral("Jade"), QStringLiteral("Pearl"),
-        QStringLiteral("Silver"), QStringLiteral("Slate"), QStringLiteral("Willow") };
-    const QStringList animals { QStringLiteral("Falcon"), QStringLiteral("Fox"),
-        QStringLiteral("Gecko"), QStringLiteral("Heron"), QStringLiteral("Lynx"),
-        QStringLiteral("Otter"), QStringLiteral("Quail"), QStringLiteral("Wren") };
-    return adjectives.at(QRandomGenerator::global()->bounded(adjectives.size()))
-        + QLatin1Char(' ')
-        + animals.at(QRandomGenerator::global()->bounded(animals.size()));
-}
-}
-
-QString SessionActionsModel::suggestedBranch() const
-{
-    return generatedName().toLower().replace(QLatin1Char(' '), QLatin1Char('-'));
+    m_workspace.sendTracked(
+        Workspace::PendingDomain::Session, QStringLiteral("session.suggestBranch"), {}, {}, {}, true);
 }
 
 bool SessionActionsModel::createOnBranch(const QString& directory, const QString& branch)
@@ -314,14 +302,14 @@ bool SessionActionsModel::createInternal(const QString& name, const QString& dir
     const QString& provider, const QString& nativeConversationId, const QString& projectId,
     const QString& branch, const QJsonObject& line)
 {
-    QString title = name.trimmed();
-    if (title.isEmpty())
-        title = generatedName();
-    if (!Workspace::validName(title)) {
+    const auto title = name.trimmed();
+    if (!title.isEmpty() && !Workspace::validName(title)) {
         m_workspace.setError(tr("Use a name of 1 to 128 UTF-8 bytes."));
         return false;
     }
-    QJsonObject values { { QStringLiteral("name"), title } };
+    QJsonObject values;
+    if (!title.isEmpty())
+        values.insert(QStringLiteral("name"), title);
     if (!projectId.isEmpty()) values.insert(QStringLiteral("projectId"), projectId);
     if (!directory.isEmpty())
         values.insert(QStringLiteral("workingDir"), directory);

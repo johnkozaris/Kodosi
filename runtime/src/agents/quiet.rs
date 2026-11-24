@@ -10,7 +10,7 @@ use std::{
 
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
-    de::{MapAccess, Visitor},
+    de::{DeserializeOwned, MapAccess, Visitor},
 };
 use serde_json::{Value, value::RawValue};
 use uuid::Uuid;
@@ -201,7 +201,7 @@ fn restore(settings: &Path, record: &Record) -> io::Result<()> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
         lock => lock?,
     };
-    let mut members = match read(settings) {
+    let mut members = match read::<Members>(settings) {
         Ok(Some(members)) => members,
         Ok(None) => return Ok(()),
         Err(error) if error.kind() == io::ErrorKind::InvalidData => return Ok(()),
@@ -250,19 +250,20 @@ pub(super) fn lock_beside(file: &Path, name: &str) -> io::Result<File> {
     }
 }
 
-fn read(settings: &Path) -> io::Result<Option<Members>> {
-    match std::fs::symlink_metadata(settings) {
+/// A JSON file of Copilot CLI, which a person also changes. A missing file is none.
+pub(super) fn read<T: DeserializeOwned>(file: &Path) -> io::Result<Option<T>> {
+    match std::fs::symlink_metadata(file) {
         Ok(metadata) if metadata.is_file() => {}
-        Ok(_) => return Err(invalid("the settings are not a file")),
+        Ok(_) => return Err(invalid("the file of Copilot CLI is not a file")),
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error),
     }
     let mut bytes = Vec::new();
-    File::open(settings)?
+    File::open(file)?
         .take(MOST_BYTES as u64 + 1)
         .read_to_end(&mut bytes)?;
     if bytes.len() > MOST_BYTES {
-        return Err(invalid("the settings are too long"));
+        return Err(invalid("the file of Copilot CLI is too long"));
     }
     serde_json::from_slice(&bytes)
         .map(Some)

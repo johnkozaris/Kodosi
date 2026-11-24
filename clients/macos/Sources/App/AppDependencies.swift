@@ -341,7 +341,7 @@ final class AppDependencies {
     func openTerminal(in directory: String, computer: String? = nil, like: String? = nil) {
         Task { [weak self] in
             do {
-                try await self?.createSession(name: generateSessionName(), directory: directory, computer: computer, like: like)
+                try await self?.createSession(directory: directory, computer: computer, like: like)
             } catch {
                 self?.errorMessage = error.localizedDescription
             }
@@ -360,12 +360,12 @@ final class AppDependencies {
 
     @discardableResult
     func createSession(
-        name: String, directory: String?, computer: String? = nil, projectId: String? = nil,
+        name: String? = nil, directory: String?, computer: String? = nil, projectId: String? = nil,
         resume: ProviderConversationIdentity? = nil, branch: String? = nil, command: String? = nil,
         agent: AgentStart? = nil, like: String? = nil, prompt: String? = nil,
     ) async throws -> String? {
-        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard ProductInput.validName(name) else {
+        let name = name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let name, !ProductInput.validName(name) {
             throw RuntimeError.operation(String(localized: "Use a shorter name."))
         }
         if let projectId {

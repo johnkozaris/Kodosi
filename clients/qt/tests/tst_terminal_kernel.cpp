@@ -1,5 +1,4 @@
 #include "terminal/GhosttyTerminalKernel.hpp"
-#include "terminal/GhosttyC.hpp"
 #include "presentation/Link.hpp"
 #include "terminal/TerminalLink.hpp"
 #include "terminal/TerminalAccessibility.hpp"
@@ -42,6 +41,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <ghostty/vt.h>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -427,21 +427,6 @@ void makeTerminalReady(
         checkpointFor(QByteArrayLiteral("ready"), 80, 24),
     }));
     registry.receiveConnectResult({subscription, ffiOk});
-    QCoreApplication::processEvents();
-}
-
-void completeResize(
-    kodosi::TerminalSessionRegistry& registry,
-    const kodosi::TerminalSubscription& subscription,
-    QJsonObject command)
-{
-    command.insert(
-        QStringLiteral("type"),
-        QStringLiteral("term.resizeApplied"));
-    registry.receiveControl({
-        subscription,
-        QJsonDocument(command).toJson(QJsonDocument::Compact),
-    });
     QCoreApplication::processEvents();
 }
 
@@ -1519,18 +1504,26 @@ void TerminalKernelTest::terminalViewOwnsValidatedDisplaySettings()
 {
     kodosi::TerminalView view(m_window.contentItem());
     view.setFontFamily(QStringLiteral("Iosevka"));
-    view.setFontPixelSize(20);
-    view.setLineHeight(1.6);
-    view.setCursorStyle(2);
+    view.setFontFamily(QStringLiteral("  "));
+    view.setFontPixelSize(200);
+    view.setLineHeight(9.0);
+    view.setCursorStyle(7);
     view.setCursorBlink(true);
-    view.setScrollbackLines(40'000);
+    view.setScrollbackLines(50'000'000);
 
     QCOMPARE(view.fontFamily(), QStringLiteral("Iosevka"));
-    QCOMPARE(view.fontPixelSize(), 20);
-    QCOMPARE(view.lineHeight(), 1.6);
-    QCOMPARE(view.cursorStyle(), 2);
+    QCOMPARE(view.fontPixelSize(), 32);
+    QCOMPARE(view.lineHeight(), 2.0);
+    QCOMPARE(view.cursorStyle(), 0);
     QVERIFY(view.cursorBlink());
-    QCOMPARE(view.scrollbackLines(), 40'000);
+    QCOMPARE(view.scrollbackLines(), 100'000);
+
+    view.setFontPixelSize(1);
+    view.setLineHeight(0.1);
+    view.setScrollbackLines(1);
+    QCOMPARE(view.fontPixelSize(), 8);
+    QCOMPARE(view.lineHeight(), 0.8);
+    QCOMPARE(view.scrollbackLines(), 100);
 
     auto* timer = view.findChild<QTimer*>(
         QStringLiteral("terminal.cursorBlinkTimer"));
@@ -1963,19 +1956,22 @@ void TerminalKernelTest::framesDrawTheColorsOfTheTerminalsLook()
         checkpointFor(QByteArrayLiteral("\x1b[31mred"), 20, 2),
     });
     QVERIFY(frame);
-    QCOMPARE((*frame)->background, QColor(0x0d, 0x0b, 0x09));
-    QCOMPARE((*frame)->foreground, QColor(0xe8, 0xe1, 0xd9));
-    QCOMPARE((*frame)->cursorColor, QColor(0xcc, 0x7a, 0x45));
-    QCOMPARE((*frame)->cell(0, 0)->foreground, QColor(0xc4, 0x40, 0x40));
+    const auto color = [](const kodosi::TerminalRgb rgb) { return QColor(rgb.red, rgb.green, rgb.blue); };
+    const auto& dark = kodosi::terminalColors(kodosi::TerminalLook::Dark);
+    QCOMPARE((*frame)->background, color(dark.background));
+    QCOMPARE((*frame)->foreground, color(dark.foreground));
+    QCOMPARE((*frame)->cursorColor, color(dark.cursor));
+    QCOMPARE((*frame)->cell(0, 0)->foreground, color(dark.ansi[1]));
 
     const auto light = kernel.configure({.look = kodosi::TerminalLook::Light});
     QVERIFY(light && *light);
     const auto& lit = **light;
+    const auto& bright = kodosi::terminalColors(kodosi::TerminalLook::Light);
     QVERIFY(lit->displayRevision > (*frame)->displayRevision);
-    QCOMPARE(lit->background, QColor(0xfa, 0xf6, 0xee));
-    QCOMPARE(lit->foreground, QColor(0x2a, 0x1d, 0x15));
-    QCOMPARE(lit->cursorColor, QColor(0xb8, 0x5a, 0x26));
-    QCOMPARE(lit->cell(0, 0)->foreground, QColor(0xb2, 0x3a, 0x32));
+    QCOMPARE(lit->background, color(bright.background));
+    QCOMPARE(lit->foreground, color(bright.foreground));
+    QCOMPARE(lit->cursorColor, color(bright.cursor));
+    QCOMPARE(lit->cell(0, 0)->foreground, color(bright.ansi[1]));
     QCOMPARE(lit->cell(5, 0)->background, lit->background);
 }
 

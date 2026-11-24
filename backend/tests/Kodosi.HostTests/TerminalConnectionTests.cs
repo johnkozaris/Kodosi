@@ -366,7 +366,7 @@ public sealed class TerminalConnectionTests
     }
 
     [Fact]
-    public async Task AStoppingServerClosesEachConnectionAsARestartAndKeepsNoRoute()
+    public async Task AStoppingServerClosesEachConnectionAsARestartKeepsNoRouteAndTakesNoConnectionAfterThat()
     {
         var directory = new ConnectionDirectory(TimeProvider.System); var state = Terminal(); var socket = new ClosingSocket();
         await using var host = Connection(socket, Guid.CreateVersion7(), "host", directory.Relays);
@@ -377,6 +377,8 @@ public sealed class TerminalConnectionTests
         var (status, description) = await socket.Closed.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.Equal((WebSocketCloseStatus)1012, status);
         Assert.Equal("The Kodosi server is restarting.", description);
+        var (again, _) = Device(directory, host.UserId, "host", hosts: true); await using var disposeAgain = again;
+        Assert.Equal(503, Assert.Throws<ApiException>(() => directory.Register(again)).Status);
         Assert.Equal((0, 0, 0), directory.Counts());
         Assert.False(IsOnline(directory, state.Id));
     }

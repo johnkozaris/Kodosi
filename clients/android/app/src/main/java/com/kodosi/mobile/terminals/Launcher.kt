@@ -67,7 +67,19 @@ data class FolderList(
     val folders: List<String> = emptyList(),
     val recent: List<String> = emptyList()
 ) {
-    fun child(name: String): String = path.trimEnd('/', '\\') + if (home.contains('\\')) "\\$name" else "/$name"
+    private val separator get() = if (home.contains('\\')) "\\" else "/"
+
+    fun child(name: String): String = path.trimEnd('/', '\\') + separator + name
+
+    /** A folder of the person's home shows from the home, as a shell writes it. */
+    fun shown(folder: String): String {
+        val start = home.trimEnd('/', '\\') + separator
+        return when {
+            folder == home -> "~"
+            folder.startsWith(start) -> "~" + separator + folder.removePrefix(start)
+            else -> folder
+        }
+    }
 }
 
 data class LauncherState(
@@ -187,7 +199,7 @@ class Launcher(private val commands: CommandSink, val computer: String) {
         }
     }
 
-    suspend fun start(name: String, directory: String?, prompt: String, project: String?): String? {
+    suspend fun start(directory: String?, prompt: String, project: String?): String? {
         val current = state.value
         val agent = current.agents.firstOrNull { it.agent == current.agent }
         val pick = current.pick
@@ -212,7 +224,6 @@ class Launcher(private val commands: CommandSink, val computer: String) {
         return commands.request(
             "session.create",
             fields(
-                "name" to name.trim(),
                 "computer" to computer,
                 "workingDir" to directory,
                 "projectId" to project,

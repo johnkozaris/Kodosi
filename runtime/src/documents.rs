@@ -107,14 +107,8 @@ fn ends_of(mut pipe: documents::Pipe) -> PipeEnds {
     PipeEnds { sender, receiver }
 }
 
-pub(crate) fn path_of(key: &str) -> PathBuf {
-    PathBuf::from(key)
-}
-
 #[cfg(test)]
 mod tests {
-    use serde_json::{Value, json};
-
     use super::*;
 
     fn agent() -> Viewer {
@@ -134,37 +128,6 @@ mod tests {
             CanvasAnswer::Text { text, code } => (text, code),
             other => panic!("text expected: {other:?}"),
         }
-    }
-
-    #[tokio::test]
-    async fn an_agent_makes_reads_and_edits_a_file_from_its_folder() {
-        let state = tempfile::tempdir().unwrap();
-        let work = tempfile::tempdir().unwrap();
-        let host = DocumentHost::new(state.path());
-        let (_, code) = run(&host, work.path(), &["new", "sums.xlsx"]).await;
-        assert_eq!(code, 0);
-        let (text, code) = run(&host, work.path(), &["read", "sums.xlsx"]).await;
-        assert_eq!(code, 0);
-        let read: Value = serde_json::from_str(&text).unwrap();
-        let ops = json!([{ "op": "setCell", "sheet": "Sheet1", "cell": "B2", "value": 7 }]);
-        let rev = read["rev"].to_string();
-        let (text, code) = run(
-            &host,
-            work.path(),
-            &[
-                "apply",
-                "sums.xlsx",
-                "--ops",
-                &ops.to_string(),
-                "--base",
-                &rev,
-            ],
-        )
-        .await;
-        assert_eq!(code, 0, "{text}");
-        let (text, _) = run(&host, work.path(), &["read", "sums.xlsx", "--where", "B2"]).await;
-        assert!(text.contains('7'), "{text}");
-        host.close().await;
     }
 
     #[tokio::test]

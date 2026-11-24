@@ -73,7 +73,7 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
 
             "auth.browser" -> {
                 val page = event.string("url")?.let(ExternalAuthUrl::parse)
-                state.update { it.copy(stage = SignInStage.AwaitingBrowser(page), signInPage = page) }
+                state.update { it.copy(stage = SignInStage.AwaitingBrowser, signInPage = page) }
             }
 
             "auth.finalizing" -> state.update { it.copy(stage = SignInStage.Finalizing, signInPage = null) }
@@ -142,7 +142,7 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
             }
             if (!current.stage.isPending && current.isReady) return false
             state.update {
-                it.copy(stage = SignInStage.Failed(message, it.stage.completedSteps), signInPage = null)
+                it.copy(stage = SignInStage.Failed(message), signInPage = null)
             }
             return current.needsOnboarding || current.userId == null
         }
@@ -157,7 +157,7 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
         val current = state.value
         when (current.stage) {
             SignInStage.Starting,
-            is SignInStage.AwaitingBrowser,
+            SignInStage.AwaitingBrowser,
             SignInStage.Finalizing,
             is SignInStage.TrustingDevice
             -> Unit
@@ -187,14 +187,14 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
     }
 
     fun finishSignIn(answer: String) {
-        if (state.value.stage !is SignInStage.AwaitingBrowser) return
+        if (state.value.stage != SignInStage.AwaitingBrowser) return
         state.update { it.copy(stage = SignInStage.Finalizing, signInPage = null) }
         commands.perform("auth.login.finish", mapOf("url" to JsonPrimitive(answer)))
     }
 
     fun cancelSignIn() {
         when (state.value.stage) {
-            SignInStage.Starting, is SignInStage.AwaitingBrowser, SignInStage.Finalizing -> {
+            SignInStage.Starting, SignInStage.AwaitingBrowser, SignInStage.Finalizing -> {
                 commands.perform("auth.login.cancel")
                 state.update { it.copy(stage = SignInStage.Idle, signInPage = null) }
             }
@@ -205,7 +205,7 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
 
     fun failSignIn(message: String) {
         commands.perform("auth.login.cancel")
-        state.update { it.copy(stage = SignInStage.Failed(message, 0), signInPage = null) }
+        state.update { it.copy(stage = SignInStage.Failed(message), signInPage = null) }
     }
 
     fun requestDeviceApproval() {

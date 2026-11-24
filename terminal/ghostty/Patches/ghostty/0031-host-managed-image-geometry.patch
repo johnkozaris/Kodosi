@@ -1,5 +1,5 @@
 diff --git a/src/renderer/generic.zig b/src/renderer/generic.zig
-index c4af20c7f..836b32793 100644
+index 0c59af5b4..87765213f 100644
 --- a/src/renderer/generic.zig
 +++ b/src/renderer/generic.zig
 @@ -1530,6 +1530,7 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
@@ -19,7 +19,7 @@ index c4af20c7f..836b32793 100644
                      self.images_rebuilt = true;
                  }
 diff --git a/src/renderer/image.zig b/src/renderer/image.zig
-index 4ffa63911..ffb6b2938 100644
+index a12c3717b..393c36adb 100644
 --- a/src/renderer/image.zig
 +++ b/src/renderer/image.zig
 @@ -8,6 +8,7 @@ const global = @import("../global.zig");
@@ -40,7 +40,7 @@ index 4ffa63911..ffb6b2938 100644
 +    kitty_cell_size: CellSize,
 +
      /// Overlays
-     overlay_placements: std.ArrayListUnmanaged(Placement),
+     overlay_placements: std.ArrayList(Placement),
  
 @@ -54,6 +60,7 @@ pub const State = struct {
          .kitty_text_end = 0,
@@ -394,7 +394,7 @@ index 4ffa63911..ffb6b2938 100644
      try testing.expect(entry.generation > gen1);
      try testing.expectEqualSlices(
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index dad57cea2..b6edca61c 100644
+index c530f08bd..9b36e5a24 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -297,7 +297,7 @@ pub fn init(self: *Termio, alloc: Allocator, opts: termio.Options) !void {
@@ -423,7 +423,7 @@ index dad57cea2..b6edca61c 100644
      }) catch |err| return snapshotResult(err);
      defer decoded.deinit(self.alloc);
      var new_terminal = decoded.toOwned();
-@@ -757,19 +758,7 @@ pub fn restoreCheckpointLocked(
+@@ -762,19 +763,7 @@ pub fn restoreCheckpointLocked(
      new_terminal.flags.focused = self.terminal.flags.focused;
      new_terminal.flags.visible = self.terminal.flags.visible;
      new_terminal.flags.resize_pull_scrollback = resize_pull_scrollback;
@@ -444,7 +444,7 @@ index dad57cea2..b6edca61c 100644
  
      var handler = freshStreamHandler(self);
      handler.terminal = &new_terminal;
-@@ -806,8 +795,8 @@ pub fn restoreCheckpointLocked(
+@@ -811,8 +800,8 @@ pub fn restoreCheckpointLocked(
          .cell = self.size.cell,
          .padding = self.size.padding,
      };
@@ -455,7 +455,7 @@ index dad57cea2..b6edca61c 100644
  
      preCommit(pre_commit_context);
      var old_terminal = self.terminal;
-@@ -842,6 +831,18 @@ fn snapshotResult(err: anyerror) Result {
+@@ -847,6 +836,18 @@ fn snapshotResult(err: anyerror) Result {
      };
  }
  

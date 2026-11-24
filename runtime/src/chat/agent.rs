@@ -4,12 +4,13 @@
 //! does. An adapter turns the reports of one agent's link into changes of the chat, and a person's
 //! answer, message or stop into what that agent takes.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::collections::{HashMap, HashSet};
 
 use serde_json::Value;
 
 use super::{
-    ChatAnswer, ChatBody, ChatPerson, MOST_TARGET, MOST_TEXT, ToolState,
+    ChatAnswer, ChatBody, ChatNow, ChatOption, ChatPerson, ChatQuestion, ChatState, MOST_CALLS,
+    MOST_OPTIONS, MOST_TARGET, MOST_TEXT, ToolState,
     antigravity::Antigravity,
     claude::Claude,
     codex::Codex,
@@ -110,15 +111,6 @@ pub(super) fn list<'a>(value: &'a Value, key: &str) -> impl Iterator<Item = &'a 
         .flatten()
 }
 
-/// The time of this computer, in milliseconds since 1970.
-pub(super) fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| {
-            u64::try_from(since.as_millis()).unwrap_or(u64::MAX)
-        })
-}
-
 pub(super) fn person(words: &str, by: Option<ChatPerson>) -> ChatBody {
     ChatBody::Person {
         text: ends_of(words, MOST_TEXT),
@@ -130,6 +122,51 @@ pub(super) fn answer(words: &str, live: bool) -> ChatBody {
     ChatBody::Text {
         text: start_of(words, MOST_TEXT).to_owned(),
         live,
+    }
+}
+
+/// A question that waits for a person comes before the agent's work.
+pub(super) fn show_state(chat: &mut Chat, linked: bool, working: bool, now: Option<ChatNow>) {
+    let (state, now) = if !linked {
+        (ChatState::Away, None)
+    } else if !chat.asks().is_empty() {
+        (ChatState::Asking, None)
+    } else if working {
+        (ChatState::Working, now)
+    } else {
+        (ChatState::Idle, None)
+    };
+    chat.set_state(state, now);
+}
+
+/// A call whose item the chat still shows stays known, so that the news of a call that runs
+/// changes its own item.
+pub(super) fn remember(items: &mut HashMap<String, String>, chat: &Chat, call: &str, item: String) {
+    if items.len() >= MOST_CALLS {
+        let shown = chat
+            .items()
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect::<HashSet<_>>();
+        items.retain(|_, item| shown.contains(item.as_str()));
+    }
+    items.insert(call.to_owned(), item);
+}
+
+/// A question as Claude Code and Codex give it: its words, a short header, and the options with
+/// their labels and descriptions.
+pub(super) fn question(question: &Value, multiple: bool) -> ChatQuestion {
+    ChatQuestion {
+        question: start_of(text(question, "question"), MOST_TARGET * 2).to_owned(),
+        header: start_of(text(question, "header"), MOST_TARGET).to_owned(),
+        options: list(question, "options")
+            .take(MOST_OPTIONS)
+            .map(|option| ChatOption {
+                label: start_of(text(option, "label"), MOST_TARGET).to_owned(),
+                description: start_of(text(option, "description"), MOST_TARGET * 2).to_owned(),
+            })
+            .collect(),
+        multiple,
     }
 }
 
@@ -155,24 +192,170 @@ pub(super) fn stop_open(chat: &mut Chat) {
     }
 }
 
-pub(super) fn file_name(path: &str) -> &str {
-    path.rsplit(['/', '\\']).next().unwrap_or(path)
+const SEPARATORS: [char; 2] = ['/', '\\'];
+
+/// The places from which a chat names a file: the terminal's folder that the agent reported for
+/// this moment, and the home folder of this computer.
+pub(super) struct Places {
+    folder: Option<String>,
+    home: Option<String>,
 }
 
-/// A rule for an absolute path names only its folder and the pattern after it, as a person
-/// reads it in a question.
-pub(super) fn shown_rule(rule: &str) -> String {
-    if !rule.starts_with(['/', '~']) {
-        return rule.to_owned();
+impl Places {
+    pub(super) fn of(chat: &Chat) -> Self {
+        Self {
+            folder: chat.facts().folder.clone(),
+            home: chat.home().map(str::to_owned),
+        }
     }
-    let parts = rule
-        .split('/')
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>();
-    parts
-        .iter()
-        .rposition(|part| !part.contains(['*', '?', '[']))
-        .map_or_else(|| rule.to_owned(), |folder| parts[folder..].join("/"))
+
+    /// A file in the terminal's folder or below it shows by its name, as a person expects there.
+    /// A file elsewhere shows its place, with the home folder as `~`, so that a person who allows
+    /// a call sees which file it is.
+    pub(super) fn file(&self, path: &str) -> String {
+        if path.is_empty() {
+            return String::new();
+        }
+        let folder = self
+            .folder
+            .as_deref()
+            .and_then(|folder| self.place(folder, None));
+        let Some(file) = self.place(path, folder.clone()) else {
+            return path.to_owned();
+        };
+        if folder.is_some_and(|folder| file.is_in(&folder)) {
+            return file
+                .names
+                .last()
+                .map_or_else(|| path.to_owned(), |name| (*name).to_owned());
+        }
+        let separator = if path.contains('\\') { "\\" } else { "/" };
+        match self.home().filter(|home| file.is_in(home)) {
+            Some(home) => std::iter::once("~")
+                .chain(file.names[home.names.len()..].iter().copied())
+                .collect::<Vec<_>>()
+                .join(separator),
+            None => file.shown(separator),
+        }
+    }
+
+    /// A rule for files names the folders before its pattern as a file shows them, and the
+    /// pattern as it is: `src/**` in the terminal's folder, `~/Repos/other/**` elsewhere.
+    pub(super) fn rule(&self, rule: &str) -> String {
+        let (folders, pattern) = match rule.find(['*', '?', '[', '{']) {
+            None => (rule, ""),
+            Some(glob) => {
+                let Some(end) = rule[..glob].rfind(SEPARATORS) else {
+                    return rule.to_owned();
+                };
+                (&rule[..end], &rule[end + 1..])
+            }
+        };
+        if !is_home(folders) && rooted(folders).is_none() {
+            return rule.to_owned();
+        }
+        let shown = self.file(folders);
+        if pattern.is_empty() {
+            shown
+        } else if shown.ends_with(SEPARATORS) {
+            format!("{shown}{pattern}")
+        } else {
+            format!("{shown}/{pattern}")
+        }
+    }
+
+    fn home(&self) -> Option<Place<'_>> {
+        let (start, rest) = rooted(self.home.as_deref()?)?;
+        Some(Place::at(start).along(rest))
+    }
+
+    /// Where `path` is: an absolute path, a path from the home folder, or a path from `from`.
+    fn place<'a>(&'a self, path: &'a str, from: Option<Place<'a>>) -> Option<Place<'a>> {
+        if is_home(path) {
+            return Some(self.home()?.along(&path[1..]));
+        }
+        match rooted(path) {
+            Some((start, rest)) => Some(Place::at(start).along(rest)),
+            None => Some(from?.along(path)),
+        }
+    }
+}
+
+fn is_home(path: &str) -> bool {
+    path.strip_prefix('~')
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with(SEPARATORS))
+}
+
+/// How an absolute path starts, and the rest: `/`, a drive such as `C:`, or the `\\` of a share.
+fn rooted(path: &str) -> Option<(&str, &str)> {
+    let bytes = path.as_bytes();
+    if path.starts_with(r"\\") {
+        Some(path.split_at(2))
+    } else if path.starts_with(SEPARATORS) {
+        Some(path.split_at(1))
+    } else if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        Some(path.split_at(2))
+    } else {
+        None
+    }
+}
+
+/// An absolute place: how its path starts, and its folders and name.
+#[derive(Clone)]
+struct Place<'a> {
+    start: &'a str,
+    names: Vec<&'a str>,
+}
+
+impl<'a> Place<'a> {
+    const fn at(start: &'a str) -> Self {
+        Self {
+            start,
+            names: Vec::new(),
+        }
+    }
+
+    /// The place that `path` leads to from here: into a folder at each name, out of one at `..`.
+    fn along(mut self, path: &'a str) -> Self {
+        for name in path.split(SEPARATORS) {
+            match name {
+                "" | "." => {}
+                ".." => {
+                    self.names.pop();
+                }
+                name => self.names.push(name),
+            }
+        }
+        self
+    }
+
+    /// Windows does not tell letters of another case apart in a path.
+    fn is_in(&self, folder: &Place<'_>) -> bool {
+        let windows = self.start != "/";
+        let same = |one: &str, other: &str| {
+            if windows {
+                one.to_lowercase() == other.to_lowercase()
+            } else {
+                one == other
+            }
+        };
+        same(self.start, folder.start)
+            && self.names.len() >= folder.names.len()
+            && self
+                .names
+                .iter()
+                .zip(&folder.names)
+                .all(|(name, folder)| same(name, folder))
+    }
+
+    fn shown(&self, separator: &str) -> String {
+        let names = self.names.join(separator);
+        if self.start.ends_with(SEPARATORS) {
+            format!("{}{names}", self.start)
+        } else {
+            format!("{}{separator}{names}", self.start)
+        }
+    }
 }
 
 /// A message that starts with the agents' own `/plan` command goes on in plan mode, with the rest

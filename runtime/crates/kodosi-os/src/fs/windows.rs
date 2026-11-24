@@ -59,7 +59,14 @@ fn private_folder() -> io::Result<Descriptor> {
 }
 
 pub(super) fn create_private_dir(path: &Path) -> io::Result<()> {
-    let descriptor = private_folder()?;
+    create_dir_for(path, &private_folder()?)
+}
+
+pub(super) fn create_user_only_dir(path: &Path) -> io::Result<()> {
+    create_dir_for(path, &Descriptor::user_only_folder()?)
+}
+
+fn create_dir_for(path: &Path, descriptor: &Descriptor) -> io::Result<()> {
     let attributes = descriptor.attributes();
     let mut prefixes: Vec<&Path> = path
         .ancestors()

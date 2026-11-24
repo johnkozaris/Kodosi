@@ -299,7 +299,7 @@ pub(super) fn is_display_text(text: &str, max_chars: usize) -> bool {
             .any(|character| character.is_control() || is_invisible_format(character))
 }
 
-pub(super) fn display_text(text: &str, max_chars: usize) -> Option<String> {
+pub(crate) fn display_text(text: &str, max_chars: usize) -> Option<String> {
     let text = text
         .chars()
         .filter(|character| !character.is_control() && !is_invisible_format(*character))

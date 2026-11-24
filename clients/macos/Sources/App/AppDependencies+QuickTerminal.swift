@@ -31,7 +31,7 @@ extension AppDependencies {
         Task { [weak self] in
             guard let self else { return }
             do {
-                try await typeAhead.expect(createSession(name: generateSessionName(), directory: directory, like: like))
+                try await typeAhead.expect(createSession(directory: directory, like: like))
             } catch {
                 typeAhead.drop()
                 errorMessage = error.localizedDescription

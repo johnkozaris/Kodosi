@@ -13,26 +13,27 @@ namespace Kodosi.HostTests;
 public sealed class SharingTests(PostgresFixture postgres)
 {
     [Fact]
-    public async Task CatalogDoesNotSilentlyDropSessionsBeyond512()
+    public async Task TheCatalogListsEveryTerminalUpToItsLimitAndRefusesRatherThanDropOne()
     {
+        var ct = TestContext.Current.CancellationToken;
         await using var store = await TestStore.CreateAsync(postgres);
-        var viewer = await store.UserAsync("viewer");
-        for (var ownerIndex = 0; ownerIndex < 5; ownerIndex++)
+        var viewer = await store.UserAsync("viewer"); var owner = await store.UserAsync("owner");
+        void Share()
         {
-            var owner = await store.UserAsync($"owner{ownerIndex}");
-            for (var index = 0; index < 110; index++)
-            {
-                var id = Guid.CreateVersion7();
-                store.Db.Sessions.Add(new Session { Id = id, IncarnationId = Guid.CreateVersion7(),
-                    OwnerUserId = owner.User.Id, HostDeviceId = owner.Device.Id, HostName = "Host", Name = "Terminal",
-                    CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2) });
-                store.Db.SessionMembers.Add(new SessionMember { SessionId = id, UserId = viewer.User.Id });
-            }
+            var id = Guid.CreateVersion7();
+            store.Db.Sessions.Add(new Session { Id = id, IncarnationId = Guid.CreateVersion7(),
+                OwnerUserId = owner.User.Id, HostDeviceId = owner.Device.Id, HostName = "Host", Name = "Terminal",
+                CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(2) });
+            store.Db.SessionMembers.Add(new SessionMember { SessionId = id, UserId = viewer.User.Id });
         }
-        await store.Db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        var catalog = await store.Sessions.ListAsync(viewer.User.Id, viewer.Device.Id, TestContext.Current.CancellationToken);
-        Assert.Equal(550, catalog.Count);
+        for (var index = 0; index < Limits.SessionCatalog; index++) Share();
+        await store.Db.SaveChangesAsync(ct);
+        var catalog = await store.Sessions.ListAsync(viewer.User.Id, viewer.Device.Id, ct);
+        Assert.Equal(Limits.SessionCatalog, catalog.Count);
         Assert.All(catalog, session => Assert.Equal(new[] { viewer.User.Id }, session.SharedWith));
+        Share();
+        await store.Db.SaveChangesAsync(ct);
+        Assert.Equal(409, (await Assert.ThrowsAsync<ApiException>(() => store.Sessions.ListAsync(viewer.User.Id, viewer.Device.Id, ct))).Status);
     }
 
     [Fact]
@@ -80,6 +81,9 @@ public sealed class SharingTests(PostgresFixture postgres)
         await store.Sessions.ShareAsync(theirs, friend.User.Id, friend.Device.Id, new(theirIncarnation, 1, [owner.User.Id]), ct);
         var signature = Convert.ToBase64String(new byte[IdentityWireFormat.MlDsa65SignatureLength]);
         await store.Friends.ReplaceSignedListAsync(owner.User.Id, new(0, 1, Convert.ToBase64String([1]), signature), ct);
+        var linking = new DeviceFixture(owner.User.Id, "second-device");
+        await store.Devices.StartLinkAsync(owner.User.Id,
+            new(linking.DeviceId, "Second", Convert.ToBase64String(linking.SigningKey), DeviceFixture.LinkNonce, DeviceFixture.LinkProof), ct);
         await Assert.ThrowsAsync<ApiException>(() => store.Accounts.DeleteSignedInAsync(owner.User, null, ct));
         await Assert.ThrowsAsync<ApiException>(() => store.Accounts.DeleteSignedInAsync(owner.User, DateTimeOffset.UtcNow.AddHours(-1), ct));
         Assert.Equal(2, await store.Db.Users.CountAsync(ct));
@@ -93,6 +97,7 @@ public sealed class SharingTests(PostgresFixture postgres)
         Assert.Empty(await store.Db.Friendships.ToListAsync(ct));
         Assert.Empty(await store.Db.Projects.ToListAsync(ct));
         Assert.Empty(await store.Db.FriendLists.ToListAsync(ct));
+        Assert.Empty(await store.Db.DeviceLinks.ToListAsync(ct));
         Assert.Empty(await store.Db.DeviceLists.Where(x => x.UserId == owner.User.Id).ToListAsync(ct));
     }
 

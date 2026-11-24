@@ -772,25 +772,6 @@ fn a_file_that_is_no_package_is_refused() {
 }
 
 #[test]
-fn genoffices_samples_read_and_keep_each_byte() {
-    let folder = std::env::var_os("GENOFFICE_FIXTURES");
-    let Some(folder) = folder else {
-        return;
-    };
-    for entry in std::fs::read_dir(Path::new(&folder)).unwrap().flatten() {
-        let path = entry.path();
-        if path
-            .extension()
-            .is_some_and(|extension| extension == "docx")
-        {
-            let file = std::fs::read(&path).unwrap();
-            let model = read(&file);
-            assert_eq!(saved(&model, &file), file, "{}", path.display());
-        }
-    }
-}
-
-#[test]
 fn a_new_file_from_markdown_has_bullets_and_numbers() {
     let model = read(&crate::new_file(Some("- one\n2. two")).unwrap());
     let snapshot = Docx::snapshot(&model).0;

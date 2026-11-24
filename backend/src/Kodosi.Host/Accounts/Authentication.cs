@@ -5,9 +5,11 @@ namespace Kodosi.Accounts;
 
 internal static class Authentication
 {
+    public static string Authority(IConfiguration config) => (config["Auth:Authority"] ?? "").Trim().TrimEnd('/');
+
     public static void AddIdentityAuthentication(this IServiceCollection services, IConfiguration config)
     {
-        var authority = (config["Auth:Authority"] ?? "").Trim().TrimEnd('/');
+        var authority = Authority(config);
         var audience = (config["Auth:Audience"] ?? "").Trim();
         if (!Uri.TryCreate(authority, UriKind.Absolute, out var issuer) || issuer.Query.Length > 0 || issuer.Fragment.Length > 0
             || issuer.Scheme is not ("https" or "http") || (issuer.Scheme == "http" && !issuer.IsLoopback) || audience.Length == 0)

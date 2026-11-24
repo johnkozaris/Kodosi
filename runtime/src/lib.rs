@@ -37,6 +37,7 @@ mod hex;
 pub mod identity;
 #[cfg(feature = "host")]
 pub mod local_host;
+mod names;
 pub mod network;
 pub mod projects;
 pub mod protocol;

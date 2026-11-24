@@ -66,8 +66,10 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.kodosi.mobile.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -84,7 +86,6 @@ enum class AppSymbol {
     SEND,
     CANVAS,
     CLOSE,
-    COPY,
     FOLDER,
     KEYBOARD,
     COMPOSE,
@@ -247,11 +248,6 @@ private class SymbolPainter(private val symbol: AppSymbol) : androidx.compose.ui
             AppSymbol.CLOSE -> {
                 path(6f, 6f, 18f, 18f)
                 path(18f, 6f, 6f, 18f)
-            }
-
-            AppSymbol.COPY -> {
-                rect(8f, 8f, 12f, 13f)
-                path(15f, 4f, 4f, 4f, 4f, 16f)
             }
 
             AppSymbol.FOLDER -> path(3f, 6f, 10f, 6f, 12f, 9f, 21f, 9f, 21f, 20f, 3f, 20f, 3f, 6f)
@@ -527,7 +523,6 @@ fun ActionIcon(
     @StringRes label: Int,
     onClick: () -> Unit,
     enabled: Boolean = true,
-    active: Boolean = false,
     open: Boolean = false,
     face: Dp = 32.dp
 ) {
@@ -558,8 +553,8 @@ fun ActionIcon(
                 scaleY = scale
             }
                 .then(
-                    if (active || open) {
-                        Modifier.raised(colors, shape, fill = if (active) colors.accentSoft else colors.lifted)
+                    if (open) {
+                        Modifier.raised(colors, shape, fill = colors.lifted)
                     } else {
                         Modifier.background(
                             colors.ink.copy(
@@ -584,8 +579,6 @@ fun ActionIcon(
                 description = stringResource(label),
                 tint = if (!enabled) {
                     colors.inkFaint
-                } else if (active) {
-                    colors.accentStrong
                 } else if (open || hovered ||
                     pressed
                 ) {
@@ -846,6 +839,8 @@ fun rememberWords(text: String, markdown: Boolean): AnnotatedString {
                             fontWeight = if (run.strong) FontWeight.SemiBold else null,
                             fontStyle = if (run.emphasis) FontStyle.Italic else null,
                             fontFamily = if (run.code) FontFamily.Monospace else null,
+                            // The system's monospace font draws larger than the font of the text at one size.
+                            fontSize = if (run.code) 0.9.em else TextUnit.Unspecified,
                             background = if (run.code) colors.ink.copy(alpha = 0.07f) else Color.Unspecified,
                             textDecoration = if (run.struck) TextDecoration.LineThrough else null
                         ),
@@ -877,7 +872,6 @@ fun ListLine(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     leading: (@Composable () -> Unit)? = null,
-    titleColor: Color = KodosiTheme.colors.ink,
     trailing: @Composable () -> Unit = {}
 ) {
     val colors = KodosiTheme.colors
@@ -887,7 +881,7 @@ fun ListLine(
         modifier = modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
         content = {
             Box(contentAlignment = Alignment.Center) { leading?.invoke() }
-            Text(title, style = KodosiType.body, color = titleColor)
+            Text(title, style = KodosiType.body, color = colors.ink)
             if (hasSubtitle) Text(subtitle, style = KodosiType.footnote, color = colors.inkMuted)
             androidx.compose.foundation.layout.FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

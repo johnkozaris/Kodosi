@@ -1,8 +1,8 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index d9c1e1e5d..c431b6345 100644
+index 3d6a11eec..7729ecbf3 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
-@@ -1213,17 +1213,24 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
+@@ -1241,12 +1241,14 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
  GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
  GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
  GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
@@ -20,12 +20,14 @@ index d9c1e1e5d..c431b6345 100644
 +// gives it. Only the host changes the grid of a host-managed terminal: a host
 +// resize gives its columns, rows and cell pixel size. Output after exit and
 +// repeated exit notifications are ignored.
- GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
- GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(ghostty_surface_t,
-                                                                 const uint8_t*,
+ GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t,
+                                               const uint8_t* GHOSTTY_NULLABLE,
+                                               uintptr_t);
+@@ -1254,6 +1256,11 @@ GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(ghostty_surface_
+                                                                 const uint8_t* GHOSTTY_NULLABLE,
                                                                  size_t,
                                                                  bool);
-+GHOSTTY_API ghostty_result_e ghostty_surface_host_resize(ghostty_surface_t,
++GHOSTTY_API ghostty_result_e ghostty_surface_host_resize(ghostty_surface_t GHOSTTY_NULLABLE,
 +                                                         uint16_t,
 +                                                         uint16_t,
 +                                                         uint32_t,
@@ -34,7 +36,7 @@ index d9c1e1e5d..c431b6345 100644
  GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
  GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 5371ad8c0..b139d81f0 100644
+index 86c40ad86..12786e77a 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -2859,7 +2859,7 @@ test "checkpoint notifications coalesce without producers when the app mailbox i
@@ -47,7 +49,7 @@ index 5371ad8c0..b139d81f0 100644
  }
  
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index a7b1b14d4..4398193f8 100644
+index 6fbe97b76..3c2440a02 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
 @@ -2005,7 +2005,7 @@ pub const CAPI = struct {
@@ -95,10 +97,10 @@ index a7b1b14d4..4398193f8 100644
      /// must be externally serialized with ghostty_surface_write_buffer.
      export fn ghostty_surface_process_exit(
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index f5bb20a4e..80f963130 100644
+index 9b36e5a24..f71a1e15a 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
-@@ -527,19 +527,26 @@ pub fn resize(
+@@ -535,19 +535,26 @@ pub fn resize(
      td: *ThreadData,
      size: renderer.Size,
  ) !void {
@@ -127,7 +129,7 @@ index f5bb20a4e..80f963130 100644
          // Update the size of our terminal state
          try self.terminal.resize(
              self.alloc,
-@@ -763,34 +770,10 @@ pub fn restoreCheckpointLocked(
+@@ -774,34 +781,10 @@ pub fn restoreCheckpointLocked(
      var new_stream_owned = true;
      defer if (new_stream_owned) new_stream.deinit();
  
@@ -164,7 +166,7 @@ index f5bb20a4e..80f963130 100644
  
      preCommit(pre_commit_context);
      var old_terminal = self.terminal;
-@@ -818,6 +801,56 @@ pub fn restoreCheckpointLocked(
+@@ -829,6 +812,56 @@ pub fn restoreCheckpointLocked(
      return .success;
  }
  
@@ -221,7 +223,7 @@ index f5bb20a4e..80f963130 100644
  fn snapshotResult(err: anyerror) Result {
      return switch (err) {
          error.OutOfMemory => .out_of_memory,
-@@ -1009,3 +1042,21 @@ pub const ThreadData = struct {
+@@ -1032,3 +1065,21 @@ pub const ThreadData = struct {
  pub fn getProcessInfo(self: *Termio, comptime info: ProcessInfo) ?ProcessInfo.Type(info) {
      return self.backend.getProcessInfo(info);
  }

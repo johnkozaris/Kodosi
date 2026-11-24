@@ -297,6 +297,22 @@
         <translation>자세히</translation>
     </message>
     <message>
+        <source>Opens in</source>
+        <translation>여는 곳</translation>
+    </message>
+    <message>
+        <source>Its own app runs in the terminal.</source>
+        <translation>자체 앱이 터미널에서 실행됩니다.</translation>
+    </message>
+    <message>
+        <source>Chat</source>
+        <translation>채팅</translation>
+    </message>
+    <message>
+        <source>It works in the chat of the terminal, in a conversation of its own.</source>
+        <translation>터미널의 채팅에서 자체 대화로 작업합니다.</translation>
+    </message>
+    <message>
         <source>Permissions</source>
         <translation>권한</translation>
     </message>
@@ -752,6 +768,321 @@
     </message>
 </context>
 <context>
+    <name>ChatAskCard</name>
+    <message>
+        <source>Plan</source>
+        <translation>계획</translation>
+    </message>
+    <message>
+        <source>Needs your answer</source>
+        <translation>답변 필요</translation>
+    </message>
+    <message>
+        <source>Needs your approval</source>
+        <translation>승인 필요</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>허용</translation>
+    </message>
+    <message>
+        <source>Deny</source>
+        <translation>거부</translation>
+    </message>
+    <message>
+        <source>Always %1</source>
+        <translation>항상 %1</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>보내기</translation>
+    </message>
+    <message>
+        <source>Keep planning</source>
+        <translation>계속 계획하기</translation>
+    </message>
+</context>
+<context>
+    <name>ChatDock</name>
+    <message>
+        <source>Tasks: %1 of %2 done</source>
+        <translation>작업: %2개 중 %1개 완료</translation>
+    </message>
+    <message>
+        <source>Hide the tasks</source>
+        <translation>작업 숨기기</translation>
+    </message>
+    <message>
+        <source>Show the tasks</source>
+        <translation>작업 보기</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>완료</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>제거</translation>
+    </message>
+    <message>
+        <source>Waiting for %1</source>
+        <translation>%1을(를) 기다리는 중</translation>
+    </message>
+    <message>
+        <source>The agent takes the next message in its terminal.</source>
+        <translation>에이전트는 다음 메시지를 터미널에서 받아요.</translation>
+    </message>
+    <message>
+        <source>No agent runs in this terminal</source>
+        <translation>이 터미널에서 실행 중인 에이전트가 없어요</translation>
+    </message>
+    <message>
+        <source>Or say what to do instead</source>
+        <translation>또는 대신 할 일을 알려 주세요</translation>
+    </message>
+    <message>
+        <source>Message %1</source>
+        <translation>%1에 메시지</translation>
+    </message>
+</context>
+<context>
+    <name>ChatFacts</name>
+    <message>
+        <source>Model</source>
+        <translation>모델</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>컨텍스트: %1% 사용</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>서브에이전트 %n개 작업 중</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n commands run in the background</source>
+        <translation>
+            <numerusform>명령 %n개가 백그라운드에서 실행 중</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatStep</name>
+    <message>
+        <source>Done</source>
+        <translation>완료</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>실패</translation>
+    </message>
+    <message>
+        <source>denied</source>
+        <translation>거부됨</translation>
+    </message>
+    <message>
+        <source>stopped</source>
+        <translation>중지됨</translation>
+    </message>
+    <message>
+        <source>in the background</source>
+        <translation>백그라운드</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n단계</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatThread</name>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>compacted</source>
+        <translation>대화 압축됨</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>계획</translation>
+    </message>
+    <message>
+        <source>Stopped</source>
+        <translation>중지됨</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>실패</translation>
+    </message>
+    <message>
+        <source>Refused</source>
+        <translation>응답 거부</translation>
+    </message>
+    <message>
+        <source>Needs you to sign in</source>
+        <translation>로그인 필요</translation>
+    </message>
+    <message>
+        <source>Sign in with its own steps in the terminal.</source>
+        <translation>터미널에 나오는 단계로 로그인하세요.</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWords</name>
+    <message numerus="yes">
+        <source>ran %n commands</source>
+        <translation>
+            <numerusform>명령 %n개 실행함</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>read %n files</source>
+        <translation>
+            <numerusform>파일 %n개 읽음</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>changed %n files</source>
+        <translation>
+            <numerusform>파일 %n개 수정함</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>wrote %n files</source>
+        <translation>
+            <numerusform>파일 %n개 작성함</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n searches</source>
+        <translation>
+            <numerusform>%n번 검색함</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>fetched %n pages</source>
+        <translation>
+            <numerusform>페이지 %n개 가져옴</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n helpers</source>
+        <translation>
+            <numerusform>서브에이전트 %n개에게 맡김</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n skills</source>
+        <translation>
+            <numerusform>스킬 %n개 사용함</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n questions</source>
+        <translation>
+            <numerusform>질문 %n개 함</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n plans</source>
+        <translation>
+            <numerusform>계획 %n개 세움</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n tools</source>
+        <translation>
+            <numerusform>도구 %n개 사용함</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n denied</source>
+        <translation>
+            <numerusform>%n개 거부됨</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n stopped</source>
+        <translation>
+            <numerusform>%n개 중지됨</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>묻기</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>자동</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>제한 없음</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>편집</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>계획</translation>
+    </message>
+    <message>
+        <source>Rules</source>
+        <translation>규칙</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <translation>%1시간</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1분</translation>
+    </message>
+    <message>
+        <source>%1s</source>
+        <translation>%1초</translation>
+    </message>
+    <message>
+        <source>%1 %2</source>
+        <comment>the parts of a duration</comment>
+        <translation>%1 %2</translation>
+    </message>
+    <message>
+        <source>$</source>
+        <comment>the sign of US dollars</comment>
+        <translation>US$</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWork</name>
+    <message>
+        <source>Hide the steps</source>
+        <translation>단계 숨기기</translation>
+    </message>
+    <message>
+        <source>Show the steps</source>
+        <translation>단계 보기</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>완료</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>실패</translation>
+    </message>
+</context>
+<context>
     <name>ClipboardReadDialog</name>
     <message>
         <source>Let a program read your clipboard?</source>
@@ -844,6 +1175,21 @@
     <message>
         <source>Cut</source>
         <translation>잘라내기</translation>
+    </message>
+</context>
+<context>
+    <name>DayDivider</name>
+    <message>
+        <source>Today</source>
+        <translation>오늘</translation>
+    </message>
+    <message>
+        <source>Yesterday</source>
+        <translation>어제</translation>
+    </message>
+    <message>
+        <source>d MMMM</source>
+        <translation>M월 d일</translation>
     </message>
 </context>
 <context>
@@ -1189,16 +1535,8 @@
         <translation>Dosi에게 묻기</translation>
     </message>
     <message>
-        <source>Stop</source>
-        <translation>중지</translation>
-    </message>
-    <message>
         <source>Stop (%1)</source>
         <translation>중지(%1)</translation>
-    </message>
-    <message>
-        <source>Send</source>
-        <translation>보내기</translation>
     </message>
 </context>
 <context>
@@ -1486,10 +1824,6 @@
     <message>
         <source>Tell me when my terminals finish</source>
         <translation>터미널이 끝나면 알려 줘</translation>
-    </message>
-    <message>
-        <source>Latest</source>
-        <translation>최신</translation>
     </message>
 </context>
 <context>
@@ -2297,6 +2631,13 @@
     </message>
 </context>
 <context>
+    <name>LatestKey</name>
+    <message>
+        <source>Latest</source>
+        <translation>최신</translation>
+    </message>
+</context>
+<context>
     <name>Link</name>
     <message>
         <source>The link is not a complete address.</source>
@@ -2789,18 +3130,6 @@
 </context>
 <context>
     <name>ProjectConversation</name>
-    <message>
-        <source>Today</source>
-        <translation>오늘</translation>
-    </message>
-    <message>
-        <source>Yesterday</source>
-        <translation>어제</translation>
-    </message>
-    <message>
-        <source>d MMMM</source>
-        <translation>M월 d일</translation>
-    </message>
     <message>
         <source>Conversation</source>
         <translation>대화</translation>
@@ -3382,6 +3711,13 @@
     </message>
 </context>
 <context>
+    <name>SendKey</name>
+    <message>
+        <source>Send</source>
+        <translation>보내기</translation>
+    </message>
+</context>
+<context>
     <name>SessionDetails</name>
     <message>
         <source>Shared with %1</source>
@@ -3689,10 +4025,6 @@
         <translation>오프라인</translation>
     </message>
     <message>
-        <source>Not connected</source>
-        <translation>연결 안 됨</translation>
-    </message>
-    <message>
         <source>Terminal name</source>
         <translation>터미널 이름</translation>
     </message>
@@ -3865,6 +4197,13 @@
     </message>
 </context>
 <context>
+    <name>StopKey</name>
+    <message>
+        <source>Stop</source>
+        <translation>중지</translation>
+    </message>
+</context>
+<context>
     <name>TerminalAccessible</name>
     <message>
         <source>Terminal</source>
@@ -3873,6 +4212,112 @@
     <message>
         <source>Live terminal</source>
         <translation>실시간 터미널</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalActions</name>
+    <message>
+        <source>Start an agent</source>
+        <translation>에이전트 시작</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>모델</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>추론 수준</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>권한</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>상세도</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>캔버스</translation>
+    </message>
+    <message>
+        <source>Open Browser</source>
+        <translation>브라우저 열기</translation>
+    </message>
+    <message>
+        <source>Add a file…</source>
+        <translation>파일 추가…</translation>
+    </message>
+    <message>
+        <source>Terminal</source>
+        <translation>터미널</translation>
+    </message>
+    <message>
+        <source>Share…</source>
+        <translation>공유…</translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation>세부 정보</translation>
+    </message>
+    <message>
+        <source>Remove from project</source>
+        <translation>프로젝트에서 제거</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>시작할 때만</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>빠른 모드</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>간결</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>자세히</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>표준</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>기본값</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>제한 없음</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>자동</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>묻기</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1 (이번 차례 후)</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1은(는) 지금 차례가 끝나면 바꿔요.</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1은(는) 다음에 시작할 때도 이 모델, 추론 수준, 빠른 모드를 그대로 써요.</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalChatView</name>
+    <message>
+        <source>Chat</source>
+        <translation>채팅</translation>
     </message>
 </context>
 <context>
@@ -4089,48 +4534,12 @@
         <translation>%2의 %1</translation>
     </message>
     <message>
+        <source>Chat</source>
+        <translation>채팅</translation>
+    </message>
+    <message>
         <source>Actions</source>
         <translation>동작</translation>
-    </message>
-    <message>
-        <source>Start an agent</source>
-        <translation>에이전트 시작</translation>
-    </message>
-    <message>
-        <source>Share…</source>
-        <translation>공유…</translation>
-    </message>
-    <message>
-        <source>Open Browser</source>
-        <translation>브라우저 열기</translation>
-    </message>
-    <message>
-        <source>Model</source>
-        <translation>모델</translation>
-    </message>
-    <message>
-        <source>Effort</source>
-        <translation>추론 수준</translation>
-    </message>
-    <message>
-        <source>Permissions</source>
-        <translation>권한</translation>
-    </message>
-    <message>
-        <source>Canvas</source>
-        <translation>캔버스</translation>
-    </message>
-    <message>
-        <source>Add a file…</source>
-        <translation>파일 추가…</translation>
-    </message>
-    <message>
-        <source>Details</source>
-        <translation>세부 정보</translation>
-    </message>
-    <message>
-        <source>Remove from project</source>
-        <translation>프로젝트에서 제거</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -4213,64 +4622,12 @@
         <translation>닫기</translation>
     </message>
     <message>
-        <source>Only at start</source>
-        <translation>시작할 때만</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>기본값</translation>
-    </message>
-    <message>
-        <source>Unrestricted</source>
-        <translation>제한 없음</translation>
-    </message>
-    <message>
-        <source>Auto</source>
-        <translation>자동</translation>
-    </message>
-    <message>
-        <source>Ask</source>
-        <translation>묻기</translation>
-    </message>
-    <message>
-        <source>%1, after this turn</source>
-        <translation>%1 (이번 차례 후)</translation>
-    </message>
-    <message>
-        <source>%1 changes when it finishes its turn.</source>
-        <translation>%1은(는) 지금 차례가 끝나면 바꿔요.</translation>
-    </message>
-    <message>
-        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
-        <translation>%1은(는) 다음에 시작할 때도 이 모델, 추론 수준, 빠른 모드를 그대로 써요.</translation>
-    </message>
-    <message>
         <source>Copy</source>
         <translation>복사</translation>
     </message>
     <message>
         <source>Paste</source>
         <translation>붙여넣기</translation>
-    </message>
-    <message>
-        <source>Verbosity</source>
-        <translation>상세도</translation>
-    </message>
-    <message>
-        <source>Quiet</source>
-        <translation>간결</translation>
-    </message>
-    <message>
-        <source>Standard</source>
-        <translation>표준</translation>
-    </message>
-    <message>
-        <source>Detailed</source>
-        <translation>자세히</translation>
-    </message>
-    <message>
-        <source>Fast mode</source>
-        <translation>빠른 모드</translation>
     </message>
 </context>
 <context>
@@ -5009,6 +5366,59 @@
     <message>
         <source>Full screen</source>
         <translation>전체 화면</translation>
+    </message>
+</context>
+<context>
+    <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Approve</source>
+        <translation>승인</translation>
+    </message>
+    <message>
+        <source>Approve, and ask before each change</source>
+        <translation>승인하고 변경마다 묻기</translation>
+    </message>
+    <message>
+        <source>Approve, and allow its edits</source>
+        <translation>승인하고 변경 허용</translation>
+    </message>
+    <message>
+        <source>Approve, and use the safety check</source>
+        <translation>승인하고 안전 검사 사용</translation>
+    </message>
+    <message>
+        <source>Approve, and ask nothing</source>
+        <translation>승인하고 묻지 않기</translation>
+    </message>
+    <message>
+        <source>Approve, and let helpers work alone</source>
+        <translation>승인하고 서브에이전트에 맡기기</translation>
+    </message>
+    <message>
+        <source>Leave plan mode</source>
+        <translation>계획 모드 나가기</translation>
+    </message>
+    <message>
+        <source>writing</source>
+        <translation>작성 중</translation>
+    </message>
+    <message>
+        <source>compacting</source>
+        <translation>대화 압축 중</translation>
+    </message>
+    <message>
+        <source>thinking</source>
+        <translation>생각 중</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n단계</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>worked for %1</source>
+        <translation>%1 동안 작업함</translation>
     </message>
 </context>
 <context>

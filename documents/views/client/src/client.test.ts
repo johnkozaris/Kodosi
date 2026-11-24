@@ -45,7 +45,6 @@ class TestEditor implements Editor {
   peers(): void {}
   saved(): void {}
   closed(): void {}
-  destroy(): void {}
 }
 
 class OutboxEditor implements Editor {
@@ -72,7 +71,6 @@ class OutboxEditor implements Editor {
   peers(): void {}
   saved(): void {}
   closed(): void {}
-  destroy(): void {}
 }
 
 function joined(rev: number, seq: number | null = 0, epoch = 7): ToClient {

@@ -198,7 +198,7 @@ public final class InMemoryTerminalSession: @unchecked Sendable {
     }
 
     static let receiveBufferCallback: ghostty_surface_receive_buffer_cb = { userdata, ptr, len in
-        guard let userdata, let ptr,
+        guard let userdata,
               len <= InMemoryTerminalSurfaceAccess.maximumPendingWriteBytes
         else {
             TerminalDebugLog.log(.input, "terminal callback payload rejected bytes=\(len)")

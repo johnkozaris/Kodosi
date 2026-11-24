@@ -1,8 +1,8 @@
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index 0390ece7b..95684ec60 100644
+index 2845a608b..a8067532b 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
-@@ -592,7 +592,8 @@ pub fn add(
+@@ -600,7 +600,8 @@ pub fn add(
          // This is LGPL but since our source code is open source we are
          // in compliance with the LGPL since end users can modify this
          // build script to replace the bundled libintl with their own.
@@ -12,7 +12,7 @@ index 0390ece7b..95684ec60 100644
              .target = target,
              .optimize = optimize,
          })) |libintl_dep| {
-@@ -601,7 +602,7 @@ pub fn add(
+@@ -609,7 +610,7 @@ pub fn add(
                  b.allocator,
                  libintl_dep.artifact("intl").getEmittedBin(),
              );

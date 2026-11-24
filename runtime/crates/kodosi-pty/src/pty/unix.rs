@@ -25,7 +25,9 @@ use tokio::{
     process::{Child, Command},
 };
 
-use super::{ShutdownStage, Transfer, WaitOutcome, program_identity, validate_working_dir};
+use super::{
+    ProcessStart, ShutdownStage, Transfer, WaitOutcome, program_identity, validate_working_dir,
+};
 
 static OPEN_PTY: Mutex<()> = Mutex::new(());
 
@@ -746,14 +748,6 @@ fn variable(environment: &[String], name: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
-/// What a running process of this user started with.
-pub struct ProcessStart {
-    pub program: PathBuf,
-    pub arguments: Vec<String>,
-    pub variables: Vec<(String, String)>,
-    pub directory: PathBuf,
-}
-
 pub fn process_start(pid: u32) -> Option<ProcessStart> {
     Some(ProcessStart {
         program: process_program(pid)?,
@@ -1211,12 +1205,13 @@ mod tests {
                 String::from_utf8_lossy_owned(output)
             });
         let variables: Vec<&str> = output.lines().map(str::trim_end).collect();
+        let version = format!("TERM_PROGRAM_VERSION={}", crate::GHOSTTY_VERSION);
         for expected in [
             "CLAUDECODE=1",
             "TERM=xterm-256color",
             "COLORTERM=truecolor",
             "TERM_PROGRAM=ghostty",
-            "TERM_PROGRAM_VERSION=1.4.0",
+            version.as_str(),
             "KODOSI_SESSION_ID=id",
         ] {
             assert!(variables.contains(&expected), "{expected}: {output}");

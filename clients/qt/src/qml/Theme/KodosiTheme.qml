@@ -19,7 +19,7 @@ QtObject {
     readonly property color raised: look.raised
     readonly property color lifted: look.lifted
     readonly property color well: look.well
-    readonly property color sheet: mix(raised, surface, 0.45)
+    readonly property color sheet: look.sheet
     readonly property color hairline: look.hairline
     readonly property color ink: look.ink
     readonly property color inkMuted: look.inkMuted

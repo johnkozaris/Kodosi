@@ -2,8 +2,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 
 cargo_tools_root := justfile_directory() + "/.tools/rust"
 cargo_tools_bin := cargo_tools_root + "/bin"
-cargo_deny_version := "0.20.2"
-cargo_machete_version := "0.9.2"
+cargo_deny_version := "0.22.0"
+cargo_machete_version := "0.10.1"
 cargo_ndk_version := "4.1.2"
 ghostty_dir := env('KODOSI_GHOSTTY_DIR', justfile_directory() + "/terminal/ghostty")
 test_lints := "-D warnings -A clippy::unwrap_used -A clippy::expect_used"
@@ -90,16 +90,13 @@ rust-advisories-check: (rust-tool-check "cargo-deny")
     cargo deny --manifest-path browser/engine/Cargo.toml --locked check --hide-inclusion-graph advisories
     cargo deny --manifest-path runtime/Cargo.toml --workspace --locked check --hide-inclusion-graph advisories
 
-# picomatch has no release that fixes GHSA-fc5q-39xc-vjpf yet, and only Vite's file search uses
-# it, on the patterns of our own configuration.
-
 # Check the Bun packages of the document views and the sign-in pages for security advisories.
 [group('rust')]
 [group('sign-in')]
 bun-advisories-check:
     failed=0; \
-    (cd documents/views && bun audit --ignore=GHSA-fc5q-39xc-vjpf) || failed=1; \
-    (cd sign-in && bun audit --ignore=GHSA-fc5q-39xc-vjpf) || failed=1; \
+    (cd documents/views && bun audit) || failed=1; \
+    (cd sign-in && bun audit) || failed=1; \
     exit "$failed"
 
 # Find unused Rust dependencies with cargo-machete.

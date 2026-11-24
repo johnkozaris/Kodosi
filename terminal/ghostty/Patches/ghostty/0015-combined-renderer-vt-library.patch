@@ -1,8 +1,8 @@
 diff --git a/src/build/Config.zig b/src/build/Config.zig
-index f03664499..20a9b1952 100644
+index 7af224368..0141b1b85 100644
 --- a/src/build/Config.zig
 +++ b/src/build/Config.zig
-@@ -55,6 +55,7 @@ emit_docs: bool = false,
+@@ -64,6 +64,7 @@ emit_docs: bool = false,
  emit_exe: bool = false,
  emit_helpgen: bool = false,
  emit_lib_vt: bool = false,
@@ -10,10 +10,10 @@ index f03664499..20a9b1952 100644
  emit_macos_app: bool = false,
  emit_terminfo: bool = false,
  emit_termcap: bool = false,
-@@ -88,6 +89,11 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
-         "emit-lib-vt",
-         "Set defaults for a libghostty-vt-only build (disables xcframework, macOS app, and docs).",
-     ) orelse is_dep;
+@@ -120,6 +121,11 @@ pub fn init(b: *std.Build, versions: Versions) !Config {
+     ) orelse (is_dep or
+         // A libghostty-vt source tarball has LIB_VERSION but no VERSION.
+         (versions.lib_file != null and versions.app_file == null));
 +    const emit_combined_lib = b.option(
 +        bool,
 +        "emit-combined-lib",
@@ -22,7 +22,7 @@ index f03664499..20a9b1952 100644
      const target = target: {
          var result = b.standardTargetOptions(.{});
  
-@@ -439,6 +445,7 @@ pub fn init(b: *std.Build, appVersion: []const u8, libVersion: []const u8) !Conf
+@@ -516,6 +522,7 @@ pub fn init(b: *std.Build, versions: Versions) !Config {
      // Artifacts to Emit
  
      config.emit_lib_vt = emit_lib_vt;
@@ -30,7 +30,7 @@ index f03664499..20a9b1952 100644
  
      config.vt_features = features: {
          const list = b.option(
-@@ -681,6 +688,7 @@ pub fn addOptions(self: *const Config, step: *std.Build.Step.Options) !void {
+@@ -824,6 +831,7 @@ pub fn addOptions(self: *const Config, step: *std.Build.Step.Options) !void {
      step.addOption(bool, "custom_shaders", self.custom_shaders);
      step.addOption(bool, "inspector", self.inspector);
      step.addOption(bool, "simd", self.simd);
@@ -39,10 +39,10 @@ index f03664499..20a9b1952 100644
      step.addOption(ApprtRuntime, "app_runtime", self.app_runtime);
      step.addOption(FontBackend, "font_backend", self.font_backend);
 diff --git a/src/build/SharedDeps.zig b/src/build/SharedDeps.zig
-index 7de2b5146..51b0b14c7 100644
+index d9e3c066d..3cdf7c43e 100644
 --- a/src/build/SharedDeps.zig
 +++ b/src/build/SharedDeps.zig
-@@ -186,7 +186,9 @@ pub fn add(
+@@ -194,7 +194,9 @@ pub fn add(
      step.root_module.addOptions("build_options", self.options);
  
      // Every exe needs the terminal options
@@ -54,7 +54,7 @@ index 7de2b5146..51b0b14c7 100644
      // Every exe needs the uucode module
      step.root_module.addImport("uucode", self.uucode_mod);
 diff --git a/src/lib_vt.zig b/src/lib_vt.zig
-index 06252080a..df875c088 100644
+index 440031a2e..b510037d6 100644
 --- a/src/lib_vt.zig
 +++ b/src/lib_vt.zig
 @@ -174,7 +174,7 @@ var msvc_fltused: c_int = 1;
@@ -67,7 +67,7 @@ index 06252080a..df875c088 100644
          // Zig's compiler_rt only provides it when libc is not linked.
          if (builtin.target.os.tag == .windows and
 diff --git a/src/main_c.zig b/src/main_c.zig
-index 9d926c316..76d617c57 100644
+index 331f5b7a3..1b4e086d5 100644
 --- a/src/main_c.zig
 +++ b/src/main_c.zig
 @@ -45,6 +45,8 @@ comptime {
@@ -76,6 +76,6 @@ index 9d926c316..76d617c57 100644
  
 +    if (@import("build_options").combined_c_api) _ = @import("lib_vt.zig");
 +
-     // Force-reference our memset override so its export is emitted.
-     // See quirks_memset.zig for details on why this exists.
+     // Force-reference our memset override so its export is emitted
+     // when its needed. See quirks_memset.zig for lots of details.
      _ = @import("quirks_memset.zig");

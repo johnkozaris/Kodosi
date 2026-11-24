@@ -428,11 +428,6 @@ impl Terminal {
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_STORAGE_LIMIT,
             &limits.image_storage_max_bytes,
         )?;
-        let glyph_protocol_disabled = false;
-        self.set_value(
-            GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_GLYPH_PROTOCOL,
-            &glyph_protocol_disabled,
-        )?;
         let title_reports_disabled = false;
         self.set_value(
             GhosttyTerminalOption_GHOSTTY_TERMINAL_OPT_TITLE_REPORT,
@@ -552,7 +547,7 @@ impl Terminal {
             GhosttyFocusEvent_GHOSTTY_FOCUS_LOST
         };
         encode_buffer(|buffer, capacity, written| unsafe {
-            ghostty_focus_encode(event, buffer.cast::<std::ffi::c_char>(), capacity, written)
+            ghostty_focus_encode(event, buffer, capacity, written)
         })
     }
 
@@ -562,52 +557,15 @@ impl Terminal {
         maximum_bytes: usize,
     ) -> Result<Vec<u8>, Error> {
         self.ensure_healthy()?;
-        let raw_options = GhosttyFormatterTerminalOptions {
-            size: mem::size_of::<GhosttyFormatterTerminalOptions>(),
-            emit: match options.format {
-                Format::Plain => GhosttyFormatterFormat_GHOSTTY_FORMATTER_FORMAT_PLAIN,
-                Format::Vt => GhosttyFormatterFormat_GHOSTTY_FORMATTER_FORMAT_VT,
-            },
-            unwrap: options.unwrap,
-            trim: options.trim,
-            extra: GhosttyFormatterTerminalExtra {
-                size: mem::size_of::<GhosttyFormatterTerminalExtra>(),
-                palette: options.palette,
-                modes: options.modes,
-                scrolling_region: options.scrolling_region,
-                tabstops: options.tabstops,
-                pwd: options.pwd,
-                keyboard: options.keyboard,
-                screen: GhosttyFormatterScreenExtra {
-                    size: mem::size_of::<GhosttyFormatterScreenExtra>(),
-                    cursor: options.cursor,
-                    style: options.style,
-                    hyperlink: options.hyperlink,
-                    protection: options.protection,
-                    kitty_keyboard: options.kitty_keyboard,
-                    charsets: options.charsets,
-                },
-            },
-            selection: ptr::null(),
-        };
         let active = if options.screen_only {
             Some(self.active_area()?)
         } else {
             None
         };
-        let raw_options = GhosttyFormatterTerminalOptions {
-            selection: active.as_ref().map_or(ptr::null(), ptr::from_ref),
-            ..raw_options
-        };
         let mut formatter = ptr::null_mut();
 
         result(unsafe {
-            ghostty_formatter_terminal_new(
-                ptr::null(),
-                ptr::from_mut(&mut formatter),
-                self.raw,
-                raw_options,
-            )
+            ghostty_formatter_terminal_new(ptr::null(), ptr::from_mut(&mut formatter), self.raw)
         })?;
         if formatter.is_null() {
             return Err(Error::InvalidValue);
@@ -615,6 +573,60 @@ impl Terminal {
         let formatter = DropGuard::new(formatter, |formatter| unsafe {
             ghostty_formatter_free(formatter);
         });
+        let emit: GhosttyFormatterFormat = match options.format {
+            Format::Plain => GhosttyFormatterFormat_GHOSTTY_FORMATTER_FORMAT_PLAIN,
+            Format::Vt => GhosttyFormatterFormat_GHOSTTY_FORMATTER_FORMAT_VT,
+        };
+        let extras: GhosttyFormatterExtras = [
+            (options.palette, GHOSTTY_FORMATTER_EXTRA_PALETTE),
+            (options.modes, GHOSTTY_FORMATTER_EXTRA_MODES),
+            (
+                options.scrolling_region,
+                GHOSTTY_FORMATTER_EXTRA_SCROLLING_REGION,
+            ),
+            (options.tabstops, GHOSTTY_FORMATTER_EXTRA_TABSTOPS),
+            (options.pwd, GHOSTTY_FORMATTER_EXTRA_PWD),
+            (options.keyboard, GHOSTTY_FORMATTER_EXTRA_KEYBOARD),
+            (options.cursor, GHOSTTY_FORMATTER_EXTRA_CURSOR),
+            (options.style, GHOSTTY_FORMATTER_EXTRA_STYLE),
+            (options.hyperlink, GHOSTTY_FORMATTER_EXTRA_HYPERLINK),
+            (options.protection, GHOSTTY_FORMATTER_EXTRA_PROTECTION),
+            (
+                options.kitty_keyboard,
+                GHOSTTY_FORMATTER_EXTRA_KITTY_KEYBOARD,
+            ),
+            (options.charsets, GHOSTTY_FORMATTER_EXTRA_CHARSETS),
+        ]
+        .into_iter()
+        .filter(|(wanted, _)| *wanted)
+        .fold(0, |extras, (_, extra)| extras | extra);
+        set_formatter(
+            *formatter,
+            GhosttyFormatterOption_GHOSTTY_FORMATTER_OPT_EMIT,
+            &emit,
+        )?;
+        set_formatter(
+            *formatter,
+            GhosttyFormatterOption_GHOSTTY_FORMATTER_OPT_UNWRAP,
+            &options.unwrap,
+        )?;
+        set_formatter(
+            *formatter,
+            GhosttyFormatterOption_GHOSTTY_FORMATTER_OPT_TRIM,
+            &options.trim,
+        )?;
+        set_formatter(
+            *formatter,
+            GhosttyFormatterOption_GHOSTTY_FORMATTER_OPT_EXTRAS,
+            &extras,
+        )?;
+        if let Some(active) = &active {
+            set_formatter(
+                *formatter,
+                GhosttyFormatterOption_GHOSTTY_FORMATTER_OPT_SELECTION,
+                active,
+            )?;
+        }
         let mut required = 0;
 
         let query = unsafe {
@@ -659,17 +671,13 @@ impl Terminal {
                     coordinate: GhosttyPointCoordinate { x, y: u32::from(y) },
                 },
             };
-            let mut grid_ref = GhosttyGridRef {
-                size: mem::size_of::<GhosttyGridRef>(),
-                ..GhosttyGridRef::default()
-            };
+            let mut grid_ref = GhosttyGridRef::default();
             result(unsafe {
                 ghostty_terminal_grid_ref(self.raw, point, ptr::from_mut(&mut grid_ref))
             })
             .map(|()| grid_ref)
         };
         Ok(GhosttySelection {
-            size: mem::size_of::<GhosttySelection>(),
             start: corner(0, 0)?,
             end: corner(state.cols.saturating_sub(1), state.rows.saturating_sub(1))?,
             rectangle: false,
@@ -1068,6 +1076,16 @@ unsafe extern "C" fn write_snapshot(userdata: *mut c_void, data: *const u8, len:
     sink.accept(unsafe { slice::from_raw_parts(data, len) })
 }
 
+fn set_formatter<T>(
+    formatter: GhosttyFormatter,
+    option: GhosttyFormatterOption,
+    value: &T,
+) -> Result<(), Error> {
+    result(unsafe {
+        ghostty_formatter_set(formatter, option, ptr::from_ref(value).cast::<c_void>())
+    })
+}
+
 fn encode_buffer(
     mut encode: impl FnMut(*mut u8, usize, *mut usize) -> GhosttyResult,
 ) -> Result<Vec<u8>, Error> {
@@ -1208,10 +1226,6 @@ unsafe extern "C" fn clipboard_callback(
     }
 
     let write = unsafe { &*write };
-    if write.size < mem::size_of::<GhosttyClipboardWrite>() {
-        callback(userdata, (), |state| state.poisoned = true);
-        return;
-    }
     let Some(reply) = write.reply else {
         callback(userdata, (), |state| state.poisoned = true);
         return;
@@ -1265,11 +1279,6 @@ unsafe extern "C" fn desktop_notification_callback(
         }
 
         let notification = unsafe { &*notification };
-        if notification.size < mem::size_of::<GhosttyTerminalDesktopNotification>() {
-            state.poisoned = true;
-            return;
-        }
-
         let Some(title) =
             (unsafe { borrowed_bytes(notification.title.ptr, notification.title.len) })
         else {
@@ -1300,11 +1309,6 @@ unsafe extern "C" fn program_status_callback(
         }
 
         let report = unsafe { &*report };
-        if report.size < mem::size_of::<GhosttyTerminalProgramStatus>() {
-            state.poisoned = true;
-            return;
-        }
-
         let status = match report.state {
             GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_IDLE => ProgramStatusState::Idle,
             GhosttyProgramStatusState_GHOSTTY_PROGRAM_STATUS_STATE_WORKING => {
@@ -1367,10 +1371,6 @@ unsafe extern "C" fn context_callback(
             return;
         }
         let signal = unsafe { &*signal };
-        if signal.size < mem::size_of::<GhosttyTerminalHierarchicalContext>() {
-            state.poisoned = true;
-            return;
-        }
         let action = match signal.action {
             GhosttyHierarchicalContextAction_GHOSTTY_HIERARCHICAL_CONTEXT_ACTION_START => {
                 ContextAction::Start
@@ -1403,11 +1403,6 @@ unsafe extern "C" fn progress_report_callback(
         }
 
         let report = unsafe { &*report };
-        if report.size < mem::size_of::<GhosttyTerminalProgressReport>() {
-            state.poisoned = true;
-            return;
-        }
-
         let progress = match report.state {
             GhosttyTerminalProgressState_GHOSTTY_TERMINAL_PROGRESS_STATE_REMOVE => {
                 ProgressState::Remove
@@ -1706,14 +1701,7 @@ mod tests {
 
     #[test]
     fn malformed_clipboard_callback_poisons_terminal_before_writing() {
-        for write in [
-            None,
-            Some(GhosttyClipboardWrite::default()),
-            Some(GhosttyClipboardWrite {
-                size: mem::size_of::<GhosttyClipboardWrite>(),
-                ..GhosttyClipboardWrite::default()
-            }),
-        ] {
+        for write in [None, Some(GhosttyClipboardWrite::default())] {
             let mut terminal = terminal();
             let userdata = ptr::from_mut(terminal.callbacks.as_mut()).cast::<c_void>();
             unsafe {

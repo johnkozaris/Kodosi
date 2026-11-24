@@ -12,6 +12,127 @@
     </message>
 </context>
 <context>
+    <name>ChatFacts</name>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n helper works</numerusform>
+            <numerusform>%n helpers work</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n commands run in the background</source>
+        <translation>
+            <numerusform>%n command runs in the background</numerusform>
+            <numerusform>%n commands run in the background</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatStep</name>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n step</numerusform>
+            <numerusform>%n steps</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatWords</name>
+    <message numerus="yes">
+        <source>ran %n commands</source>
+        <translation>
+            <numerusform>ran %n command</numerusform>
+            <numerusform>ran %n commands</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>read %n files</source>
+        <translation>
+            <numerusform>read %n file</numerusform>
+            <numerusform>read %n files</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>changed %n files</source>
+        <translation>
+            <numerusform>changed %n file</numerusform>
+            <numerusform>changed %n files</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>wrote %n files</source>
+        <translation>
+            <numerusform>wrote %n file</numerusform>
+            <numerusform>wrote %n files</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n searches</source>
+        <translation>
+            <numerusform>made %n search</numerusform>
+            <numerusform>made %n searches</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>fetched %n pages</source>
+        <translation>
+            <numerusform>fetched %n page</numerusform>
+            <numerusform>fetched %n pages</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n helpers</source>
+        <translation>
+            <numerusform>asked %n helper</numerusform>
+            <numerusform>asked %n helpers</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n skills</source>
+        <translation>
+            <numerusform>used %n skill</numerusform>
+            <numerusform>used %n skills</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n questions</source>
+        <translation>
+            <numerusform>asked %n question</numerusform>
+            <numerusform>asked %n questions</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n plans</source>
+        <translation>
+            <numerusform>made %n plan</numerusform>
+            <numerusform>made %n plans</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n tools</source>
+        <translation>
+            <numerusform>used %n tool</numerusform>
+            <numerusform>used %n tools</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n denied</source>
+        <translation>
+            <numerusform>%n denied</numerusform>
+            <numerusform>%n denied</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n stopped</source>
+        <translation>
+            <numerusform>%n stopped</numerusform>
+            <numerusform>%n stopped</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
     <name>DosiShelf</name>
     <message numerus="yes">
         <source>%n more projects</source>
@@ -185,6 +306,16 @@
         <translation>
             <numerusform>Copied for %n site</numerusform>
             <numerusform>Copied for %n sites</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>kodosi::TerminalChat</name>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n step</numerusform>
+            <numerusform>%n steps</numerusform>
         </translation>
     </message>
 </context>

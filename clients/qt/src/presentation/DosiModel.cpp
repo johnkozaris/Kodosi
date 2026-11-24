@@ -245,7 +245,6 @@ QVariantMap DosiModel::details() const
         { QStringLiteral("conversation"), conversation },
         { QStringLiteral("setup"), m_snapshot.value(QStringLiteral("setup")).toObject().toVariantMap() },
         { QStringLiteral("agents"), agents },
-        { QStringLiteral("instructionsEdited"), m_snapshot.value(QStringLiteral("instructionsEdited")).toBool() },
     };
 }
 

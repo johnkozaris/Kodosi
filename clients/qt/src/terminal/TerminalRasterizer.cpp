@@ -41,7 +41,7 @@ CellMetrics metrics(const QFont& font, const qreal lineHeight, const qreal devic
     };
     const QFontMetricsF fontMetrics(font);
     const auto baseHeight = devicePixels(fontMetrics.height());
-    const auto height = devicePixels(baseHeight * std::clamp(lineHeight, 0.8, 2.0));
+    const auto height = devicePixels(baseHeight * terminalLineHeights.clamp(lineHeight));
     return {
         devicePixels(fontMetrics.horizontalAdvance(QLatin1Char('M'))),
         height,
@@ -355,9 +355,10 @@ bool graphicsElement(const QString& grapheme)
         return false;
     }
     const auto first = grapheme.front();
-    const char32_t codepoint = first.isHighSurrogate() && grapheme.size() > 1
-        ? QChar::surrogateToUcs4(first, grapheme.at(1))
-        : first.unicode();
+    char32_t codepoint = first.unicode();
+    if (first.isHighSurrogate() && grapheme.size() > 1) {
+        codepoint = QChar::surrogateToUcs4(first, grapheme.at(1));
+    }
     return (codepoint >= 0x2500 && codepoint <= 0x259F) || (codepoint >= 0xE0B0 && codepoint <= 0xE0D7)
         || (codepoint >= 0x1FB00 && codepoint <= 0x1FBFF) || (codepoint >= 0x1CC00 && codepoint <= 0x1CEBF);
 }

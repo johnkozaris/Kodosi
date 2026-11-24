@@ -1,20 +1,20 @@
 {"k":"mode","t":1795226846661,"mode":"default"}
-{"k":"row","t":1795226846662,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"bdeefc89-7a4e-4ec4-9cfb-b7b2a270596a","type":"user","meta":false,"content":[{"type":"text","text":"Ask me with the AskUserQuestion tool which currency to use, EUR or USD. Then say my choice in one short sentence."}]}
-{"k":"turn","t":1795226846666,"turn":"8137438b-955c-4e93-8d10-8e4cb06b0af1"}
+{"k":"row","t":1795226846662,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"bdeefc89-7a4e-4ec4-9cfb-b7b2a270596a","content":[{"type":"text","text":"Ask me with the AskUserQuestion tool which currency to use, EUR or USD. Then say my choice in one short sentence."}]}
+{"k":"turn","t":1795226846666}
 {"k":"did","t":1795226846666,"n":1}
-{"k":"step","t":1795226846669,"step":0,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"step","t":1795226846669,"model":"claude-sonnet-5-5","effort":"medium"}
 {"k":"tool","t":1795226847256,"id":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","name":"AskUserQuestion"}
-{"k":"row","t":1795226847752,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"43e13c33-1924-4eff-90db-53fae69b58aa","type":"assistant","meta":false,"content":[{"type":"tool_use","id":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","name":"AskUserQuestion","input":{"questions":[{"question":"Which currency should be used?","header":"Currency","multiSelect":false,"options":[{"label":"EUR","description":"Use euros"},{"label":"USD","description":"Use US dollars"}]}]}}]}
+{"k":"row","t":1795226847752,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"43e13c33-1924-4eff-90db-53fae69b58aa","content":[{"type":"tool_use","id":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","name":"AskUserQuestion","input":{"questions":[{"question":"Which currency should be used?","header":"Currency","multiSelect":false,"options":[{"label":"EUR","description":"Use euros"},{"label":"USD","description":"Use US dollars"}]}]}}]}
 {"k":"ask","t":1795226847763,"ask":"mwprn9k5-11","call":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","tool":"AskUserQuestion","input":{"questions":[{"question":"Which currency should be used?","header":"Currency","options":[{"label":"EUR","description":"Use euros"},{"label":"USD","description":"Use US dollars"}],"multiSelect":false}]},"mode":"default"}
-{"k":"stepEnd","t":1795226847774,"step":0}
+{"k":"stepEnd","t":1795226847774}
 {"answer":{"ask":"mwprn9k5-11","decision":{"behavior":"allow","updatedInput":{"questions":[{"question":"Which currency should be used?","header":"Currency","options":[{"label":"EUR","description":"Use euros"},{"label":"USD","description":"Use US dollars"}],"multiSelect":false}],"answers":{"Which currency should be used?":"EUR"}}}}}
-{"k":"decided","t":1795226847950,"id":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","decision":"accept","source":"hook","mode":"default"}
+{"k":"decided","t":1795226847950,"id":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","decision":"accept","mode":"default"}
 {"k":"done","t":1795226847952,"id":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","ms":0,"result":{"questions":[{"question":"Which currency should be used?","header":"Currency","options":[{"label":"EUR","description":"Use euros"},{"label":"USD","description":"Use US dollars"}],"multiSelect":false}],"answers":{"Which currency should be used?":"EUR"}}}
-{"k":"row","t":1795226847966,"door":"tool-result","origin":{"kind":"tool","tool":"AskUserQuestion"},"uuid":"1a679946-ba8d-4a70-a627-b6dd7795b8d3","type":"user","meta":false,"content":[{"type":"tool_result","tool_use_id":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","is_error":false,"content":[{"type":"text","text":"Your questions have been answered: \"Which currency should be used?\"=\"EUR\". You can now continue with these answers in mind."}]}]}
-{"k":"step","t":1795226847976,"step":1,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"row","t":1795226847966,"door":"tool-result","origin":{"kind":"tool","tool":"AskUserQuestion"},"uuid":"1a679946-ba8d-4a70-a627-b6dd7795b8d3","content":[{"type":"tool_result","tool_use_id":"toolu_01NHX7DkmrGvMnnR1Z67Jeac","is_error":false,"content":[{"type":"text","text":"Your questions have been answered: \"Which currency should be used?\"=\"EUR\". You can now continue with these answers in mind."}]}]}
+{"k":"step","t":1795226847976,"model":"claude-sonnet-5-5","effort":"medium"}
 {"k":"text","t":1795226848619,"block":0,"text":"You chose EUR."}
-{"k":"row","t":1795226848620,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"143cedc6-b561-4823-a57a-8ae99699d996","type":"assistant","meta":false,"content":[{"type":"text","text":"You chose EUR."}]}
-{"k":"stepEnd","t":1795226848629,"step":1}
+{"k":"row","t":1795226848620,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"143cedc6-b561-4823-a57a-8ae99699d996","content":[{"type":"text","text":"You chose EUR."}]}
+{"k":"stepEnd","t":1795226848629}
 {"k":"mode","t":1795226848630,"mode":"default","background":0}
-{"k":"turnEnd","t":1795226848637,"turn":"8137438b-955c-4e93-8d10-8e4cb06b0af1","ms":1795,"reason":"answer"}
+{"k":"turnEnd","t":1795226848637,"ms":1795,"reason":"answer"}
 {"k":"measure","t":1795226848638,"context":{"tokens":43214,"window":1000000,"percent":4},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.27650090000000005}}

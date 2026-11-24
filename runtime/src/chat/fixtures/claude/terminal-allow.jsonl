@@ -1,19 +1,19 @@
 {"k":"mode","t":1795226801703,"mode":"default"}
-{"k":"row","t":1795226801704,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"1d207db2-9711-4c86-a726-2df3a92838fe","type":"user","meta":false,"content":[{"type":"text","text":"Run this exact command with the Bash tool: python3 -c \"import time; time.sleep(6); print('finished')\""}]}
-{"k":"turn","t":1795226801707,"turn":"89815c41-3cb9-4918-a45b-7bb0b0baf591"}
+{"k":"row","t":1795226801704,"door":"prompt","origin":{"kind":"plugin","name":"kodosi","asUser":true},"uuid":"1d207db2-9711-4c86-a726-2df3a92838fe","content":[{"type":"text","text":"Run this exact command with the Bash tool: python3 -c \"import time; time.sleep(6); print('finished')\""}]}
+{"k":"turn","t":1795226801707}
 {"k":"did","t":1795226801707,"n":1}
-{"k":"step","t":1795226801710,"step":0,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"step","t":1795226801710,"model":"claude-sonnet-5-5","effort":"medium"}
 {"k":"tool","t":1795226802277,"id":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","name":"Bash"}
-{"k":"row","t":1795226802569,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"0cb54b69-ff80-40c7-a5f3-fd7e09f42875","type":"assistant","meta":false,"content":[{"type":"tool_use","id":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","name":"Bash","input":{"command":"python3 -c \"import time; time.sleep(6); print('finished')\""}}]}
+{"k":"row","t":1795226802569,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"0cb54b69-ff80-40c7-a5f3-fd7e09f42875","content":[{"type":"tool_use","id":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","name":"Bash","input":{"command":"python3 -c \"import time; time.sleep(6); print('finished')\""}}]}
 {"k":"ask","t":1795226802581,"ask":"mwprn9k5-8","call":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","tool":"Bash","input":{"command":"python3 -c \"import time; time.sleep(6); print('finished')\""},"suggestions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"python3 -c \"import time; time.sleep(6); print('finished')\""}],"behavior":"allow","destination":"localSettings"}],"mode":"default"}
-{"k":"stepEnd","t":1795226802589,"step":0}
-{"k":"decided","t":1795226804344,"id":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","decision":"accept","source":"user_temporary","mode":"default"}
+{"k":"stepEnd","t":1795226802589}
+{"k":"decided","t":1795226804344,"id":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","decision":"accept","mode":"default"}
 {"k":"done","t":1795226810398,"id":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","ms":6052,"result":{"stdout":"finished","stderr":"","interrupted":false,"isImage":false,"noOutputExpected":false}}
-{"k":"row","t":1795226810403,"door":"tool-result","origin":{"kind":"tool","tool":"Bash"},"uuid":"34245be8-07b8-4ed0-bbde-7bae26f62c0b","type":"user","meta":false,"content":[{"type":"tool_result","tool_use_id":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","is_error":false,"content":[{"type":"text","text":"finished"}]}]}
-{"k":"step","t":1795226810410,"step":1,"model":"claude-sonnet-5-5","effort":"medium"}
+{"k":"row","t":1795226810403,"door":"tool-result","origin":{"kind":"tool","tool":"Bash"},"uuid":"34245be8-07b8-4ed0-bbde-7bae26f62c0b","content":[{"type":"tool_result","tool_use_id":"toolu_01NvfcXo7mMPUdJoxVcnyjTi","is_error":false,"content":[{"type":"text","text":"finished"}]}]}
+{"k":"step","t":1795226810410,"model":"claude-sonnet-5-5","effort":"medium"}
 {"k":"text","t":1795226811018,"block":0,"text":"It printed `finished`."}
-{"k":"row","t":1795226811021,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"64556f2d-5a85-43a2-810e-3b0ac43d0893","type":"assistant","meta":false,"content":[{"type":"text","text":"It printed `finished`."}]}
-{"k":"stepEnd","t":1795226811038,"step":1}
+{"k":"row","t":1795226811021,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"64556f2d-5a85-43a2-810e-3b0ac43d0893","content":[{"type":"text","text":"It printed `finished`."}]}
+{"k":"stepEnd","t":1795226811038}
 {"k":"mode","t":1795226811042,"mode":"default","background":0}
-{"k":"turnEnd","t":1795226811055,"turn":"89815c41-3cb9-4918-a45b-7bb0b0baf591","ms":7596,"reason":"answer"}
+{"k":"turnEnd","t":1795226811055,"ms":7596,"reason":"answer"}
 {"k":"measure","t":1795226811071,"context":{"tokens":40644,"window":1000000,"percent":4},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.1623965}}

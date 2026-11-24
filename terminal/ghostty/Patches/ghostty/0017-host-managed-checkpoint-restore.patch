@@ -1,8 +1,8 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index 39f478712..9cadafc02 100644
+index 4a067e9ec..94c427c6e 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
-@@ -538,6 +538,16 @@ typedef struct {
+@@ -556,6 +556,16 @@ typedef struct {
    ghostty_surface_context_e context;
  } ghostty_surface_config_s;
  
@@ -19,7 +19,7 @@ index 39f478712..9cadafc02 100644
  typedef struct {
    uint16_t columns;
    uint16_t rows;
-@@ -1202,9 +1212,17 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
+@@ -1230,11 +1240,19 @@ GHOSTTY_API ghostty_surface_config_s ghostty_surface_inherited_config(ghostty_su
  GHOSTTY_API void ghostty_surface_update_config(ghostty_surface_t, ghostty_config_t);
  GHOSTTY_API bool ghostty_surface_needs_confirm_quit(ghostty_surface_t);
  GHOSTTY_API bool ghostty_surface_process_exited(ghostty_surface_t);
@@ -31,16 +31,18 @@ index 39f478712..9cadafc02 100644
 +// output; a snapshot that ends at READY has no history. A snapshot does not
 +// carry whether a resize pulls rows from scrollback, so the caller gives it.
 +// Output after exit and repeated exit notifications are ignored.
- GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t, const uint8_t*, uintptr_t);
-+GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(ghostty_surface_t,
-+                                                                const uint8_t*,
+ GHOSTTY_API void ghostty_surface_write_buffer(ghostty_surface_t,
+                                               const uint8_t* GHOSTTY_NULLABLE,
+                                               uintptr_t);
++GHOSTTY_API ghostty_result_e ghostty_surface_checkpoint_restore(ghostty_surface_t GHOSTTY_NULLABLE,
++                                                                const uint8_t* GHOSTTY_NULLABLE,
 +                                                                size_t,
 +                                                                bool);
  GHOSTTY_API void ghostty_surface_process_exit(ghostty_surface_t, uint32_t, uint64_t);
  GHOSTTY_API void ghostty_surface_refresh(ghostty_surface_t);
  GHOSTTY_API void ghostty_surface_draw(ghostty_surface_t);
 diff --git a/src/App.zig b/src/App.zig
-index 840dac6ec..03320b0a5 100644
+index b207c78ae..ae35c65b4 100644
 --- a/src/App.zig
 +++ b/src/App.zig
 @@ -271,6 +271,15 @@ pub fn needsConfirmQuit(self: *const App) bool {
@@ -67,7 +69,7 @@ index 840dac6ec..03320b0a5 100644
                  log.info("quit message received, short circuiting mailbox drain", .{});
                  try self.performAction(rt_app, .quit);
                  return;
-@@ -525,6 +535,9 @@ fn surfaceMessage(self: *App, surface: *Surface, msg: apprt.surface.Message) !vo
+@@ -535,6 +545,9 @@ fn surfaceMessage(self: *App, surface: *Surface, msg: apprt.surface.Message) !vo
      // a simple linear search here.
      if (self.hasSurface(surface)) {
          try surface.handleMessage(msg);
@@ -78,7 +80,7 @@ index 840dac6ec..03320b0a5 100644
  
      // Window was not found, it probably quit before we handled the message.
 diff --git a/src/Surface.zig b/src/Surface.zig
-index 4947bc254..61842f849 100644
+index 7f71cdd50..dd72228b8 100644
 --- a/src/Surface.zig
 +++ b/src/Surface.zig
 @@ -101,6 +101,9 @@ renderer_thread: rendererpkg.Thread,
@@ -336,7 +338,7 @@ index 4947bc254..61842f849 100644
  fn balancePaddingIfNeeded(self: *Surface) void {
      if (self.config.window_padding_balance == .false) return;
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index bfe84c4dd..2d1b0bee5 100644
+index d8af80c37..2d0b9fb7e 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
 @@ -17,6 +17,7 @@ const internal_os = @import("../os/main.zig");
@@ -573,7 +575,7 @@ index 19d43f514..724290c80 100644
      // Render immediately
      _ = renderCallback(t, undefined, undefined, {});
 diff --git a/src/renderer/generic.zig b/src/renderer/generic.zig
-index df70aa3c7..c4af20c7f 100644
+index 8b44ba1af..0c59af5b4 100644
 --- a/src/renderer/generic.zig
 +++ b/src/renderer/generic.zig
 @@ -1085,6 +1085,24 @@ pub fn Renderer(comptime GraphicsAPI: type) type {
@@ -651,7 +653,7 @@ index 28fced985..5058442ac 100644
 +    try testing.expectEqual(set.generation(.alternate) +% 1, replacement.generation(.alternate));
  }
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index b0e4cfc0b..b4b30797b 100644
+index e4b615e50..d2c2098a1 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -13,6 +13,7 @@ const posix = std.posix;
@@ -662,7 +664,7 @@ index b0e4cfc0b..b4b30797b 100644
  const global = @import("../global.zig");
  const xev = global.xev;
  const renderer = @import("../renderer.zig");
-@@ -692,6 +693,169 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
+@@ -700,6 +701,169 @@ pub fn focusGained(self: *Termio, td: *ThreadData, focused: bool) !void {
      try self.backend.focusGained(td, focused);
  }
  
@@ -871,10 +873,10 @@ index 241687409..3cd602dff 100644
      /// start the timer so that the output mode is disabled after a
      /// period of time so that a bad actor can't hang the terminal.
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index 9b4123f5f..12383f6e9 100644
+index e8a3cdaa9..12c4b5d70 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
-@@ -166,7 +166,11 @@ pub const StreamHandler = struct {
+@@ -168,7 +168,11 @@ pub const StreamHandler = struct {
          // See termio.Mailbox.send for more details on how this works.
  
          // Try instant first. If it works then we can return.
@@ -887,7 +889,7 @@ index 9b4123f5f..12383f6e9 100644
              return;
          }
  
-@@ -184,7 +188,37 @@ pub const StreamHandler = struct {
+@@ -186,7 +190,37 @@ pub const StreamHandler = struct {
                  .{err},
              );
          };
@@ -926,7 +928,7 @@ index 9b4123f5f..12383f6e9 100644
      }
  
      pub fn vt(
-@@ -1978,6 +2012,110 @@ test "image storage enabled admits every image protocol" {
+@@ -2044,6 +2078,110 @@ test "image storage enabled admits every image protocol" {
      try testing.expect(imageProtocolAllowed(true, .glyph));
  }
  

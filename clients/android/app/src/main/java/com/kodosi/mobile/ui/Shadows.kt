@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.nativePaint
 import androidx.compose.ui.graphics.shadow.Shadow
 import kotlin.math.abs
 
@@ -72,5 +73,5 @@ private fun CacheDrawScope.shadowPaint(shadow: Shadow): Paint = Paint().apply {
     color = shadow.color.copy(alpha = shadow.color.alpha * shadow.alpha)
     blendMode = shadow.blendMode
     val radius = shadow.radius.toPx()
-    if (radius > 0f) asFrameworkPaint().maskFilter = BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL)
+    if (radius > 0f) nativePaint.maskFilter = BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL)
 }

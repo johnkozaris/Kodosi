@@ -1,7 +1,7 @@
-//! The records in `fixtures/claude` are what the link module sent from real sessions of Claude Code.
+//! The records in `fixtures/claude` are what the link module sends in real sessions of Claude Code.
 //! Those in `fixtures/codex` are the messages of Codex's app-server in real sessions, as the link
 //! gives them to the chat, without the messages that the chat does not read. Those in
-//! `fixtures/copilot` are what the extension sent from real sessions of Copilot CLI 1.0.115.
+//! `fixtures/copilot` are what the extension sends in real sessions of Copilot CLI 1.0.115.
 //! Those in `fixtures/antigravity` are the messages of `agy acp` 1.5.14 as `kodosi acp` gives them
 //! to the chat: signed out, and in sessions whose model was a local stand-in of the Gemini API
 //! (`GOOGLE_GEMINI_BASE_URL`) that answered with written calls and words.
@@ -13,9 +13,8 @@
 use serde_json::{Value, json};
 
 use super::{
-    acp,
-    agent::{Agent, Stop, shown_rule},
-    antigravity::Antigravity,
+    agent::{Agent, Places, Stop},
+    antigravity::{ASKING, Antigravity, SIGN_IN},
     claude::Claude,
     codex::Codex,
     copilot::Copilot,
@@ -62,15 +61,24 @@ struct Play {
 }
 
 impl Default for Play {
+    /// The records of Claude Code are of sessions in Sam's shop, whose folder the module reports
+    /// when it starts.
     fn default() -> Self {
-        Self::new(Box::new(Claude::default()))
+        let mut play = Self::new(Box::new(Claude::default()));
+        play.take(&json!({"k": "cwd", "cwd": "/home/sam/shop"}));
+        play
     }
 }
 
 impl Play {
+    /// A chat on Sam's computer.
     fn new(agent: Box<dyn Agent>) -> Self {
+        Self::at_home(agent, "/home/sam")
+    }
+
+    fn at_home(agent: Box<dyn Agent>, home: &str) -> Self {
         Self {
-            chat: Chat::default(),
+            chat: Chat::at_home(Some(home.to_owned())),
             agent,
             view: ChatSnapshot::default(),
             closed: Vec::new(),
@@ -91,10 +99,10 @@ impl Play {
         play
     }
 
-    /// Plays a record of Antigravity CLI's server from its start. Each question gets the next of
-    /// `answers`, and the person who answers is Sam.
+    /// Plays a record of Antigravity CLI's server on Ana's computer from its start. Each question
+    /// gets the next of `answers`, and the person who answers is Sam.
     fn antigravity(record: &str, answers: &[ChatAnswer]) -> Self {
-        let mut play = Self::new(Box::new(Antigravity::default()));
+        let mut play = Self::at_home(Box::new(Antigravity::default()), "/home/ana");
         play.answers_by = Some(sam());
         play.more(record, answers);
         play
@@ -402,12 +410,264 @@ fn the_words_of_a_refusal_go_to_the_agent_as_the_persons_and_the_change_shows_as
     assert_said_after_refusal(&play, "Do not change the file.");
 }
 
+/// The places of a chat whose agent reported `folder`, on a computer whose home folder is `home`.
+fn places(folder: Option<&str>, home: &str) -> Places {
+    let mut chat = Chat::at_home(Some(home.to_owned()));
+    chat.change_facts(|facts| facts.folder = folder.map(str::to_owned));
+    Places::of(&chat)
+}
+
 #[test]
-fn a_rule_for_an_absolute_path_names_only_its_folder() {
-    assert_eq!(shown_rule("//home/sam/shop/**"), "shop/**");
-    assert_eq!(shown_rule("/home/sam/shop"), "shop");
-    assert_eq!(shown_rule("~/work/notes/*.md"), "notes/*.md");
-    assert_eq!(shown_rule("npm test:*"), "npm test:*");
+fn a_file_shows_its_name_in_the_terminals_folder_and_its_place_elsewhere() {
+    let places = places(Some("/home/sam/shop"), "/home/sam");
+
+    for (path, shown) in [
+        ("/home/sam/shop/prices.json", "prices.json"),
+        ("/home/sam/shop/data/prices.json", "prices.json"),
+        ("data/prices.json", "prices.json"),
+        (
+            "/home/sam/Repos/Kodosi/prices.json",
+            "~/Repos/Kodosi/prices.json",
+        ),
+        ("/home/sam/shop-old/prices.json", "~/shop-old/prices.json"),
+        ("/home/sam/shop/../other/prices.json", "~/other/prices.json"),
+        ("../other/prices.json", "~/other/prices.json"),
+        ("/home/samuel/prices.json", "/home/samuel/prices.json"),
+        ("/etc/hosts", "/etc/hosts"),
+    ] {
+        assert_eq!(places.file(path), shown, "{path}");
+    }
+}
+
+#[test]
+fn without_the_terminals_folder_a_file_shows_from_the_home_folder_or_whole() {
+    let places = places(None, "/home/sam");
+
+    assert_eq!(
+        places.file("/home/sam/shop/prices.json"),
+        "~/shop/prices.json"
+    );
+    assert_eq!(places.file("/etc/hosts"), "/etc/hosts");
+}
+
+#[test]
+fn a_windows_path_is_in_the_terminals_folder_with_either_separator_and_any_case() {
+    let places = places(Some(r"C:\Users\Sam\shop"), r"C:\Users\Sam");
+
+    for (path, shown) in [
+        (r"c:\users\sam\SHOP\prices.json", "prices.json"),
+        ("C:/Users/Sam/shop/data/prices.json", "prices.json"),
+        (
+            r"C:\Users\Sam\Repos\Kodosi\prices.json",
+            r"~\Repos\Kodosi\prices.json",
+        ),
+        (r"D:\shop\prices.json", r"D:\shop\prices.json"),
+    ] {
+        assert_eq!(places.file(path), shown, "{path}");
+    }
+}
+
+#[test]
+fn a_rule_for_files_names_its_folder_as_a_file_shows() {
+    let places = places(Some("/home/sam/shop"), "/home/sam");
+
+    for (rule, shown) in [
+        ("//home/sam/shop/**", "shop/**"),
+        ("//home/sam/shop/src/**", "src/**"),
+        ("//home/sam/Repos/Kodosi/**", "~/Repos/Kodosi/**"),
+        ("~/work/notes/*.md", "~/work/notes/*.md"),
+        ("//etc/**", "/etc/**"),
+        ("src/**", "src/**"),
+    ] {
+        assert_eq!(places.rule(rule), shown, "{rule}");
+    }
+}
+
+/// A file in another folder with the name of a file in Sam's shop.
+const OTHER_PRICES: &str = "/home/sam/Repos/Kodosi/prices.json";
+
+#[test]
+fn claude_code_asks_for_a_file_of_another_folder_with_its_place() {
+    let record = [
+        json!({"k": "row", "uuid": "r1", "door": "response", "content": [
+            {"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/home/sam/shop/prices.json"}},
+            {"type": "tool_use", "id": "t2", "name": "Read", "input": {"file_path": OTHER_PRICES}},
+        ]}),
+        json!({"k": "ask", "ask": "a1", "call": "t2", "tool": "Read", "input": {"file_path": OTHER_PRICES},
+            "suggestions": [{"type": "addRules", "behavior": "allow", "destination": "session",
+                "rules": [{"toolName": "Read", "ruleContent": "//home/sam/Repos/Kodosi/**"}]}]}),
+        json!({"k": "ask", "ask": "a2", "tool": "Read", "input": {"file_path": OTHER_PRICES},
+            "suggestions": [{"type": "addDirectories", "directories": ["/home/sam/Repos/Kodosi/"]}]}),
+    ]
+    .map(|line| line.to_string())
+    .join("\n");
+    let play = Play::of(&record, &[]);
+
+    assert_eq!(
+        play.tools()
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        ["prices.json", "~/Repos/Kodosi/prices.json"]
+    );
+    let offers = play
+        .view
+        .asks
+        .iter()
+        .map(|ask| match &ask.body {
+            AskBody::Permission { tool, always, .. } => (tool.target.as_str(), always.clone()),
+            _ => panic!("the agent asks for a permission"),
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        offers,
+        [
+            (
+                "~/Repos/Kodosi/prices.json",
+                Some(AskAlways::Rule {
+                    tool: "Read".to_owned(),
+                    text: "~/Repos/Kodosi/**".to_owned()
+                })
+            ),
+            (
+                "~/Repos/Kodosi/prices.json",
+                Some(AskAlways::Folder {
+                    name: "~/Repos/Kodosi".to_owned()
+                })
+            ),
+        ]
+    );
+}
+
+#[test]
+fn codex_asks_for_a_change_of_a_file_of_another_folder_with_its_place() {
+    let turn = |item: Value| {
+        json!({"k": "note", "m": "item/started", "p": {
+            "threadId": "00000001-0000-7000-8000-000000000000", "turnId": "turn9", "item": item}})
+        .to_string()
+    };
+    let record = [
+        turn(json!({"type": "commandExecution", "id": "x1", "status": "inProgress",
+            "command": "/bin/zsh -lc 'cat prices.json ../Repos/Kodosi/prices.json'",
+            "commandActions": [
+                {"type": "read", "command": "cat prices.json", "name": "prices.json", "path": "/home/sam/shop/prices.json"},
+                {"type": "read", "command": "cat ../Repos/Kodosi/prices.json", "name": "prices.json", "path": OTHER_PRICES},
+            ]})),
+        turn(json!({"type": "fileChange", "id": "x2", "status": "inProgress",
+            "changes": [{"path": OTHER_PRICES, "kind": {"type": "update"}, "diff": "@@ -1 +1 @@\n-1\n+2\n"}]})),
+        json!({"k": "request", "id": 9, "m": "item/fileChange/requestApproval", "p": {
+            "threadId": "00000001-0000-7000-8000-000000000000", "turnId": "turn9", "itemId": "x2"}})
+        .to_string(),
+    ]
+    .join("\n");
+    let play = Play::codex(&[codex!("first"), &record], &[]);
+
+    let tools = play.tools();
+    assert_eq!(
+        tools[tools.len() - 2..]
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "prices.json, ~/Repos/Kodosi/prices.json",
+            "~/Repos/Kodosi/prices.json"
+        ]
+    );
+    let [ask] = &play.view.asks[..] else {
+        panic!("one question is open");
+    };
+    let AskBody::Permission { tool, always, .. } = &ask.body else {
+        panic!("the question asks for a permission");
+    };
+    assert_eq!(tool.target, "~/Repos/Kodosi/prices.json");
+    assert_eq!(
+        always,
+        &Some(AskAlways::Rule {
+            tool: "apply_patch".to_owned(),
+            text: "~/Repos/Kodosi/prices.json".to_owned()
+        })
+    );
+}
+
+#[test]
+fn copilot_asks_for_a_change_of_a_file_of_another_folder_with_its_place() {
+    let record = [
+        json!({"k": "event", "type": "tool.execution_start", "data": {
+            "toolCallId": "c1", "toolName": "view", "arguments": {"path": "prices.json"}}}),
+        json!({"k": "event", "type": "tool.execution_start", "data": {
+            "toolCallId": "c2", "toolName": "edit",
+            "arguments": {"path": OTHER_PRICES, "old_str": "1", "new_str": "2"}}}),
+        json!({"k": "ask", "ask": "a1", "request": {
+            "kind": "write", "toolCallId": "c2", "intention": "Update file", "fileName": OTHER_PRICES}}),
+    ]
+    .map(|line| line.to_string())
+    .join("\n");
+    let play = Play::copilot(&[&record], &[]);
+
+    assert_eq!(
+        play.tools()
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        ["prices.json", "~/Repos/Kodosi/prices.json"]
+    );
+    let [ask] = &play.view.asks[..] else {
+        panic!("one question is open");
+    };
+    assert!(matches!(
+        &ask.body,
+        AskBody::Permission { tool, .. } if tool.target == "~/Repos/Kodosi/prices.json"
+    ));
+}
+
+#[test]
+fn antigravity_asks_for_a_file_of_another_folder_with_its_place() {
+    let started = antigravity!("allow")
+        .lines()
+        .take_while(|line| !line.contains("session/request_permission"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let session = "ab05ead0-ed08-43b7-b547-d2d6bc449422";
+    let read = |id: &str, path: &str| {
+        json!({"sessionUpdate": "tool_call", "toolCallId": id, "name": "read_file",
+            "status": "pending", "kind": "read", "locations": [{"path": path}]})
+    };
+    let record = [
+        json!({"k": "note", "m": "session/update", "p": {"sessionId": session,
+            "update": read("g1", "/home/ana/work/prices.json")}}),
+        json!({"k": "request", "id": "9", "m": "session/request_permission", "p": {
+        "sessionId": session, "toolCall": read("g2", "/home/ana/Repos/Kodosi/prices.json"),
+        "options": [
+            {"optionId": "allow", "name": "Allow", "kind": "allow_once"},
+            {"optionId": "always", "name": "Always", "kind": "allow_always"},
+        ]}}),
+    ]
+    .map(|line| line.to_string())
+    .join("\n");
+    let play = Play::antigravity(&format!("{started}\n{record}"), &[]);
+
+    let tools = play.tools();
+    assert_eq!(
+        tools[tools.len() - 2..]
+            .iter()
+            .map(|tool| tool.target.as_str())
+            .collect::<Vec<_>>(),
+        ["prices.json", "~/Repos/Kodosi/prices.json"]
+    );
+    let [ask] = &play.view.asks[..] else {
+        panic!("one question is open");
+    };
+    let AskBody::Permission { tool, always, .. } = &ask.body else {
+        panic!("the question asks for a permission");
+    };
+    assert_eq!(tool.target, "~/Repos/Kodosi/prices.json");
+    assert_eq!(
+        always,
+        &Some(AskAlways::Rule {
+            tool: "read_file".to_owned(),
+            text: "~/Repos/Kodosi/prices.json".to_owned()
+        })
+    );
 }
 
 #[test]
@@ -1250,6 +1510,11 @@ fn codex_shows_its_first_turn_from_the_moment_its_server_lets_the_chat_follow() 
             .iter()
             .all(|call| call["p"]["threadId"] == "00000001-0000-7000-8000-000000000000")
     );
+    assert_eq!(
+        play.agent.conversation(),
+        Some("00000001-0000-7000-8000-000000000000"),
+        "the conversation that the terminal shows"
+    );
 }
 
 #[test]
@@ -1657,7 +1922,6 @@ fn a_message_of_the_chat_goes_to_codex_when_no_turn_runs_and_shows_with_its_pers
 }
 
 /// The first change of the chat that has what the test waits for.
-#[cfg(unix)]
 async fn change<T>(
     viewer: &mut crate::canvas::PipeEnds,
     wanted: impl Fn(&ChatChange) -> Option<T>,
@@ -1672,7 +1936,6 @@ async fn change<T>(
 }
 
 /// The messages of a record of Codex as its server sends them on a connection.
-#[cfg(unix)]
 fn server_says(record: &str) -> Vec<Value> {
     events(record)
         .into_iter()
@@ -1687,7 +1950,6 @@ fn server_says(record: &str) -> Vec<Value> {
 }
 
 /// The answer of a record to one call of the adapter.
-#[cfg(unix)]
 fn answer_of(record: &str, tag: &str) -> Value {
     events(record)
         .into_iter()
@@ -1701,7 +1963,6 @@ fn answer_of(record: &str, tag: &str) -> Value {
         .expect("the record has the answer")
 }
 
-#[cfg(unix)]
 #[tokio::test]
 async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_persons_decision_to_the_server()
  {
@@ -1710,7 +1971,7 @@ async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_person
 
     let chat = ChatHandle::spawn();
     let room = chat.jobs().upgrade().expect("the chat");
-    let (ours, theirs) = tokio::net::UnixStream::pair().expect("two connected sockets");
+    let (ours, theirs) = tokio::io::duplex(64 * 1024);
     let left = tokio_util::sync::CancellationToken::new();
     let link = tokio::spawn(codex_link::report(ours, room, left.clone()));
     let mut server = tokio_tungstenite::accept_async(theirs)
@@ -1807,14 +2068,140 @@ async fn the_link_of_codex_carries_the_servers_messages_to_the_chat_and_a_person
     .await;
 }
 
-#[test]
-fn codex_names_the_conversation_that_its_terminal_shows() {
-    let play = Play::codex(&[codex!("first")], &[]);
+#[cfg(unix)]
+#[tokio::test]
+async fn the_next_host_ends_a_server_of_codex_that_the_host_before_left() {
+    use std::{os::unix::net::UnixListener, time::Duration};
 
-    assert_eq!(
-        play.agent.conversation(),
-        Some("00000001-0000-7000-8000-000000000000")
+    const NAME: &str =
+        "chat::tests::the_next_host_ends_a_server_of_codex_that_the_host_before_left";
+    const LEFT: &str = "KODOSI_TEST_LEFT_SERVER";
+    if let Some(address) = std::env::var_os(LEFT) {
+        let _server = UnixListener::bind(address).expect("the address is free");
+        std::thread::sleep(Duration::from_secs(60));
+        return;
+    }
+    let folder = tempfile::tempdir().expect("a folder");
+    let server = folder.path().join("codex-0123456789abcdef-s.sock");
+    let closed = folder.path().join("codex-0123456789abcdef.sock");
+    let other = folder.path().join("agents.sock");
+    drop(UnixListener::bind(&closed).expect("the address is free"));
+    std::fs::write(&other, "").expect("a file");
+    let mut left = tokio::process::Command::new(std::env::current_exe().expect("this program"))
+        .args(["--exact", NAME, "--test-threads=1"])
+        .env(LEFT, &server)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .process_group(0)
+        .kill_on_drop(true)
+        .spawn()
+        .expect("the server starts");
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while tokio::net::UnixStream::connect(&server).await.is_err() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the server takes programs");
+
+    codex_link::end_left_servers(folder.path()).await;
+
+    tokio::time::timeout(Duration::from_secs(10), left.wait())
+        .await
+        .expect("the server ended")
+        .expect("the server was a child");
+    assert!(!server.exists(), "the address of the server is free again");
+    assert!(
+        !closed.exists(),
+        "the address that the earlier host served is gone"
     );
+    assert!(other.exists(), "the other addresses of the folder stay");
+}
+
+/// A greeting of Claude Code's module, sent at an address of the agents' links, and the first
+/// line of the host's answer.
+async fn greet<S>(mut stream: S, terminal: uuid::Uuid) -> String
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+
+    let body = json!({
+        "v": claude::VERSION,
+        "terminal": terminal.to_string(),
+        "link": "greeting",
+        "batch": 1,
+        "events": [{
+            "k": "hello",
+            "t": 1,
+            "agent": "claude",
+            "session": "11111111-1111-4111-8111-111111111111",
+        }],
+    })
+    .to_string();
+    let request = format!(
+        "POST /v1/events HTTP/1.1\r\nhost: kodosi\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+        body.len()
+    );
+    stream
+        .write_all(request.as_bytes())
+        .await
+        .expect("the host reads");
+    let mut answer = vec![0; 256];
+    let read = tokio::time::timeout(std::time::Duration::from_secs(5), stream.read(&mut answer))
+        .await
+        .expect("the host answers in time")
+        .expect("the host answers");
+    String::from_utf8_lossy(&answer[..read])
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .to_owned()
+}
+
+async fn linked(chat: &TerminalChat) {
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        chat.handle.linked().wait_for(Option::is_some),
+    )
+    .await
+    .expect("the chat follows the agent in time")
+    .expect("the chat is there");
+}
+
+fn address<'a>(chat: &'a TerminalChat, variable: &str) -> Option<&'a str> {
+    chat.variables
+        .iter()
+        .find(|(name, _)| *name == variable)
+        .map(|(_, address)| address.as_str())
+}
+
+#[tokio::test]
+async fn an_agent_reaches_the_chat_of_its_terminal_at_the_addresses_that_the_terminal_names() {
+    let root = tempfile::tempdir().expect("a data root");
+    let links = Links::serve(root.path()).await;
+
+    let terminal = uuid::Uuid::now_v7();
+    let chat = links.room(terminal);
+    let file = address(&chat, LINK_VARIABLE).expect("the terminal names its socket file");
+    let stream = kodosi_os::ipc::connect_file(std::path::Path::new(file))
+        .await
+        .expect("the host serves the socket file");
+    assert_eq!(greet(stream, terminal).await, "HTTP/1.1 204 No Content");
+    linked(&chat).await;
+
+    let terminal = uuid::Uuid::now_v7();
+    let chat = links.room(terminal);
+    let pipe = address(&chat, PIPE_VARIABLE);
+    assert_eq!(pipe.is_some(), cfg!(windows));
+    #[cfg(windows)]
+    {
+        let stream = tokio::net::windows::named_pipe::ClientOptions::new()
+            .open(pipe.expect("the terminal names its pipe"))
+            .expect("the host serves the pipe");
+        assert_eq!(greet(stream, terminal).await, "HTTP/1.1 204 No Content");
+        linked(&chat).await;
+    }
 }
 
 #[test]
@@ -2580,7 +2967,7 @@ fn a_signed_out_antigravity_signs_in_with_its_own_steps_in_its_terminal() {
             ..
         }]
     ));
-    assert_eq!(calls(&play, acp::SIGN_IN).len(), 1);
+    assert_eq!(calls(&play, SIGN_IN).len(), 1);
     assert_eq!(play.view.facts.version.as_deref(), Some("1.5.14"));
     assert_eq!(play.view.state, ChatState::Idle);
 }
@@ -2629,6 +3016,48 @@ fn a_person_allows_a_command_and_a_file_of_antigravity_in_the_chat() {
     assert_eq!(
         (facts.model.as_deref(), facts.effort.as_deref(), facts.mode),
         (Some("gemini-3.1-pro"), Some("low"), Some(ChatMode::Ask))
+    );
+}
+
+#[test]
+fn a_call_that_runs_keeps_its_item_when_the_adapter_forgets_older_calls() {
+    let (session, _) = split_at(antigravity!("allow"), "\"prompt\"");
+    let call = |id: &str, mut update: Value| {
+        update["toolCallId"] = json!(id);
+        json!({"k": "note", "m": "session/update", "p": {
+            "sessionId": "ab05ead0-ed08-43b7-b547-d2d6bc449422", "update": update}})
+        .to_string()
+    };
+    let done = json!({"sessionUpdate": "tool_call", "name": "run_command", "kind": "execute",
+        "status": "completed", "title": "ls"});
+    let mut record = vec![session];
+    record.extend((0..2047).map(|n| call(&format!("c{n}"), done.clone())));
+    record.push(call(
+        "long",
+        json!({"sessionUpdate": "tool_call", "name": "run_command", "kind": "execute",
+            "status": "in_progress", "title": "sleep 60"}),
+    ));
+    record.push(call("next", done));
+    record.push(call(
+        "long",
+        json!({"sessionUpdate": "tool_call_update", "status": "completed"}),
+    ));
+
+    let play = Play::antigravity(&record.join("\n"), &[]);
+
+    let tools = play.tools();
+    assert_eq!(
+        tools
+            .iter()
+            .filter(|tool| tool.target == "sleep 60")
+            .map(|tool| tool.state)
+            .collect::<Vec<_>>(),
+        [ToolState::Done]
+    );
+    assert_eq!(
+        tools.last().map(|tool| tool.target.as_str()),
+        Some("ls"),
+        "the end of the call that ran changed its own item"
     );
 }
 
@@ -2716,7 +3145,7 @@ fn antigravity_asks_its_own_question_in_the_chat_and_the_answer_is_its_next_mess
         Vec::<&str>::new(),
         "the agent's own words of the question show once, as the question"
     );
-    assert_eq!(calls(&play, acp::ASKING).len(), 1);
+    assert_eq!(calls(&play, ASKING).len(), 1);
 
     let rust = vec![vec!["(Recommended) Rust".to_owned()]];
     play.more(&after, &[ChatAnswer::Answers { answers: rust }]);
@@ -2745,7 +3174,7 @@ fn a_message_in_the_chat_answers_the_open_question_of_antigravity_once() {
 
     assert_eq!(play.view.asks, []);
     assert_eq!(
-        calls(&play, acp::ASKING).len(),
+        calls(&play, ASKING).len(),
         1,
         "the agent's news of the question that it takes asks nothing again"
     );

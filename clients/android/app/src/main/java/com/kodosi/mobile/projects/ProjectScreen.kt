@@ -31,7 +31,7 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.computedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -277,7 +277,7 @@ private fun Conversation(
     var earlier by remember { mutableStateOf(false) }
     val scroll = rememberLazyListState()
     val messages = snapshot?.messages.orEmpty()
-    val following by remember { derivedStateOf { !scroll.canScrollBackward } }
+    val following by remember { computedStateOf { !scroll.canScrollBackward } }
     LifecycleResumeEffect(projectId, following) {
         if (following) {
             model.projects.reading = projectId

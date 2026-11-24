@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::{KodosiError, Result};
 
@@ -7,11 +7,19 @@ mod prompt_marks;
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
-pub use unix::{KodosiPty, ProcessStart, PtyReader, open_files, process_group, process_start};
+pub use unix::{KodosiPty, PtyReader, open_files, process_group, process_start};
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use windows::{KodosiPty, PtyReader};
+pub use windows::{KodosiPty, PtyReader, process_start};
+
+/// What a running process of this user started with.
+pub struct ProcessStart {
+    pub program: PathBuf,
+    pub arguments: Vec<String>,
+    pub variables: Vec<(String, String)>,
+    pub directory: PathBuf,
+}
 
 /// Windows has no process groups; its foreground observation names the agent's process.
 #[cfg(windows)]
@@ -21,7 +29,7 @@ pub const fn process_group(_pid: u32) -> Option<u32> {
 
 /// Kodosi does not read the open files of a process on Windows.
 #[cfg(windows)]
-pub const fn open_files(_group: u32) -> Option<Vec<std::path::PathBuf>> {
+pub const fn open_files(_group: u32) -> Option<Vec<PathBuf>> {
     None
 }
 

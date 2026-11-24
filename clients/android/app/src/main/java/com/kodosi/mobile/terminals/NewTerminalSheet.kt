@@ -36,8 +36,9 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetProperties
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -135,7 +136,6 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
     var failure by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
-    val unnamed = stringResource(R.string.new_terminal)
     val fading = fade<Float>()
     LaunchedEffect(launcher, attempt, account.online) {
         if (launcher == null || !account.online) return@LaunchedEffect
@@ -153,7 +153,10 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
     }
     ModalBottomSheet(
         onDismissRequest = { if (!busy) dismiss() },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+        ),
         sheetMaxWidth = 600.dp,
         sheetGesturesEnabled = !busy,
         properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !busy, shouldDismissOnClickOutside = !busy),
@@ -265,7 +268,7 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                                     ListButton(onClick = { browsing = true }, enabled = !busy) {
                                         ListLine(
                                             stringResource(R.string.folder),
-                                            subtitle = folder ?: state.folders?.home ?: "~",
+                                            subtitle = folder?.let { state.folders?.shown(it) ?: it } ?: "~",
                                             leading = { IconTile(AppSymbol.FOLDER, TileTint.teal) }
                                         ) {
                                             AppIcon(AppSymbol.FORWARD, Modifier.size(11.dp), tint = colors.inkFaint)
@@ -306,7 +309,6 @@ fun NewTerminalSheet(model: AppModel, request: NewTerminalRequest, dismiss: () -
                                 scope.launch {
                                     try {
                                         launcher.start(
-                                            unnamed,
                                             folder,
                                             prompt.text.toString(),
                                             request.project
@@ -616,7 +618,7 @@ private fun FolderChoices(
         LazyColumn(Modifier.weight(1f).padding(horizontal = 20.dp)) {
             item {
                 Text(
-                    folders?.path.orEmpty(),
+                    folders?.let { it.shown(it.path) }.orEmpty(),
                     style = KodosiType.mono,
                     color = KodosiTheme.colors.inkMuted,
                     modifier = Modifier.padding(vertical = 12.dp),
@@ -632,7 +634,7 @@ private fun FolderChoices(
                         MenuPicker(
                             stringResource(R.string.recent_folders),
                             stringResource(R.string.browse_folders),
-                            folders.recent.map { it to it },
+                            folders.recent.map { it to folders.shown(it) },
                             leading = { AppIcon(AppSymbol.FOLDER) },
                             choose = load
                         )

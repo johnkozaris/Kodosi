@@ -1,8 +1,8 @@
 diff --git a/include/ghostty.h b/include/ghostty.h
-index c7eaf194e..39f478712 100644
+index 3d5d8adf7..4a067e9ec 100644
 --- a/include/ghostty.h
 +++ b/include/ghostty.h
-@@ -1256,6 +1256,7 @@ GHOSTTY_API void ghostty_surface_complete_clipboard_request(
+@@ -1286,6 +1286,7 @@ GHOSTTY_API void ghostty_surface_complete_clipboard_request(
      void*);
  GHOSTTY_API void ghostty_surface_deny_clipboard_request(ghostty_surface_t,
                                                             void*);
@@ -11,10 +11,10 @@ index c7eaf194e..39f478712 100644
  GHOSTTY_API bool ghostty_surface_read_selection(ghostty_surface_t, ghostty_text_s*);
  GHOSTTY_API bool ghostty_surface_read_text(ghostty_surface_t,
 diff --git a/src/apprt/embedded.zig b/src/apprt/embedded.zig
-index 0a7a30210..bfe84c4dd 100644
+index 008a324cc..d8af80c37 100644
 --- a/src/apprt/embedded.zig
 +++ b/src/apprt/embedded.zig
-@@ -2432,6 +2432,13 @@ pub const CAPI = struct {
+@@ -2434,6 +2434,13 @@ pub const CAPI = struct {
          ptr.denyClipboardRequest(state);
      }
  
@@ -29,7 +29,7 @@ index 0a7a30210..bfe84c4dd 100644
          return ptr.initInspector() catch |err| {
              log.err("error initializing inspector err={}", .{err});
 diff --git a/src/termio/Termio.zig b/src/termio/Termio.zig
-index 0a0549c12..b0e4cfc0b 100644
+index 49bd6e0cd..e4b615e50 100644
 --- a/src/termio/Termio.zig
 +++ b/src/termio/Termio.zig
 @@ -322,6 +322,7 @@ pub fn init(self: *Termio, alloc: Allocator, opts: termio.Options) !void {
@@ -41,7 +41,7 @@ index 0a0549c12..b0e4cfc0b 100644
          .enquiry_response = opts.config.enquiry_response,
          .xt_checksum_report = opts.config.xt_checksum_report,
 diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
-index c5c1169d9..9b4123f5f 100644
+index 6aa36c49b..e8a3cdaa9 100644
 --- a/src/termio/stream_handler.zig
 +++ b/src/termio/stream_handler.zig
 @@ -51,6 +51,9 @@ pub const StreamHandler = struct {
@@ -62,7 +62,7 @@ index c5c1169d9..9b4123f5f 100644
          self.clipboard_write_limit = config.clipboard_write_limit;
          self.enquiry_response = config.enquiry_response;
          self.xt_checksum_report = config.xt_checksum_report;
-@@ -511,6 +515,7 @@ pub const StreamHandler = struct {
+@@ -521,6 +525,7 @@ pub const StreamHandler = struct {
          switch (result) {
              .unknown => return,
              .kitty => |*kitty_cmd| {
@@ -70,7 +70,7 @@ index c5c1169d9..9b4123f5f 100644
                  if (self.terminal.kittyGraphics(global.io(), self.alloc, kitty_cmd)) |resp| {
                      var buf: [1024]u8 = undefined;
                      var writer: std.Io.Writer = .fixed(&buf);
-@@ -524,6 +529,7 @@ pub const StreamHandler = struct {
+@@ -534,6 +539,7 @@ pub const StreamHandler = struct {
              },
  
              .glyph => |*glyph_req| {
@@ -78,9 +78,9 @@ index c5c1169d9..9b4123f5f 100644
                  const resp = self.terminal.glyphProtocol(self.alloc, glyph_req);
                  switch (glyph_req.*) {
                      .register, .clear => try self.queueRender(),
-@@ -1947,6 +1953,31 @@ pub const StreamHandler = struct {
-     }
- };
+@@ -2013,6 +2019,31 @@ test "osc7Host requires a host" {
+     try testing.expectError(error.UriMissingHost, osc7Host(uri, &buf));
+ }
  
 +const ImageProtocol = enum {
 +    kitty,

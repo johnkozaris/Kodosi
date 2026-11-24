@@ -100,7 +100,7 @@ class CanvasStoreTest {
 
     @Test
     fun aChangedFileCreatesNewsOnceWithoutAnExplicitShow() {
-        val terminal = session.copy(canvas = Canvas(1, listOf(item), change = CanvasOpen(item.key, Long.MAX_VALUE - 1)))
+        val terminal = session.copy(canvas = Canvas(listOf(item), change = CanvasOpen(item.key, Long.MAX_VALUE - 1)))
 
         store.observe(listOf(terminal))
         assertEquals(mapOf("terminal" to item.key), store.news.value)
@@ -118,7 +118,7 @@ class CanvasStoreTest {
     @Test
     fun explicitOpensReopenTheNewestClosedPartButRespectAChosenPart() {
         val browser = CanvasBrowser("sleeping", 2)
-        val canvas = Canvas(1, listOf(item), browser)
+        val canvas = Canvas(listOf(item), browser)
         assertEquals("browser", canvas.openKey(null, setOf("files", "browser")))
         assertEquals("file", canvas.openKey(null, setOf("browser")))
         assertEquals("browser", canvas.openKey("browser", setOf("browser")))
@@ -128,7 +128,7 @@ class CanvasStoreTest {
     @Test
     fun theFilesPartShowsTheChosenFileElseTheNewestAlsoAfterTheBrowserShowed() {
         val newer = item.copy(key = "newer", name = "notes.txt", changed = 5)
-        val canvas = Canvas(1, listOf(item, newer), CanvasBrowser("running", 9))
+        val canvas = Canvas(listOf(item, newer), CanvasBrowser("running", 9))
         assertEquals(item, canvas.shownFile("file"))
         assertEquals(newer, canvas.shownFile("browser"))
         assertEquals(newer, canvas.shownFile("removed"))
@@ -137,11 +137,11 @@ class CanvasStoreTest {
     @Test
     fun closedPartsStayClosedAcrossSnapshotsUntilTheirOwnContentChanges() {
         val browser = CanvasBrowser("sleeping", 2)
-        val canvas = Canvas(1, listOf(item), browser)
+        val canvas = Canvas(listOf(item), browser)
         val preferences = Preferences(
             closedCanvas = setOf("terminal/files/0", "terminal/browser/2", "other/files/0")
         )
-        assertEquals(setOf("files", "browser"), preferences.closedCanvasParts("terminal", canvas.copy(sequence = 2)))
+        assertEquals(setOf("files", "browser"), preferences.closedCanvasParts("terminal", canvas))
         assertEquals(
             setOf("browser"),
             preferences.closedCanvasParts("terminal", canvas.copy(items = listOf(item.copy(changed = 3))))

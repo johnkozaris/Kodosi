@@ -126,7 +126,7 @@ fun TerminalsScreen(
                         )
                     }
                 }
-                for ((folder, entries) in terminals.groupBy { it.workingDir }) {
+                for ((folder, entries) in TerminalCatalog.folders(terminals)) {
                     val key = "${group.place.id}/$host/$folder"
                     if (folder != null) {
                         item(key = "folder-$key") {
@@ -160,9 +160,14 @@ fun TerminalsScreen(
                     }
                     if (key !in folded || query.text.isNotBlank()) {
                         items(entries, key = { it.id }) { session ->
-                            TerminalCard(session, online, summaryFirst = summaryFirst, onClick = {
-                                open(session.id)
-                            }, modifier = Modifier.animateItem(fade(), snappy(), fade()).padding(vertical = 5.dp))
+                            TerminalCard(
+                                session,
+                                online,
+                                summaryFirst = summaryFirst,
+                                showsFolder = false,
+                                onClick = { open(session.id) },
+                                modifier = Modifier.animateItem(fade(), snappy(), fade()).padding(vertical = 5.dp)
+                            )
                         }
                     }
                 }
@@ -232,13 +237,15 @@ private fun GroupHeader(group: TerminalGroup, start: (() -> Unit)?, modifier: Mo
     }
 }
 
+/** Without [showsFolder], for a list in folders, the second line names the agent rather than the folder. */
 @Composable
 fun TerminalCard(
     session: RuntimeSession,
     online: Boolean,
     summaryFirst: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showsFolder: Boolean = true
 ) {
     val colors = KodosiTheme.colors
     val sign = session.sign()
@@ -267,7 +274,7 @@ fun TerminalCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                TerminalCaption(session, online, detail)
+                TerminalCaption(session, online, detail, showsFolder)
             }
             Spacer(Modifier.width(8.dp))
             when {
@@ -301,13 +308,23 @@ internal fun RuntimeSession.cardLines(online: Boolean, summaryFirst: Boolean): P
 }
 
 @Composable
-fun TerminalCaption(session: RuntimeSession, online: Boolean, detail: String? = session.activity) {
-    val (words, color) = captionOf(session, online, detail)
+fun TerminalCaption(
+    session: RuntimeSession,
+    online: Boolean,
+    detail: String? = session.activity,
+    showsFolder: Boolean = true
+) {
+    val (words, color) = captionOf(session, online, detail, showsFolder)
     Text(words, style = KodosiType.footnote, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
-fun captionOf(session: RuntimeSession, online: Boolean, detail: String? = session.activity): Pair<String, Color> {
+fun captionOf(
+    session: RuntimeSession,
+    online: Boolean,
+    detail: String? = session.activity,
+    showsFolder: Boolean = true
+): Pair<String, Color> {
     val colors = KodosiTheme.colors
     return when (session.captionState(online)) {
         CaptionState.OFFLINE -> stringResource(R.string.offline) to colors.caution
@@ -320,7 +337,7 @@ fun captionOf(session: RuntimeSession, online: Boolean, detail: String? = sessio
 
         CaptionState.NOTICE -> session.message.orEmpty() to colors.caution
 
-        null -> (detail ?: session.folderName ?: agentLabel(session.agent)) to
+        null -> (detail ?: session.folderName.takeIf { showsFolder } ?: agentLabel(session.agent)) to
             if (detail == null) colors.inkFaint else colors.inkMuted
     }
 }

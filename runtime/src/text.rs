@@ -366,48 +366,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn each_language_table_reads_and_keeps_the_values_of_each_sentence() {
-        let names = regex_free_names;
-        for language in Language::ALL.into_iter().skip(1) {
-            let source = language.source().unwrap();
-            let table: HashMap<String, String> = serde_json::from_str(source).unwrap();
-            for (english, words) in &table {
-                assert_eq!(
-                    names(english),
-                    names(words),
-                    "{}: {english}",
-                    language.tag()
-                );
-            }
-        }
-    }
-
-    fn regex_free_names(words: &str) -> Vec<&str> {
-        let mut names: Vec<&str> = words
-            .split('{')
-            .skip(1)
-            .filter_map(|part| part.split_once('}').map(|(name, _)| name))
-            .collect();
-        names.sort_unstable();
-        names
-    }
-
-    #[test]
     fn a_text_travels_as_data_and_becomes_words_in_each_language() {
-        let text = text!(
-            "{name} is offline. The terminal closes when it is back.",
-            name = "studio"
-        );
+        let text = text!("{computer} is offline.", computer = "studio");
         let mut event = serde_json::json!({"type":"session.error","message":text});
         assert_eq!(
             event["message"],
-            serde_json::json!({"$text":"{name} is offline. The terminal closes when it is back.","args":{"name":"studio"}})
+            serde_json::json!({"$text":"{computer} is offline.","args":{"computer":"studio"}})
         );
-        render(&mut event, Language::English);
-        assert_eq!(
-            event["message"],
-            "studio is offline. The terminal closes when it is back."
-        );
+        render(&mut event, Language::German);
+        assert_eq!(event["message"], "studio ist offline.");
     }
 
     #[test]

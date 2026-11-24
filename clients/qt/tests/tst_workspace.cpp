@@ -1339,7 +1339,6 @@ private slots:
         QVERIFY(!sent.contains(QStringLiteral("command")));
         QCOMPARE(sent.value(QStringLiteral("agent")).toObject(), QJsonObject::fromVariantMap(agent));
         QCOMPARE(sent.value(QStringLiteral("prompt")).toString(), QStringLiteral("fix the test"));
-        QVERIFY(!sent.value(QStringLiteral("name")).toString().isEmpty());
     }
     void aTerminalOnANewBranchSendsTheBranchAndTheChosenFolder()
     {
@@ -1373,8 +1372,17 @@ private slots:
         QVERIFY(actions.create(QStringLiteral("Work"), QStringLiteral("/repo")));
         QVERIFY(!f.commands.values.last().contains(QStringLiteral("branch")));
         QVERIFY(!f.commands.values.last().contains(QStringLiteral("worktrees")));
-        const auto suggested = actions.suggestedBranch();
-        QVERIFY(!suggested.isEmpty() && !suggested.contains(QLatin1Char(' ')) && suggested == suggested.toLower());
+
+        QSignalSpy suggested(&actions, &kodosi::SessionActionsModel::branchSuggested);
+        actions.suggestBranch();
+        const auto asked = f.commands.values.last();
+        QCOMPARE(asked.value(QStringLiteral("type")).toString(), QStringLiteral("session.suggestBranch"));
+        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("session.result") },
+            { QStringLiteral("requestId"), asked.value(QStringLiteral("requestId")) },
+            { QStringLiteral("operation"), QStringLiteral("session.suggestBranch") },
+            { QStringLiteral("branch"), QStringLiteral("amber-fox") } }, 0);
+        QCOMPARE(suggested.size(), 1);
+        QCOMPARE(suggested.first().first().toString(), QStringLiteral("amber-fox"));
     }
     void startupLinkSurvivesEmptyCatalogAndSignIn()
     {
@@ -1964,19 +1972,10 @@ private slots:
         QCOMPARE(command.value(QStringLiteral("userIds")).toArray().size(), 1);
         QVERIFY(!f.workspace.sessionActions().share(test::id(2), { test::id(51) }));
         QVERIFY(f.workspace.sessionActions().attachProject(test::id(2), test::id(10)));
-        f.workspace.devices().approve(QStringLiteral("ABCD-EFGH-JKMN"));
-        command = f.commands.values.last();
-        QCOMPARE(command.value(QStringLiteral("code")).toString(), QStringLiteral("ABCD-EFGH-JKMN"));
         f.workspace.people().verify(QStringLiteral("friend"), QStringLiteral(" kodosi:friend:abcd \n"));
         command = f.commands.values.last();
         QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("friends.verify"));
         QCOMPARE(command.value(QStringLiteral("invite")).toString(), QStringLiteral("kodosi:friend:abcd"));
-        f.workspace.people().trust(QStringLiteral("friend"));
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
-            QStringLiteral("friends.identity.trust"));
-        f.workspace.account().deleteAccount();
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("type")).toString(),
-            QStringLiteral("auth.deleteAccount"));
         const QJsonObject invite { { QStringLiteral("type"), QStringLiteral("friends.result") },
             { QStringLiteral("operation"), QStringLiteral("friends.invite") },
             { QStringLiteral("text"), QStringLiteral("kodosi:owner:abcd") },

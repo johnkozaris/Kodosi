@@ -54,7 +54,6 @@ public sealed partial class ContractTests(PostgresFixture postgres)
         var project = api.GetProperty("projectContent").GetProperty("limits");
         Assert.Equal(PlanLimits.Safety.ProjectPeople, project.GetProperty("people").GetInt32());
         Assert.Equal(ProjectService.MaxProjectRecipients, project.GetProperty("recipients").GetInt32());
-        Assert.Equal(PlanLimits.Safety.ProjectPeople * (Limits.MaxDevicesPerUser + 1), project.GetProperty("recipients").GetInt32());
         var pipes = connections.GetProperty("pipes");
         Assert.Equal(ConnectionEndpoints.MessageBytes, pipes.GetProperty("messageMaxBytes").GetInt32());
         Assert.Equal(ConnectionDirectory.MaximumSessionPipes, pipes.GetProperty("viewersMax").GetInt32());

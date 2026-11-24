@@ -625,6 +625,7 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
     init {
         isFocusable = true
         isFocusableInTouchMode = true
+        defaultFocusHighlightEnabled = false
     }
 
     private fun fit() {

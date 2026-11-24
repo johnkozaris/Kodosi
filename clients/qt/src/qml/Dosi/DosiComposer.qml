@@ -104,11 +104,9 @@ Item {
 
             Behavior on height { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
 
-            Raised {
+            ComposerBox {
                 anchors.fill: parent
-                radius: 20
-                fill: KodosiTheme.lifted
-                elevation: root.focused ? 2 : 1
+                focused: root.focused
                 opacity: boxSpot.hidden ? 0 : 1
 
                 FoldSpot {
@@ -119,16 +117,6 @@ Item {
                     fill: KodosiTheme.lifted
                     radius: 20
                 }
-            }
-            Rectangle {
-                anchors.fill: parent
-                radius: 20
-                color: "transparent"
-                border.width: 1.5
-                border.color: KodosiTheme.mix(KodosiTheme.accent, KodosiTheme.lifted, 0.5)
-                opacity: root.focused ? 1 : 0
-
-                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionHover } }
             }
             TapHandler {
                 onTapped: field.forceActiveFocus()
@@ -218,85 +206,24 @@ Item {
                     implicitWidth: 30
                     implicitHeight: 30
 
-                    AbstractButton {
-                        id: stop
-
+                    StopKey {
                         anchors.fill: parent
                         visible: opacity > 0
                         opacity: root.stops ? 1 : 0
-                        scale: root.stops ? (pressed ? 0.95 : 1) : 0.9
-                        hoverEnabled: true
                         objectName: "dosi.stop"
                         Accessible.id: objectName
-                        Accessible.name: qsTr("Stop")
-                        ToolTip.visible: hovered
-                        ToolTip.text: Models.Shortcuts.hints.stopDosi ? qsTr("Stop (%1)").arg(Models.Shortcuts.hints.stopDosi) : qsTr("Stop")
-                        ToolTip.delay: Tip.delay
+                        ToolTip.text: Models.Shortcuts.hints.stopDosi ? qsTr("Stop (%1)").arg(Models.Shortcuts.hints.stopDosi) : Accessible.name
                         onClicked: Models.Dosi.stop()
 
                         Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
-                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionSpring; easing.type: Easing.OutBack; easing.overshoot: KodosiTheme.overshoot } }
-
-                        background: Bezel {
-                            radius: 15
-                            quiet: true
-                            pressed: stop.pressed
-                            fill: KodosiTheme.buttonFace(stop.hovered)
-                        }
-                        contentItem: Item {
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: 9
-                                height: 9
-                                radius: 2
-                                color: KodosiTheme.ink
-                            }
-                        }
                     }
-                    AbstractButton {
-                        id: send
-
+                    SendKey {
                         anchors.fill: parent
                         visible: !root.stops
-                        enabled: root.typed
-                        scale: pressed ? 0.95 : 1
-                        hoverEnabled: true
+                        ready: root.typed
                         objectName: "dosi.send"
                         Accessible.id: objectName
-                        Accessible.name: qsTr("Send")
-                        ToolTip.visible: hovered && root.typed
-                        ToolTip.text: qsTr("Send")
-                        ToolTip.delay: Tip.delay
                         onClicked: Models.Dosi.send()
-
-                        Behavior on scale { NumberAnimation { duration: KodosiTheme.motionHover; easing.type: Easing.OutCubic } }
-
-                        background: Item {
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 15
-                                color: KodosiTheme.mix(KodosiTheme.lifted, KodosiTheme.ink, 0.08)
-                            }
-                            Bezel {
-                                anchors.fill: parent
-                                radius: 15
-                                pressed: send.pressed
-                                fill: send.hovered ? KodosiTheme.accentHover : KodosiTheme.accent
-                                opacity: root.typed ? 1 : 0
-
-                                Behavior on opacity { NumberAnimation { duration: KodosiTheme.motionSnappy } }
-                            }
-                        }
-                        contentItem: Item {
-                            KIcon {
-                                anchors.centerIn: parent
-                                width: 14
-                                height: 14
-                                name: "send"
-                                strokeWidth: 2.6
-                                color: root.typed ? KodosiTheme.accentInk : KodosiTheme.inkFaint
-                            }
-                        }
                     }
                 }
             }

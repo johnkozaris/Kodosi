@@ -12,17 +12,17 @@ use serde_json::{Map, Value, json};
 
 use super::{
     AskAlways, AskBody, ChatAnswer, ChatAsk, ChatBody, ChatContext, ChatMode, ChatNote, ChatNow,
-    ChatOption, ChatPerson, ChatQuestion, ChatState, ChatStep, ChatTask, ChatTool, MOST_OUTPUT,
-    MOST_TARGET, MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
+    ChatOption, ChatPerson, ChatQuestion, ChatStep, ChatTask, ChatTool, MOST_OUTPUT, MOST_TARGET,
+    MOST_TEXT, PlanChoice, TaskState, ToolDetail, ToolKind, ToolState, TurnEnd,
     agent::{
-        Agent, Stop, answer, file_name, list, now, person, plan_command, stop_open, text, words,
+        Agent, Places, Stop, answer, list, person, plan_command, remember, show_state, stop_open,
+        text, words,
     },
     diff,
     state::{Chat, ends_of, start_of},
 };
 
 pub(crate) const EXTENSION: &str = include_str!("../../links/copilot.mjs");
-const MOST_ITEMS: usize = 2048;
 const MOST_HELPERS: usize = 256;
 const MOST_SAID: usize = 400;
 const MOST_FIELDS: usize = 8;
@@ -127,15 +127,7 @@ impl Copilot {
             .filter(|helper| helper.working)
             .count();
         chat.change_facts(|facts| facts.helpers = u32::try_from(helpers).unwrap_or(u32::MAX));
-        if !self.linked {
-            chat.set_state(ChatState::Away, None);
-        } else if !chat.asks().is_empty() {
-            chat.set_state(ChatState::Asking, None);
-        } else if self.turn.is_some() {
-            chat.set_state(ChatState::Working, self.now.clone());
-        } else {
-            chat.set_state(ChatState::Idle, None);
-        }
+        show_state(chat, self.linked, self.turn.is_some(), self.now.clone());
     }
 
     fn hello(&mut self, chat: &mut Chat, event: &Value) -> Vec<String> {
@@ -209,7 +201,7 @@ impl Copilot {
                 let id = text(data, "messageId");
                 if !id.is_empty() && !self.items.contains_key(id) {
                     let item = chat.push(at, answer("", true));
-                    self.remember(chat, id, item);
+                    remember(&mut self.items, chat, id, item);
                 }
                 self.now = Some(ChatNow::Writing);
             }
@@ -220,7 +212,7 @@ impl Copilot {
                     Some(item) => chat.write(item, more),
                     None if !id.is_empty() => {
                         let item = chat.push(at, answer(more, true));
-                        self.remember(chat, id, item);
+                        remember(&mut self.items, chat, id, item);
                     }
                     None => {}
                 }
@@ -281,18 +273,6 @@ impl Copilot {
         Vec::new()
     }
 
-    fn remember(&mut self, chat: &Chat, id: &str, item: String) {
-        if self.items.len() >= MOST_ITEMS {
-            let live = chat
-                .items()
-                .iter()
-                .map(|item| item.id.as_str())
-                .collect::<std::collections::HashSet<_>>();
-            self.items.retain(|_, item| live.contains(item.as_str()));
-        }
-        self.items.insert(id.to_owned(), item);
-    }
-
     /// What a helper does shows in the step of the call that started it.
     fn helper_event(&mut self, chat: &mut Chat, helper: &str, event: &Value) {
         let data = event.get("data").unwrap_or(&Value::Null);
@@ -325,7 +305,7 @@ impl Copilot {
             }
             "tool.execution_start" => {
                 let call = text(data, "toolCallId");
-                let tool = described(data);
+                let tool = described(data, &Places::of(chat));
                 let step = ChatStep {
                     kind: tool.kind,
                     target: tool.target.clone(),
@@ -414,7 +394,7 @@ impl Copilot {
             (Some(item), false) => chat.put(&item, answer(said, false)),
             (None, false) => {
                 let item = chat.push(at, answer(said, false));
-                self.remember(chat, id, item);
+                remember(&mut self.items, chat, id, item);
             }
             (None, true) => {}
         }
@@ -431,11 +411,11 @@ impl Copilot {
         let item = chat.push(
             at,
             ChatBody::Tool {
-                tool: Box::new(described(data)),
+                tool: Box::new(described(data, &Places::of(chat))),
             },
         );
         self.now = Some(ChatNow::Tool { item: item.clone() });
-        self.remember(chat, call, item);
+        remember(&mut self.items, chat, call, item);
     }
 
     fn complete(&mut self, chat: &mut Chat, data: &Value, at: u64) -> Vec<String> {
@@ -975,7 +955,7 @@ impl Agent for Copilot {
         };
         chat.close_asks(|open| open.id == ask);
         if let Some((words, by)) = said {
-            chat.push(now(), person(&words, by));
+            chat.push(crate::identity::now_ms(), person(&words, by));
         }
         let refused = text(decision, "kind") == "reject"
             || decision.get("approved").and_then(Value::as_bool) == Some(false)
@@ -1078,10 +1058,10 @@ fn mode(name: &str) -> Option<ChatMode> {
 }
 
 /// A tool call of Copilot as the chat shows it, by Copilot's name of the tool.
-fn described(data: &Value) -> ChatTool {
+fn described(data: &Value, places: &Places) -> ChatTool {
     let name = text(data, "toolName");
     let arguments = &data["arguments"];
-    let file = || file_name(text(arguments, "path")).to_owned();
+    let file = || places.file(text(arguments, "path"));
     let (kind, target, detail) = match name {
         "bash" | "powershell" => {
             let command = text(arguments, "command");
@@ -1113,10 +1093,10 @@ fn described(data: &Value) -> ChatTool {
         "create" => (
             ToolKind::Write,
             file(),
-            Some(written(
-                text(arguments, "file_text"),
-                text(arguments, "path"),
-            )),
+            Some(
+                diff::written(text(arguments, "file_text"))
+                    .detail(text(arguments, "path").to_owned()),
+            ),
         ),
         "apply_patch" => {
             let patch = arguments.as_str().unwrap_or_default();
@@ -1125,7 +1105,7 @@ fn described(data: &Value) -> ChatTool {
             } else {
                 ToolKind::Edit
             };
-            (kind, patched(patch), None)
+            (kind, patched(patch, places), None)
         }
         "web_fetch" => (ToolKind::Web, text(arguments, "url").to_owned(), None),
         "web_search" => (ToolKind::Web, text(arguments, "query").to_owned(), None),
@@ -1354,8 +1334,8 @@ fn chosen(choices: &[(String, String)], label: &str) -> String {
         .to_owned()
 }
 
-/// The names of the files that a patch of Copilot changes.
-fn patched(patch: &str) -> String {
+/// The files that a patch of Copilot changes.
+fn patched(patch: &str, places: &Places) -> String {
     patch
         .lines()
         .filter_map(|line| {
@@ -1363,7 +1343,7 @@ fn patched(patch: &str) -> String {
                 .iter()
                 .find_map(|start| line.strip_prefix(start))
         })
-        .map(file_name)
+        .map(|path| places.file(path))
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -1388,38 +1368,17 @@ fn change(given: &str, path: &str) -> Option<ToolDetail> {
     if hunks.is_empty() {
         return None;
     }
-    let lines = diff::hunks(&hunks);
-    Some(ToolDetail::Change {
-        path: Some(path)
-            .filter(|path| !path.is_empty())
-            .map(str::to_owned)
-            .or(named)
-            .unwrap_or_default(),
-        added: lines.added,
-        removed: lines.removed,
-        lines: lines.lines,
-    })
+    let path = Some(path)
+        .filter(|path| !path.is_empty())
+        .map(str::to_owned)
+        .or(named)
+        .unwrap_or_default();
+    Some(diff::hunks(&hunks).detail(path))
 }
 
 fn change_of(old: &str, new: &str, path: &str) -> Option<ToolDetail> {
     if old.is_empty() && new.is_empty() {
         return None;
     }
-    let lines = diff::between(old, new);
-    Some(ToolDetail::Change {
-        path: path.to_owned(),
-        added: lines.added,
-        removed: lines.removed,
-        lines: lines.lines,
-    })
-}
-
-fn written(text: &str, path: &str) -> ToolDetail {
-    let lines = diff::written(text);
-    ToolDetail::Change {
-        path: path.to_owned(),
-        added: lines.added,
-        removed: lines.removed,
-        lines: lines.lines,
-    }
+    Some(diff::between(old, new).detail(path.to_owned()))
 }

@@ -129,7 +129,6 @@ impl Launcher {
     }
 
     /// From now on Codex starts through the server of its terminal.
-    #[cfg(unix)]
     pub(crate) fn serve_codex(&self, servers: String) {
         drop(self.codex_servers.set(servers));
     }

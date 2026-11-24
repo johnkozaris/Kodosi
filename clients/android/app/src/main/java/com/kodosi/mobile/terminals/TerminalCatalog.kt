@@ -52,6 +52,9 @@ object TerminalCatalog {
             }
     }
 
+    fun folders(sessions: List<RuntimeSession>): List<Pair<String?, List<RuntimeSession>>> =
+        sessions.groupBy { it.workingDir }.toList().sortedWith(compareBy(nullsLast()) { it.first })
+
     fun matching(sessions: List<RuntimeSession>, query: String): List<RuntimeSession> {
         val words = query.trim()
         if (words.isEmpty()) return sessions

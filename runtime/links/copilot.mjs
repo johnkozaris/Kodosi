@@ -20,32 +20,31 @@ const MOST_BATCH = 2 * 1024 * 1024
 // The events that the chat reads, with the fields that it reads. The others, such as the system prompt, the
 // pieces of a tool call or the model's encrypted reasoning, would only cost time.
 const READ = {
-  'user.message': ['content', 'messageId'],
-  'assistant.message_start': ['messageId', 'phase'],
+  'user.message': ['content'],
+  'assistant.message_start': ['messageId'],
   'assistant.message_delta': ['messageId', 'deltaContent'],
-  'assistant.message': ['messageId', 'content', 'toolRequests', 'phase', 'parentToolCallId'],
-  'assistant.turn_start': ['turnId'],
-  'assistant.turn_end': ['turnId'],
-  'assistant.idle': ['aborted'],
+  'assistant.message': ['messageId', 'content'],
+  'assistant.turn_start': [],
   'session.idle': [],
   'session.error': ['errorType', 'message'],
-  abort: ['reason'],
-  'tool.execution_start': ['toolCallId', 'toolName', 'arguments', 'toolTitle', 'parentToolCallId'],
-  'tool.shell_output': ['toolCallId', 'stream', 'text'],
-  'tool.execution_complete': ['toolCallId', 'success', 'result', 'error', 'parentToolCallId'],
-  'permission.completed': ['requestId', 'toolCallId', 'result'],
+  abort: [],
+  'tool.execution_start': ['toolCallId', 'toolName', 'arguments', 'toolTitle'],
+  'tool.shell_output': ['toolCallId', 'text'],
+  'tool.execution_complete': ['toolCallId', 'success', 'result'],
+  'permission.completed': ['toolCallId', 'result'],
   'elicitation.requested': ['requestId', 'toolCallId'],
   'elicitation.completed': ['requestId', 'action', 'content'],
   'exit_plan_mode.completed': ['requestId', 'approved'],
   'subagent.started': ['toolCallId', 'agentName', 'agentDisplayName'],
-  'subagent.completed': ['toolCallId'],
-  'subagent.failed': ['toolCallId'],
+  'subagent.completed': [],
+  'subagent.failed': [],
   'session.usage_info': ['tokenLimit', 'currentTokens'],
   'session.model_change': ['newModel', 'reasoningEffort'],
   'session.mode_changed': ['newMode'],
 }
 
-let socket = process.env.KODOSI_AGENT_LINK || ''
+// Node reaches a local endpoint on Windows only at a named pipe, which the host names there apart.
+let socket = process.env.KODOSI_AGENT_PIPE || process.env.KODOSI_AGENT_LINK || ''
 const terminal = process.env.KODOSI_SESSION_ID || ''
 const loaded = Date.now().toString(36)
 const pending = []
@@ -179,12 +178,12 @@ function readTasks() {
 // The session's earlier events go first. An event that comes while the extension reads them waits, and goes
 // after them unless it is one of them.
 async function hello(early) {
-  const facts = { agent: 'copilot', version: process.env.COPILOT_CLI_BINARY_VERSION, session: session.sessionId, cwd: process.cwd() }
+  const facts = { agent: 'copilot', version: process.env.COPILOT_CLI_BINARY_VERSION, cwd: process.cwd() }
   try {
     const current = await session.rpc.model.getCurrent()
     facts.model = current && current.modelId
   } catch (error) {
-    facts.error = String(error)
+    facts.model = undefined
   }
   try {
     const mode = await session.rpc.mode.get()

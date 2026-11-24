@@ -35,6 +35,7 @@ class DesktopStateModel final : public QObject {
     // The terminals where the person dismissed the note that their agent, started by hand, does
     // not see Kodosi.
     Q_PROPERTY(QStringList notedOutside READ notedOutside NOTIFY notedOutsideChanged FINAL)
+    Q_PROPERTY(QVariantMap faces READ faces NOTIFY facesChanged FINAL)
     Q_PROPERTY(QString launcherPrompt READ launcherPrompt WRITE setLauncherPrompt NOTIFY launcherDraftChanged FINAL)
     Q_PROPERTY(QString launcherFolder READ launcherFolder WRITE setLauncherFolder NOTIFY launcherDraftChanged FINAL)
     Q_PROPERTY(QVariantMap launcherRemoteFolders READ launcherRemoteFolders NOTIFY launcherDraftChanged FINAL)
@@ -88,6 +89,12 @@ public:
     Q_INVOKABLE void clearError();
     QStringList notedOutside() const { return m_notedOutside; }
     Q_INVOKABLE void noteOutside(const QString& id);
+    // The face of a terminal that the person picked: its screen or its chat.
+    QVariantMap faces() const;
+    // A pick holds until the terminal's agent reports another face, so a terminal whose agent goes
+    // to the chat or waits for its sign-in shows its own face. A pick for a terminal that is not
+    // listed yet, as one that the launcher starts in its chat, waits for it.
+    Q_INVOKABLE void pickFace(const QString& id, const QString& face);
     void switchAccount(const QString& userId);
     void noteClosing(const QString& id);
     QString launcherPrompt() const { return m_launcherPrompt; }
@@ -113,6 +120,7 @@ signals:
     void modalOpenChanged();
     void dialogsDismissed();
     void notedOutsideChanged();
+    void facesChanged();
     void launcherDraftChanged();
     void restored(const QStringList& sessionIds);
 
@@ -158,6 +166,12 @@ private:
     QList<Departure> m_departures;
     QSet<QString> m_closing;
     QStringList m_notedOutside;
+    struct FacePick {
+        QString face;
+        QString over;
+        bool listed = false;
+    };
+    QHash<QString, FacePick> m_faces;
     QString m_error;
     QString m_launcherPrompt;
     QString m_launcherFolder;

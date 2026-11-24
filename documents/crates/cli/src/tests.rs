@@ -355,6 +355,18 @@ async fn an_agent_that_stops_leaves_the_document_by_itself() {
 }
 
 #[tokio::test]
+async fn an_agent_reads_a_file_again_at_once_after_its_document_closed() {
+    let rig = rig();
+    let file = rig.path("notes.txt");
+    std::fs::write(&file, "one\n").unwrap();
+    rig.read(&file).await;
+    rig.documents.close_for_removal(&file).await;
+    std::fs::write(&file, "two\n").unwrap();
+    let again = rig.read(&file).await;
+    assert_eq!(again["content"]["lines"][0]["text"], "two");
+}
+
+#[tokio::test]
 async fn selection_says_who_else_is_here() {
     let rig = rig();
     let file = rig.new_file("a.docx", None).await;

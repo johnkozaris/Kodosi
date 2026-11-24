@@ -171,8 +171,7 @@ impl TerminalSession {
         canvas.moved_to(directory.clone());
         let TerminalChat {
             handle: chat,
-            socket: link,
-            codex,
+            variables: chat_variables,
         } = chat;
         let look = *host_look.borrow();
         let (emulator, pty, reader) = tokio::task::spawn_blocking(move || -> Result<_> {
@@ -180,7 +179,7 @@ impl TerminalSession {
                 .to_str()
                 .ok_or_else(|| Error::Invalid("working directory must be UTF-8".to_owned()))?;
             let emulator = SessionTerminalHandle::spawn(size, screen, look)?;
-            let variables = kodosi_variables(id, notes.as_deref(), link, codex);
+            let variables = kodosi_variables(id, notes.as_deref(), chat_variables);
             let environment = variables
                 .iter()
                 .map(|(name, value)| (*name, value.as_str()))
@@ -669,8 +668,7 @@ pub(crate) async fn pipe(
 fn kodosi_variables(
     id: Uuid,
     notes: Option<&Path>,
-    link: Option<String>,
-    codex: Option<String>,
+    chat: Vec<(&'static str, String)>,
 ) -> Vec<(&'static str, String)> {
     let mut variables = vec![
         ("KODOSI_SESSION_ID", id.to_string()),
@@ -680,8 +678,7 @@ fn kodosi_variables(
             crate::agents::CONTEXT.trim().to_owned(),
         ),
     ];
-    variables.extend(link.map(|socket| (crate::chat::LINK_VARIABLE, socket)));
-    variables.extend(codex.map(|server| (crate::chat::CODEX_VARIABLE, server)));
+    variables.extend(chat);
     variables.extend(command_path().map(|path| ("PATH", path)));
     if let Some(notes) = notes {
         variables.extend(

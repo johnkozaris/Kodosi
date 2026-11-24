@@ -297,6 +297,22 @@
         <translation>详细</translation>
     </message>
     <message>
+        <source>Opens in</source>
+        <translation>打开位置</translation>
+    </message>
+    <message>
+        <source>Its own app runs in the terminal.</source>
+        <translation>它自己的应用在终端中运行。</translation>
+    </message>
+    <message>
+        <source>Chat</source>
+        <translation>聊天</translation>
+    </message>
+    <message>
+        <source>It works in the chat of the terminal, in a conversation of its own.</source>
+        <translation>它在终端的聊天中工作，使用自己的对话。</translation>
+    </message>
+    <message>
         <source>Permissions</source>
         <translation>权限</translation>
     </message>
@@ -752,6 +768,321 @@
     </message>
 </context>
 <context>
+    <name>ChatAskCard</name>
+    <message>
+        <source>Plan</source>
+        <translation>规划</translation>
+    </message>
+    <message>
+        <source>Needs your answer</source>
+        <translation>需要你回答</translation>
+    </message>
+    <message>
+        <source>Needs your approval</source>
+        <translation>需要你的批准</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>允许</translation>
+    </message>
+    <message>
+        <source>Deny</source>
+        <translation>拒绝</translation>
+    </message>
+    <message>
+        <source>Always %1</source>
+        <translation>始终 %1</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>发送</translation>
+    </message>
+    <message>
+        <source>Keep planning</source>
+        <translation>继续规划</translation>
+    </message>
+</context>
+<context>
+    <name>ChatDock</name>
+    <message>
+        <source>Tasks: %1 of %2 done</source>
+        <translation>任务：已完成 %1/%2</translation>
+    </message>
+    <message>
+        <source>Hide the tasks</source>
+        <translation>隐藏任务</translation>
+    </message>
+    <message>
+        <source>Show the tasks</source>
+        <translation>显示任务</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message>
+        <source>Waiting for %1</source>
+        <translation>正在等待 %1</translation>
+    </message>
+    <message>
+        <source>The agent takes the next message in its terminal.</source>
+        <translation>Agent 会在它的终端中接收下一条消息。</translation>
+    </message>
+    <message>
+        <source>No agent runs in this terminal</source>
+        <translation>此终端中没有运行的 Agent</translation>
+    </message>
+    <message>
+        <source>Or say what to do instead</source>
+        <translation>或者说明改做什么</translation>
+    </message>
+    <message>
+        <source>Message %1</source>
+        <translation>给 %1 发消息</translation>
+    </message>
+</context>
+<context>
+    <name>ChatFacts</name>
+    <message>
+        <source>Model</source>
+        <translation>模型</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>上下文：已用 %1%</translation>
+    </message>
+    <message>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n 个助手正在工作</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n commands run in the background</source>
+        <translation>
+            <numerusform>%n 条命令正在后台运行</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatStep</name>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失败</translation>
+    </message>
+    <message>
+        <source>denied</source>
+        <translation>已拒绝</translation>
+    </message>
+    <message>
+        <source>stopped</source>
+        <translation>已停止</translation>
+    </message>
+    <message>
+        <source>in the background</source>
+        <translation>后台</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n 个步骤</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatThread</name>
+    <message>
+        <source>%1: %2</source>
+        <translation>%1：%2</translation>
+    </message>
+    <message>
+        <source>compacted</source>
+        <translation>已压缩对话</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>规划</translation>
+    </message>
+    <message>
+        <source>Stopped</source>
+        <translation>已停止</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失败</translation>
+    </message>
+    <message>
+        <source>Refused</source>
+        <translation>拒绝回答</translation>
+    </message>
+    <message>
+        <source>Needs you to sign in</source>
+        <translation>需要你登录</translation>
+    </message>
+    <message>
+        <source>Sign in with its own steps in the terminal.</source>
+        <translation>请在终端中按照它自己的步骤登录。</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWords</name>
+    <message numerus="yes">
+        <source>ran %n commands</source>
+        <translation>
+            <numerusform>运行了 %n 条命令</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>read %n files</source>
+        <translation>
+            <numerusform>读取了 %n 个文件</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>changed %n files</source>
+        <translation>
+            <numerusform>修改了 %n 个文件</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>wrote %n files</source>
+        <translation>
+            <numerusform>写入了 %n 个文件</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n searches</source>
+        <translation>
+            <numerusform>搜索了 %n 次</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>fetched %n pages</source>
+        <translation>
+            <numerusform>获取了 %n 个页面</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n helpers</source>
+        <translation>
+            <numerusform>询问了 %n 个助手</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n skills</source>
+        <translation>
+            <numerusform>使用了 %n 个技能</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>asked %n questions</source>
+        <translation>
+            <numerusform>提了 %n 个问题</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>made %n plans</source>
+        <translation>
+            <numerusform>制定了 %n 个计划</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>used %n tools</source>
+        <translation>
+            <numerusform>使用了 %n 个工具</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n denied</source>
+        <translation>
+            <numerusform>%n 个被拒绝</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n stopped</source>
+        <translation>
+            <numerusform>%n 个已停止</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>询问</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>不受限制</translation>
+    </message>
+    <message>
+        <source>Edits</source>
+        <translation>编辑</translation>
+    </message>
+    <message>
+        <source>Plan</source>
+        <translation>规划</translation>
+    </message>
+    <message>
+        <source>Rules</source>
+        <translation>规则</translation>
+    </message>
+    <message>
+        <source>%1h</source>
+        <translation>%1小时</translation>
+    </message>
+    <message>
+        <source>%1m</source>
+        <translation>%1分钟</translation>
+    </message>
+    <message>
+        <source>%1s</source>
+        <translation>%1秒</translation>
+    </message>
+    <message>
+        <source>%1 %2</source>
+        <comment>the parts of a duration</comment>
+        <translation>%1%2</translation>
+    </message>
+    <message>
+        <source>$</source>
+        <comment>the sign of US dollars</comment>
+        <translation>US$</translation>
+    </message>
+</context>
+<context>
+    <name>ChatWork</name>
+    <message>
+        <source>Hide the steps</source>
+        <translation>隐藏步骤</translation>
+    </message>
+    <message>
+        <source>Show the steps</source>
+        <translation>显示步骤</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>完成</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>失败</translation>
+    </message>
+</context>
+<context>
     <name>ClipboardReadDialog</name>
     <message>
         <source>Let a program read your clipboard?</source>
@@ -844,6 +1175,21 @@
     <message>
         <source>Cut</source>
         <translation>剪切</translation>
+    </message>
+</context>
+<context>
+    <name>DayDivider</name>
+    <message>
+        <source>Today</source>
+        <translation>今天</translation>
+    </message>
+    <message>
+        <source>Yesterday</source>
+        <translation>昨天</translation>
+    </message>
+    <message>
+        <source>d MMMM</source>
+        <translation>M月d日</translation>
     </message>
 </context>
 <context>
@@ -1189,16 +1535,8 @@
         <translation>问 Dosi</translation>
     </message>
     <message>
-        <source>Stop</source>
-        <translation>停止</translation>
-    </message>
-    <message>
         <source>Stop (%1)</source>
         <translation>停止（%1）</translation>
-    </message>
-    <message>
-        <source>Send</source>
-        <translation>发送</translation>
     </message>
 </context>
 <context>
@@ -1486,10 +1824,6 @@
     <message>
         <source>Tell me when my terminals finish</source>
         <translation>终端完成时告诉我</translation>
-    </message>
-    <message>
-        <source>Latest</source>
-        <translation>最新</translation>
     </message>
 </context>
 <context>
@@ -2297,6 +2631,13 @@
     </message>
 </context>
 <context>
+    <name>LatestKey</name>
+    <message>
+        <source>Latest</source>
+        <translation>最新</translation>
+    </message>
+</context>
+<context>
     <name>Link</name>
     <message>
         <source>The link is not a complete address.</source>
@@ -2789,18 +3130,6 @@
 </context>
 <context>
     <name>ProjectConversation</name>
-    <message>
-        <source>Today</source>
-        <translation>今天</translation>
-    </message>
-    <message>
-        <source>Yesterday</source>
-        <translation>昨天</translation>
-    </message>
-    <message>
-        <source>d MMMM</source>
-        <translation>M月d日</translation>
-    </message>
     <message>
         <source>Conversation</source>
         <translation>对话</translation>
@@ -3382,6 +3711,13 @@
     </message>
 </context>
 <context>
+    <name>SendKey</name>
+    <message>
+        <source>Send</source>
+        <translation>发送</translation>
+    </message>
+</context>
+<context>
     <name>SessionDetails</name>
     <message>
         <source>Shared with %1</source>
@@ -3689,10 +4025,6 @@
         <translation>离线</translation>
     </message>
     <message>
-        <source>Not connected</source>
-        <translation>未连接</translation>
-    </message>
-    <message>
         <source>Terminal name</source>
         <translation>终端名称</translation>
     </message>
@@ -3865,6 +4197,13 @@
     </message>
 </context>
 <context>
+    <name>StopKey</name>
+    <message>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+</context>
+<context>
     <name>TerminalAccessible</name>
     <message>
         <source>Terminal</source>
@@ -3873,6 +4212,112 @@
     <message>
         <source>Live terminal</source>
         <translation>实时终端</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalActions</name>
+    <message>
+        <source>Start an agent</source>
+        <translation>启动 Agent</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>模型</translation>
+    </message>
+    <message>
+        <source>Effort</source>
+        <translation>推理强度</translation>
+    </message>
+    <message>
+        <source>Permissions</source>
+        <translation>权限</translation>
+    </message>
+    <message>
+        <source>Verbosity</source>
+        <translation>详细程度</translation>
+    </message>
+    <message>
+        <source>Canvas</source>
+        <translation>画布</translation>
+    </message>
+    <message>
+        <source>Open Browser</source>
+        <translation>打开浏览器</translation>
+    </message>
+    <message>
+        <source>Add a file…</source>
+        <translation>添加文件…</translation>
+    </message>
+    <message>
+        <source>Terminal</source>
+        <translation>终端</translation>
+    </message>
+    <message>
+        <source>Share…</source>
+        <translation>共享…</translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation>详情</translation>
+    </message>
+    <message>
+        <source>Remove from project</source>
+        <translation>从项目移除</translation>
+    </message>
+    <message>
+        <source>Only at start</source>
+        <translation>仅限启动时</translation>
+    </message>
+    <message>
+        <source>Fast mode</source>
+        <translation>快速模式</translation>
+    </message>
+    <message>
+        <source>Quiet</source>
+        <translation>简洁</translation>
+    </message>
+    <message>
+        <source>Detailed</source>
+        <translation>详细</translation>
+    </message>
+    <message>
+        <source>Standard</source>
+        <translation>标准</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>默认</translation>
+    </message>
+    <message>
+        <source>Unrestricted</source>
+        <translation>不受限制</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Ask</source>
+        <translation>询问</translation>
+    </message>
+    <message>
+        <source>%1, after this turn</source>
+        <translation>%1（本轮结束后）</translation>
+    </message>
+    <message>
+        <source>%1 changes when it finishes its turn.</source>
+        <translation>%1 会在这一轮结束后更改。</translation>
+    </message>
+    <message>
+        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
+        <translation>%1 下次启动时也会沿用这个模型、推理强度和快速模式。</translation>
+    </message>
+</context>
+<context>
+    <name>TerminalChatView</name>
+    <message>
+        <source>Chat</source>
+        <translation>聊天</translation>
     </message>
 </context>
 <context>
@@ -4089,48 +4534,12 @@
         <translation>%2 上的 %1</translation>
     </message>
     <message>
+        <source>Chat</source>
+        <translation>聊天</translation>
+    </message>
+    <message>
         <source>Actions</source>
         <translation>操作</translation>
-    </message>
-    <message>
-        <source>Start an agent</source>
-        <translation>启动 Agent</translation>
-    </message>
-    <message>
-        <source>Share…</source>
-        <translation>共享…</translation>
-    </message>
-    <message>
-        <source>Open Browser</source>
-        <translation>打开浏览器</translation>
-    </message>
-    <message>
-        <source>Model</source>
-        <translation>模型</translation>
-    </message>
-    <message>
-        <source>Effort</source>
-        <translation>推理强度</translation>
-    </message>
-    <message>
-        <source>Permissions</source>
-        <translation>权限</translation>
-    </message>
-    <message>
-        <source>Canvas</source>
-        <translation>画布</translation>
-    </message>
-    <message>
-        <source>Add a file…</source>
-        <translation>添加文件…</translation>
-    </message>
-    <message>
-        <source>Details</source>
-        <translation>详情</translation>
-    </message>
-    <message>
-        <source>Remove from project</source>
-        <translation>从项目移除</translation>
     </message>
     <message>
         <source>Terminal action failed</source>
@@ -4213,64 +4622,12 @@
         <translation>关闭</translation>
     </message>
     <message>
-        <source>Only at start</source>
-        <translation>仅限启动时</translation>
-    </message>
-    <message>
-        <source>Default</source>
-        <translation>默认</translation>
-    </message>
-    <message>
-        <source>Unrestricted</source>
-        <translation>不受限制</translation>
-    </message>
-    <message>
-        <source>Auto</source>
-        <translation>自动</translation>
-    </message>
-    <message>
-        <source>Ask</source>
-        <translation>询问</translation>
-    </message>
-    <message>
-        <source>%1, after this turn</source>
-        <translation>%1（本轮结束后）</translation>
-    </message>
-    <message>
-        <source>%1 changes when it finishes its turn.</source>
-        <translation>%1 会在这一轮结束后更改。</translation>
-    </message>
-    <message>
-        <source>%1 also keeps the model, effort and fast mode the next time it starts.</source>
-        <translation>%1 下次启动时也会沿用这个模型、推理强度和快速模式。</translation>
-    </message>
-    <message>
         <source>Copy</source>
         <translation>复制</translation>
     </message>
     <message>
         <source>Paste</source>
         <translation>粘贴</translation>
-    </message>
-    <message>
-        <source>Verbosity</source>
-        <translation>详细程度</translation>
-    </message>
-    <message>
-        <source>Quiet</source>
-        <translation>简洁</translation>
-    </message>
-    <message>
-        <source>Standard</source>
-        <translation>标准</translation>
-    </message>
-    <message>
-        <source>Detailed</source>
-        <translation>详细</translation>
-    </message>
-    <message>
-        <source>Fast mode</source>
-        <translation>快速模式</translation>
     </message>
 </context>
 <context>
@@ -5009,6 +5366,59 @@
     <message>
         <source>Full screen</source>
         <translation>全屏</translation>
+    </message>
+</context>
+<context>
+    <name>kodosi::TerminalChat</name>
+    <message>
+        <source>Approve</source>
+        <translation>批准</translation>
+    </message>
+    <message>
+        <source>Approve, and ask before each change</source>
+        <translation>批准，并在每次更改前询问</translation>
+    </message>
+    <message>
+        <source>Approve, and allow its edits</source>
+        <translation>批准，并允许其更改</translation>
+    </message>
+    <message>
+        <source>Approve, and use the safety check</source>
+        <translation>批准，并使用安全检查</translation>
+    </message>
+    <message>
+        <source>Approve, and ask nothing</source>
+        <translation>批准，并不再询问</translation>
+    </message>
+    <message>
+        <source>Approve, and let helpers work alone</source>
+        <translation>批准，并让助手独立工作</translation>
+    </message>
+    <message>
+        <source>Leave plan mode</source>
+        <translation>退出规划模式</translation>
+    </message>
+    <message>
+        <source>writing</source>
+        <translation>正在写入</translation>
+    </message>
+    <message>
+        <source>compacting</source>
+        <translation>正在压缩对话</translation>
+    </message>
+    <message>
+        <source>thinking</source>
+        <translation>思考中</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n 个步骤</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>worked for %1</source>
+        <translation>工作了 %1</translation>
     </message>
 </context>
 <context>

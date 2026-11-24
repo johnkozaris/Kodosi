@@ -4,7 +4,6 @@ import os
 
 final nonisolated class EphemeralUserDefaults: UserDefaults {
     let suiteName: String
-    let persistentFileURL: URL
     private let directory: URL
 
     init?(prefix: String) {
@@ -20,7 +19,6 @@ final nonisolated class EphemeralUserDefaults: UserDefaults {
         directory = URL(fileURLWithPath: path, isDirectory: true)
 
         suiteName = directory.appending(path: "preferences").path
-        persistentFileURL = directory.appending(path: "preferences.plist")
         super.init(suiteName: suiteName)
     }
 

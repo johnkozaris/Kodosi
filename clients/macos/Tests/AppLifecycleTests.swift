@@ -10,6 +10,7 @@ import Testing
     #expect(!ProductInput.validName(String(repeating: "é", count: 65)))
     #expect(!ProductInput.validName("\n\t "))
     #expect(!ProductInput.validName("one\ntwo"))
+    #expect(ProductInput.validName("Dev 🧑‍💻"))
 }
 
 @Test func `a hidden terminal leaves the list and the stage until it is back but stays in its project`() throws {

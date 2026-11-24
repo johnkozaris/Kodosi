@@ -2,6 +2,7 @@ package com.kodosi.mobile.terminals
 
 import android.content.res.Configuration
 import android.view.View
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.EnterExitState
@@ -20,7 +21,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -121,7 +121,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonNull
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: () -> Unit, canvas: (String?) -> Unit) {
     val colors = KodosiTheme.colors
@@ -137,6 +136,8 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
     }.collectAsStateWithLifecycle(model.terminals.session(sessionId)?.look ?: TerminalLook.DARK)
     var view by remember { mutableStateOf<TerminalView?>(null) }
     var control by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(false) }
+    BackHandler(selected) { view?.endSelection() }
     val preferences by model.preferences.state.collectAsStateWithLifecycle()
     val picks by model.terminals.faces.collectAsStateWithLifecycle()
     val chatting = session?.shownFace(picks[sessionId]) == TerminalFace.CHAT
@@ -249,6 +250,7 @@ fun TerminalScreen(model: AppModel, sessionId: String, online: Boolean, back: ()
                     factory = { context ->
                         TerminalView(context, connection, scope).also { created ->
                             created.onControlChanged = { control = it }
+                            created.onSelectionChanged = { selected = it }
                             created.onClipboardRead = { clipboardAnswer = it }
                             created.onFailure = { model.notify(model.words.didNotWork) }
                             view = created
@@ -819,7 +821,6 @@ private fun KeyCap(
     cap: String,
     label: String = cap,
     on: Boolean = false,
-    enabled: Boolean = true,
     symbol: AppSymbol? = null,
     look: TerminalLook,
     press: () -> Unit
@@ -830,16 +831,12 @@ private fun KeyCap(
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
     val fill = if (on) colors.accentSoft else colors.lifted
-    val ink = when {
-        !enabled -> colors.inkFaint
-        on -> colors.accentStrong
-        else -> colors.inkMuted
-    }
+    val ink = if (on) colors.accentStrong else colors.inkMuted
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-            .clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = press)
+            .clickable(interaction, indication = null, role = Role.Button, onClick = press)
             .semantics {
                 contentDescription = label
                 if (on) selected = true

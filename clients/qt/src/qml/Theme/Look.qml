@@ -9,6 +9,8 @@ QtObject {
     readonly property color raised: dark ? "#251d19" : "#fefbf5"
     readonly property color lifted: dark ? "#2e241f" : "#fffdf9"
     readonly property color well: dark ? "#0c0a08" : "#e8e0d2"
+    readonly property color sheet: Qt.rgba(raised.r + (surface.r - raised.r) * 0.45, raised.g + (surface.g - raised.g) * 0.45,
+        raised.b + (surface.b - raised.b) * 0.45, 1)
     readonly property color hairline: dark ? "#3b2f29" : "#d9ccba"
     readonly property color ink: dark ? "#f1e9e3" : "#25160e"
     readonly property color inkMuted: dark ? "#b3a094" : "#5f4838"

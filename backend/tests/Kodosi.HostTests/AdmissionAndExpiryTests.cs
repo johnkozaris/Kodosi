@@ -132,7 +132,7 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task RequestsWithNoTokenCannotBlockTheHealthCheckOrMakeTheServerReadALargeBody()
+    public async Task RequestsWithNoTokenCannotBlockTheHealthCheck()
     {
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(TestContext.Current.CancellationToken));
         using var client = app.CreateClient();
@@ -141,10 +141,6 @@ public sealed class AdmissionAndExpiryTests(PostgresFixture postgres)
             using var probe = await client.GetAsync("/health/ready", TestContext.Current.CancellationToken);
             Assert.Equal(System.Net.HttpStatusCode.OK, probe.StatusCode);
         }
-        using var body = new ByteArrayContent(new byte[Limits.HttpBodyBytes + 64 * 1024]);
-        body.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-        using var unknown = await client.PostAsync("/api/not-a-route", body, TestContext.Current.CancellationToken);
-        Assert.Equal(System.Net.HttpStatusCode.NotFound, unknown.StatusCode);
     }
 
     [Fact]

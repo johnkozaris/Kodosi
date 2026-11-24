@@ -13,33 +13,39 @@ use std::{
 };
 
 use tokio::sync::{mpsc, oneshot};
-use windows_sys::Win32::{
-    Foundation::{ERROR_MORE_DATA, HANDLE, WAIT_OBJECT_0},
-    System::{
-        Console::{COORD, HPCON, SetConsoleCtrlHandler},
-        JobObjects::{
-            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-            JOBOBJECT_BASIC_PROCESS_ID_LIST, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-            JobObjectBasicProcessIdList, JobObjectExtendedLimitInformation,
-            QueryInformationJobObject, SetInformationJobObject, TerminateJobObject,
+use windows_sys::{
+    Wdk::System::Threading::{NtQueryInformationProcess, ProcessBasicInformation},
+    Win32::{
+        Foundation::{ERROR_MORE_DATA, HANDLE, LocalFree, WAIT_OBJECT_0},
+        System::{
+            Console::{COORD, HPCON, SetConsoleCtrlHandler},
+            Diagnostics::Debug::ReadProcessMemory,
+            JobObjects::{
+                AssignProcessToJobObject, JOBOBJECT_BASIC_PROCESS_ID_LIST,
+                JobObjectBasicProcessIdList, QueryInformationJobObject, TerminateJobObject,
+            },
+            LibraryLoader::{
+                GetProcAddress, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, LOAD_LIBRARY_SEARCH_SYSTEM32,
+                LoadLibraryExW,
+            },
+            Threading::{
+                CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW,
+                DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
+                InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess,
+                PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, PROCESS_BASIC_INFORMATION,
+                PROCESS_INFORMATION, PROCESS_NAME_WIN32, PROCESS_QUERY_INFORMATION,
+                PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ, QueryFullProcessImageNameW,
+                ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess,
+                UpdateProcThreadAttribute, WaitForSingleObject,
+            },
         },
-        LibraryLoader::{
-            GetProcAddress, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR, LOAD_LIBRARY_SEARCH_SYSTEM32,
-            LoadLibraryExW,
-        },
-        Threading::{
-            CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW,
-            DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
-            InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess,
-            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, PROCESS_INFORMATION, PROCESS_NAME_WIN32,
-            PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW, ResumeThread,
-            STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute,
-            WaitForSingleObject,
-        },
+        UI::Shell::CommandLineToArgvW,
     },
 };
 
-use super::{ShutdownStage, Transfer, WaitOutcome, program_identity, validate_working_dir};
+use super::{
+    ProcessStart, ShutdownStage, Transfer, WaitOutcome, program_identity, validate_working_dir,
+};
 use crate::{KodosiError, Result};
 
 const PSEUDOCONSOLE_GLYPH_WIDTH_GRAPHEMES: u32 = 0x08;
@@ -208,7 +214,7 @@ impl KodosiPty {
         let program = resolve_program(program, working_dir)?;
         let (application, mut line) = command_line(&program, arguments)?;
         let environment = environment_block(std::env::vars_os(), environment);
-        let job = create_job()?;
+        let job = kodosi_os::process::closing_job()?;
         let (input_read, input_write) = io::pipe()?;
         let (output_read, output_write) = io::pipe()?;
         let mut handle: HPCON = 0;
@@ -538,28 +544,6 @@ impl PtyReader {
     }
 }
 
-fn create_job() -> io::Result<OwnedHandle> {
-    let job = unsafe { CreateJobObjectW(ptr::null(), ptr::null()) };
-    if job.is_null() {
-        return Err(io::Error::last_os_error());
-    }
-    let job = unsafe { OwnedHandle::from_raw_handle(job) };
-    let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    if unsafe {
-        SetInformationJobObject(
-            job.as_raw_handle(),
-            JobObjectExtendedLimitInformation,
-            (&raw const limits).cast(),
-            u32::try_from(size_of_val(&limits)).unwrap_or(u32::MAX),
-        )
-    } == 0
-    {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(job)
-}
-
 struct AttributeList(LPPROC_THREAD_ATTRIBUTE_LIST);
 
 impl Drop for AttributeList {
@@ -863,16 +847,23 @@ fn environment_block(
 }
 
 fn image_identity(pid: u32) -> Option<&'static str> {
-    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if handle.is_null() {
-        return None;
-    }
-    let handle = unsafe { OwnedHandle::from_raw_handle(handle) };
+    let process = open_process(pid, PROCESS_QUERY_LIMITED_INFORMATION)?;
+    let path = image_path(&process)?;
+    let stem = path.file_stem()?.to_str()?.to_ascii_lowercase();
+    program_identity(&[stem])
+}
+
+fn open_process(pid: u32, access: u32) -> Option<OwnedHandle> {
+    let handle = unsafe { OpenProcess(access, 0, pid) };
+    (!handle.is_null()).then(|| unsafe { OwnedHandle::from_raw_handle(handle) })
+}
+
+fn image_path(process: &OwnedHandle) -> Option<PathBuf> {
     let mut buffer = [0u16; 1024];
     let mut length = u32::try_from(buffer.len()).unwrap_or(u32::MAX);
     if unsafe {
         QueryFullProcessImageNameW(
-            handle.as_raw_handle(),
+            process.as_raw_handle(),
             PROCESS_NAME_WIN32,
             buffer.as_mut_ptr(),
             &raw mut length,
@@ -881,9 +872,145 @@ fn image_identity(pid: u32) -> Option<&'static str> {
     {
         return None;
     }
-    let path = PathBuf::from(OsString::from_wide(buffer.get(..length as usize)?));
-    let stem = path.file_stem()?.to_str()?.to_ascii_lowercase();
-    program_identity(&[stem])
+    Some(PathBuf::from(OsString::from_wide(
+        buffer.get(..usize::try_from(length).ok()?)?,
+    )))
+}
+
+/// Where a 64-bit process keeps what it started with, which Windows documents only in part:
+/// the parameters in its process block, and in them its folder, its command line and its
+/// variables.
+const PARAMETERS: usize = 0x20;
+const FOLDER: usize = 0x38;
+const COMMAND_LINE: usize = 0x70;
+const VARIABLES: usize = 0x80;
+const VARIABLES_SIZE: usize = 0x3F0;
+const MOST_VARIABLES: usize = 4 * 1024 * 1024;
+
+pub fn process_start(pid: u32) -> Option<ProcessStart> {
+    let process = open_process(pid, PROCESS_QUERY_INFORMATION | PROCESS_VM_READ)?;
+    let program = image_path(&process)?;
+    let mut basic = PROCESS_BASIC_INFORMATION::default();
+    let mut returned = 0;
+    let status = unsafe {
+        NtQueryInformationProcess(
+            process.as_raw_handle(),
+            ProcessBasicInformation,
+            (&raw mut basic).cast(),
+            u32::try_from(size_of_val(&basic)).ok()?,
+            &raw mut returned,
+        )
+    };
+    if status < 0 {
+        return None;
+    }
+    let memory = Memory(process);
+    let parameters = word(
+        &memory.read(basic.PebBaseAddress.addr() + PARAMETERS, 8)?,
+        0,
+    )?;
+    let header = memory.read(parameters, VARIABLES_SIZE + 8)?;
+    let variables = memory.read_some(
+        word(&header, VARIABLES)?,
+        word(&header, VARIABLES_SIZE)?.min(MOST_VARIABLES),
+    )?;
+    Some(ProcessStart {
+        program,
+        arguments: split_command_line(&memory.text(&header, COMMAND_LINE)?)?,
+        variables: variable_pairs(&variables),
+        directory: PathBuf::from(OsString::from_wide(&memory.text(&header, FOLDER)?)),
+    })
+}
+
+struct Memory(OwnedHandle);
+
+impl Memory {
+    fn read(&self, address: usize, length: usize) -> Option<Vec<u8>> {
+        self.read_some(address, length)
+            .filter(|bytes| bytes.len() == length)
+    }
+
+    /// The bytes at the address, up to the first that the process does not have.
+    fn read_some(&self, address: usize, length: usize) -> Option<Vec<u8>> {
+        let mut bytes = vec![0; length];
+        let mut read = 0;
+        unsafe {
+            ReadProcessMemory(
+                self.0.as_raw_handle(),
+                ptr::without_provenance(address),
+                bytes.as_mut_ptr().cast(),
+                length,
+                &raw mut read,
+            )
+        };
+        bytes.truncate(read);
+        (read > 0).then_some(bytes)
+    }
+
+    /// A string that the record at `place` of `header` names by its length and its address. A
+    /// process that has only just started has not yet written its folder there.
+    fn text(&self, header: &[u8], place: usize) -> Option<Vec<u16>> {
+        let length = usize::from(u16::from_ne_bytes(
+            header.get(place..place + 2)?.try_into().ok()?,
+        ));
+        if length == 0 {
+            return Some(Vec::new());
+        }
+        Some(wide_units(&self.read(word(header, place + 8)?, length)?))
+            .filter(|text| !text.contains(&0))
+    }
+}
+
+fn word(bytes: &[u8], place: usize) -> Option<usize> {
+    Some(usize::from_ne_bytes(
+        bytes.get(place..place + 8)?.try_into().ok()?,
+    ))
+}
+
+fn wide_units(bytes: &[u8]) -> Vec<u16> {
+    bytes
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| u16::from_ne_bytes(*pair))
+        .collect()
+}
+
+fn split_command_line(line: &[u16]) -> Option<Vec<String>> {
+    if line.is_empty() {
+        return Some(Vec::new());
+    }
+    let line: Vec<u16> = line.iter().copied().chain(std::iter::once(0)).collect();
+    let mut count = 0;
+    let list = unsafe { CommandLineToArgvW(line.as_ptr(), &raw mut count) };
+    if list.is_null() {
+        return None;
+    }
+    let arguments = (0..usize::try_from(count).ok()?)
+        .map(|index| {
+            let argument = unsafe { *list.add(index) };
+            let mut length = 0;
+            while unsafe { *argument.add(length) } != 0 {
+                length += 1;
+            }
+            String::from_utf16_lossy(unsafe { std::slice::from_raw_parts(argument, length) })
+        })
+        .collect();
+    unsafe { LocalFree(list.cast()) };
+    Some(arguments)
+}
+
+/// The names that start with `=` hold the folders of the drives for `cmd.exe`.
+fn variable_pairs(block: &[u8]) -> Vec<(String, String)> {
+    wide_units(block)
+        .split(|unit| *unit == 0)
+        .take_while(|entry| !entry.is_empty())
+        .filter_map(|entry| {
+            let entry = String::from_utf16_lossy(entry);
+            let (name, value) = entry.split_once('=')?;
+            (!name.is_empty()).then(|| (name.to_owned(), value.to_owned()))
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -968,6 +1095,50 @@ mod tests {
         assert_eq!(pty.foreground_program().as_deref(), Some("codex"));
     }
 
+    #[test]
+    fn another_program_reads_as_it_started() {
+        let folder = tempfile::tempdir().unwrap();
+        let system = std::env::var_os("SystemRoot").unwrap();
+        let mut program = std::process::Command::new(Path::new(&system).join(r"System32\cmd.exe"))
+            .args(["/d", "/k", "rem", "two words"])
+            .env("KODOSI_START", "a b=c")
+            .current_dir(folder.path())
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let begun = std::time::Instant::now();
+        let start = loop {
+            if let Some(start) = process_start(program.id()) {
+                break Some(start);
+            }
+            if begun.elapsed() > Duration::from_secs(5) {
+                break None;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        program.kill().unwrap();
+        program.wait().unwrap();
+
+        let start = start.unwrap();
+        assert!(
+            start
+                .program
+                .file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case("cmd.exe"))
+        );
+        assert_eq!(start.arguments[1..], ["/d", "/k", "rem", "two words"]);
+        assert!(
+            start
+                .variables
+                .contains(&("KODOSI_START".to_owned(), "a b=c".to_owned()))
+        );
+        assert_eq!(
+            kodosi_os::fs::canonicalize(&start.directory).unwrap(),
+            kodosi_os::fs::canonicalize(folder.path()).unwrap()
+        );
+    }
+
     #[tokio::test]
     async fn a_program_runs_inside_its_terminals_job() {
         let system = std::env::var_os("SystemRoot").unwrap();
@@ -1030,6 +1201,7 @@ mod tests {
         let block = environment_block(inherited, &[("KODOSI_SESSION_ID", "id")]);
         let text = String::from_utf16_lossy(&block);
         let variables: Vec<&str> = text.split('\0').filter(|entry| !entry.is_empty()).collect();
+        let version = format!("TERM_PROGRAM_VERSION={}", crate::GHOSTTY_VERSION);
         assert_eq!(
             variables,
             [
@@ -1038,7 +1210,7 @@ mod tests {
                 r"Path=C:\bin",
                 "TERM=xterm-256color",
                 "TERM_PROGRAM=ghostty",
-                "TERM_PROGRAM_VERSION=1.4.0",
+                version.as_str(),
                 "WT_SESSION=1",
             ]
         );

@@ -6,6 +6,8 @@
 #include "presentation/AccountModel.hpp"
 #include "presentation/AppearanceModel.hpp"
 #include "presentation/CanvasDocuments.hpp"
+#include "presentation/ChatProse.hpp"
+#include "presentation/TerminalChat.hpp"
 #include "presentation/CanvasModel.hpp"
 #include "presentation/ConversationHistoryModel.hpp"
 #include "presentation/DesktopSettings.hpp"
@@ -205,6 +207,29 @@ struct CanvasDocumentsForeign {
     QML_UNCREATABLE("Kodosi provides it.")
 };
 
+struct TerminalChatsForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::TerminalChats)
+    QML_NAMED_ELEMENT(Chats)
+    QML_SINGLETON
+    QML_UNCREATABLE("Kodosi provides it.")
+};
+
+struct TerminalChatForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::TerminalChat)
+    QML_NAMED_ELEMENT(TerminalChat)
+    QML_UNCREATABLE("A terminal's chat comes from Chats.")
+};
+
+struct ChatProseForeign {
+    Q_GADGET
+    QML_FOREIGN(kodosi::ChatProse)
+    QML_NAMED_ELEMENT(Markdown)
+    QML_SINGLETON
+    QML_UNCREATABLE("Kodosi provides it.")
+};
+
 struct CanvasWebForeign {
     Q_GADGET
     QML_FOREIGN(kodosi::CanvasWeb)
@@ -247,5 +272,5 @@ void provideModels(QQmlEngine&, Workspace&, ConversationHistoryModel&, ProviderF
     AgentLauncherModel&, AppearanceModel&, DesktopSettings&,
     DesktopStateModel&, SessionCatalogModel&, TerminalTilingLayoutModel&, DesktopFileIntegration&,
     ApplicationLifecycleModel&, TerminalSurfaceController&, DesktopTray&, CanvasModel&, CanvasDocuments&,
-    CanvasWeb&, ShortcutsModel&);
+    CanvasWeb&, ShortcutsModel&, TerminalChats&, ChatProse&);
 }

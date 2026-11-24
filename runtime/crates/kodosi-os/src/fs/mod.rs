@@ -38,6 +38,13 @@ pub fn create_private_dir(path: &Path) -> io::Result<()> {
     imp::create_private_dir(path)
 }
 
+/// A private folder that gives the system no access of its own either. Codex's server takes a
+/// socket file only in such a folder.
+#[cfg(windows)]
+pub(crate) fn create_user_only_dir(path: &Path) -> io::Result<()> {
+    imp::create_user_only_dir(path)
+}
+
 pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let parent = path
         .parent()

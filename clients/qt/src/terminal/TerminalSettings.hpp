@@ -28,6 +28,25 @@ namespace kodosi {
         maximumBytes);
 }
 
+template <typename Value>
+struct TerminalRange {
+    Value lowest;
+    Value highest;
+
+    [[nodiscard]] constexpr Value clamp(const Value value) const noexcept
+    {
+        return std::clamp(value, lowest, highest);
+    }
+    [[nodiscard]] constexpr bool holds(const Value value) const noexcept
+    {
+        return value >= lowest && value <= highest;
+    }
+};
+
+inline constexpr TerminalRange<int> terminalFontPixels {8, 32};
+inline constexpr TerminalRange<double> terminalLineHeights {0.8, 2.0};
+inline constexpr TerminalRange<int> terminalScrollbackLines {100, 100'000};
+
 enum class TerminalCursorStyle {
     Block,
     Bar,

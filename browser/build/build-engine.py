@@ -29,7 +29,7 @@ ENGINE = ROOT / "browser/engine"
 TOOLS = ROOT / ".tools/browser-engine"
 CEF_CACHE = ROOT / ".tools/cef"
 # The CEF wrapper builds with Ninja and CMake, from these releases on the Python package index.
-BUILD_TOOLS = ("ninja==1.13.2", "cmake==4.4.4")
+BUILD_TOOLS = ("ninja==1.13.2", "cmake==4.4.5")
 APP_ID = "com.kodosi.browser"
 PRODUCT = "Kodosi Browser"
 HELPERS = {

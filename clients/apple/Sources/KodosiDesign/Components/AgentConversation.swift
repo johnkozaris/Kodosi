@@ -15,7 +15,7 @@ struct PersonBubble: View {
 }
 
 /// An agent's answer. Agents write Markdown: a block of code sits in a well, a heading stands out,
-/// and the other lines keep their breaks with their inline marks.
+/// a table has its columns, and the other lines keep their breaks with their inline marks.
 struct AgentProse: View {
     @Environment(\.theme) private var theme
     let text: String
@@ -49,11 +49,7 @@ struct AgentProse: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .well(Radius.md)
                 case let .table(table):
-                    ScrollView(.horizontal) {
-                        Text(verbatim: table).appTextStyle(.monoCaption).foregroundStyle(theme.colors.inkMuted).textSelection(.enabled)
-                            .fixedSize()
-                    }
-                    .scrollIndicators(.never)
+                    ProseTableView(table: table)
                 }
             }
         }
@@ -65,7 +61,7 @@ enum ProseBlock: Equatable {
     case lines(String)
     case heading(String)
     case code(String)
-    case table(String)
+    case table(ProseTable)
 
     /// A fence that is still open while the agent writes holds the rest.
     static func blocks(of text: String) -> [Self] {
@@ -75,7 +71,7 @@ enum ProseBlock: Equatable {
         var table: [Substring] = []
         func flush() {
             if !table.isEmpty {
-                blocks.append(.table(table.joined(separator: "\n")))
+                blocks.append(.table(ProseTable(lines: table)))
                 table = []
             }
             let joined = lines.joined(separator: "\n").trimmingCharacters(in: .newlines)
@@ -129,6 +125,131 @@ enum ProseBlock: Equatable {
         let rest = line.dropFirst(indent.count)
         guard rest.hasPrefix("- ") || rest.hasPrefix("* ") || rest.hasPrefix("+ ") else { return line }
         return indent + "• " + rest.dropFirst(2)
+    }
+}
+
+/// A table as an agent writes it in Markdown. The first row names the columns when a row of
+/// dashes follows it, and that row says on which side each column stands.
+struct ProseTable: Equatable {
+    enum Side: Equatable {
+        case leading, center, trailing
+    }
+
+    private(set) var header: [String] = []
+    private(set) var rows: [[String]] = []
+    private(set) var sides: [Side] = []
+
+    init(lines: [Substring]) {
+        var rows = lines.map(Self.cells)
+        if rows.count > 1, let sides = Self.sides(rows[1]) {
+            header = rows[0]
+            self.sides = sides
+            rows.removeFirst(2)
+        }
+        self.rows = rows
+    }
+
+    var columns: Int {
+        max(header.count, rows.map(\.count).max() ?? 0)
+    }
+
+    func side(of column: Int) -> Side {
+        column < sides.count ? sides[column] : .leading
+    }
+
+    /// A bar after a backslash belongs to the words of its cell, and the bars at the two ends of a
+    /// row hold no cell.
+    static func cells(_ line: Substring) -> [String] {
+        var cells: [String] = []
+        var cell = ""
+        var escaped = false
+        for character in line {
+            if escaped {
+                if character != "|" {
+                    cell.append("\\")
+                }
+                cell.append(character)
+                escaped = false
+            } else if character == "\\" {
+                escaped = true
+            } else if character == "|" {
+                cells.append(cell)
+                cell = ""
+            } else {
+                cell.append(character)
+            }
+        }
+        if escaped {
+            cell.append("\\")
+        }
+        cells.append(cell)
+        cells = cells.map { $0.trimmingCharacters(in: .whitespaces) }
+        if cells.first?.isEmpty == true {
+            cells.removeFirst()
+        }
+        if cells.last?.isEmpty == true {
+            cells.removeLast()
+        }
+        return cells
+    }
+
+    private static func sides(_ row: [String]) -> [Side]? {
+        let dashes = row.allSatisfy { cell in cell.contains("-") && cell.allSatisfy { "-: ".contains($0) } }
+        guard dashes, !row.isEmpty else { return nil }
+        return row.map { cell in
+            switch (cell.hasPrefix(":"), cell.hasSuffix(":")) {
+            case (true, true): .center
+            case (false, true): .trailing
+            default: .leading
+            }
+        }
+    }
+}
+
+/// A table wider than the conversation moves sideways, and a long cell breaks its lines.
+private struct ProseTableView: View {
+    private static let widestCell: CGFloat = 280
+
+    @Environment(\.theme) private var theme
+    let table: ProseTable
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            Grid(alignment: .topLeading, horizontalSpacing: 18, verticalSpacing: 7) {
+                if !table.header.isEmpty {
+                    GridRow {
+                        ForEach(0 ..< table.columns, id: \.self) { column in
+                            cell(table.header, column).fontWeight(.semibold)
+                        }
+                    }
+                    Rectangle().fill(theme.colors.hairline).frame(height: 0.5).gridCellUnsizedAxes(.horizontal)
+                }
+                ForEach(table.rows.indices, id: \.self) { row in
+                    GridRow {
+                        ForEach(0 ..< table.columns, id: \.self) { column in
+                            cell(table.rows[row], column)
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollIndicators(.never)
+    }
+
+    private func cell(_ row: [String], _ column: Int) -> some View {
+        let alignment: Alignment = switch table.side(of: column) {
+        case .leading: .leading
+        case .center: .center
+        case .trailing: .trailing
+        }
+        return Text(ProjectMessageText.formatted(column < row.count ? row[column] : ""))
+            .appTextStyle(.body).foregroundStyle(theme.colors.ink).textSelection(.enabled)
+            .tint(theme.colors.accentStrong)
+            .multilineTextAlignment(alignment == .trailing ? .trailing : alignment == .center ? .center : .leading)
+            .frame(maxWidth: Self.widestCell, alignment: alignment)
+            .fixedSize(horizontal: false, vertical: true)
+            .gridColumnAlignment(alignment.horizontal)
     }
 }
 
@@ -197,7 +318,6 @@ extension View {
 }
 
 struct LatestKey: View {
-    @Environment(\.theme) private var theme
     let action: () -> Void
 
     var body: some View {

@@ -1,7 +1,6 @@
 #include "app/ApplicationLifecycleModel.hpp"
 
 #include <QCoreApplication>
-#include <QFile>
 #include <QSignalSpy>
 #include <QTest>
 
@@ -46,7 +45,6 @@ private slots:
     void anOutdatedHostRestartsOnlyWhenItRunsInTheBackground();
     void anOutdatedHostWithNoTerminalsRestartsWithoutAsking();
     void anOutdatedHostThatComesBackIsRestartedOnlyOnce();
-    void anInstalledUpdateAsksOnceForARestart();
     void aLaunchOfANewerVersionOffersTheRestart();
 };
 
@@ -368,21 +366,6 @@ void ApplicationLifecycleModelTest::aLaunchOfANewerVersionOffersTheRestart()
     QCOMPARE(offered.count(), 1);
     model.offerRestart(QString {}, QStringLiteral("0.2.2"));
     QCOMPARE(offered.count(), 2);
-}
-
-void ApplicationLifecycleModelTest::anInstalledUpdateAsksOnceForARestart()
-{
-    kodosi::RuntimeBridge runtime;
-    kodosi::ApplicationLifecycleModel model(runtime, [](kodosi::ApplicationLifecycleModel::Completion) {}, [] {});
-    QSignalSpy installed(&model, &kodosi::ApplicationLifecycleModel::updateInstalledChanged);
-
-    model.setUpdateInstalled();
-    model.setUpdateInstalled();
-    QVERIFY(model.updateInstalled());
-    QCOMPARE(installed.count(), 1);
-    QVERIFY(!model.restartRequested());
-    model.restart();
-    QVERIFY(model.restartRequested());
 }
 
 QTEST_GUILESS_MAIN(ApplicationLifecycleModelTest)

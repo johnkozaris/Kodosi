@@ -5,7 +5,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -31,7 +30,6 @@ class FirstPromptTest {
     @get:Rule
     val compose = createEmptyComposeRule()
 
-    @OptIn(ExperimentalTestApi::class)
     @Test
     fun aFirstPromptStaysOneLineAndEnterOrDoneFinishesIt() {
         val prompt = TextFieldState()

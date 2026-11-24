@@ -34,27 +34,17 @@ fn failed(error: impl std::fmt::Display) -> Unwritable {
     Unwritable(error.to_string())
 }
 
-fn mark_named<'m>(marks: &'m [Mark], name: &str) -> Option<&'m Mark> {
-    marks
-        .iter()
-        .find(|mark| schema().mark_name(mark.kind()) == name)
-}
-
-fn mark_text<'m>(mark: &'m Mark, name: &str) -> Option<&'m str> {
-    mark.attrs().get(name).and_then(Value::as_str)
-}
-
 fn look_of(marks: &[Mark]) -> RunLook {
-    let style = mark_named(marks, "textStyle");
+    let style = schema().mark_in("textStyle", marks);
     let value = |name: &str| {
         style
-            .and_then(|mark| mark_text(mark, name))
+            .and_then(|mark| mark.text_attr(name))
             .map(str::to_owned)
     };
     RunLook {
-        bold: mark_named(marks, "bold").is_some(),
-        italic: mark_named(marks, "italic").is_some(),
-        underline: mark_named(marks, "underline").is_some(),
+        bold: schema().mark_in("bold", marks).is_some(),
+        italic: schema().mark_in("italic", marks).is_some(),
+        underline: schema().mark_in("underline", marks).is_some(),
         color: value("color"),
         size: value("size"),
         font: value("font"),
@@ -107,7 +97,10 @@ impl Out<'_> {
 
     fn run_props(&self, marks: &[Mark]) -> Result<String, String> {
         let wanted = look_of(marks);
-        let raw = match mark_named(marks, "run").and_then(|mark| mark_text(mark, "props")) {
+        let raw = match schema()
+            .mark_in("run", marks)
+            .and_then(|mark| mark.text_attr("props"))
+        {
             Some(name) => self.raw(name)?.to_owned(),
             None => String::new(),
         };

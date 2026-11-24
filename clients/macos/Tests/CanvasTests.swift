@@ -49,7 +49,7 @@ private func asleepBrowser(changed: UInt64) -> JSONValue {
     let canvas = try #require(session.canvas)
     #expect(canvas.shown.map(\.key) == ["/tmp/work/compare.html", "/tmp/work/plan.pdf", CanvasShown.browserKey])
     #expect(canvas.newest?.key == "/tmp/work/plan.pdf")
-    #expect(canvas.shown[1].missing)
+    #expect(canvas.items[1].missing)
     #expect(canvas.browser?.tabs.isEmpty == true)
     #expect(try terminal(canvas: nil).canvas == nil)
     #expect(try terminal(canvas: ["sequence": .uint(1)]).canvas?.shown.isEmpty == true)

@@ -4,6 +4,7 @@ set_source_files_properties(
     qml/Theme/Mentions.qml
     qml/Dosi/Fold.qml
     qml/Controls/Tip.qml
+    qml/Controls/Prose.qml
     qml/Workbench/DocumentViews.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
@@ -82,6 +83,12 @@ qt_add_library(kodosi-application STATIC
     presentation/AppearanceModel.hpp
     presentation/CanvasDocuments.cpp
     presentation/CanvasDocuments.hpp
+    presentation/ChatProse.cpp
+    presentation/ChatProse.hpp
+    presentation/ChatWords.cpp
+    presentation/ChatWords.hpp
+    presentation/TerminalChat.cpp
+    presentation/TerminalChat.hpp
     presentation/CanvasModel.cpp
     presentation/Link.cpp
     presentation/Link.hpp
@@ -162,7 +169,6 @@ qt_add_resources(kodosi-desktop-integration "tray"
 qt_add_library(kodosi-terminal-kernel STATIC
     accessibility/AccessibilityScope.cpp
     accessibility/AccessibilityScope.hpp
-    terminal/GhosttyC.hpp
     terminal/TerminalAccessibility.cpp
     terminal/TerminalAccessibility.hpp
     terminal/GhosttyTerminalKernel.cpp
@@ -268,6 +274,8 @@ qt_add_qml_module(kodosi-ui
         controls/KeyRecorder.hpp
         controls/LightTrack.cpp
         controls/LightTrack.hpp
+        controls/SignClock.cpp
+        controls/SignClock.hpp
     QML_FILES
         qml/Main.qml
         qml/Screens/PeopleView.qml
@@ -293,8 +301,25 @@ qt_add_qml_module(kodosi-ui
         qml/Settings/BrowserSettings.qml
         qml/Settings/DocumentSettings.qml
         qml/Settings/DosiSettings.qml
+        qml/Chat/ChatAskCard.qml
+        qml/Chat/ChatDock.qml
+        qml/Chat/ChatFacts.qml
+        qml/Chat/ChatStep.qml
+        qml/Chat/ChatThread.qml
+        qml/Chat/ChatWork.qml
+        qml/Chat/TerminalChatView.qml
         qml/Controls/AccountMark.qml
+        qml/Controls/AgentProse.qml
         qml/Controls/Arrive.qml
+        qml/Controls/ChangeLines.qml
+        qml/Controls/CodeWell.qml
+        qml/Controls/ComposerBox.qml
+        qml/Controls/DayDivider.qml
+        qml/Controls/LatestKey.qml
+        qml/Controls/PersonBubble.qml
+        qml/Controls/Prose.qml
+        qml/Controls/SendKey.qml
+        qml/Controls/StopKey.qml
         qml/Controls/Cue.qml
         qml/Controls/DosiFace.qml
         qml/Controls/Spinner.qml
@@ -411,6 +436,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/SessionDetails.qml
         qml/Workbench/ShareSheet.qml
         qml/Workbench/StageOverview.qml
+        qml/Workbench/TerminalActions.qml
         qml/Workbench/TerminalDivider.qml
         qml/Workbench/TerminalStage.qml
         qml/Workbench/TerminalTile.qml
@@ -424,9 +450,10 @@ qt_add_qml_module(kodosi-ui
         qml/assets/providers/opencode-dark.svg
 )
 
-target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 Qt6::WebEngineQuick kodosi-qml-modelsplugin)
+target_link_libraries(kodosi-ui PUBLIC Qt6::Quick Qt6::QuickControls2 Qt6::WebEngineQuick kodosi-qml-modelsplugin
+    PRIVATE Qt6::GuiPrivate)
 target_include_directories(kodosi-ui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/controls")
-set_source_files_properties(controls/KeyRecorder.cpp controls/LightTrack.cpp
+set_source_files_properties(controls/KeyRecorder.cpp controls/LightTrack.cpp controls/SignClock.cpp
     PROPERTIES COMPILE_OPTIONS "${KODOSI_COMPILE_OPTIONS}")
 
 target_link_libraries(kodosi-qt

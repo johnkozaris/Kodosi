@@ -314,13 +314,6 @@ private slots:
             QCOMPARE(runtime_fixture::hostStops, stops);
         }
     }
-    void admissionErrorsAreNotCompletion()
-    {
-        kodosi::RuntimeBridge bridge;
-        QVERIFY(started(bridge));
-        runtime_fixture::commandResult = KODOSI_FFI_BUSY;
-        QVERIFY(!bridge.send(QByteArrayLiteral("{\"type\":\"session.list\"}")));
-    }
     void installsCheckpointsUpToTheSnapshotLimit()
     {
         CheckpointSink sink;

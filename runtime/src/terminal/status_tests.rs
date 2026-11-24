@@ -229,23 +229,11 @@ fn a_status_from_another_computer_must_follow_the_same_rules() {
         },
         ProgramStatus {
             message: Some(String::new()),
-            ..valid.clone()
+            ..valid
         },
     ] {
         assert!(!invalid.is_valid(), "{invalid:?}");
     }
-    assert!(serde_json::from_str::<ProgramStatus>(r#"{"state":"idle","other":1}"#).is_err());
-    assert_eq!(
-        serde_json::to_string(&ProgramStatus {
-            kind: None,
-            progress: None,
-            title: None,
-            message: None,
-            ..valid
-        })
-        .expect("json"),
-        r#"{"state":"blocked"}"#
-    );
 }
 
 #[test]

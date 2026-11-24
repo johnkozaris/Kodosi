@@ -17,9 +17,23 @@ pub(super) struct Chat {
     tasks: Vec<ChatTask>,
     changes: Vec<ChatChange>,
     made: u64,
+    /// The home folder of this computer, from which the chat names a file outside the terminal's
+    /// folder.
+    home: Option<String>,
 }
 
 impl Chat {
+    pub(super) fn at_home(home: Option<String>) -> Self {
+        Self {
+            home,
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn home(&self) -> Option<&str> {
+        self.home.as_deref()
+    }
+
     pub(super) fn snapshot(&self) -> ChatSnapshot {
         ChatSnapshot {
             revision: self.revision,
@@ -318,14 +332,7 @@ impl Chat {
 
 /// The start of `text` that ends at a character and has at most `most` bytes.
 pub(super) fn start_of(text: &str, most: usize) -> &str {
-    if text.len() <= most {
-        return text;
-    }
-    let mut end = most;
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    &text[..end]
+    &text[..text.floor_char_boundary(most)]
 }
 
 /// The start and the end of a long text, with a sign between them.
@@ -334,9 +341,6 @@ pub(super) fn ends_of(text: &str, most: usize) -> String {
         return text.to_owned();
     }
     let head = start_of(text, most * 3 / 5);
-    let mut tail = text.len() - most * 2 / 5;
-    while !text.is_char_boundary(tail) {
-        tail += 1;
-    }
+    let tail = text.ceil_char_boundary(text.len() - most * 2 / 5);
     format!("{head}\n…\n{}", &text[tail..])
 }

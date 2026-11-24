@@ -13,8 +13,9 @@ import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
+import androidx.camera.core.imageAnalysis
+import androidx.camera.core.preview
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -181,22 +182,19 @@ private fun CameraReader(read: (String) -> Unit, failed: () -> Unit, modifier: M
         val main = context.mainExecutor
         val decoding = Executors.newSingleThreadExecutor()
         val reader = QRCodeReader()
-        val preview = Preview.Builder().build().apply { setSurfaceProvider { request = it } }
-        val analysis = ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .setResolutionSelector(
-                ResolutionSelector.Builder()
-                    .setResolutionStrategy(
-                        ResolutionStrategy(Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER)
-                    )
-                    .build()
-            )
-            .build()
-            .apply {
-                setAnalyzer(decoding) { image ->
-                    image.use { qrText(reader, it) }?.let { code -> main.execute { reading(code) } }
-                }
+        val preview = preview {}.apply { setSurfaceProvider { request = it } }
+        val analysis = imageAnalysis {
+            backpressureStrategy = ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+            resolutionSelector = ResolutionSelector.Builder()
+                .setResolutionStrategy(
+                    ResolutionStrategy(Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER)
+                )
+                .build()
+        }.apply {
+            setAnalyzer(decoding) { image ->
+                image.use { qrText(reader, it) }?.let { code -> main.execute { reading(code) } }
             }
+        }
         try {
             provider.bindToLifecycle(owner, selector, preview, analysis)
             awaitCancellation()
