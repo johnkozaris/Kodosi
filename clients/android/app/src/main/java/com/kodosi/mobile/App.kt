@@ -291,7 +291,11 @@ private fun Home(model: AppModel) {
             },
             {
                 askingNetwork = false
-                network.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+                    network.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+                } else {
+                    showOpening()
+                }
             }
         )
     }
