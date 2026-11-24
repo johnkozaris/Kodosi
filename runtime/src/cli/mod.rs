@@ -492,8 +492,8 @@ enum ProviderAction {
     clippy::future_not_send,
     reason = "CLI execution keeps the Ghostty mirror on the main thread"
 )]
-pub async fn run_with(args: Vec<OsString>) -> u8 {
-    let args = match Arguments::try_parse_from(args) {
+pub async fn run_with(invocation: Vec<OsString>) -> u8 {
+    let args = match Arguments::try_parse_from(&invocation) {
         Ok(args) => args,
         Err(error) => {
             drop(error.print());
@@ -504,21 +504,24 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
     match Box::pin(dispatch(args)).await {
         Ok(code) => code,
         Err(error) => {
+            #[cfg(target_os = "linux")]
+            if let Error::HostOutdated { pid, .. } = error {
+                drop(run_in_host_program(pid, &invocation));
+            }
             let message = match error {
                 Error::HostOutdated {
                     kind: HostKind::Background,
                     terminals,
                     ..
-                } => {
-                    let stopped = match terminals {
-                        0 => "it".to_owned(),
-                        1 => "it and its terminal".to_owned(),
-                        count => format!("it and its {count} terminals"),
-                    };
-                    format!(
-                        "{error} Run `kodosi host stop --force` to stop {stopped}. The next command starts the new host."
-                    )
-                }
+                } => match terminals {
+                    0 => format!("{error} Restart Kodosi to use the update."),
+                    1 => format!(
+                        "{error} Restart Kodosi to use the update, when its terminal can end."
+                    ),
+                    count => format!(
+                        "{error} Restart Kodosi to use the update, when its {count} terminals can end."
+                    ),
+                },
                 Error::HostOutdated { .. } => {
                     format!("{error} Stop `kodosi host` in its terminal and start it again.")
                 }
@@ -532,6 +535,19 @@ pub async fn run_with(args: Vec<OsString>) -> u8 {
             1
         }
     }
+}
+
+/// A package update on Linux replaces this program while the host of the earlier version runs, and
+/// that host's own program, which Linux keeps for the process, still serves the command until
+/// Kodosi restarts.
+#[cfg(target_os = "linux")]
+fn run_in_host_program(pid: u32, invocation: &[OsString]) -> io::Error {
+    use std::os::unix::process::CommandExt as _;
+    let mut command = std::process::Command::new(format!("/proc/{pid}/exe"));
+    if let Some((program, words)) = invocation.split_first() {
+        command.arg0(program).args(words);
+    }
+    command.exec()
 }
 
 pub fn is_invocation(args: &[OsString]) -> bool {
