@@ -1213,6 +1213,11 @@ fn an_empty_message_of_claude_code_shows_nothing() {
         &json!({"k": "row", "door": "response", "origin": {"kind": "model"}, "uuid": "empty",
         "content": [{"type": "text", "text": "(no content)"}]}),
     );
+    play.take(
+        &json!({"k": "row", "door": "command", "origin": {"kind": "plugin", "name": "kodosi"},
+        "uuid": "background", "content": [{"type": "text",
+        "text": "<local-command-stdout>(no content)</local-command-stdout>"}]}),
+    );
 
     assert_eq!(play.answers().len(), answers);
 }

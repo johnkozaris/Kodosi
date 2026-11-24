@@ -26,7 +26,8 @@ const REFUSED_WITH_WORDS: &str = "The user doesn't want to proceed with this too
     use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To \
     tell you how to proceed, the user said:\n";
 const MOST_ROWS: usize = 4096;
-/// Claude Code writes this text for a message of the agent that has no text.
+/// Claude Code writes this text for a message of the agent or the output of a command that has no
+/// text.
 const NO_CONTENT: &str = "(no content)";
 const MOST_SAID: usize = 400;
 
@@ -423,8 +424,9 @@ impl Claude {
     fn command(&mut self, chat: &mut Chat, event: &Value, row: &str, at: u64) {
         if let Some(output) = between(row, "<local-command-stdout>", "</local-command-stdout>") {
             let output = without_escapes(output);
-            if !output.trim().is_empty() {
-                chat.push(at, answer(output.trim(), false));
+            let output = output.trim();
+            if !output.is_empty() && output != NO_CONTENT {
+                chat.push(at, answer(output, false));
             }
             return;
         }
