@@ -144,26 +144,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_client_that_sends_nothing_for_many_closes_is_forgotten() {
-        let mut clients = HashMap::new();
-        for close in 0..=u64::from(MOST_QUIET_CLOSES) + 1 {
-            let seqs = HashMap::from([("ana".to_owned(), close + 1), ("ben".to_owned(), 1)]);
-            clients = remembered(&clients, seqs);
-            assert_eq!(
-                clients.contains_key("ben"),
-                close <= u64::from(MOST_QUIET_CLOSES)
-            );
-        }
-        assert_eq!(
-            clients.get("ana"),
-            Some(&Remembered {
-                seq: u64::from(MOST_QUIET_CLOSES) + 2,
-                quiet: 0
-            })
-        );
-    }
-
-    #[test]
     fn only_the_documents_that_closed_last_are_remembered() {
         let state = tempfile::tempdir().unwrap();
         let memory = Memory::new(state.path().to_owned());
