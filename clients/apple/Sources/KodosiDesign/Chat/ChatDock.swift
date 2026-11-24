@@ -373,7 +373,7 @@ private struct ChatFactsRow<ModelKey: View>: View {
         .fixedSize()
     }
 
-    @ViewBuilder private func model(full: Bool) -> some View {
+    @ContentBuilder private func model(full: Bool) -> some View {
         if let model = facts.model {
             modelKey(model, facts.effort, $modelOpen)
                 .environment(\.chatMode, facts.mode)
@@ -386,7 +386,7 @@ private struct ChatFactsRow<ModelKey: View>: View {
         }
     }
 
-    @ViewBuilder private func usage(full: Bool) -> some View {
+    @ContentBuilder private func usage(full: Bool) -> some View {
         if facts.context != nil || !facts.limits.isEmpty || (facts.cost ?? 0) > 0 {
             ChatUsageKey(facts: facts, open: $usageOpen, named: full)
         }
