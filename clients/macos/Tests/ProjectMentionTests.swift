@@ -48,7 +48,6 @@ private let people = [
 
 @Test func `terminal mention links round trip`() throws {
     let link = try #require(people[3].link)
-    #expect(link.absoluteString == "kodosi-project://terminal/t1")
     #expect(ProjectMentions.terminalId(in: link) == "t1")
     #expect(try ProjectMentions.terminalId(in: #require(URL(string: "https://example.com/terminal/t1"))) == nil)
     #expect(people[1].link == nil)

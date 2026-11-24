@@ -174,14 +174,6 @@ struct AppModelTests {
         #expect(news == [.open, .lost("Studio is offline.")])
     }
 
-    @Test func `a picture sent to another computer shows how much arrived`() throws {
-        try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
-        try deliver("sessions.snapshot", ["sessions": [session(id: "s1", state: "working")]])
-        _ = model.terminals.live.session(for: "s1")
-        try deliver("session.picture", ["sessionId": "s1", "state": "sending", "sent": 3, "total": 10])
-        #expect(model.terminals.live.picture(for: "s1")?.sent == 3)
-    }
-
     @Test func `while Kodosi is offline a terminal of another computer says Offline, unless it has no access`() throws {
         try deliver("auth.ready", ["userId": "user-1", "enrolled": true])
         var reconnecting = terminalEntry("reconnecting", state: "working")

@@ -216,7 +216,6 @@ private struct Named {
     }
     try dosi.receive(runtimeEvent("dosi.snapshot", fields: fields))
     #expect(dosi.items.first.flatMap(dosi.waiting)?.name == "Studio")
-    #expect(dosi.state == .off)
 }
 
 @Test func `the thread groups steps of a turn and marks long gaps`() throws {

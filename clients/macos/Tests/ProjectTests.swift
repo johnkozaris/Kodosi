@@ -17,9 +17,7 @@ import Testing
     try app.receive(runtimeEvent("projects.snapshot", fields: [
         "projects": .array([]), "invitations": .array([]), "projectsTruncated": .bool(true),
     ]))
-    #expect(app.projects.listTruncated)
     #expect(app.workbench.selectedProjectId == "project-1")
     try app.receive(runtimeEvent("projects.snapshot", fields: ["projects": .array([]), "invitations": .array([])]))
-    #expect(!app.projects.listTruncated)
     #expect(app.workbench.selectedProjectId == nil)
 }

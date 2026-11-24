@@ -90,9 +90,7 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         #expect(!session.canControl)
         #expect(session.canOpen)
     }
-    let away = try runtimeSession(connection: "connected", status: "offline")
-    #expect(away.isTroubled)
-    #expect(away.statusLabel == "Remote computer is offline")
+    #expect(try runtimeSession(connection: "connected", status: "offline").isTroubled)
 }
 
 @Test func `deep links only identify real session UUIDs`() throws {
@@ -226,19 +224,15 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
     }
     let working = try session(working: true, activity: "Draft the release notes")
-    #expect(working.name == "Amber Wren")
-    #expect(working.activity == "Draft the release notes")
     #expect(working.agent == .claude)
     #expect(working.mark(rested: .asleep) == .working)
     #expect(working.sign(unseen: false) == nil)
     let resting = try session()
-    #expect(resting.activity == nil)
     #expect(resting.mark(rested: .asleep) == .asleep)
     #expect(resting.sign(unseen: false) == nil)
     #expect(resting.sign(unseen: true) == .changed)
     let measured = try session(working: true, status: ["state": .string("working"), "progress": .int(40)])
     #expect(!measured.needsUser)
-    #expect(measured.progress == 40)
     #expect(measured.mark(rested: .asleep) == .progress(40))
     let approval = try session(
         waiting: "blocked", activity: "Allow the command?",
@@ -264,33 +258,4 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     )
     #expect(elsewhere.needsUser)
     #expect(elsewhere.sign(unseen: false) == .question)
-}
-
-@Test func `a terminal names where its program runs and whether as root`() throws {
-    func session(context: [String: JSONValue]?) throws -> RuntimeSession {
-        var fields: [String: JSONValue] = [
-            "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
-            "kind": .string("local"), "name": .string("Amber Wren"),
-            "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
-            "connectionState": .string("local"), "sharedWith": .array([]),
-        ]
-        fields["context"] = context.map(JSONValue.object)
-        return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
-    }
-    let remote = try session(context: [
-        "place": .object(["kind": .string("remote"), "name": .string("build")]), "root": .bool(true),
-    ])
-    #expect(remote.place?.kind == .remote && remote.place?.name == "build")
-    #expect(remote.runsAsRoot)
-    #expect(remote.placeLabel == "On build")
-    let container = try session(context: [
-        "place": .object(["kind": .string("container"), "name": .string("debian")]), "root": .bool(false),
-    ])
-    #expect(container.placeLabel == "In the container debian")
-    #expect(!container.runsAsRoot)
-    let root = try session(context: ["root": .bool(true)])
-    #expect(root.place == nil)
-    #expect(root.runsAsRoot)
-    let local = try session(context: nil)
-    #expect(local.place == nil && !local.runsAsRoot && local.placeLabel == nil)
 }

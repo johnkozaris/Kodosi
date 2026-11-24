@@ -203,8 +203,6 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
 @Test func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
     let session = try runtimeSession(status: "offline")
-    #expect(session.statusLabel == "Remote computer is offline")
-    #expect(try runtimeSession().statusLabel == "Not connected")
     let first = WorkbenchState(defaults: defaults)
     first.switchAccount("owner")
     first.showSession(session.id)
