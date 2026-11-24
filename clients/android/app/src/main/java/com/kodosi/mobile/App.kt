@@ -80,8 +80,8 @@ import com.kodosi.mobile.terminals.NewTerminalRequest
 import com.kodosi.mobile.terminals.NewTerminalSheet
 import com.kodosi.mobile.terminals.TerminalScreen
 import com.kodosi.mobile.terminals.TerminalsScreen
-import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.AppSymbol
+import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiNavigation
 import com.kodosi.mobile.ui.KodosiNotice
