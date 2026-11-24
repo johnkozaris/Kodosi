@@ -51,7 +51,9 @@ object LinkPolicy {
         val target = decision.optString("target")
         return when (decision.optString("action")) {
             "open" -> if (target.startsWith("file:")) LinkReview.Invalid else LinkReview.Open(target, asks = false)
+
             "ask" -> LinkReview.Open(target, asks = true)
+
             else -> when (decision.optString("refusal")) {
                 "fileElsewhere", "addressElsewhere" -> LinkReview.OnComputer(decision.optString("place"))
                 else -> LinkReview.Invalid
