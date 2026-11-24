@@ -131,7 +131,7 @@ struct NewTerminalTests {
                 "agent": "claude", "program": "claude", "installed": true, "install": "", "addsAccounts": true, "reportsUsage": true,
                 "permissions": ["ask", "auto", "unrestricted"], "outputs": ["quiet", "standard", "detailed"],
                 "defaultPermissions": "unrestricted", "defaultOutput": "quiet", "fast": true, "chat": false,
-                "accounts": [
+                "dosi": true, "accounts": [
                     ["name": "default", "command": "claude", "identity": NSNull(), "folder": "~/.claude"],
                     ["name": "work", "command": "env CLAUDE_CONFIG_DIR=/home/maya/.claude-work claude", "identity": NSNull(),
                      "folder": "~/.claude-work"],
