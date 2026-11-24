@@ -217,11 +217,10 @@ function earlier(rows) {
 // The host follows the module from its hello, so what happens while the module reads the session waits
 // until the hello and the history are out. The host knows each row of the history by its id.
 async function hello($, rewound) {
-  if (picking) tell($, 'did', { n: picking })
-  picking = 0
   greeting = true
   const facts = { agent: 'claude', rewound: rewound || undefined }
   let rows = []
+  let read = true
   try {
     facts.session = await $.session.id()
     facts.version = (await $.session.version()).version
@@ -233,13 +232,19 @@ async function hello($, rewound) {
     turns = await prompts($)
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
-    rows = []
+    read = false
   }
-  facts.mode = mode || undefined
-  facts.bypass = bypass
   greeting = false
-  tell($, 'hello', facts)
-  for (let at = 0; at < rows.length; at += HISTORY_PART) tell($, 'history', { rows: rows.slice(at, at + HISTORY_PART) })
+  // A module that can no longer read its session, as at the end of Claude Code or after a reload of
+  // its plugins, counts no prompts, and that is no rewind.
+  if (read || !rewound) {
+    if (picking) tell($, 'did', { n: picking })
+    picking = 0
+    facts.mode = mode || undefined
+    facts.bypass = bypass
+    tell($, 'hello', facts)
+    for (let at = 0; at < rows.length; at += HISTORY_PART) tell($, 'history', { rows: rows.slice(at, at + HISTORY_PART) })
+  }
   pending.push(...early.splice(0))
   flush($)
 }
