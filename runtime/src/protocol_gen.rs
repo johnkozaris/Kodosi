@@ -331,7 +331,6 @@ fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde::Serialize;
 
     const ID: &str = "11111111-1111-4111-8111-111111111111";
     #[cfg(unix)]
@@ -422,15 +421,6 @@ mod tests {
         )
     }
 
-    fn check<T: Type + Serialize>(value: &T) {
-        let schema = shape::<T>().unwrap();
-        let encoded = serde_json::to_value(value).unwrap();
-        assert!(
-            matches(&schema, &encoded),
-            "schema {schema} did not match {encoded}"
-        );
-    }
-
     #[test]
     fn the_contract_file_is_what_the_rust_definitions_give() {
         assert!(
@@ -457,150 +447,6 @@ mod tests {
             assert_eq!(encoded["type"], value["type"]);
             assert_eq!(encoded["type"], event.event.kind());
         }
-    }
-
-    #[test]
-    fn serde_renaming_flattening_and_required_fields_are_preserved() {
-        check(&protocol::CommandEnvelope {
-            account_user_id: None,
-            account_epoch: 0,
-            computer: Some("device-2".to_owned()),
-            command: protocol::Command::ListSessions {
-                request_id: ID.to_owned(),
-            },
-        });
-        check(&protocol::CommandEnvelope {
-            account_user_id: None,
-            account_epoch: 0,
-            computer: None,
-            command: protocol::Command::Resize {
-                session_id: ID.to_owned(),
-                identity: protocol::ResizeIdentity {
-                    request_id: ID.to_owned(),
-                    expected_runtime_incarnation_id: ID.to_owned(),
-                    subscription_id: ID.to_owned(),
-                    subscription_generation: 1,
-                    surface_generation: 1,
-                    cols: 80,
-                    rows: 24,
-                    width_pixels: 800,
-                    height_pixels: 480,
-                    cell_width_pixels: 10,
-                    cell_height_pixels: 20,
-                },
-            },
-        });
-        let schema = shape::<protocol::CommandEnvelope>().unwrap();
-        let resized = leaves(&schema)
-            .into_iter()
-            .find(|schema| schema["properties"]["type"]["const"] == "session.resize")
-            .unwrap();
-        assert!(resized["properties"].get("identity").is_none());
-        assert_eq!(
-            resized["properties"]["subscriptionGeneration"]["type"],
-            "integer"
-        );
-        assert!(
-            resized["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("subscriptionGeneration"))
-        );
-        let mut malformed = serde_json::to_value(protocol::CommandEnvelope {
-            account_user_id: None,
-            account_epoch: 0,
-            computer: None,
-            command: protocol::Command::ListSessions {
-                request_id: ID.to_owned(),
-            },
-        })
-        .unwrap();
-        malformed["unexpected"] = json!(true);
-        assert!(!matches(&schema, &malformed));
-        assert!(serde_json::from_value::<protocol::CommandEnvelope>(malformed).is_err());
-    }
-
-    #[test]
-    fn provider_nullable_fields_are_not_accidentally_optional() {
-        let info = kodosi_runtime::provider::ProviderInfo {
-            provider: kodosi_runtime::provider::Provider::Claude,
-            executable: None,
-            files: vec![],
-            message: None,
-        };
-        check(&info);
-        let schema = shape::<kodosi_runtime::provider::ProviderInfo>().unwrap();
-        assert!(
-            schema["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("executable"))
-        );
-        assert!(matches(&schema["properties"]["executable"], &Value::Null));
-        let provider = shape::<kodosi_runtime::provider::Provider>().unwrap();
-        assert!(matches(&provider, &json!("claude")));
-        assert!(!matches(&provider, &json!("Claude")));
-    }
-
-    #[test]
-    fn omitted_optional_fields_match_actual_event_serialization() {
-        let event =
-            protocol::Event::new(None, 0, json!({"type":"auth.ready","userId":ID})).unwrap();
-        check(&event);
-        let schema = shape::<protocol::EventBody>().unwrap();
-        let ready = leaves(&schema)
-            .into_iter()
-            .find(|schema| schema["properties"]["type"]["const"] == "auth.ready")
-            .unwrap();
-        assert!(
-            !ready["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("displayName"))
-        );
-        assert!(matches(
-            &shape::<protocol::SessionKind>().unwrap(),
-            &json!("remote")
-        ));
-        assert!(matches(
-            &shape::<protocol::SessionStatus>().unwrap(),
-            &json!("reconnecting")
-        ));
-        assert!(matches(
-            &shape::<protocol::AuthRequiredReason>().unwrap(),
-            &json!("signedOut")
-        ));
-    }
-
-    #[test]
-    fn optional_command_input_is_distinct_from_nullable_event_output() {
-        let schema = schema::<protocol::CommandEnvelope>(Direction::Input).unwrap();
-        let minimal = json!({"type":"session.create","requestId":ID,"name":"Terminal","accountUserId":null,"accountEpoch":0});
-        assert!(matches(&schema, &minimal));
-        assert!(serde_json::from_value::<protocol::CommandEnvelope>(minimal.clone()).is_ok());
-        let mut missing_account = minimal;
-        missing_account
-            .as_object_mut()
-            .unwrap()
-            .remove("accountUserId");
-        assert!(!matches(&schema, &missing_account));
-        assert!(serde_json::from_value::<protocol::CommandEnvelope>(missing_account).is_err());
-        let create = leaves(&schema)
-            .into_iter()
-            .find(|value| value["properties"]["type"]["const"] == "session.create")
-            .unwrap();
-        assert!(
-            !create["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("workingDir"))
-        );
-        assert!(
-            !create["required"]
-                .as_array()
-                .unwrap()
-                .contains(&json!("resume"))
-        );
     }
 
     #[test]

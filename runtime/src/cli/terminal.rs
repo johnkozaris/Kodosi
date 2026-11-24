@@ -126,14 +126,8 @@ fn typed_keys(input: &[u8], escaped: &mut bool) -> Option<Vec<u8>> {
 }
 
 fn restore(bytes: &[u8], console: bool) -> Result<Terminal> {
-    Terminal::from_snapshot(
-        bytes,
-        TerminalPolicy {
-            console,
-            ..TerminalPolicy::default()
-        },
-    )
-    .map_err(|e| Error::Other(e.to_string()))
+    Terminal::from_snapshot(bytes, TerminalPolicy { console })
+        .map_err(|e| Error::Other(e.to_string()))
 }
 fn render(terminal: &mut Terminal) -> Result<()> {
     let bytes = terminal

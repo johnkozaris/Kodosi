@@ -311,15 +311,6 @@ fn expiry_of(expires: i64) -> Option<f64> {
     (expires > 0).then(|| expires as f64 / MICROSECONDS - SECONDS_TO_1970)
 }
 
-fn same_site_of(value: i64) -> Option<&'static str> {
-    match value {
-        0 => Some("None"),
-        1 => Some("Lax"),
-        2 => Some("Strict"),
-        _ => None,
-    }
-}
-
 /// The cookies that a device-bound session holds. Its record names them in plain bytes.
 #[derive(Default)]
 struct BoundCookies {
@@ -444,7 +435,7 @@ fn read_store(
             path: row.path,
             secure: row.secure,
             http_only: row.http_only,
-            same_site: same_site_of(row.same_site),
+            same_site: super::same_site_of(row.same_site),
             expires,
         });
     }

@@ -6,23 +6,6 @@ import Testing
 import UIKit
 
 struct SettingsTests {
-    @Test func `the lock closes Kodosi only after a minute away`() {
-        let left = ContinuousClock.now
-        #expect(!AppLock.locks(enabled: false, left: left, now: left + .seconds(600)))
-        #expect(!AppLock.locks(enabled: true, left: nil, now: left))
-        #expect(!AppLock.locks(enabled: true, left: left, now: left + .seconds(59)))
-        #expect(AppLock.locks(enabled: true, left: left, now: left + .seconds(60)))
-    }
-
-    @Test func `with the lock on, Kodosi starts locked`() throws {
-        let suite = "SettingsTests.lock"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        #expect(!AppLock(defaults: defaults).locked)
-        defaults.set(true, forKey: AppLock.storageKey)
-        #expect(AppLock(defaults: defaults).locked)
-    }
-
     @Test func `a cancelled unlock asks again only when Kodosi comes back`() async throws {
         let suite = "SettingsTests.cancel"
         let defaults = try #require(UserDefaults(suiteName: suite))

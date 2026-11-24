@@ -3,9 +3,7 @@ use serde_json::{Value, json};
 use uuid::{NoContext, Timestamp, Uuid};
 
 use super::{
-    DosiBody, DosiItem,
     adapters::{Adapter, Event},
-    context,
     store::Marks,
 };
 use crate::agents::Agent;
@@ -114,25 +112,6 @@ fn codex_items_become_tools_and_text_and_an_unfinished_turn_fails() {
             message: Some("stream disconnected".to_owned())
         })
     );
-}
-
-#[test]
-fn a_catch_up_keeps_the_newest_lines_within_its_bounds() {
-    let items = (0..100)
-        .map(|index| DosiItem {
-            id: index.to_string(),
-            turn: "turn".to_owned(),
-            at: 0,
-            body: DosiBody::Person {
-                text: format!("message {index} {}", "x".repeat(300)),
-            },
-        })
-        .collect::<Vec<_>>();
-    let shown = context::catch_up(&items.iter().collect::<Vec<_>>(), true).unwrap();
-    assert!(shown.len() <= 13 * 1024);
-    assert!(shown.contains("Kodosi left out older messages."));
-    assert!(shown.contains("message 99") && !shown.contains("message 0 "));
-    assert_eq!(context::catch_up(&[], false), None);
 }
 
 #[test]

@@ -42,6 +42,12 @@ struct AppModelTests {
         try model.account.finishSignIn(with: #require(URL(string: "com.kodosi:/auth?state=s&code=c")))
         #expect(sent.types.last == "auth.login.finish")
         #expect(model.account.signInPage == nil)
+
+        try deliver("auth.ready", epoch: 2, ["userId": "user-1", "enrolled": true])
+        model.account.deleteAccount()
+        try deliver("auth.deletion_pending", epoch: 2, ["confirmationUri": "http://auth.kodosi.com/delete"])
+        #expect(model.account.deletion == .confirming(nil))
+        #expect(model.account.deletionPage == nil)
     }
 
     @Test func `newer account epoch clears earlier state`() throws {

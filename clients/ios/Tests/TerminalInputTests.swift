@@ -45,19 +45,6 @@ struct TerminalInputTests {
         #expect(sent.joined == Data("1\r".utf8))
         #expect(busy.chunks.count == 1)
     }
-
-    @Test func `a paste beyond the terminal budget is refused`() {
-        let queue = TerminalInputQueue(
-            perSessionBudget: 1024, globalBudget: 4096,
-            coalesceLimit: TerminalInputQueue.chunkBytes, busyDelays: [.milliseconds(1)],
-        )
-        let failures = TerminalFailureRecorder()
-        queue.enqueue(Data(repeating: 1, count: 2048), sessionId: "s1", coalescingToken: 1, send: { _ in
-            Issue.record("An oversized paste must not be sent")
-            return Int32(KODOSI_FFI_OK)
-        }, onFailure: { failures.append($0) })
-        #expect(failures.values == [.budgetExceeded(perSession: true)])
-    }
 }
 
 final nonisolated class TerminalChunkRecorder: Sendable {
@@ -79,17 +66,5 @@ final nonisolated class TerminalChunkRecorder: Sendable {
         for _ in 0 ..< 500 where joined.count < bytes {
             try? await Task.sleep(for: .milliseconds(2))
         }
-    }
-}
-
-final nonisolated class TerminalFailureRecorder: Sendable {
-    private let failures = Mutex<[TerminalInputFailure]>([])
-
-    func append(_ failure: TerminalInputFailure) {
-        failures.withLock { $0.append(failure) }
-    }
-
-    var values: [TerminalInputFailure] {
-        failures.withLock { $0 }
     }
 }

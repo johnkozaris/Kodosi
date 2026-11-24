@@ -9,7 +9,6 @@ pub(super) fn validate_terminal_checkpoint(checkpoint: &Checkpoint) -> Result<()
         checkpoint.snapshot(),
         TerminalPolicy {
             console: checkpoint.console,
-            ..TerminalPolicy::default()
         },
     )
     .map(drop)

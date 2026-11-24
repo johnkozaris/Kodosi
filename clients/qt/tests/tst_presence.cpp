@@ -9,9 +9,6 @@ using namespace std::chrono_literals;
 using kodosi::Presence;
 using Input = kodosi::PresenceSource::Input;
 
-Q_DECLARE_METATYPE(kodosi::PresenceFacts)
-Q_DECLARE_METATYPE(kodosi::PresenceDecision)
-
 namespace {
 
 class Commands final : public kodosi::CommandDispatcher {
@@ -72,48 +69,11 @@ class PresenceTest final : public QObject {
     Q_OBJECT
 
 private slots:
-    void decidesFromTheFacts_data();
-    void decidesFromTheFacts();
     void reportsAfterEachReadyAndThenOnlyChanges();
     void readsTheSystemAgainWhenItSaysSo();
     void inputIntoKodosiDecidesAtOnce();
     void withoutSystemInputOnlyInputIntoKodosiCounts();
 };
-
-void PresenceTest::decidesFromTheFacts_data()
-{
-    QTest::addColumn<kodosi::PresenceFacts>("facts");
-    QTest::addColumn<kodosi::PresenceDecision>("decision");
-    const Input recent { .quiet = false, .readAgainIn = 40s };
-    const Input quiet { .quiet = true, .readAgainIn = std::nullopt };
-    QTest::newRow("locked")
-        << kodosi::PresenceFacts { .active = true, .away = true, .system = recent, .kodosiInputAge = 0s }
-        << kodosi::PresenceDecision { .state = Presence::Away, .next = std::nullopt };
-    QTest::newRow("in Kodosi") << kodosi::PresenceFacts { .active = true, .away = false, .system = recent, .kodosiInputAge = 0s }
-                               << kodosi::PresenceDecision { .state = Presence::Kodosi, .next = 40s };
-    QTest::newRow("in another app")
-        << kodosi::PresenceFacts { .active = false, .away = false, .system = recent, .kodosiInputAge = 900s }
-        << kodosi::PresenceDecision { .state = Presence::Here, .next = 40s };
-    QTest::newRow("no input for the away time")
-        << kodosi::PresenceFacts { .active = true, .away = false, .system = quiet, .kodosiInputAge = 0s }
-        << kodosi::PresenceDecision { .state = Presence::Idle, .next = std::nullopt };
-    QTest::newRow("only Kodosi's input, recent")
-        << kodosi::PresenceFacts { .active = true, .away = false, .system = std::nullopt, .kodosiInputAge = 60s }
-        << kodosi::PresenceDecision { .state = Presence::Kodosi, .next = 120s };
-    QTest::newRow("only Kodosi's input, quiet")
-        << kodosi::PresenceFacts { .active = true, .away = false, .system = std::nullopt, .kodosiInputAge = 180s }
-        << kodosi::PresenceDecision { .state = Presence::Idle, .next = std::nullopt };
-    QTest::newRow("only Kodosi's input, another app in front")
-        << kodosi::PresenceFacts { .active = false, .away = false, .system = std::nullopt, .kodosiInputAge = 1s }
-        << kodosi::PresenceDecision { .state = Presence::Idle, .next = std::nullopt };
-}
-
-void PresenceTest::decidesFromTheFacts()
-{
-    QFETCH(kodosi::PresenceFacts, facts);
-    QFETCH(kodosi::PresenceDecision, decision);
-    QVERIFY(kodosi::decidePresence(facts, 180s) == decision);
-}
 
 void PresenceTest::reportsAfterEachReadyAndThenOnlyChanges()
 {

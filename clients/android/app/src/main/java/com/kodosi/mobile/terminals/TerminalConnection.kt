@@ -6,6 +6,8 @@ import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.TerminalLink
 import com.kodosi.mobile.runtime.TerminalRuntime
 import com.kodosi.mobile.runtime.UuidV7
+import com.kodosi.mobile.runtime.number
+import com.kodosi.mobile.runtime.string
 import java.nio.ByteBuffer
 import java.util.Base64
 import kotlinx.coroutines.CompletableDeferred
@@ -20,8 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.longOrNull
 
 data class Viewport(val cols: Int, val rows: Int, val cellWidth: Int, val cellHeight: Int)
 
@@ -415,11 +415,5 @@ class TerminalConnection(
         val INPUT_BACKOFF_MS = listOf(5L, 10L, 20L, 40L, 80L, 160L)
         const val RESIZE_SETTLE_MS = 25L
         const val INPUT_CAPACITY = 256
-
-        fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf {
-            it.isString
-        }?.contentOrNull
-
-        fun JsonObject.number(key: String): Long? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
     }
 }

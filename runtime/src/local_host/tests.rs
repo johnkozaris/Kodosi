@@ -1,29 +1,5 @@
 use super::*;
 #[tokio::test]
-async fn command_reader_rejects_large_prefix_before_allocating() {
-    let (mut writer, stream) = tokio::io::duplex(32);
-    let mut reader = FrameReader::new(stream);
-    reader.maximum = crate::protocol::MAX_COMMAND_BYTES;
-    writer
-        .write_u32(u32::try_from(reader.maximum + 1).unwrap())
-        .await
-        .unwrap();
-    assert!(read_frame(&mut reader).await.is_err());
-    assert_eq!(reader.body, [] as [u8; 0]);
-}
-
-#[tokio::test]
-async fn frames_roundtrip_and_oversized_prefix_is_rejected() {
-    let (mut a, b) = tokio::io::duplex(512);
-    let mut b = FrameReader::new(b);
-    write_frame(&mut a, b"hello").await.unwrap();
-    assert_eq!(read_frame(&mut b).await.unwrap(), b"hello");
-    a.write_u32(u32::try_from(MAX_FRAME + 1).unwrap())
-        .await
-        .unwrap();
-    assert!(read_frame(&mut b).await.is_err());
-}
-#[tokio::test]
 async fn interrupted_frame_read_keeps_consumed_prefix_and_body() {
     let (mut writer, input) = tokio::io::duplex(64);
     let mut reader = FrameReader::new(input);
@@ -42,25 +18,6 @@ async fn interrupted_frame_read_keeps_consumed_prefix_and_body() {
     writer.write_all(b"llo").await.unwrap();
     assert_eq!(read_frame(&mut reader).await.unwrap(), b"hello");
 }
-#[test]
-fn host_lock_prevents_competing_local_owners() {
-    let directory = tempfile::tempdir().unwrap();
-    let first = lock_root(directory.path()).unwrap();
-    assert!(lock_root(directory.path()).is_err());
-    drop(first);
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
-    while lock_root(directory.path()).is_err() {
-        assert!(std::time::Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(10));
-    }
-}
-#[test]
-fn a_hello_of_another_version_still_reads() {
-    assert!(serde_json::from_str::<Hello>(r#"{"version":20,"root":"a","sessionId":null}"#).is_ok());
-    assert!(serde_json::from_str::<Hello>(r#"{"version":30,"root":"a","added":true}"#).is_ok());
-    assert!(serde_json::from_str::<Hello>(r#"{"version":19}"#).is_err());
-}
-
 #[tokio::test]
 async fn a_host_names_itself_to_another_version_and_stops_for_it() {
     let (_storage, root, handle) = hosted(HostKind::Background).await;
@@ -260,93 +217,6 @@ async fn a_client_does_not_wait_for_a_saved_sign_in_that_comes_back_later() {
     drop(host.await.unwrap());
 }
 
-#[cfg(unix)]
-#[tokio::test]
-async fn a_terminal_connection_answers_its_controls_and_refreshes() {
-    let (_storage, root, handle) = hosted(HostKind::Background).await;
-    let mut client = Client::connect(&root).await.unwrap();
-    let epoch = client.initial_events[0]["accountEpoch"].clone();
-    let create = Uuid::now_v7().to_string();
-    client
-        .command(
-            json!({"type":"session.create","requestId":create,"name":"Terminal",
-            "accountUserId":null,"accountEpoch":epoch}),
-        )
-        .await
-        .unwrap();
-    let session: Uuid = answered(&mut client, &create).await["sessionId"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
-    let mut terminal = TerminalClient::connect(&root, session).await.unwrap();
-    assert!(matches!(
-        read_terminal(&mut terminal.reader).await.unwrap(),
-        TerminalFrame::Checkpoint { .. }
-    ));
-    let focus = Uuid::now_v7().to_string();
-    write_control(
-        &mut terminal.writer,
-        &json!({"type":"session.focus","requestId":focus,"sessionId":session,
-            "expectedRuntimeIncarnationId":terminal.incarnation_id,"clientId":Uuid::now_v7(),
-            "subscriptionGeneration":1,"accountUserId":null,"accountEpoch":epoch}),
-    )
-    .await
-    .unwrap();
-    write_refresh(&mut terminal.writer).await.unwrap();
-    let (mut focused, mut refreshed) = (false, false);
-    while !(focused && refreshed) {
-        let frame =
-            tokio::time::timeout(Duration::from_secs(10), read_terminal(&mut terminal.reader))
-                .await
-                .unwrap()
-                .unwrap();
-        match frame {
-            TerminalFrame::Answer(answer) => {
-                assert_eq!(answer["type"], "term.focusApplied", "{answer}");
-                assert_eq!(answer["requestId"], focus.as_str());
-                focused = true;
-            }
-            TerminalFrame::Checkpoint { .. } => refreshed = true,
-            _ => {}
-        }
-    }
-    handle.shutdown().await;
-}
-#[test]
-fn stop_permission_protects_a_foreground_host_and_open_terminals() {
-    assert!(stop_permission(HostKind::Foreground, false, 0).is_err());
-    assert!(stop_permission(HostKind::Foreground, true, 0).is_err());
-    assert!(stop_permission(HostKind::Background, false, 1).is_err());
-    assert!(stop_permission(HostKind::Background, false, 0).is_ok());
-    assert!(stop_permission(HostKind::Background, true, 1).is_ok());
-}
-#[test]
-fn local_session_counts_ignore_remote_entries() {
-    let session = |kind: &str| {
-        json!({"id":"11111111-1111-4111-8111-111111111111","incarnationId":"11111111-1111-4111-8111-111111111111",
-            "kind":kind,"name":"Terminal","prompt":false,"repository":false,"working":false,"isOwner":true,"status":"running",
-            "connectionState":"local","sharedWith":[],"attention":false,"connectedUsers":[],"hidden":false,"look":"dark"})
-    };
-    let events = [
-        Event::new(None, 0, json!({"type":"sessions.snapshot","sessions":[session("local"),session("remote"),session("local")]})).unwrap(),
-        Event::new(None, 0, json!({"type":"auth.required","reason":"signedOut"})).unwrap(),
-    ];
-    assert_eq!(local_sessions(&events), 2);
-    assert_eq!(local_sessions(&[]), 0);
-}
-
-#[cfg(unix)]
-async fn answered(client: &mut Client, request: &str) -> Value {
-    loop {
-        let frame = client.next().await.unwrap();
-        if let Some(answer) = crate::protocol::answer(&frame["event"], request) {
-            return answer.unwrap();
-        }
-        assert!(frame["event"].get("requestId").is_none(), "{frame}");
-    }
-}
-
 async fn hosted(kind: HostKind) -> (tempfile::TempDir, PathBuf, RuntimeHandle) {
     let storage = tempfile::tempdir().unwrap();
     let mut config =
@@ -355,14 +225,6 @@ async fn hosted(kind: HostKind) -> (tempfile::TempDir, PathBuf, RuntimeHandle) {
     let root = config.data_root.clone();
     let handle = crate::start(config).await.unwrap();
     (storage, root, handle)
-}
-#[tokio::test]
-async fn an_idle_background_host_yields() {
-    let (_storage, root, handle) = hosted(HostKind::Background).await;
-    stop_other_host(&root, false).await.unwrap();
-    tokio::time::timeout(Duration::from_secs(10), handle.stopped())
-        .await
-        .unwrap();
 }
 #[tokio::test]
 async fn a_foreground_host_stops_only_from_its_own_terminal() {

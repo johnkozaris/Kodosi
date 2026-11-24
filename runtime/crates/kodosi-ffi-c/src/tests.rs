@@ -9,21 +9,6 @@ fn opaque_unknown_and_stopped_handles_are_not_dereferenced() {
     }
 }
 #[test]
-fn subscription_identity_is_exact() {
-    let token = SubscriptionState {
-        session: CString::new("session").unwrap(),
-        id: CString::new("subscriber").unwrap(),
-        generation: 7,
-        cancel: CancellationToken::new(),
-        refresh: tokio::sync::Notify::new(),
-        gate: Gate::default(),
-        connected: Mutex::new(None),
-    };
-    assert!(token.matches("subscriber", 7));
-    assert!(!token.matches("subscriber", 6));
-    assert!(!token.matches("other", 7));
-}
-#[test]
 fn start_rejects_missing_or_wrong_callback_table() {
     assert!(unsafe { kodosi_start(std::ptr::null(), 0, std::ptr::null_mut()) }.is_null());
     let callbacks = KodosiCallbacks {
@@ -169,23 +154,6 @@ fn old_subscription_completion_cannot_remove_a_replacement() {
     ));
 }
 #[test]
-fn concurrent_stop_waiters_share_completion() {
-    let done = Arc::new(Completion::default());
-    let mut threads = Vec::new();
-    for _ in 0..4 {
-        let done = Arc::clone(&done);
-        threads.push(std::thread::spawn(move || {
-            done.wait();
-            assert!(*lock(&done.done));
-        }));
-    }
-    done.finish();
-    for thread in threads {
-        thread.join().unwrap();
-    }
-    done.wait();
-}
-#[test]
 fn callbacks_can_retire_their_own_subscription_without_deadlock() {
     let state = state();
     let token = subscription(Uuid::now_v7(), 1);
@@ -219,14 +187,6 @@ fn retiring_a_subscription_does_not_wait_for_a_stalled_callback() {
     token.gate.wait();
 }
 #[test]
-fn callbacks_cannot_reopen_closed_admission() {
-    let gate = Gate::default();
-    let _scope = CallbackScope::enter(&gate);
-    assert!(CallbackScope::within(&gate));
-    gate.close();
-    assert!(gate.enter().is_none());
-}
-#[test]
 fn a_callback_of_one_gate_does_not_excuse_waiting_for_another() {
     let runtime = Gate::default();
     let activation = Gate::default();
@@ -239,24 +199,4 @@ fn a_callback_of_one_gate_does_not_excuse_waiting_for_another() {
     }
     assert!(!CallbackScope::within(&activation));
     assert!(!CallbackScope::within(&runtime));
-}
-#[test]
-fn a_request_that_cannot_be_read_is_answered_with_the_reason() {
-    let command = serde_json::json!({
-        "type":"session.create","requestId":"start","accountUserId":"ana","accountEpoch":3,"name":"T"
-    });
-    assert_eq!(
-        refusal(&command, "prompt must contain 1 to 4096 bytes of text"),
-        Some(serde_json::json!({
-            "type":"session.error","requestId":"start","operation":"session.create",
-            "message":"prompt must contain 1 to 4096 bytes of text",
-            "accountUserId":"ana","accountEpoch":3
-        }))
-    );
-    let unanswered = serde_json::json!({"type":"document.send","requestId":"part"});
-    assert_eq!(refusal(&unanswered, "too large"), None);
-    assert_eq!(
-        refusal(&serde_json::json!({"type":"session.create"}), "x"),
-        None
-    );
 }

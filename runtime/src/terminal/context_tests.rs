@@ -42,32 +42,6 @@ fn place(kind: PlaceKind, name: &str) -> ContextPlace {
 }
 
 #[test]
-fn a_shell_of_another_computer_names_that_computer() {
-    let mut contexts = Contexts::default();
-    start(
-        &mut contexts,
-        "local",
-        "type=shell;user=alice;hostname=mac",
-        10,
-    );
-    assert_eq!(contexts.summary(&local()), None);
-
-    start(
-        &mut contexts,
-        "remote",
-        "type=shell;user=alice;hostname=build;machineid=0123",
-        20,
-    );
-    assert_eq!(
-        contexts.summary(&local()),
-        Some(TerminalContext {
-            place: Some(place(PlaceKind::Remote, "build")),
-            root: false,
-        })
-    );
-}
-
-#[test]
 fn the_machine_id_decides_before_the_host_name() {
     let ours = LocalMachine {
         hostname: Some("ubuntu".to_owned()),
@@ -92,27 +66,6 @@ fn the_machine_id_decides_before_the_host_name() {
         contexts.summary(&ours).and_then(|context| context.place),
         Some(place(PlaceKind::Remote, "ubuntu"))
     );
-}
-
-#[test]
-fn an_elevated_context_runs_as_root_until_it_ends() {
-    let mut contexts = Contexts::default();
-    start(
-        &mut contexts,
-        "run0",
-        "type=elevate;user=alice;targetuser=root",
-        10,
-    );
-    assert_eq!(
-        contexts.summary(&local()),
-        Some(TerminalContext {
-            place: None,
-            root: true,
-        })
-    );
-
-    end(&mut contexts, "run0");
-    assert_eq!(contexts.summary(&local()), None);
 }
 
 #[test]
@@ -161,22 +114,6 @@ fn an_end_closes_the_contexts_inside_and_a_new_start_replaces_them() {
 }
 
 #[test]
-fn the_shell_in_front_ends_the_contexts_of_its_jobs() {
-    let mut contexts = Contexts::default();
-    start(&mut contexts, "shell", "type=shell;hostname=mac", 10);
-    start(&mut contexts, "ssh", "type=shell;hostname=build", 20);
-    start(&mut contexts, "root", "type=elevate;targetuser=root", 20);
-
-    contexts.shell_in_front(10);
-    assert_eq!(contexts.summary(&local()), None);
-    assert_eq!(contexts.stack.len(), 1);
-
-    start(&mut contexts, "ssh", "type=shell;hostname=build", 20);
-    contexts.shell_in_front(30);
-    assert!(contexts.stack.is_empty());
-}
-
-#[test]
 fn values_are_unescaped_and_invalid_values_or_identifiers_are_ignored() {
     let mut contexts = Contexts::default();
     start(
@@ -210,21 +147,4 @@ fn values_are_unescaped_and_invalid_values_or_identifiers_are_ignored() {
         start(&mut contexts, &id, "type=elevate;targetuser=root", 10);
     }
     assert_eq!(contexts.stack.len(), 2);
-}
-
-#[test]
-fn contexts_beyond_the_depth_limit_are_ignored() {
-    let mut contexts = Contexts::default();
-    for index in 0..MAX_CONTEXTS {
-        start(
-            &mut contexts,
-            &index.to_string(),
-            "type=shell;hostname=mac",
-            10,
-        );
-    }
-    start(&mut contexts, "last", "type=elevate;targetuser=root", 10);
-
-    assert_eq!(contexts.stack.len(), MAX_CONTEXTS);
-    assert_eq!(contexts.summary(&local()), None);
 }

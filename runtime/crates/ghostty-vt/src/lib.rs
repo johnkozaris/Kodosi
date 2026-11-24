@@ -22,31 +22,17 @@ const CLI_REPLAY_PREFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m\x1b[2J\x1b[H";
 const CLI_REPLAY_SUFFIX: &[u8] = b"\x1b]8;;\x1b\\\x1b[0m";
 const LEAVE_ALTERNATE_SCREEN: &[u8] = b"\x1b[?1049l";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalPolicy {
-    pub continuation_max_bytes: usize,
-    pub scrollback_max_bytes: usize,
-    pub scrollback_max_lines: usize,
     pub console: bool,
 }
 
-impl Default for TerminalPolicy {
-    fn default() -> Self {
-        Self {
+impl TerminalPolicy {
+    const fn limits() -> Limits {
+        Limits {
             continuation_max_bytes: 1024 * 1024,
             scrollback_max_bytes: 64 * 1024 * 1024,
             scrollback_max_lines: 1_024,
-            console: false,
-        }
-    }
-}
-
-impl TerminalPolicy {
-    const fn limits(self) -> Limits {
-        Limits {
-            continuation_max_bytes: self.continuation_max_bytes,
-            scrollback_max_bytes: self.scrollback_max_bytes,
-            scrollback_max_lines: self.scrollback_max_lines,
             image_storage_max_bytes: IMAGE_STORAGE_MAX_BYTES,
         }
     }
@@ -65,7 +51,7 @@ pub struct Terminal {
 
 impl Terminal {
     pub fn new(cols: u16, rows: u16, policy: TerminalPolicy) -> Result<Self, Error> {
-        let mut raw = RawTerminal::new(cols, rows, policy.limits())?;
+        let mut raw = RawTerminal::new(cols, rows, TerminalPolicy::limits())?;
         if policy.console {
             raw.use_console_profile()?;
         }
@@ -78,7 +64,7 @@ impl Terminal {
     /// Restores a terminal from a Ghostty snapshot. The snapshot holds the console
     /// modes, so the policy adds only the console rule for resizes.
     pub fn from_snapshot(snapshot: &[u8], policy: TerminalPolicy) -> Result<Self, Error> {
-        let mut raw = RawTerminal::from_snapshot(snapshot, policy.limits())?;
+        let mut raw = RawTerminal::from_snapshot(snapshot, TerminalPolicy::limits())?;
         if policy.console {
             raw.keep_scrollback_on_resize()?;
         }
@@ -307,10 +293,7 @@ mod tests {
 
     #[test]
     fn console_terminals_keep_grapheme_widths_and_replicas_resize_like_them() {
-        let console = TerminalPolicy {
-            console: true,
-            ..TerminalPolicy::default()
-        };
+        let console = TerminalPolicy { console: true };
         let mut host = Terminal::new(10, 4, console).expect("host");
         host.write(b"\x1bc").expect("reset");
         assert!(host.raw.mode(2027, false).expect("grapheme mode"));

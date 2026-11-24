@@ -276,33 +276,16 @@ fn is_app_name(app: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'+' | b'-'))
 }
 
-const fn is_invisible_format(character: char) -> bool {
-    matches!(
-        character,
-        '\u{00AD}'
-            | '\u{061C}'
-            | '\u{180E}'
-            | '\u{200B}'..='\u{200F}'
-            | '\u{2028}'..='\u{202E}'
-            | '\u{2060}'..='\u{2069}'
-            | '\u{FEFF}'
-            | '\u{FFF9}'..='\u{FFFB}'
-            | '\u{E0000}'..='\u{E007F}'
-    )
-}
-
 pub(super) fn is_display_text(text: &str, max_chars: usize) -> bool {
     !text.is_empty()
         && text.chars().count() <= max_chars
-        && !text
-            .chars()
-            .any(|character| character.is_control() || is_invisible_format(character))
+        && !text.chars().any(crate::links::is_hidden)
 }
 
 pub(crate) fn display_text(text: &str, max_chars: usize) -> Option<String> {
     let text = text
         .chars()
-        .filter(|character| !character.is_control() && !is_invisible_format(*character))
+        .filter(|character| !crate::links::is_hidden(*character))
         .take(max_chars)
         .collect::<String>();
     let text = text.trim();

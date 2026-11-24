@@ -289,32 +289,3 @@ impl EncodedFrame {
         })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn commands_and_reports_have_their_wire_form() {
-        let command = ToEngine::Capture {
-            window: 3,
-            tab: 9,
-            bitrate: 4_000_000,
-        };
-        assert_eq!(
-            serde_json::to_value(&command).unwrap(),
-            serde_json::json!({"type": "capture", "window": 3, "tab": 9, "bitrate": 4_000_000})
-        );
-        let report: FromEngine = serde_json::from_value(serde_json::json!({
-            "type": "pageOpened", "page": 2, "target": "T"
-        }))
-        .unwrap();
-        assert_eq!(
-            report,
-            FromEngine::PageOpened {
-                page: 2,
-                target: "T".into()
-            }
-        );
-    }
-}

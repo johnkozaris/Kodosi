@@ -100,7 +100,7 @@ public sealed partial class ProjectService
             throw ApiException.Conflict("Project keys changed; refresh before retrying.");
         if (state.Recipients.Length == 0 || state.Recipients.Length > MaxProjectRecipients)
             throw ApiException.Invalid("Invalid project recipients.");
-        return new PreparedKeys(device, body, signature, state);
+        return new PreparedKeys(body, signature, state);
     }
 
     private async Task AppendKeysAsync(Project project, PreparedKeys? keys, CancellationToken ct)
@@ -256,7 +256,7 @@ public sealed partial class ProjectService
     }
 
     private static T ReadBody<T>(byte[] body) where T : class => JsonSerializer.Deserialize<T>(body, StrictJson.Options) ?? throw ApiException.Invalid("Invalid project data.");
-    private sealed record PreparedKeys(ApprovedDevice Device, byte[] Body, byte[] Signature, KeyStateBody State);
+    private sealed record PreparedKeys(byte[] Body, byte[] Signature, KeyStateBody State);
     private sealed record SealedBody(string Nonce, string Ciphertext);
     private sealed record RecipientBody(Guid UserId, string DeviceId, string KemCiphertext, SealedBody Sealed);
     // The devices signed these two bodies with the name roomId, and each key state names the hash of the one before it.

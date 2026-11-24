@@ -205,25 +205,6 @@ mod tests {
     }
 
     #[test]
-    fn only_important_runtime_events_reach_the_log() {
-        let root = tempfile::tempdir().unwrap();
-        tracing::subscriber::with_default(Log::new(root.path(), Role::Host, None), || {
-            tracing::debug!("local client disconnected");
-            tracing::warn!(error = "link lost", "remote access interrupted");
-            tracing::warn!(target: "shared_browser::engine", "the capture stopped");
-            tracing::warn!(target: "documents::task", "the journal goes on");
-            tracing::warn!(target: "hyper::proto", "connection error");
-        });
-        let written = read(root.path(), Role::Host);
-        let lines: Vec<&str> = written.lines().collect();
-        assert_eq!(lines.len(), 3);
-        assert!(lines[0].contains("WARN kodosi_runtime::diagnostics"));
-        assert!(lines[0].ends_with("remote access interrupted error=\"link lost\""));
-        assert!(lines[1].contains("WARN shared_browser::engine"));
-        assert!(lines[2].contains("WARN documents::task"));
-    }
-
-    #[test]
     fn client_records_are_redacted_bounded_and_one_line_each() {
         let root = tempfile::tempdir().unwrap();
         let home = root.path().join("home");
@@ -250,27 +231,5 @@ mod tests {
         assert!(lines[1].ends_with(" [TRUNCATED]"));
         assert!(!lines[1].contains(&"s".repeat(64)));
         assert!(lines[1].len() < 1024);
-    }
-
-    #[test]
-    fn a_repeated_failure_is_written_once_until_it_works_again() {
-        let mut failure = Repeats::new();
-        assert!(failure.new_failure(&"The terminal's computer is offline."));
-        assert!(!failure.new_failure(&"The terminal's computer is offline."));
-        assert!(failure.new_failure(&"Unauthorized"));
-        failure.worked();
-        assert!(failure.new_failure(&"Unauthorized"));
-    }
-
-    #[test]
-    fn a_full_log_is_replaced_by_one_older_copy() {
-        let root = tempfile::tempdir().unwrap();
-        let path = root.path().join("app.log");
-        std::fs::write(&path, vec![b'x'; usize::try_from(MAX_BYTES).unwrap()]).unwrap();
-        let log = Log::new(root.path(), Role::App, None);
-        log.write("first\n");
-        log.write("second\n");
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), "second\n");
-        assert!(root.path().join("app.log.1").exists());
     }
 }

@@ -94,7 +94,6 @@
 "Project membership changed; refresh before retrying.": "프로젝트 멤버가 바뀌었어요. 다시 시도하기 전에 새로고침하세요.",
 "Refresh the project before changing its members.": "멤버를 바꾸기 전에 프로젝트를 새로고침하세요.",
 "Remote access is still connecting. Try again when this device is online and approved.": "원격 접속이 아직 연결 중이에요. 이 기기가 온라인 상태이고 승인되면 다시 시도하세요.",
-"Remote input exceeded its connection buffer, and Kodosi did not send it again.": "원격 입력이 연결 버퍼를 넘어서 Kodosi가 다시 보내지 않았어요.",
 "Remove the current recovery key first.": "먼저 현재 복구 키를 제거하세요.",
 "Remove this device from another approved device.": "승인된 다른 기기에서 이 기기를 제거하세요.",
 "Run it in a terminal of Kodosi, whose chat shows the agent.": "Kodosi의 터미널에서 실행하세요. 그 터미널의 채팅에 에이전트가 보여요.",

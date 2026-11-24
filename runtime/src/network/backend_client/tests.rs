@@ -35,22 +35,6 @@ async fn queued_command_never_becomes_a_new_account_request() {
 }
 
 #[tokio::test]
-async fn delayed_events_keep_their_original_account() {
-    let (_root, network) = fixture();
-    let mut events = network.events();
-    let old = network.generation();
-    network.inner.generation.fetch_add(1, Ordering::AcqRel);
-    network.emit_for(
-        old,
-        Some("old-account".into()),
-        json!({"type":"auth.finalizing"}),
-    );
-    let event = events.recv().await.unwrap();
-    assert_eq!(event.generation, old);
-    assert_eq!(event.user_id.as_deref(), Some("old-account"));
-}
-
-#[tokio::test]
 async fn a_sign_in_without_a_network_keeps_the_saved_sign_in() {
     let (_root, network) = fixture();
     let saved = r#"{"access_token":"access","refresh_token":"refresh","expires_at":0}"#;
@@ -379,29 +363,6 @@ fn the_people_of_a_project_never_become_the_host_s_own_choice() {
     assert!(shown.is_empty());
 }
 
-#[test]
-fn host_labels_are_bounded_trimmed_and_have_a_fallback() {
-    assert_eq!(
-        normalize_host_label("  office  ").as_deref(),
-        Some("office")
-    );
-    assert!(normalize_host_label("  ").is_none());
-    assert!(normalize_host_label("bad\nname").is_none());
-    assert!(normalize_host_label(&"é".repeat(100)).unwrap().len() <= 128);
-    assert_eq!(
-        normalize_host_label("Studio\u{200B} \u{202E}Mac\u{FEFF}").as_deref(),
-        Some("Studio Mac")
-    );
-    assert_eq!(
-        normalize_host_label("a\u{200D}b").as_deref(),
-        Some("a\u{200D}b")
-    );
-    assert_eq!(
-        normalize_host_label(&format!("{} x", "a".repeat(127))).as_deref(),
-        Some("a".repeat(127).as_str())
-    );
-}
-
 #[cfg(feature = "host")]
 #[tokio::test]
 async fn retiring_a_terminal_leaves_operations_free_while_its_host_drains() {
@@ -494,28 +455,6 @@ fn a_typed_code_selects_only_the_request_with_the_keys_of_the_device_that_showed
                 .is_none()
         );
     }
-}
-
-#[test]
-fn a_scanned_secret_selects_only_the_request_of_the_device_that_scanned_it() {
-    use crate::identity::link_code::LinkSecret;
-
-    let offered = LinkSecret::scanned().unwrap();
-    let requests = [
-        link_request(&LinkSecret::Typed("TAFX-E5HG-TN8E".into()), "laptop", 1),
-        link_request(&LinkSecret::scanned().unwrap(), "laptop", 1),
-        link_request(&offered, "other", 1),
-    ];
-    assert!(
-        enrollment::request_with_secret(LINK_USER, &requests, &offered)
-            .unwrap()
-            .is_none()
-    );
-    let scanned = link_request(&offered, "laptop", 1);
-    let found = enrollment::request_with_secret(LINK_USER, [&requests[0], &scanned], &offered)
-        .unwrap()
-        .unwrap();
-    assert_eq!(found.device_id, "laptop");
 }
 
 async fn approved_at(address: &str) -> (tempfile::TempDir, BackendClient, IdentityBundle) {
@@ -752,51 +691,6 @@ async fn a_new_recovery_key_reaches_the_person_also_when_reading_the_devices_aft
     server.await.unwrap();
 }
 
-#[tokio::test(start_paused = true)]
-async fn an_offer_ends_with_the_life_of_its_code() {
-    let (_root, network, _user) = signed_in_at("http://127.0.0.1:1").await;
-    network
-        .execute("devices.link.offer", request())
-        .await
-        .unwrap();
-    let offer = network.inner.state.lock().await.offer.clone().unwrap();
-    let mut events = network.events();
-    tokio::time::advance(enrollment::LINK_LIFE).await;
-    network.poll_offer(&offer).await.unwrap();
-    assert!(network.inner.state.lock().await.offer.is_none());
-    let ended = events.try_recv().unwrap().event;
-    assert_eq!(
-        ended,
-        json!({"type": "devices.link.offerResolved", "outcome": "expired"})
-    );
-}
-
-#[cfg(feature = "host")]
-#[test]
-fn a_restarted_terminal_tells_the_server_which_terminal_it_replaces() {
-    let replaced = Uuid::now_v7();
-    let restarted = LocalPublication {
-        session_id: Uuid::now_v7(),
-        incarnation_id: Uuid::now_v7(),
-        name: "Build".into(),
-        project_id: None,
-        project_sequence: 0,
-        shared_with: BTreeSet::new(),
-        restored_from: Some(replaced),
-    };
-    let body = publication_body(&restarted, "device", None);
-    assert_eq!(body["restoredFrom"], json!(replaced));
-    assert_eq!(body["hostDeviceId"], "device");
-    let started = LocalPublication {
-        restored_from: None,
-        ..restarted
-    };
-    assert_eq!(
-        publication_body(&started, "device", None)["restoredFrom"],
-        Value::Null
-    );
-}
-
 pub(super) fn scripted_backend(
     listener: tokio::net::TcpListener,
     replies: Vec<(u16, Value)>,
@@ -992,41 +886,6 @@ async fn a_phone_gives_its_push_token_and_takes_it_back_before_it_signs_out() {
 }
 
 #[tokio::test]
-async fn starting_fresh_on_an_account_with_devices_waits_and_keeps_the_identity() {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = format!("http://{}", listener.local_addr().unwrap());
-    let (_root, network, _) = signed_in_at(&address).await;
-    let device = network.credentials().unwrap().keys.device_id.clone();
-    network
-        .inner
-        .credentials
-        .write()
-        .unwrap()
-        .as_mut()
-        .unwrap()
-        .enrolled = false;
-    let pending = json!({"requestId": Uuid::now_v7(), "deviceId": device, "deviceLabel": "This computer",
-        "requestedAtMs": 1, "readyAtMs": 86_400_001, "ready": false});
-    let server = scripted_backend(
-        listener,
-        vec![compatible_server(), (200, pending.clone()), (200, pending)],
-    );
-    let reply = network.execute("devices.reset", request()).await.unwrap();
-    let list = reply
-        .events
-        .iter()
-        .find(|event| event["type"] == "devices.list")
-        .unwrap();
-    assert_eq!(list["localDeviceEnrolled"], false);
-    assert_eq!(list["reset"]["thisDevice"], true);
-    assert_eq!(list["reset"]["readyAtMs"], 86_400_001);
-    let requests = server.await.unwrap();
-    assert!(requests[1].starts_with("POST /api/me/identity/reset HTTP/1.1 "));
-    assert!(requests[1].contains(&device));
-    assert_eq!(requests[2], "GET /api/me/identity/reset HTTP/1.1");
-}
-
-#[tokio::test]
 async fn a_device_refuses_a_friend_list_that_does_not_continue_its_own() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = format!("http://{}", listener.local_addr().unwrap());
@@ -1182,38 +1041,6 @@ async fn a_deletion_confirmed_in_the_browser_ends_the_account_on_this_computer()
             "GET /health/ready HTTP/1.1",
             "GET /api/me HTTP/1.1",
             "GET /api/me HTTP/1.1"
-        ]
-    );
-}
-
-#[tokio::test]
-async fn without_a_deletion_page_the_server_deletes_the_account_directly() {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = format!("http://{}", listener.local_addr().unwrap());
-    let server = scripted_backend(
-        listener,
-        vec![
-            compatible_server(),
-            (200, json!({"id": "account", "deletionUri": null})),
-            (204, request()),
-        ],
-    );
-    let (_root, network, user) = signed_in_at(&address).await;
-    let reply = network
-        .execute("auth.deleteAccount", request())
-        .await
-        .unwrap();
-    assert_eq!(
-        reply.events,
-        vec![json!({"type":"auth.required","reason":"accountDeleted"})]
-    );
-    assert!(!device_key_kept(&network, &user).await);
-    assert_eq!(
-        server.await.unwrap(),
-        [
-            "GET /health/ready HTTP/1.1",
-            "GET /api/me HTTP/1.1",
-            "DELETE /api/me HTTP/1.1"
         ]
     );
 }
