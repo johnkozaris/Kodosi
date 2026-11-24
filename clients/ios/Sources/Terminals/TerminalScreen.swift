@@ -387,9 +387,9 @@ private struct ChatModelMenu: View {
     var body: some View {
         if session.canControl, let live = session.programLive {
             Button { open = true } label: {
-                face.touchTarget()
+                face.padding(.horizontal, -3)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.kodosi(open ? .tinted : .secondary, size: .small))
             .loadsAgentModels(of: session)
             .sheet(isPresented: $open) {
                 NavigationStack {
@@ -408,7 +408,7 @@ private struct ChatModelMenu: View {
             .accessibilityValue(Text(verbatim: face.title))
             .accessibilityIdentifier("terminal.chat.model")
         } else {
-            face
+            face.padding(.horizontal, 4)
         }
     }
 }
