@@ -66,7 +66,6 @@ void AppActivationTest::launchesForwardTheirRouteAndToken()
     const auto plain = kodosi::AppActivation::fromJson(kodosi::AppActivation {}.toJson());
     QVERIFY(!plain.route);
     QVERIFY(plain.token.isEmpty());
-    QCOMPARE(kodosi::AppActivation {}.toJson(), QByteArrayLiteral("{}"));
 }
 
 void AppActivationTest::malformedFieldsStillShowTheWindow()

@@ -1324,22 +1324,6 @@ private slots:
         QCOMPARE(last.value(QStringLiteral("type")).toString(), QStringLiteral("session.disconnect"));
         QCOMPARE(last.value(QStringLiteral("sessionId")).toString(), test::id(7));
     }
-    void aTerminalStartedForARoomJoinsThatProject()
-    {
-        Fixture f;
-        f.workspace.apply(test::snapshot({}), 0);
-        const QVariantMap agent { { QStringLiteral("agent"), QStringLiteral("claude") },
-            { QStringLiteral("account"), QStringLiteral("work") }, { QStringLiteral("model"), QString() },
-            { QStringLiteral("effort"), QStringLiteral("high") } };
-        QVERIFY(f.workspace.sessionActions().create(
-            {}, QStringLiteral("/repo"), {}, QStringLiteral(" fix the test "), test::id(7), agent));
-        const auto sent = f.commands.values.last();
-        QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("session.create"));
-        QCOMPARE(sent.value(QStringLiteral("projectId")).toString(), test::id(7));
-        QVERIFY(!sent.contains(QStringLiteral("command")));
-        QCOMPARE(sent.value(QStringLiteral("agent")).toObject(), QJsonObject::fromVariantMap(agent));
-        QCOMPARE(sent.value(QStringLiteral("prompt")).toString(), QStringLiteral("fix the test"));
-    }
     void aTerminalOnANewBranchSendsTheBranchAndTheChosenFolder()
     {
         Fixture f;

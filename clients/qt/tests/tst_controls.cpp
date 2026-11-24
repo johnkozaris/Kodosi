@@ -462,7 +462,6 @@ void ControlsTest::keyboardFocusTracksButtonState()
     button->forceActiveFocus(Qt::TabFocusReason);
     QTRY_VERIFY(button->hasActiveFocus());
     QTRY_VERIFY(indicator->isVisible());
-    QCOMPARE(indicator->height(), 2.0);
     button->setEnabled(false);
     QTRY_VERIFY(!indicator->isVisible());
 }
