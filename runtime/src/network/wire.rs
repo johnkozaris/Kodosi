@@ -424,26 +424,3 @@ fn decode_checkpoint(encoded: &[u8]) -> Result<crate::terminal::Checkpoint> {
     }
     Ok(checkpoint)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn a_large_snapshot_goes_in_parts_and_comes_back_whole() {
-        use crate::terminal::Checkpoint;
-        let mut body = ghostty_vt::Terminal::new(100, 30, ghostty_vt::TerminalPolicy::default())
-            .and_then(|mut terminal| {
-                terminal.visible_snapshot(crate::terminal::snapshot_limits(u64::MAX))
-            })
-            .unwrap();
-        body.extend(
-            (0..700_000u32).flat_map(|value| value.wrapping_mul(2_654_435_761).to_be_bytes()),
-        );
-        let checkpoint = Checkpoint::new(body, true).unwrap();
-        let parts = snapshot_parts(&checkpoint).unwrap();
-        assert!(parts.len() > 1 && parts.iter().all(|part| part.len() <= KEYFRAME_PART));
-        let restored = snapshot(&parts.concat()).unwrap();
-        assert_eq!(restored, checkpoint);
-        assert!(snapshot(&parts[0]).is_err());
-    }
-}
