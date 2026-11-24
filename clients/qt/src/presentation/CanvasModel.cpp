@@ -47,6 +47,20 @@ std::optional<QByteArray> decoded(const QJsonValue& value)
     return std::move(*result);
 }
 
+// A name of a file can hold a line break, which would end the line that the agent reads.
+QString writtenOut(const QString& text)
+{
+    QString shown;
+    for (const char32_t codepoint : text.toUcs4()) {
+        const auto category = QChar::category(codepoint);
+        const bool breaks = category == QChar::Other_Control || category == QChar::Other_Format || codepoint == 0x85
+            || codepoint == 0x2028 || codepoint == 0x2029;
+        shown += breaks ? QStringLiteral("\\u{%1}").arg(QString::number(static_cast<uint>(codepoint), 16).toUpper())
+                        : QString::fromUcs4(&codepoint, 1);
+    }
+    return shown;
+}
+
 QString oneLine(const QString& text)
 {
     QString line;
@@ -480,7 +494,8 @@ QString CanvasModel::about(const QString& place, const QString& words)
     auto line = oneLine(words);
     if (line.size() > mostWords)
         line.truncate(line.at(mostWords - 1).isHighSurrogate() ? mostWords - 1 : mostWords);
-    return line.isEmpty() ? tr("About %1: ").arg(place) : tr("About %1: \"%2\" ").arg(place, line);
+    const auto shown = writtenOut(place);
+    return line.isEmpty() ? tr("About %1: ").arg(shown) : tr("About %1: \"%2\" ").arg(shown, line);
 }
 
 void CanvasModel::follow(const QString& sessionId, const QUrl& link)

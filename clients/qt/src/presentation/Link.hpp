@@ -7,10 +7,8 @@ namespace kodosi {
 
 inline constexpr qsizetype maximumLinkCharacters = 8'192;
 
-// The text of a link can come from anyone, so it opens by Ghostty's rules: web and mail links
-// open in the browser of this device, a file or folder opens unless it can run code, a link to
-// another app asks first, and a malformed or disguised link does not open. A file or a local
-// address of a terminal on another computer is on that computer, so it does not open here.
+// The runtime decides a link by the rule of every app. Whether opening a file of this computer
+// runs a program is this app's part, because the desktop decides that.
 struct LinkDecision {
     enum class Action {
         Open,

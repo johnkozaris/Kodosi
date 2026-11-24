@@ -25,6 +25,7 @@ mod instance;
 #[cfg_attr(feature = "host", path = "host_link.rs")]
 #[cfg_attr(not(feature = "host"), path = "viewer_link.rs")]
 mod link;
+mod links;
 mod subscriptions;
 mod terminal_bridge;
 // Only the Linux and Windows app decodes video here. Android's C headers define __linux__ too,

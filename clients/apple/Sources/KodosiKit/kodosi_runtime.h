@@ -193,6 +193,15 @@ void *kodosi_start(const struct kodosi_callbacks_t *callbacks,
 ;
 
 
+int64_t kodosi_link_decision(const uint8_t *link,
+                             uintptr_t link_length,
+                             const uint8_t *computer,
+                             uintptr_t computer_length,
+                             uint8_t *out,
+                             uintptr_t capacity)
+;
+
+
 int32_t kodosi_terminal_input(void *handle,
                               const char *session_id,
                               const char *expected_runtime_incarnation_id,

@@ -21,7 +21,6 @@
 #include <QKeyEvent>
 #include <QQuickWindow>
 #include <QSignalSpy>
-#include <QSysInfo>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QtTest/QTest>
@@ -383,9 +382,7 @@ private slots:
     void terminalProgramsWriteTheClipboardAndTheFocusedViewOfTheirOwnTerminalAnswersReads();
     void terminalProgramsReadTheClipboardOnlyWhenAllowed();
     void terminalViewMailboxRejectsReversedDisplayRevisions();
-    void terminalLinksWithHiddenCharactersOrNoAddressDoNotOpen();
-    void terminalLinksOpenByGhosttysRules();
-    void terminalLinksFromAnotherComputerDoNotOpenItsFilesOrLocalAddresses();
+    void terminalLinksToFilesThatRunCodeDoNotOpen();
     void terminalViewCannotActivateLinkFromUndisplayedFrame();
     void terminalViewRetriesRevocationBlurBeforeRefocus();
     void terminalViewGivesItsFocusBackWithoutTheSizeWhenItsTerminalComesBack();
@@ -1007,41 +1004,10 @@ void TerminalKernelTest::terminalProgramsReadTheClipboardOnlyWhenAllowed()
     window.hide();
 }
 
-void TerminalKernelTest::terminalLinksWithHiddenCharactersOrNoAddressDoNotOpen()
-{
-    const auto refusal = [](const QString& value) {
-        const auto decision = kodosi::decideLink(value);
-        return decision.action == kodosi::LinkDecision::Action::Refuse ? decision.reason : QString();
-    };
-    const auto incomplete = QStringLiteral("The link is not a complete address.");
-    const auto hidden = QStringLiteral("The link has hidden characters that can change how it looks.");
-    QCOMPARE(refusal(QString()), incomplete);
-    QCOMPARE(refusal(QStringLiteral("project/main.rs")), incomplete);
-    QCOMPARE(refusal(QStringLiteral("https://exa mple.com/")), incomplete);
-    QCOMPARE(refusal(QStringLiteral("https://example.com/\nnext")), hidden);
-    QCOMPARE(refusal(QStringLiteral("https://example.com/%0a")), hidden);
-    QCOMPARE(refusal(QStringLiteral("https://example.com/\u202Etxt")), hidden);
-    QCOMPARE(refusal(QStringLiteral("https://example.com/%E2%80%AEtxt")), hidden);
-    QCOMPARE(refusal(QStringLiteral("https://example.com/\u200Btxt")), hidden);
-    QCOMPARE(refusal(QStringLiteral("https://example.com/%EF%BB%BFtxt")), hidden);
-    QCOMPARE(
-        kodosi::decideLink(QStringLiteral("https://example.com/\u202Egnp.exe")).shown,
-        QStringLiteral("https://example.com/\\u{202E}gnp.exe"));
-}
-
-void TerminalKernelTest::terminalLinksOpenByGhosttysRules()
+void TerminalKernelTest::terminalLinksToFilesThatRunCodeDoNotOpen()
 {
     using Action = kodosi::LinkDecision::Action;
-    const auto decide = [](const QString& value) { return kodosi::decideLink(value); };
-    QCOMPARE(decide(QStringLiteral("https://example.com/path")).action, Action::Open);
-    QCOMPARE(decide(QStringLiteral("mailto:ana@example.com")).action, Action::Open);
-    QCOMPARE(decide(QStringLiteral("https:relative")).action, Action::Refuse);
-    QCOMPARE(decide(QStringLiteral("mailto:")).action, Action::Refuse);
-    const auto editor = decide(QStringLiteral("vscode://file/home/ana/repo/main.rs:12"));
-    QCOMPARE(editor.action, Action::Ask);
-    QCOMPARE(editor.url, QUrl(QStringLiteral("vscode://file/home/ana/repo/main.rs:12")));
-    QCOMPARE(editor.shown, QStringLiteral("vscode://file/home/ana/repo/main.rs:12"));
-
+    const auto decide = [](const QString& path) { return kodosi::decideLink(QUrl::fromLocalFile(path).toString()); };
     QTemporaryDir folder;
     QVERIFY(folder.isValid());
     const QDir dir(QFileInfo(folder.path()).canonicalFilePath());
@@ -1054,14 +1020,9 @@ void TerminalKernelTest::terminalLinksOpenByGhosttysRules()
     launcher.write("[Desktop Entry]\nExec=true\n");
     launcher.close();
 
-    const auto opened = decide(QUrl::fromLocalFile(dir.path()).toString());
-    QCOMPARE(opened.action, Action::Open);
-    QCOMPARE(opened.url, QUrl::fromLocalFile(dir.path()));
-    QCOMPARE(decide(QUrl::fromLocalFile(notes.fileName()).toString()).url, QUrl::fromLocalFile(notes.fileName()));
-    auto onLocalhost = QUrl::fromLocalFile(dir.path());
-    onLocalhost.setHost(QStringLiteral("localhost"));
-    QCOMPARE(decide(onLocalhost.toString()).action, Action::Open);
-    const auto launcherDecision = decide(QUrl::fromLocalFile(launcher.fileName()).toString());
+    QCOMPARE(decide(notes.fileName()).action, Action::Open);
+    QCOMPARE(decide(dir.path()).action, Action::Open);
+    const auto launcherDecision = decide(launcher.fileName());
     QCOMPARE(launcherDecision.action, Action::Refuse);
     QCOMPARE(launcherDecision.reason, QStringLiteral("Opening it could run a program."));
 #ifndef Q_OS_WIN
@@ -1071,60 +1032,12 @@ void TerminalKernelTest::terminalLinksOpenByGhosttysRules()
     script.close();
     QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
     QVERIFY(QFile::link(script.fileName(), dir.filePath(QStringLiteral("readme.txt"))));
-    QCOMPARE(decide(QUrl::fromLocalFile(script.fileName()).toString()).action, Action::Refuse);
-    const auto disguised = decide(QUrl::fromLocalFile(dir.filePath(QStringLiteral("readme.txt"))).toString());
+    QCOMPARE(decide(script.fileName()).action, Action::Refuse);
+    const auto disguised = decide(dir.filePath(QStringLiteral("readme.txt")));
     QCOMPARE(disguised.action, Action::Refuse);
     QCOMPARE(disguised.shown, script.fileName());
 #endif
-
-    const auto missing = decide(QUrl::fromLocalFile(dir.filePath(QStringLiteral("missing.txt"))).toString());
-    QCOMPARE(missing.action, Action::Refuse);
-    QCOMPARE(missing.reason, QStringLiteral("The file or folder is not on this device."));
-    QCOMPARE(decide(QStringLiteral("file://server/share/notes.txt")).action, Action::Refuse);
-    QCOMPARE(decide(QUrl::fromLocalFile(notes.fileName()).toString() + QStringLiteral("?run=1")).action, Action::Refuse);
 }
-
-void TerminalKernelTest::terminalLinksFromAnotherComputerDoNotOpenItsFilesOrLocalAddresses()
-{
-    using Action = kodosi::LinkDecision::Action;
-    const auto elsewhere = [](const QString& value) {
-        return kodosi::decideLink(value, QStringLiteral("studio"));
-    };
-    QCOMPARE(elsewhere(QStringLiteral("https://github.com/kodosi/kodosi/pull/1")).action, Action::Open);
-    QCOMPARE(elsewhere(QStringLiteral("vscode://file/home/ana/main.rs")).action, Action::Ask);
-    for (const auto& file : {
-             QStringLiteral("file:///home/ana/notes.txt"),
-             QStringLiteral("src/main.rs"),
-             QStringLiteral("file://studio/etc"),
-         }) {
-        const auto decision = elsewhere(file);
-        QCOMPARE(decision.action, Action::Refuse);
-        QCOMPARE(decision.reason, QStringLiteral("The file is on studio."));
-    }
-    for (const auto& address : {
-             QStringLiteral("http://localhost:5173/"),
-             QStringLiteral("https://127.0.0.1:8443/admin"),
-             QStringLiteral("http://0.0.0.0:3000"),
-             QStringLiteral("http://[::1]:3000/"),
-             QStringLiteral("http://app.localhost/"),
-         }) {
-        const auto decision = elsewhere(address);
-        QCOMPARE(decision.action, Action::Refuse);
-        QCOMPARE(decision.reason, QStringLiteral("The address is on studio."));
-        QCOMPARE(kodosi::decideLink(address).action, Action::Open);
-    }
-    QCOMPARE(elsewhere(QStringLiteral("file:///home/ana/notes.txt")).shown, QStringLiteral("/home/ana/notes.txt"));
-    QCOMPARE(elsewhere(QStringLiteral("http://127.0.0.1.example.com/")).action, Action::Open);
-    QCOMPARE(
-        kodosi::decideLink(QStringLiteral("file://server/share/notes.txt")).reason,
-        QStringLiteral("The file is on server."));
-    QTemporaryDir folder;
-    QVERIFY(folder.isValid());
-    auto here = QUrl::fromLocalFile(QFileInfo(folder.path()).canonicalFilePath());
-    here.setHost(QSysInfo::machineHostName());
-    QCOMPARE(kodosi::decideLink(here.toString(QUrl::FullyEncoded)).action, Action::Open);
-}
-
 void TerminalKernelTest::terminalViewCannotActivateLinkFromUndisplayedFrame()
 {
     kodosi::TerminalSessionRegistry registry;

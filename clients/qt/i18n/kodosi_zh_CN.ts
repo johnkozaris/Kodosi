@@ -2660,10 +2660,6 @@
         <translation>该链接包含可能改变其显示效果的隐藏字符。</translation>
     </message>
     <message>
-        <source>The web link has no server name.</source>
-        <translation>该网页链接缺少服务器名称。</translation>
-    </message>
-    <message>
         <source>The address is on %1.</source>
         <translation>该地址位于 %1。</translation>
     </message>
