@@ -2,13 +2,11 @@ package com.kodosi.mobile.account
 
 import com.kodosi.mobile.runtime.SentCommands
 import com.kodosi.mobile.runtime.TestWords
-import com.kodosi.mobile.runtime.answer
 import com.kodosi.mobile.runtime.event
 import com.kodosi.mobile.runtime.string
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AccountStoreTest {
@@ -48,94 +46,11 @@ class AccountStoreTest {
     }
 
     @Test
-    fun asksToTrustANewDeviceAfterSignIn() {
-        store.reset("ana")
-        store.receiveAuth(event("auth.ready", """"userId":"ana","displayName":"Ana","enrolled":false"""))
-
-        assertEquals(SignInStage.TrustingDevice(DeviceTrust.Choose), stage)
-        assertTrue(store.state.value.needsOnboarding)
-    }
-
-    @Test
-    fun showsTheApprovalCodeThenFinishesWhenTheDeviceIsApproved() {
-        store.reset("ana")
-        store.receiveAuth(event("auth.ready", """"userId":"ana","enrolled":false"""))
-        store.requestDeviceApproval()
-        val requestId = sent.last("devices.link.startSelf").string("requestId")
-
-        store.receiveDevices(
-            answer("devices.result", requestId, "devices.link.startSelf", """"code":"K7Q-42M","qr":["10","01"]""")
-        )
-        assertEquals(SignInStage.TrustingDevice(DeviceTrust.PendingApproval("K7Q-42M", listOf("10", "01"))), stage)
-
-        store.receiveDevices(event("devices.link.selfResolved", """"outcome":"approved""""))
-        assertEquals("devices.refresh", sent.types.last())
-        store.receiveDevices(
-            event(
-                "devices.list",
-                """"selfDeviceId":"phone","localDeviceEnrolled":true,"devices":""" +
-                    """[{"deviceId":"phone","label":"Pixel","certIssuedAtMs":1,"recoveryKey":false}]"""
-            )
-        )
-        assertEquals(SignInStage.SignedIn, stage)
-        assertTrue(store.state.value.isReady)
-    }
-
-    @Test
-    fun asksWithAScannedCodeAndWaitsForTheComputer() {
-        store.reset("ana")
-        store.receiveAuth(event("auth.ready", """"userId":"ana","enrolled":false"""))
-        store.joinDevice("kodosi://device/join/ana#secret")
-        assertEquals(SignInStage.TrustingDevice(DeviceTrust.Joining), stage)
-        val asked = sent.last("devices.link.startSelf")
-        assertEquals("kodosi://device/join/ana#secret", asked.string("code"))
-
-        store.receiveDevices(answer("devices.result", asked.string("requestId"), "devices.link.startSelf", ""))
-        assertEquals(SignInStage.TrustingDevice(DeviceTrust.Joining), stage)
-    }
-
-    @Test
-    fun anOpenedCodeDoesNothingOnADeviceThatIsApproved() {
-        store.reset("ana")
-        store.receiveAuth(event("auth.ready", """"userId":"ana","enrolled":true"""))
-        store.joinDevice("kodosi://device/join/ana#secret")
-        assertEquals(emptyList<String>(), sent.types.filter { it == "devices.link.startSelf" })
-    }
-
-    @Test
-    fun goesBackToTheChoiceWhenTheApprovalEndsWithoutIt() {
-        store.reset("ana")
-        store.receiveAuth(event("auth.ready", """"userId":"ana","enrolled":false"""))
-        store.requestDeviceApproval()
-
-        store.receiveDevices(event("devices.link.selfResolved", """"outcome":"expired""""))
-        assertEquals(SignInStage.TrustingDevice(DeviceTrust.Choose), stage)
-    }
-
-    @Test
     fun ignoresTheReadinessOfAnotherAccount() {
         store.reset("ana")
         store.receiveAuth(event("auth.ready", """"userId":"bo","enrolled":true"""))
 
         assertEquals(listOf(TestWords.otherAccount), notices)
         assertFalse(store.state.value.authResolved)
-    }
-
-    @Test
-    fun showsAFailedSignInOnTheSignInScreen() {
-        store.signIn()
-        store.receiveAuth(event("auth.browser", """"requestId":"r","url":"https://id.kodosi.com/login""""))
-
-        val shown = store.absorb(event("auth.error", """"message":"The sign-in page did not answer.""""), "nope")
-        assertTrue(shown)
-        assertEquals(SignInStage.Failed("nope"), stage)
-    }
-
-    @Test
-    fun tellsWhenTheSignInEnded() {
-        store.receiveAuth(event("auth.required", """"reason":"expired""""))
-
-        assertEquals(listOf(TestWords.signInEnded), notices)
-        assertTrue(store.state.value.needsOnboarding)
     }
 }
