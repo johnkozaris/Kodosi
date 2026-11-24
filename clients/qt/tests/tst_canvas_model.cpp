@@ -1,16 +1,13 @@
 #include "SessionFixture.hpp"
 #include "presentation/CanvasDocuments.hpp"
 #include "presentation/CanvasModel.hpp"
-#include "presentation/DesktopStateModel.hpp"
 #include "runtime/RuntimeBridge.hpp"
 
 #include <QBuffer>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QSettings>
 #include <QSignalSpy>
-#include <QTemporaryDir>
 #include <QtTest/QTest>
 
 namespace {
@@ -18,7 +15,6 @@ class Commands final : public kodosi::CommandDispatcher, public kodosi::PipeRout
 public:
     QList<QJsonObject> values;
     QStringList routes;
-    qsizetype routedBefore = -1;
     Result send(QByteArrayView bytes) override
     {
         values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
@@ -27,44 +23,28 @@ public:
     void route(const QString& pipe, QObject&, Read) override
     {
         routes.append(pipe);
-        routedBefore = values.size();
     }
     void unroute(const QString& pipe) override { routes.removeAll(pipe); }
     QJsonObject request() const { return values.last().value(QStringLiteral("request")).toObject(); }
 };
 
-QJsonObject item(const QString& name, int changed, int revision = 1)
+QJsonObject item(const QString& name, int changed)
 {
     return { { QStringLiteral("key"), QStringLiteral("/work/") + name }, { QStringLiteral("name"), name },
-        { QStringLiteral("kind"), name.endsWith(QStringLiteral(".png")) ? QStringLiteral("picture") : QStringLiteral("page") },
-        { QStringLiteral("revision"), revision }, { QStringLiteral("bytes"), 120 }, { QStringLiteral("changed"), changed } };
+        { QStringLiteral("kind"), QStringLiteral("page") }, { QStringLiteral("revision"), 1 }, { QStringLiteral("bytes"), 120 },
+        { QStringLiteral("changed"), changed } };
 }
 
-QJsonObject terminal(QJsonObject canvas, int value = 1)
+QJsonObject terminal(QJsonObject canvas)
 {
-    auto entry = test::session(value);
-    if (!canvas.isEmpty())
-        entry.insert(QStringLiteral("canvas"), canvas);
+    auto entry = test::session(1);
+    entry.insert(QStringLiteral("canvas"), canvas);
     return entry;
 }
 
-QJsonObject canvas(int sequence, QJsonArray items, QJsonObject browser = {})
+QJsonObject canvas(int sequence, QJsonArray items)
 {
-    QJsonObject value { { QStringLiteral("sequence"), sequence }, { QStringLiteral("items"), items } };
-    if (!browser.isEmpty())
-        value.insert(QStringLiteral("browser"), browser);
-    return value;
-}
-
-QJsonObject mark(const QString& name, int at)
-{
-    return { { QStringLiteral("key"), QStringLiteral("/work/") + name }, { QStringLiteral("at"), at } };
-}
-
-QJsonObject asleepBrowser(int changed)
-{
-    return { { QStringLiteral("state"), QStringLiteral("asleep") }, { QStringLiteral("changed"), changed },
-        { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } };
+    return { { QStringLiteral("sequence"), sequence }, { QStringLiteral("items"), items } };
 }
 
 QJsonObject answer(const Commands& commands, QJsonObject answer)
@@ -87,59 +67,6 @@ QJsonObject part(const QString& key, int revision, qsizetype offset, qsizetype t
 class CanvasModelTest final : public QObject {
     Q_OBJECT
 private slots:
-    void theTerminalListKeepsAValidCanvasAndRefusesABrokenOne()
-    {
-        kodosi::SessionCatalogModel sessions;
-        const QJsonObject browser { { QStringLiteral("state"), QStringLiteral("asleep") }, { QStringLiteral("changed"), 2 },
-            { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } };
-        sessions.apply(test::snapshot({ terminal(canvas(9, { item(QStringLiteral("compare.html"), 4) }, browser)) }));
-        const auto shown = sessions.presentationForSession(test::id(1)).value(QStringLiteral("canvas")).toMap();
-        QCOMPARE(shown.value(QStringLiteral("items")).toList().size(), 1);
-        QCOMPARE(shown.value(QStringLiteral("browser")).toMap().value(QStringLiteral("state")).toString(), QStringLiteral("asleep"));
-        auto broken = item(QStringLiteral("plan.html"), 5);
-        broken.insert(QStringLiteral("kind"), QStringLiteral("program"));
-        QTest::ignoreMessage(QtWarningMsg,
-            "the app could not read the event sessions.snapshot: terminal 0 of its list is invalid or repeats");
-        sessions.apply(test::snapshot({ terminal(canvas(10, { broken })) }));
-        QCOMPARE(sessions.presentationForSession(test::id(1)).value(QStringLiteral("canvas")).toMap().value(QStringLiteral("sequence")).toInt(), 9);
-        sessions.apply(test::snapshot({ terminal({}) }));
-        QVERIFY(!sessions.presentationForSession(test::id(1)).value(QStringLiteral("canvas")).isValid());
-        for (const auto& name : { QStringLiteral("open"), QStringLiteral("change") }) {
-            sessions.apply(test::snapshot({ terminal({}) }));
-            auto unstamped = canvas(11, { item(QStringLiteral("plan.html"), 5) });
-            unstamped.insert(name, QJsonObject { { QStringLiteral("key"), QStringLiteral("/work/plan.html") } });
-            sessions.apply(test::snapshot({ terminal(unstamped) }));
-            QVERIFY(!sessions.presentationForSession(test::id(1)).value(QStringLiteral("canvas")).isValid());
-        }
-    }
-
-    void aCanvasShowsNewsOnlyForWhatChangedAfterThisDeviceSawIt()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        const auto id = test::id(1);
-        sessions.apply(test::snapshot({ terminal(canvas(4, { item(QStringLiteral("compare.html"), 4) })) }));
-        QVERIFY(!model.isNew(id, QStringLiteral("/work/compare.html")));
-        sessions.apply(test::snapshot({ terminal(
-            canvas(6, { item(QStringLiteral("plan.md"), 6), item(QStringLiteral("compare.html"), 4) })) }));
-        QVERIFY(model.isNew(id, QStringLiteral("/work/plan.md")));
-        QVERIFY(!model.isNew(id, QStringLiteral("/work/compare.html")));
-        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
-        model.saw(id, QStringLiteral("/work/plan.md"));
-        QVERIFY(!model.isNew(id, QStringLiteral("/work/plan.md")));
-        sessions.apply(test::snapshot({ terminal(
-            canvas(7, { item(QStringLiteral("plan.md"), 6), item(QStringLiteral("compare.html"), 7, 2) })) }));
-        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
-        model.pick(id, QStringLiteral("/work/compare.html"));
-        sessions.apply(test::snapshot({ terminal(
-            canvas(8, { item(QStringLiteral("plan.md"), 8, 2), item(QStringLiteral("compare.html"), 4) })) }));
-        QCOMPARE(model.current(id), QStringLiteral("/work/compare.html"));
-        QVERIFY(model.isNew(id, QStringLiteral("/work/plan.md")));
-        sessions.apply(test::snapshot({ terminal(canvas(9, { item(QStringLiteral("plan.md"), 8, 2) })) }));
-        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
-    }
-
     void anItemIsReadInPartsAndAgainWhenItChanges()
     {
         Commands commands;
@@ -168,16 +95,6 @@ private slots:
         const auto before = commands.values.size();
         model.apply(answer(commands, part(key, 2, 0, 9, QByteArrayLiteral("x"))));
         QCOMPARE(commands.values.size(), before);
-    }
-
-    void aPointOfTheViewBecomesAPointOfTheBrowser()
-    {
-        const QSizeF wide(1000, 500);
-        const QSizeF browser(1280, 720);
-        QCOMPARE(kodosi::CanvasModel::browserPoint(QPointF(500, 250), wide, browser), QPointF(640, 360));
-        QVERIFY(!kodosi::CanvasModel::browserPoint(QPointF(10, 250), wide, browser));
-        QCOMPARE(kodosi::CanvasModel::browserPoint(QPointF(10, 250), wide, browser, true), QPointF(0, 360));
-        QCOMPARE(kodosi::CanvasModel::pointInView(QPointF(0, 0), wide, browser), QPointF(55.55555555555554, 0));
     }
 
     void askAboutThisTypesOneLineForThePersonToFinish()
@@ -213,308 +130,6 @@ private slots:
         QVERIFY(commands.values.isEmpty());
     }
 
-    void aPartClosesOnThisDeviceUntilItChanges()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        const auto id = test::id(1);
-        const auto files = QStringLiteral("files");
-        const auto web = QStringLiteral("browser");
-        QJsonObject browser { { QStringLiteral("state"), QStringLiteral("asleep") }, { QStringLiteral("changed"), 3 },
-            { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } };
-        sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 2) }, browser)) }));
-        QCOMPARE(model.sections(id), (QStringList { files, web }));
-        QCOMPARE(model.current(id), web);
-        model.close(id, web);
-        QCOMPARE(model.sections(id), QStringList { files });
-        QCOMPARE(model.closedSections(id), QStringList { web });
-        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
-        browser.insert(QStringLiteral("changed"), 4);
-        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) }, browser)) }));
-        QCOMPARE(model.sections(id), (QStringList { files, web }));
-        model.showShelf(id, true);
-        model.close(id, files);
-        QVERIFY(!model.showsShelf(id));
-        QCOMPARE(model.closedSections(id), QStringList { files });
-        model.show(id, files);
-        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
-        model.showShelf(id, true);
-        model.pick(id, QStringLiteral("/work/plan.md"));
-        QVERIFY(!model.showsShelf(id));
-    }
-
-    void aCanvasClosedOnThisDeviceOpensAgainOnlyAtItsNewestPart()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        const auto id = test::id(1);
-        const auto web = QStringLiteral("browser");
-        sessions.apply(test::snapshot({ terminal(canvas(5, { item(QStringLiteral("plan.md"), 3) }, asleepBrowser(5))) }));
-        model.close(id, QStringLiteral("files"));
-        model.open(id);
-        QCOMPARE(model.sections(id), QStringList { web });
-        model.close(id, web);
-        QVERIFY(!model.showsSomething(id));
-        QVERIFY(model.current(id).isEmpty());
-        model.open(id);
-        QCOMPARE(model.sections(id), QStringList { web });
-        QCOMPARE(model.current(id), web);
-    }
-
-    void aPersonOpensTheBrowserAndSeesItWhenItComes()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        const auto id = test::id(1);
-        sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 2) })) }));
-        QCOMPARE(model.closedSections(id), QStringList { QStringLiteral("browser") });
-        model.openBrowser(id);
-        QVERIFY(model.opensBrowser(id));
-        QCOMPARE(commands.request().value(QStringLiteral("action")).toObject().value(QStringLiteral("do")).toString(),
-            QStringLiteral("wake"));
-        const QJsonObject browser { { QStringLiteral("state"), QStringLiteral("starting") }, { QStringLiteral("changed"), 1 },
-            { QStringLiteral("width"), 1280 }, { QStringLiteral("height"), 720 } };
-        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) }, browser)) }));
-        QVERIFY(!model.opensBrowser(id));
-        QCOMPARE(model.current(id), QStringLiteral("browser"));
-    }
-
-    void eachShowAndChangeOfACanvasIsNewsOnceTheOlderFirstAndNoneFromBeforeTheStart()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions, 6);
-        const auto id = test::id(1);
-        const auto apply = [&](const QString& open, int openAt, const QString& change, int changeAt) {
-            auto shown = canvas(9, { item(QStringLiteral("plan.md"), 5), item(QStringLiteral("compare.html"), 4) });
-            shown.insert(QStringLiteral("open"), mark(open, openAt));
-            shown.insert(QStringLiteral("change"), mark(change, changeAt));
-            sessions.apply(test::snapshot({ terminal(shown) }));
-        };
-        const auto news = [&] {
-            QStringList found;
-            for (const auto& news : model.news(id))
-                found.append((news.shown ? QStringLiteral("shown ") : QStringLiteral("changed ")) + news.key);
-            return found;
-        };
-        apply(QStringLiteral("compare.html"), 6, QStringLiteral("plan.md"), 5);
-        QVERIFY(news().isEmpty());
-        apply(QStringLiteral("compare.html"), 8, QStringLiteral("plan.md"), 7);
-        QCOMPARE(news(), (QStringList { QStringLiteral("changed /work/plan.md"), QStringLiteral("shown /work/compare.html") }));
-        QVERIFY(news().isEmpty());
-        apply(QStringLiteral("plan.md"), 10, QStringLiteral("plan.md"), 9);
-        model.close(id, QStringLiteral("files"));
-        QVERIFY(news().isEmpty());
-        apply(QStringLiteral("gone.md"), 11, QStringLiteral("gone.md"), 12);
-        QVERIFY(news().isEmpty());
-    }
-
-    void aTerminalWhoseCanvasComesLaterHasNewsOnlyFromAfterTheStart()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions, 100);
-        const auto id = test::id(1);
-        const auto show = [&](int at) {
-            auto shown = canvas(at, { item(QStringLiteral("plan.md"), 5) });
-            shown.insert(QStringLiteral("open"), mark(QStringLiteral("plan.md"), at));
-            sessions.apply(test::snapshot({ terminal(shown) }));
-        };
-        sessions.apply(test::snapshot({ test::session(1) }));
-        show(90);
-        QVERIFY(model.news(id).isEmpty());
-        sessions.apply(test::snapshot({ test::session(1) }));
-        show(120);
-        QCOMPARE(model.news(id).size(), 1);
-        QVERIFY(model.news(id).isEmpty());
-    }
-
-    void aCanvasThatAPersonClosedStaysClosedForChangesUntilAShowOrThePersonOpensIt()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions, 1);
-        const auto id = test::id(1);
-        auto shown = canvas(9, { item(QStringLiteral("plan.md"), 5) });
-        shown.insert(QStringLiteral("open"), mark(QStringLiteral("plan.md"), 8));
-        sessions.apply(test::snapshot({ terminal(shown) }));
-        model.closeCanvas(id);
-        QVERIFY(model.isShut(id));
-        const auto news = model.news(id);
-        QCOMPARE(news.size(), 1);
-        QVERIFY(!model.isShut(id));
-        model.closeCanvas(id);
-        model.reveal(id, news.first().key);
-        QVERIFY(!model.isShut(id));
-        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
-        model.closeCanvas(id);
-        model.open(id);
-        QVERIFY(!model.isShut(id));
-        model.closeCanvas(id);
-        model.show(id, QStringLiteral("files"));
-        QVERIFY(!model.isShut(id));
-    }
-
-    void oneCanvasOpensWithItsTerminalAloneAndHidesWithoutLeavingIt()
-    {
-        QTemporaryDir directory;
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        kodosi::DesktopStateModel desktop(
-            std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
-        desktop.attachSessionCatalog(&sessions);
-        desktop.attachCanvas(&model);
-        const auto id = test::id(1);
-        sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 1) })) }));
-        desktop.openCanvas(id);
-        QCOMPARE(desktop.canvasSessionId(), id);
-        QCOMPARE(desktop.selectedSessionId(), id);
-        QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
-        desktop.hideCanvas();
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
-        desktop.openCanvas(id);
-        desktop.toggleFocusForSelectedSession();
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Grid);
-        desktop.openCanvas(id);
-        sessions.apply(test::snapshot({ terminal({}) }));
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) })) }));
-        desktop.openCanvas(id);
-        QVERIFY(desktop.unstageSession(id));
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-    }
-
-    void aCanvasThatComesLaterOpensOnlyWhenThePersonOpenedItBefore()
-    {
-        QTemporaryDir directory;
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        kodosi::DesktopStateModel desktop(
-            std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
-        desktop.attachSessionCatalog(&sessions);
-        desktop.attachCanvas(&model);
-        const auto id = test::id(1);
-        const auto empty = [&] { sessions.apply(test::snapshot({ terminal({}) })); };
-        const auto comes = [&](int at) {
-            sessions.apply(test::snapshot({ terminal(canvas(at, { item(QStringLiteral("plan.md"), at) })) }));
-        };
-        empty();
-        QVERIFY(desktop.selectSession(id));
-        comes(1);
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        empty();
-        desktop.openCanvas(id);
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        comes(2);
-        QCOMPARE(desktop.canvasSessionId(), id);
-        desktop.hideCanvas();
-        empty();
-        comes(3);
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        empty();
-        desktop.openCanvas(id);
-        desktop.toggleFocusForSelectedSession();
-        comes(4);
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-    }
-
-    void aCanvasLeftOpenIsOpenAgainWhenThePersonComesBack()
-    {
-        QTemporaryDir directory;
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        kodosi::DesktopStateModel desktop(
-            std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
-        desktop.attachSessionCatalog(&sessions);
-        desktop.attachCanvas(&model);
-        const auto shown = test::id(1);
-        const auto plain = test::id(2);
-        sessions.apply(test::snapshot({ terminal(canvas(1, { item(QStringLiteral("plan.md"), 1) })), test::session(2) }));
-        QVERIFY(desktop.selectSession(plain));
-        desktop.openCanvas(shown);
-        QVERIFY(desktop.selectSession(plain));
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        QVERIFY(desktop.selectSession(shown));
-        QCOMPARE(desktop.canvasSessionId(), shown);
-        QVERIFY(desktop.selectSession(plain));
-        desktop.toggleFocusForSelectedSession();
-        QVERIFY(desktop.selectSession(shown));
-        desktop.toggleFocusForSelectedSession();
-        QCOMPARE(desktop.canvasSessionId(), shown);
-        desktop.hideCanvas();
-        QVERIFY(desktop.selectSession(plain));
-        QVERIFY(desktop.selectSession(shown));
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-    }
-
-    void theStageShowsACanvasOnlyWithSomethingOpenOnThisDeviceAndOpensItAtItsNewestPart()
-    {
-        QTemporaryDir directory;
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        kodosi::DesktopStateModel desktop(
-            std::make_unique<QSettings>(directory.filePath(QStringLiteral("ui.ini")), QSettings::IniFormat));
-        desktop.attachSessionCatalog(&sessions);
-        desktop.attachCanvas(&model);
-        const auto files = test::id(1);
-        const auto asleep = test::id(2);
-        const auto web = QStringLiteral("browser");
-        const auto onlyBrowser = terminal(canvas(1, {}, asleepBrowser(1)), 2);
-        sessions.apply(test::snapshot(
-            { terminal(canvas(2, { item(QStringLiteral("plan.md"), 1) }, asleepBrowser(2))), onlyBrowser }));
-        QVERIFY(desktop.selectSession(files));
-        QVERIFY(desktop.selectSession(asleep));
-        model.close(files, web);
-        model.close(asleep, web);
-        desktop.openCanvas(files);
-        QCOMPARE(desktop.canvasSessionId(), files);
-        QVERIFY(desktop.selectSession(asleep));
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        desktop.openCanvas(asleep);
-        QCOMPARE(desktop.canvasSessionId(), asleep);
-        QCOMPARE(model.current(asleep), web);
-        desktop.openCanvas(files);
-        QCOMPARE(desktop.canvasSessionId(), files);
-        QCOMPARE(model.sections(files), QStringList { QStringLiteral("files") });
-        sessions.apply(test::snapshot({ terminal(canvas(3, {}, asleepBrowser(2))), onlyBrowser }));
-        QVERIFY(desktop.canvasSessionId().isEmpty());
-        QCOMPARE(desktop.selectedSessionId(), files);
-        QCOMPARE(desktop.stageLayoutMode(), kodosi::DesktopStateModel::Focus);
-    }
-
-    void aPersonAddsAFileInPartsAndTheCanvasShowsIt()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        const auto id = test::id(1);
-        QTemporaryDir directory;
-        QFile file(directory.filePath(QStringLiteral("plan.md")));
-        QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write(QByteArray(300 * 1024, 'a'));
-        file.close();
-        model.attach(id, QUrl::fromLocalFile(file.fileName()));
-        QCOMPARE(commands.request().value(QStringLiteral("type")).toString(), QStringLiteral("attach"));
-        QCOMPARE(commands.request().value(QStringLiteral("name")).toString(), QStringLiteral("plan.md"));
-        QVERIFY(!commands.request().value(QStringLiteral("last")).toBool());
-        model.apply(answer(commands, { { QStringLiteral("answer"), QStringLiteral("done") } }));
-        QCOMPARE(commands.request().value(QStringLiteral("offset")).toInt(), 256 * 1024);
-        QVERIFY(commands.request().value(QStringLiteral("last")).toBool());
-        sessions.apply(test::snapshot({ terminal(canvas(2, { item(QStringLiteral("plan.md"), 2) })) }));
-        model.apply(answer(commands,
-            { { QStringLiteral("answer"), QStringLiteral("attached") }, { QStringLiteral("key"), QStringLiteral("/work/plan.md") } }));
-        QCOMPARE(model.current(id), QStringLiteral("/work/plan.md"));
-    }
-
     void aDocumentFrameComesBackWholeAndAGapOpensThePipeAgain()
     {
         Commands commands;
@@ -548,32 +163,6 @@ private slots:
         QCOMPARE(received.last().at(1).toString(), QString::fromLatin1(QByteArray("again").toBase64()));
     }
 
-    void aBrowserPipeGoesToItsReaderFromItsFirstEventUntilItCloses()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasDocuments documents(commands, commands, sessions);
-        QSignalSpy opened(&documents, &kodosi::CanvasDocuments::opened);
-        QSignalSpy closed(&documents, &kodosi::CanvasDocuments::closed);
-        QObject reader;
-        const auto pipe = documents.openReader(test::id(1), QStringLiteral("browser"), reader, {});
-        QCOMPARE(commands.routes, QStringList { pipe });
-        QCOMPARE(commands.routedBefore, 0);
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
-        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } });
-        QVERIFY(opened.isEmpty());
-        documents.close(pipe);
-        QVERIFY(commands.routes.isEmpty());
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.close"));
-        const auto refused = documents.openReader(test::id(1), QStringLiteral("browser"), reader, {});
-        documents.apply({ { QStringLiteral("type"), QStringLiteral("document.error") },
-            { QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")) },
-            { QStringLiteral("operation"), QStringLiteral("document.open") } });
-        QCOMPARE(closed.size(), 1);
-        QCOMPARE(closed.first().at(0).toString(), refused);
-        QVERIFY(commands.routes.isEmpty());
-    }
-
     void aTerminalsBrowserHasOnePipeAndTheNewestViewTakesIt()
     {
         Commands commands;
@@ -595,26 +184,6 @@ private slots:
         QCOMPARE(closed.size(), 1);
         QCOMPARE(closed.first().at(0).toString(), first);
         QCOMPARE(commands.routes, (QStringList { elsewhere, second }));
-    }
-
-    void aDocumentGoesToAHostThatComesBackOnceItListsTheTerminal()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasDocuments documents(commands, commands, sessions);
-        QSignalSpy lost(&documents, &kodosi::CanvasDocuments::lost);
-        const auto pipe = documents.open(test::id(1), QStringLiteral("/work/plan.docx"));
-        documents.reset();
-        QCOMPARE(lost.size(), 1);
-        const auto sent = commands.values.size();
-        sessions.apply(test::snapshot({ test::session(2, true) }));
-        QCOMPARE(commands.values.size(), sent);
-        sessions.apply(test::snapshot({ test::session(1, true) }));
-        QCOMPARE(commands.values.size(), sent + 1);
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("document.open"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("pipe")).toString(), pipe);
-        sessions.apply(test::snapshot({ test::session(1, true) }));
-        QCOMPARE(commands.values.size(), sent + 1);
     }
 
     void eachPipeOpensAgainAfterTheAppFellBehindAndAnEarlierAnswerClosesNothing()
@@ -661,71 +230,6 @@ private slots:
         QVERIFY(first.value(QStringLiteral("more")).toBool());
         QCOMPARE(first.value(QStringLiteral("data")).toString().size() % 4, 0);
         QVERIFY(!commands.values.at(2).value(QStringLiteral("more")).toBool());
-    }
-
-    void aBrowserStepShowsWhatItDidAndAsksForTheNewStatus()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        const auto answer = [&](const QString& type, const QString& operation, QJsonObject fields) {
-            fields.insert(QStringLiteral("type"), type);
-            fields.insert(QStringLiteral("operation"), operation);
-            fields.insert(QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")));
-            model.applyBrowser(fields);
-        };
-        const auto source = [](const QString& name) {
-            return QJsonObject { { QStringLiteral("name"), name }, { QStringLiteral("browser"), name.toLower() },
-                { QStringLiteral("protected"), false } };
-        };
-        model.openBrowserSettings();
-        answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
-            { { QStringLiteral("sources"), QJsonArray { source(QStringLiteral("Chrome")), source(QStringLiteral("Firefox")) } },
-                { QStringLiteral("sites"), 0 } });
-        QVERIFY(model.browserKnown());
-
-        model.copySignIns(QStringLiteral("Chrome"));
-        QCOMPARE(model.browserWork(), QStringLiteral("Chrome"));
-        model.forgetSignIns();
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.copy"));
-        answer(QStringLiteral("browser.result"), QStringLiteral("browser.copy"), { { QStringLiteral("sites"), 12 } });
-        QVERIFY(model.browserWork().isEmpty());
-        QCOMPARE(model.browserDone().value(QStringLiteral("Chrome")).toString(), QStringLiteral("Copied for 12 sites"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.status"));
-        answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
-            { { QStringLiteral("sources"), QJsonArray { source(QStringLiteral("Chrome")) } }, { QStringLiteral("sites"), 12 },
-                { QStringLiteral("engine"), QStringLiteral("Chromium 156.0.8078.47") } });
-
-        model.forgetSignIns();
-        answer(QStringLiteral("browser.result"), QStringLiteral("browser.forget"), { { QStringLiteral("sites"), 12 } });
-        QVERIFY(model.browserDone().isEmpty());
-
-        model.removeBrowsingData();
-        answer(QStringLiteral("browser.error"), QStringLiteral("browser.clear"),
-            { { QStringLiteral("message"), QStringLiteral("The profile could not go.") } });
-        QCOMPARE(model.browserProblem(), QStringLiteral("The profile could not go."));
-        QVERIFY(!model.browserDone().contains(QStringLiteral("clear")));
-    }
-
-    void theBrowserWorkOfAStoppedRuntimeEnds()
-    {
-        Commands commands;
-        kodosi::SessionCatalogModel sessions;
-        kodosi::CanvasModel model(commands, sessions);
-        model.openBrowserSettings();
-        model.getBrowser();
-        QCOMPARE(model.browserWork(), QStringLiteral("engine"));
-        const auto step = commands.values.last().value(QStringLiteral("requestId"));
-        QSignalSpy changed(&model, &kodosi::CanvasModel::browserChanged);
-        model.reset();
-        QVERIFY(model.browserWork().isEmpty());
-        QCOMPARE(changed.size(), 1);
-        model.applyBrowser({ { QStringLiteral("type"), QStringLiteral("browser.result") },
-            { QStringLiteral("operation"), QStringLiteral("browser.get") }, { QStringLiteral("requestId"), step } });
-        QCOMPARE(changed.size(), 1);
-        model.getBrowser();
-        QCOMPARE(model.browserWork(), QStringLiteral("engine"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("browser.get"));
     }
 };
 

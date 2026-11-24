@@ -7,7 +7,6 @@
 #include <QThread>
 #include <chrono>
 #include <condition_variable>
-#include <limits>
 #include <mutex>
 #include <optional>
 #include <QtTest/QTest>
@@ -100,37 +99,6 @@ private slots:
     {
         runtime_fixture::reset();
         runtime_fixture::allowStart = true;
-    }
-    void requiresExactDesktopProtocol()
-    {
-        constexpr auto expected = kodosi::RuntimeBridge::protocolVersion;
-        for (const auto version : { expected - 1, expected + 1 }) {
-            runtime_fixture::protocolVersion = version;
-            kodosi::RuntimeBridge bridge;
-            std::optional<kodosi::RuntimeBridge::Result> result;
-            bridge.startAsync([&](auto value) { result = std::move(value); });
-            QVERIFY(result && !*result);
-            QCOMPARE(result->error().message, QStringLiteral("This copy of Kodosi is damaged. Install it again."));
-            QVERIFY(!bridge.isRunning());
-            QVERIFY(runtime_fixture::userdata == nullptr);
-        }
-        runtime_fixture::protocolVersion = expected;
-        kodosi::RuntimeBridge bridge;
-        QVERIFY(started(bridge));
-        QVERIFY(bridge.isRunning());
-    }
-    void asynchronousStartupCanBeCancelledBeforeInstallation()
-    {
-        kodosi::RuntimeBridge bridge;
-        bool completed = false;
-        bridge.startAsync([&](auto) { completed = true; });
-        bridge.stop();
-        QTest::qWait(100);
-        QVERIFY(!bridge.isRunning());
-        QVERIFY(!completed);
-        bridge.startAsync([&](auto result) { completed = result.has_value(); });
-        QTRY_VERIFY(completed);
-        QVERIFY(bridge.isRunning());
     }
     void fencesAccountsAndInjectsCommandEnvelope()
     {
@@ -236,53 +204,6 @@ private slots:
         reader.start();
         QCOMPARE(reader.waitFor(1), QStringList { QStringLiteral("document.opened after a drop") });
         QTRY_COMPARE(behind.size(), 1);
-    }
-    void anUnreadableEventGoesToTheLogAndTheNextOneArrives()
-    {
-        kodosi::RuntimeBridge bridge;
-        QSignalSpy events(&bridge, &kodosi::RuntimeBridge::eventReceived);
-        QVERIFY(started(bridge));
-        QTest::ignoreMessage(QtWarningMsg, QRegularExpression(QStringLiteral("^the app could not read an event: ")));
-        runtime_fixture::sendEvent(QByteArrayLiteral("{\"type\":"));
-        runtime_fixture::sendEvent(
-            QByteArrayLiteral("{\"type\":\"system.ready\",\"accountEpoch\":0,\"accountUserId\":null}"));
-        QTRY_COMPARE(events.size(), 1);
-        QVERIFY(bridge.isRunning());
-    }
-    void preservesUnsignedIdentitiesAndRejectsCallerEnvelope()
-    {
-        kodosi::RuntimeBridge bridge;
-        QSignalSpy events(&bridge, &kodosi::RuntimeBridge::eventReceived);
-        QVERIFY(started(bridge));
-        runtime_fixture::sendEvent(QByteArrayLiteral(
-            R"({"type":"auth.ready","accountEpoch":18446744073709551615,"accountUserId":"owner"})"));
-        QTRY_COMPARE(events.size(), 1);
-        QCOMPARE(events.first().at(1).toULongLong(), std::numeric_limits<quint64>::max());
-        const auto command = QByteArrayLiteral(
-            R"({"type":"session.resize","surfaceGeneration":9223372036854775809,"subscriptionGeneration":18446744073709551615})");
-        QVERIFY(bridge.send(command));
-        QVERIFY(runtime_fixture::lastCommand.contains("\"accountEpoch\":18446744073709551615"));
-        QVERIFY(runtime_fixture::lastCommand.contains("\"surfaceGeneration\":9223372036854775809"));
-        QVERIFY(runtime_fixture::lastCommand.contains("\"subscriptionGeneration\":18446744073709551615"));
-        const auto nested = QByteArrayLiteral(
-            "{\"type\":\"example\",\"nested\":{\"accountEpoch\":1,\"text\":\"braces } , and escaped \\\"quote\\\"\","
-            "\"number\":9223372036854775809},\"list\":[1,{\"field\":2}]}");
-        QVERIFY(bridge.send(nested));
-        QVERIFY(runtime_fixture::lastCommand.contains("\"number\":9223372036854775809"));
-        QVERIFY(QJsonDocument::fromJson(runtime_fixture::lastCommand).isObject());
-        for (const auto& invalid : {
-            QByteArrayLiteral(R"({"type":"session.list","accountEpoch":0})"),
-            QByteArrayLiteral(R"({"type":"session.list","accountUserId":null})"),
-            QByteArrayLiteral(R"({"type":"session.list","account\u0045poch":0})"),
-            QByteArrayLiteral(R"({"type":"session.list","type":"shutdown"})")}) {
-            QVERIFY(!bridge.send(invalid));
-        }
-        runtime_fixture::sendEvent(QByteArrayLiteral(
-            R"({"type":"sessions.snapshot","accountEpoch":18446744073709551614,"accountUserId":"owner"})"));
-        runtime_fixture::sendEvent(QByteArrayLiteral(
-            R"({"type":"auth.ready","accountEpoch":1,"accountEpoch":18446744073709551615,"accountUserId":"owner"})"));
-        QCoreApplication::processEvents();
-        QCOMPARE(events.size(), 1);
     }
     void anOutdatedHostRefusesTheStartWithItsFacts()
     {

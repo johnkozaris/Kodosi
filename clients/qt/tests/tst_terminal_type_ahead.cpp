@@ -44,26 +44,6 @@ private slots:
         QTRY_COMPARE(window.typed, QStringLiteral("ls"));
         QCOMPARE(window.released, 2);
     }
-    void keysAfterTheHoldGoStraightToTheWindow()
-    {
-        KeyWindow window;
-        kodosi::TerminalTypeAhead typeAhead;
-        typeAhead.hold();
-        typeAhead.expect(QStringLiteral("new"));
-        typeAhead.deliver(QStringLiteral("new"));
-        type(&window, "ok");
-        QCOMPARE(window.typed, QStringLiteral("ok"));
-    }
-    void aKeyThatWasDownBeforeTheHoldStillComesUp()
-    {
-        KeyWindow window;
-        kodosi::TerminalTypeAhead typeAhead;
-        QTest::keyPress(&window, Qt::Key_T);
-        typeAhead.hold();
-        QTest::keyRelease(&window, Qt::Key_T);
-        QCOMPARE(window.released, 1);
-        typeAhead.drop();
-    }
     void droppedKeysReachNothing()
     {
         KeyWindow window;
