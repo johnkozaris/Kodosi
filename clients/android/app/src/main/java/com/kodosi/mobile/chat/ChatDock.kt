@@ -13,6 +13,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,12 +28,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -52,7 +56,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -76,7 +80,6 @@ import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
 import com.kodosi.mobile.terminals.agentLabel
-import com.kodosi.mobile.terminals.effortLabel
 import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
@@ -90,7 +93,6 @@ import com.kodosi.mobile.ui.Unfolding
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
 import com.kodosi.mobile.ui.snappy
-import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 /** What the facts row shows of the agent's models: their names and, for each, its levels of effort. */
@@ -109,7 +111,8 @@ internal fun ChatDock(
     models: KnownModels,
     send: () -> Unit,
     showTerminal: () -> Unit,
-    modelKey: @Composable (label: String, open: Boolean, setOpen: (Boolean) -> Unit) -> Unit
+    changesAgent: Boolean,
+    agentMenu: @Composable () -> Unit
 ) {
     val colors = KodosiTheme.colors
     val tasks = view.tasks.takeIf { list -> list.any { it.state != TaskState.DONE } }.orEmpty()
@@ -123,7 +126,7 @@ internal fun ChatDock(
         focus.clearFocus()
         keyboard?.hide()
         when (control) {
-            ChatControl.MODEL -> modelOpen = true
+            ChatControl.MODEL -> modelOpen = changesAgent
             ChatControl.USAGE -> usageOpen = true
         }
     }
@@ -217,8 +220,8 @@ internal fun ChatDock(
                 FactsRow(
                     view.facts,
                     models,
-                    { label -> modelKey(label, modelOpen) { modelOpen = it } },
-                    { ChatUsageKey(view.facts, usageOpen) { usageOpen = it } }
+                    changesAgent,
+                    FactsMenus(modelOpen, { modelOpen = it }, usageOpen, { usageOpen = it }, agentMenu)
                 )
             }
         }
@@ -374,84 +377,90 @@ private fun TaskLine(task: ChatTask) {
     }
 }
 
+/** Whether the menus of the facts are open, and the agent's part of the terminal's actions. */
+private class FactsMenus(
+    val model: Boolean,
+    val setModel: (Boolean) -> Unit,
+    val usage: Boolean,
+    val setUsage: (Boolean) -> Unit,
+    val agent: @Composable () -> Unit
+)
+
+private enum class FactsForm { MEASURED, SHOWN }
+
+/**
+ * The facts under the composer, with the model and the use of the agent as keys. Without room the
+ * keys take their short form, and without room for that the row scrolls.
+ */
 @Composable
-private fun FactsRow(
-    facts: ChatFacts,
-    models: KnownModels,
-    modelKey: @Composable (String) -> Unit,
-    usageKey: @Composable () -> Unit
-) {
-    val colors = KodosiTheme.colors
-    FactsLine(
-        Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 12.dp).heightIn(min = 36.dp)
-    ) {
-        facts.model?.let { modelKey(models.label(it)) }
-        facts.effort?.let { effort ->
-            val levels = models.levels(facts.model)
-            val level = levels.indexOf(effort)
-            if (level >= 0 && levels.size > 1) {
-                Tipped(effortLabel(effort)) { EffortBars(level, levels.size) }
-            } else {
-                Text(effortLabel(effort), style = KodosiType.footnote, color = colors.inkMuted, maxLines = 1)
+private fun FactsRow(facts: ChatFacts, models: KnownModels, changesAgent: Boolean, menus: FactsMenus) {
+    val scroll = rememberScrollState()
+    SubcomposeLayout(Modifier.fillMaxWidth().navigationBarsPadding().heightIn(min = 36.dp)) { constraints ->
+        val named = subcompose(FactsForm.MEASURED) {
+            Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FactsKeys(facts, models, true, changesAgent, null)
             }
-        }
-        facts.mode?.let { mode ->
-            val words = ChatWords.mode(mode)
-            Tipped(words) { AppIcon(ChatWords.modeSymbol(mode), Modifier.size(14.dp), tint = colors.inkMuted) }
-            Text(
-                words,
-                style = KodosiType.footnote,
-                color = colors.inkMuted,
-                maxLines = 1,
-                modifier = Modifier.layoutId(MODE_WORDS).clearAndSetSemantics {}
-            )
-        }
-        if (facts.context != null || facts.limits.isNotEmpty() || (facts.cost ?: 0.0) > 0) usageKey()
-        if (facts.helpers > 0) {
-            Count(
-                AppSymbol.FRIENDS,
-                facts.helpers,
-                pluralStringResource(R.plurals.chat_helpers, facts.helpers, facts.helpers)
-            )
-        }
-        if (facts.background > 0) {
-            Count(
-                AppSymbol.REFRESH,
-                facts.background,
-                pluralStringResource(R.plurals.chat_background_commands, facts.background, facts.background)
-            )
+        }.sumOf { it.measure(Constraints()).width } <= constraints.maxWidth
+        val shown = subcompose(FactsForm.SHOWN) {
+            Row(
+                Modifier.horizontalScroll(scroll).padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FactsKeys(facts, models, named, changesAgent, menus)
+            }
+        }.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+        val height = maxOf(constraints.minHeight, shown.maxOfOrNull { it.height } ?: 0)
+        layout(constraints.maxWidth, height) {
+            shown.forEach { it.placeRelative(0, (height - it.height) / 2) }
         }
     }
 }
 
-private const val MODE_WORDS = "mode words"
-
-/**
- * The facts in one line, in their order. Without room the words of the mode go first, then the
- * facts at the end of the line.
- */
+/** The keys and facts of the row, in their full or short form; without [menus] they only take their room. */
 @Composable
-private fun FactsLine(modifier: Modifier, content: @Composable () -> Unit) {
-    Layout(content, modifier) { measurables, constraints ->
-        val gap = 12.dp.roundToPx()
-        val near = 4.dp.roundToPx()
-        val placeables = measurables.map { it.measure(Constraints()) }
-        val words = measurables.indexOfFirst { it.layoutId == MODE_WORDS }
-        fun before(index: Int) = if (index == words) near else gap
-        fun width(shown: List<Int>) = shown.sumOf { placeables[it].width } + shown.drop(1).sumOf(::before)
-        var shown = placeables.indices.toList()
-        if (width(shown) > constraints.maxWidth) shown = shown - words
-        while (shown.isNotEmpty() && width(shown) > constraints.maxWidth) shown = shown.dropLast(1)
-        val height = maxOf(constraints.minHeight, shown.maxOfOrNull { placeables[it].height } ?: 0)
-        layout(constraints.maxWidth, height) {
-            var x = 0
-            shown.forEachIndexed { order, index ->
-                if (order > 0) x += before(index)
-                val placeable = placeables[index]
-                placeable.placeRelative(x, (height - placeable.height) / 2)
-                x += placeable.width
-            }
+private fun FactsKeys(
+    facts: ChatFacts,
+    models: KnownModels,
+    named: Boolean,
+    changesAgent: Boolean,
+    menus: FactsMenus?
+) {
+    val model = facts.model
+    val mode = facts.mode
+    if (model != null) {
+        ChatModelKey(
+            models.label(model),
+            facts.effort,
+            models.levels(model),
+            mode,
+            named,
+            changesAgent,
+            menus?.model == true,
+            menus?.setModel ?: {},
+            menus?.agent
+        )
+    } else if (mode != null) {
+        CompositionLocalProvider(LocalContentColor provides KodosiTheme.colors.inkMuted) {
+            Tipped(ChatWords.mode(mode)) { ChatModeLabel(mode, named, FactWords, Modifier.padding(horizontal = 4.dp)) }
         }
+    }
+    if (facts.context != null || facts.limits.isNotEmpty() || (facts.cost ?: 0.0) > 0) {
+        ChatUsageKey(facts, named, menus?.usage == true, menus?.setUsage ?: {}, menus != null)
+    }
+    if (facts.helpers > 0) {
+        Count(
+            AppSymbol.FRIENDS,
+            facts.helpers,
+            pluralStringResource(R.plurals.chat_helpers, facts.helpers, facts.helpers)
+        )
+    }
+    if (facts.background > 0) {
+        Count(
+            AppSymbol.REFRESH,
+            facts.background,
+            pluralStringResource(R.plurals.chat_background_commands, facts.background, facts.background)
+        )
     }
 }
 
@@ -463,18 +472,18 @@ private fun Count(symbol: AppSymbol, count: Int, words: String) {
             Modifier.clearAndSetSemantics { contentDescription = words },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AppIcon(symbol, Modifier.size(13.dp), tint = colors.inkMuted)
-            Spacer(Modifier.width(3.dp))
-            Text("$count", style = KodosiType.footnote, color = colors.inkMuted, maxLines = 1)
+            AppIcon(symbol, Modifier.size(15.dp), tint = colors.inkMuted)
+            Spacer(Modifier.width(4.dp))
+            Text("$count", style = FactWords, color = colors.inkMuted, maxLines = 1)
         }
     }
 }
 
 @Composable
-private fun EffortBars(level: Int, count: Int) {
+internal fun EffortBars(level: Int, count: Int, modifier: Modifier = Modifier) {
     val colors = KodosiTheme.colors
     val quiet = lerp(colors.surface, colors.ink, 0.2f)
-    Canvas(Modifier.size(width = (count * 4 - 1.5f).dp, height = 10.dp)) {
+    Canvas(modifier.size(width = (count * 4 - 1.5f).dp, height = 10.dp)) {
         val bar = 2.5.dp.toPx()
         val gap = 1.5.dp.toPx()
         for (index in 0 until count) {
@@ -486,22 +495,6 @@ private fun EffortBars(level: Int, count: Int) {
                 cornerRadius = CornerRadius(bar * 0.4f)
             )
         }
-    }
-}
-
-@Composable
-internal fun ContextMeter(context: ChatContext) {
-    val colors = KodosiTheme.colors
-    val percent = (context.used * 100).roundToInt()
-    val level = contextLevel(context)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        UsageRing(context.used, level, Modifier.size(14.dp), stroke = 2.dp)
-        Spacer(Modifier.width(4.dp))
-        RollingText(
-            "$percent%",
-            KodosiType.footnote.copy(fontFeatureSettings = "tnum"),
-            if (level == UsageLevel.NORMAL) colors.inkMuted else level.tint()
-        )
     }
 }
 
@@ -535,7 +528,7 @@ internal fun UsageRing(used: Float, level: UsageLevel, modifier: Modifier = Modi
 }
 
 @Composable
-private fun UsageLevel.tint() = when (this) {
+internal fun UsageLevel.tint() = when (this) {
     UsageLevel.NORMAL -> KodosiTheme.colors.inkMuted
     UsageLevel.NEAR -> KodosiTheme.colors.caution
     UsageLevel.REACHED -> KodosiTheme.colors.danger
