@@ -17,9 +17,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import com.kodosi.mobile.R
+import com.kodosi.mobile.runtime.NativeRuntime
 import com.kodosi.mobile.ui.KodosiTextButton
-import java.net.IDN
-import java.net.URI
+import org.json.JSONObject
 
 sealed interface LinkReview {
     data class Open(val address: String, val asks: Boolean) : LinkReview
@@ -43,37 +43,20 @@ object LinkPolicy {
         InText(found.range.first until found.range.first + address.length, address)
     }
 
+    /** The runtime decides a link by the rule of every app. A phone opens no file by a link. */
     fun review(raw: String, computer: String? = null): LinkReview {
-        if (raw.isBlank() || raw.codePoints().anyMatch {
-                Character.isISOControl(it) || Character.getType(it) == Character.FORMAT.toInt() ||
-                    Character.isWhitespace(it)
+        val decision = NativeRuntime.linkDecision(raw.encodeToByteArray(), (computer ?: "").encodeToByteArray())
+            ?.let { runCatching { JSONObject(it.decodeToString()) }.getOrNull() }
+            ?: return LinkReview.Invalid
+        val target = decision.optString("target")
+        return when (decision.optString("action")) {
+            "open" -> if (target.startsWith("file:")) LinkReview.Invalid else LinkReview.Open(target, asks = false)
+            "ask" -> LinkReview.Open(target, asks = true)
+            else -> when (decision.optString("refusal")) {
+                "fileElsewhere", "addressElsewhere" -> LinkReview.OnComputer(decision.optString("place"))
+                else -> LinkReview.Invalid
             }
-        ) {
-            return LinkReview.Invalid
         }
-        val uri = runCatching { URI(raw) }.getOrNull() ?: return LinkReview.Invalid
-        val scheme = uri.scheme?.lowercase() ?: return LinkReview.Invalid
-        if (uri.rawUserInfo != null) return LinkReview.Invalid
-        val host = (
-            uri.host ?: runCatching {
-                val authority = uri.rawAuthority ?: return@runCatching null
-                if ('@' in authority || '%' in authority) return@runCatching null
-                val name = authority.substringBefore(':')
-                val port = authority.substringAfter(':', "")
-                if (':' in authority && (port.isEmpty() || port.any { !it.isDigit() })) return@runCatching null
-                URI("$scheme://${IDN.toASCII(name, IDN.USE_STD3_ASCII_RULES)}${authority.removePrefix(name)}").host
-            }.getOrNull()
-            )?.lowercase()?.trim('[', ']')
-        if (scheme in setOf("http", "https")) {
-            if (host.isNullOrEmpty()) return LinkReview.Invalid
-            val local = host == "localhost" || host.endsWith(".localhost") || host == "::1" || host == "::" ||
-                host == "0.0.0.0" || host.startsWith("127.") || host.endsWith(".local")
-            return if (local && computer != null) LinkReview.OnComputer(computer) else LinkReview.Open(raw, false)
-        }
-        if (scheme == "file") return if (computer != null) LinkReview.OnComputer(computer) else LinkReview.Invalid
-        if (scheme in setOf("javascript", "data", "blob", "content", "intent", "about")) return LinkReview.Invalid
-        if (uri.rawSchemeSpecificPart.isNullOrBlank()) return LinkReview.Invalid
-        return LinkReview.Open(raw, asks = scheme != "mailto")
     }
 }
 

@@ -2679,10 +2679,6 @@
         <translation>Der Link enthält versteckte Zeichen, die sein Aussehen verändern können.</translation>
     </message>
     <message>
-        <source>The web link has no server name.</source>
-        <translation>Der Weblink hat keinen Servernamen.</translation>
-    </message>
-    <message>
         <source>The address is on %1.</source>
         <translation>Die Adresse liegt auf %1.</translation>
     </message>

@@ -39,6 +39,7 @@ let package = Package(
         ),
         .target(
             name: "KodosiLinks",
+            dependencies: ["KodosiKit"],
             resources: [.process("Resources")],
             swiftSettings: swiftSettings,
         ),
@@ -72,6 +73,9 @@ let package = Package(
                 .product(name: "GhosttyTerminal", package: "ghostty"),
             ],
             swiftSettings: swiftSettings,
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup"]),
+            ],
         ),
         .testTarget(
             name: "KodosiBridgeTests",
@@ -86,6 +90,11 @@ let package = Package(
             name: "KodosiLinksTests",
             dependencies: ["KodosiLinks"],
             swiftSettings: swiftSettings,
+            linkerSettings: [
+                // The link rule is the runtime's, which the Mac app's tests run with. These test only
+                // what is this app's own part.
+                .unsafeFlags(["-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup"]),
+            ],
         ),
     ],
 )

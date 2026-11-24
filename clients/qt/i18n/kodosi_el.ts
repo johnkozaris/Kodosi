@@ -2679,10 +2679,6 @@
         <translation>Ο σύνδεσμος έχει κρυφούς χαρακτήρες που μπορούν να αλλάξουν την εμφάνισή του.</translation>
     </message>
     <message>
-        <source>The web link has no server name.</source>
-        <translation>Ο σύνδεσμος ιστού δεν έχει όνομα διακομιστή.</translation>
-    </message>
-    <message>
         <source>The address is on %1.</source>
         <translation>Η διεύθυνση βρίσκεται στο %1.</translation>
     </message>

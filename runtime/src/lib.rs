@@ -35,6 +35,7 @@ pub mod dosi;
 mod folders;
 mod hex;
 pub mod identity;
+pub mod links;
 #[cfg(feature = "host")]
 pub mod local_host;
 mod names;

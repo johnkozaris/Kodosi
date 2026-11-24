@@ -290,6 +290,50 @@ JNIEXPORT jint JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_log(JNIEnv *
     return result;
 }
 
+JNIEXPORT jbyteArray JNICALL Java_com_kodosi_mobile_runtime_NativeRuntime_linkDecision(JNIEnv *env, jclass type,
+                                                                                       jbyteArray link,
+                                                                                       jbyteArray computer) {
+    (void)type;
+    jsize link_length = (*env)->GetArrayLength(env, link);
+    jsize computer_length = (*env)->GetArrayLength(env, computer);
+    jbyte *link_bytes = (*env)->GetByteArrayElements(env, link, NULL);
+    jbyte *computer_bytes = (*env)->GetByteArrayElements(env, computer, NULL);
+    jbyteArray result = NULL;
+    if (link_bytes != NULL && computer_bytes != NULL) {
+        uint8_t first[4096];
+        uint8_t *decision = first;
+        int64_t capacity = (int64_t)sizeof first;
+        int64_t length = kodosi_link_decision((const uint8_t *)link_bytes, (uintptr_t)link_length,
+                                              (const uint8_t *)computer_bytes, (uintptr_t)computer_length, decision,
+                                              (uintptr_t)capacity);
+        if (length > capacity && length <= INT32_MAX) {
+            decision = malloc((size_t)length);
+            capacity = decision == NULL ? 0 : length;
+            if (decision != NULL) {
+                length = kodosi_link_decision((const uint8_t *)link_bytes, (uintptr_t)link_length,
+                                              (const uint8_t *)computer_bytes, (uintptr_t)computer_length, decision,
+                                              (uintptr_t)capacity);
+            }
+        }
+        if (decision != NULL && length >= 0 && length <= capacity) {
+            result = (*env)->NewByteArray(env, (jsize)length);
+            if (result != NULL) {
+                (*env)->SetByteArrayRegion(env, result, 0, (jsize)length, (const jbyte *)decision);
+            }
+        }
+        if (decision != first) {
+            free(decision);
+        }
+    }
+    if (link_bytes != NULL) {
+        (*env)->ReleaseByteArrayElements(env, link, link_bytes, JNI_ABORT);
+    }
+    if (computer_bytes != NULL) {
+        (*env)->ReleaseByteArrayElements(env, computer, computer_bytes, JNI_ABORT);
+    }
+    return result;
+}
+
 typedef int32_t (*terminal_call)(void *, const char *, const char *, uint64_t);
 
 static jint call_terminal(JNIEnv *env, terminal_call call, jlong handle, jstring session, jstring subscription,

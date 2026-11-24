@@ -53,6 +53,9 @@ internal object NativeRuntime {
 
     @JvmStatic external fun log(level: Int, line: ByteArray): Int
 
+    /** The runtime's decision on a link, as JSON. [computer] is empty for a link of this device. */
+    @JvmStatic external fun linkDecision(link: ByteArray, computer: ByteArray): ByteArray?
+
     @JvmStatic
     external fun terminalConnect(handle: Long, sessionId: String, subscriptionId: String, generation: Long): Int
 

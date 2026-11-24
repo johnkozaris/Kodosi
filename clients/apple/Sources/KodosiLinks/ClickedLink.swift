@@ -1,10 +1,12 @@
 import Foundation
+import KodosiKit
 import UniformTypeIdentifiers
 
-/// The text of a link can come from anyone, so it opens by Ghostty's rules: web and mail links
-/// open in the browser of this device, a file or folder opens unless it can run code, a link to
-/// another app asks first, and a malformed or disguised link does not open. A file or a local
-/// address of a terminal on another computer is on that computer, so it does not open here.
+/// The runtime decides what a click on a link does, by the rule of every app: web and mail links
+/// open in the browser of this device, a file or folder opens, a link to another app asks first,
+/// and a malformed or disguised link does not open. A file or a local address of a terminal on
+/// another computer is on that computer, so it does not open here. Whether opening a file runs a
+/// program is this app's part, because Launch Services decides that.
 public struct ClickedLink: Equatable, Sendable {
     public enum Decision: Equatable, Sendable {
         case open(URL)
@@ -15,7 +17,6 @@ public struct ClickedLink: Equatable, Sendable {
     public enum Refusal: Equatable, Sendable {
         case malformed
         case hiddenCharacters
-        case noWebHost
         case missingFile
         case program
         case fileElsewhere(String)
@@ -27,8 +28,6 @@ public struct ClickedLink: Equatable, Sendable {
                 String(localized: "The link is not a complete address.", bundle: .module)
             case .hiddenCharacters:
                 String(localized: "The link has hidden characters that can change how it looks.", bundle: .module)
-            case .noWebHost:
-                String(localized: "The web link has no server name.", bundle: .module)
             case .missingFile:
                 String(localized: "The file or folder is not on this device.", bundle: .module)
             case .program:
@@ -46,62 +45,73 @@ public struct ClickedLink: Equatable, Sendable {
     public let decision: Decision
 
     public init(_ value: String, otherComputer: String? = nil) {
-        let target = otherComputer == nil ? Self.target(value) : value
-        shown = Self.shown(target, resolvesFiles: otherComputer == nil)
-        decision = Self.decision(value, target: target, otherComputer: otherComputer)
+        let decided = RuntimeDecision(value, otherComputer: otherComputer)
+        shown = decided?.shown ?? value
+        decision = decided.map(Self.decision) ?? .refuse(.malformed)
     }
 }
 
-private extension ClickedLink {
-    /// Ghostty also finds paths in the text. A path opens as a file URL.
-    static func target(_ value: String) -> String {
-        guard URL(string: value)?.scheme == nil, !hasHiddenCharacters(value) else { return value }
-        return URL(filePath: NSString(string: value).standardizingPath).absoluteString
+private struct RuntimeDecision: Decodable {
+    enum Action: String, Decodable {
+        case open, ask, refuse
     }
 
-    static func decision(_ value: String, target: String, otherComputer: String?) -> Decision {
-        guard !value.isEmpty else { return .refuse(.malformed) }
-        guard !hasHiddenCharacters(value) else { return .refuse(.hiddenCharacters) }
-        guard let url = URL(string: target), let scheme = url.scheme?.lowercased(), !scheme.isEmpty else {
-            return otherComputer.map { .refuse(.fileElsewhere($0)) } ?? .refuse(.malformed)
+    enum Refusal: String, Decodable {
+        case malformed, hiddenCharacters, missingFile, program, fileElsewhere, addressElsewhere
+    }
+
+    let action: Action
+    let target: String?
+    let shown: String
+    let refusal: Refusal?
+    let place: String?
+
+    init?(_ value: String, otherComputer: String?) {
+        let link = Array(value.utf8)
+        let computer = Array((otherComputer ?? "").utf8)
+        var decision = [UInt8](repeating: 0, count: 4096)
+        func decide() -> Int {
+            Int(kodosi_link_decision(link, UInt(link.count), computer, UInt(computer.count), &decision, UInt(decision.count)))
         }
-        switch scheme {
-        case "http", "https":
-            guard let host = url.host(), !host.isEmpty else { return .refuse(.noWebHost) }
-            if let otherComputer, isLoopback(host) {
-                return .refuse(.addressElsewhere(otherComputer))
-            }
-            return .open(url)
-        case "mailto":
-            guard let address = URLComponents(url: url, resolvingAgainstBaseURL: false)?.path,
-                  !address.isEmpty
-            else { return .refuse(.malformed) }
-            return .open(url)
-        case "file":
-            return fileDecision(url, otherComputer: otherComputer)
-        default:
+        var length = decide()
+        if length > decision.count {
+            decision = [UInt8](repeating: 0, count: length)
+            length = decide()
+        }
+        guard (0 ... decision.count).contains(length),
+              let decided = try? JSONDecoder().decode(Self.self, from: Data(decision.prefix(length)))
+        else { return nil }
+        self = decided
+    }
+}
+
+extension ClickedLink {
+    private static func decision(_ decided: RuntimeDecision) -> Decision {
+        let target = decided.target.flatMap(URL.init(string:))
+        switch (decided.action, target) {
+        case let (.open, .some(url)):
+            return url.isFileURL && runsCode(url) ? .refuse(.program) : .open(url)
+        case let (.ask, .some(url)):
             return .ask(url)
+        case (.open, .none), (.ask, .none):
+            return .refuse(.malformed)
+        case (.refuse, _):
+            let place = decided.place ?? ""
+            return switch decided.refusal {
+            case .hiddenCharacters: .refuse(.hiddenCharacters)
+            case .missingFile: .refuse(.missingFile)
+            case .program: .refuse(.program)
+            case .fileElsewhere: .refuse(.fileElsewhere(place))
+            case .addressElsewhere: .refuse(.addressElsewhere(place))
+            case .malformed, .none: .refuse(.malformed)
+            }
         }
     }
 
-    static func fileDecision(_ url: URL, otherComputer: String?) -> Decision {
-        guard url.isFileURL, url.query() == nil, url.fragment() == nil else { return .refuse(.malformed) }
-        if let otherComputer {
-            return .refuse(.fileElsewhere(otherComputer))
-        }
-        if let host = url.host(), !host.isEmpty, !isThisComputer(host) {
-            return .refuse(.fileElsewhere(host))
-        }
-        let file = url.standardizedFileURL.resolvingSymlinksInPath()
-        guard let values = try? file.resourceValues(forKeys: [
-            .contentTypeKey, .isDirectoryKey, .isExecutableKey, .isRegularFileKey,
-        ]), values.isDirectory == true || values.isRegularFile == true
-        else { return .refuse(.missingFile) }
-        guard !runsCode(file, values) else { return .refuse(.program) }
-        return .open(file)
-    }
-
-    static func runsCode(_ file: URL, _ values: URLResourceValues) -> Bool {
+    static func runsCode(_ file: URL) -> Bool {
+        let file = file.standardizedFileURL.resolvingSymlinksInPath()
+        guard let values = try? file.resourceValues(forKeys: [.contentTypeKey, .isDirectoryKey, .isExecutableKey])
+        else { return true }
         if programExtensions.contains(file.pathExtension.lowercased()) {
             return true
         }
@@ -111,57 +121,6 @@ private extension ClickedLink {
             return true
         }
         return values.isDirectory != true && values.isExecutable == true
-    }
-
-    /// Programs such as `ls --hyperlink` name the computer in a file link.
-    static func isThisComputer(_ host: String) -> Bool {
-        [thisComputer, "localhost"].contains { host.caseInsensitiveCompare($0) == .orderedSame }
-    }
-
-    static let thisComputer: String = {
-        var name = [CChar](repeating: 0, count: 256)
-        guard gethostname(&name, name.count) == 0 else { return "localhost" }
-        return String(utf8String: name) ?? "localhost"
-    }()
-
-    /// An address on the loopback interface names the computer that serves it.
-    static func isLoopback(_ host: String) -> Bool {
-        let name = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        if ["localhost", "0.0.0.0", "::", "::1"].contains(name) || name.hasSuffix(".localhost") {
-            return true
-        }
-        let parts = name.split(separator: ".", omittingEmptySubsequences: false)
-        return parts.count == 4 && parts[0] == "127" && parts.allSatisfy { UInt8($0) != nil }
-    }
-
-    static func shown(_ target: String, resolvesFiles: Bool) -> String {
-        let path = URL(string: target).flatMap { url -> String? in
-            guard url.isFileURL else { return nil }
-            return resolvesFiles
-                ? url.standardizedFileURL.resolvingSymlinksInPath().path(percentEncoded: false)
-                : url.path(percentEncoded: false)
-        }
-        return (path ?? target).unicodeScalars.map { scalar in
-            isHidden(scalar) ? "\\u{\(String(scalar.value, radix: 16, uppercase: true))}" : String(scalar)
-        }.joined()
-    }
-
-    static func hasHiddenCharacters(_ value: String) -> Bool {
-        [value, value.removingPercentEncoding ?? ""].contains { text in
-            text.unicodeScalars.contains(where: isHidden)
-        }
-    }
-
-    /// Controls, line breaks, direction marks and invisible marks can make a link
-    /// look like another one.
-    static func isHidden(_ scalar: Unicode.Scalar) -> Bool {
-        switch scalar.value {
-        case 0x00 ... 0x1F, 0x7F ... 0x9F, 0x061C, 0x200B ... 0x200F, 0x202A ... 0x202E,
-             0x2028 ... 0x2029, 0x2060, 0x2066 ... 0x2069, 0xFEFF:
-            true
-        default:
-            false
-        }
     }
 
     /// Launch Services opens these with an app that runs them, whatever their type.
