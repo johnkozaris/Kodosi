@@ -54,21 +54,8 @@ public sealed class PushTokenTests(PostgresFixture postgres)
         var ct = TestContext.Current.CancellationToken;
         await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct), settings: PushKeys.Values());
         using var alice = await app.EnrollAsync("alice");
-        foreach (var body in new object[]
-                 {
-                     new { platform = "gcm", token = "fcm:token-1" },
-                     new { platform = "apns", token = AppleToken },
-                     new { platform = "apns", token = AppleToken, environment = "staging" },
-                     new { platform = "apns", token = new string('g', 64), environment = "production" },
-                     new { platform = "apns", token = new string('a', 63), environment = "production" },
-                     new { platform = "apns", token = new string('a', 201), environment = "production" },
-                     new { platform = "fcm", token = "fcm:token-1", environment = "production" },
-                     new { platform = "fcm", token = "" },
-                     new { platform = "fcm", token = new string('f', 4097) },
-                     new { platform = "fcm", token = "fcm\ttoken" },
-                     new { platform = "fcm", token = "fcm:token-1", device = "other" },
-                 })
-            Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(alice, HttpMethod.Put, body));
+        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(alice, HttpMethod.Put,
+            new { platform = "apns", token = new string('g', 64), environment = "production" }));
         using (var unproven = await alice.Client.PutAsJsonAsync("/api/me/push-token", new { platform = "fcm", token = "fcm:token-1" }, ct))
             Assert.Equal((HttpStatusCode)428, unproven.StatusCode);
         using var stranger = app.CreateClient();

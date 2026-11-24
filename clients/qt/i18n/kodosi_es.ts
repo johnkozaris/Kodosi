@@ -2710,10 +2710,6 @@
         <translation>El enlace tiene caracteres ocultos que pueden cambiar cómo se ve.</translation>
     </message>
     <message>
-        <source>The web link has no server name.</source>
-        <translation>El enlace web no tiene nombre de servidor.</translation>
-    </message>
-    <message>
         <source>The address is on %1.</source>
         <translation>La dirección está en %1.</translation>
     </message>

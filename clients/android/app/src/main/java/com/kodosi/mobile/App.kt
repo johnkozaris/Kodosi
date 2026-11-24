@@ -81,6 +81,7 @@ import com.kodosi.mobile.terminals.NewTerminalSheet
 import com.kodosi.mobile.terminals.TerminalScreen
 import com.kodosi.mobile.terminals.TerminalsScreen
 import com.kodosi.mobile.ui.AppSymbol
+import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiNavigation
 import com.kodosi.mobile.ui.KodosiNotice
@@ -250,7 +251,8 @@ private fun Home(model: AppModel) {
             entries.add(destination)
         }
     }
-    val network = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+    var askingNetwork by rememberSaveable { mutableStateOf(false) }
+    fun showOpening() {
         opening?.let { id ->
             if (model.terminals.state.value.sessions.any { it.id == id }) {
                 showTerminal(id, openingTab)
@@ -258,6 +260,7 @@ private fun Home(model: AppModel) {
         }
         opening = null
     }
+    val network = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { showOpening() }
     fun openTerminal(id: String, at: Int) {
         // Only a terminal of the person's own computer can go straight on the local network.
         val own = model.terminals.state.value.sessions.any { it.id == id && it.isOwner }
@@ -271,10 +274,30 @@ private fun Home(model: AppModel) {
             model.preferences.localNetworkAsked()
             opening = id
             openingTab = at
-            network.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+            askingNetwork = true
         } else {
             showTerminal(id, at)
         }
+    }
+    // Android names this permission "nearby devices", which says nothing of a person's own computer.
+    if (askingNetwork) {
+        ConfirmDialog(
+            stringResource(R.string.local_network_title),
+            stringResource(R.string.local_network_reason),
+            stringResource(R.string.local_network_continue),
+            {
+                askingNetwork = false
+                showOpening()
+            },
+            {
+                askingNetwork = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+                    network.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+                } else {
+                    showOpening()
+                }
+            }
+        )
     }
     var starting by remember { mutableStateOf<NewTerminalRequest?>(null) }
     val titles = listOf(R.string.terminals, R.string.projects, R.string.dosi, R.string.settings)

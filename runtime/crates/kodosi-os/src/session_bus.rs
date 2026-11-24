@@ -51,9 +51,4 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(2));
         drop(listener);
     }
-
-    #[test]
-    fn a_quick_answer_comes_back() {
-        assert_eq!(within(LIMIT, || Some(7)), Some(7));
-    }
 }

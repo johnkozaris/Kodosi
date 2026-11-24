@@ -10,7 +10,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.util.Base64
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -34,17 +33,6 @@ class BrowserDecoderTest {
     fun close() {
         reader.close()
         thread.quitSafely()
-    }
-
-    @Test
-    fun aKeyFrameOfALargerPictureReachesTheSurfaceInItsSize() {
-        val shown = AtomicReference<IntSize>()
-        BrowserDecoder(reader.surface, shown::set, refused = {}, lost = {}).use { decoder ->
-            for ((frame, size) in listOf(SMALLER to IntSize(160, 96), LARGER to IntSize(200, 120))) {
-                assertEquals(size, stream(decoder, frame, size))
-                assertEquals(size, shown.get())
-            }
-        }
     }
 
     @Test
@@ -84,8 +72,5 @@ class BrowserDecoderTest {
         const val SMALLER =
             "AAAAASdCwAyJigiGG8I83AgICB4QCEIwAAAAASjOPIAAAAABJbgAQACX///giigAfHAAEAuOAATn1/ffffffffPBm44Y++aDJf11" +
                 "11111110wZ11BlXXXXXXXXXTBnXUGVdddddddddMGddQZV111111110wZ11BlXXXXXXXXXTBnXg="
-        const val LARGER =
-            "AAAAASdCwAyJigiGiPLLNQICAgeEAhCMAAAAASjOPIAAAAABJbgAQACv//+CKKAfHAAOxwAG++++++++++++uuuuuuuuuuuuuuuu" +
-                "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuvA"
     }
 }

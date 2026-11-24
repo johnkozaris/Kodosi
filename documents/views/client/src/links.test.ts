@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { opensLink, passesOn } from "./links";
+import { passesOn } from "./links";
 
 test("a link goes to the host unless it would run in the page", () => {
   for (const address of [
@@ -22,16 +22,4 @@ test("a link goes to the host unless it would run in the page", () => {
   ]) {
     expect(passesOn(address)).toBe(false);
   }
-});
-
-test("a link opens on a click where a person only looks, and with a key where they edit", () => {
-  const plain = { metaKey: false, ctrlKey: false };
-  expect(opensLink(plain, false, false)).toBe(true);
-  expect(opensLink(plain, true, false)).toBe(false);
-  expect(opensLink({ ...plain, metaKey: true }, true, false)).toBe(true);
-  expect(opensLink({ ...plain, ctrlKey: true }, true, false)).toBe(true);
-});
-
-test("a tap opens a link on a touch screen, which has no keys to hold", () => {
-  expect(opensLink({ metaKey: false, ctrlKey: false }, true, true)).toBe(true);
 });

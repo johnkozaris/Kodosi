@@ -90,6 +90,7 @@ base64 = { workspace = true }
 bytes = { workspace = true }
 flate2 = { version = "1.1.11", default-features = false, features = ["zlib-rs", "runtime_detection"] }
 futures-util = { workspace = true }
+percent-encoding = "2.3.2"
 qrcodegen = "1.8.0"
 quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-aws-lc-rs"] }
 reqwest = { workspace = true }
@@ -107,6 +108,7 @@ tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
 unicode-properties = { version = "0.1.5", default-features = false, features = ["general-category"] }
+url = "2.5.9"
 uuid = { workspace = true }
 zeroize = { workspace = true }
 clap = { version = "4.6.7", features = ["derive"], optional = true }

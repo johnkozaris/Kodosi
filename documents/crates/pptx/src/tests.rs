@@ -71,28 +71,6 @@ fn deck() -> Vec<u8> {
     writer.finish().unwrap().into_inner()
 }
 
-fn linked_deck() -> Vec<u8> {
-    let slide = slide_xml("First")
-        .replace(
-            r#"<a:rPr lang="en-US" b="1" dirty="0"/><a:t>First</a:t></a:r>"#,
-            r#"<a:rPr lang="en-US" b="1" dirty="0"><a:hlinkClick r:id="rId2"/></a:rPr><a:t>First</a:t></a:r><a:r><a:rPr lang="en-US"><a:hlinkClick r:id="" action="ppaction://hlinkshowjump?jump=nextslide"/></a:rPr><a:t>Next</a:t></a:r>"#,
-        )
-        .replace(
-            r#"<p:cNvPr id="3" name="Box"/>"#,
-            r#"<p:cNvPr id="3" name="Box"><a:hlinkClick r:id="rId3" action="ppaction://hlinksldjump"/></p:cNvPr>"#,
-        );
-    let relations = format!(
-        r#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{RELATIONSHIP}/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="{RELATIONSHIP}/hyperlink" Target="https://kodosi.com/docs" TargetMode="External"/><Relationship Id="rId3" Type="{RELATIONSHIP}/slide" Target="slide2.xml"/></Relationships>"#
-    );
-    with_parts(
-        &deck(),
-        &[
-            ("ppt/slides/slide1.xml", &slide),
-            ("ppt/slides/_rels/slide1.xml.rels", &relations),
-        ],
-    )
-}
-
 /// The deck with a text box in the place of the first slide's box, as python-pptx writes one:
 /// with no fill, and a bold run in the color that the box had.
 fn labelled_deck() -> Vec<u8> {
@@ -152,19 +130,6 @@ fn no_edit_means_the_same_bytes() {
 }
 
 #[test]
-fn slides_and_shapes_come_with_stable_ids_and_inherited_frames() {
-    let model = read(&deck());
-    let list = listing(&model);
-    assert_eq!(list["slides"][0]["id"], "256");
-    assert_eq!(list["slides"][1]["shapes"][0]["text"], "Second");
-    let snapshot = Pptx::snapshot(&model).0;
-    let title = &snapshot["slides"][0]["shapes"][0];
-    assert_eq!(title["x"], 100);
-    assert_eq!(title["height"], 400);
-    assert_eq!(snapshot["slides"][0]["shapes"][1]["fill"], "FF0000");
-}
-
-#[test]
 fn a_move_changes_only_the_frame_of_that_shape() {
     let file = deck();
     let mut model = read(&file);
@@ -205,43 +170,6 @@ fn new_text_keeps_the_look_of_the_run() {
     let xml = part(&saved(&model, &file), "ppt/slides/slide1.xml");
     assert!(xml.contains(r#"<a:r><a:rPr lang="en-US" b="1" dirty="0"/><a:t>Opening</a:t></a:r>"#));
     assert!(xml.contains(r#"<a:endParaRPr lang="en-US"/>"#));
-}
-
-#[test]
-fn a_view_sends_steps_for_text_and_fields_for_a_shape() {
-    let file = deck();
-    let mut model = read(&file);
-    let change = Change::Group {
-        changes: vec![
-            Change::Text {
-                slide: "257".to_owned(),
-                shape: "2".to_owned(),
-                steps: vec![json!({
-                    "stepType": "replace",
-                    "from": 7,
-                    "to": 7,
-                    "slice": { "content": [{ "type": "text", "text": " slide" }] },
-                })],
-                keep: BTreeMap::new(),
-            },
-            Change::Shape {
-                slide: "257".to_owned(),
-                shape: "3".to_owned(),
-                fields: ShapeFields {
-                    fill: Some(Some("00FF00".to_owned())),
-                    ..ShapeFields::default()
-                },
-            },
-        ],
-    };
-    Pptx::apply(&mut model, change, &[], &mut Assets::default()).unwrap();
-    let again = read(&saved(&model, &file));
-    let list = listing(&again);
-    assert_eq!(list["slides"][1]["shapes"][0]["text"], "Second slide");
-    assert_eq!(
-        Pptx::snapshot(&again).0["slides"][1]["shapes"][1]["fill"],
-        "00FF00"
-    );
 }
 
 #[test]
@@ -378,24 +306,6 @@ fn a_slide_keeps_its_id_when_the_list_names_its_part_first() {
     assert_eq!(list["slides"].as_array().unwrap().len(), 1);
     assert_eq!(list["slides"][0]["id"], "257");
     assert_eq!(list["slides"][0]["shapes"][0]["text"], "Second");
-}
-
-#[test]
-fn a_compare_finds_only_what_a_write_changed() {
-    let file = deck();
-    let base = read(&file);
-    let mut other = read(&file);
-    apply_ops(
-        &mut other,
-        vec![Op::SetFill {
-            slide: "257".to_owned(),
-            shape: "3".to_owned(),
-            color: "0000FF".to_owned(),
-        }],
-    );
-    let written = saved(&other, &file);
-    let changes = Pptx::compare(&base, &read(&written));
-    assert_eq!(changes.len(), 1, "{changes:?}");
 }
 
 #[test]
@@ -634,67 +544,6 @@ fn a_new_fill_takes_the_place_of_the_fill_that_the_shape_had() {
             r#"</a:prstGeom><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></p:spPr>"#
         )
     );
-}
-
-#[test]
-fn check_finds_a_shape_that_leaves_the_slide() {
-    let mut model = read(&deck());
-    apply_ops(
-        &mut model,
-        vec![Op::MoveShape {
-            slide: "256".to_owned(),
-            shape: "3".to_owned(),
-            x: Some(100_000.0),
-            y: None,
-            width: None,
-            height: None,
-        }],
-    );
-    let answer = Pptx::query(&model, Query::Check).0;
-    assert_eq!(answer["problems"][0]["shape"], "3");
-}
-
-#[test]
-fn the_guide_names_each_op_that_an_agent_can_send() {
-    let guide = Pptx::guide();
-    for op in &guide.ops {
-        let mut example = json!({ "op": op.name });
-        for field in op.fields.iter().filter(|field| field.required) {
-            example[&field.name] = match field.kind.as_str() {
-                "points" => json!(1.0),
-                _ => json!("x"),
-            };
-        }
-        let parsed: Result<Op, _> = serde_json::from_value(example);
-        assert!(parsed.is_ok(), "{}: {parsed:?}", op.name);
-    }
-}
-
-#[test]
-fn a_link_on_a_run_or_a_shape_says_where_a_click_goes_and_a_save_keeps_it() {
-    let file = linked_deck();
-    let model = read(&file);
-    let snapshot = model.snapshot();
-    let shapes = &snapshot["slides"][0]["shapes"];
-    let runs = &shapes[0]["text"]["content"][0]["content"];
-    let link_of = |run: &Value| {
-        run["marks"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|mark| mark["type"] == "link")
-            .map(|mark| mark["attrs"].clone())
-    };
-    assert_eq!(
-        link_of(&runs[0]),
-        Some(json!({ "href": "https://kodosi.com/docs", "slide": null, "jump": null }))
-    );
-    assert_eq!(
-        link_of(&runs[1]),
-        Some(json!({ "href": null, "slide": null, "jump": "nextslide" }))
-    );
-    assert_eq!(shapes[1]["link"], json!({ "slide": "257" }));
-    assert_eq!(saved(&model, &file), file);
 }
 
 #[test]

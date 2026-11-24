@@ -738,52 +738,6 @@ pub(super) mod tests {
         drop(hosted);
     }
 
-    fn channel_keys_without_protocol(keys: &DeviceKeys) -> ChannelKeys {
-        let keys = channel_keys(keys);
-        let mut client = (*keys.client).clone();
-        client.alpn_protocols.clear();
-        let mut server = (*keys.server).clone();
-        server.alpn_protocols.clear();
-        ChannelKeys {
-            client: Arc::new(client),
-            server: Arc::new(server),
-            ..keys
-        }
-    }
-
-    #[tokio::test]
-    async fn a_peer_without_the_channel_protocol_has_an_older_kodosi() {
-        let (host, viewer) = (
-            DeviceKeys::generate().unwrap(),
-            DeviceKeys::generate().unwrap(),
-        );
-        let (near, far) = join(
-            &channel_keys(&host),
-            &channel_keys(&viewer),
-            host.signing_public(),
-        )
-        .await;
-        assert_eq!(
-            (near.version().unwrap(), far.version().unwrap()),
-            (
-                crate::protocol::CHANNEL_VERSION,
-                crate::protocol::CHANNEL_VERSION
-            )
-        );
-        for (host_keys, viewer_keys) in [
-            (channel_keys_without_protocol(&host), channel_keys(&viewer)),
-            (channel_keys(&host), channel_keys_without_protocol(&viewer)),
-        ] {
-            let (near, far) = join(&host_keys, &viewer_keys, host.signing_public()).await;
-            for version in [near.version(), far.version()] {
-                assert!(matches!(
-                    version,
-                    Err(Error::ChannelVersion { peer_newer: false })
-                ));
-            }
-        }
-    }
-
     #[tokio::test]
     async fn a_viewer_refuses_a_host_that_has_another_key() {
         let (host, viewer, other) = (

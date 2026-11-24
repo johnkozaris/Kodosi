@@ -87,7 +87,7 @@ struct DosiSettingsView: View {
             picks(agent)
         } else {
             ListGroup(footer: "Dosi runs on Claude Code or Codex. Install one, then come back.") {
-                ForEach(deps.launcher.catalog?.agents.filter { ["claude", "codex"].contains($0.agent) } ?? []) { info in
+                ForEach(deps.launcher.catalog?.agents.filter(\.dosi) ?? []) { info in
                     ListRow(title: info.kind.label, subtitle: info.install, monoSubtitle: true) {
                         AgentMark(kind: info.kind, size: 28, activity: .asleep)
                     } trailing: {

@@ -2710,10 +2710,6 @@
         <translation>Le lien contient des caractères cachés qui peuvent modifier son apparence.</translation>
     </message>
     <message>
-        <source>The web link has no server name.</source>
-        <translation>Le lien web n&apos;a pas de nom de serveur.</translation>
-    </message>
-    <message>
         <source>The address is on %1.</source>
         <translation>L&apos;adresse se trouve sur %1.</translation>
     </message>

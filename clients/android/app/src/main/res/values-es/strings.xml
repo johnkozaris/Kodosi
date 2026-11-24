@@ -592,4 +592,7 @@
         <item quantity="many">Tareas: %1$d de %2$d listas</item>
         <item quantity="other">Tareas: %1$d de %2$d listas</item>
     </plurals>
+    <string name="local_network_title">Conecta directamente con tu ordenador</string>
+    <string name="local_network_reason">En la misma red Wi-Fi, tu teléfono se conecta directamente a tu propio ordenador, y es más rápido. Android llama a este permiso «Dispositivos cercanos».</string>
+    <string name="local_network_continue">Continuar</string>
 </resources>

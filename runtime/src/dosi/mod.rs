@@ -359,3 +359,9 @@ pub struct DosiLog {
     /// The person's devices now, as the keys of the Dosi project prove.
     pub devices: std::collections::BTreeSet<String>,
 }
+
+/// Dosi runs on an agent that one of its adapters speaks to.
+#[cfg(feature = "host")]
+pub(crate) fn runs_on(agent: Agent) -> bool {
+    adapters::Adapter::new(agent).is_some()
+}

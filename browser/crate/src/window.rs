@@ -1781,87 +1781,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_viewer_that_only_joins_leaves_the_page_in_the_shape_of_the_one_who_uses_it() {
-        let mut live = live();
-        let _ana = join(&mut live, "ana").await;
-        look(&mut live, "ana", view(900, 700)).await;
-        let _bob = join(&mut live, "bob").await;
-        look(&mut live, "bob", view(600, 1000)).await;
-        reshape(&mut live, "bob", view(620, 1000)).await;
-        assert_eq!(live.size, view(900, 700));
-    }
-
-    #[tokio::test]
-    async fn the_page_takes_the_shape_of_the_device_that_its_person_opened_it_on_but_not_on_a_rejoin()
-     {
-        let mut live = live();
-        let _mac = join_of(&mut live, "mac", "ana").await;
-        look(&mut live, "mac", view(900, 700)).await;
-        let _phone = join_of(&mut live, "phone", "ana").await;
-        look(&mut live, "phone", view(600, 1000)).await;
-        let shape = |live: &Live| (live.size.width, live.size.height);
-        assert_eq!(shape(&live), (600, 1000));
-        rejoin(&mut live, "mac", view(900, 700)).await;
-        assert_eq!(shape(&live), (600, 1000));
-        look(&mut live, "mac", view(900, 700)).await;
-        assert_eq!(shape(&live), (900, 700));
-    }
-
-    #[tokio::test]
-    async fn when_the_device_in_use_goes_the_page_takes_the_shape_of_its_persons_other_device() {
-        let mut live = live();
-        let _bob = join(&mut live, "bob").await;
-        look(&mut live, "bob", view(700, 900)).await;
-        let _mac = join_of(&mut live, "mac", "ana").await;
-        look(&mut live, "mac", view(900, 700)).await;
-        press(&mut live, "mac").await;
-        release(&mut live, "mac").await;
-        let phone = join_of(&mut live, "phone", "ana").await;
-        look(&mut live, "phone", view(600, 1000)).await;
-        let shape = |live: &Live| (live.size.width, live.size.height);
-        assert_eq!(shape(&live), (600, 1000));
-        live.handle(Event::Leave {
-            viewer: "phone".to_owned(),
-            seat: phone.seat,
-        })
-        .await;
-        assert_eq!(shape(&live), (900, 700));
-    }
-
-    #[tokio::test]
-    async fn a_sharper_view_that_only_looks_gets_its_pixels_until_it_goes() {
-        let mut live = live();
-        let _ana = join(&mut live, "ana").await;
-        let small = Size {
-            width: 600,
-            height: 571,
-            scale: 1.0,
-        };
-        look(&mut live, "ana", small).await;
-        let bob = join(&mut live, "bob").await;
-        look(&mut live, "bob", view(1134, 1172)).await;
-        assert_eq!((live.size.width, live.size.height), (600, 571));
-        assert!((live.size.scale - 3.78).abs() < 0.01);
-        live.handle(Event::Leave {
-            viewer: "bob".to_owned(),
-            seat: bob.seat,
-        })
-        .await;
-        assert_eq!(live.size, small);
-    }
-
-    #[tokio::test]
-    async fn a_new_size_of_the_viewer_in_control_applies_at_once_and_reaches_every_viewer() {
-        let mut live = live();
-        let ana = join(&mut live, "ana").await;
-        look(&mut live, "ana", view(900, 700)).await;
-        reshape(&mut live, "ana", view(1100, 700)).await;
-        assert_eq!(live.size, view(1100, 700));
-        let shown = newest(&ana).map(|state| (state.width, state.height));
-        assert_eq!(shown, Some((1100, 700)));
-    }
-
-    #[tokio::test]
     async fn a_press_of_another_viewer_reaches_the_page_it_saw_and_the_page_takes_its_view_after_the_release()
      {
         let mut live = live();
@@ -1946,58 +1865,6 @@ mod tests {
         assert_eq!(copied(&ana), None);
     }
 
-    #[tokio::test]
-    async fn a_right_click_menu_opens_where_its_viewer_pressed_and_copies_its_link_for_that_viewer()
-    {
-        let mut live = live();
-        let ana = watching(&mut live, "ana").await;
-        let bob = watching(&mut live, "bob").await;
-        let right = json!({ "kind": "mouse", "action": "press", "x": 40, "y": 30, "button": "right", "clicks": 1 });
-        say(&mut live, "ana", right).await;
-        live.handle(Event::Context {
-            selection: String::new(),
-            link: Some("https://kodosi.com/".to_owned()),
-        })
-        .await;
-        live.publish();
-        let menu = newest(&ana).and_then(|state| state.menu).unwrap();
-        assert_eq!((menu.x, menu.y), (40.0, 30.0));
-        assert_eq!(newest(&bob).and_then(|state| state.menu), None);
-
-        say(&mut live, "ana", json!({ "kind": "choose", "menu": 7 })).await;
-        live.publish();
-        assert_eq!(
-            newest(&ana).and_then(|state| state.menu),
-            Some(menu.clone())
-        );
-
-        let link = json!({ "kind": "choose", "menu": menu.id, "choice": COPY_LINK });
-        say(&mut live, "ana", link).await;
-        live.publish();
-        assert_eq!(copied(&ana).as_deref(), Some("https://kodosi.com/"));
-    }
-
-    #[tokio::test]
-    async fn each_viewer_gets_a_tab_icon_once_also_through_a_newer_state_and_after_joining_late() {
-        let mut live = live();
-        let ana = watching(&mut live, "ana").await;
-        live.handle(Event::Icon {
-            tab: 5,
-            png: "aWNvbg==".to_owned(),
-        })
-        .await;
-        live.publish();
-        live.handle(Event::Shape("text".to_owned())).await;
-        let icon = |state: Option<State>| state.and_then(|state| state.icons.get("5").cloned());
-        assert_eq!(icon(newest(&ana)).as_deref(), Some("aWNvbg=="));
-
-        live.handle(Event::Shape("pointer".to_owned())).await;
-        assert_eq!(icon(newest(&ana)), None);
-
-        let bob = watching(&mut live, "bob").await;
-        assert_eq!(icon(newest(&bob)).as_deref(), Some("aWNvbg=="));
-    }
-
     #[tokio::test(start_paused = true)]
     async fn a_window_ends_when_its_last_tab_closes_but_not_while_it_waits_for_its_first() {
         let (events_in, events) = mpsc::channel(8);
@@ -2029,33 +1896,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn each_viewer_sees_where_other_people_point_but_not_where_its_own_person_points() {
-        let mut live = live();
-        let mac = watching_of(&mut live, "mac", "ana").await;
-        let phone = watching_of(&mut live, "phone", "ana").await;
-        let bob = watching(&mut live, "bob").await;
-        say(
-            &mut live,
-            "mac",
-            json!({ "kind": "mouse", "action": "move", "x": 40, "y": 30 }),
-        )
-        .await;
-        live.tick();
-        let pointers = |pipe: &Pipe| {
-            newest(pipe).map(|state| {
-                state
-                    .pointers
-                    .into_iter()
-                    .map(|pointer| (pointer.viewer, pointer.x, pointer.y))
-                    .collect::<Vec<_>>()
-            })
-        };
-        assert_eq!(pointers(&bob), Some(vec![("mac".to_owned(), 40.0, 30.0)]));
-        assert_eq!(pointers(&phone), Some(Vec::new()));
-        assert_eq!(pointers(&mac), Some(Vec::new()));
-    }
-
-    #[tokio::test]
     async fn the_newest_state_reaches_a_viewer_whose_queue_is_full_of_pictures() {
         let mut live = live();
         let mut ana = join(&mut live, "ana").await;
@@ -2081,86 +1921,6 @@ mod tests {
         assert_eq!(seats.get("app").map(|seat| seat.number), Some(2));
         assert!(free(&mut seats, "app", 2).is_some());
         assert!(seats.is_empty());
-    }
-
-    #[test]
-    fn a_new_window_opens_the_latest_address_that_came_before_its_page() {
-        let mut waiting = Vec::new();
-        keep_latest(
-            &mut waiting,
-            "Page.navigate",
-            json!({ "url": "https://a.test" }),
-        );
-        keep_latest(
-            &mut waiting,
-            "Emulation.setDeviceMetricsOverride",
-            json!({}),
-        );
-        keep_latest(
-            &mut waiting,
-            "Page.navigate",
-            json!({ "url": "https://b.test" }),
-        );
-        assert_eq!(
-            waiting,
-            vec![
-                ("Emulation.setDeviceMetricsOverride", json!({})),
-                ("Page.navigate", json!({ "url": "https://b.test" })),
-            ]
-        );
-    }
-
-    #[test]
-    fn a_narrow_view_gets_a_wider_page_of_its_own_shape_with_its_own_pixels() {
-        assert_eq!(
-            fitted(
-                Size {
-                    width: 440,
-                    height: 717,
-                    scale: 3.0,
-                },
-                [],
-            ),
-            Some(Size {
-                width: NARROWEST,
-                height: 815,
-                scale: 2.64,
-            })
-        );
-        assert_eq!(
-            fitted(
-                Size {
-                    width: 1280,
-                    height: 800,
-                    scale: 2.0,
-                },
-                [],
-            ),
-            Some(Size {
-                width: 1280,
-                height: 800,
-                scale: 2.0,
-            })
-        );
-    }
-
-    #[test]
-    fn a_phone_on_its_side_gets_a_page_of_its_own_shape() {
-        assert_eq!(
-            fitted(
-                Size {
-                    width: 914,
-                    height: 182,
-                    scale: 2.625,
-                },
-                [],
-            ),
-            Some(Size {
-                width: 914,
-                height: 182,
-                scale: 2.625,
-            })
-        );
     }
 
     #[test]

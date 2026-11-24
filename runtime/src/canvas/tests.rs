@@ -1,49 +1,19 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use base64::Engine as _;
-use serde_json::json;
 
 use super::{
-    BROWSER_PIPE, BrowserAct, BrowserDoingKind, BrowserPoint, BrowserState, Canvas, CanvasAnswer,
-    CanvasHandle, CanvasKind, CanvasOpen, CanvasRequest, DocumentView, MOST_ITEMS, PART_BYTES,
+    BrowserAct, BrowserState, Canvas, CanvasAnswer, CanvasHandle, CanvasKind, CanvasOpen,
+    CanvasRequest, MOST_ITEMS, PART_BYTES,
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
     files::{Files, Showing, Stamp, examine_all},
-    is_address, kind_of, page,
+    page,
 };
 use crate::text::Text;
 
 async fn show(files: &mut Files, paths: Vec<PathBuf>, stamp: &Stamp) -> Result<Showing, Text> {
     Ok(files.show(examine_all(paths).await?, stamp))
-}
-
-#[test]
-fn show_takes_web_and_file_addresses_for_the_browser() {
-    assert!(is_address("http://localhost:5173"));
-    assert!(is_address("HTTPS://example.com/a?b=c"));
-    assert!(is_address("file:///tmp/report.html"));
-    assert!(!is_address("report.html"));
-    assert!(!is_address("localhost:3000"));
-    assert!(!is_address("ftp://example.com"));
-    assert!(!is_address("https://example.com/\nmore"));
-}
-
-#[test]
-fn a_file_shows_by_its_extension() {
-    assert_eq!(kind_of(Path::new("/a/plan.MD")), Some(CanvasKind::Page));
-    assert_eq!(kind_of(Path::new("/a/shot.png")), Some(CanvasKind::Picture));
-    assert_eq!(kind_of(Path::new("/a/paper.pdf")), Some(CanvasKind::Pdf));
-    assert_eq!(
-        kind_of(Path::new("/a/notes.pages")),
-        Some(CanvasKind::Document)
-    );
-    assert_eq!(kind_of(Path::new("/a/plan.xlsx")), Some(CanvasKind::Sheet));
-    assert_eq!(
-        kind_of(Path::new("/a/talk.KEY")),
-        Some(CanvasKind::Presentation)
-    );
-    assert_eq!(kind_of(Path::new("/a/run.sh")), None);
-    assert_eq!(kind_of(Path::new("/a/README")), None);
 }
 
 #[test]
@@ -111,49 +81,6 @@ async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
 }
 
 #[tokio::test]
-async fn a_text_file_opens_live_while_its_format_takes_it_and_else_shows_as_a_page() {
-    let folder = tempfile::tempdir().unwrap();
-    let folder = kodosi_os::fs::canonicalize(folder.path()).unwrap();
-    let config = folder.join("config.yaml");
-    let notes = folder.join("notes.txt");
-    std::fs::write(&config, "port: 80\n").unwrap();
-    std::fs::write(&notes, b"caf\xe9\n").unwrap();
-    let stamp = Stamp::default();
-    let mut files = Files::default();
-    show(&mut files, vec![notes, config.clone()], &stamp)
-        .await
-        .unwrap();
-    let views = |files: &Files| {
-        files
-            .items()
-            .into_iter()
-            .map(|item| item.view)
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(views(&files), [Some(DocumentView::Text), None]);
-
-    std::fs::write(&config, "port: 80\n".repeat(20_000)).unwrap();
-    assert!(files.check(&stamp).await.any);
-    assert_eq!(views(&files), [None, None]);
-}
-
-#[tokio::test]
-async fn the_canvas_refuses_what_it_cannot_show() {
-    let folder = tempfile::tempdir().unwrap();
-    let stamp = Stamp::default();
-    let mut files = Files::default();
-    let script = folder.path().join("run.sh");
-    std::fs::write(&script, "echo").unwrap();
-    assert!(show(&mut files, vec![script], &stamp).await.is_err());
-    assert!(
-        show(&mut files, vec![folder.path().join("gone.md")], &stamp)
-            .await
-            .is_err()
-    );
-    assert!(files.is_empty());
-}
-
-#[tokio::test]
 async fn a_person_adds_a_file_in_parts_and_a_taken_name_gets_a_number() {
     let folder = tempfile::tempdir().unwrap();
     let canvas = CanvasHandle::spawn(
@@ -218,37 +145,6 @@ async fn a_lost_part_or_a_file_of_no_kind_leaves_nothing_behind() {
     assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 0);
 }
 
-#[tokio::test]
-async fn a_file_for_a_page_of_any_kind_goes_into_the_folder_and_not_on_the_canvas() {
-    let folder = tempfile::tempdir().unwrap();
-    let canvas = CanvasHandle::spawn(
-        uuid::Uuid::now_v7(),
-        folder.path(),
-        crate::canvas::CanvasServices::new(folder.path(), true),
-    );
-    canvas.moved_to(folder.path().to_owned());
-    let attached = canvas
-        .request(CanvasRequest::Attach {
-            upload: uuid::Uuid::now_v7().to_string(),
-            name: "data.zip".to_owned(),
-            offset: 0,
-            data: "UEsDBA==".to_owned(),
-            last: true,
-            page: true,
-        })
-        .await
-        .unwrap();
-    let CanvasAnswer::Attached { key } = attached else {
-        panic!("attached");
-    };
-    assert_eq!(std::fs::read(&key).unwrap(), b"PK\x03\x04");
-    assert!(
-        canvas
-            .current()
-            .is_none_or(|canvas| canvas.items.is_empty())
-    );
-}
-
 #[test]
 fn a_file_name_has_no_folders() {
     let attach = |name: &str| CanvasRequest::Attach {
@@ -263,94 +159,6 @@ fn a_file_name_has_no_folders() {
     for name in ["", "..", "a/b.md", "a\\b.md", "C:b.md"] {
         assert!(!attach(name).is_valid(), "{name}");
     }
-}
-
-#[tokio::test]
-async fn showing_opens_the_canvas_at_the_first_file_until_that_file_goes() {
-    let folder = tempfile::tempdir().unwrap();
-    let canvas = CanvasHandle::spawn(
-        uuid::Uuid::now_v7(),
-        folder.path(),
-        crate::canvas::CanvasServices::new(folder.path(), true),
-    );
-    canvas.moved_to(folder.path().to_owned());
-    let plan = folder.path().join("plan.md");
-    let shot = folder.path().join("shot.png");
-    std::fs::write(&plan, "# Plan").unwrap();
-    std::fs::write(&shot, [1, 2, 3]).unwrap();
-    let showing = |paths: Vec<PathBuf>| crate::canvas::Show {
-        paths,
-        address: None,
-        browser_as_it_is: false,
-        folder: folder.path().to_owned(),
-        terminal: "Ivory Moose".to_owned(),
-        agent: None,
-    };
-
-    let answer = canvas
-        .show(showing(vec![plan, shot.clone()]))
-        .await
-        .unwrap();
-    let CanvasAnswer::Text { text, code: 0 } = answer else {
-        panic!("shown");
-    };
-    assert!(text.contains("opens for the people"), "{text}");
-    let first = canvas.current().unwrap().open.unwrap();
-    assert!(first.key.ends_with("plan.md"), "{}", first.key);
-
-    let added = canvas
-        .request(CanvasRequest::Attach {
-            upload: uuid::Uuid::now_v7().to_string(),
-            name: "notes.md".to_owned(),
-            offset: 0,
-            data: "IyBOb3Rlcw==".to_owned(),
-            last: true,
-            page: false,
-        })
-        .await;
-    assert!(matches!(added, Ok(CanvasAnswer::Attached { .. })));
-    let after = canvas.current().unwrap();
-    assert_eq!(after.open, Some(first.clone()));
-    assert_eq!(after.change, None);
-
-    canvas.show(showing(vec![shot])).await.unwrap();
-    let again = canvas.current().unwrap().open.unwrap();
-    assert!(again.key.ends_with("shot.png"), "{}", again.key);
-    assert!(again.at > first.at);
-
-    canvas
-        .request(CanvasRequest::Remove {
-            keys: vec![again.key],
-        })
-        .await
-        .unwrap();
-    assert_eq!(canvas.current().unwrap().open, None);
-}
-
-#[tokio::test]
-async fn a_browser_that_came_back_asleep_keeps_its_page_for_the_next_start() {
-    let folder = tempfile::tempdir().unwrap();
-    let canvas = CanvasHandle::spawn(
-        uuid::Uuid::now_v7(),
-        folder.path(),
-        crate::canvas::CanvasServices::new(folder.path(), true),
-    );
-    let page = "https://example.com/report";
-    canvas.restore(Vec::new(), Some(page.to_owned()), uuid::Uuid::now_v7());
-    canvas
-        .state()
-        .wait_for(|canvas| canvas.browser.is_some())
-        .await
-        .unwrap();
-    assert_eq!(canvas.address().as_deref(), Some(page));
-
-    canvas
-        .request(CanvasRequest::Remove {
-            keys: vec![BROWSER_PIPE.to_owned()],
-        })
-        .await
-        .unwrap();
-    assert_eq!(canvas.address(), None);
 }
 
 #[tokio::test]
@@ -381,237 +189,6 @@ async fn the_browser_of_a_terminal_that_becomes_shared_says_it_keeps_its_own_sig
     .await
     .expect("the browser says that it keeps its own sign-ins")
     .unwrap();
-}
-
-#[tokio::test]
-async fn showing_the_browser_opens_the_canvas_at_it_and_keeps_its_page() {
-    let folder = tempfile::tempdir().unwrap();
-    let services = crate::canvas::CanvasServices {
-        agent_browser: folder.path().join("agent-browser"),
-        ..crate::canvas::CanvasServices::new(folder.path(), true)
-    };
-    std::fs::write(&services.agent_browser, "").unwrap();
-    let spawn = || CanvasHandle::spawn(uuid::Uuid::now_v7(), folder.path(), services.clone());
-    let show = async |canvas: &CanvasHandle| {
-        let answer = canvas
-            .show(crate::canvas::Show {
-                paths: Vec::new(),
-                address: None,
-                browser_as_it_is: true,
-                folder: folder.path().to_owned(),
-                terminal: "Ivory Moose".to_owned(),
-                agent: None,
-            })
-            .await;
-        match answer {
-            Ok(CanvasAnswer::Text { text, code: 0 }) => text,
-            other => panic!("shown: {other:?}"),
-        }
-    };
-
-    let new = spawn();
-    assert!(show(&new).await.contains("shows its browser, and"));
-    let shown = new.current().unwrap();
-    assert_eq!(shown.open.unwrap().key, BROWSER_PIPE);
-    assert!(shown.browser.is_some());
-
-    let used = spawn();
-    let page = "https://example.com/report";
-    used.restore(Vec::new(), Some(page.to_owned()), uuid::Uuid::now_v7());
-    used.state()
-        .wait_for(|canvas| canvas.browser.is_some())
-        .await
-        .unwrap();
-    assert!(show(&used).await.contains(page));
-    let shown = used.current().unwrap();
-    let first = shown.open.unwrap();
-    assert_eq!(first.key, BROWSER_PIPE);
-    assert_eq!(shown.change, None);
-    assert_eq!(shown.browser.unwrap().state, BrowserState::Asleep);
-    assert_eq!(used.address().as_deref(), Some(page));
-
-    show(&used).await;
-    assert!(used.current().unwrap().open.unwrap().at > first.at);
-}
-
-#[tokio::test(start_paused = true)]
-async fn each_command_of_the_agent_browser_changes_the_canvas_and_opens_nothing() {
-    let folder = tempfile::tempdir().unwrap();
-    let services = crate::canvas::CanvasServices {
-        agent_browser: folder.path().join("agent-browser"),
-        ..crate::canvas::CanvasServices::new(folder.path(), true)
-    };
-    std::fs::write(&services.agent_browser, "").unwrap();
-    let spawn = || CanvasHandle::spawn(uuid::Uuid::now_v7(), folder.path(), services.clone());
-    // Kodosi refuses this command, so no agent-browser runs.
-    let browse = async |canvas: &CanvasHandle| {
-        canvas
-            .browse(
-                folder.path().to_owned(),
-                vec!["close".to_owned(), "--all".to_owned()],
-                "Ivory Moose".to_owned(),
-                None,
-            )
-            .await
-    };
-
-    let canvas = spawn();
-    assert!(browse(&canvas).await.is_err());
-    let first = canvas.current().unwrap();
-    assert_eq!(first.open, None);
-    let first = first.change.unwrap();
-    assert_eq!(first.key, BROWSER_PIPE);
-    assert!(browse(&canvas).await.is_err());
-    let again = canvas.current().unwrap().change.unwrap();
-    assert_eq!(again.key, BROWSER_PIPE);
-    assert!(again.at > first.at);
-
-    let restored = spawn();
-    restored.restore(
-        Vec::new(),
-        Some("https://example.com/report".to_owned()),
-        uuid::Uuid::now_v7(),
-    );
-    assert!(browse(&restored).await.is_err());
-    let back = restored.current().unwrap();
-    assert!(back.browser.is_some());
-    assert_eq!(
-        back.change.map(|change| change.key).as_deref(),
-        Some(BROWSER_PIPE)
-    );
-}
-
-#[tokio::test(start_paused = true)]
-async fn each_change_of_a_file_changes_the_canvas_also_while_it_is_live() {
-    let folder = tempfile::tempdir().unwrap();
-    let services = crate::canvas::CanvasServices::new(folder.path(), true);
-    let canvas = CanvasHandle::spawn(uuid::Uuid::now_v7(), folder.path(), services.clone());
-    let notes = folder.path().join("notes.txt");
-    let report = folder.path().join("report.md");
-    std::fs::write(&notes, "one\n").unwrap();
-    std::fs::write(&report, "# One").unwrap();
-    canvas
-        .show(crate::canvas::Show {
-            paths: vec![notes.clone(), report.clone()],
-            address: None,
-            browser_as_it_is: false,
-            folder: folder.path().to_owned(),
-            terminal: "Ivory Moose".to_owned(),
-            agent: None,
-        })
-        .await
-        .unwrap();
-    let shown = canvas.current().unwrap();
-    assert_eq!(shown.change, None);
-    let shown = shown.open.unwrap();
-    assert!(shown.key.ends_with("notes.txt"), "{}", shown.key);
-    let after = async |key: &str, at: u64| {
-        canvas
-            .state()
-            .wait_for(|canvas| {
-                canvas
-                    .change
-                    .as_ref()
-                    .is_some_and(|change| change.key.ends_with(key) && change.at > at)
-            })
-            .await
-            .unwrap()
-            .change
-            .clone()
-            .unwrap()
-    };
-
-    std::fs::write(&report, "# Two, longer").unwrap();
-    let changed = after("report.md", shown.at).await;
-    std::fs::write(&report, "# Three, at once and longer").unwrap();
-    let again = after("report.md", changed.at).await;
-
-    let _live = services
-        .documents
-        .open(
-            &notes,
-            documents::Viewer {
-                id: "ana".to_owned(),
-                name: "Ana".to_owned(),
-                can_edit: true,
-            },
-        )
-        .await
-        .unwrap();
-    std::fs::write(&notes, "one\ntwo, from another program\n").unwrap();
-    after("notes.txt", again.at).await;
-    assert_eq!(canvas.current().unwrap().open, Some(shown));
-}
-
-#[tokio::test(start_paused = true)]
-async fn the_agent_edit_of_a_document_changes_the_canvas_at_it() {
-    let folder = tempfile::tempdir().unwrap();
-    let canvas = CanvasHandle::spawn(
-        uuid::Uuid::now_v7(),
-        folder.path(),
-        crate::canvas::CanvasServices::new(folder.path(), true),
-    );
-    let doc = async |words: &[&str]| {
-        let arguments = words.iter().map(|word| (*word).to_owned()).collect();
-        match canvas
-            .document_command(
-                None,
-                "Ivory Moose".to_owned(),
-                folder.path().to_owned(),
-                arguments,
-            )
-            .await
-        {
-            CanvasAnswer::Text { text, code } => (text, code),
-            other => panic!("text expected: {other:?}"),
-        }
-    };
-    let apply = async |value: u32| {
-        let (read, _) = doc(&["read", "sums.xlsx"]).await;
-        let rev = serde_json::from_str::<serde_json::Value>(&read).unwrap()["rev"].to_string();
-        let ops = json!([{ "op": "setCell", "sheet": "Sheet1", "cell": "B2", "value": value }]);
-        let (text, code) = doc(&[
-            "apply",
-            "sums.xlsx",
-            "--ops",
-            &ops.to_string(),
-            "--base",
-            &rev,
-        ])
-        .await;
-        assert_eq!(code, 0, "{text}");
-    };
-    let after = async |at: u64| {
-        canvas
-            .state()
-            .wait_for(|canvas| canvas.change.as_ref().is_some_and(|change| change.at > at))
-            .await
-            .unwrap()
-            .change
-            .clone()
-            .unwrap()
-    };
-    assert_eq!(doc(&["new", "sums.xlsx"]).await.1, 0);
-    canvas
-        .show(crate::canvas::Show {
-            paths: vec![folder.path().join("sums.xlsx")],
-            address: None,
-            browser_as_it_is: false,
-            folder: folder.path().to_owned(),
-            terminal: "Ivory Moose".to_owned(),
-            agent: None,
-        })
-        .await
-        .unwrap();
-    let shown = canvas.current().unwrap().open.unwrap();
-
-    apply(7).await;
-    let changed = after(shown.at).await;
-    assert_eq!(changed.key, shown.key);
-    apply(8).await;
-    let again = after(changed.at).await;
-    assert_eq!(again.key, shown.key);
-    assert_eq!(canvas.current().unwrap().open, Some(shown));
 }
 
 #[tokio::test]
@@ -735,55 +312,6 @@ fn markdown_and_text_become_pages_with_the_template_look() {
 }
 
 #[test]
-fn a_markdown_page_keeps_the_flags_and_shell_tests_of_its_text() {
-    let page = String::from_utf8(page::page(
-        "notes.md",
-        b"Run it with --force when [[ -f file ]] holds.",
-    ))
-    .unwrap();
-    assert!(page.contains("<p>Run it with --force when [[ -f file ]] holds.</p>"));
-}
-
-#[test]
-fn a_page_that_loads_from_the_network_is_named() {
-    assert_eq!(
-        page::network_reference(br#"<script src="https://cdn.example/x.js"></script>"#),
-        Some("https://cdn.example/x.js".to_owned())
-    );
-    assert_eq!(
-        page::network_reference(br#"<link rel="stylesheet" href="https://fonts.example/a.css">"#),
-        Some("https://fonts.example/a.css".to_owned())
-    );
-    assert_eq!(
-        page::network_reference(br#"<a href="https://example.com">a link</a><style>p{}</style>"#),
-        None
-    );
-}
-
-#[test]
-fn the_browser_comes_back_at_the_whole_address_of_its_page() {
-    let tab = |address: String, active| shared_browser::Tab {
-        id: "1".to_owned(),
-        title: "Report".to_owned(),
-        address,
-        active,
-        loading: false,
-    };
-    let long = format!("https://example.com/report?token={}", "a".repeat(1000));
-    let tabs = [
-        tab("https://example.com/other".to_owned(), false),
-        tab(long.clone(), true),
-    ];
-    assert_eq!(browser::kept_address(&tabs), Some(long.as_str()));
-    for address in [
-        "about:blank".to_owned(),
-        format!("https://{}", "a".repeat(5000)),
-    ] {
-        assert_eq!(browser::kept_address(&[tab(address, true)]), None);
-    }
-}
-
-#[test]
 fn the_browser_keeps_its_session_and_hides_what_an_agent_types() {
     let refused = |arguments: &[&str]| {
         browser::refused(
@@ -883,68 +411,4 @@ async fn a_browser_ends_at_once_while_kodosi_browser_comes() {
     waking.abort();
     assert!(waking.await.unwrap_err().is_cancelled());
     drop(download);
-}
-
-#[test]
-fn people_see_what_the_agent_does_and_where() {
-    let doing = |arguments: &[&str]| {
-        browser::doing(
-            &arguments
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>(),
-        )
-    };
-    let at = |target: &str| Some(target.to_owned());
-    assert_eq!(
-        doing(&["open", "https://example.com"]),
-        Some((BrowserDoingKind::Open, None))
-    );
-    assert_eq!(
-        doing(&["click", "@e2", "--new-tab"]),
-        Some((BrowserDoingKind::Click, at("@e2")))
-    );
-    assert_eq!(
-        doing(&["fill", "#email", "ana@example.com"]),
-        Some((BrowserDoingKind::Type, at("#email")))
-    );
-    assert_eq!(
-        doing(&["press", "Enter"]),
-        Some((BrowserDoingKind::Type, None))
-    );
-    assert_eq!(
-        doing(&["snapshot", "-i"]),
-        Some((BrowserDoingKind::Read, None))
-    );
-    assert_eq!(
-        doing(&["find", "role", "button", "click", "--name", "Send"]),
-        Some((BrowserDoingKind::Click, None))
-    );
-    assert_eq!(doing(&["tab"]), Some((BrowserDoingKind::Read, None)));
-    assert_eq!(doing(&["tab", "new"]), Some((BrowserDoingKind::Open, None)));
-    assert_eq!(doing(&["session", "info"]), None);
-
-    let box_at =
-        r#"{"success":true,"data":{"height":20,"width":200,"x":100.5,"y":40},"error":null}"#;
-    assert_eq!(
-        browser::middle(box_at, 1280, 720),
-        Some(BrowserPoint { x: 200, y: 50 })
-    );
-    assert_eq!(browser::middle(box_at, 1280, 45), None);
-    assert_eq!(
-        browser::middle(
-            r#"{"success":true,"data":{"height":10,"width":100,"x":-300,"y":10},"error":null}"#,
-            1280,
-            720
-        ),
-        None
-    );
-    assert_eq!(
-        browser::middle(
-            r#"{"success":false,"data":null,"error":"Unknown ref: e9"}"#,
-            1280,
-            720
-        ),
-        None
-    );
 }

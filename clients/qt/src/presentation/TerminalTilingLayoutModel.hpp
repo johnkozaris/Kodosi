@@ -65,8 +65,6 @@ public:
     [[nodiscard]] qreal viewportWidth() const noexcept;
     [[nodiscard]] qreal viewportHeight() const noexcept;
     [[nodiscard]] qreal contentHeight() const noexcept;
-    [[nodiscard]] int layoutRowCount() const noexcept;
-    [[nodiscard]] int layoutColumnCount() const noexcept;
     [[nodiscard]] qreal accessibilityTextScale() const noexcept;
     [[nodiscard]] qreal minimumTileWidth() const noexcept;
     [[nodiscard]] qreal minimumTileHeight() const noexcept;

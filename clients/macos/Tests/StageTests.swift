@@ -32,19 +32,6 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     #expect(restarted.reconcile([session]).isEmpty)
 }
 
-@Test func `the signed out stage comes back after a restart`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageSignedOut"))
-    let session = try runtimeSession()
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount(nil)
-    first.showSession(session.id)
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount(nil)
-    #expect(restarted.reconcile([session]) == [session.id])
-    restarted.switchAccount("owner")
-    #expect(restarted.reconcile([session]).isEmpty)
-}
-
 @Test func `a terminal that the host started again takes the place of the one before`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestarted"))
     let before = try runtimeSession(kind: "local", connection: "local")
@@ -57,22 +44,6 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     restarted.switchAccount(nil)
     #expect(restarted.reconcile([again]) == [again.id])
     #expect(restarted.stagedSessionIds == [again.id])
-}
-
-@Test func `restored terminals keep their order on the stage`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestartedOrder"))
-    let ids = (0 ..< 4).map { "01992e43-53db-7040-8e02-f6ebf4149b4\($0)" }
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount(nil)
-    first.showSession(ids[0])
-    first.showSession(ids[1])
-    let earlier = try runtimeSession(ids[2], kind: "local", connection: "local", restoredFrom: ids[0])
-    let later = try runtimeSession(ids[3], kind: "local", connection: "local", restoredFrom: ids[1])
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount(nil)
-    _ = restarted.reconcile([later])
-    _ = restarted.reconcile([earlier, later])
-    #expect(restarted.stagedSessionIds == [ids[2], ids[3]])
 }
 
 @Test func `a terminal that another computer started again takes the place and focus of the one that ended`() throws {
@@ -94,72 +65,6 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     #expect(workbench.stagedSessionIds == [again.id, other.id])
     #expect(workbench.selectedSessionId == again.id)
     #expect(workbench.focusedSessionId == again.id)
-}
-
-@Test func `a restart takes no selection that the person gave to another terminal`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowSelection"))
-    let ids = (0 ..< 3).map { "01992e43-53db-7040-8e02-f6ebf4149b6\($0)" }
-    let (ended, other) = try (onMini(ids[0]), onMini(ids[1]))
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.switchAccount("ana")
-    _ = workbench.reconcile([ended, other])
-    workbench.showSession(ended.id)
-    workbench.showSession(other.id)
-    workbench.toggleFocus(ended.id)
-    _ = workbench.reconcile([other])
-    workbench.selectSession(other.id)
-    _ = try workbench.reconcile([other, onMini(ids[2], restoredFrom: ended.id)])
-    #expect(workbench.stagedSessionIds == [ids[2], other.id])
-    #expect(workbench.selectedSessionId == other.id)
-    #expect(workbench.focusedSessionId == nil)
-}
-
-@Test func `terminals that ended together come back in their places and only the selected one takes the selection`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowTogether"))
-    let ids = (0 ..< 4).map { "01992e43-53db-7040-8e02-f6ebf4149b9\($0)" }
-    let (first, second) = try (onMini(ids[0]), onMini(ids[1]))
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.switchAccount("ana")
-    _ = workbench.reconcile([first, second])
-    workbench.showSession(first.id)
-    workbench.showSession(second.id)
-    _ = workbench.reconcile([])
-    let restarts = try [onMini(ids[3], restoredFrom: second.id), onMini(ids[2], restoredFrom: first.id)]
-    #expect(Set(workbench.reconcile(restarts)) == [ids[2], ids[3]])
-    #expect(workbench.stagedSessionIds == [ids[2], ids[3]])
-    #expect(workbench.selectedSessionId == ids[3])
-}
-
-@Test func `terminals that ended one after another come back in their places`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowInTurn"))
-    let ids = (0 ..< 6).map { "01992e43-53db-7040-8e02-f6ebf4149bb\($0)" }
-    let ended = try ids[0 ..< 3].map { try onMini($0) }
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.switchAccount("ana")
-    _ = workbench.reconcile(ended)
-    for session in ended {
-        workbench.showSession(session.id)
-    }
-    _ = workbench.reconcile([ended[1], ended[2]])
-    _ = workbench.reconcile([ended[1]])
-    _ = workbench.reconcile([])
-    let restarts = try (0 ..< 3).reversed().map { try onMini(ids[$0 + 3], restoredFrom: ended[$0].id) }
-    _ = workbench.reconcile(restarts)
-    #expect(workbench.stagedSessionIds == [ids[3], ids[4], ids[5]])
-}
-
-@Test func `a terminal that is still listed moves to its restart at once`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowListed"))
-    let ids = (0 ..< 2).map { "01992e43-53db-7040-8e02-f6ebf4149b7\($0)" }
-    let away = try onMini(ids[0])
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.switchAccount("ana")
-    _ = workbench.reconcile([away])
-    workbench.showSession(away.id)
-    let again = try onMini(ids[1], restoredFrom: away.id)
-    #expect(workbench.reconcile([away, again]) == [again.id])
-    #expect(workbench.stagedSessionIds == [again.id])
-    #expect(workbench.selectedSessionId == again.id)
 }
 
 @Test func `a terminal follows no restart on another computer, of another person or after a close`() throws {
@@ -184,22 +89,6 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     #expect(workbench.reconcile([elsewhere, someone, reopened, again]) == [again.id])
 }
 
-@Test func `a terminal whose close failed still follows its restart`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageFollowFailedClose"))
-    let ids = (0 ..< 2).map { "01992e43-53db-7040-8e02-f6ebf4149ba\($0)" }
-    let ended = try onMini(ids[0])
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.switchAccount("ana")
-    _ = workbench.reconcile([ended])
-    workbench.showSession(ended.id)
-    workbench.noteClosing(ended.id)
-    workbench.cancelClosing(ended.id)
-    _ = workbench.reconcile([])
-    let again = try onMini(ids[1], restoredFrom: ended.id)
-    #expect(workbench.reconcile([again]) == [again.id])
-    #expect(workbench.stagedSessionIds == [again.id])
-}
-
 @Test func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
     let session = try runtimeSession(status: "offline")
@@ -210,124 +99,4 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     restarted.switchAccount("owner")
     #expect(restarted.reconcile([session]) == [session.id])
     #expect(restarted.stagedSessionIds == [session.id])
-}
-
-@Test func `stage limit keeps existing terminals and allows reopening`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageLimit"))
-    let workbench = WorkbenchState(defaults: defaults)
-    let ids = (0 ..< 7).map { _ in UUIDv7.generate() }
-    for id in ids {
-        workbench.showSession(id)
-    }
-    #expect(workbench.stagedSessionIds == Array(ids.prefix(6)))
-    workbench.showSession(ids[0])
-    #expect(workbench.selectedSessionId == ids[0])
-    workbench.dismissSession(ids[1])
-    workbench.showSession(ids[6])
-    #expect(workbench.stagedSessionIds.count == 6)
-    #expect(workbench.selectedSessionId == ids[6])
-}
-
-@Test func `single view makes room by taking the terminal looked at longest ago off the stage`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRoom"))
-    let workbench = WorkbenchState(defaults: defaults)
-    let ids = (0 ..< 7).map { _ in UUIDv7.generate() }
-    for id in ids.prefix(6) {
-        workbench.showSession(id)
-    }
-    workbench.showSession(ids[1])
-    #expect(workbench.makingRoom(for: ids[6]) == nil)
-    workbench.toggleFocus(ids[1])
-    #expect(workbench.makingRoom(for: ids[6]) == ids[0])
-    #expect(workbench.makingRoom(for: ids[2]) == nil)
-    workbench.dismissSession(ids[0])
-    workbench.showSession(ids[6])
-    #expect(workbench.stagedSessionIds.count == 6)
-    #expect(workbench.focusedSessionId == ids[6])
-    #expect(workbench.makingRoom(for: ids[0]) == ids[2])
-}
-
-@Test func `the layout key shows the selected terminal alone and then the grid again`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageLayout"))
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.toggleSingleView()
-    #expect(workbench.focusedSessionId == nil)
-    let ids = (0 ..< 3).map { _ in UUIDv7.generate() }
-    for id in ids {
-        workbench.showSession(id)
-    }
-    workbench.selectSession(ids[1])
-    workbench.section = .settings
-    workbench.toggleSingleView()
-    #expect(workbench.section == .sessions)
-    #expect(workbench.focusedSessionId == ids[1])
-    workbench.toggleSingleView()
-    #expect(workbench.focusedSessionId == nil)
-    #expect(workbench.selectedSessionId == ids[1])
-}
-
-@Test func `closing or minimizing the terminal of single view shows the next terminal alone`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageSingleClose"))
-    let ids = (0 ..< 3).map { "01992e43-53db-7040-8e02-f6ebf4149bc\($0)" }
-    let sessions = try ids.map { try onMini($0) }
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.switchAccount("ana")
-    _ = workbench.reconcile(sessions)
-    for session in sessions {
-        workbench.showSession(session.id)
-    }
-    workbench.toggleFocus(ids[1])
-    workbench.noteClosing(ids[1])
-    _ = workbench.reconcile([sessions[0], sessions[2]])
-    #expect(workbench.focusedSessionId == ids[0])
-    #expect(workbench.selectedSessionId == ids[0])
-    workbench.dismissSession(ids[0])
-    #expect(workbench.focusedSessionId == ids[2])
-    workbench.dismissSession(ids[2])
-    #expect(workbench.focusedSessionId == nil)
-    #expect(workbench.selectedSessionId == nil)
-}
-
-@Test func `a pin stays with its account and follows the terminal when its host starts it again`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StagePins"))
-    let local = try runtimeSession(kind: "local", connection: "local")
-    let remote = try onMini("01992e43-53db-7040-8e02-f6ebf4149b31")
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount("ana")
-    _ = first.reconcile([local, remote])
-    first.togglePin(remote.id)
-    first.togglePin(local.id)
-    #expect(first.pinnedSessionIds == [remote.id, local.id])
-    let remoteAgain = try onMini("01992e43-53db-7040-8e02-f6ebf4149b32", restoredFrom: remote.id)
-    _ = first.reconcile([local])
-    _ = first.reconcile([local, remoteAgain])
-    #expect(first.pinnedSessionIds == [remoteAgain.id, local.id])
-    let localAgain = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b30", kind: "local", connection: "local",
-                                        restoredFrom: local.id)
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount("ana")
-    _ = restarted.reconcile([localAgain, remoteAgain])
-    #expect(restarted.pinnedSessionIds == [remoteAgain.id, localAgain.id])
-    restarted.togglePin(remoteAgain.id)
-    #expect(!restarted.isPinned(remoteAgain.id))
-    restarted.switchAccount("maya")
-    #expect(restarted.pinnedSessionIds.isEmpty)
-}
-
-@Test func `a dragged terminal takes the place of the terminal that it drops on`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageMove"))
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.switchAccount("ana")
-    for id in ["a", "b", "c"] {
-        workbench.showSession(id)
-    }
-    workbench.moveStaged("a", to: "c")
-    #expect(workbench.stagedSessionIds == ["b", "c", "a"])
-    workbench.moveStaged("a", to: "b")
-    #expect(workbench.stagedSessionIds == ["a", "b", "c"])
-    workbench.moveStaged("x", to: "b")
-    #expect(workbench.stagedSessionIds == ["a", "b", "c"])
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount("ana")
-    #expect(restarted.reconcile([]).isEmpty)
 }

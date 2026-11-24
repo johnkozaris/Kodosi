@@ -1930,6 +1930,7 @@ dependencies = [
  "if-addrs",
  "kodosi-os",
  "kodosi-pty",
+ "percent-encoding",
  "pulldown-cmark",
  "qrcodegen",
  "quinn",
@@ -1951,6 +1952,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "unicode-properties",
+ "url",
  "uuid",
  "zeroize",
 ]

@@ -2690,10 +2690,6 @@
         <translation>このリンクには、見た目を変えられる隠し文字が含まれています。</translation>
     </message>
     <message>
-        <source>The web link has no server name.</source>
-        <translation>この Web リンクにはサーバー名がありません。</translation>
-    </message>
-    <message>
         <source>The address is on %1.</source>
         <translation>このアドレスは %1 上にあります。</translation>
     </message>
