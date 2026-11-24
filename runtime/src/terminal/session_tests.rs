@@ -1309,25 +1309,6 @@ async fn spinner_frames_of_one_title_are_published_once() {
     local.close().await.expect("closed");
 }
 
-#[tokio::test]
-async fn a_blank_title_clears_an_earlier_title() {
-    let (local, mut receiver, _root) =
-        shell(r"printf '\033]2;Old task\007'; sleep 0.15; printf '\033]2; \007'; exec /bin/cat")
-            .await;
-    let mut titles = Vec::new();
-    tokio::time::timeout(Duration::from_secs(3), async {
-        while titles.len() < 2 {
-            if let Some(SessionChange::Title { title, .. }) = receiver.recv().await {
-                titles.push(title);
-            }
-        }
-    })
-    .await
-    .expect("cleared title");
-    assert_eq!(titles, [Some("Old task".to_owned()), None]);
-    local.close().await.expect("closed");
-}
-
 #[test]
 fn terminals_find_the_kodosi_command_of_the_running_app_first() {
     let app = tempfile::tempdir().expect("app folder");

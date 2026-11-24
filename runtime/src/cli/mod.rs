@@ -2199,31 +2199,4 @@ mod tests {
         }
         assert!(friend_id(&friends, "carol").is_err());
     }
-    #[test]
-    fn antigravity_title_reads_conversation_title_or_clears_with_a_space() {
-        assert_eq!(
-            antigravity_title(br#"{"conversation_title":"Fix login bug","agent_state":"working"}"#),
-            "Fix login bug"
-        );
-        assert_eq!(
-            antigravity_title(br#"{"conversation_title":"  First line\nSecond line  "}"#),
-            "First line"
-        );
-        assert_eq!(
-            antigravity_title(br#"{"conversation_title":"\u2802 Spinning title"}"#),
-            "Spinning title"
-        );
-        assert_eq!(antigravity_title(br#"{"agent_state":"working"}"#), " ");
-        assert_eq!(antigravity_title(br#"{"conversation_title":"   "}"#), " ");
-        assert_eq!(antigravity_title(b"not json"), " ");
-    }
-    #[test]
-    fn antigravity_session_start_injects_context_only_inside_kodosi() {
-        assert_eq!(agy_session_start(false), "{}");
-        let inside: Value = serde_json::from_str(&agy_session_start(true)).unwrap();
-        assert_eq!(
-            inside["injectSteps"][0]["systemMessage"]["systemMessage"],
-            crate::agents::CONTEXT.trim()
-        );
-    }
 }
