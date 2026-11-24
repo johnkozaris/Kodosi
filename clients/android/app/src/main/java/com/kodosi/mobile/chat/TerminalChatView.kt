@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
+import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.AgentSettingsSection
 import com.kodosi.mobile.terminals.RuntimeSession
 import com.kodosi.mobile.terminals.TerminalFace
@@ -39,7 +40,8 @@ import kotlinx.coroutines.launch
 
 /**
  * The chat of a terminal in the place of its screen, on the app's surface. The pipe of the chat is
- * open while the chat shows, and a link in it follows the rules of the terminal's computer.
+ * open while the chat shows, and a link in it follows the rules of the terminal's computer. Its rows
+ * keep the name of the agent that wrote them after the agent ends.
  */
 @Composable
 fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifier = Modifier) {
@@ -83,7 +85,8 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
     CompositionLocalProvider(LocalLinkOpener provides opener, LocalProseFolder provides view.facts.folder) {
         Box(modifier, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 760.dp).fillMaxSize()) {
-                ChatThread(view, session.agent, account.userId, sent, hideKeyboard, Modifier.weight(1f).fillMaxWidth())
+                val writer = AgentKind.of(view.facts.agent).takeIf { it.isAgent } ?: session.agent
+                ChatThread(view, writer, account.userId, sent, hideKeyboard, Modifier.weight(1f).fillMaxWidth())
                 ChatDock(
                     chat,
                     view,

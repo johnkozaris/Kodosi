@@ -18,6 +18,7 @@ FocusScope {
     property Models.TerminalChat watched: null
     readonly property Models.TerminalChat chat: Models.Chats.chat(sessionId)
     readonly property string agent: Models.DesktopSettings.agentLabel(session.program || "")
+    readonly property string writer: chat.facts.agent || session.program || ""
 
     function focusComposer(): void {
         dock.focusComposer()
@@ -70,7 +71,8 @@ FocusScope {
             chat: root.chat
             session: root.session
             look: root.look
-            agent: root.agent
+            agent: Models.DesktopSettings.agentLabel(root.writer)
+            program: root.writer
 
             onTapped: root.focused()
             onLinkActivated: link => root.chat.follow(link, root.otherComputer)
