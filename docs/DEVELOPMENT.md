@@ -13,8 +13,8 @@ Install `just`, Python 3.12 or later and the toolchains of the part you change.
 downloads in `.tools/maven/`. Keep every tool and dependency inside the project. The
 [Mac](../clients/macos/README.md), [Linux and Windows](../clients/qt/README.md),
 [iOS](../clients/ios/README.md) and [Android](../clients/android/README.md) guides list the
-native prerequisites; on Windows run the recipes in Git Bash. The apps need Bun for the
-document views, at the version of [.bun-version](../.bun-version).
+native prerequisites; on Windows run the recipes in Git Bash. The recipes and the app
+builds install the Bun of [.bun-version](../.bun-version) in `.tools/bun/` when they need it.
 
 Cargo and Bun take a new release of a dependency only after it has been public for a while,
 as [.cargo/config.toml](../.cargo/config.toml) and each `bunfig.toml` set, so that a bad

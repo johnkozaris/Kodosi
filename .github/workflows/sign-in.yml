@@ -6,6 +6,7 @@ on:
     paths:
       - sign-in/**
       - .bun-version
+      - scripts/bun.py
       - justfile
       - .github/workflows/sign-in.yml
   workflow_dispatch:
@@ -30,7 +31,4 @@ jobs:
         with:
           tool: just
           fallback: none
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: .bun-version
       - run: just sign-in-check

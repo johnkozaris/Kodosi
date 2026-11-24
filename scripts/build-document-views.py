@@ -6,8 +6,9 @@ import argparse
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
+
+from bun import bun
 
 VIEWS = Path(__file__).resolve().parent.parent / "documents" / "views"
 BUILT = VIEWS / "dist"
@@ -25,11 +26,9 @@ def newest_source() -> float:
 
 
 def build() -> None:
-    bun = shutil.which("bun")
-    if bun is None:
-        sys.exit("Install Bun to build the document views.")
-    subprocess.run([bun, "ci"], cwd=VIEWS, check=True)
-    subprocess.run([bun, "run", "build"], cwd=VIEWS, check=True)
+    program = bun()
+    subprocess.run([program, "ci"], cwd=VIEWS, check=True)
+    subprocess.run([program, "run", "build"], cwd=VIEWS, check=True)
 
 
 def main() -> None:
