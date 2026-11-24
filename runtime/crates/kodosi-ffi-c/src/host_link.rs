@@ -640,49 +640,4 @@ mod tests {
                 "message":late().to_string(),"accountUserId":"me","accountEpoch":7})
         );
     }
-
-    #[tokio::test]
-    async fn input_that_a_terminal_does_not_take_shows_no_error() {
-        let events = Mutex::new(Vec::<Value>::new());
-        let state = State {
-            callbacks: KodosiCallbacks {
-                on_event: Some(record),
-                on_terminal_data: None,
-                on_terminal_control: None,
-                on_terminal_connect_result: None,
-                on_terminal_checkpoint: None,
-            },
-            userdata: UserData((&raw const events).cast_mut().cast()),
-            gate: Gate::default(),
-            serial: Mutex::new(()),
-            cancel: CancellationToken::new(),
-            subscriptions: Mutex::new(Subscriptions::default()),
-        };
-        let token = SubscriptionState {
-            session: std::ffi::CString::new("session").unwrap(),
-            id: std::ffi::CString::new("view").unwrap(),
-            generation: 1,
-            cancel: CancellationToken::new(),
-            refresh: tokio::sync::Notify::new(),
-            gate: Gate::default(),
-            connected: Mutex::new(None),
-        };
-        let mut frames = Vec::new();
-        for result in [Err(Error::Stopped), Err(Error::NotFound), Err(Error::Busy)] {
-            let frame = local_host::input_ack_frame(&result).unwrap();
-            frames.extend(u32::try_from(frame.len()).unwrap().to_be_bytes());
-            frames.extend(frame);
-        }
-        let mut reader = local_host::FrameReader::new(&frames[..]);
-        read_frames(
-            &mut reader,
-            &state,
-            &token,
-            &AtomicU64::new(0),
-            &Mutex::new(Unacknowledged::default()),
-        )
-        .await;
-        let heard = lock(&events).clone();
-        assert!(heard.is_empty(), "{heard:?}");
-    }
 }

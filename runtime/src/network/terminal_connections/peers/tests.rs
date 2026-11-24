@@ -159,9 +159,19 @@ async fn a_viewer_whose_socket_fails_goes_straight_again_with_a_new_socket() {
         SocketAddr::from((Ipv4Addr::LOCALHOST, free))
     };
     socket.inner.io.connect(refusing).await.unwrap();
-    socket.inner.io.send(&[0]).await.unwrap();
-    let ended = tokio::time::timeout(Duration::from_secs(5), reached.reader.recv()).await;
-    assert_eq!(ended.unwrap(), None);
+    // The system answers a datagram to a closed port only within its limit of such answers, which
+    // other tests that run at the same time also use.
+    let mut ended = None;
+    for _ in 0..50 {
+        socket.inner.io.send(&[0]).await.unwrap();
+        if let Ok(end) =
+            tokio::time::timeout(Duration::from_millis(100), reached.reader.recv()).await
+        {
+            ended = Some(end);
+            break;
+        }
+    }
+    assert_eq!(ended, Some(None));
 
     let (arrived, reached) = tokio::join!(
         host.expect(viewer_keys.signing_public(), second).meet(&[]),

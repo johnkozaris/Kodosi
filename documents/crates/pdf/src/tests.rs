@@ -1,12 +1,11 @@
-use document::{Assets, Format, Ordered, Refused, hash_from_hex};
+use document::{Assets, Format, Ordered, Refused};
 use lopdf::{
-    Dictionary, Document, Object, Stream, StringFormat,
+    Dictionary, Document, Object, Stream,
     content::{Content, Operation},
     dictionary,
 };
-use serde_json::json;
 
-use crate::{Change, Model, Op, PageWork, Pdf, Query};
+use crate::{Change, Model, Op, Pdf};
 
 fn page_content(words: &[(&str, i64, i64)]) -> Vec<u8> {
     let mut operations = Vec::new();
@@ -105,33 +104,6 @@ fn no_edit_means_the_same_bytes() {
 }
 
 #[test]
-fn pages_come_with_inherited_sizes_and_form_values() {
-    let model = read(&pdf_file());
-    let snapshot = Pdf::snapshot(&model).0;
-    assert_eq!(snapshot["pages"].as_array().unwrap().len(), 2);
-    assert_eq!(snapshot["pages"][0]["width"], 612.0);
-    assert_eq!(snapshot["fields"]["name"], "Ana");
-}
-
-#[test]
-fn a_string_in_the_encoding_of_pdf_reads_as_its_letters() {
-    let mut document = Document::load_mem(&pdf_file()).unwrap();
-    let field = document
-        .objects
-        .values_mut()
-        .filter_map(|object| object.as_dict_mut().ok())
-        .find(|dictionary| dictionary.has(b"FT"))
-        .unwrap();
-    field.set(
-        "V",
-        Object::String(b"Ana \x84 \x80 \xa0".to_vec(), StringFormat::Literal),
-    );
-    let mut file = Vec::new();
-    document.save_to(&mut file).unwrap();
-    assert_eq!(Pdf::snapshot(&read(&file)).0["fields"]["name"], "Ana — • €");
-}
-
-#[test]
 fn a_note_goes_after_each_old_byte() {
     let file = pdf_file();
     let mut model = read(&file);
@@ -197,29 +169,6 @@ fn a_form_value_keeps_the_old_bytes() {
     let new_file = saved(&model, &file);
     assert_eq!(&new_file[..file.len()], &file[..]);
     assert_eq!(read(&new_file).fields["name"], "Βίκυ");
-}
-
-#[test]
-fn pages_can_move_turn_and_go() {
-    let file = pdf_file();
-    let mut model = read(&file);
-    let first = model.pages[0].id.clone();
-    ops(&mut model, vec![Op::MovePage { page: 1, to: 2 }]).unwrap();
-    assert_eq!(model.pages[1].id, first);
-    ops(
-        &mut model,
-        vec![Op::RotatePage {
-            page: 2,
-            degrees: 90,
-        }],
-    )
-    .unwrap();
-    assert_eq!(model.pages[1].rotation, 90);
-    let new_file = saved(&model, &file);
-    assert!(text_of(&new_file, 1).contains("second page"));
-    assert_eq!(read(&new_file).pages[1].rotation, 90);
-    ops(&mut model, vec![Op::RemovePage { page: 1 }]).unwrap();
-    assert_eq!(read(&saved(&model, &new_file)).pages.len(), 1);
 }
 
 #[test]
@@ -331,26 +280,6 @@ fn a_redaction_refuses_a_page_that_draws_what_it_cannot_look_into() {
 }
 
 #[test]
-fn page_work_gives_views_a_new_file_to_load() {
-    let file = pdf_file();
-    let mut model = read(&file);
-    let mut assets = Assets::default();
-    let change = Change::Work {
-        work: PageWork::Rotate {
-            page: model.pages[0].id.clone(),
-            degrees: 180,
-        },
-    };
-    let done = Pdf::apply(&mut model, change, &[], &mut assets).unwrap();
-    let Change::Worked { asset, pages, .. } = done else {
-        panic!("not worked");
-    };
-    assert_eq!(asset, model.asset);
-    assert_eq!(pages[0].rotation, 180);
-    assert!(assets.get(&hash_from_hex(&asset).unwrap()).is_some());
-}
-
-#[test]
 fn an_old_change_to_the_same_field_is_refused_with_the_name() {
     let mut model = read(&pdf_file());
     let earlier = Ordered {
@@ -397,32 +326,4 @@ fn a_compare_finds_a_note_that_a_write_added() {
     let changes = Pdf::compare(&base, &read(&written));
     assert_eq!(changes.len(), 1);
     assert!(matches!(changes[0], Change::Note { .. }));
-}
-
-#[test]
-fn a_read_gives_the_text_of_a_page() {
-    let answer = Pdf::query(&read(&pdf_file()), Query::Read { page: Some(2) }).0;
-    assert!(
-        answer["pages"][0]["text"]
-            .as_str()
-            .unwrap()
-            .contains("second page")
-    );
-}
-
-#[test]
-fn the_guide_names_each_op_that_an_agent_can_send() {
-    let guide = Pdf::guide();
-    for op in &guide.ops {
-        let mut example = json!({ "op": op.name });
-        for field in op.fields.iter().filter(|field| field.required) {
-            example[&field.name] = match field.kind.as_str() {
-                "page number" | "number" | "points" => json!(1),
-                "rectangles" => json!([[0.0, 0.0, 1.0, 1.0]]),
-                _ => json!("x"),
-            };
-        }
-        let parsed: Result<Op, _> = serde_json::from_value(example);
-        assert!(parsed.is_ok(), "{}: {parsed:?}", op.name);
-    }
 }

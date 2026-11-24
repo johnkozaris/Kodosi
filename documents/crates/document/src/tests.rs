@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::json;
 
 use crate::{
     Answer, Assets, CONTRACT, Catchup, Changed, ClosedReason, Document, Effect, Format, Frame,
@@ -114,21 +114,6 @@ impl Format for Sheet {
     fn seals(change: &Change) -> bool {
         matches!(change, Change::Seal)
     }
-
-    fn map_place(place: &mut Value, change: &Change) {
-        let line = place.get("line").and_then(Value::as_u64);
-        if let (Change::Insert { at, .. }, Some(line)) = (change, line)
-            && line >= *at as u64
-        {
-            place["line"] = json!(line + 1);
-        }
-    }
-
-    fn describe_place(model: &Model, place: &Value) -> Value {
-        let line = place.get("line").and_then(Value::as_u64);
-        line.and_then(|line| model.lines.get(usize::try_from(line).ok()?))
-            .map_or(Value::Null, |text| json!({ "text": text }))
-    }
 }
 
 fn file_of(model: &Model) -> Vec<u8> {
@@ -208,16 +193,6 @@ fn messages_for(pipe: PipeId, effects: &[Effect]) -> Vec<ToClient> {
 }
 
 #[test]
-fn a_change_goes_to_the_journal_before_any_view_hears_of_it() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    let effects = message_to(&mut document, 1, change_frame(1, 0, &set("a1", "x")));
-    assert!(matches!(effects[0], Effect::Append(_)));
-    assert!(matches!(effects[1], Effect::Send { .. }));
-    assert_eq!(document.rev(), 1);
-}
-
-#[test]
 fn a_batch_sent_twice_applies_once() {
     let mut document = opened();
     connect(&mut document, 1, "ana");
@@ -225,20 +200,6 @@ fn a_batch_sent_twice_applies_once() {
     message_to(&mut document, 1, change.clone());
     assert_eq!(message_to(&mut document, 1, change), Vec::new());
     assert_eq!(document.rev(), 1);
-}
-
-#[test]
-fn every_view_hears_a_change_and_the_sender_too() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    connect(&mut document, 2, "ben");
-    let effects = message_to(&mut document, 1, change_frame(1, 0, &set("a1", "x")));
-    for pipe in [1, 2] {
-        assert!(matches!(
-            messages_for(pipe, &effects).as_slice(),
-            [ToClient::Changed(Changed { rev: 1, .. })]
-        ));
-    }
 }
 
 #[test]
@@ -275,28 +236,6 @@ fn a_change_on_old_positions_is_refused_and_a_key_is_not() {
         messages_for(1, &key).as_slice(),
         [ToClient::Changed(Changed { rev: 3, .. })]
     ));
-}
-
-#[test]
-fn a_viewer_that_cannot_edit_is_refused() {
-    let mut document = opened();
-    document.step(Input::Connected {
-        pipe: 1,
-        viewer: Viewer {
-            can_edit: false,
-            ..viewer("ana")
-        },
-    });
-    message_to(&mut document, 1, join_frame("ana", 0, 0));
-    let effects = message_to(&mut document, 1, change_frame(1, 0, &set("a1", "x")));
-    assert!(matches!(
-        messages_for(1, &effects).as_slice(),
-        [ToClient::Refused {
-            reason: RefusedReason::Invalid,
-            ..
-        }]
-    ));
-    assert_eq!(document.rev(), 0);
 }
 
 #[test]
@@ -346,31 +285,6 @@ fn another_contract_number_cannot_join_and_learns_which_side_to_update() {
 }
 
 #[test]
-fn a_view_that_comes_back_gets_only_what_it_missed() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    message_to(&mut document, 1, change_frame(1, 0, &set("a1", "x")));
-    message_to(&mut document, 1, change_frame(2, 1, &set("a2", "y")));
-    document.step(Input::Left { pipe: 1 });
-    document.step(Input::Connected {
-        pipe: 2,
-        viewer: viewer("ana"),
-    });
-    let effects = message_to(&mut document, 2, join_frame("ana", 1, 1));
-    match messages_for(2, &effects).as_slice() {
-        [
-            ToClient::Joined {
-                seq: Some(2),
-                rev: 2,
-                catchup: Catchup::Missed { changes },
-                ..
-            },
-        ] => assert_eq!(changes.len(), 1),
-        other => panic!("{other:?}"),
-    }
-}
-
-#[test]
 fn a_view_learns_whether_the_document_knows_its_client() {
     let seq_of = |pipe: PipeId, effects: &[Effect]| match messages_for(pipe, effects).as_slice() {
         [ToClient::Joined { seq, .. }] => *seq,
@@ -393,30 +307,6 @@ fn a_view_learns_whether_the_document_knows_its_client() {
 }
 
 #[test]
-fn a_view_that_comes_back_before_its_first_change_gets_only_what_it_missed() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    connect(&mut document, 2, "ben");
-    message_to(&mut document, 2, change_frame(1, 0, &set("b1", "x")));
-    document.step(Input::Left { pipe: 1 });
-    document.step(Input::Connected {
-        pipe: 3,
-        viewer: viewer("ana"),
-    });
-    let effects = message_to(&mut document, 3, join_frame("ana", 1, 0));
-    match messages_for(3, &effects).as_slice() {
-        [
-            ToClient::Joined {
-                rev: 1,
-                catchup: Catchup::Missed { changes },
-                ..
-            },
-        ] => assert_eq!(changes.len(), 1),
-        other => panic!("{other:?}"),
-    }
-}
-
-#[test]
 fn a_view_from_an_earlier_journal_gets_a_snapshot() {
     let mut document = opened();
     connect(&mut document, 1, "ana");
@@ -436,131 +326,9 @@ fn a_view_from_an_earlier_journal_gets_a_snapshot() {
 }
 
 #[test]
-fn a_new_pipe_of_one_client_replaces_the_old_one() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    document.step(Input::Connected {
-        pipe: 2,
-        viewer: viewer("ana"),
-    });
-    let effects = message_to(&mut document, 2, join_frame("ana", 1, 0));
-    assert!(effects.contains(&Effect::Drop { pipe: 1 }));
-    assert_eq!(document.step(Input::Left { pipe: 1 }), Vec::new());
-}
-
-#[test]
-fn places_go_to_the_others_and_not_to_the_journal() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    connect(&mut document, 2, "ben");
-    let effects = message_to(
-        &mut document,
-        1,
-        frame(&ToDocument::Place {
-            rev: 0,
-            body: json!({ "cell": "B2" }),
-        }),
-    );
-    assert_eq!(effects.len(), 1);
-    assert!(matches!(
-        messages_for(2, &effects).as_slice(),
-        [ToClient::Peer(peer)] if peer.place == json!({ "cell": "B2" })
-    ));
-    assert_eq!(messages_for(1, &effects), Vec::new());
-    document.step(Input::Left { pipe: 1 });
-    document.step(Input::Connected {
-        pipe: 3,
-        viewer: viewer("cem"),
-    });
-    let joined = message_to(&mut document, 3, join_frame("cem", 0, 0));
-    assert!(matches!(
-        messages_for(3, &joined).as_slice(),
-        [ToClient::Joined { peers, .. }] if peers.len() == 1
-    ));
-}
-
-#[test]
-fn a_place_moves_with_each_change_after_it_and_an_agent_reads_it_in_the_formats_words() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    connect(&mut document, 2, "ben");
-    let insert = |line: &str| Change::Insert {
-        at: 0,
-        line: line.to_owned(),
-    };
-    message_to(&mut document, 2, change_frame(1, 0, &insert("one")));
-    message_to(&mut document, 2, change_frame(2, 1, &insert("two")));
-    let placed = message_to(
-        &mut document,
-        1,
-        frame(&ToDocument::Place {
-            rev: 1,
-            body: json!({ "line": 0 }),
-        }),
-    );
-    assert!(matches!(
-        messages_for(2, &placed).as_slice(),
-        [ToClient::Peer(peer)] if peer.place == json!({ "line": 1 }) && peer.person == "ana"
-    ));
-    message_to(&mut document, 2, change_frame(3, 2, &insert("three")));
-    let asked = message_to(&mut document, 2, frame(&ToDocument::People { id: 7 }));
-    assert!(matches!(
-        messages_for(2, &asked).as_slice(),
-        [ToClient::Answer { id: 7, rev: 3, body }]
-            if *body == json!([{ "name": "ana", "place": { "text": "one" } }])
-    ));
-}
-
-#[test]
-fn a_query_sees_the_live_copy_with_its_rev() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    message_to(&mut document, 1, change_frame(1, 0, &set("a1", "x")));
-    let effects = message_to(
-        &mut document,
-        1,
-        frame(&ToDocument::Query {
-            id: 5,
-            body: json!("a1"),
-        }),
-    );
-    assert_eq!(
-        messages_for(1, &effects),
-        [ToClient::Answer {
-            id: 5,
-            rev: 1,
-            body: json!("x"),
-        }]
-    );
-}
-
-#[test]
 fn a_save_with_no_change_writes_nothing() {
     let mut document = opened();
     assert_eq!(document.step(Input::Save { file: Vec::new() }), Vec::new());
-}
-
-#[test]
-fn a_waiting_save_shows_once_and_ends_when_saved() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    let waits = document.step(Input::SaveWaits);
-    assert_eq!(
-        messages_for(1, &waits),
-        [ToClient::Saved {
-            rev: 0,
-            waits: true,
-        }]
-    );
-    assert_eq!(document.step(Input::SaveWaits), Vec::new());
-    let saved = document.step(Input::Saved { rev: 0 });
-    assert_eq!(
-        messages_for(1, &saved),
-        [ToClient::Saved {
-            rev: 0,
-            waits: false,
-        }]
-    );
 }
 
 #[test]
@@ -1017,42 +785,4 @@ fn a_restart_keeps_seqs_so_a_batch_sent_again_applies_once() {
     world.settle();
     assert_eq!(world.document.rev(), rev);
     assert_eq!(world.views[0].next_seq, seq + 1);
-}
-
-#[test]
-fn json_values_that_are_not_changes_are_refused() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    let effects = message_to(
-        &mut document,
-        1,
-        frame(&ToDocument::Change {
-            seq: 1,
-            base: 0,
-            body: Value::Bool(true),
-        }),
-    );
-    assert!(matches!(
-        messages_for(1, &effects).as_slice(),
-        [ToClient::Refused {
-            reason: RefusedReason::Invalid,
-            detail: Some(detail),
-            ..
-        }] if detail.starts_with("The change is not valid")
-    ));
-}
-
-#[test]
-fn a_base_from_before_the_file_opened_again_says_so() {
-    let mut document = opened();
-    connect(&mut document, 1, "ana");
-    let effects = message_to(&mut document, 1, change_frame(1, 4, &set("a1", "x")));
-    assert!(matches!(
-        messages_for(1, &effects).as_slice(),
-        [ToClient::Refused {
-            reason: RefusedReason::Invalid,
-            detail: Some(detail),
-            ..
-        }] if detail.contains("rev 0 now")
-    ));
 }

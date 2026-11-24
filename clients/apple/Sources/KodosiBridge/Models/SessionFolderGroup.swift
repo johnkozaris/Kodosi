@@ -86,7 +86,11 @@ public struct SessionComputerGroup: Identifiable, Sendable {
                 )
             }.sorted { ($0.directory == nil ? 1 : 0, $0.directory ?? "") < ($1.directory == nil ? 1 : 0, $1.directory ?? "") }
             return folders.isEmpty ? nil : Self(id: key, computer: computer, owner: owner, title: title, folders: folders)
-        }.sorted { ($0.rank, $0.title) < ($1.rank, $1.title) }
+        }.sorted { first, second in
+            guard first.rank == second.rank else { return first.rank < second.rank }
+            let order = first.title.localizedCaseInsensitiveCompare(second.title)
+            return order == .orderedSame ? first.id < second.id : order == .orderedAscending
+        }
     }
 
     private var rank: Int {

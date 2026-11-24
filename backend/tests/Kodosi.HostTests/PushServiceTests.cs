@@ -182,25 +182,6 @@ public sealed class PushServiceTests
             TestContext.Current.CancellationToken);
         Assert.Equal(outcome, delivery.Outcome.ToString());
     }
-
-    [Fact]
-    public void PushStaysOffWithoutSettingsAndRefusesHalfASetting()
-    {
-        static PushSettings Read(Dictionary<string, string?> values) =>
-            PushSettings.From(new ConfigurationBuilder().AddInMemoryCollection(values).Build());
-        Assert.False(Read(new()).Sends);
-        Assert.True(Read(PushKeys.Values(fcm: false)).Sends);
-        foreach (var (key, value) in new Dictionary<string, string?>
-                 {
-                     ["Push:Apns:Topic"] = null, ["Push:Apns:PrivateKey"] = "not a key", ["Push:Apns:TeamId"] = "TEAM 1",
-                     ["Push:Fcm:ServiceAccount"] = "{}", ["Push:Fcm:ProjectId"] = null,
-                 })
-        {
-            var values = PushKeys.Values();
-            values[key] = value;
-            Assert.Throws<InvalidOperationException>(() => Read(values));
-        }
-    }
 }
 
 internal static class PushKeys

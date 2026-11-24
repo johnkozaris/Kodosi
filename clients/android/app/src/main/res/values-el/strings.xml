@@ -556,4 +556,7 @@
         <item quantity="one">Εργασίες: %1$d από %2$d έτοιμη</item>
         <item quantity="other">Εργασίες: %1$d από %2$d έτοιμες</item>
     </plurals>
+    <string name="local_network_title">Απευθείας στον υπολογιστή σας</string>
+    <string name="local_network_reason">Στο ίδιο Wi-Fi, το τηλέφωνό σας συνδέεται απευθείας με τον δικό σας υπολογιστή, και είναι πιο γρήγορο. Το Android ονομάζει αυτή την άδεια «Συσκευές σε κοντινή απόσταση».</string>
+    <string name="local_network_continue">Συνέχεια</string>
 </resources>

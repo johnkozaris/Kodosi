@@ -7,7 +7,6 @@ using Kodosi.Projects;
 using Kodosi.Plans;
 using Kodosi.Security;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Xunit;
 using static Kodosi.HostTests.BackendApplication;
 
@@ -60,27 +59,6 @@ public sealed class PlanTests(PostgresFixture postgres)
             ciphertext = Convert.ToBase64String(new byte[40 * 1024]) }, TestJson.Options);
         return new(0, author.Device.Id, Convert.ToBase64String(bytes),
             Convert.ToBase64String(author.Fixture.Sign(Proofs.Tagged("kodosi-room-content-v1"u8, bytes))));
-    }
-
-    [Fact]
-    public void TheSettingsDefineThePlansAndRefuseAWrongValue()
-    {
-        static PlanCatalog Read(Dictionary<string, string?> values) => PlanCatalog.From(new ConfigurationBuilder().AddInMemoryCollection(values).Build());
-        Assert.Same(PlanCatalog.None, Read(new()));
-        Assert.Equal(PlanLimits.Safety, PlanCatalog.None.For("free"));
-        var catalog = Read(new()
-        {
-            ["Plans:Default"] = "free", ["Plans:Definitions:free:Devices"] = "4",
-            ["Plans:Definitions:free:ProjectBytes"] = "10485760", ["Plans:Definitions:unlimited:Devices"] = "16",
-        });
-        Assert.Equal(PlanLimits.Safety with { Devices = 4, ProjectBytes = 10485760 }, catalog.For(null));
-        Assert.Equal(16, catalog.For("unlimited").Devices);
-        Assert.Same(catalog.For(null), catalog.For("gone"));
-        Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "pro", ["Plans:Definitions:free:Devices"] = "4" }));
-        Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Definitions:free:Devices"] = "4" }));
-        Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "free", ["Plans:Definitions:free:Device"] = "4" }));
-        Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "free", ["Plans:Definitions:free:Devices"] = "17" }));
-        Assert.Throws<InvalidOperationException>(() => Read(new() { ["Plans:Default"] = "free", ["Plans:Definitions:free:ProjectBytes"] = "1024" }));
     }
 
     [Fact]

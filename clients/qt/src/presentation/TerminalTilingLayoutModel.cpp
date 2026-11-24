@@ -135,16 +135,6 @@ qreal TerminalTilingLayoutModel::contentHeight() const noexcept
     return m_contentHeight;
 }
 
-int TerminalTilingLayoutModel::layoutRowCount() const noexcept
-{
-    return m_layoutRowCount;
-}
-
-int TerminalTilingLayoutModel::layoutColumnCount() const noexcept
-{
-    return m_layoutColumnCount;
-}
-
 qreal TerminalTilingLayoutModel::accessibilityTextScale() const noexcept
 {
     return m_accessibilityTextScale;

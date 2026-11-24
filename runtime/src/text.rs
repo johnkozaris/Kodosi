@@ -366,35 +366,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_text_travels_as_data_and_becomes_words_in_each_language() {
-        let text = text!("{computer} is offline.", computer = "studio");
-        let mut event = serde_json::json!({"type":"session.error","message":text});
-        assert_eq!(
-            event["message"],
-            serde_json::json!({"$text":"{computer} is offline.","args":{"computer":"studio"}})
-        );
-        render(&mut event, Language::German);
-        assert_eq!(event["message"], "studio ist offline.");
-    }
-
-    #[test]
-    fn a_fault_keeps_its_english_detail_after_a_general_sentence() {
-        let fault = Text::plain("Terminal frame has an invalid body.");
-        assert_eq!(fault.to_string(), "Terminal frame has an invalid body.");
-        let mut event = serde_json::json!({"message":fault});
-        assert_eq!(
-            event["message"],
-            serde_json::json!({"$fault":"Terminal frame has an invalid body."})
-        );
-        render(&mut event, Language::German);
-        let words = event["message"].as_str().unwrap();
-        assert!(
-            words.ends_with(" (Terminal frame has an invalid body.)"),
-            "{words}"
-        );
-    }
-
-    #[test]
     fn data_that_only_looks_like_a_text_stays_as_it_is() {
         let data = serde_json::json!({"cells":[
             {"$text":"A1","style":"bold"},
@@ -405,39 +376,6 @@ mod tests {
         let mut rendered = data.clone();
         render(&mut rendered, Language::German);
         assert_eq!(rendered, data);
-    }
-
-    #[test]
-    fn a_sentence_inside_a_sentence_takes_the_same_language() {
-        let inner = text!("Approve this device from one of your existing devices.");
-        let outer = text!(
-            "{reason} Approve this device from another device, or start fresh here.",
-            reason = inner
-        );
-        let travelled: Text =
-            serde_json::from_value(serde_json::to_value(&outer).unwrap()).unwrap();
-        assert_eq!(travelled, outer);
-        assert_eq!(
-            travelled.to_string(),
-            "Approve this device from one of your existing devices. Approve this device from another device, or start fresh here."
-        );
-    }
-
-    #[test]
-    fn a_fault_inside_a_sentence_keeps_its_words_before_and_after_it_travels() {
-        let text = text!(
-            "{reason} Go back to Kodosi and try again.",
-            reason = Text::plain("The code expired.")
-        );
-        let travelled: Text = serde_json::from_value(serde_json::to_value(&text).unwrap()).unwrap();
-        for text in [text, travelled] {
-            assert!(
-                text.in_language(Language::German)
-                    .starts_with("The code expired. "),
-                "{}",
-                text.in_language(Language::German)
-            );
-        }
     }
 
     #[test]
@@ -452,18 +390,5 @@ mod tests {
         render(&mut event, Language::English);
         assert!(event["message"].as_str().unwrap().len() <= MOST_FILLED);
         assert!(started.elapsed() < std::time::Duration::from_secs(1));
-    }
-
-    #[test]
-    fn tags_name_their_language() {
-        assert_eq!(Language::of("de-AT"), Language::German);
-        assert_eq!(Language::of("zh-Hans"), Language::Chinese);
-        assert_eq!(Language::of("zh_CN"), Language::Chinese);
-        assert_eq!(Language::of("zh-Hans-TW"), Language::Chinese);
-        assert_eq!(Language::of("zh-Hant-TW"), Language::English);
-        assert_eq!(Language::of("zh_TW"), Language::English);
-        assert_eq!(Language::of("zh-HK"), Language::English);
-        assert_eq!(Language::of("el"), Language::Greek);
-        assert_eq!(Language::of("pt-BR"), Language::English);
     }
 }

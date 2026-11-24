@@ -15037,6 +15037,9 @@
                             }
                           ]
                         },
+                        "dosi": {
+                          "type": "boolean"
+                        },
                         "fast": {
                           "type": "boolean"
                         },
@@ -15098,7 +15101,8 @@
                         "defaultPermissions",
                         "defaultOutput",
                         "fast",
-                        "chat"
+                        "chat",
+                        "dosi"
                       ],
                       "type": "object"
                     },
@@ -18053,7 +18057,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 108,
+  "protocolVersion": 110,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

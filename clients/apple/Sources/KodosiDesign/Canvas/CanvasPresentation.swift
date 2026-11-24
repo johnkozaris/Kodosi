@@ -79,12 +79,20 @@ public extension RuntimeSession {
 public enum CanvasQuestion {
     public static func about(_ shown: CanvasShown, words: String?) -> String {
         let place = switch shown {
-        case let .item(item): item.key
-        case let .browser(browser): browser.activeTab?.url ?? String(localized: "the shared browser", bundle: .module)
+        case let .item(item): writtenOut(item.key)
+        case let .browser(browser): (browser.activeTab?.url).map(writtenOut) ?? String(localized: "the shared browser", bundle: .module)
         }
         let words = words.map(oneLine).flatMap { $0.isEmpty ? nil : String($0.prefix(600)) }
         return words.map { String(localized: "About \(place): \"\($0)\" ", bundle: .module) }
             ?? String(localized: "About \(place): ", bundle: .module)
+    }
+
+    /// A name of a file can hold a line break, which would end the line that the agent reads.
+    private static func writtenOut(_ text: String) -> String {
+        text.unicodeScalars.map { scalar in
+            CharacterSet.controlCharacters.contains(scalar) || CharacterSet.newlines.contains(scalar)
+                ? "\\u{\(String(scalar.value, radix: 16, uppercase: true))}" : String(scalar)
+        }.joined()
     }
 
     private static func oneLine(_ text: String) -> String {

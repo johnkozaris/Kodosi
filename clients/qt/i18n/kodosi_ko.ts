@@ -2660,10 +2660,6 @@
         <translation>이 링크에는 모양을 바꿀 수 있는 숨은 문자가 있어요.</translation>
     </message>
     <message>
-        <source>The web link has no server name.</source>
-        <translation>이 웹 링크에는 서버 이름이 없어요.</translation>
-    </message>
-    <message>
         <source>The address is on %1.</source>
         <translation>이 주소는 %1에 있어요.</translation>
     </message>

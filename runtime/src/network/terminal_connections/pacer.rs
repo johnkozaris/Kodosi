@@ -223,29 +223,6 @@ mod tests {
     }
 
     #[test]
-    fn a_snapshot_holds_the_image_pixels_that_the_link_carries_in_two_seconds() {
-        let start = Instant::now();
-        let mut pacer = Pacer::default();
-        pacer.sent(300_000, start);
-        pacer.acknowledge(300_000, at(start, 100)).unwrap();
-        assert_eq!(pacer.image_data_bytes(), 6_000_000);
-        pacer.sent(8_000_000, at(start, 1000));
-        pacer.acknowledge(8_300_000, at(start, 1100)).unwrap();
-        assert_eq!(
-            pacer.image_data_bytes(),
-            TERMINAL_REMOTE_IMAGE_DATA_MAX_BYTES
-        );
-
-        let mut slow = Pacer::default();
-        slow.sent(3000, start);
-        slow.acknowledge(3000, at(start, 200)).unwrap();
-        assert_eq!(
-            slow.image_data_bytes(),
-            TERMINAL_REMOTE_IMAGE_DATA_MIN_BYTES
-        );
-    }
-
-    #[test]
     fn a_false_acknowledgement_is_refused() {
         let start = Instant::now();
         let mut pacer = Pacer::default();

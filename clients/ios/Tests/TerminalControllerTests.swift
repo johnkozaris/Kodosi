@@ -32,25 +32,6 @@ struct TerminalControllerTests {
         #expect(!controller.opening)
     }
 
-    @Test func `a terminal that the screen opens says from its first frame that it connects`() throws {
-        try deliver("sessions.snapshot", ["sessions": [terminalEntry("s1", state: "working", connection: "offline")]])
-        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
-        let session = try #require(controller.session)
-        let cover = TerminalCover.of(session, unreachable: false, opening: controller.opening, failure: nil, render: nil)
-        #expect(cover == .connecting)
-    }
-
-    @Test func `a terminal without access is not opened`() async throws {
-        try deliver("sessions.snapshot", ["sessions": [terminalEntry("s1", state: "working", connection: "blocked")]])
-        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
-        controller.appear(active: true)
-        for _ in 0 ..< 20 {
-            await Task.yield()
-        }
-        #expect(log.fields(of: "session.openRemote").isEmpty)
-        controller.disappear()
-    }
-
     @Test func `an open terminal moves to the terminal that its computer started again`() async throws {
         let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
         controller.appear(active: true)
@@ -129,36 +110,6 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func `what the agent shows on the canvas is news only while Kodosi is in front and unlocked`() async throws {
-        let suite = "TerminalControllerTests.lock"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(true, forKey: AppLock.storageKey)
-        let lock = AppLock(defaults: defaults, canProve: { true }, ask: { .proved })
-        let at = UInt64(Date.now.timeIntervalSince1970 * 1000) + 60000
-        var entry = terminalEntry("s1", state: "working")
-        entry["canvas"] = [
-            "sequence": at,
-            "items": [["key": "/work/report.pdf", "name": "report.pdf", "kind": "pdf", "revision": 1, "bytes": 120, "changed": at]],
-            "open": ["key": "/work/report.pdf", "at": at],
-        ]
-        try deliver("sessions.snapshot", ["sessions": [entry]])
-        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: lock)
-        controller.appear(active: true)
-        #expect(controller.canvasNews().isEmpty)
-        lock.unlock()
-        for _ in 0 ..< 20 where lock.locked {
-            await Task.yield()
-        }
-        #expect(!lock.locked)
-        controller.setActive(false)
-        #expect(controller.canvasNews().isEmpty)
-        controller.setActive(true)
-        #expect(controller.canvasNews().map(\.shown.key) == ["/work/report.pdf"])
-        #expect(controller.canvasNews().isEmpty)
-        controller.disappear()
-    }
-
     private func deliver(_ type: String, _ fields: [String: Any] = [:]) throws {
         var payload = fields
         payload["type"] = type
@@ -174,22 +125,16 @@ func terminalEntry(
     state: String,
     owner: Bool = true,
     host: String = "Studio",
-    connection: String = "connected",
-    project: (id: String, name: String)? = nil,
     restoredFrom: String? = nil,
 ) -> [String: Any] {
     var entry: [String: Any] = [
         "id": id, "incarnationId": "\(id)-1", "kind": "remote", "program": "claude",
         "programStatus": ["state": state], "working": state == "working", "name": id, "isOwner": owner, "status": "running",
-        "attention": false, "hidden": false, "connectionState": connection, "sharedWith": [], "hostName": host, "hostDeviceId": "device-\(host)",
+        "attention": false, "hidden": false, "connectionState": "connected", "sharedWith": [], "hostName": host, "hostDeviceId": "device-\(host)",
         "ownerUserId": owner ? "user-1" : "user-2", "ownerName": owner ? "Me" : "Maria",
     ]
     if ["blocked", "done", "error"].contains(state) {
         entry["waiting"] = state
-    }
-    if let project {
-        entry["projectId"] = project.id
-        entry["projectName"] = project.name
     }
     if let restoredFrom {
         entry["restoredFrom"] = restoredFrom

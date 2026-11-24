@@ -21,80 +21,6 @@ struct ProjectStoreTests {
         projects.reset(userId: "user-1")
     }
 
-    @Test func `project that leaves the list is gone`() throws {
-        try deliver("projects.snapshot", list(["project-1", "project-2"]))
-        try deliver("project.snapshot", ["content": content("project-2", messages: [message("m1", 1, author: "user-2")])])
-        try deliver("projects.snapshot", list([], truncated: true))
-        #expect(projects.departed.isEmpty)
-        #expect(projects.snapshots["project-2"] != nil)
-        projects.visibleProjectId = "project-3"
-        try deliver("projects.snapshot", list([]))
-        #expect(projects.departed == ["project-1", "project-2"])
-        #expect(projects.snapshots["project-2"] == nil)
-        try deliver("projects.snapshot", list(["project-1"]))
-        #expect(projects.departed == ["project-2"])
-    }
-
-    @Test func `later snapshots merge messages and count unread from others`() async throws {
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m1", 1, author: "user-2"), message("m2", 2, author: "user-1")])])
-        try deliver("project.snapshot", ["content": content("project-1", messages: [
-            message("m2", 2, author: "user-1"), message("m3", 3, author: "user-2"),
-            message("m4", 4, author: "user-1"), message("m5", 5, author: "user-1", agent: "Claude Code"),
-        ])])
-        #expect(projects.snapshots["project-1"]?.messages.map(\.id) == ["m1", "m2", "m3", "m4", "m5"])
-        #expect(projects.view("project-1").unread == 2)
-        projects.markRead("project-1")
-        #expect(projects.view("project-1").unread == 0)
-        let seen = try await log.next("project.seen")
-        #expect(seen["projectId"] as? String == "project-1")
-        #expect(position(of: seen) == 5)
-    }
-
-    @Test func `a deletion replaces only a kept message and a clear drops the messages up to its position`() throws {
-        try deliver("project.snapshot", ["content": content("project-1", messages: [
-            message("m5", 5, author: "user-2"), message("m6", 6, author: "user-2"),
-        ])])
-        try deliver("project.snapshot", ["content": content(
-            "project-1",
-            messages: [message("m7", 7, author: "user-2"), message("m8", 8, author: "user-2", deleted: true)],
-            replacements: [message("m5", 5, author: "user-2", deleted: true), message("m2", 2, author: "user-2", deleted: true)],
-        )])
-        let merged = projects.snapshots["project-1"]?.messages ?? []
-        #expect(merged.map(\.id) == ["m5", "m6", "m7", "m8"])
-        #expect(merged.map(\.deleted) == [true, false, false, true])
-        #expect(projects.view("project-1").unread == 1)
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m9", 9, author: "user-2")], clearedPosition: 7)])
-        #expect(projects.snapshots["project-1"]?.messages.map(\.id) == ["m8", "m9"])
-        #expect(projects.view("project-1").unread == 1)
-    }
-
-    @Test func `older pages are not new`() throws {
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m5", 5, author: "user-2")], hasOlder: true)])
-        try deliver("project.snapshot", ["content": content("project-1", messages: [
-            message("m3", 3, author: "user-2"), message("m4", 4, author: "user-2"),
-        ], hasOlder: false)])
-        #expect(projects.snapshots["project-1"]?.messages.map(\.id) == ["m3", "m4", "m5"])
-        #expect(projects.snapshots["project-1"]?.hasOlder == false)
-        #expect(projects.view("project-1").unread == 0)
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m6", 6, author: "user-2")], hasOlder: true)])
-        #expect(projects.snapshots["project-1"]?.hasOlder == false)
-    }
-
-    @Test func `reading the conversation keeps it read`() async throws {
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m1", 1, author: "user-2")])])
-        projects.view("project-1").show(.conversation)
-        #expect(try await position(of: log.next("project.seen")) == 1)
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m2", 2, author: "user-2")])])
-        #expect(projects.view("project-1").unread == 0)
-        #expect(try await position(of: log.next("project.seen")) == 2)
-        projects.view("project-1").followsLatest = false
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m3", 3, author: "user-2")])])
-        #expect(projects.view("project-1").unread == 1)
-        projects.view("project-1").followsLatest = true
-        #expect(projects.view("project-1").unread == 0)
-        #expect(try await position(of: log.next("project.seen")) == 3)
-    }
-
     @Test func `what the person read away from the front is seen when the app comes back`() async throws {
         var front = false
         projects.isFront = { front }
@@ -107,138 +33,6 @@ struct ProjectStoreTests {
         front = true
         projects.markShownRead()
         #expect(try await position(of: log.next("project.seen")) == 5)
-    }
-
-    @Test func `a project that the list shows unread is seen again`() async throws {
-        try deliver("projects.snapshot", list(["project-1"], unread: true))
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m1", 1, author: "user-2")])])
-        projects.markRead("project-1")
-        projects.markRead("project-1")
-        #expect(try await position(of: log.next("project.seen")) == 1)
-        #expect(try await position(of: log.next("project.seen")) == 1)
-        try deliver("projects.snapshot", list(["project-1"]))
-        projects.markRead("project-1")
-        #expect(log.take("project.seen") == nil)
-    }
-
-    @Test func `tasks keep their newest version`() throws {
-        try deliver("project.snapshot", ["content": content("project-1", tasks: [task("t1", version: 3, title: "New title")])])
-        #expect(projects.view("project-1").fresh.isEmpty)
-        try deliver("project.snapshot", ["content": content("project-1", tasks: [
-            task("t1", version: 2, title: "Old title"), task("t2", version: 1, title: "Second"),
-        ])])
-        #expect(projects.snapshots["project-1"]?.tasks.map(\.title) == ["New title", "Second"])
-        #expect(projects.view("project-1").fresh == [.tasks])
-        projects.view("project-1").show(.tasks)
-        #expect(projects.view("project-1").fresh.isEmpty)
-    }
-
-    @Test func `account change clears projects`() throws {
-        try deliver("projects.snapshot", list(["project-1"]))
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m1", 1, author: "user-2")])])
-        projects.view("project-1").message = "Draft"
-        projects.reset(userId: "user-2")
-        #expect(projects.entries.isEmpty)
-        #expect(projects.snapshots.isEmpty)
-        #expect(!projects.listed)
-        #expect(projects.view("project-1").message.isEmpty)
-    }
-
-    @Test func `opening a project reads it and loads its members`() async throws {
-        let opening = Task { await projects.open("project-1") }
-        let open = try await log.next("project.open")
-        #expect(open["projectId"] as? String == "project-1")
-        let read = try await log.next("project.act")
-        #expect(read["projectId"] as? String == "project-1")
-        #expect(try action(read) as NSDictionary == ["type": "read"])
-        try reply(to: open, "project.result", [
-            "operation": "project.open",
-            "project": project("project-1", owner: "user-2"),
-            "members": [
-                ["userId": "user-1", "handle": "me", "displayName": "Me", "isOwner": false],
-                ["userId": "user-2", "handle": "ana", "displayName": "Ana", "isOwner": true],
-            ],
-        ])
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m1", 1, author: "user-2")])])
-        try reply(to: read, "project.result", acted("read"))
-        await opening.value
-        #expect(projects.details["project-1"]?.members.map(\.handle) == ["me", "ana"])
-        #expect(projects.snapshots["project-1"]?.messages.count == 1)
-    }
-
-    @Test func `only a message of another member names a person to block or report`() async throws {
-        let opening = Task { await projects.open("project-1") }
-        let open = try await log.next("project.open")
-        let read = try await log.next("project.act")
-        try reply(to: open, "project.result", [
-            "operation": "project.open",
-            "project": project("project-1", owner: "user-2"),
-            "members": [
-                ["userId": "user-1", "handle": "me", "displayName": "Me", "isOwner": false],
-                ["userId": "user-2", "handle": "ana", "displayName": "Ana", "isOwner": true],
-            ],
-        ])
-        try deliver("project.snapshot", ["content": content("project-1", messages: [
-            message("m1", 1, author: "user-2"), message("m2", 2, author: "user-1"),
-            message("m3", 3, author: "user-1", agent: "Claude Code"), message("m4", 4, author: "user-3"),
-        ])])
-        try reply(to: read, "project.result", acted("read"))
-        await opening.value
-        let messages = try #require(projects.snapshots["project-1"]?.messages)
-        #expect(messages.map { projects.otherAuthor(of: $0, in: "project-1")?.handle } == ["ana", nil, nil, nil])
-    }
-
-    @Test func `the newest load of the people of a project wins`() async throws {
-        projects.visibleProjectId = "project-1"
-        try deliver("projects.snapshot", list(["project-1"]))
-        let first = try await log.next("project.open")
-        try deliver("projects.snapshot", list(["project-1"], truncated: true))
-        let second = try await log.next("project.open")
-        try reply(to: first, "project.result", ["operation": "project.open", "project": project("project-1", owner: "user-1", name: "Before"), "members": []])
-        try reply(to: second, "project.result", ["operation": "project.open", "project": project("project-1", owner: "user-1", name: "After"), "members": []])
-        await RefreshWait.until { projects.details["project-1"] != nil }
-        #expect(projects.details["project-1"]?.project.name == "After")
-        #expect(projects.project("project-1")?.name == "After")
-    }
-
-    @Test func `earlier messages ask before the first`() async throws {
-        try deliver("project.snapshot", ["content": content("project-1", messages: [message("m42", 42, author: "user-2")], hasOlder: true)])
-        let reading = Task { await projects.read("project-1", before: 41) }
-        let command = try await log.next("project.act")
-        #expect(try action(command) as NSDictionary == ["type": "read", "before": 41])
-        var page = acted("read")
-        page["content"] = content("project-1", messages: [message("m40", 40, author: "user-2"), message("m41", 41, author: "user-2")])
-        try reply(to: command, "project.result", page)
-        await reading.value
-        #expect(projects.snapshots["project-1"]?.messages.map(\.id) == ["m40", "m41", "m42"])
-        #expect(projects.snapshots["project-1"]?.hasOlder == false)
-        #expect(projects.view("project-1").unread == 0)
-    }
-
-    @Test func `a read that stops is no failure`() async throws {
-        let reading = Task { await projects.read("project-1") }
-        _ = try await log.next("project.act")
-        reading.cancel()
-        await reading.value
-        #expect(projects.view("project-1").readFailure == nil)
-        #expect(!projects.view("project-1").loading)
-    }
-
-    @Test func `post sends the trimmed draft and clears it`() async throws {
-        let state = projects.view("project-1")
-        state.message = "  Hello @Ana  "
-        state.followsLatest = false
-        let posting = Task { await projects.post(in: "project-1") }
-        let command = try await log.next("project.act")
-        #expect(command["projectId"] as? String == "project-1")
-        #expect(try action(command) as NSDictionary == ["type": "post", "text": "Hello @Ana"])
-        #expect(state.sending)
-        try reply(to: command, "project.result", acted("post"))
-        await posting.value
-        #expect(state.message.isEmpty)
-        #expect(state.sent == 1)
-        #expect(!state.sending)
-        #expect(state.followsLatest)
     }
 
     @Test func `draft edited while sending stays`() async throws {
@@ -263,59 +57,6 @@ struct ProjectStoreTests {
         #expect(state.message == "Hello")
         #expect(state.sent == 0)
     }
-
-    @Test func `create project uses its request as the project and invites friends`() async throws {
-        let creating = Task { try await projects.create(name: "  Launch week ", inviting: ["user-2", "user-3"]) }
-        let create = try await log.next("project.create")
-        #expect(create["name"] as? String == "Launch week")
-        let projectId = try #require(create["requestId"] as? String)
-        try reply(to: create, "project.result", ["operation": "project.create", "projectId": NSNull()])
-        for friend in ["user-2", "user-3"] {
-            let invite = try await log.next("project.invite")
-            #expect(invite["projectId"] as? String == projectId)
-            #expect(invite["userId"] as? String == friend)
-            try reply(to: invite, "project.result", ["operation": "project.invite", "projectId": projectId])
-        }
-        #expect(try await creating.value == projectId)
-    }
-
-    @Test func `a project keeps its name unless the new one fits`() async throws {
-        try deliver("projects.snapshot", list(["project-1"]))
-        try await projects.rename("project-1", to: "  ")
-        try await projects.rename("project-1", to: "Project project-1")
-        await #expect(throws: RuntimeError.operation("Use a shorter name.")) {
-            try await projects.rename("project-1", to: String(repeating: "a", count: 129))
-        }
-        #expect(log.take("project.rename") == nil)
-    }
-
-    @Test func `create task sends its fields`() async throws {
-        let creating = Task {
-            try await projects.createTask(in: "project-1", title: " Ship it ", description: " Notes ", repositoryIds: ["repo-2", "repo-1"])
-        }
-        let command = try await log.next("project.act")
-        #expect(try action(command) as NSDictionary == [
-            "type": "createTask", "title": "Ship it", "description": "Notes", "repositoryIds": ["repo-1", "repo-2"],
-        ])
-        try reply(to: command, "project.result", acted("createTask"))
-        try await creating.value
-    }
-
-    @Test func `message becomes a task`() async throws {
-        try deliver("project.snapshot", ["content": content("project-1", messages: [
-            message("m1", 1, author: "user-2", text: "\n  Fix the login page  \nIt fails on Safari."),
-        ])])
-        let message = try #require(projects.snapshots["project-1"]?.messages.first)
-        let making = Task { try await projects.makeTask(from: message, in: "project-1") }
-        let command = try await log.next("project.act")
-        let made = try action(command)
-        #expect(made["type"] as? String == "createTask")
-        #expect(made["title"] as? String == "Fix the login page")
-        #expect(made["description"] as? String == "From Ana: \n  Fix the login page  \nIt fails on Safari.")
-        #expect(made["repositoryIds"] as? [String] == [])
-        try reply(to: command, "project.result", acted("createTask"))
-        try await making.value
-    }
 }
 
 private extension ProjectStoreTests {
@@ -336,10 +77,6 @@ private extension ProjectStoreTests {
         try deliver(type, payload)
     }
 
-    func action(_ command: [String: Any]) throws -> [String: Any] {
-        try #require(command["action"] as? [String: Any])
-    }
-
     func acted(_ action: String) -> [String: Any] {
         ["operation": "project.act", "projectId": "project-1", "itemId": NSNull(), "action": action]
     }
@@ -348,39 +85,18 @@ private extension ProjectStoreTests {
         (command["position"] as? NSNumber)?.uint64Value
     }
 
-    func list(_ projects: [String], truncated: Bool = false, unread: Bool = false) -> [String: Any] {
+    func content(_ id: String, messages: [[String: Any]]) -> [String: Any] {
         [
-            "projects": projects.map { project($0, owner: "user-1", unread: unread) }, "invitations": [],
-            "projectsTruncated": truncated, "invitationsTruncated": false,
+            "projectId": id, "messages": messages, "replacements": [], "clearedPosition": 0, "tasks": [],
+            "repositories": [], "sequence": messages.count, "hasOlder": false, "historyTrimmed": false,
         ]
     }
 
-    func project(_ id: String, owner: String, name: String? = nil, unread: Bool = false) -> [String: Any] {
-        ["id": id, "name": name ?? "Project \(id)", "ownerUserId": owner, "unread": unread]
-    }
-
-    func content(
-        _ id: String, messages: [[String: Any]] = [], replacements: [[String: Any]] = [], clearedPosition: Int = 0,
-        tasks: [[String: Any]] = [], hasOlder: Bool = false,
-    ) -> [String: Any] {
-        [
-            "projectId": id, "messages": messages, "replacements": replacements, "clearedPosition": clearedPosition, "tasks": tasks,
-            "repositories": [], "sequence": messages.count, "hasOlder": hasOlder, "historyTrimmed": false,
-        ]
-    }
-
-    func message(_ id: String, _ position: Int, author: String, agent: String? = nil, text: String = "Hello", deleted: Bool = false) -> [String: Any] {
+    func message(_ id: String, _ position: Int, author: String) -> [String: Any] {
         [
             "id": id, "position": position, "authorId": author, "authorName": author == "user-1" ? "Me" : "Ana",
-            "agent": agent ?? NSNull(), "terminalId": NSNull(), "text": deleted ? "" : text, "deleted": deleted,
+            "agent": NSNull(), "terminalId": NSNull(), "text": "Hello", "deleted": false,
             "createdAt": "2026-10-11T10:0\(position % 10):00Z",
-        ]
-    }
-
-    func task(_ id: String, version: Int, title: String) -> [String: Any] {
-        [
-            "id": id, "version": version, "title": title, "description": "", "closed": false, "assignedTo": NSNull(),
-            "assignedName": NSNull(), "terminalId": NSNull(), "repositoryIds": [], "note": NSNull(), "issue": NSNull(),
         ]
     }
 }

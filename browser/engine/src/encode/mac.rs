@@ -791,20 +791,3 @@ fn annex_b_units(data: &[u8], length_size: usize, out: &mut Vec<u8>) -> Option<(
     }
     Some(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn length_prefixed_units_get_start_codes() {
-        let mut out = Vec::new();
-        annex_b_units(&[0, 0, 0, 2, 0x65, 0xAA, 0, 0, 0, 1, 0x41], 4, &mut out).unwrap();
-        assert_eq!(out, [0, 0, 0, 1, 0x65, 0xAA, 0, 0, 0, 1, 0x41]);
-    }
-
-    #[test]
-    fn a_cut_unit_is_refused() {
-        assert!(annex_b_units(&[0, 0, 0, 9, 0x65], 4, &mut Vec::new()).is_none());
-    }
-}

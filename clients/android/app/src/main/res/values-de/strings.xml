@@ -556,4 +556,7 @@
         <item quantity="one">Aufgaben: %1$d von %2$d fertig</item>
         <item quantity="other">Aufgaben: %1$d von %2$d fertig</item>
     </plurals>
+    <string name="local_network_title">Direkt zu deinem Computer</string>
+    <string name="local_network_reason">Im selben WLAN verbindet sich dein Telefon direkt mit deinem eigenen Computer, und das ist schneller. Android nennt diese Berechtigung „Geräte in der Nähe“.</string>
+    <string name="local_network_continue">Weiter</string>
 </resources>

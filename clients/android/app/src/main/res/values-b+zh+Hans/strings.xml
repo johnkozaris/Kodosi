@@ -533,4 +533,7 @@
     <plurals name="chat_tasks_done">
         <item quantity="other">任务：已完成 %1$d/%2$d</item>
     </plurals>
+    <string name="local_network_title">直接连接你的电脑</string>
+    <string name="local_network_reason">在同一 Wi-Fi 下，手机会直接连接你自己的电脑，速度更快。Android 将此权限称为“附近的设备”。</string>
+    <string name="local_network_continue">继续</string>
 </resources>

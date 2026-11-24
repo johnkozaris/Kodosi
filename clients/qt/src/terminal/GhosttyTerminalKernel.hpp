@@ -232,8 +232,6 @@ public:
     [[nodiscard]] std::expected<QString, Failure> selectedText(
         const TerminalSubscription& subscription);
     [[nodiscard]] ConfigureResult configure(TerminalKernelSettings settings);
-    [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitLines() const;
-    [[nodiscard]] std::expected<std::size_t, Failure> scrollbackLimitBytes() const;
     [[nodiscard]] Frame frame() const;
     [[nodiscard]] std::optional<std::uint64_t> nextSequence() const;
     [[nodiscard]] bool compressHistory();

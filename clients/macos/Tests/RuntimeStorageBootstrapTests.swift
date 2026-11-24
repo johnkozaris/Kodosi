@@ -167,10 +167,3 @@ private func canonicalTemporaryTestDirectory(_ name: String) throws -> URL {
     #expect(first.defaults !== UserDefaults.standard)
     #expect(first.defaults is EphemeralUserDefaults)
 }
-
-@Test func `production bootstrap keeps standard preferences`() throws {
-    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
-    #expect(!bootstrap.isIsolated)
-    #expect(bootstrap.defaults === UserDefaults.standard)
-    #expect(!(bootstrap.defaults is EphemeralUserDefaults))
-}

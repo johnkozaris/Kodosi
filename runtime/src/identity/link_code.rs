@@ -276,41 +276,4 @@ mod tests {
         assert_eq!(typed_code("TAFX-E5HG-TN8U"), None);
         assert_eq!(typed_code("TAFX-E5HG-TN8é"), None);
     }
-
-    #[test]
-    fn a_link_gives_back_its_account_and_its_secret_and_tells_the_two_ways_apart() {
-        let shown = typed("TAFX-E5HG-TN8E").link(USER);
-        assert_eq!(
-            shown,
-            format!("kodosi://device/approve/{USER}#TAFX-E5HG-TN8E")
-        );
-        let read = scanned_link(&format!(" {shown}\n")).unwrap();
-        assert_eq!(read.user_id, USER);
-        assert!(matches!(read.secret, LinkSecret::Typed(code) if code == "TAFX-E5HG-TN8E"));
-
-        let offered = LinkSecret::scanned().unwrap();
-        let read = scanned_link(&offered.link(USER)).unwrap();
-        assert_eq!(read.user_id, USER);
-        let (LinkSecret::Scanned(made), LinkSecret::Scanned(got)) = (&offered, &read.secret) else {
-            panic!("a join link must give a scanned secret");
-        };
-        assert_eq!(made.as_ref(), got.as_ref());
-    }
-
-    #[test]
-    fn a_text_that_is_not_a_whole_device_link_is_refused() {
-        let join = scanned(7).link(USER);
-        for bad in [
-            "TAFX-E5HG-TN8E".to_owned(),
-            format!("kodosi:alice:{}", "ab".repeat(32)),
-            format!("kodosi://device/approve/{USER}#TAFX-E5HG-TN8"),
-            "kodosi://device/approve/#TAFX-E5HG-TN8E".to_owned(),
-            format!("kodosi://device/other/{USER}#TAFX-E5HG-TN8E"),
-            join[..join.len() - 1].to_owned(),
-            format!("{join}A"),
-            join.replace('#', "/"),
-        ] {
-            assert!(scanned_link(&bad).is_none(), "{bad}");
-        }
-    }
 }

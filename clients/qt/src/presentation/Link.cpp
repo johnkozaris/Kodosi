@@ -1,88 +1,20 @@
 #include "presentation/Link.hpp"
 
+#include <kodosi_runtime.h>
+
 #include <QByteArray>
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMimeDatabase>
 #include <QSet>
 #include <QStringList>
-#include <QSysInfo>
 
 #include <algorithm>
 
 namespace kodosi {
 namespace {
-
-bool isByte(const QString& part)
-{
-    bool number = false;
-    const auto value = part.toUInt(&number);
-    return number && value <= 255;
-}
-
-// An address on the loopback interface names the computer that serves it.
-bool isLocalAddress(QString host)
-{
-    host = host.toLower();
-    if (host.startsWith(u'[') && host.endsWith(u']')) {
-        host = host.sliced(1, host.size() - 2);
-    }
-    if (host == QStringLiteral("localhost") || host.endsWith(QStringLiteral(".localhost"))
-        || host == QStringLiteral("0.0.0.0") || host == QStringLiteral("::") || host == QStringLiteral("::1")) {
-        return true;
-    }
-    const auto parts = host.split(u'.');
-    return parts.size() == 4 && parts.first() == QStringLiteral("127") && std::ranges::all_of(parts, isByte);
-}
-
-// Controls, line breaks, direction marks and invisible marks can make a link look
-// like another one.
-bool isHidden(const char32_t codepoint)
-{
-    return codepoint <= 0x1f || (codepoint >= 0x7f && codepoint <= 0x9f) || codepoint == 0x061c
-        || (codepoint >= 0x200b && codepoint <= 0x200f) || (codepoint >= 0x202a && codepoint <= 0x202e)
-        || (codepoint >= 0x2028 && codepoint <= 0x2029) || codepoint == 0x2060
-        || (codepoint >= 0x2066 && codepoint <= 0x2069) || codepoint == 0xfeff;
-}
-
-bool containsHidden(const QString& value)
-{
-    return std::ranges::any_of(value.toUcs4(), [](const char32_t codepoint) { return isHidden(codepoint); });
-}
-
-QString shownText(const QString& value)
-{
-    QString shown;
-    for (const char32_t codepoint : value.left(maximumLinkCharacters).toUcs4()) {
-        shown += isHidden(codepoint)
-            ? QStringLiteral("\\u{%1}").arg(QString::number(static_cast<uint>(codepoint), 16).toUpper())
-            : QString::fromUcs4(&codepoint, 1);
-    }
-    return shown;
-}
-
-QString linkText(const char* text)
-{
-    return QCoreApplication::translate("Link", text);
-}
-
-LinkDecision refuse(QString shown, const char* reason, const QString& place = {})
-{
-    auto text = linkText(reason);
-    return {
-        LinkDecision::Action::Refuse,
-        QUrl(),
-        std::move(shown),
-        place.isEmpty() ? text : text.arg(place),
-    };
-}
-
-// Programs such as `ls --hyperlink` name the computer in a file link.
-bool isThisComputer(const QString& host)
-{
-    return host.compare(QStringLiteral("localhost"), Qt::CaseInsensitive) == 0
-        || host.compare(QSysInfo::machineHostName(), Qt::CaseInsensitive) == 0;
-}
 
 // Opening one of these runs code, whatever the program in the terminal says it is.
 bool runsCode(const QFileInfo& target)
@@ -133,71 +65,76 @@ bool runsCode(const QFileInfo& target)
     return std::ranges::any_of(types, [&](const QString& name) { return type.inherits(name); });
 }
 
-LinkDecision fileDecision(const QUrl& link, const QString& shown, const QString& otherComputer)
+QString linkText(const char* text)
 {
-    if (link.hasQuery() || link.hasFragment()) {
-        return refuse(shown, QT_TRANSLATE_NOOP("Link", "The link is not a complete address."));
+    return QCoreApplication::translate("Link", text);
+}
+
+QString reason(const QString& refusal, const QString& place)
+{
+    if (refusal == QStringLiteral("hiddenCharacters")) {
+        return linkText(QT_TRANSLATE_NOOP("Link", "The link has hidden characters that can change how it looks."));
     }
-    auto local = link;
-    local.setHost(QString());
-    if (!otherComputer.isEmpty()) {
-        return refuse(local.toLocalFile(), QT_TRANSLATE_NOOP("Link", "The file is on %1."), otherComputer);
+    if (refusal == QStringLiteral("missingFile")) {
+        return linkText(QT_TRANSLATE_NOOP("Link", "The file or folder is not on this device."));
     }
-    if (const auto host = link.host(); !host.isEmpty() && !isThisComputer(host)) {
-        return refuse(local.toLocalFile(), QT_TRANSLATE_NOOP("Link", "The file is on %1."), host);
+    if (refusal == QStringLiteral("program")) {
+        return linkText(QT_TRANSLATE_NOOP("Link", "Opening it could run a program."));
     }
-    const QFileInfo named(local.toLocalFile());
-    const auto canonical = named.canonicalFilePath();
-    const QFileInfo target(canonical);
-    if (canonical.isEmpty() || (!target.isDir() && !target.isFile())) {
-        return refuse(
-            named.filePath(),
-            QT_TRANSLATE_NOOP("Link", "The file or folder is not on this device."));
+    if (refusal == QStringLiteral("fileElsewhere")) {
+        return linkText(QT_TRANSLATE_NOOP("Link", "The file is on %1.")).arg(place);
     }
-    if (runsCode(target)) {
-        return refuse(canonical, QT_TRANSLATE_NOOP("Link", "Opening it could run a program."));
+    if (refusal == QStringLiteral("addressElsewhere")) {
+        return linkText(QT_TRANSLATE_NOOP("Link", "The address is on %1.")).arg(place);
     }
-    return {LinkDecision::Action::Open, QUrl::fromLocalFile(canonical), canonical, {}};
+    return linkText(QT_TRANSLATE_NOOP("Link", "The link is not a complete address."));
+}
+
+QJsonObject runtimeDecision(const QString& value, const QString& otherComputer)
+{
+    const auto link = value.toUtf8();
+    const auto computer = otherComputer.toUtf8();
+    QByteArray decision(4096, Qt::Uninitialized);
+    const auto decide = [&] {
+        return kodosi_link_decision(
+            reinterpret_cast<const uint8_t*>(link.constData()), static_cast<uintptr_t>(link.size()),
+            reinterpret_cast<const uint8_t*>(computer.constData()), static_cast<uintptr_t>(computer.size()),
+            reinterpret_cast<uint8_t*>(decision.data()), static_cast<uintptr_t>(decision.size()));
+    };
+    auto length = decide();
+    if (length > decision.size()) {
+        decision.resize(static_cast<qsizetype>(length));
+        length = decide();
+    }
+    if (length < 0 || length > decision.size()) {
+        return {};
+    }
+    return QJsonDocument::fromJson(decision.first(static_cast<qsizetype>(length))).object();
 }
 
 }
 
 LinkDecision decideLink(const QString& value, const QString& otherComputer)
 {
-    const auto shown = shownText(value);
-    const auto encoded = value.toUtf8();
-    if (containsHidden(value) || containsHidden(QUrl::fromPercentEncoding(encoded))) {
-        return refuse(
-            shown,
-            QT_TRANSLATE_NOOP("Link", "The link has hidden characters that can change how it looks."));
-    }
-    const auto link = QUrl::fromEncoded(encoded, QUrl::StrictMode);
-    if (!otherComputer.isEmpty() && link.isValid() && link.isRelative() && !value.isEmpty()) {
-        return refuse(shown, QT_TRANSLATE_NOOP("Link", "The file is on %1."), otherComputer);
-    }
-    if (value.size() > maximumLinkCharacters || !link.isValid() || link.isRelative()) {
-        return refuse(shown, QT_TRANSLATE_NOOP("Link", "The link is not a complete address."));
-    }
-    const auto scheme = link.scheme().toLower();
-    if (scheme == QStringLiteral("http") || scheme == QStringLiteral("https")) {
-        if (link.host().isEmpty()) {
-            return refuse(shown, QT_TRANSLATE_NOOP("Link", "The web link has no server name."));
+    const auto decided = runtimeDecision(value, otherComputer);
+    const auto shown = decided.value(QStringLiteral("shown")).toString(value.left(maximumLinkCharacters));
+    const auto action = decided.value(QStringLiteral("action")).toString();
+    const QUrl target(decided.value(QStringLiteral("target")).toString(), QUrl::StrictMode);
+    if ((action == QStringLiteral("open") || action == QStringLiteral("ask")) && target.isValid()) {
+        if (action == QStringLiteral("ask")) {
+            return {LinkDecision::Action::Ask, target, shown, {}};
         }
-        if (!otherComputer.isEmpty() && isLocalAddress(link.host())) {
-            return refuse(shown, QT_TRANSLATE_NOOP("Link", "The address is on %1."), otherComputer);
+        if (target.isLocalFile() && runsCode(QFileInfo(target.toLocalFile()))) {
+            return {LinkDecision::Action::Refuse, QUrl(), shown, reason(QStringLiteral("program"), {})};
         }
-        return {LinkDecision::Action::Open, link, shown, {}};
+        return {LinkDecision::Action::Open, target, shown, {}};
     }
-    if (scheme == QStringLiteral("mailto")) {
-        if (link.path().isEmpty()) {
-            return refuse(shown, QT_TRANSLATE_NOOP("Link", "The link is not a complete address."));
-        }
-        return {LinkDecision::Action::Open, link, shown, {}};
-    }
-    if (scheme == QStringLiteral("file")) {
-        return fileDecision(link, shown, otherComputer);
-    }
-    return {LinkDecision::Action::Ask, link, shown, {}};
+    return {
+        LinkDecision::Action::Refuse,
+        QUrl(),
+        shown,
+        reason(decided.value(QStringLiteral("refusal")).toString(), decided.value(QStringLiteral("place")).toString()),
+    };
 }
 
 }

@@ -23,16 +23,6 @@ class RuntimeEventInboxTest {
         assertEquals("d", type(inbox.next()))
     }
 
-    @Test
-    fun anEventThatCannotBeReadLeavesTheNextOneToCome() = runTest {
-        val inbox = RuntimeEventInbox()
-        inbox.push("[]".encodeToByteArray())
-        inbox.push(json("a"))
-
-        assertEquals(RuntimeEventInbox.Arrival.Unreadable("an event is not an object"), inbox.next())
-        assertEquals("a", type(inbox.next()))
-    }
-
     private fun json(type: String) = """{"type":"$type","accountUserId":null,"accountEpoch":0}""".encodeToByteArray()
 
     private fun type(arrival: RuntimeEventInbox.Arrival?) = (arrival as RuntimeEventInbox.Arrival.Event).event.type

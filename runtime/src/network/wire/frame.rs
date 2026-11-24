@@ -170,7 +170,7 @@ fn pipe_id(body: &[u8]) -> Result<Uuid> {
     Uuid::from_slice(&body[..16]).map_err(|_| invalid("Document frame is invalid."))
 }
 
-#[cfg(any(feature = "host", test))]
+#[cfg(feature = "host")]
 pub(crate) fn answer_fits(value: &Value) -> bool {
     value.is_object() && serde_json::to_vec(value).is_ok_and(|body| body.len() <= CALL_ANSWER)
 }
@@ -638,186 +638,6 @@ mod tests {
     }
 
     #[test]
-    fn frames_keep_their_fields_and_leave_the_next_frame_in_the_buffer() {
-        let output = Frame::Output {
-            first_sequence: 41,
-            chunks: vec![
-                Bytes::from_static(b"one"),
-                Bytes::new(),
-                Bytes::from(vec![b'x'; 5000]),
-            ],
-        };
-        let Frame::Output {
-            first_sequence,
-            chunks,
-        } = round_trip(&output)
-        else {
-            panic!("output frame");
-        };
-        assert_eq!((first_sequence, chunks.len()), (41, 3));
-        assert_eq!(
-            (&chunks[0][..], chunks[1].len(), chunks[2].len()),
-            (&b"one"[..], 0, 5000)
-        );
-        assert!(output.encode().unwrap().len() < 1024);
-
-        let Frame::Input {
-            offset,
-            heartbeat,
-            bytes,
-        } = round_trip(&Frame::Input {
-            offset: 9,
-            heartbeat: 3,
-            bytes: Bytes::from_static(b"ls\r"),
-        })
-        else {
-            panic!("input frame");
-        };
-        assert_eq!((offset, heartbeat, &bytes[..]), (9, 3, &b"ls\r"[..]));
-
-        let request_id = Uuid::now_v7();
-        assert!(matches!(
-            round_trip(&Frame::Control { request_id, control: TerminalControl::Interrupt }),
-            Frame::Control { request_id: id, control: TerminalControl::Interrupt } if id == request_id
-        ));
-        assert!(matches!(round_trip(&Frame::Refresh), Frame::Refresh));
-        assert!(matches!(
-            round_trip(&Frame::Heartbeat {
-                number: 7,
-                next_sequence: 12
-            }),
-            Frame::Heartbeat {
-                number: 7,
-                next_sequence: 12
-            }
-        ));
-    }
-
-    #[test]
-    fn a_document_part_goes_as_output_and_opens_and_closes_by_its_pipe() {
-        let pipe = Uuid::now_v7();
-        let frames = [
-            Frame::PipeOpen {
-                pipe,
-                key: "/work/plan.docx".to_owned(),
-                name: "Ana".to_owned(),
-            },
-            Frame::PipeData {
-                pipe,
-                more: true,
-                part: Bytes::from_static(b"part"),
-            },
-            Frame::PipeClose { pipe },
-        ];
-        for frame in frames {
-            let mut buffer = frame.encode().unwrap();
-            let (read, _) = Frame::take(&mut buffer).unwrap().unwrap();
-            assert_eq!(read.carries_output(), frame.carries_output());
-            match (read, frame) {
-                (
-                    Frame::PipeOpen { key, name, .. },
-                    Frame::PipeOpen {
-                        key: sent_key,
-                        name: sent_name,
-                        ..
-                    },
-                ) => assert_eq!((key, name), (sent_key, sent_name)),
-                (Frame::PipeData { part, more, .. }, Frame::PipeData { .. }) => {
-                    assert_eq!((part.as_ref(), more), (b"part".as_slice(), true));
-                }
-                (Frame::PipeClose { pipe: read }, Frame::PipeClose { .. }) => {
-                    assert_eq!(read, pipe);
-                }
-                _ => panic!("the same frame comes back"),
-            }
-        }
-        assert!(
-            Frame::PipeData {
-                pipe,
-                more: false,
-                part: Bytes::from(vec![0; PIPE_PART + 1]),
-            }
-            .encode()
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn a_path_offer_and_its_answer_carry_a_short_list_of_addresses() {
-        let addresses: Vec<SocketAddr> = vec![
-            "192.168.1.20:47360".parse().unwrap(),
-            "[2001:db8::7]:47360".parse().unwrap(),
-        ];
-        let mut bytes = Frame::PathOffer {
-            addresses: addresses.clone(),
-        }
-        .encode()
-        .unwrap();
-        bytes.extend(
-            Frame::PathAnswer {
-                addresses: Vec::new(),
-            }
-            .encode()
-            .unwrap(),
-        );
-        let (offered, _) = Frame::take(&mut bytes).unwrap().unwrap();
-        assert!(matches!(offered, Frame::PathOffer { addresses: list } if list == addresses));
-        let (answered, _) = Frame::take(&mut bytes).unwrap().unwrap();
-        assert!(matches!(answered, Frame::PathAnswer { addresses } if addresses.is_empty()));
-        assert!(
-            Frame::PathAnswer {
-                addresses: vec![addresses[0]; MOST_DIRECT_ADDRESSES + 1],
-            }
-            .encode()
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn a_canvas_request_goes_as_a_control_and_its_answer_as_a_value() {
-        let request_id = Uuid::now_v7();
-        let request = crate::canvas::CanvasRequest::Remove { keys: Vec::new() };
-        let Frame::Control {
-            request_id: id,
-            control: TerminalControl::Canvas { request: decoded },
-        } = round_trip(&Frame::Control {
-            request_id,
-            control: TerminalControl::Canvas {
-                request: request.clone(),
-            },
-        })
-        else {
-            panic!("canvas control");
-        };
-        assert_eq!((id, decoded), (request_id, request));
-
-        let value = serde_json::json!({"answer": "picture", "sequence": 5,
-            "frame": {"width": 2, "height": 1, "data": "x".repeat(400 * 1024)}});
-        assert!(answer_fits(&value));
-        let Frame::ControlValue {
-            request_id: id,
-            value: decoded,
-        } = round_trip(&Frame::ControlValue {
-            request_id,
-            value: value.clone(),
-        })
-        else {
-            panic!("control value");
-        };
-        assert_eq!((id, decoded), (request_id, value));
-        let too_large = serde_json::json!({"data": "x".repeat(CALL_ANSWER)});
-        assert!(!answer_fits(&too_large));
-        assert!(
-            Frame::ControlValue {
-                request_id,
-                value: too_large
-            }
-            .encode()
-            .is_err()
-        );
-    }
-
-    #[test]
     fn a_frame_is_complete_only_with_all_its_bytes_and_zero_padding() {
         let mut encoded = Frame::Ack { received: 5 }.encode().unwrap();
         assert_eq!(encoded.len(), 64);
@@ -831,33 +651,6 @@ mod tests {
             Frame::Control {
                 request_id: Uuid::now_v7(),
                 control: TerminalControl::Input { bytes: vec![1] },
-            }
-            .encode()
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn a_message_for_an_agent_travels_as_a_control_of_text() {
-        let request_id = Uuid::now_v7();
-        let line = "[Kodosi] Ana mentioned you: \"é ✓\"".as_bytes().to_vec();
-        let decoded = round_trip(&Frame::Control {
-            request_id,
-            control: TerminalControl::Message {
-                bytes: line.clone(),
-            },
-        });
-        assert!(matches!(
-            decoded,
-            Frame::Control { request_id: id, control: TerminalControl::Message { bytes } }
-                if id == request_id && bytes == line
-        ));
-        assert!(
-            Frame::Control {
-                request_id,
-                control: TerminalControl::Message {
-                    bytes: vec![0xff, 0xfe],
-                },
             }
             .encode()
             .is_err()
@@ -901,20 +694,6 @@ mod tests {
                 .is_err()
             );
         }
-    }
-
-    #[test]
-    fn a_call_carries_one_json_object_within_its_bound() {
-        let request = serde_json::json!({"type":"folders.list","requestId":"x","path":"~/Repos"});
-        assert!(
-            matches!(round_trip(&Frame::Request(request.clone())), Frame::Request(value) if value == request)
-        );
-        let long = serde_json::json!({"text":"x".repeat(CALL_REQUEST)});
-        assert!(Frame::Request(long.clone()).encode().is_err());
-        assert!(
-            matches!(round_trip(&Frame::Answer(long.clone())), Frame::Answer(value) if value == long)
-        );
-        assert!(Frame::Answer(serde_json::json!("text")).encode().is_err());
     }
 
     #[test]

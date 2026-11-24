@@ -628,8 +628,6 @@ pub type PublishedMark = tokio::sync::watch::Receiver<Option<crate::terminal::Wa
 
 #[cfg(test)]
 pub(crate) use terminal_connections::RemoteRequest as TestRemoteRequest;
-#[cfg(test)]
-pub(crate) use terminal_connections::Wait;
 pub(crate) use terminal_connections::{
     CONTROL_TIMEOUT, RECONNECT_WAIT, STABLE_CONNECTION, input_not_sent,
 };

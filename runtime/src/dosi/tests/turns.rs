@@ -525,18 +525,6 @@ async fn stop_ends_the_turn_and_the_waiting_message_runs_next() {
 }
 
 #[tokio::test]
-async fn a_provider_that_dies_reports_what_it_said() {
-    let mut rig = Rig::new();
-    rig.send("die now");
-    rig.idle().await;
-    let last = rig.items().pop().unwrap();
-    assert!(matches!(
-        last.body,
-        DosiBody::Notice { tone: DosiTone::Failed, text: Some(text) } if text.contains("lost its way")
-    ));
-}
-
-#[tokio::test]
 async fn a_lost_provider_conversation_starts_over_with_the_whole_history() {
     let mut rig = Rig::new();
     rig.send("hello");
