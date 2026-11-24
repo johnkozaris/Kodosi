@@ -43,14 +43,16 @@ data class AccountState(
 ) {
     val isReady: Boolean get() = userId != null && localDeviceEnrolled
     val needsOnboarding: Boolean get() = authResolved && !isReady
-    val computers: List<Device> get() {
-        val collator = Collator.getInstance().apply { strength = Collator.SECONDARY }
-        return devices.filter {
-            it.deviceId in onlineHosts && it.deviceId != selfDeviceId &&
-                !it.recoveryKey
-        }.sortedWith { left, right ->
-            collator.compare(left.label, right.label).takeIf { it != 0 } ?: left.deviceId.compareTo(right.deviceId)
-        }
+    val computers: List<Device> get() = devices.filter {
+        it.deviceId in onlineHosts && it.deviceId != selfDeviceId &&
+            !it.recoveryKey
+    }.sortedWith(byName(Device::label, Device::deviceId))
+}
+
+internal fun <T> byName(name: (T) -> String, id: (T) -> String): Comparator<T> {
+    val collator = Collator.getInstance().apply { strength = Collator.SECONDARY }
+    return Comparator { left, right ->
+        collator.compare(name(left), name(right)).takeIf { it != 0 } ?: id(left).compareTo(id(right))
     }
 }
 
