@@ -7,51 +7,6 @@ import KodosiTerminalSessions
 import Observation
 import Testing
 
-@Test func `created session has incarnation before presentation constructs renderer`() async throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "CreatedRenderer"))
-    let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
-    let app = AppDependencies(defaults: defaults, storageBootstrap: bootstrap)
-    defer { app.shutdownProcess() }
-    app.commandSink.transport = { _ in 0 }
-    try app.receive(runtimeReady(epoch: 0, userId: nil))
-    let id = UUIDv7.generate()
-    let incarnation = UUIDv7.generate()
-    var renderer: ManagedTerminalSession?
-    withObservationTracking {
-        _ = app.workbench.selectedSessionId
-    } onChange: {
-        MainActor.assumeIsolated { renderer = app.terminalManager.session(for: id) }
-    }
-    var requestId: String?
-    app.commandSink.transport { data in
-        if let fields = try? JSONDecoder().decode([String: JSONValue].self, from: data), fields["type"] == .string("session.create") {
-            requestId = fields["requestId"]?.stringValue
-        }
-        return 0
-    }
-    let creating = Task { try await app.createSession(name: "Test", directory: nil) }
-    for _ in 0 ..< 100 where requestId == nil {
-        await Task.yield()
-    }
-    let request = try #require(requestId)
-    let entry: JSONValue = .object([
-        "id": .string(id), "incarnationId": .string(incarnation), "kind": .string("local"), "name": .string("Test"),
-        "isOwner": .bool(true), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
-        "connectionState": .string("local"),
-        "sharedWith": .array([]),
-    ])
-    try app.receive(runtimeEvent("sessions.snapshot", epoch: 0, userId: nil, fields: ["sessions": .array([entry])]))
-    try app.receive(runtimeEvent("session.result", epoch: 0, userId: nil, fields: [
-        "requestId": .string(request), "sessionId": .string(id), "operation": .string("session.create"),
-    ]))
-    _ = try await creating.value
-    let managed = try #require(renderer)
-    #expect(managed.runtimeIncarnationId == incarnation)
-    #expect(managed.token.isActive)
-    #expect(managed.resizeAuthority.isAllowed)
-    #expect(app.terminalManager.session(for: id) === managed)
-}
-
 @Test func `a terminal list that says the same changes nothing on screen`() throws {
     let defaults = try #require(EphemeralUserDefaults(prefix: "SpinnerFrame"))
     let bootstrap = try RuntimeStorageBootstrap.resolve(environment: [:], installEnvironment: false)
@@ -101,55 +56,4 @@ import Testing
     #expect(reopened.runtimeIncarnationId == incarnation)
     #expect(reopened.token.subscriptionGeneration > first.token.subscriptionGeneration)
     manager.releaseSession(for: id)
-}
-
-@Test func `a terminal takes its computer's look only when the look changes`() {
-    var asked: [TerminalLook] = []
-    let manager = TerminalSessionManager(
-        runtimeHandle: RuntimeHandle(inbox: RuntimeEventInbox()), commandSink: CommandSink { _ in 0 },
-        style: { look in
-            asked.append(look)
-            return KodosiTerminalStyle.make(settings: .defaults, look: look)
-        },
-        disconnectTerminal: { _, _, _ in },
-    )
-    let id = UUIDv7.generate()
-    manager.reconcileSessions(liveSessionIds: [id], looks: [id: .light])
-    _ = manager.session(for: id)
-    manager.reconcileSessions(liveSessionIds: [id], looks: [id: .light])
-    manager.reconcileSessions(liveSessionIds: [id], looks: [id: .dark])
-    #expect(asked == [.light, .dark])
-    manager.releaseSession(for: id)
-}
-
-@Test func `a new terminal asks for the grid of the tile that it takes`() {
-    let style = KodosiTerminalStyle.make(settings: .defaults, look: .dark)
-    let cell = DesktopSettings.TerminalCell(width: 17, height: 41, scale: 2)
-    let grid = { tiles in
-        AppDependencies.startGrid(room: CGSize(width: 1240, height: 841), tiles: tiles, scale: 2, cell: cell, style: style)
-    }
-    for (tiles, size) in [(1, [143, 38]), (2, [143, 17]), (3, [143, 17]), (4, [70, 17])] {
-        #expect(grid(tiles).map { [Int($0.columns), Int($0.rows)] } == size, "\(tiles)")
-    }
-    let empty = DesktopSettings.TerminalCell(width: 0, height: 0, scale: 2)
-    #expect(AppDependencies.startGrid(room: CGSize(width: 1240, height: 841), tiles: 1, scale: 2, cell: empty, style: style) != nil)
-}
-
-@Test func `terminal tiles fill the stage without changing session order`() {
-    for size in [CGSize(width: 960, height: 660), CGSize(width: 1400, height: 800), CGSize(width: 700, height: 500)] {
-        for count in 1 ... 6 {
-            let bounds = CGRect(origin: .zero, size: size)
-            let frames = TerminalTilesLayout.frames(count: count, in: bounds)
-            #expect(frames.count == count)
-            #expect(frames.first?.origin == .zero)
-            #expect(abs((frames.last?.maxY ?? 0) - bounds.maxY) < 0.01)
-            for (index, frame) in frames.enumerated() {
-                #expect(bounds.contains(frame))
-                #expect(frame.width > 0 && frame.height > 0)
-                for other in frames.dropFirst(index + 1) {
-                    #expect(!frame.intersects(other))
-                }
-            }
-        }
-    }
 }

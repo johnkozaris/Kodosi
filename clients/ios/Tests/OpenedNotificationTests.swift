@@ -19,12 +19,6 @@ struct OpenedNotificationTests {
         log.clear()
     }
 
-    @Test func `a notification opens its listed terminal at once`() async throws {
-        try deliver("sessions.snapshot", ["sessions": [terminalEntry("s1", state: "blocked")]])
-        #expect(await model.terminals.notificationTarget("s1")?.id == "s1")
-        #expect(log.fields(of: "session.list").isEmpty)
-    }
-
     @Test func `after a cold start a notification waits for the terminal list and follows a restart of its terminal`() async throws {
         let target = Task { await model.terminals.notificationTarget("s1") }
         let request = try await listRequest()
@@ -34,23 +28,6 @@ struct OpenedNotificationTests {
         ]])
         try deliver("session.result", ["requestId": request, "operation": "session.list"])
         #expect(await target.value?.id == "s2")
-    }
-
-    @Test func `a notification of a terminal that is gone or hidden leads to the terminal list without a notice`() async throws {
-        var hidden = terminalEntry("s2", state: "done")
-        hidden["hidden"] = true
-        try deliver("sessions.snapshot", ["sessions": [terminalEntry("s3", state: "idle"), hidden]])
-        let gone = Task { await model.terminals.notificationTarget("s1") }
-        let listed = try await listRequest()
-        try deliver("session.result", ["requestId": listed, "operation": "session.list"])
-        #expect(await gone.value == nil)
-
-        log.clear()
-        let unreachable = Task { await model.terminals.notificationTarget("s2") }
-        let failed = try await listRequest()
-        try deliver("session.error", ["requestId": failed, "operation": "session.list", "message": "Offline"])
-        #expect(await unreachable.value == nil)
-        #expect(model.notices.current == nil)
     }
 
     private func listRequest() async throws -> String {

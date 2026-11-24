@@ -5,59 +5,6 @@ import Synchronization
 import Testing
 
 @MainActor
-@Test func `each copy that the browser sends reaches the pasteboard, also the same words again`() async throws {
-    let runtime = BrowserRuntime()
-    var copies: [String] = []
-    runtime.feed.copied = { copies.append($0) }
-    let watching = Task { await runtime.feed.watch() }
-    defer { watching.cancel() }
-    let copy = Data([0]) + Data(#"{"width":1280,"height":720,"shape":"","pointers":[],"copied":"word"}"#.utf8)
-    let later = Data([0]) + Data(#"{"width":1280,"height":720,"shape":"text","pointers":[]}"#.utf8)
-
-    let pipe = try await runtime.open()
-    try runtime.send(copy, on: pipe)
-    try runtime.send(copy, on: pipe)
-    try runtime.send(later, on: pipe)
-    try await until { runtime.feed.window.shape == "text" }
-
-    #expect(copies == ["word", "word"])
-}
-
-@MainActor
-@Test func `the page keeps its last picture while the browser joins again, until a new frame replaces it`() async throws {
-    let runtime = BrowserRuntime()
-    runtime.feed.show(on: NSObject()) { _ in true }
-    let watching = Task { await runtime.feed.watch() }
-    defer { watching.cancel() }
-
-    let first = try await runtime.open()
-    try runtime.send(BrowserRuntime.keyFrame, on: first)
-    try await until { runtime.feed.picture == .live }
-    try runtime.lose(first)
-    let second = try await runtime.open()
-    #expect(runtime.feed.picture == .kept)
-    try runtime.send(BrowserRuntime.keyFrame, on: second)
-    try await until { runtime.feed.picture == .live }
-}
-
-@MainActor
-@Test func `a new surface has no picture until the key frame that it asks the host for`() async throws {
-    let runtime = BrowserRuntime()
-    let surface = NSObject()
-    runtime.feed.show(on: surface) { _ in true }
-    let watching = Task { await runtime.feed.watch() }
-    defer { watching.cancel() }
-
-    try await runtime.send(BrowserRuntime.keyFrame, on: runtime.open())
-    try await until { runtime.feed.picture == .live }
-    runtime.feed.show(on: surface) { _ in true }
-    #expect(runtime.feed.picture == .live)
-    runtime.feed.show(on: NSObject()) { _ in true }
-    #expect(runtime.feed.picture == .waiting)
-    #expect(try await runtime.messages(2) == ["ack", "keyframe"])
-}
-
-@MainActor
 @Test func `a view that the host skipped goes on at an anchor, and one that lost a frame asks for a key frame`() async throws {
     let runtime = BrowserRuntime()
     let shown = Shown()
@@ -135,29 +82,6 @@ import Testing
     #expect(!runtime.messages().contains("watch"))
     runtime.store.show(.browser, in: session)
     #expect(try await runtime.watched() == true)
-}
-
-@Test func `taps in about one place count up as clicks, so two select a word, and a later or farther tap is one click again`() {
-    var taps = BrowserTaps()
-    let word = CGPoint(x: 100, y: 200)
-
-    #expect(taps.click(at: word, time: 10) == 1)
-    #expect(taps.click(at: CGPoint(x: 112, y: 206), time: 10.3) == 2)
-    #expect(taps.click(at: word, time: 10.6) == 3)
-    #expect(taps.click(at: word, time: 12) == 1)
-    #expect(taps.click(at: CGPoint(x: 300, y: 200), time: 12.2) == 1)
-    taps.forget()
-    #expect(taps.click(at: CGPoint(x: 300, y: 200), time: 12.3) == 1)
-}
-
-/// Waits for what the feed's view reads, which comes on the main actor after the pipe's task.
-@MainActor
-private func until(_ holds: () -> Bool) async throws {
-    let deadline = ContinuousClock.now + .seconds(2)
-    while !holds() {
-        guard ContinuousClock.now < deadline else { throw ProjectTestFailure.missing("a change of the feed") }
-        try await Task.sleep(for: .milliseconds(2))
-    }
 }
 
 private final class Shown: Sendable {

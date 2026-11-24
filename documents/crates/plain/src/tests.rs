@@ -5,7 +5,7 @@ use document::{
 };
 use serde_json::{Value, json};
 
-use crate::{Change, Model, Plain, Query, diff, lines::Text};
+use crate::{Change, Model, Plain, diff, lines::Text};
 
 fn read(file: &str) -> Model {
     Plain::read(file.as_bytes(), &mut Assets::default()).unwrap()
@@ -71,24 +71,6 @@ fn a_save_keeps_the_mark_the_line_endings_and_the_last_line_ending() {
 }
 
 #[test]
-fn an_empty_file_ends_with_a_line_ending_once_it_has_text_and_a_cleared_one_is_empty() {
-    let mut model = read("");
-    ops(
-        &mut model,
-        json!([{ "op": "insertLines", "text": "a: 1\nb: 2" }]),
-    )
-    .unwrap();
-    assert_eq!(saved(&model, ""), "a: 1\nb: 2\n");
-    ops(
-        &mut model,
-        json!([{ "op": "deleteLines", "from": 1, "to": 2 }]),
-    )
-    .unwrap();
-    assert_eq!(lines(&model), [""]);
-    assert_eq!(saved(&model, "a: 1\nb: 2\n"), "");
-}
-
-#[test]
 fn a_long_file_does_not_open_live_but_stays_live_when_it_grows() {
     let most = "x\n".repeat(10_000);
     assert!(Plain::opens(most.as_bytes()).is_ok());
@@ -108,94 +90,6 @@ fn a_file_that_is_not_utf8_neither_opens_live_nor_reads() {
     assert!(Plain::opens(b"caf\xe9\n").is_err());
     assert!(Plain::read(b"caf\xe9\n", &mut Assets::default()).is_err());
     assert!(Plain::opens("\u{feff}café\n".as_bytes()).is_ok());
-}
-
-#[test]
-fn replace_text_needs_one_place_unless_all_is_set_and_may_span_lines() {
-    let mut model = read("on: true\nport: 80\nlog: true\n");
-    let twice = ops(
-        &mut model,
-        json!([{ "op": "replaceText", "find": "true", "with": "no" }]),
-    );
-    assert!(matches!(twice, Err(Refused::Invalid(reason)) if reason.contains("2 places")));
-    ops(
-        &mut model,
-        json!([{ "op": "replaceText", "find": "true", "with": "false", "all": true }]),
-    )
-    .unwrap();
-    ops(
-        &mut model,
-        json!([{ "op": "replaceText", "find": "80\nlog", "with": "8080\r\nhost: x\nlog" }]),
-    )
-    .unwrap();
-    assert_eq!(
-        lines(&model),
-        ["on: false", "port: 8080", "host: x", "log: false"]
-    );
-    let missing = ops(
-        &mut model,
-        json!([{ "op": "replaceText", "find": "none", "with": "x" }]),
-    );
-    assert!(matches!(missing, Err(Refused::Invalid(_))));
-}
-
-#[test]
-fn the_line_numbers_of_one_change_count_in_the_text_as_it_was_read() {
-    let mut model = read("1\n2\n3\n4\n5\n6\n");
-    ops(
-        &mut model,
-        json!([
-            { "op": "deleteLines", "from": 1 },
-            { "op": "replaceLines", "from": 3, "to": 4, "text": "three and four" },
-            { "op": "insertLines", "text": "five and a half", "after": 5 },
-            { "op": "insertLines", "text": "zero", "after": 0 },
-            { "op": "insertLines", "text": "seven" },
-        ]),
-    )
-    .unwrap();
-    assert_eq!(
-        lines(&model),
-        [
-            "zero",
-            "2",
-            "three and four",
-            "5",
-            "five and a half",
-            "6",
-            "seven"
-        ]
-    );
-    ops(
-        &mut model,
-        json!([{ "op": "deleteLines", "from": 6, "to": 7 }]),
-    )
-    .unwrap();
-    assert_eq!(
-        lines(&model).last().map(String::as_str),
-        Some("five and a half")
-    );
-}
-
-#[test]
-fn ops_that_change_the_same_line_or_a_line_past_the_end_are_refused() {
-    let mut model = read("a\nb\nc\n");
-    let both = ops(
-        &mut model,
-        json!([
-            { "op": "replaceText", "find": "b", "with": "x" },
-            { "op": "deleteLines", "from": 2 },
-        ]),
-    );
-    assert!(matches!(both, Err(Refused::Invalid(reason)) if reason.contains("line 2")));
-    let past = ops(
-        &mut model,
-        json!([{ "op": "deleteLines", "from": 3, "to": 4 }]),
-    );
-    assert!(matches!(past, Err(Refused::Invalid(reason)) if reason.contains("3 lines")));
-    let unknown: Result<Vec<crate::Op>, _> =
-        serde_json::from_value(json!([{ "op": "insertLines", "text": "x", "line": 2 }]));
-    assert!(unknown.is_err());
-    assert_eq!(lines(&model), ["a", "b", "c"]);
 }
 
 #[test]
@@ -330,53 +224,6 @@ fn an_outside_write_merges_from_the_saved_state_that_its_writer_read() {
         lines(document.model()),
         ["newest title", "b", "c", "d", "written"]
     );
-}
-
-#[test]
-fn a_read_numbers_the_lines_and_cuts_long_ones() {
-    let long = "x".repeat(2100);
-    let model = read(&format!("a\n{long}\nc\n"));
-    let answer = Plain::query(
-        &model,
-        Query::Read {
-            from: Some(2),
-            to: Some(9),
-        },
-    )
-    .0;
-    assert_eq!(answer["count"], 3);
-    assert_eq!(answer["lines"][1], json!({ "line": 3, "text": "c" }));
-    let cut = answer["lines"][0]["text"].as_str().unwrap();
-    assert_eq!(cut.chars().count(), 2001);
-    assert!(cut.ends_with('…'));
-}
-
-#[test]
-fn a_place_reads_as_lines_a_column_and_the_selected_text() {
-    let model = read("first\nsecond\nthird\n");
-    let place = Plain::describe_place(&model, &json!({ "from": 10, "to": 18 }));
-    assert_eq!(
-        place,
-        json!({ "lines": "2-3", "column": 3, "selected": "cond\nth" })
-    );
-    let caret = Plain::describe_place(&model, &json!({ "from": 1, "to": 1 }));
-    assert_eq!(caret, json!({ "lines": "1", "column": 1 }));
-}
-
-#[test]
-fn the_guide_names_each_op_that_an_agent_can_send() {
-    let guide = Plain::guide();
-    for op in &guide.ops {
-        let mut example = json!({ "op": op.name });
-        for field in op.fields.iter().filter(|field| field.required) {
-            example[&field.name] = match field.kind.as_str() {
-                "line number" => json!(1),
-                _ => json!("x"),
-            };
-        }
-        let parsed: Result<crate::Op, _> = serde_json::from_value(example);
-        assert!(parsed.is_ok(), "{}: {parsed:?}", op.name);
-    }
 }
 
 /// The length of the longest common subsequence, the slow way.

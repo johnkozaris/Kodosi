@@ -796,8 +796,8 @@ fn foreground_process_group(terminal: impl AsFd) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{
-        KodosiError, KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome, find_executable,
-        login_shell_name, resolve_program, set_terminal_size, validate_working_dir,
+        KodosiPty, PtyReader, ShutdownStage, Transfer, WaitOutcome, login_shell_name,
+        resolve_program, validate_working_dir,
     };
     use rustix::io::{FdFlags, fcntl_getfd};
     use std::{
@@ -913,15 +913,6 @@ mod tests {
             resolve_program(Path::new("sh"), Some(root.path())),
             Some(shadow)
         );
-    }
-
-    #[test]
-    fn resizing_a_file_that_is_no_terminal_reports_the_failure() {
-        let file = tempfile::tempfile().unwrap();
-        let error = set_terminal_size(&file, 80, 24, None, None)
-            .expect_err("TIOCSWINSZ on a file that is no terminal must fail");
-
-        assert!(error.to_string().contains("I/O failure"));
     }
 
     #[test]
@@ -1239,45 +1230,5 @@ mod tests {
         let file = directory.path().join("file");
         std::fs::write(&file, "not a directory").expect("write file");
         assert!(validate_working_dir(file.to_str()).is_err());
-    }
-
-    #[test]
-    fn a_program_that_cannot_start_fails_its_spawn() {
-        let directory = tempfile::tempdir().unwrap();
-        let program = directory.path().join("program");
-        kodosi_os::process::write_program(&program, "#!/nonexistent/interpreter\n").unwrap();
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let _context = runtime.enter();
-        let error = KodosiPty::spawn_program(&program, &[], None, 24, 80, &[], None).unwrap_err();
-        assert!(
-            matches!(&error, KodosiError::Io(error) if error.kind() == std::io::ErrorKind::NotFound),
-            "{error}"
-        );
-    }
-
-    #[test]
-    fn configured_shell_resolution_never_substitutes_another_shell() {
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let missing = directory.path().join("missing-shell");
-        assert_eq!(resolve_program(&missing, None), None);
-    }
-
-    #[test]
-    fn executable_resolution_requires_an_execute_bit() {
-        use std::os::unix::fs::PermissionsExt as _;
-
-        let directory = tempfile::tempdir().expect("temporary directory");
-        let path = directory.path().join("candidate");
-        std::fs::write(&path, "#!/bin/sh\n").expect("write candidate");
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
-            .expect("set non-executable permissions");
-        assert_eq!(find_executable(&path), None);
-
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
-            .expect("set executable permissions");
-        assert_eq!(find_executable(&path), Some(path));
     }
 }

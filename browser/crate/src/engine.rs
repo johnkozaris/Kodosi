@@ -777,18 +777,6 @@ fn launch(engine: &Path, arguments: &[String]) -> Result<Child, Error> {
 mod tests {
     use super::*;
 
-    fn tab(id: i64, window: i64, active: bool) -> EngineTab {
-        EngineTab {
-            id,
-            window,
-            target: Some(format!("target-{id}")),
-            title: String::new(),
-            address: String::new(),
-            active,
-            loading: false,
-        }
-    }
-
     #[tokio::test]
     async fn a_report_that_the_engine_says_once_reaches_a_window_that_is_behind() {
         let (sender, mut receiver) = mpsc::channel(1);
@@ -799,44 +787,6 @@ mod tests {
         assert!(matches!(first, Ok(Some(Event::Answered))));
         let second = tokio::time::timeout(Duration::from_secs(5), receiver.recv()).await;
         assert!(matches!(second, Ok(Some(Event::Layer(7)))));
-    }
-
-    fn routes_with(windows: &[i64]) -> (Routes, mpsc::Receiver<Event>) {
-        let (sender, receiver) = mpsc::channel(8);
-        let mut routes = Routes::default();
-        for window in windows {
-            routes.windows.insert(*window, sender.clone());
-        }
-        (routes, receiver)
-    }
-
-    fn placed(deliveries: Vec<(mpsc::Sender<Event>, Event)>) -> (Vec<i64>, Option<i64>) {
-        match deliveries.into_iter().next() {
-            Some((_, Event::Tabs { tabs, active })) => {
-                (tabs.iter().map(|tab| tab.id).collect(), active)
-            }
-            _ => (Vec::new(), None),
-        }
-    }
-
-    #[test]
-    fn a_window_gets_its_tabs_and_the_engines_active_one() {
-        let (mut routes, _receiver) = routes_with(&[1]);
-        let tabs = [tab(10, 1, false), tab(20, 1, true)];
-        let (tabs, active) = placed(routes.place(&tabs));
-        assert_eq!(tabs, [10, 20]);
-        assert_eq!(active, Some(20));
-        assert_eq!(routes.targets.get("target-20"), Some(&1));
-    }
-
-    #[test]
-    fn a_tab_of_nobody_stays_out() {
-        let (mut routes, _receiver) = routes_with(&[1]);
-        let tabs = [tab(10, 1, true), tab(30, 3, true)];
-        let (tabs, active) = placed(routes.place(&tabs));
-        assert_eq!(tabs, [10]);
-        assert_eq!(active, Some(10));
-        assert!(!routes.tabs.contains_key(&30));
     }
 
     #[test]

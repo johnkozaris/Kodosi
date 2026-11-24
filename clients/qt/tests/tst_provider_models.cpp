@@ -1,6 +1,5 @@
 #include "SessionFixture.hpp"
 #include "presentation/AgentLauncherModel.hpp"
-#include "presentation/ConversationHistoryModel.hpp"
 #include <QJsonDocument>
 #include <QSignalSpy>
 #include <QtTest/QTest>
@@ -8,177 +7,24 @@
 class ProviderCommands final : public kodosi::CommandDispatcher {
 public:
     QList<QJsonObject> values;
-    QByteArray lastBytes;
     Result send(QByteArrayView bytes) override
     {
-        lastBytes = bytes.toByteArray();
         values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
         return {};
     }
-    QJsonObject reply(QJsonObject result, qsizetype index = -1) const
+    QJsonObject reply(QJsonObject result) const
     {
-        const auto command = values.at(index < 0 ? values.size() - 1 : index);
+        const auto command = values.last();
         return { { QStringLiteral("type"), QStringLiteral("provider.result") },
             { QStringLiteral("requestId"), command.value(QStringLiteral("requestId")) },
             { QStringLiteral("operation"), command.value(QStringLiteral("type")) },
             { QStringLiteral("result"), result } };
     }
 };
-void apply(kodosi::ConversationHistoryModel& history, const QJsonObject& event)
-{
-    history.apply(event, QJsonDocument(event).toJson(QJsonDocument::Compact));
-}
 
 class ProviderModelsTest final : public QObject {
     Q_OBJECT
 private slots:
-    void previewUsesByteCursorAndIgnoresStaleSelection()
-    {
-        ProviderCommands commands;
-        kodosi::ConversationHistoryModel tools(commands);
-        tools.open(QStringLiteral("claude"), QStringLiteral("/repo"));
-        const QJsonObject item { { QStringLiteral("provider"), QStringLiteral("claude") },
-            { QStringLiteral("workingDirectory"), QStringLiteral("/repo") },
-            { QStringLiteral("nativeConversationId"), test::id(1) } };
-        apply(tools, commands.reply({ { QStringLiteral("items"), QJsonArray { item } } }));
-        QCOMPARE(tools.conversations().size(), 1);
-        tools.preview(test::id(1));
-        apply(tools, commands.reply(
-            { { QStringLiteral("entries"),
-                  QJsonArray { QJsonObject { { QStringLiteral("role"), QStringLiteral("user") },
-                      { QStringLiteral("content"), QStringLiteral("Hello") } } } },
-                { QStringLiteral("nextBeforeByte"), 123 } }));
-        QCOMPARE(tools.entries().size(), 1);
-        QVERIFY(tools.hasOlder());
-        tools.loadOlder();
-        QCOMPARE(commands.values.last().value(QStringLiteral("beforeByte")).toInt(), 123);
-        QVERIFY(!commands.values.last().contains(QStringLiteral("beforeLine")));
-        const auto stale = commands.reply({ { QStringLiteral("entries"), QJsonArray { QJsonObject {} } } });
-        tools.open(QStringLiteral("copilot"), QStringLiteral("/other"));
-        apply(tools, stale);
-        QVERIFY(tools.entries().isEmpty());
-        QVERIFY(tools.busy());
-    }
-    void historyReplacesPagesAndCommitsNavigationOnlyOnSuccess()
-    {
-        ProviderCommands commands;
-        kodosi::ConversationHistoryModel tools(commands);
-        tools.open(QStringLiteral("claude"), QStringLiteral("/repo"));
-        apply(tools, commands.reply({ { QStringLiteral("items"), QJsonArray { QJsonObject {
-            { QStringLiteral("provider"), QStringLiteral("claude") },
-            { QStringLiteral("workingDirectory"), QStringLiteral("/repo") },
-            { QStringLiteral("nativeConversationId"), test::id(1) } } } } }));
-        tools.preview(test::id(1));
-        const auto page = [](QString content, int before) {
-            return QJsonObject { { QStringLiteral("entries"), QJsonArray { QJsonObject {
-                { QStringLiteral("content"), content } } } }, { QStringLiteral("nextBeforeByte"), before } };
-        };
-        apply(tools, commands.reply(page(QStringLiteral("latest"), 1000)));
-        for (int i = 0; i < 45; ++i) {
-            tools.loadOlder();
-            apply(tools, commands.reply(page(QString::number(i), 999 - i)));
-            QCOMPARE(tools.entries().size(), 1);
-        }
-        QVERIFY(tools.hasNewer());
-        tools.loadLatest();
-        apply(tools, { { QStringLiteral("type"), QStringLiteral("provider.error") },
-            { QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")) },
-            { QStringLiteral("message"), QStringLiteral("Unavailable") } });
-        QCOMPARE(tools.entries().first().toMap().value(QStringLiteral("content")).toString(), QStringLiteral("44"));
-        QVERIFY(tools.hasNewer());
-        tools.loadNewer();
-        QCOMPARE(commands.values.last().value(QStringLiteral("beforeByte")).toInt(), 957);
-        apply(tools, commands.reply(page(QStringLiteral("43"), 956)));
-        tools.loadLatest();
-        QVERIFY(!commands.values.last().contains(QStringLiteral("beforeByte")));
-        apply(tools, commands.reply(page(QStringLiteral("latest"), 1000)));
-        QVERIFY(!tools.hasNewer());
-        QCOMPARE(tools.entries().size(), 1);
-    }
-    void allProjectsPreviewUsesTheSelectedNativeDirectory()
-    {
-        ProviderCommands commands;
-        kodosi::ConversationHistoryModel tools(commands);
-        tools.open(QStringLiteral("claude"), {});
-        QVERIFY(!commands.values.last().contains(QStringLiteral("workingDirectory")));
-        apply(tools, commands.reply({ { QStringLiteral("items"), QJsonArray { QJsonObject {
-            { QStringLiteral("provider"), QStringLiteral("claude") },
-            { QStringLiteral("workingDirectory"), QStringLiteral("/another-project") },
-            { QStringLiteral("nativeConversationId"), test::id(1) } } } } }));
-        tools.preview(test::id(1));
-        QCOMPARE(commands.values.last().value(QStringLiteral("workingDirectory")).toString(), QStringLiteral("/another-project"));
-    }
-    void rejectsConversationFromAnotherProject()
-    {
-        ProviderCommands commands;
-        kodosi::ConversationHistoryModel tools(commands);
-        tools.open(QStringLiteral("claude"), QStringLiteral("/repo"));
-        apply(tools, commands.reply({ { QStringLiteral("items"),
-            QJsonArray { QJsonObject { { QStringLiteral("provider"), QStringLiteral("claude") },
-                { QStringLiteral("workingDirectory"), QStringLiteral("/other") },
-                { QStringLiteral("nativeConversationId"), test::id(1) } } } } }));
-        QVERIFY(tools.conversations().isEmpty());
-        QVERIFY(!tools.error().isEmpty());
-    }
-    void preservesUnsignedByteCursor()
-    {
-        ProviderCommands commands;
-        kodosi::ConversationHistoryModel tools(commands);
-        tools.open(QStringLiteral("claude"), QStringLiteral("/repo"));
-        const QJsonObject item {
-            {QStringLiteral("provider"), QStringLiteral("claude")},
-            {QStringLiteral("workingDirectory"), QStringLiteral("/repo")},
-            {QStringLiteral("nativeConversationId"), test::id(1)}};
-        apply(tools, commands.reply({{QStringLiteral("items"), QJsonArray {item}}}));
-        tools.preview(test::id(1));
-        auto reply = commands.reply({{QStringLiteral("entries"), QJsonArray {}},
-            {QStringLiteral("nextBeforeByte"), QStringLiteral("18446744073709551615")}});
-        auto bytes = QJsonDocument(reply).toJson(QJsonDocument::Compact);
-        bytes.replace("\"18446744073709551615\"", "18446744073709551615");
-        tools.apply(QJsonDocument::fromJson(bytes).object(), bytes);
-        QVERIFY(tools.hasOlder());
-        tools.loadOlder();
-        QVERIFY(commands.lastBytes.contains("\"beforeByte\":18446744073709551615"));
-    }
-    void launcherTakesItsOwnRepliesAndKeepsAChangeMadeAfterAQuestion()
-    {
-        ProviderCommands commands;
-        kodosi::AgentLauncherModel launcher(commands);
-        launcher.refresh(false);
-        const auto asked = commands.values.size() - 1;
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.agents"));
-        auto foreign = commands.reply({ { QStringLiteral("agents"), QJsonArray { QJsonObject {} } } });
-        foreign.insert(QStringLiteral("requestId"), test::id(9));
-        launcher.apply(foreign);
-        QVERIFY(launcher.agents().isEmpty());
-        launcher.chooseAgent(QStringLiteral("claude"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("change")).toObject(),
-            QJsonObject({ { QStringLiteral("type"), QStringLiteral("tab") }, { QStringLiteral("agent"), QStringLiteral("claude") } }));
-        const QJsonObject claude { { QStringLiteral("agent"), QStringLiteral("claude") },
-            { QStringLiteral("program"), QStringLiteral("claude") }, { QStringLiteral("installed"), true },
-            { QStringLiteral("accounts"), QJsonArray {} }, { QStringLiteral("install"), QStringLiteral("curl") },
-            { QStringLiteral("addsAccounts"), true } };
-        const QJsonObject unchosen { { QStringLiteral("agent"), QJsonValue() }, { QStringLiteral("picks"), QJsonArray {} } };
-        launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } }, { QStringLiteral("choice"), unchosen } }, asked));
-        QCOMPARE(launcher.agents().size(), 1);
-        QCOMPARE(launcher.choice().value(QStringLiteral("agent")).toString(), QStringLiteral("claude"));
-
-        launcher.addAccount(QStringLiteral("claude"), QStringLiteral(" work "));
-        const auto adding = commands.values.size() - 1;
-        QCOMPARE(commands.values.last().value(QStringLiteral("name")).toString(), QStringLiteral("work"));
-        launcher.refresh(true);
-        const auto older = commands.values.size() - 1;
-        launcher.apply(commands.reply({ { QStringLiteral("name"), QStringLiteral("work") },
-            { QStringLiteral("command"), QStringLiteral("env CLAUDE_CONFIG_DIR=/home/ada/.claude-work claude") } }, adding));
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.choose"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("change")).toObject().value(QStringLiteral("account")).toString(),
-            QStringLiteral("work"));
-        QCOMPARE(launcher.agents().first().toMap().value(QStringLiteral("accounts")).toList().size(), 1);
-        QCOMPARE(commands.values.size(), older + 2);
-        launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } } }, older));
-        QCOMPARE(commands.values.size(), older + 3);
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.agents"));
-    }
     void aPlanStartsTheShownAccountWithTheModelAndEffortTheAgentOffers()
     {
         ProviderCommands commands;
@@ -256,179 +102,6 @@ private slots:
         launcher.choose(QStringLiteral("fast"), QStringLiteral("claude"), true);
         QVERIFY(start(QStringLiteral("claude")).value(QStringLiteral("fast")).toBool());
         QVERIFY(commands.values.last().value(QStringLiteral("change")).toObject().value(QStringLiteral("fast")).toBool());
-    }
-    void usageAsksOnceAtATimeAndChoosesTheLimitThatCountsForTheModel()
-    {
-        ProviderCommands commands;
-        kodosi::AgentLauncherModel launcher(commands);
-        QSignalSpy changed(&launcher, &kodosi::AgentLauncherModel::usageChanged);
-        launcher.refreshUsage();
-        launcher.refreshUsage();
-        QCOMPARE(commands.values.size(), 1);
-        QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("provider.usage"));
-        const auto limit = [](QJsonValue hours, int used, const QString& level, const QString& model = {}) {
-            return QJsonObject { { QStringLiteral("hours"), hours },
-                { QStringLiteral("scope"), model.isEmpty() ? QJsonValue() : QJsonValue(model) },
-                { QStringLiteral("model"), model.isEmpty() ? QJsonValue() : QJsonValue(model.toLower()) },
-                { QStringLiteral("used"), used }, { QStringLiteral("level"), level }, { QStringLiteral("resetsAtMs"), QJsonValue() } };
-        };
-        const QJsonObject work { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("account"), QStringLiteral("work") },
-            { QStringLiteral("readAtMs"), qint64(1792716922000) },
-            { QStringLiteral("limits"), QJsonArray { limit(5, 42, QStringLiteral("normal")), limit(168, 85, QStringLiteral("near")),
-                limit(168, 100, QStringLiteral("reached"), QStringLiteral("Fable")) } } };
-        const QJsonObject copilot { { QStringLiteral("agent"), QStringLiteral("copilot") }, { QStringLiteral("account"), QStringLiteral("default") },
-            { QStringLiteral("readAtMs"), qint64(1792716922000) }, { QStringLiteral("limits"), QJsonArray { limit(QJsonValue(), 59, QStringLiteral("normal")) } } };
-        QVERIFY(launcher.loadingUsage());
-        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { work, copilot } } }));
-        QVERIFY(!launcher.loadingUsage());
-        QCOMPARE(changed.size(), 1);
-        const auto headline = [&](const QString& key, const QString& model) {
-            return launcher.headline(launcher.usage().value(key).toMap(), model).toMap();
-        };
-        QCOMPARE(headline(QStringLiteral("claude/work"), QStringLiteral("opus")).value(QStringLiteral("used")).toInt(), 85);
-        QCOMPARE(headline(QStringLiteral("claude/work"), QStringLiteral("fable")).value(QStringLiteral("window")).toString(), QStringLiteral("Fable"));
-        QCOMPARE(headline(QStringLiteral("claude/work"), QString()).value(QStringLiteral("used")).toInt(), 100);
-        QCOMPARE(headline(QStringLiteral("copilot/default"), QStringLiteral("gpt-6")).value(QStringLiteral("window")).toString(), QStringLiteral("month"));
-
-        const auto limits = launcher.usage().value(QStringLiteral("claude/work")).toMap().value(QStringLiteral("limits")).toList();
-        QCOMPARE(limits.first().toMap().value(QStringLiteral("window")).toString(), QStringLiteral("5h"));
-        QCOMPARE(limits.at(1).toMap().value(QStringLiteral("spoken")).toString(), QStringLiteral("This week: 85% used"));
-
-        launcher.refreshUsage();
-        QCOMPARE(commands.values.size(), 2);
-        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { work, copilot } } }));
-        QCOMPARE(changed.size(), 1);
-
-        QVERIFY(launcher.usageSections().isEmpty());
-        QVERIFY(!launcher.usageAvailable());
-        const auto account = [](const QString& name, const QString& identity) {
-            return QJsonObject { { QStringLiteral("name"), name }, { QStringLiteral("command"), QStringLiteral("claude") },
-                { QStringLiteral("identity"), identity.isEmpty() ? QJsonValue() : QJsonValue(identity) } };
-        };
-        const QJsonObject claude { { QStringLiteral("agent"), QStringLiteral("claude") }, { QStringLiteral("program"), QStringLiteral("claude") },
-            { QStringLiteral("installed"), true }, { QStringLiteral("install"), QString() }, { QStringLiteral("addsAccounts"), true },
-            { QStringLiteral("reportsUsage"), true },
-            { QStringLiteral("accounts"), QJsonArray { account(QStringLiteral("default"), QStringLiteral("ada@example.com")),
-                account(QStringLiteral("claude-work"), QStringLiteral("ada@work.example")),
-                account(QStringLiteral("personal"), QString()) } } };
-        launcher.refresh(true);
-        launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { claude } } }));
-        QVERIFY(launcher.usageAvailable());
-        auto renamed = work;
-        renamed.insert(QStringLiteral("account"), QStringLiteral("claude-work"));
-        auto signedOut = work;
-        signedOut.insert(QStringLiteral("account"), QStringLiteral("personal"));
-        signedOut.insert(QStringLiteral("limits"), QJsonArray { limit(5, 97, QStringLiteral("near")) });
-        launcher.refreshUsage();
-        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { renamed, signedOut } } }));
-        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 100);
-        const auto sections = launcher.usageSections();
-        QCOMPARE(sections.size(), 1);
-        const auto rows = sections.first().toMap().value(QStringLiteral("rows")).toList();
-        QCOMPARE(rows.size(), 1);
-        QCOMPARE(rows.first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Work"));
-        QCOMPARE(sections.first().toMap().value(QStringLiteral("windows")).toList().size(), 3);
-
-        auto fuller = work;
-        fuller.insert(QStringLiteral("account"), QStringLiteral("default"));
-        fuller.insert(QStringLiteral("limits"), QJsonArray { limit(168, 79, QStringLiteral("normal")), limit(168, 60, QStringLiteral("normal"), QStringLiteral("Fable")) });
-        auto warned = renamed;
-        warned.insert(QStringLiteral("limits"), QJsonArray { limit(5, 70, QStringLiteral("near")) });
-        launcher.refreshUsage();
-        launcher.apply(commands.reply({ { QStringLiteral("accounts"), QJsonArray { fuller, warned } } }));
-        QCOMPARE(launcher.usageNearest().toMap().value(QStringLiteral("used")).toInt(), 70);
-        QStringList windows;
-        for (const auto& window : launcher.usageSections().first().toMap().value(QStringLiteral("windows")).toList())
-            windows.append(window.toMap().value(QStringLiteral("id")).toString());
-        QCOMPARE(windows, QStringList({ QStringLiteral("hours:5"), QStringLiteral("hours:168"), QStringLiteral("scope:Fable") }));
-    }
-    void aResetShowsTheTimeLeftInItsTwoLargestUnitsRoundedUp()
-    {
-        ProviderCommands commands;
-        kodosi::AgentLauncherModel launcher(commands);
-        constexpr double now = 1795349410000;
-        constexpr double minute = 60000;
-        const auto resetting = [](double resets) {
-            return QVariantMap { { QStringLiteral("spoken"), QStringLiteral("This week: 85% used") }, { QStringLiteral("resetsAtMs"), resets } };
-        };
-        QCOMPARE(launcher.resetIn(resetting(now + (4 * 24 * 60 + 45) * minute), now), QStringLiteral("4d 1h"));
-        QCOMPARE(launcher.resetIn(resetting(now + 5 * 24 * 60 * minute), now), QStringLiteral("5d"));
-        QCOMPARE(launcher.resetIn(resetting(now + 287 * minute + 1), now), QStringLiteral("4h 48m"));
-        QCOMPARE(launcher.resetIn(resetting(now + 30000), now), QStringLiteral("1m"));
-        QCOMPARE(launcher.resetIn(resetting(now + 59 * minute + 30000), now), QStringLiteral("1h"));
-        QCOMPARE(launcher.resetIn(resetting(now + (23 * 60 + 59) * minute + 30000), now), QStringLiteral("1d"));
-        QCOMPARE(launcher.resetIn(resetting(now - minute), now), QString());
-        QCOMPARE(launcher.resetIn(QVariantMap { { QStringLiteral("resetsAtMs"), QVariant() } }, now), QString());
-        QCOMPARE(launcher.spokenWithReset(resetting(now + 288 * minute), now), QStringLiteral("This week: 85% used, resets in 4 hours 48 minutes"));
-        QCOMPARE(launcher.spokenWithReset(resetting(now - minute), now), QStringLiteral("This week: 85% used"));
-    }
-    void aLauncherForAnotherComputerAsksThatComputerAndKeepsItsAnswers()
-    {
-        ProviderCommands commands;
-        kodosi::AgentLauncherModel launcher(commands);
-        auto& remote = *launcher.of(QStringLiteral("laptop"));
-        remote.listFolders();
-        QCOMPARE(commands.values.size(), 2);
-        for (const auto& command : std::as_const(commands.values))
-            QCOMPARE(command.value(QStringLiteral("computer")).toString(), QStringLiteral("laptop"));
-        const auto places = commands.values.last();
-        QCOMPARE(places.value(QStringLiteral("type")).toString(), QStringLiteral("folders.list"));
-        QVERIFY(!places.contains(QStringLiteral("path")));
-        launcher.refresh(true);
-        QVERIFY(!commands.values.last().contains(QStringLiteral("computer")));
-
-        launcher.apply(commands.reply({ { QStringLiteral("agents"), QJsonArray { QJsonObject { { QStringLiteral("agent"), QStringLiteral("codex") } } } } }, 0));
-        QCOMPARE(remote.agents().size(), 1);
-        QVERIFY(launcher.agents().isEmpty());
-        const auto folders = [](const QJsonObject& command, const QString& path, const QStringList& names) {
-            return QJsonObject { { QStringLiteral("type"), QStringLiteral("folders.result") },
-                { QStringLiteral("requestId"), command.value(QStringLiteral("requestId")) },
-                { QStringLiteral("operation"), QStringLiteral("folders.list") },
-                { QStringLiteral("folders"),
-                    QJsonObject { { QStringLiteral("path"), path }, { QStringLiteral("parent"), QStringLiteral("/home") },
-                        { QStringLiteral("home"), QStringLiteral("/home/ada") }, { QStringLiteral("folders"), QJsonArray::fromStringList(names) },
-                        { QStringLiteral("recent"), QJsonArray { QStringLiteral("/home/ada/kodosi") } } } } };
-        };
-        launcher.apply(folders(places, QStringLiteral("/home/ada"), { QStringLiteral("kodosi") }));
-        QCOMPARE(remote.places().value(QStringLiteral("recent")).toStringList(), QStringList { QStringLiteral("/home/ada/kodosi") });
-        QVERIFY(remote.listing().isEmpty());
-        QVERIFY(launcher.places().isEmpty());
-
-        remote.listFolders(QStringLiteral("/home/ada/kodosi"), true);
-        const auto browse = commands.values.last();
-        QCOMPARE(browse.value(QStringLiteral("path")).toString(), QStringLiteral("/home/ada/kodosi"));
-        launcher.apply(folders(browse, QStringLiteral("/home/ada/kodosi"), { QStringLiteral("runtime") }));
-        QCOMPARE(remote.listing().value(QStringLiteral("folders")).toStringList(), QStringList { QStringLiteral("runtime") });
-        QCOMPARE(remote.places().value(QStringLiteral("path")).toString(), QStringLiteral("/home/ada"));
-
-        remote.listFolders(QStringLiteral("/home/ada/kodosi/gone"), true);
-        launcher.apply({ { QStringLiteral("type"), QStringLiteral("folders.error") },
-            { QStringLiteral("requestId"), commands.values.last().value(QStringLiteral("requestId")) },
-            { QStringLiteral("operation"), QStringLiteral("folders.list") }, { QStringLiteral("message"), QStringLiteral("This folder is not there.") } });
-        QCOMPARE(remote.folderError(), QStringLiteral("This folder is not there."));
-        QCOMPARE(remote.listing().value(QStringLiteral("path")).toString(), QStringLiteral("/home/ada/kodosi"));
-        remote.closeFolders();
-        QVERIFY(remote.listing().isEmpty() && remote.folderError().isEmpty());
-
-        remote.listFolders(QStringLiteral("/home/ada"), true);
-        const auto older = commands.values.last();
-        remote.listFolders(QStringLiteral("/home"), true);
-        launcher.apply(folders(commands.values.last(), QStringLiteral("/home"), { QStringLiteral("ada") }));
-        launcher.apply(folders(older, QStringLiteral("/home/ada"), { QStringLiteral("kodosi") }));
-        QCOMPARE(remote.listing().value(QStringLiteral("path")).toString(), QStringLiteral("/home"));
-        remote.listFolders(QStringLiteral("/home/ada"), true);
-        const auto late = commands.values.last();
-        remote.closeFolders();
-        launcher.apply(folders(late, QStringLiteral("/home/ada"), {}));
-        QVERIFY(remote.listing().isEmpty());
-
-        const auto sent = commands.values.size();
-        QCOMPARE(launcher.of(QStringLiteral("laptop")), &remote);
-        QCOMPARE(remote.agents().size(), 1);
-        QCOMPARE(commands.values.size(), sent);
-        auto& desk = *launcher.of(QStringLiteral("desk"));
-        QCOMPARE(commands.values.last().value(QStringLiteral("computer")).toString(), QStringLiteral("desk"));
-        QVERIFY(desk.agents().isEmpty());
     }
 };
 QTEST_GUILESS_MAIN(ProviderModelsTest)

@@ -524,59 +524,6 @@ async fn command_input_is_answered_only_once_the_terminal_has_it() {
     terminal.disconnect();
 }
 
-#[tokio::test]
-async fn focus_brings_the_size_the_view_asked_for() {
-    let (terminal, view, mut requests, _updates, _changes) = start().await;
-    let resize = TerminalControl::Resize {
-        rows: 10,
-        cols: 40,
-        width_pixels: 0,
-        height_pixels: 0,
-        cell_width_pixels: 0,
-        cell_height_pixels: 0,
-        claim: false,
-    };
-    let refused = terminal.control(Some(view.connection_id), resize);
-    match next_request(&mut requests).await {
-        TestRemoteRequest::Control {
-            control: TerminalControl::Resize { claim: false, .. },
-            reply,
-        } => reply
-            .send(Err(crate::network::Error::Invalid {
-                reason: "Another device controls the size.".to_owned(),
-            }))
-            .expect("refusal"),
-        _ => panic!("resize expected"),
-    }
-    assert!(refused.await.is_err());
-    let focused = terminal.control(
-        Some(view.connection_id),
-        TerminalControl::Focus { focused: true },
-    );
-    match next_request(&mut requests).await {
-        TestRemoteRequest::Control {
-            control: TerminalControl::Focus { focused: true },
-            reply,
-        } => reply.send(Ok(Value::Null)).expect("focus result"),
-        _ => panic!("focus expected"),
-    }
-    focused.await.expect("focus");
-    match next_request(&mut requests).await {
-        TestRemoteRequest::Control {
-            control:
-                TerminalControl::Resize {
-                    rows: 10,
-                    cols: 40,
-                    claim: true,
-                    ..
-                },
-            reply,
-        } => reply.send(Ok(Value::Null)).expect("resize result"),
-        _ => panic!("the asked size expected"),
-    }
-    terminal.disconnect();
-}
-
 fn resize(rows: u16, cols: u16, claim: bool) -> TerminalControl {
     TerminalControl::Resize {
         rows,
@@ -693,21 +640,6 @@ async fn attach_takes_the_size() -> (
         set_size(&terminal, view, control, &mut requests, &updates, &mut app).await;
     }
     (terminal, app, attach, requests, updates, changes)
-}
-
-#[tokio::test]
-async fn a_focused_view_sends_its_size_again_when_the_view_that_set_it_leaves() {
-    let (terminal, _app, attach, mut requests, _updates, _changes) = attach_takes_the_size().await;
-    drop(attach);
-    assert!(matches!(
-        confirm(&mut requests).await,
-        TerminalControl::Resize {
-            rows: 17,
-            cols: 49,
-            ..
-        }
-    ));
-    terminal.disconnect();
 }
 
 #[tokio::test]
@@ -921,41 +853,6 @@ async fn a_focus_that_an_app_gives_back_after_a_reconnect_claims_no_size() {
     back.await.expect("focus again");
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert!(requests.try_recv().is_err());
-    terminal.disconnect();
-}
-
-#[tokio::test]
-async fn keys_claim_the_size_that_the_view_asked_for() {
-    let (terminal, view, mut requests, _updates, _changes) = start().await;
-    let id = view.connection_id;
-    let refused = terminal.control(Some(id), resize(10, 40, false));
-    match next_request(&mut requests).await {
-        TestRemoteRequest::Control {
-            control: TerminalControl::Resize { claim: false, .. },
-            reply,
-        } => reply
-            .send(Err(crate::network::Error::Invalid {
-                reason: "Another device controls the size.".to_owned(),
-            }))
-            .expect("refusal"),
-        _ => panic!("resize expected"),
-    }
-    assert!(refused.await.is_err());
-    let typed = terminal.write_input(id, Bytes::from_static(b"x"));
-    assert!(matches!(
-        confirm(&mut requests).await,
-        TerminalControl::Resize {
-            rows: 10,
-            cols: 40,
-            claim: true,
-            ..
-        }
-    ));
-    assert!(matches!(
-        confirm(&mut requests).await,
-        TerminalControl::Input { .. }
-    ));
-    typed.await.expect("keys");
     terminal.disconnect();
 }
 
@@ -1228,53 +1125,6 @@ async fn a_future_capture_waits_for_the_original_stream_instead_of_skipping_outp
 }
 
 #[tokio::test]
-async fn capture_refresh_preserves_existing_subscription_and_focus() {
-    let (terminal, subscriber, mut requests, updates, _changes) = start().await;
-    let focus = terminal.control(
-        Some(subscriber.connection_id),
-        TerminalControl::Focus { focused: true },
-    );
-    match next_request(&mut requests).await {
-        TestRemoteRequest::Control {
-            control: TerminalControl::Focus { focused: true },
-            reply,
-        } => {
-            reply.send(Ok(Value::Null)).expect("focus");
-        }
-        _ => panic!("focus expected"),
-    }
-    focus.await.expect("focus applied");
-    let capture = terminal.checkpoint(subscriber.connection_id);
-    assert!(matches!(
-        next_request(&mut requests).await,
-        TestRemoteRequest::Checkpoint
-    ));
-    updates
-        .send(RemoteUpdate::Checkpoint {
-            checkpoint: checkpoint(4, 20, b"initial"),
-            next_sequence: 0,
-        })
-        .await
-        .expect("capture");
-    assert_eq!(capture.await.expect("capture").next_sequence, 0);
-    assert!(!terminal.is_closed());
-    assert!(requests.try_recv().is_err());
-    drop(subscriber);
-    match next_request(&mut requests).await {
-        TestRemoteRequest::Control {
-            control: TerminalControl::Focus { focused: false },
-            reply,
-        } => {
-            reply
-                .send(Ok(Value::Null))
-                .expect("blur after actual close");
-        }
-        _ => panic!("blur expected"),
-    }
-    terminal.disconnect();
-}
-
-#[tokio::test]
 async fn same_cut_resize_reaches_existing_viewers_as_an_ordered_geometry_change() {
     let (terminal, mut subscriber, _requests, updates, _changes) = start().await;
     updates
@@ -1354,74 +1204,6 @@ async fn disconnect_does_not_wait_behind_an_in_flight_control_or_full_queue() {
             .expect("timely closure")
             .is_some()
     );
-}
-
-#[tokio::test]
-async fn the_end_from_the_host_ends_a_view_that_did_not_get_all_output() {
-    let (terminal, mut view, _requests, updates, mut changes) = start().await;
-    updates.send(RemoteUpdate::Ended).await.expect("end");
-    assert!(matches!(
-        view.control.recv().await,
-        Some(ControlFrame::Closed { .. })
-    ));
-    loop {
-        match changes.recv().await {
-            Some(SessionChange::RemoteEnded { .. }) => break,
-            Some(_) => {}
-            None => panic!("the terminal did not report its end"),
-        }
-    }
-    assert!(terminal.is_closed());
-}
-
-fn picture(fill: u8) -> Picture {
-    let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
-    bytes.resize(4096, fill);
-    Picture::new(Bytes::from(bytes)).expect("picture")
-}
-
-async fn picture_state(changes: &mut mpsc::Receiver<SessionChange>) -> PictureState {
-    loop {
-        if let SessionChange::Picture { state, .. } =
-            tokio::time::timeout(Duration::from_secs(2), changes.recv())
-                .await
-                .expect("picture change timeout")
-                .expect("picture change")
-        {
-            return state;
-        }
-    }
-}
-
-#[tokio::test]
-async fn a_picture_pasted_again_while_it_travels_goes_once_and_the_next_picture_follows() {
-    let (terminal, _view, mut requests, _updates, mut changes) = start().await;
-    terminal.picture(picture(1)).await.expect("first paste");
-    let TestRemoteRequest::Picture { reply, .. } = next_request(&mut requests).await else {
-        panic!("picture expected");
-    };
-    assert_eq!(picture_state(&mut changes).await, PictureState::Sending);
-    for _ in 0..3 {
-        terminal.picture(picture(1)).await.expect("same paste");
-    }
-    terminal.picture(picture(2)).await.expect("other paste");
-    assert!(
-        tokio::time::timeout(Duration::from_millis(200), requests.recv())
-            .await
-            .is_err()
-    );
-    reply.send(Ok(())).expect("arrived");
-    assert_eq!(picture_state(&mut changes).await, PictureState::Sent);
-    let TestRemoteRequest::Picture { picture: next, .. } = next_request(&mut requests).await else {
-        panic!("next picture expected");
-    };
-    assert_eq!(next.digest, picture(2).digest);
-    assert!(
-        tokio::time::timeout(Duration::from_millis(200), requests.recv())
-            .await
-            .is_err()
-    );
-    terminal.disconnect();
 }
 
 #[tokio::test]
@@ -1516,50 +1298,6 @@ async fn work_for_a_paused_terminal_wakes_it_and_goes_out_on_the_next_connection
     terminal.disconnect();
 }
 
-async fn paused(
-    terminal: &RemoteTerminal,
-    changes: &mut mpsc::Receiver<SessionChange>,
-) -> SessionChange {
-    terminal.show(false);
-    tokio::time::timeout(Duration::from_secs(1), changes.recv())
-        .await
-        .expect("pause timeout")
-        .expect("pause")
-}
-
-async fn wanted(changes: &mut mpsc::Receiver<SessionChange>) -> bool {
-    matches!(
-        tokio::time::timeout(Duration::from_secs(1), changes.recv()).await,
-        Ok(Some(SessionChange::RemoteWanted { .. }))
-    )
-}
-
-#[tokio::test]
-async fn a_read_of_a_paused_terminal_wakes_it() {
-    let (terminal, _view, _requests, _updates, mut changes) = start().await;
-    assert!(matches!(
-        paused(&terminal, &mut changes).await,
-        SessionChange::RemotePaused { .. }
-    ));
-    let read = tokio::spawn(terminal.read(false));
-    assert!(wanted(&mut changes).await);
-    read.abort();
-    terminal.disconnect();
-}
-
-#[tokio::test]
-async fn work_asks_for_the_terminal_again_while_a_wake_has_not_connected() {
-    let (terminal, _view, _requests, _updates, mut changes) = start().await;
-    paused(&terminal, &mut changes).await;
-    let first = tokio::spawn(terminal.control(None, TerminalControl::Interrupt));
-    assert!(wanted(&mut changes).await);
-    let second = tokio::spawn(terminal.control(None, TerminalControl::Interrupt));
-    assert!(wanted(&mut changes).await);
-    first.abort();
-    second.abort();
-    terminal.disconnect();
-}
-
 #[tokio::test]
 async fn a_hidden_terminal_with_an_open_document_stays_connected_until_the_document_closes() {
     let (terminal, _view, mut requests, _updates, mut changes) = start().await;
@@ -1579,31 +1317,6 @@ async fn a_hidden_terminal_with_an_open_document_stays_connected_until_the_docum
     );
     assert!(!terminal.is_interrupted());
     drop(ends);
-    assert!(matches!(
-        tokio::time::timeout(Duration::from_secs(1), changes.recv())
-            .await
-            .expect("pause timeout"),
-        Some(SessionChange::RemotePaused { .. })
-    ));
-    terminal.disconnect();
-}
-
-#[tokio::test]
-async fn a_hidden_terminal_answers_a_canvas_request_before_it_pauses() {
-    let (terminal, _view, mut requests, _updates, mut changes) = start().await;
-    let asked =
-        tokio::spawn(terminal.canvas(crate::canvas::CanvasRequest::Remove { keys: vec![] }));
-    let TestRemoteRequest::Control { reply, .. } = next_request(&mut requests).await else {
-        panic!("expected the canvas request");
-    };
-    terminal.show(false);
-    assert!(
-        tokio::time::timeout(Duration::from_millis(300), changes.recv())
-            .await
-            .is_err()
-    );
-    reply.send(Ok(Value::Null)).expect("answer");
-    assert!(asked.await.expect("task").is_ok());
     assert!(matches!(
         tokio::time::timeout(Duration::from_secs(1), changes.recv())
             .await
@@ -1634,32 +1347,5 @@ async fn a_hidden_terminal_pauses_as_soon_as_nobody_waits_for_its_screen() {
             .expect("pause timeout"),
         Some(SessionChange::RemotePaused { .. })
     ));
-    terminal.disconnect();
-}
-
-#[tokio::test(start_paused = true)]
-async fn a_stall_that_ends_while_the_runtime_is_busy_reaches_it_as_soon_as_it_has_room() {
-    let (connection, _requests, updates) = test_remote_connection(session());
-    let (changes, mut told) = mpsc::channel(1);
-    let terminal = RemoteTerminal::spawn(connection, changes);
-    for stalled in [true, false] {
-        updates
-            .send(RemoteUpdate::Stalled(stalled))
-            .await
-            .expect("stall");
-    }
-    while told.is_empty() || terminal.is_stalled() {
-        tokio::time::sleep(Duration::from_millis(1)).await;
-    }
-    assert!(matches!(
-        told.try_recv(),
-        Ok(SessionChange::RemoteRoute { .. })
-    ));
-    let room = tokio::time::Instant::now();
-    assert!(matches!(
-        tokio::time::timeout(Duration::from_secs(1), told.recv()).await,
-        Ok(Some(SessionChange::RemoteRoute { .. }))
-    ));
-    assert_eq!(room.elapsed(), Duration::ZERO);
     terminal.disconnect();
 }

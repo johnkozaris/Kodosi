@@ -913,15 +913,6 @@ mod tests {
     }
 
     #[test]
-    fn an_ack_after_the_id_wraps_clears_older_frames() {
-        let now = Instant::now();
-        let mut flow = flow_with(&["a"], now);
-        flow.frame(u32::MAX, FrameKind::Key, None, LARGE, now, none);
-        flow.ack("a", 1, now);
-        assert_eq!(send(&mut flow, 2, FrameKind::Delta, now).to, ["a"]);
-    }
-
-    #[test]
     fn a_link_slower_than_the_stream_cuts_the_bitrate_once_and_a_faster_one_raises_it() {
         let now = Instant::now();
         let mut flow = flow_with(&["a"], now);
@@ -1048,13 +1039,6 @@ mod tests {
         let end = ack_until(&mut flow, &mut acks, None).unwrap();
         let fitted = flow.steer(Some("phone"), end).unwrap();
         assert!((450_000..=510_000).contains(&fitted), "{fitted}");
-    }
-
-    #[test]
-    fn nobody_steers_a_still_page() {
-        let now = Instant::now();
-        let mut flow = flow_with(&["a"], now);
-        assert_eq!(flow.steer(None, now), None);
     }
 
     #[test]

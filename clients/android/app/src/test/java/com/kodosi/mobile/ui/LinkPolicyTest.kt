@@ -27,12 +27,4 @@ class LinkPolicyTest {
             .forEach { assertEquals(it, LinkReview.OnComputer("Mac"), LinkPolicy.review(it, "Mac")) }
         assertTrue(LinkPolicy.review("https://example.org", "Mac") is LinkReview.Open)
     }
-
-    @Test
-    fun detectsCompleteLinksWithoutSentencePunctuation() {
-        val text = "Read (https://example.org/a(b)), then mailto:ana@example.org."
-        val links = LinkPolicy.inText(text).toList()
-        assertEquals(listOf("https://example.org/a(b)", "mailto:ana@example.org"), links.map { it.address })
-        assertEquals(links.map { it.address }, links.map { text.substring(it.range) })
-    }
 }

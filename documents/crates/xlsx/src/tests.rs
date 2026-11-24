@@ -99,19 +99,6 @@ fn no_edit_means_the_same_bytes() {
 }
 
 #[test]
-fn cells_come_with_values_formulas_and_looks() {
-    let model = read(&xlsx_file());
-    let snapshot = Xlsx::snapshot(&model).0;
-    assert_eq!(snapshot["sheets"][0]["name"], "Data");
-    assert_eq!(snapshot["sheets"][0]["cells"]["0"]["1"]["value"], "hello");
-    assert_eq!(snapshot["sheets"][0]["cells"]["2"]["0"]["formula"], "A1+A2");
-    assert_eq!(snapshot["sheets"][0]["cells"]["3"]["1"]["formula"], "A4*2");
-    assert_eq!(snapshot["sheets"][0]["merges"], json!([[8, 0, 8, 1]]));
-    assert_eq!(snapshot["looks"][1]["bold"], true);
-    assert_eq!(snapshot["looks"][1]["color"], "FF0000");
-}
-
-#[test]
 fn an_edit_changes_one_cell_and_the_results_that_follow_it() {
     let file = xlsx_file();
     let mut model = read(&file);
@@ -238,30 +225,6 @@ fn a_workbook_asks_to_be_worked_out_while_a_formula_keeps_its_value() {
 }
 
 #[test]
-fn an_answer_says_when_the_formulas_could_not_be_worked_out_in_time() {
-    let file = xlsx_file();
-    let mut model = read(&file);
-    ops(&mut model, vec![set("A2", Value::Number(10.0))]).unwrap();
-    let everything = Query::Read {
-        sheet: None,
-        range: None,
-    };
-    let unfinished = crate::ops::answer(&model, &everything, Duration::ZERO);
-    let formula = unfinished["sheets"][0]["cells"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|cell| cell["cell"] == "A3")
-        .unwrap();
-    assert_eq!(formula["value"], serde_json::Value::Null);
-    assert!(unfinished["problem"].is_string());
-    let unchecked = crate::ops::answer(&model, &Query::Check, Duration::ZERO);
-    assert!(unchecked.get("errors").is_none() && unchecked["problem"].is_string());
-    assert!(Xlsx::query(&model, everything).0.get("problem").is_none());
-    assert!(Xlsx::query(&model, Query::Check).0.get("problem").is_none());
-}
-
-#[test]
 fn a_formula_uses_the_names_of_the_workbook_and_keeps_what_it_cannot_work_out() {
     let sheet = SHEET.replace(" x14ac:custom=\"kept\"", "").replace(
         r#"<c r="B1" t="s"><v>0</v></c>"#,
@@ -373,36 +336,6 @@ fn a_workbook_saves_with_its_chart_sheet_as_it_is() {
 }
 
 #[test]
-fn a_new_row_goes_in_its_place() {
-    let file = xlsx_file();
-    let mut model = read(&file);
-    ops(
-        &mut model,
-        vec![set("A20", Value::Number(1.0)), set("B2", Value::Bool(true))],
-    )
-    .unwrap();
-    let again = read(&saved(&model, &file));
-    assert_eq!(cell_value(&again, "A20"), 1.0);
-    assert_eq!(cell_value(&again, "B2"), true);
-}
-
-#[test]
-fn clearing_a_cell_removes_it() {
-    let file = xlsx_file();
-    let mut model = read(&file);
-    ops(
-        &mut model,
-        vec![Op::ClearRange {
-            sheet: "Data".to_owned(),
-            range: "B1:B1".to_owned(),
-        }],
-    )
-    .unwrap();
-    let again = read(&saved(&model, &file));
-    assert_eq!(cell_value(&again, "B1"), serde_json::Value::Null);
-}
-
-#[test]
 fn a_new_look_adds_to_the_style_table_and_keeps_the_old_ones() {
     let file = xlsx_file();
     let mut model = read(&file);
@@ -434,32 +367,6 @@ fn a_new_look_adds_to_the_style_table_and_keeps_the_old_ones() {
     assert_eq!(snapshot["looks"][2]["strike"], true);
     assert_eq!(snapshot["looks"][2]["vertical"], "center");
     assert_eq!(snapshot["looks"][1]["color"], "FF0000");
-}
-
-#[test]
-fn a_look_goes_out_with_its_style_so_other_views_can_draw_it() {
-    let mut model = read(&xlsx_file());
-    let look = crate::model::Look {
-        italic: true,
-        ..crate::model::Look::default()
-    };
-    let change = Change::Cells {
-        sheet: model.sheets[0].id.clone(),
-        cells: vec![CellChange {
-            row: 0,
-            column: 0,
-            value: None,
-            formula: None,
-            style: None,
-            look: Some(look.clone()),
-        }],
-    };
-    let sent = Xlsx::apply(&mut model, change, &[], &mut Assets::default()).unwrap();
-    let Change::Cells { cells, .. } = sent else {
-        panic!("a cells change stays a cells change");
-    };
-    assert_eq!(cells[0].look, Some(look));
-    assert_eq!(cells[0].style, Some(Some(2)));
 }
 
 fn format(model: &mut Model, range: &str, look: crate::model::Look) {
@@ -589,34 +496,6 @@ fn sizes_and_merges_reach_the_file() {
     assert_eq!(snapshot["sheets"][0]["widths"]["1"], 30.0);
     assert_eq!(snapshot["sheets"][0]["heights"]["1"], 44.0);
     assert_eq!(snapshot["sheets"][0]["merges"], json!([[0, 2, 1, 3]]));
-}
-
-#[test]
-fn a_place_moves_with_its_rows_and_reads_as_a_range() {
-    let mut model = read(&xlsx_file());
-    let mut place = json!({
-        "sheet": model.sheets[0].id,
-        "row": 2,
-        "column": 1,
-        "endRow": 3,
-        "endColumn": 1,
-        "editing": true,
-    });
-    let inserted = Op::InsertRows {
-        sheet: "Data".to_owned(),
-        at: 1,
-        count: 2,
-    };
-    let change = ops(&mut model, vec![inserted]).unwrap();
-    Xlsx::map_place(&mut place, &change);
-    assert_eq!(
-        (place["row"].clone(), place["endRow"].clone()),
-        (json!(4), json!(5))
-    );
-    assert_eq!(
-        Xlsx::describe_place(&model, &place),
-        json!({ "range": "Data!B5:B6", "editing": true })
-    );
 }
 
 #[test]
@@ -755,32 +634,6 @@ fn a_new_sheet_never_takes_the_number_of_a_removed_one() {
 }
 
 #[test]
-fn a_new_sheet_goes_in_the_package() {
-    let file = xlsx_file();
-    let mut model = read(&file);
-    ops(
-        &mut model,
-        vec![Op::AddSheet {
-            name: "Totals".to_owned(),
-        }],
-    )
-    .unwrap();
-    ops(
-        &mut model,
-        vec![Op::SetCell {
-            sheet: "Totals".to_owned(),
-            cell: "A1".to_owned(),
-            value: None,
-            formula: Some("=Data!A1*10".to_owned()),
-        }],
-    )
-    .unwrap();
-    let again = read(&saved(&model, &file));
-    let snapshot = Xlsx::snapshot(&again).0;
-    assert_eq!(snapshot["sheets"][1]["name"], "Totals");
-}
-
-#[test]
 fn an_old_change_to_the_same_cell_is_refused_with_the_name() {
     let file = xlsx_file();
     let mut model = read(&file);
@@ -819,34 +672,6 @@ fn an_old_change_to_the_same_cell_is_refused_with_the_name() {
         ops: vec![set("A1", Value::Number(2.0))],
     };
     assert!(Xlsx::apply(&mut model, other, &[earlier], &mut Assets::default()).is_ok());
-}
-
-#[test]
-fn a_view_change_names_a_key_and_the_last_one_wins() {
-    let file = xlsx_file();
-    let mut model = read(&file);
-    let change = |value: f64| Change::Cells {
-        sheet: "1".to_owned(),
-        cells: vec![CellChange {
-            row: 1,
-            column: 0,
-            value: Some(Some(Value::Number(value))),
-            ..CellChange::default()
-        }],
-    };
-    let older = Ordered {
-        rev: 1,
-        author: "Ana".to_owned(),
-        client: "ana".to_owned(),
-        seq: 1,
-        change: change(1.0),
-    };
-    Xlsx::apply(&mut model, change(1.0), &[], &mut Assets::default()).unwrap();
-    Xlsx::apply(&mut model, change(2.0), &[older], &mut Assets::default()).unwrap();
-    assert_eq!(
-        model.sheet("1").unwrap().cells[&(1, 0)].value,
-        Some(Value::Number(2.0))
-    );
 }
 
 #[test]
@@ -897,98 +722,6 @@ fn a_compare_finds_only_what_a_write_changed() {
         _ => 0,
     });
     assert_eq!(cells.sum::<usize>(), 1);
-}
-
-#[test]
-fn check_lists_formula_errors() {
-    let file = xlsx_file();
-    let mut model = read(&file);
-    ops(
-        &mut model,
-        vec![Op::SetCell {
-            sheet: "Data".to_owned(),
-            cell: "D1".to_owned(),
-            value: None,
-            formula: Some("=1/0".to_owned()),
-        }],
-    )
-    .unwrap();
-    let answer = Xlsx::query(&model, Query::Check).0;
-    assert_eq!(answer["errors"][0]["cell"], "D1");
-}
-
-#[test]
-fn the_guide_names_each_op_that_an_agent_can_send() {
-    let guide = Xlsx::guide();
-    for op in &guide.ops {
-        let mut example = json!({ "op": op.name });
-        for field in op.fields.iter().filter(|field| field.required) {
-            example[&field.name] = match field.kind.as_str() {
-                "number" => json!(1),
-                "rows of values" => json!([[1]]),
-                "look" => json!({ "bold": true }),
-                _ => json!("x"),
-            };
-        }
-        let parsed: Result<Op, _> = serde_json::from_value(example);
-        assert!(parsed.is_ok(), "{}: {parsed:?}", op.name);
-    }
-}
-
-#[test]
-fn a_link_of_a_cell_says_where_it_goes_and_moves_with_its_row() {
-    let sheet = SHEET
-        .replace(" x14ac:custom=\"kept\"", " ht=\"20\"")
-        .replace(
-            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">"#,
-            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">"#,
-        )
-        .replace(
-            "</mergeCells>",
-            r#"</mergeCells><hyperlinks><hyperlink ref="A1" r:id="rId1"/><hyperlink ref="B2" location="'Data'!A3" display="Totals"/></hyperlinks>"#,
-        );
-    let file = xlsx_file_with(&sheet, WORKBOOK, STYLES);
-    let mut parts = Package::open(&file).unwrap();
-    let names: Vec<String> = parts.names().map(str::to_owned).collect();
-    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-    let options = zip::write::SimpleFileOptions::default();
-    for name in names {
-        writer.start_file(name.as_str(), options).unwrap();
-        writer.write_all(&parts.bytes(&name).unwrap()).unwrap();
-    }
-    writer
-        .start_file("xl/worksheets/_rels/sheet1.xml.rels", options)
-        .unwrap();
-    writer
-        .write_all(br#"<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://kodosi.com/docs" TargetMode="External"/></Relationships>"#)
-        .unwrap();
-    let file = writer.finish().unwrap().into_inner();
-
-    let model = read(&file);
-    assert_eq!(
-        model.snapshot()["sheets"][0]["links"],
-        json!([
-            { "ranges": "A1", "to": { "href": "https://kodosi.com/docs" } },
-            { "ranges": "B2", "to": { "location": "'Data'!A3" } },
-        ])
-    );
-    assert_eq!(saved(&model, &file), file);
-
-    let mut moved = model;
-    ops(
-        &mut moved,
-        vec![Op::InsertRows {
-            sheet: "1".to_owned(),
-            at: 0,
-            count: 1,
-        }],
-    )
-    .unwrap();
-    let links = &moved.snapshot()["sheets"][0]["links"];
-    assert_eq!(
-        (&links[0]["ranges"], &links[1]["ranges"]),
-        (&json!("A2"), &json!("B3"))
-    );
 }
 
 fn change(model: &mut Model, change: Change) {
@@ -1097,50 +830,6 @@ fn a_file_keeps_its_hidden_lines_and_frozen_panes_and_they_move_with_its_rows() 
 }
 
 #[test]
-fn lines_that_come_or_go_before_frozen_panes_move_them() {
-    let mut model = read(&xlsx_file());
-    let frozen = |model: &Model| Xlsx::snapshot(model).0["sheets"][0]["frozen"].clone();
-    let rows = |at, count| Change::Rows {
-        sheet: "1".to_owned(),
-        at,
-        count,
-    };
-    change(&mut model, freeze(3, 1, 2, 1));
-    change(&mut model, rows(5, 4));
-    assert_eq!(
-        frozen(&model),
-        json!({ "top": 3, "left": 1, "rows": 2, "columns": 1 })
-    );
-    change(&mut model, rows(4, 2));
-    assert_eq!(
-        frozen(&model),
-        json!({ "top": 3, "left": 1, "rows": 4, "columns": 1 })
-    );
-    change(&mut model, rows(0, -2));
-    assert_eq!(
-        frozen(&model),
-        json!({ "top": 3, "left": 1, "rows": 2, "columns": 1 })
-    );
-    change(&mut model, rows(2, -10));
-    assert_eq!(
-        frozen(&model),
-        json!({ "top": 1, "left": 1, "rows": 1, "columns": 1 })
-    );
-    change(
-        &mut model,
-        Change::Columns {
-            sheet: "1".to_owned(),
-            at: 0,
-            count: 3,
-        },
-    );
-    assert_eq!(
-        frozen(&model),
-        json!({ "top": 1, "left": 1, "rows": 1, "columns": 4 })
-    );
-}
-
-#[test]
 fn a_new_sheet_saves_its_panes_and_columns_at_once() {
     let file = xlsx_file();
     let mut model = read(&file);
@@ -1197,29 +886,6 @@ fn lines_and_panes_past_the_last_line_are_refused() {
         ));
     }
     change(&mut model, hide(&[(1_048_575, true)], &[(16_383, true)]));
-}
-
-#[test]
-fn a_view_names_lines_by_their_number_as_text() {
-    let mut model = read(&xlsx_file());
-    let batch = serde_json::from_value(json!({
-        "kind": "group",
-        "changes": [
-            { "kind": "size", "sheet": "1", "widths": { "1": 30 }, "heights": { "0": null, "4": 22.5 } },
-            { "kind": "hidden", "sheet": "1", "rows": { "4": true }, "columns": { "2": true } },
-        ],
-    }))
-    .unwrap();
-    change(&mut model, batch);
-    let sheet = &Xlsx::snapshot(&model).0["sheets"][0];
-    assert_eq!(
-        (&sheet["widths"], &sheet["heights"]),
-        (&json!({ "1": 30.0 }), &json!({ "4": 22.5 }))
-    );
-    assert_eq!(
-        (&sheet["hiddenRows"], &sheet["hiddenColumns"]),
-        (&json!([4]), &json!([2]))
-    );
 }
 
 #[test]

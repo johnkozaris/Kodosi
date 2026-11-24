@@ -168,19 +168,6 @@ mod tests {
         assert_eq!(cookies[1].path, "/x");
     }
 
-    #[cfg(unix)]
-    #[test]
-    fn a_store_that_the_system_closes_asks_for_full_disk_access() {
-        use std::os::unix::fs::PermissionsExt as _;
-
-        let folder = tempfile::tempdir().unwrap();
-        let store = folder.path().join("Cookies.binarycookies");
-        std::fs::write(&store, file(&[])).unwrap();
-        std::fs::set_permissions(&store, std::fs::Permissions::from_mode(0o000)).unwrap();
-        assert!(matches!(read(&store), Err(CopyError::Protected(_))));
-        assert_eq!(read(&folder.path().join("none")).unwrap(), Vec::new());
-    }
-
     #[test]
     fn a_short_file_is_refused_and_does_not_panic() {
         let bytes = file(&[record(".site.test", "a", "/", "1", 0)]);

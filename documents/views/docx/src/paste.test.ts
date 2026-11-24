@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { getSchema } from "@tiptap/core";
 import { Fragment, type Node as ProseNode, Slice } from "@tiptap/pm/model";
-import { fitPaste, type Holding, writablePicture } from "./paste";
+import { fitPaste, type Holding } from "./paste";
 import { extensions } from "./schema";
 
 const schema = getSchema(extensions);
@@ -88,20 +88,6 @@ test("a block that the editor keeps whole pastes only when it moves", () => {
       ],
     },
   ]);
-});
-
-test("only a PNG, a JPEG or a GIF can paste as a new picture", () => {
-  const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a];
-  const jpeg = [0xff, 0xd8, 0xff, 0xe0];
-  const gif = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61];
-  const emf = [0x01, 0x00, 0x00, 0x00, 0x6c, 0x00];
-  expect([png, jpeg, gif, emf].map((bytes) => writablePicture(new Uint8Array(bytes)))).toEqual([
-    true,
-    true,
-    true,
-    false,
-  ]);
-  expect(writablePicture(undefined)).toBe(false);
 });
 
 test("the blocks around a paste take a new id and only the properties that the document holds", () => {

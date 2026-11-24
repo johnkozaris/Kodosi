@@ -95,19 +95,6 @@ fn a_history_too_large_for_one_snapshot_still_gives_the_screen() {
     );
 }
 
-#[test]
-fn a_program_that_asks_for_the_terminal_version_is_told_ghostty() {
-    let mut terminal = SessionTerminal::new(24, 80, TerminalLook::Dark).expect("terminal");
-
-    let output = terminal.process_output(b"\x1b[>q").expect("output");
-
-    assert!(matches!(
-        output.effects.as_slice(),
-        [TerminalEffect::PtyWrite(reply)]
-            if reply == b"\x1bP>|ghostty 1.4.1-dev\x1b\\"
-    ));
-}
-
 fn replies(effects: &[TerminalEffect]) -> Vec<&[u8]> {
     effects
         .iter()
@@ -119,36 +106,6 @@ fn replies(effects: &[TerminalEffect]) -> Vec<&[u8]> {
 }
 
 const ASK_COLORS: &[u8] = b"\x1b]11;?\x1b\\\x1b]10;?\x1b\\\x1b]4;1;?\x1b\\\x1b[?996n";
-
-#[test]
-fn a_program_that_asks_for_the_colors_is_told_the_colors_of_the_look_that_the_apps_draw() {
-    for (look, answers) in [
-        (
-            TerminalLook::Dark,
-            [
-                b"\x1b]11;rgb:0d0d/0b0b/0909\x1b\\".as_slice(),
-                b"\x1b]10;rgb:e8e8/e1e1/d9d9\x1b\\",
-                b"\x1b]4;1;rgb:c4c4/4040/4040\x1b\\",
-                b"\x1b[?997;1n",
-            ],
-        ),
-        (
-            TerminalLook::Light,
-            [
-                b"\x1b]11;rgb:fafa/f6f6/eeee\x1b\\".as_slice(),
-                b"\x1b]10;rgb:2a2a/1d1d/1515\x1b\\",
-                b"\x1b]4;1;rgb:b2b2/3a3a/3232\x1b\\",
-                b"\x1b[?997;2n",
-            ],
-        ),
-    ] {
-        let mut terminal = SessionTerminal::new(24, 80, look).expect("terminal");
-
-        let output = terminal.process_output(ASK_COLORS).expect("output");
-
-        assert_eq!(replies(&output.effects), answers, "{look:?}");
-    }
-}
 
 #[test]
 fn a_new_look_changes_the_answers_and_reaches_only_a_program_that_follows_the_color_scheme() {

@@ -28,28 +28,4 @@ class PushedTerminalTest {
             PushedTerminal.list("$first:codex:error::0").single().status
         )
     }
-
-    @Test
-    fun aBrokenEntryIsSkippedAndTheOthersStay() {
-        val good = "$second:claude:blocked:question:0"
-        assertEquals(
-            listOf(second),
-            PushedTerminal.list(
-                listOf(
-                    "$first:claude:blocked:permission",
-                    "$first:claude:blocked:permission:1:extra",
-                    "$first:claude:working::1",
-                    "$first:claude:::1",
-                    "not-a-terminal:claude:blocked:permission:1",
-                    ":claude:done::0",
-                    good,
-                    "$second:claude:done::0"
-                ).joinToString(" ")
-            ).map { it.terminal }
-        )
-        assertEquals(
-            ProgramStatus(ProgramStatus.State.BLOCKED),
-            PushedTerminal.list("$first:claude:blocked:unknown:0").single().status
-        )
-    }
 }

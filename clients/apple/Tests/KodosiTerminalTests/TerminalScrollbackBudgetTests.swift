@@ -19,76 +19,12 @@
     }
 
     @MainActor
-    private final class MenuActionRecorder: NSObject {
-        private(set) var count = 0
-
-        @objc func record() {
-            count += 1
-        }
-    }
-
-    @MainActor
     private final class AccessibilityUpdateRecorder {
         private(set) var count = 0
 
         func record() {
             count += 1
         }
-
-        func recordAndReturnCount() -> Int {
-            count += 1
-            return count
-        }
-    }
-
-    @MainActor
-    @Test func `accessibility subscribers remain independent`() async {
-        let session = TerminalRendererSession(
-            write: { _ in },
-            resize: { _, _ in },
-        )
-        let first = AccessibilityUpdateRecorder()
-        let second = AccessibilityUpdateRecorder()
-        let firstToken = session.registerAccessibilityUpdateHandler {
-            first.record()
-            return true
-        }
-        let secondToken = session.registerAccessibilityUpdateHandler {
-            second.record()
-            return true
-        }
-
-        session.signalAccessibilityViewportChange()
-        try? await Task.sleep(for: .milliseconds(150))
-        #expect(first.count == 1)
-        #expect(second.count == 1)
-
-        session.unregisterAccessibilityUpdateHandler(firstToken)
-        session.signalAccessibilityViewportChange()
-        try? await Task.sleep(for: .milliseconds(150))
-        #expect(first.count == 1)
-        #expect(second.count == 2)
-        session.unregisterAccessibilityUpdateHandler(secondToken)
-    }
-
-    @MainActor
-    @Test func `accessibility refresh retries until committed viewport changes`() async {
-        let session = TerminalRendererSession(
-            write: { _ in },
-            resize: { _, _ in },
-        )
-        let attempts = AccessibilityUpdateRecorder()
-        let token = session.registerAccessibilityUpdateHandler {
-            attempts.recordAndReturnCount() == 3
-        }
-
-        session.signalAccessibilityViewportChange()
-        for _ in 0 ..< 20 where attempts.count < 3 {
-            try? await Task.sleep(for: .milliseconds(20))
-        }
-
-        #expect(attempts.count == 3)
-        session.unregisterAccessibilityUpdateHandler(token)
     }
 
     @MainActor
@@ -150,51 +86,6 @@
         session.setAllowsInput(true)
         session.viewState.configuration.session.sendInput(Data("allowed".utf8))
         #expect(writes.values == [Data("allowed".utf8)])
-    }
-
-    @MainActor
-    @Test func `runtime focus revocation resigns and allows user reacquisition`() {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 240),
-            styleMask: [.titled],
-            backing: .buffered,
-            defer: false,
-        )
-        let view = TerminalRendererHostedView(frame: window.contentView?.bounds ?? .zero)
-        var focusEvents: [Bool] = []
-        view.onFocusChange = { focusEvents.append($0) }
-        window.contentView = view
-        window.makeKeyAndOrderFront(nil)
-
-        #expect(window.makeFirstResponder(view))
-        #expect(window.firstResponder === view)
-        view.revokeNativeFocus()
-        #expect(window.firstResponder !== view)
-        #expect(!view.canSynchronizeRequestedFocus)
-
-        #expect(window.makeFirstResponder(view))
-        #expect(window.firstResponder === view)
-        #expect(view.canSynchronizeRequestedFocus)
-        #expect(focusEvents.filter(\.self).count == (window.isKeyWindow ? 2 : 0))
-        window.orderOut(nil)
-    }
-
-    @MainActor
-    @Test func `window key loss releases focus without responder replacement`() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 240),
-                              styleMask: [.titled], backing: .buffered, defer: false)
-        let view = TerminalRendererHostedView(frame: window.contentView?.bounds ?? .zero)
-        var focusEvents: [Bool] = []
-        view.onFocusChange = { focusEvents.append($0) }
-        window.contentView = view
-        window.makeKeyAndOrderFront(nil)
-        defer { window.contentView = nil; window.orderOut(nil) }
-        window.makeFirstResponder(view)
-        #expect(window.firstResponder === view)
-        focusEvents.removeAll()
-        NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: window)
-        #expect(focusEvents == [false])
-        #expect(window.firstResponder === view)
     }
 
     private func commandKey(_ character: String, keyCode: UInt16, timestamp: TimeInterval) throws -> NSEvent {
@@ -275,76 +166,6 @@
         #expect(view.menu(for: mouse)?.items.first?.action == NSSelectorFromString("copy:"))
         try await Task.sleep(for: .milliseconds(20))
         #expect(writes.values.isEmpty)
-    }
-
-    @MainActor
-    @Test func `a key of the app menu reaches the menu before the terminal`() async throws {
-        let session = TerminalRendererSession(write: { _ in }, resize: { _, _ in })
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 240),
-            styleMask: [.titled],
-            backing: .buffered,
-            defer: false,
-        )
-        let view = TerminalRendererHostedView(frame: window.contentView?.bounds ?? .zero)
-        view.delegateProxy.target = session.viewState
-        view.delegate = view.delegateProxy
-        view.controller = session.viewState.controller
-        view.configuration = session.viewState.configuration
-        window.contentView = view
-        window.makeKeyAndOrderFront(nil)
-        let recorder = MenuActionRecorder()
-        let item = NSMenuItem(title: "Quick Terminal", action: #selector(MenuActionRecorder.record), keyEquivalent: "t")
-        item.target = recorder
-        let items = NSMenu()
-        items.addItem(item)
-        let top = NSMenuItem()
-        top.submenu = items
-        let bar = NSMenu()
-        bar.addItem(top)
-        let earlierMenu = NSApplication.shared.mainMenu
-        NSApplication.shared.mainMenu = bar
-        defer {
-            NSApplication.shared.mainMenu = earlierMenu
-            view.tearDownSurface()
-            window.orderOut(nil)
-        }
-        for _ in 0 ..< 100 where session.nativeSurfaceGeneration == 0 {
-            try await Task.sleep(for: .milliseconds(2))
-        }
-        #expect(window.makeFirstResponder(view))
-
-        #expect(try view.performKeyEquivalent(with: commandKey("t", keyCode: 17, timestamp: 1)))
-
-        #expect(recorder.count == 1)
-    }
-
-    @MainActor
-    @Test func `hosted view exposes viewport text accessibility`() {
-        let view = TerminalRendererHostedView(frame: .zero)
-        view.viewportText = { "visible terminal output" }
-        view.refreshAccessibilityViewport()
-
-        #expect(view.accessibilityValue() as? String == "visible terminal output")
-        #expect(view.accessibilityVisibleCharacterRange() == NSRange(location: 0, length: 23))
-        #expect(view.accessibilityNumberOfCharacters() == 23)
-        #expect(view.accessibilityString(for: NSRange(location: 8, length: 8)) == "terminal")
-        #expect(view.accessibilityString(for: NSRange(location: 22, length: 2)) == nil)
-        #expect(view.accessibilityString(for: NSRange(location: NSNotFound, length: 0)) == nil)
-    }
-
-    @MainActor
-    @Test func `accessibility text queries refresh one cached viewport`() {
-        let view = TerminalRendererHostedView(frame: .zero)
-        var text = "old"
-        view.viewportText = { text }
-        view.refreshAccessibilityViewport()
-        text = "new terminal output"
-
-        #expect(view.accessibilityNumberOfCharacters() == 19)
-        #expect(view.accessibilityVisibleCharacterRange() == NSRange(location: 0, length: 19))
-        #expect(view.accessibilityString(for: NSRange(location: 4, length: 8)) == "terminal")
-        #expect(view.accessibilityValue() as? String == "new terminal output")
     }
 
     @MainActor

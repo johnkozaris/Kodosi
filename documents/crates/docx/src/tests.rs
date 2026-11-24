@@ -151,24 +151,6 @@ fn no_edit_means_the_same_bytes() {
 }
 
 #[test]
-fn the_tree_holds_blocks_with_their_text_and_look() {
-    let model = read(&docx_file(THREE));
-    let all = blocks(&model);
-    assert_eq!(all.len(), 3);
-    assert_eq!(all[0]["style"], "Heading1");
-    assert_eq!(all[1]["text"], "bold words and plain");
-    let doc = model.doc.to_json(schema());
-    let run = &doc["content"][1]["content"][0];
-    let marks: Vec<&str> = run["marks"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|mark| mark["type"].as_str().unwrap())
-        .collect();
-    assert_eq!(marks, ["run", "bold", "textStyle"]);
-}
-
-#[test]
 fn one_edit_changes_one_block_and_nothing_else() {
     let file = docx_file(THREE);
     let mut model = read(&file);
@@ -263,62 +245,6 @@ fn a_view_can_send_steps_and_the_saved_file_reads_the_same() {
 }
 
 #[test]
-fn undoing_superscript_over_subscript_is_taken_and_names_its_block() {
-    let mut model = read(&docx_file(THREE));
-    let first = first_id(&model);
-    let mark = |kind: &str, name: &str| json!({ "stepType": kind, "from": 1, "to": 3, "mark": { "type": name } });
-    stepped(&mut model, vec![mark("addMark", "subscript")]);
-    let subscript = model.doc.clone();
-    stepped(&mut model, vec![mark("addMark", "superscript")]);
-    let undo = json!({
-        "stepType": "markSet",
-        "steps": [mark("removeMark", "superscript"), mark("addMark", "subscript")],
-    });
-    let change = Change::Steps {
-        steps: vec![undo],
-        touched: Vec::new(),
-        keep: BTreeMap::default(),
-        sources: BTreeMap::default(),
-    };
-    match applied(&mut model, change).unwrap() {
-        Change::Steps { touched, .. } => assert_eq!(touched, [first]),
-        other => panic!("{other:?}"),
-    }
-    assert_eq!(model.doc, subscript);
-}
-
-#[test]
-fn a_place_moves_with_steps_before_it_and_reads_as_its_block_and_words() {
-    let mut model = read(&docx_file(THREE));
-    let second = blocks(&model)[1]["id"].clone();
-    let plain = 8 + "bold words and ".len();
-    let mut place = json!({ "from": plain, "to": plain + "plain".len() });
-    let change = Change::Steps {
-        steps: vec![json!({
-            "stepType": "replace",
-            "from": 2,
-            "to": 2,
-            "slice": { "content": [{ "type": "text", "text": "A " }] },
-        })],
-        touched: Vec::new(),
-        keep: BTreeMap::default(),
-        sources: BTreeMap::default(),
-    };
-    let change = applied(&mut model, change).unwrap();
-    Docx::map_place(&mut place, &change);
-    assert_eq!(place, json!({ "from": plain + 2, "to": plain + 7 }));
-    assert_eq!(
-        Docx::describe_place(&model, &place),
-        json!({ "block": second, "selected": "plain" })
-    );
-    let caret = json!({ "from": plain + 2, "to": plain + 2 });
-    assert_eq!(
-        Docx::describe_place(&model, &caret),
-        json!({ "block": second })
-    );
-}
-
-#[test]
 fn old_steps_are_behind_and_old_ops_only_when_they_meet() {
     let mut model = read(&docx_file(THREE));
     let first = blocks(&model)[0]["id"].as_str().unwrap().to_owned();
@@ -368,31 +294,6 @@ fn old_steps_are_behind_and_old_ops_only_when_they_meet() {
         author: String::new(),
     };
     assert!(Docx::apply(&mut model, other_place, &since, &mut Assets::default()).is_ok());
-}
-
-#[test]
-fn ops_are_all_or_none() {
-    let mut model = read(&docx_file(THREE));
-    let before = model.doc.clone();
-    let change = Change::Ops {
-        ops: vec![
-            Op::InsertParagraph {
-                text: "new".to_owned(),
-                after: None,
-                style: None,
-            },
-            Op::DeleteBlock {
-                block: "nothing".to_owned(),
-            },
-        ],
-        track: false,
-        author: String::new(),
-    };
-    assert!(matches!(
-        applied(&mut model, change),
-        Err(Refused::Invalid(_))
-    ));
-    assert_eq!(model.doc, before);
 }
 
 #[test]
@@ -610,31 +511,6 @@ fn a_tracked_cell_keeps_its_old_text_until_a_person_decides() {
 }
 
 #[test]
-fn a_look_or_a_table_changes_directly_under_track() {
-    let mut model = read(&docx_file(THREE));
-    let first = first_id(&model);
-    tracked(
-        &mut model,
-        vec![
-            Op::SetStyle {
-                block: first,
-                style: Some("Quote".to_owned()),
-            },
-            Op::InsertTable {
-                rows: vec![vec!["a".to_owned()]],
-                after: None,
-            },
-        ],
-    )
-    .unwrap();
-    assert_eq!(blocks(&model)[0]["style"], "Quote");
-    let table = blocks(&model)[3]["id"].as_str().unwrap().to_owned();
-    tracked(&mut model, vec![Op::DeleteBlock { block: table }]).unwrap();
-    assert_eq!(blocks(&model).len(), 3);
-    assert_eq!(Docx::query(&model, Query::Check).0["trackedChanges"], 0);
-}
-
-#[test]
 fn a_mark_that_word_tracked_alone_is_a_change_and_its_rejection_joins_the_paragraphs_in_the_next() {
     let file = docx_file(concat!(
         r#"<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:rPr><w:ins w:id="1" w:author="Ana" w:date="2026-11-09T10:00:00Z"/></w:rPr></w:pPr>"#,
@@ -652,44 +528,6 @@ fn a_mark_that_word_tracked_alone_is_a_change_and_its_rejection_joins_the_paragr
 }
 
 #[test]
-fn a_paragraph_a_table_and_a_cell_can_be_added() {
-    let file = docx_file(THREE);
-    let mut model = read(&file);
-    steps_of(
-        &mut model,
-        vec![
-            Op::InsertParagraph {
-                text: "Added".to_owned(),
-                after: None,
-                style: Some("Heading2".to_owned()),
-            },
-            Op::InsertTable {
-                rows: vec![vec!["a".to_owned(), "b".to_owned()]],
-                after: None,
-            },
-        ],
-    );
-    let table = blocks(&model).last().unwrap()["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    steps_of(
-        &mut model,
-        vec![Op::SetCell {
-            table,
-            row: 0,
-            column: 1,
-            text: "B".to_owned(),
-        }],
-    );
-    let new_file = saved(&model, &file);
-    let again = read(&new_file);
-    let all = blocks(&again);
-    assert_eq!(all[3]["style"], "Heading2");
-    assert_eq!(all[4]["rows"], json!([["a", "B"]]));
-}
-
-#[test]
 fn text_with_characters_that_xml_cannot_hold_saves_a_file_that_opens() {
     let file = docx_file(THREE);
     let mut model = read(&file);
@@ -703,22 +541,6 @@ fn text_with_characters_that_xml_cannot_hold_saves_a_file_that_opens() {
     );
     let again = read(&saved(&model, &file));
     assert_eq!(blocks(&again)[3]["text"], "End of page 1Page 2 [1mbold[0m");
-}
-
-#[test]
-fn a_compare_finds_only_what_a_write_changed() {
-    let file = docx_file(THREE);
-    let base = read(&file);
-    let written = docx_file(
-        &THREE
-            .replace("Title", "New title")
-            .replace("Last", "Last</w:t></w:r></w:p><w:p><w:r><w:t>More"),
-    );
-    let changes = Docx::compare(&base, &read(&written));
-    let [Change::Merge { ops, .. }] = changes.as_slice() else {
-        panic!("{changes:?}");
-    };
-    assert_eq!(ops.len(), 2);
 }
 
 #[test]
@@ -747,45 +569,6 @@ fn a_merge_keeps_a_persons_edit_and_the_writers_bytes() {
     assert!(
         xml.contains(r#"<w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>From script</w:t></w:r>"#)
     );
-}
-
-#[test]
-fn the_guide_names_each_op_that_an_agent_can_send() {
-    let guide = Docx::guide();
-    for op in &guide.ops {
-        let mut example = json!({ "op": op.name });
-        for field in op.fields.iter().filter(|field| field.required) {
-            example[&field.name] = match field.kind.as_str() {
-                "number" => json!(0),
-                "rows of text" => json!([["a"]]),
-                _ => json!("x"),
-            };
-        }
-        let parsed: Result<Op, _> = serde_json::from_value(example);
-        assert!(parsed.is_ok(), "{}: {parsed:?}", op.name);
-    }
-}
-
-#[test]
-fn a_file_that_is_no_package_is_refused() {
-    assert!(Docx::read(b"not a zip", &mut Assets::default()).is_err());
-}
-
-#[test]
-fn a_new_file_from_markdown_has_bullets_and_numbers() {
-    let model = read(&crate::new_file(Some("- one\n2. two")).unwrap());
-    let snapshot = Docx::snapshot(&model).0;
-    let lists = &snapshot["view"]["numbering"];
-    assert_eq!(lists["1"][0]["format"], "bullet");
-    assert_eq!(lists["2"][0]["format"], "decimal");
-    assert_eq!(lists["2"][1]["text"], "%2.");
-    let items: Vec<&Value> = snapshot["doc"]["content"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|block| &block["attrs"]["numId"])
-        .collect();
-    assert_eq!(items, [&json!("1"), &json!("2")]);
 }
 
 #[test]

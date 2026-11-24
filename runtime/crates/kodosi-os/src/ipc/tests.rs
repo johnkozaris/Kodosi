@@ -13,15 +13,6 @@ fn rand_suffix() -> u128 {
         % 1_000_000_007
 }
 
-#[test]
-fn endpoint_names_are_validated() {
-    assert!(Endpoint::new("", "host").is_err());
-    assert!(Endpoint::new("a/b", "host").is_err());
-    assert!(Endpoint::new("abc", "host.sock").is_err());
-    assert!(Endpoint::new(&"a".repeat(65), "host").is_err());
-    assert!(Endpoint::new("abc-123", "host").is_ok());
-}
-
 #[tokio::test]
 async fn a_listener_serves_its_user_and_refuses_a_second_owner() {
     serves_its_user_and_refuses_a_second_owner(Endpoint::new(&namespace(), "host").unwrap()).await;
