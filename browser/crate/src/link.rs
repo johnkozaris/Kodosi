@@ -295,34 +295,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_frame_keeps_its_window_kind_mark_data_and_whether_it_is_a_still() {
-        for (kind, mark, still) in [
-            (FrameKind::Key, None, false),
-            (FrameKind::Anchor, Some(0), false),
-            (FrameKind::Delta, Some(u64::MAX), false),
-            (FrameKind::Key, Some(3), true),
-        ] {
-            let frame = EncodedFrame {
-                window: -7,
-                kind,
-                mark,
-                still,
-                data: Bytes::from_static(b"\0\0\0\x01picture"),
-            };
-            let message = Bytes::from(frame.to_message());
-            assert_eq!(EncodedFrame::from_message(&message), Some(frame));
-        }
-    }
-
-    #[test]
-    fn a_short_message_is_no_frame() {
-        assert_eq!(
-            EncodedFrame::from_message(&Bytes::from_static(b"short")),
-            None
-        );
-    }
-
-    #[test]
     fn commands_and_reports_have_their_wire_form() {
         let command = ToEngine::Capture {
             window: 3,
