@@ -47,6 +47,7 @@ public extension View {
         @State private var instant = false
         @State private var muted = false
         @State private var waiting: Task<Void, Never>?
+        @State private var monitor: Any?
         @State private var id = UUID()
 
         func body(content: Content) -> some View {
@@ -56,9 +57,11 @@ public extension View {
                     guard inside else {
                         shown = false
                         muted = false
+                        stopMuting()
                         return
                     }
                     guard !muted else { return }
+                    muteOnPress()
                     if KodosiTipClock.warm {
                         instant = true
                         shown = true
@@ -73,15 +76,34 @@ public extension View {
                 }
                 .anchorPreference(key: KodosiTipKey.self, value: .bounds) { anchor in
                     guard shown else { return [] }
-                    return [KodosiTipItem(id: id, anchor: anchor, text: text, instant: instant) {
-                        shown = false
-                        muted = true
-                    }]
+                    return [KodosiTipItem(id: id, anchor: anchor, text: text, instant: instant)]
                 }
                 .onDisappear {
                     waiting?.cancel()
                     shown = false
+                    stopMuting()
                 }
+        }
+
+        /// A click or a key also mutes a tip that still waits for its pause, so the tip never comes
+        /// on top of what the click opened.
+        private func muteOnPress() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { event in
+                MainActor.assumeIsolated {
+                    waiting?.cancel()
+                    shown = false
+                    muted = true
+                }
+                return event
+            }
+        }
+
+        private func stopMuting() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+            }
+            monitor = nil
         }
     }
 
@@ -90,7 +112,6 @@ public extension View {
         let anchor: Anchor<CGRect>
         let text: Text
         let instant: Bool
-        let dismiss: () -> Void
     }
 
     struct KodosiTipKey: PreferenceKey {
@@ -110,7 +131,6 @@ public extension View {
         let bounds: CGSize
         @State private var size = CGSize.zero
         @State private var shown = false
-        @State private var monitor: Any?
 
         private static let gap: CGFloat = 6
         private static let margin: CGFloat = 8
@@ -138,16 +158,9 @@ public extension View {
                     } else {
                         withAnimation(theme.motion.hover) { shown = true }
                     }
-                    monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { event in
-                        item.dismiss()
-                        return event
-                    }
                 }
                 .onDisappear {
                     KodosiTipClock.closedOne()
-                    if let monitor {
-                        NSEvent.removeMonitor(monitor)
-                    }
                 }
         }
 
