@@ -564,6 +564,6 @@
         <item quantity="other">Tasks: %1$d of %2$d done</item>
     </plurals>
     <string name="local_network_title">Reach your computer directly</string>
-    <string name="local_network_message">On the same Wi-Fi, your phone connects straight to your own computer, which is faster. Android calls this permission “nearby devices”.</string>
+    <string name="local_network_reason">On the same Wi-Fi, your phone connects straight to your own computer, which is faster. Android calls this permission “nearby devices”.</string>
     <string name="local_network_continue">Continue</string>
 </resources>

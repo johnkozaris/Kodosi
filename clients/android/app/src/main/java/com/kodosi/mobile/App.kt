@@ -283,7 +283,7 @@ private fun Home(model: AppModel) {
     if (askingNetwork) {
         ConfirmDialog(
             stringResource(R.string.local_network_title),
-            stringResource(R.string.local_network_message),
+            stringResource(R.string.local_network_reason),
             stringResource(R.string.local_network_continue),
             {
                 askingNetwork = false

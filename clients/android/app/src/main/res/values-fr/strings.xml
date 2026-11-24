@@ -580,6 +580,6 @@
         <item quantity="other">Tâches : %1$d sur %2$d terminées</item>
     </plurals>
     <string name="local_network_title">Joindre directement votre ordinateur</string>
-    <string name="local_network_message">Sur le même Wi-Fi, votre téléphone se connecte directement à votre ordinateur, ce qui est plus rapide. Android appelle cette autorisation « Appareils à proximité ».</string>
+    <string name="local_network_reason">Sur le même Wi-Fi, votre téléphone se connecte directement à votre ordinateur, ce qui est plus rapide. Android appelle cette autorisation « Appareils à proximité ».</string>
     <string name="local_network_continue">Continuer</string>
 </resources>
