@@ -21,15 +21,71 @@ Item {
     readonly property bool stops: chat.working && !typed
     readonly property bool away: chat.loaded && chat.state === "away"
     readonly property real column: Math.min(760, width - 20)
+    readonly property var suggestions: {
+        const draft = chat.draft
+        if (!draft.startsWith("/") || /\s/.test(draft))
+            return []
+        const letters = draft.slice(1).toLowerCase()
+        const starting = chat.commands.filter(command => command.name.toLowerCase().startsWith(letters))
+        if (letters.length === 0)
+            return starting
+        return starting.concat(chat.commands.filter(command => !command.name.toLowerCase().startsWith(letters)
+            && command.name.toLowerCase().includes(letters)))
+    }
+    property int picked: 0
 
     signal sent()
+    signal terminalRequested()
+    signal linkActivated(string link)
 
     function focusComposer(): void {
         field.forceActiveFocus()
     }
     function send(): void {
-        if (root.typed && root.chat.canWrite && root.chat.submit())
+        if (!root.typed || !root.chat.canWrite)
+            return
+        const control = root.chat.control(root.chat.draft)
+        if (control.length > 0) {
+            root.chat.draft = ""
+            root.open(control)
+        } else if (root.chat.submit()) {
             root.sent()
+        }
+    }
+    function open(control: string): void {
+        if (control === "model")
+            factsRow.openModel()
+        else if (control === "usage")
+            factsRow.openUsage()
+    }
+    function move(step: int): bool {
+        const count = root.suggestions.length
+        if (count === 0)
+            return false
+        root.picked = (Math.min(root.picked, count - 1) + step + count) % count
+        commandView.positionViewAtIndex(root.picked, ListView.Contain)
+        return true
+    }
+    function complete(): bool {
+        const count = root.suggestions.length
+        if (count === 0)
+            return false
+        const command = root.suggestions[Math.min(root.picked, count - 1)]
+        if (root.chat.draft === "/" + command.name)
+            return false
+        root.choose(command)
+        return true
+    }
+    function choose(command: var): void {
+        root.picked = 0
+        if ((command.opens || "").length > 0) {
+            root.chat.draft = ""
+            root.open(command.opens)
+        } else {
+            root.chat.draft = "/" + command.name + " "
+            field.cursorPosition = field.length
+            field.forceActiveFocus()
+        }
     }
 
     implicitHeight: dock.implicitHeight + 12
@@ -195,11 +251,13 @@ Item {
 
                 required property var modelData
                 readonly property bool refused: (modelData.refused || "").length > 0
+                readonly property bool terminal: !refused && modelData.terminal === true
 
                 Layout.fillWidth: true
                 implicitHeight: queuedColumn.implicitHeight
 
                 KIconButton {
+                    visible: !waiting.terminal
                     anchors.right: queuedColumn.left
                     anchors.rightMargin: 6
                     anchors.verticalCenter: bubble.verticalCenter
@@ -215,7 +273,8 @@ Item {
                     id: queuedColumn
 
                     anchors.right: parent.right
-                    width: Math.min(parent.width - 68, Math.max(queuedWords.implicitWidth + 40, refusedWords.visible ? refusedWords.implicitWidth : 0))
+                    width: Math.min(parent.width - (waiting.terminal ? 40 : 68), Math.max(queuedWords.implicitWidth + 40, refusedWords.visible ? refusedWords.implicitWidth : 0,
+                        terminalWords.visible ? terminalText.implicitWidth + terminalWords.spacing + showTerminal.implicitWidth : 0))
                     spacing: 3
 
                     Rectangle {
@@ -257,8 +316,11 @@ Item {
                         id: refusedWords
 
                         anchors.right: parent.right
+                        width: Math.min(implicitWidth, parent.width)
                         visible: waiting.refused
                         text: qsTr("The agent takes the next message in its terminal.")
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignRight
                         color: root.look.caution
                         font.pixelSize: KodosiTheme.fontCaption
                         ToolTip.visible: refusedHover.hovered
@@ -266,6 +328,56 @@ Item {
                         ToolTip.delay: Tip.delay
 
                         HoverHandler { id: refusedHover }
+                    }
+                    Row {
+                        id: terminalWords
+
+                        anchors.right: parent.right
+                        visible: waiting.terminal
+                        spacing: 8
+
+                        PlainLabel {
+                            id: terminalText
+
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.min(implicitWidth, queuedColumn.width - terminalWords.spacing - showTerminal.implicitWidth)
+                            text: qsTr("%1 shows this in its terminal.").arg(root.agent)
+                            wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignRight
+                            color: root.look.inkMuted
+                            font.pixelSize: KodosiTheme.fontCaption
+                        }
+                        AbstractButton {
+                            id: showTerminal
+
+                            anchors.verticalCenter: parent.verticalCenter
+                            implicitWidth: showWords.implicitWidth
+                            implicitHeight: 22
+                            hoverEnabled: true
+                            activeFocusOnTab: true
+                            objectName: "chat.queued.terminal"
+                            Accessible.role: Accessible.Button
+                            Accessible.name: showWords.text
+                            onClicked: root.terminalRequested()
+
+                            background: Rectangle {
+                                anchors.fill: parent
+                                anchors.margins: -3
+                                radius: KodosiTheme.radiusXs
+                                color: "transparent"
+                                border.width: showTerminal.visualFocus ? 1.5 : 0
+                                border.color: root.look.accentStrong
+                            }
+                            contentItem: PlainLabel {
+                                id: showWords
+
+                                text: qsTr("Show the terminal")
+                                color: showTerminal.hovered ? root.look.accent : root.look.accentStrong
+                                font.pixelSize: KodosiTheme.fontCaption
+                                font.weight: Font.DemiBold
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
                     }
                 }
             }
@@ -280,6 +392,7 @@ Item {
                 session: root.session
                 look: root.look
                 room: root.askRoom
+                onLinkActivated: link => root.linkActivated(link)
             }
         }
         RowLayout {
@@ -314,6 +427,87 @@ Item {
             font.pixelSize: KodosiTheme.fontFootnote
             horizontalAlignment: Text.AlignHCenter
             objectName: "chat.away"
+        }
+        Item {
+            id: commandList
+
+            readonly property real rowHeight: 30
+
+            Layout.fillWidth: true
+            implicitHeight: Math.min(commandView.contentHeight, rowHeight * 6.5) + 8
+            visible: root.suggestions.length > 0 && !root.away && root.chat.canWrite
+            objectName: "chat.commands"
+            Accessible.role: Accessible.List
+            Accessible.name: qsTr("Commands")
+
+            Raised {
+                anchors.fill: parent
+                radius: KodosiTheme.radiusLg
+                look: root.look
+                fill: root.look.raised
+            }
+            ListView {
+                id: commandView
+
+                anchors.fill: parent
+                anchors.margins: 4
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                model: root.suggestions
+                ScrollBar.vertical: KScrollBar {}
+
+                delegate: AbstractButton {
+                    id: commandRow
+
+                    required property var modelData
+                    required property int index
+
+                    width: ListView.view.width
+                    implicitHeight: commandList.rowHeight
+                    hoverEnabled: true
+                    focusPolicy: Qt.NoFocus
+                    objectName: "chat.command." + modelData.name
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "/" + modelData.name
+                    Accessible.description: modelData.description || ""
+                    onHoveredChanged: {
+                        if (hovered)
+                            root.picked = index
+                    }
+                    onClicked: root.choose(modelData)
+
+                    background: Rectangle {
+                        radius: KodosiTheme.radiusSm
+                        color: commandRow.index === Math.min(root.picked, root.suggestions.length - 1)
+                            ? KodosiTheme.alpha(root.look.ink, 0.07) : "transparent"
+                    }
+                    contentItem: Item {
+                        Row {
+                            x: 10
+                            width: parent.width - 20
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 10
+
+                            PlainLabel {
+                                id: commandName
+
+                                text: "/" + commandRow.modelData.name
+                                color: root.look.ink
+                                font.family: "monospace"
+                                font.pixelSize: KodosiTheme.fontFootnote
+                            }
+                            PlainLabel {
+                                anchors.baseline: commandName.baseline
+                                width: Math.max(0, parent.width - commandName.implicitWidth - 10)
+                                text: commandRow.modelData.description || ""
+                                color: root.look.inkMuted
+                                font.pixelSize: KodosiTheme.fontFootnote
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+                }
+            }
         }
         Item {
             id: composerArea
@@ -367,20 +561,32 @@ Item {
                                 event.accepted = false
                                 return
                             }
-                            root.send()
+                            if (!root.complete())
+                                root.send()
                         }
                         Keys.onEnterPressed: event => {
                             if (event.modifiers & (Qt.ShiftModifier | Qt.AltModifier)) {
                                 event.accepted = false
                                 return
                             }
-                            root.send()
+                            if (!root.complete())
+                                root.send()
                         }
-                        Keys.onTabPressed: nextItemInFocusChain(true).forceActiveFocus(Qt.TabFocusReason)
+                        Keys.onUpPressed: event => {
+                            event.accepted = root.move(-1)
+                        }
+                        Keys.onDownPressed: event => {
+                            event.accepted = root.move(1)
+                        }
+                        Keys.onTabPressed: {
+                            if (!root.complete())
+                                nextItemInFocusChain(true).forceActiveFocus(Qt.TabFocusReason)
+                        }
                         Keys.onBacktabPressed: nextItemInFocusChain(false).forceActiveFocus(Qt.BacktabFocusReason)
 
                         Connections {
                             function onDraftChanged() {
+                                root.picked = 0
                                 if (field.text !== root.chat.draft)
                                     field.text = root.chat.draft
                             }

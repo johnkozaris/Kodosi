@@ -1,13 +1,14 @@
 import KodosiBridge
 
-/// The chat as a person reads it: the work of a turn folds into one row before its answer.
+/// The chat as a person reads it: what the agent writes during a turn shows as the agent's words,
+/// and the steps between them fold into one row each.
 struct ChatRow: Identifiable, Equatable {
     enum Kind: Equatable {
         case person(text: String, by: ChatPerson?)
         case answer(text: String, live: Bool)
         /// A plan that the agent wrote at the end of its turn, which is what the turn gives.
         case plan(text: String, live: Bool)
-        /// The calls of a turn and what the agent wrote between them, as far as they came.
+        /// The calls of a turn between two things that the agent wrote, as far as they came.
         case work([ChatItem])
         case end(TurnEnd, ms: UInt64)
         case note(ChatNote)
@@ -34,22 +35,27 @@ struct ChatRow: Identifiable, Equatable {
             } else {
                 nil
             }
-            var work = turn
-            if let answer {
-                work.remove(at: answer)
-            }
-            if work.tools.isEmpty {
-                for item in work {
-                    if case let .text(text, _) = item.body {
-                        rows.append(ChatRow(id: item.id, kind: .answer(text: text, live: false), at: item.at))
-                    }
+            var work: [ChatItem] = []
+            func endWork() {
+                if let first = work.first {
+                    rows.append(ChatRow(id: "work.\(first.id)", kind: .work(work), at: first.at))
                 }
-            } else {
-                rows.append(ChatRow(id: "work.\(work[0].id)", kind: .work(work), at: work[0].at))
+                work = []
             }
-            if let answer, let row = answerRow(turn[answer], ended: ended) {
-                rows.append(row)
+            for (index, item) in turn.enumerated() {
+                if index == answer {
+                    endWork()
+                    if let row = answerRow(item, ended: ended) {
+                        rows.append(row)
+                    }
+                } else if case let .text(text, _) = item.body {
+                    endWork()
+                    rows.append(ChatRow(id: item.id, kind: .answer(text: text, live: false), at: item.at))
+                } else {
+                    work.append(item)
+                }
             }
+            endWork()
         }
         for item in items {
             switch item.body {

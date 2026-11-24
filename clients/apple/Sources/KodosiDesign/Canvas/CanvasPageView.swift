@@ -272,12 +272,7 @@ final class CanvasLinks: NSObject, WKScriptMessageHandler {
     var open = OpenURLAction { _ in .discarded }
     var otherComputer: String?
     var review: (ClickedLink) -> Void = { link in
-        #if os(macOS)
-            link.review(in: NSApp.keyWindow, from: .canvas)
-        #else
-            let window = UIApplication.shared.connectedScenes.lazy.compactMap { ($0 as? UIWindowScene)?.keyWindow }.first
-            link.review(from: window?.rootViewController, origin: .canvas)
-        #endif
+        link.reviewInKeyWindow(from: .canvas)
     }
 
     private var gesture: ContinuousClock.Instant?

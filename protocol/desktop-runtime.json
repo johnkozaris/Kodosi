@@ -583,6 +583,41 @@
                   },
                   "type": "array"
                 },
+                "commands": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "opens": {
+                        "anyOf": [
+                          {
+                            "oneOf": [
+                              {
+                                "const": "model"
+                              },
+                              {
+                                "const": "usage"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
                 "facts": {
                   "additionalProperties": false,
                   "properties": {
@@ -1287,6 +1322,22 @@
                                   {
                                     "additionalProperties": false,
                                     "properties": {
+                                      "kind": {
+                                        "const": "recap"
+                                      },
+                                      "text": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "text"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
                                       "error": {
                                         "type": "string"
                                       },
@@ -1429,6 +1480,9 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "terminal": {
+                        "type": "boolean"
                       },
                       "text": {
                         "type": "string"
@@ -2013,6 +2067,22 @@
                                             },
                                             "required": [
                                               "kind"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "kind": {
+                                                "const": "recap"
+                                              },
+                                              "text": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "text"
                                             ],
                                             "type": "object"
                                           },
@@ -2734,6 +2804,9 @@
                                     }
                                   ]
                                 },
+                                "terminal": {
+                                  "type": "boolean"
+                                },
                                 "text": {
                                   "type": "string"
                                 }
@@ -2792,6 +2865,54 @@
                         "required": [
                           "change",
                           "tasks"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "change": {
+                            "const": "commands"
+                          },
+                          "commands": {
+                            "items": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "description": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "opens": {
+                                  "anyOf": [
+                                    {
+                                      "oneOf": [
+                                        {
+                                          "const": "model"
+                                        },
+                                        {
+                                          "const": "usage"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "name"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "change",
+                          "commands"
                         ],
                         "type": "object"
                       },
@@ -17936,7 +18057,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 109,
+  "protocolVersion": 110,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

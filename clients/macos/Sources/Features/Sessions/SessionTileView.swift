@@ -161,8 +161,12 @@ struct SessionTileView: View {
                     .opacity(chatting ? 0 : 1).allowsHitTesting(!chatting).accessibilityHidden(chatting)
                     .environment(\.terminalTileVisible, tileVisible && !chatting)
                 if chatting {
-                    TerminalChatView(chat: deps.canvas.chat(session.id), agent: session.agent, me: deps.account.userId) { name, effort in
-                        ChatModelKey(session: session, name: name, effort: effort)
+                    TerminalChatView(chat: deps.canvas.chat(session.id), agent: session.agent, me: deps.account.userId,
+                                     otherComputer: session.otherComputer)
+                    {
+                        deps.workbench.faces[session.id] = FacePick(.terminal, over: session.face)
+                    } modelKey: { name, effort, open in
+                        ChatModelKey(session: session, name: name, effort: effort, open: open)
                     }
                 }
             }

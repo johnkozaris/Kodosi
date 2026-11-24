@@ -3,11 +3,15 @@
 #include "presentation/CanvasDocuments.hpp"
 #include "presentation/ChatProse.hpp"
 #include "presentation/ChatWords.hpp"
+#include "presentation/Link.hpp"
 #include "presentation/SessionCatalogModel.hpp"
 
 #include <QDateTime>
 #include <QDebug>
+#include <QDesktopServices>
+#include <QDir>
 #include <QJsonDocument>
+#include <QLocale>
 #include <QSet>
 
 #include <algorithm>
@@ -79,7 +83,8 @@ QList<QJsonObject> toolsOf(const QList<QJsonObject>& items)
     return tools;
 }
 
-// The chat as a person reads it: the work of a turn folds into one row before its answer.
+// The chat as a person reads it: what the agent writes during a turn shows as the agent's words, and
+// the steps between them fold into one row each.
 struct Row {
     QString id;
     QString kind;
@@ -132,23 +137,29 @@ QList<Row> rows(const QList<QJsonObject>& items, bool lastTurnRuns)
         } else if (answers(turn.last())) {
             answer = turn.size() - 1;
         }
-        auto work = turn;
-        if (answer)
-            work.removeAt(*answer);
-        if (toolsOf(work).isEmpty()) {
-            for (const auto& item : work) {
-                if (kindOf(item) == QStringLiteral("text"))
-                    rows.append(Row { .id = text(item, "id"), .kind = QStringLiteral("answer"), .at = at(item),
-                        .item = {}, .work = {}, .text = text(body(item), "text"), .live = false });
-            }
-        } else {
+        QList<QJsonObject> work;
+        const auto endWork = [&] {
+            if (work.isEmpty())
+                return;
             rows.append(Row { .id = QStringLiteral("work.") + text(work.first(), "id"), .kind = QStringLiteral("work"),
                 .at = at(work.first()), .item = {}, .work = work, .text = {}, .live = false });
+            work.clear();
+        };
+        for (qsizetype index = 0; index < turn.size(); ++index) {
+            const auto& item = turn.at(index);
+            if (answer == index) {
+                endWork();
+                if (auto row = answerRow(item, ended))
+                    rows.append(*row);
+            } else if (kindOf(item) == QStringLiteral("text")) {
+                endWork();
+                rows.append(Row { .id = text(item, "id"), .kind = QStringLiteral("answer"), .at = at(item), .item = {},
+                    .work = {}, .text = text(body(item), "text"), .live = false });
+            } else {
+                work.append(item);
+            }
         }
-        if (answer) {
-            if (auto row = answerRow(turn.at(*answer), ended))
-                rows.append(*row);
-        }
+        endWork();
         turn.clear();
     };
     for (const auto& item : items) {
@@ -465,6 +476,7 @@ std::optional<TerminalChat::Snapshot> TerminalChat::snapshotFrom(const QJsonObje
     chat.asks = value.value(QStringLiteral("asks")).toArray();
     chat.queued = value.value(QStringLiteral("queued")).toArray();
     chat.tasks = value.value(QStringLiteral("tasks")).toArray();
+    chat.commands = value.value(QStringLiteral("commands")).toArray();
     return chat;
 }
 
@@ -504,6 +516,8 @@ bool TerminalChat::apply(Snapshot& chat, const QJsonObject& change)
         chat.queued = change.value(QStringLiteral("queued")).toArray();
     } else if (kind == QStringLiteral("tasks")) {
         chat.tasks = change.value(QStringLiteral("tasks")).toArray();
+    } else if (kind == QStringLiteral("commands")) {
+        chat.commands = change.value(QStringLiteral("commands")).toArray();
     } else if (kind == QStringLiteral("facts")) {
         chat.facts = change.value(QStringLiteral("facts")).toObject();
     } else if (kind == QStringLiteral("state")) {
@@ -586,12 +600,11 @@ void TerminalChat::receive(const QByteArray& frame)
 
 QVariantList TerminalChat::blocks(const QString& id, const QString& text)
 {
+    const auto folder = kodosi::text(m_chat->facts, "folder");
     auto& kept = m_prose[id];
-    if (kept.first != text || kept.second.isEmpty()) {
-        kept.first = text;
-        kept.second = ChatProse::blocks(text);
-    }
-    return kept.second;
+    if (kept.text != text || kept.folder != folder || kept.blocks.isEmpty())
+        kept = Prose { .text = text, .folder = folder, .blocks = ChatProse::blocks(text, folder) };
+    return kept.blocks;
 }
 
 QString TerminalChat::nowWords() const
@@ -615,9 +628,6 @@ QString TerminalChat::nowWords() const
 QVariantMap TerminalChat::step(const QJsonObject& item)
 {
     const auto id = text(item, "id");
-    if (kindOf(item) == QStringLiteral("text"))
-        return { { QStringLiteral("id"), id }, { QStringLiteral("kind"), QStringLiteral("text") },
-            { QStringLiteral("html"), ChatProse::text(text(body(item), "text")) } };
     const auto tool = toolOf(item);
     const auto kind = text(tool, "kind");
     const auto target = text(tool, "target");
@@ -666,7 +676,7 @@ QVariantMap TerminalChat::step(const QJsonObject& item)
             { QStringLiteral("said"), text(detail, "said").isEmpty() ? QString {} : ChatProse::text(text(detail, "said")) } });
         opens = true;
     }
-    return { { QStringLiteral("id"), id }, { QStringLiteral("kind"), QStringLiteral("tool") }, { QStringLiteral("tool"), kind },
+    return { { QStringLiteral("id"), id }, { QStringLiteral("tool"), kind },
         { QStringLiteral("icon"), ChatWords::icon(kind) }, { QStringLiteral("words"), ChatWords::step(tool) },
         { QStringLiteral("mono"), mono(kind) }, { QStringLiteral("open"), open(tool) },
         { QStringLiteral("state"), text(tool, "state") }, { QStringLiteral("name"), text(tool, "name") },
@@ -740,9 +750,16 @@ QVariantMap TerminalChat::shapedFacts() const
         shaped.insert({ { QStringLiteral("context"), static_cast<int>(std::lround(used * 100)) },
             { QStringLiteral("contextLevel"), used > 0.85 ? QStringLiteral("reached") : used >= 0.65 ? QStringLiteral("near") : QStringLiteral("normal") } });
     }
+    if (!context.isEmpty()) {
+        const QLocale locale;
+        shaped.insert(QStringLiteral("tokens"), tr("%1 of %2 tokens")
+                .arg(locale.toString(static_cast<qint64>(context.value(QStringLiteral("tokens")).toDouble())),
+                    locale.toString(static_cast<qint64>(context.value(QStringLiteral("window")).toDouble()))));
+    }
     QVariantList limits;
     for (const auto& limit : facts.value(QStringLiteral("limits")).toArray())
         limits.append(AgentLauncherModel::describedLimit(limit.toObject().toVariantMap()));
+    shaped.insert(QStringLiteral("limits"), limits);
     shaped.insert(QStringLiteral("limit"), AgentLauncherModel::nearestLimit(limits, {}));
     const auto cost = facts.value(QStringLiteral("cost")).toDouble();
     shaped.insert(QStringLiteral("cost"), cost > 0 ? ChatWords::cost(cost) : QString {});
@@ -797,13 +814,11 @@ void TerminalChat::shape()
                     kept.insert(text(item, "id") + QStringLiteral(".plan"));
                 steps.append(step(item));
             }
-            const bool failed = std::ranges::any_of(ended, [](const QJsonObject& tool) { return text(tool, "state") == QStringLiteral("failed"); });
             line.insert({ { QStringLiteral("icon"), ChatWords::icon(mainKind(tools)) },
                 { QStringLiteral("summary"), !done.isEmpty() ? ChatWords::summary(done)
                         : ended.isEmpty() ? tr("%n steps", "", static_cast<int>(tools.size())) : QString {} },
                 { QStringLiteral("setbacks"), ChatWords::setbacks(ended) },
-                { QStringLiteral("sign"), failed ? QStringLiteral("failed")
-                        : !tools.isEmpty() && done.size() == tools.size() ? QStringLiteral("done") : QString {} },
+                { QStringLiteral("done"), !tools.isEmpty() && done.size() == tools.size() },
                 { QStringLiteral("steps"), steps } });
         } else if (row.kind == QStringLiteral("end")) {
             const auto ms = static_cast<qint64>(body(row.item).value(QStringLiteral("ms")).toDouble());
@@ -851,7 +866,8 @@ void TerminalChat::shape()
     for (const auto& value : m_chat->queued) {
         const auto waiting = value.toObject();
         queued.append(QVariantMap { { QStringLiteral("id"), text(waiting, "id") }, { QStringLiteral("text"), text(waiting, "text") },
-            { QStringLiteral("refused"), text(waiting, "refused") } });
+            { QStringLiteral("refused"), text(waiting, "refused") },
+            { QStringLiteral("terminal"), waiting.value(QStringLiteral("terminal")).toBool() } });
     }
     if (queued != m_queued) {
         m_queued = queued;
@@ -874,6 +890,48 @@ void TerminalChat::shape()
     if (facts != m_facts) {
         m_facts = facts;
         emit factsChanged();
+    }
+    QVariantList commands;
+    for (const auto& value : m_chat->commands) {
+        const auto command = value.toObject();
+        commands.append(QVariantMap { { QStringLiteral("name"), text(command, "name") },
+            { QStringLiteral("description"), text(command, "description") }, { QStringLiteral("opens"), text(command, "opens") } });
+    }
+    if (commands != m_commands) {
+        m_commands = commands;
+        emit commandsChanged();
+    }
+}
+
+QString TerminalChat::control(const QString& draft) const
+{
+    const auto words = draft.trimmed();
+    if (!words.startsWith(u'/'))
+        return {};
+    const auto name = words.sliced(1);
+    for (const auto& command : m_commands) {
+        const auto values = command.toMap();
+        if (values.value(QStringLiteral("name")).toString() == name)
+            return values.value(QStringLiteral("opens")).toString();
+    }
+    return {};
+}
+
+void TerminalChat::follow(const QString& link, const QString& otherComputer)
+{
+    const bool home = otherComputer.isEmpty() && link.startsWith(QStringLiteral("~/"));
+    const auto decision = decideLink(home ? QUrl::fromLocalFile(QDir::homePath() + link.sliced(1)).toString(QUrl::FullyEncoded) : link,
+        otherComputer);
+    switch (decision.action) {
+    case LinkDecision::Action::Open:
+        QDesktopServices::openUrl(decision.url);
+        return;
+    case LinkDecision::Action::Ask:
+        emit linkQuestionRequested(decision.url, decision.shown);
+        return;
+    case LinkDecision::Action::Refuse:
+        emit linkRefused(decision.shown, decision.reason);
+        return;
     }
 }
 

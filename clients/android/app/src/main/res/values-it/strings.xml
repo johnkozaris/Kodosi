@@ -574,6 +574,19 @@
         <item quantity="many">%d interrotti</item>
         <item quantity="other">%d interrotti</item>
     </plurals>
+    <string name="chat_recap">Riepilogo</string>
+    <string name="chat_shows_in_terminal">%1$s lo mostra nel suo terminale.</string>
+    <string name="chat_show_terminal">Mostra il terminale</string>
+    <string name="chat_commands">Comandi</string>
+    <string name="chat_tokens_of">%1$s di %2$s token</string>
+    <string name="chat_resets_in">Si reimposta tra %1$s</string>
+    <string name="chat_this_conversation">Questa conversazione</string>
+    <string name="chat_usage">Utilizzo</string>
+    <plurals name="chat_count_failed">
+        <item quantity="one">%d non riuscito</item>
+        <item quantity="many">%d non riusciti</item>
+        <item quantity="other">%d non riusciti</item>
+    </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="one">Attività: %1$d di %2$d completata</item>
         <item quantity="many">Attività: %1$d di %2$d completate</item>

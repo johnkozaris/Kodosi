@@ -42,6 +42,7 @@ import com.kodosi.mobile.AppModel
 import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentSettingsSection
 import com.kodosi.mobile.terminals.RuntimeSession
+import com.kodosi.mobile.terminals.TerminalFace
 import com.kodosi.mobile.terminals.changesAgent
 import com.kodosi.mobile.terminals.rememberAgentModels
 import com.kodosi.mobile.ui.AppIcon
@@ -96,7 +97,7 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
     val opener = remember(links, session.hostName) {
         LinkOpener { address, _ -> links.open(address, session.hostName) }
     }
-    CompositionLocalProvider(LocalLinkOpener provides opener) {
+    CompositionLocalProvider(LocalLinkOpener provides opener, LocalProseFolder provides view.facts.folder) {
         Box(modifier, contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 760.dp).fillMaxSize()) {
                 ChatThread(view, session.agent, account.userId, sent, hideKeyboard, Modifier.weight(1f).fillMaxWidth())
@@ -112,18 +113,30 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
                             sent++
                             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                         }
+                    },
+                    showTerminal = {
+                        hideKeyboard()
+                        model.terminals.pick(TerminalFace.TERMINAL, session.id, session.face)
                     }
-                ) { label -> ModelKey(model, session, label) }
+                ) { label, open, setOpen -> ModelKey(model, session, label, open, setOpen) }
             }
         }
     }
 }
 
-/** The model in a chat's facts opens the agent's part of the terminal's actions, which changes its model. */
+/**
+ * The model in a chat's facts opens the agent's part of the terminal's actions, which changes its
+ * model and which `/model` also opens.
+ */
 @Composable
-private fun ModelKey(model: AppModel, session: RuntimeSession, label: String) {
+private fun ModelKey(
+    model: AppModel,
+    session: RuntimeSession,
+    label: String,
+    open: Boolean,
+    setOpen: (Boolean) -> Unit
+) {
     val colors = KodosiTheme.colors
-    var open by remember { mutableStateOf(false) }
     val changes = session.changesAgent()
     Box {
         Row(
@@ -134,7 +147,7 @@ private fun ModelKey(model: AppModel, session: RuntimeSession, label: String) {
                         indication = null,
                         role = Role.Button,
                         onClickLabel = stringResource(R.string.model)
-                    ) { open = true }
+                    ) { setOpen(true) }
                 } else {
                     Modifier
                 }
@@ -143,7 +156,7 @@ private fun ModelKey(model: AppModel, session: RuntimeSession, label: String) {
         ) {
             Text(
                 label,
-                style = KodosiType.caption,
+                style = KodosiType.footnote,
                 color = colors.inkMuted,
                 maxLines = 1,
                 overflow = TextOverflow.MiddleEllipsis,
@@ -154,6 +167,6 @@ private fun ModelKey(model: AppModel, session: RuntimeSession, label: String) {
                 AppIcon(AppSymbol.CHEVRONS, Modifier.size(8.dp), tint = colors.inkFaint)
             }
         }
-        KodosiMenu(open, { open = false }) { AgentSettingsSection(model, session) }
+        KodosiMenu(open && changes, { setOpen(false) }) { AgentSettingsSection(model, session) }
     }
 }

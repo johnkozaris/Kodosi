@@ -15,30 +15,13 @@ Column {
     readonly property bool open: step.opens === true && chat.opened.indexOf(step.id) >= 0
 
     signal held()
+    signal linkActivated(string link)
 
     spacing: 4
 
-    TextEdit {
-        visible: root.step.kind === "text"
-        width: root.width - 21
-        x: 21
-        topPadding: 4
-        bottomPadding: 4
-        text: visible ? Prose.styled(root.step.html || "", root.look) : ""
-        textFormat: TextEdit.RichText
-        readOnly: true
-        selectByMouse: true
-        wrapMode: TextEdit.Wrap
-        color: root.look.inkMuted
-        font.pixelSize: KodosiTheme.fontFootnote
-        selectionColor: root.look.accent
-        selectedTextColor: root.look.accentInk
-        onLinkActivated: link => Prose.open(link)
-    }
     AbstractButton {
         id: line
 
-        visible: root.step.kind === "tool"
         width: root.width
         implicitHeight: 24
         hoverEnabled: true
@@ -290,6 +273,7 @@ Column {
                     width: parent.width - 24
                     blocks: root.detail.blocks || []
                     look: root.look
+                    onLinkActivated: link => root.linkActivated(link)
                 }
             }
         }
@@ -349,7 +333,7 @@ Column {
                     color: root.look.inkMuted
                     linkColor: root.look.accentStrong
                     font.pixelSize: KodosiTheme.fontFootnote
-                    onLinkActivated: link => Prose.open(link)
+                    onLinkActivated: link => root.linkActivated(link)
                 }
             }
         }

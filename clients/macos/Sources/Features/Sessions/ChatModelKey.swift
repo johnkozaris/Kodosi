@@ -9,7 +9,7 @@ struct ChatModelKey: View {
     let session: RuntimeSession
     let name: String
     let effort: String?
-    @State private var open = false
+    @Binding var open: Bool
     @State private var hovered = false
     @State private var flyout: AgentActions.Flyout?
 
@@ -22,7 +22,7 @@ struct ChatModelKey: View {
     }
 
     private var face: ChatModelFace {
-        ChatModelFace(models: launcher?.models[session.agent.rawValue], model: name, effort: effort)
+        ChatModelFace(models: launcher?.models[session.agent.rawValue], model: name, effort: effort, opens: session.canControl && session.programLive != nil)
     }
 
     var body: some View {

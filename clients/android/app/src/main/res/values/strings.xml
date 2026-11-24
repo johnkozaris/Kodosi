@@ -559,6 +559,18 @@
         <item quantity="one">%d stopped</item>
         <item quantity="other">%d stopped</item>
     </plurals>
+    <string name="chat_recap">Recap</string>
+    <string name="chat_shows_in_terminal">%1$s shows this in its terminal.</string>
+    <string name="chat_show_terminal">Show the terminal</string>
+    <string name="chat_commands">Commands</string>
+    <string name="chat_tokens_of">%1$s of %2$s tokens</string>
+    <string name="chat_resets_in">Resets in %1$s</string>
+    <string name="chat_this_conversation">This conversation</string>
+    <string name="chat_usage">Usage</string>
+    <plurals name="chat_count_failed">
+        <item quantity="one">%d failed</item>
+        <item quantity="other">%d failed</item>
+    </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="one">Tasks: %1$d of %2$d done</item>
         <item quantity="other">Tasks: %1$d of %2$d done</item>

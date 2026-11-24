@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QStringList>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -34,6 +35,7 @@ class TerminalChat final : public QObject {
     Q_PROPERTY(QVariantList queued READ queued NOTIFY queuedChanged FINAL)
     Q_PROPERTY(QVariantList tasks READ tasks NOTIFY tasksChanged FINAL)
     Q_PROPERTY(QVariantMap facts READ facts NOTIFY factsChanged FINAL)
+    Q_PROPERTY(QVariantList commands READ commands NOTIFY commandsChanged FINAL)
     Q_PROPERTY(QString draft READ draft WRITE setDraft NOTIFY draftChanged FINAL)
     Q_PROPERTY(QStringList opened READ opened NOTIFY openedChanged FINAL)
 
@@ -58,6 +60,7 @@ public:
     [[nodiscard]] QVariantList queued() const { return m_queued; }
     [[nodiscard]] QVariantList tasks() const { return m_tasks; }
     [[nodiscard]] QVariantMap facts() const { return m_facts; }
+    [[nodiscard]] QVariantList commands() const { return m_commands; }
     [[nodiscard]] QString draft() const { return m_draft; }
     void setDraft(const QString& draft);
     [[nodiscard]] QStringList opened() const { return m_opened; }
@@ -75,6 +78,11 @@ public:
     Q_INVOKABLE void stop();
     // The steps that a person opened stay open while the chat shows.
     Q_INVOKABLE void toggle(const QString& id);
+    // The control of the chat that a draft of only a command's name opens in place of sending it.
+    Q_INVOKABLE [[nodiscard]] QString control(const QString& draft) const;
+    // A link in the chat opens by the rules of a link in the terminal. A file of a terminal on
+    // another computer is on that computer.
+    Q_INVOKABLE void follow(const QString& link, const QString& otherComputer);
 
     void pipeOpened();
     void receive(const QByteArray& frame);
@@ -88,8 +96,11 @@ signals:
     void queuedChanged();
     void tasksChanged();
     void factsChanged();
+    void commandsChanged();
     void draftChanged();
     void openedChanged();
+    void linkQuestionRequested(const QUrl& link, const QString& target);
+    void linkRefused(const QString& target, const QString& reason);
 
 private:
     struct Snapshot {
@@ -101,6 +112,12 @@ private:
         QJsonArray asks;
         QJsonArray queued;
         QJsonArray tasks;
+        QJsonArray commands;
+    };
+    struct Prose {
+        QString text;
+        QString folder;
+        QVariantList blocks;
     };
 
     [[nodiscard]] static std::optional<Snapshot> snapshotFrom(const QJsonObject& value);
@@ -132,13 +149,14 @@ private:
     QHash<QString, QJsonObject> m_answers;
     QString m_draft;
     QStringList m_opened;
-    QHash<QString, std::pair<QString, QVariantList>> m_prose;
+    QHash<QString, Prose> m_prose;
     QVariantList m_lines;
     bool m_empty = false;
     QVariantMap m_ask;
     QVariantList m_queued;
     QVariantList m_tasks;
     QVariantMap m_facts;
+    QVariantList m_commands;
 };
 
 // The chats of the terminals that this app shows. Each pipe of a chat goes to its chat.

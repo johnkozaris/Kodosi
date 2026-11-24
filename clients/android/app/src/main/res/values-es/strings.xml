@@ -574,6 +574,19 @@
         <item quantity="many">%d detenidos</item>
         <item quantity="other">%d detenidos</item>
     </plurals>
+    <string name="chat_recap">Resumen</string>
+    <string name="chat_shows_in_terminal">%1$s lo muestra en su terminal.</string>
+    <string name="chat_show_terminal">Mostrar el terminal</string>
+    <string name="chat_commands">Comandos</string>
+    <string name="chat_tokens_of">%1$s de %2$s tokens</string>
+    <string name="chat_resets_in">Se restablece en %1$s</string>
+    <string name="chat_this_conversation">Esta conversación</string>
+    <string name="chat_usage">Uso</string>
+    <plurals name="chat_count_failed">
+        <item quantity="one">%d falló</item>
+        <item quantity="many">%d fallaron</item>
+        <item quantity="other">%d fallaron</item>
+    </plurals>
     <plurals name="chat_tasks_done">
         <item quantity="one">Tareas: %1$d de %2$d lista</item>
         <item quantity="many">Tareas: %1$d de %2$d listas</item>

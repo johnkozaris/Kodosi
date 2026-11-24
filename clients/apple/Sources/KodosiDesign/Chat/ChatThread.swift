@@ -372,6 +372,19 @@ struct ChatNoteView: View {
                         .foregroundStyle(theme.colors.inkMuted)
                 }
             }
+        case let .recap(text):
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "text.append").font(mac: 11, ios: .footnote, weight: .semibold)
+                    .foregroundStyle(theme.colors.inkFaint).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Recap", bundle: .module).appTextStyle(.footnote).fontWeight(.semibold)
+                        .foregroundStyle(theme.colors.inkMuted)
+                    Text(verbatim: text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        .textSelection(.enabled)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
         case let .failed(error, text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 StatusSign(form: .failed, size: 12)

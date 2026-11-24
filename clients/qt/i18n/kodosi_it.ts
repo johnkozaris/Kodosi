@@ -834,8 +834,20 @@
         <translation>L’agente prende il prossimo messaggio nel suo terminale.</translation>
     </message>
     <message>
+        <source>%1 shows this in its terminal.</source>
+        <translation>%1 lo mostra nel suo terminale.</translation>
+    </message>
+    <message>
+        <source>Show the terminal</source>
+        <translation>Mostra il terminale</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>Nessun agente è in esecuzione in questo terminale</translation>
+    </message>
+    <message>
+        <source>Commands</source>
+        <translation>Comandi</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -853,12 +865,24 @@
         <translation>Modello</translation>
     </message>
     <message>
-        <source>Context: %1% used</source>
-        <translation>Contesto: %1% usato</translation>
+        <source>Usage</source>
+        <translation>Utilizzo</translation>
     </message>
     <message>
         <source>%1%</source>
         <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>Contesto: %1% usato</translation>
+    </message>
+    <message>
+        <source>Resets in %1</source>
+        <translation>Si reimposta tra %1</translation>
+    </message>
+    <message>
+        <source>This conversation</source>
+        <translation>Questa conversazione</translation>
     </message>
     <message numerus="yes">
         <source>%n helpers work</source>
@@ -930,6 +954,10 @@
     <message>
         <source>Refused</source>
         <translation>Rifiutato</translation>
+    </message>
+    <message>
+        <source>Recap</source>
+        <translation>Riepilogo</translation>
     </message>
     <message>
         <source>Needs you to sign in</source>
@@ -1020,6 +1048,13 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>%n failed</source>
+        <translation>
+            <numerusform>%n non riuscito</numerusform>
+            <numerusform>%n non riusciti</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%n denied</source>
         <translation>
             <numerusform>%n negato</numerusform>
@@ -1093,10 +1128,6 @@
     <message>
         <source>Done</source>
         <translation>Fine</translation>
-    </message>
-    <message>
-        <source>Failed</source>
-        <translation>Non riuscito</translation>
     </message>
 </context>
 <context>
@@ -5443,6 +5474,10 @@
     <message>
         <source>thinking</source>
         <translation>sta pensando</translation>
+    </message>
+    <message>
+        <source>%1 of %2 tokens</source>
+        <translation>%1 di %2 token</translation>
     </message>
     <message numerus="yes">
         <source>%n steps</source>

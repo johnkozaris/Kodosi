@@ -1,9 +1,8 @@
 import KodosiBridge
 import SwiftUI
 
-/// The work of a turn as one line: what the steps did, and the steps that did not go as the agent
-/// wanted. The line ends with its status sign, and it is there from the first step, so a person can
-/// open a step while it runs.
+/// Steps of a turn as one line: what they did, and the steps that did not go as the agent wanted.
+/// The line is there from the first step, so a person can open a step while it runs.
 struct ChatWork: View {
     @Environment(\.theme) private var theme
     let items: [ChatItem]
@@ -30,13 +29,13 @@ struct ChatWork: View {
                     }
                     .appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    ForEach(ChatWords.setbacks(ended).filter { $0.state != .failed }, id: \.state) { setback in
-                        Text(verbatim: setback.words).appTextStyle(.footnote).foregroundStyle(theme.colors.inkFaint).lineLimit(1).fixedSize()
+                    ForEach(ChatWords.setbacks(ended), id: \.state) { setback in
+                        Text(verbatim: setback.words).appTextStyle(.footnote)
+                            .foregroundStyle(setback.state == .failed ? theme.colors.caution : theme.colors.inkFaint)
+                            .lineLimit(1).fixedSize()
                     }
                     ZStack {
-                        if ended.contains(where: { $0.state == .failed }) {
-                            StatusSign(form: .failed, size: 11).transition(AnyTransition.pop)
-                        } else if !tools.isEmpty, done.count == tools.count {
+                        if !tools.isEmpty, done.count == tools.count {
                             StatusSign(form: .done, size: 11).transition(AnyTransition.pop)
                         }
                     }
@@ -114,9 +113,6 @@ struct ChatStepLine: View {
                 }
             }
             .animation(theme.motion.snappy, value: open)
-        case let .text(text, _):
-            Text(ProjectMessageText.formatted(text)).appTextStyle(.footnote).lineSpacing(2).foregroundStyle(theme.colors.inkMuted)
-                .textSelection(.enabled).padding(.vertical, 4).padding(.leading, 21)
         default:
             EmptyView()
         }

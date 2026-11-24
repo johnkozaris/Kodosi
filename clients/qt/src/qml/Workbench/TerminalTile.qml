@@ -531,8 +531,12 @@ Item {
                     sessionId: root.sessionId
                     session: root.session
                     look: root.look
+                    otherComputer: terminal.otherComputer
 
                     onFocused: root.select()
+                    onTerminalRequested: root.pickFace("terminal")
+                    onLinkQuestionRequested: (link, target) => linkReview.ask(link, target)
+                    onLinkRefused: (target, reason) => linkReview.refuse(target, reason)
                 }
             }
             ReconnectingNotice {

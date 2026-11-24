@@ -1,7 +1,7 @@
 use super::{
-    ChatAsk, ChatBody, ChatChange, ChatFacts, ChatItem, ChatNow, ChatPerson, ChatQueued,
-    ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate, MOST_ASKS, MOST_ITEMS, MOST_QUEUED,
-    MOST_TARGET, MOST_TASKS, MOST_TEXT,
+    ChatAsk, ChatBody, ChatChange, ChatCommand, ChatFacts, ChatItem, ChatNow, ChatPerson,
+    ChatQueued, ChatSnapshot, ChatState, ChatTask, ChatTool, ChatUpdate, MOST_ASKS, MOST_COMMANDS,
+    MOST_ITEMS, MOST_QUEUED, MOST_TARGET, MOST_TASKS, MOST_TEXT,
 };
 
 /// The chat of one terminal, and the changes since they were last taken.
@@ -15,6 +15,7 @@ pub(super) struct Chat {
     asks: Vec<ChatAsk>,
     queued: Vec<ChatQueued>,
     tasks: Vec<ChatTask>,
+    commands: Vec<ChatCommand>,
     changes: Vec<ChatChange>,
     made: u64,
     /// The home folder of this computer, from which the chat names a file outside the terminal's
@@ -44,6 +45,7 @@ impl Chat {
             asks: self.asks.clone(),
             queued: self.queued.clone(),
             tasks: self.tasks.clone(),
+            commands: self.commands.clone(),
         }
     }
 
@@ -237,6 +239,7 @@ impl Chat {
             text,
             by,
             refused: None,
+            terminal: false,
         });
         self.tell_queued();
         Some(id)
@@ -252,6 +255,13 @@ impl Chat {
     pub(super) fn refuse(&mut self, id: &str, reason: String) {
         if let Some(queued) = self.queued.iter_mut().find(|queued| queued.id == id) {
             queued.refused = Some(reason);
+            self.tell_queued();
+        }
+    }
+
+    pub(super) fn in_terminal(&mut self, id: &str) {
+        if let Some(queued) = self.queued.iter_mut().find(|queued| queued.id == id) {
+            queued.terminal = true;
             self.tell_queued();
         }
     }
@@ -285,6 +295,19 @@ impl Chat {
         });
     }
 
+    pub(super) fn set_commands(&mut self, commands: impl IntoIterator<Item = ChatCommand>) {
+        let commands = commands.into_iter().take(MOST_COMMANDS).collect::<Vec<_>>();
+        if commands == self.commands {
+            return;
+        }
+        self.commands = commands;
+        self.changes
+            .retain(|change| !matches!(change, ChatChange::Commands { .. }));
+        self.changes.push(ChatChange::Commands {
+            commands: self.commands.clone(),
+        });
+    }
+
     pub(super) fn facts(&self) -> &ChatFacts {
         &self.facts
     }
@@ -315,7 +338,7 @@ impl Chat {
     }
 
     /// A new conversation: the items, the questions and the agent's list of its work go, and what
-    /// the person queued stays.
+    /// the person queued and the agent's commands stay.
     pub(super) fn reset(&mut self) {
         self.items.clear();
         self.asks.clear();
@@ -323,7 +346,10 @@ impl Chat {
         self.changes.retain(|change| {
             matches!(
                 change,
-                ChatChange::Facts { .. } | ChatChange::Queued { .. } | ChatChange::State { .. }
+                ChatChange::Facts { .. }
+                    | ChatChange::Queued { .. }
+                    | ChatChange::State { .. }
+                    | ChatChange::Commands { .. }
             )
         });
         self.changes.insert(0, ChatChange::Reset);

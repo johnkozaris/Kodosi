@@ -66,6 +66,10 @@ pub(super) enum Job {
     Conversation {
         reply: oneshot::Sender<Option<String>>,
     },
+    Change {
+        line: String,
+        reply: oneshot::Sender<bool>,
+    },
 }
 
 pub(super) enum Asked {
@@ -126,6 +130,17 @@ impl ChatHandle {
         let (reply, conversation) = oneshot::channel();
         self.jobs.send(Job::Conversation { reply }).await.ok()?;
         conversation.await.ok().flatten()
+    }
+
+    /// Gives the link of the agent a change of its model, effort or fast mode, as the line that a
+    /// person would type. False when no link that takes it reports, and the line goes to the
+    /// terminal.
+    pub(crate) async fn change(&self, line: String) -> bool {
+        let (reply, taken) = oneshot::channel();
+        if self.jobs.send(Job::Change { line, reply }).await.is_err() {
+            return false;
+        }
+        taken.await.unwrap_or(false)
     }
 
     /// Opens the chat for a view of `person`, who is named `name`.
@@ -265,6 +280,15 @@ impl Room {
                     .and_then(|agent| agent.conversation())
                     .map(str::to_owned);
                 drop(reply.send(conversation));
+            }
+            Job::Change { line, reply } => {
+                let command = self
+                    .agent
+                    .as_mut()
+                    .filter(|agent| agent.is_linked())
+                    .and_then(|agent| agent.change(&line));
+                let _ = reply.send(command.is_some());
+                self.commands.extend(command);
             }
         }
     }

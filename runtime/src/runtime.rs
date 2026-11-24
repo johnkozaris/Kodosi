@@ -2597,6 +2597,9 @@ impl Runtime {
             };
             self.spawn(async move {
                 let result = async {
+                    if session.chat.change(line.0.clone()).await {
+                        return Ok(());
+                    }
                     if !questions.is_empty()
                         && crate::agents::asks(questions, &session.read(false).await?)
                     {

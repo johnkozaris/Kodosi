@@ -118,6 +118,13 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>%n failed</source>
+        <translation>
+            <numerusform>%n failed</numerusform>
+            <numerusform>%n failed</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%n denied</source>
         <translation>
             <numerusform>%n denied</numerusform>

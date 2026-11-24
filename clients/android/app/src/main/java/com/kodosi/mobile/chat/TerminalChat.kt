@@ -27,6 +27,7 @@ data class ChatView(
     val asks: List<ChatAsk> get() = chat?.asks.orEmpty()
     val queued: List<ChatQueued> get() = chat?.queued.orEmpty()
     val tasks: List<ChatTask> get() = chat?.tasks.orEmpty()
+    val commands: List<ChatCommand> get() = chat?.commands.orEmpty()
     val facts: ChatFacts get() = chat?.facts ?: ChatFacts()
     val now: ChatNow? get() = chat?.now
 
@@ -36,6 +37,14 @@ data class ChatView(
     val canWrite: Boolean get() = linked && state != ChatState.AWAY
 
     fun item(id: String): ChatItem? = chat?.items?.lastOrNull { it.id == id }
+
+    /** The control of the chat that a draft of only a command's name opens in place of sending it. */
+    fun control(draft: String): ChatControl? {
+        val text = draft.trim()
+        if (!text.startsWith("/")) return null
+        val name = text.drop(1)
+        return commands.firstOrNull { it.name == name }?.opens
+    }
 }
 
 /** The chat of one terminal, as the terminal's computer keeps it. The pipe is open only while a view watches. */
@@ -181,6 +190,7 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
     var asks = asks
     var queued = queued
     var tasks = tasks
+    var commands = commands
     var facts = facts
     var state = state
     var now = now
@@ -205,6 +215,8 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
 
             is ChatChange.Tasks -> tasks = change.tasks
 
+            is ChatChange.Commands -> commands = change.commands
+
             is ChatChange.Facts -> facts = change.facts
 
             is ChatChange.State -> {
@@ -227,7 +239,8 @@ internal fun ChatSnapshot.applying(update: ChatUpdate): ChatSnapshot {
         items = items,
         asks = asks,
         queued = queued,
-        tasks = tasks
+        tasks = tasks,
+        commands = commands
     )
 }
 

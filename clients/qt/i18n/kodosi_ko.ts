@@ -833,8 +833,20 @@
         <translation>에이전트는 다음 메시지를 터미널에서 받아요.</translation>
     </message>
     <message>
+        <source>%1 shows this in its terminal.</source>
+        <translation>%1의 터미널에 표시돼요.</translation>
+    </message>
+    <message>
+        <source>Show the terminal</source>
+        <translation>터미널 보기</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>이 터미널에서 실행 중인 에이전트가 없어요</translation>
+    </message>
+    <message>
+        <source>Commands</source>
+        <translation>명령</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -852,12 +864,24 @@
         <translation>모델</translation>
     </message>
     <message>
-        <source>Context: %1% used</source>
-        <translation>컨텍스트: %1% 사용</translation>
+        <source>Usage</source>
+        <translation>사용량</translation>
     </message>
     <message>
         <source>%1%</source>
         <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>컨텍스트: %1% 사용</translation>
+    </message>
+    <message>
+        <source>Resets in %1</source>
+        <translation>%1 후 초기화</translation>
+    </message>
+    <message>
+        <source>This conversation</source>
+        <translation>이 대화</translation>
     </message>
     <message numerus="yes">
         <source>%n helpers work</source>
@@ -926,6 +950,10 @@
     <message>
         <source>Refused</source>
         <translation>응답 거부</translation>
+    </message>
+    <message>
+        <source>Recap</source>
+        <translation>요약</translation>
     </message>
     <message>
         <source>Needs you to sign in</source>
@@ -1005,6 +1033,12 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>%n failed</source>
+        <translation>
+            <numerusform>%n개 실패</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%n denied</source>
         <translation>
             <numerusform>%n개 거부됨</numerusform>
@@ -1076,10 +1110,6 @@
     <message>
         <source>Done</source>
         <translation>완료</translation>
-    </message>
-    <message>
-        <source>Failed</source>
-        <translation>실패</translation>
     </message>
 </context>
 <context>
@@ -5405,6 +5435,10 @@
     <message>
         <source>thinking</source>
         <translation>생각 중</translation>
+    </message>
+    <message>
+        <source>%1 of %2 tokens</source>
+        <translation>%2 토큰 중 %1</translation>
     </message>
     <message numerus="yes">
         <source>%n steps</source>

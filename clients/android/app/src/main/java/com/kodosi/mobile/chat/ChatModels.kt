@@ -19,7 +19,8 @@ data class ChatSnapshot(
     val items: List<ChatItem>,
     val asks: List<ChatAsk> = emptyList(),
     val queued: List<ChatQueued> = emptyList(),
-    val tasks: List<ChatTask> = emptyList()
+    val tasks: List<ChatTask> = emptyList(),
+    val commands: List<ChatCommand> = emptyList()
 )
 
 @Serializable
@@ -52,6 +53,11 @@ sealed interface ChatChange {
     @Serializable
     @SerialName("tasks")
     data class Tasks(val tasks: List<ChatTask>) : ChatChange
+
+    /** The agent's slash commands, whole. */
+    @Serializable
+    @SerialName("commands")
+    data class Commands(val commands: List<ChatCommand>) : ChatChange
 
     @Serializable
     @SerialName("facts")
@@ -161,6 +167,11 @@ sealed interface ChatNote {
     @Serializable
     @SerialName("signedOut")
     data object SignedOut : ChatNote
+
+    /** What the agent says happened while the person was away. */
+    @Serializable
+    @SerialName("recap")
+    data class Recap(val text: String) : ChatNote
 
     /** The agent could not continue. [error] is the agent's word for the cause. */
     @Serializable
@@ -302,7 +313,34 @@ enum class ChangeSign {
  * person sends another, removes it, or writes to the agent in the terminal.
  */
 @Serializable
-data class ChatQueued(val id: String, val text: String, val by: ChatPerson? = null, val refused: String? = null)
+data class ChatQueued(
+    val id: String,
+    val text: String,
+    val by: ChatPerson? = null,
+    val refused: String? = null,
+    /** The agent shows this command in its terminal, where a person finishes it. */
+    val terminal: Boolean = false
+)
+
+/** A slash command of the agent, as its own menu lists it. */
+@Serializable
+data class ChatCommand(
+    val name: String,
+    val description: String = "",
+    /** The control of the chat that does what the command does, in place of the agent's own view in its terminal. */
+    val opens: ChatControl? = null
+)
+
+@Serializable
+enum class ChatControl {
+    /** The agent's model, effort and fast mode. */
+    @SerialName("model")
+    MODEL,
+
+    /** The limits of the agent's plan, its context and the cost of the conversation. */
+    @SerialName("usage")
+    USAGE
+}
 
 /** A person of the terminal: the account, or for a person with no account the view that sent. */
 @Serializable
@@ -350,7 +388,13 @@ data class ChatContext(val tokens: Long, val window: Long) {
 }
 
 @Serializable
-data class UsageLimit(val hours: Int? = null, val scope: String? = null, val used: Int, val level: UsageLevel) {
+data class UsageLimit(
+    val hours: Int? = null,
+    val scope: String? = null,
+    val used: Int,
+    val level: UsageLevel,
+    val resetsAtMs: Long? = null
+) {
     companion object {
         fun nearest(limits: List<UsageLimit>): UsageLimit? =
             limits.maxWithOrNull(compareBy<UsageLimit> { it.level }.thenBy { it.used })
