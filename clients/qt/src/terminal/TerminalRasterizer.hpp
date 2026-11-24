@@ -14,8 +14,8 @@ namespace kodosi {
 class TerminalRasterizer final {
 public:
     struct Palette {
-        QColor selectionBackground {219, 138, 98};
-        QColor selectionForeground {22, 14, 10};
+        QColor selectionBackground {92, 56, 37};
+        QColor selectionForeground {232, 225, 217};
         QColor preeditBackground {219, 138, 98};
         QColor preeditForeground {22, 14, 10};
         double minimumContrast = 1.0;
