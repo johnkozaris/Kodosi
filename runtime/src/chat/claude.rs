@@ -1123,6 +1123,16 @@ impl Agent for Claude {
         self.turn = None;
         self.now = None;
         self.compacting = false;
+        // A command that Claude Code showed in a view of its terminal ended with that view.
+        let shown = chat
+            .queued()
+            .iter()
+            .filter(|queued| queued.terminal)
+            .map(|queued| queued.id.clone())
+            .collect::<Vec<_>>();
+        for queued in shown {
+            chat.unqueue(&queued);
+        }
         self.handed.clear();
         self.changes.clear();
         for helper in self.helpers.values_mut() {
