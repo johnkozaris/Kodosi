@@ -429,7 +429,7 @@ struct ChatModeLabel: View {
             }
         }
         .appTextStyle(.callout)
-        .tip(Text(verbatim: ChatWords.mode(mode)))
+        .help(Text(verbatim: ChatWords.mode(mode)))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: ChatWords.mode(mode)))
     }
@@ -489,7 +489,7 @@ private struct ChatUsageKey: View {
                     Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
                 }
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
                     .rotationEffect(.degrees(open ? 180 : 0))
                     .accessibilityHidden(true)
@@ -503,7 +503,7 @@ private struct ChatUsageKey: View {
         .kodosiPopover(isPresented: $open, arrowEdge: .top, alignment: .leading) {
             ChatUsage(facts: facts)
         }
-        .tip(Text("Usage", bundle: .module))
+        .help(Text("Usage", bundle: .module))
         .accessibilityLabel(Text("Usage", bundle: .module))
         .accessibilityIdentifier("chat.usage.key")
     }
@@ -570,7 +570,7 @@ public struct ChatModelFace: View {
             if let effort {
                 if let level = levels.firstIndex(where: { $0.id == effort }) {
                     EffortBars(level: level, count: levels.count, height: 10, width: 2)
-                        .tip(Text(verbatim: levels[level].label))
+                        .help(Text(verbatim: levels[level].label))
                 } else {
                     Text(verbatim: effort)
                 }
@@ -580,7 +580,7 @@ public struct ChatModelFace: View {
                 ChatModeLabel(mode: mode, named: !short)
             }
             if opens {
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
                     .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
                     .rotationEffect(.degrees(open ? 180 : 0))
                     .accessibilityHidden(true)
