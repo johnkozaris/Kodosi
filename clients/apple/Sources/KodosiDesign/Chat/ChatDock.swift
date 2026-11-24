@@ -348,32 +348,52 @@ private struct ChatFactsRow<ModelKey: View>: View {
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            row(full: true)
-            row(full: false)
+            line(full: true)
+            VStack(alignment: .leading, spacing: 6) {
+                model(full: true)
+                HStack(spacing: 8) {
+                    usage(full: true)
+                    others
+                }
+            }
+            .lineLimit(1)
+            .fixedSize()
+            line(full: false)
+            ScrollView(.horizontal) { line(full: false) }.scrollIndicators(.hidden)
         }
-        .appTextStyle(.footnote)
-        .foregroundStyle(theme.colors.inkMuted)
     }
 
-    private func row(full: Bool) -> some View {
-        HStack(spacing: 12) {
-            if let model = facts.model {
-                modelKey(model, facts.effort, $modelOpen)
-            }
-            if let mode = facts.mode {
-                HStack(spacing: 4) {
-                    Image(systemName: Self.symbol(mode)).font(mac: 11, ios: .footnote, weight: .semibold)
-                    if full {
-                        Text(verbatim: ChatWords.mode(mode))
-                    }
-                }
-                .tip(Text(verbatim: ChatWords.mode(mode)))
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(verbatim: ChatWords.mode(mode)))
-            }
-            if facts.context != nil || !facts.limits.isEmpty || (facts.cost ?? 0) > 0 {
-                ChatUsageKey(facts: facts, open: $usageOpen)
-            }
+    private func line(full: Bool) -> some View {
+        HStack(spacing: 8) {
+            model(full: full)
+            usage(full: full)
+            others
+        }
+        .lineLimit(1)
+        .fixedSize()
+    }
+
+    @ContentBuilder private func model(full: Bool) -> some View {
+        if let model = facts.model {
+            modelKey(model, facts.effort, $modelOpen)
+                .environment(\.chatMode, facts.mode)
+                .environment(\.chatFactsShort, !full)
+                .environment(\.chatModelOpen, modelOpen)
+        } else if let mode = facts.mode {
+            ChatModeLabel(mode: mode, named: full)
+                .padding(.horizontal, 4)
+                .foregroundStyle(theme.colors.inkMuted)
+        }
+    }
+
+    @ContentBuilder private func usage(full: Bool) -> some View {
+        if facts.context != nil || !facts.limits.isEmpty || (facts.cost ?? 0) > 0 {
+            ChatUsageKey(facts: facts, open: $usageOpen, named: full)
+        }
+    }
+
+    private var others: some View {
+        Group {
             if facts.helpers > 0 {
                 Label { Text(verbatim: "\(facts.helpers)") } icon: { Image(systemName: "person.2") }
                     .labelStyle(.titleAndIcon)
@@ -389,11 +409,30 @@ private struct ChatFactsRow<ModelKey: View>: View {
                     .accessibilityLabel(Text("\(facts.background) commands run in the background", bundle: .module))
             }
         }
-        .lineLimit(1)
-        .fixedSize()
+        .appTextStyle(.callout)
+        .foregroundStyle(theme.colors.inkMuted)
+    }
+}
+
+/// The permission mode of the agent: its symbol and, where there is room, its word.
+struct ChatModeLabel: View {
+    let mode: ChatMode
+    var named = true
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: Self.symbol(mode)).font(mac: 12, ios: .subheadline, weight: .semibold)
+            if named {
+                Text(verbatim: ChatWords.mode(mode))
+            }
+        }
+        .appTextStyle(.callout)
+        .tip(Text(verbatim: ChatWords.mode(mode)))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: ChatWords.mode(mode)))
     }
 
-    private static func symbol(_ mode: ChatMode) -> String {
+    static func symbol(_ mode: ChatMode) -> String {
         switch mode {
         case .ask: AgentPermissions.ask.symbol
         case .auto: AgentPermissions.auto.symbol
@@ -405,38 +444,60 @@ private struct ChatFactsRow<ModelKey: View>: View {
     }
 }
 
+extension EnvironmentValues {
+    /// The permission mode that the model key of a chat shows with the model.
+    @Entry var chatMode: ChatMode?
+    /// The facts row has room only for the short form of its keys.
+    @Entry var chatFactsShort = false
+    /// The menu of the model key is open.
+    @Entry var chatModelOpen = false
+}
+
 /// The context and the nearest limit of the agent's plan, which open all that the agent reports
 /// of its use.
 private struct ChatUsageKey: View {
     @Environment(\.theme) private var theme
     let facts: ChatFacts
     @Binding var open: Bool
-    @State private var hovered = false
+    var named = true
 
     var body: some View {
         Button { open.toggle() } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 if let context = facts.context {
-                    ContextMeter(context: context)
+                    ContextMeter(context: context, named: named)
                 }
                 if let limit = UsageLimit.nearest(of: facts.limits) {
-                    UsageDial(limit: limit, size: 20)
+                    HStack(spacing: 4) {
+                        UsageRing(used: limit.used, level: limit.level, lineWidth: 2).frame(width: 14, height: 14)
+                        Group {
+                            if named {
+                                Text("\(limit.window) \(limit.used)%", bundle: .module)
+                            } else {
+                                Text(verbatim: "\(limit.used)%")
+                            }
+                        }
+                        .monospacedDigit()
+                        .foregroundStyle(limit.level == .normal ? theme.colors.ink : limit.level.color(theme.colors))
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(verbatim: limit.spoken))
                 }
                 if facts.context == nil, facts.limits.isEmpty, let cost = facts.cost {
                     Text(verbatim: ChatWords.cost(cost)).monospacedDigit()
                 }
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
+                    .rotationEffect(.degrees(open ? 180 : 0))
+                    .accessibilityHidden(true)
             }
-            .padding(.horizontal, 6)
-            .controlHeight(26)
-            .background {
-                RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-                    .fill(hovered || open ? theme.colors.ink.opacity(0.07) : .clear)
-            }
-            .touchTarget(Rectangle())
+            .appTextStyle(.callout)
+            .fontWeight(.medium)
+            .padding(.horizontal, -3)
         }
-        .buttonStyle(.plain)
-        .onHover { hovered = $0 }
-        .animation(theme.motion.hover, value: hovered || open)
+        .buttonStyle(.kodosi(open ? .tinted : .secondary, size: .small))
+        .animation(theme.motion.snappy, value: open)
         .kodosiPopover(isPresented: $open, arrowEdge: .top, alignment: .leading) {
             ChatUsage(facts: facts)
         }
@@ -449,6 +510,7 @@ private struct ChatUsageKey: View {
 struct ContextMeter: View {
     @Environment(\.theme) private var theme
     let context: ChatContext
+    var named = false
 
     static func level(_ context: ChatContext) -> UsageLevel {
         context.used > 0.85 ? .reached : context.used >= 0.65 ? .near : .normal
@@ -460,8 +522,15 @@ struct ContextMeter: View {
         HStack(spacing: 4) {
             UsageRing(used: percent, level: level, lineWidth: 2)
                 .frame(width: 14, height: 14)
-            Text(verbatim: "\(percent)%").monospacedDigit()
-                .foregroundStyle(level == .normal ? theme.colors.inkMuted : level.color(theme.colors))
+            Group {
+                if named {
+                    Text("\(percent)% context", bundle: .module)
+                } else {
+                    Text(verbatim: "\(percent)%")
+                }
+            }
+            .monospacedDigit()
+            .foregroundStyle(level == .normal ? theme.colors.ink : level.color(theme.colors))
         }
         .animation(theme.motion.snappy, value: percent)
         .accessibilityElement(children: .ignore)
@@ -471,6 +540,10 @@ struct ContextMeter: View {
 
 /// The agent's model by its name, and its effort as bars, as the key in a chat's facts shows them.
 public struct ChatModelFace: View {
+    @Environment(\.theme) private var theme
+    @Environment(\.chatMode) private var mode
+    @Environment(\.chatFactsShort) private var short
+    @Environment(\.chatModelOpen) private var open
     let models: AgentModels?
     let model: String
     let effort: String?
@@ -490,20 +563,29 @@ public struct ChatModelFace: View {
 
     public var body: some View {
         let levels = models?.efforts(for: model) ?? []
-        HStack(spacing: 5) {
+        HStack(spacing: 6) {
             Text(verbatim: title).lineLimit(1)
             if let effort {
                 if let level = levels.firstIndex(where: { $0.id == effort }) {
-                    EffortBars(level: level, count: levels.count, height: 9, width: 2)
+                    EffortBars(level: level, count: levels.count, height: 10, width: 2)
                         .tip(Text(verbatim: levels[level].label))
                 } else {
                     Text(verbatim: effort)
                 }
             }
+            if let mode {
+                Text(verbatim: "·").foregroundStyle(theme.colors.inkFaint).accessibilityHidden(true)
+                ChatModeLabel(mode: mode, named: !short)
+            }
             if opens {
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 8, weight: .bold)).accessibilityHidden(true)
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(open ? theme.colors.accentStrong : theme.colors.inkFaint)
+                    .rotationEffect(.degrees(open ? 180 : 0))
+                    .accessibilityHidden(true)
             }
         }
+        .appTextStyle(.callout)
+        .fontWeight(.medium)
     }
 
     /// An agent reports its model by its full ID, such as claude-sonnet-5-5 or

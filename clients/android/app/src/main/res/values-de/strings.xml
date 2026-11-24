@@ -297,6 +297,11 @@
     <string name="usage_week">Diese Woche</string>
     <string name="usage_scope_month">%1$s, dieser Monat</string>
     <string name="usage_scope_week">%1$s, diese Woche</string>
+    <string name="usage_window_month">Monat</string>
+    <string name="usage_window_day">Tag</string>
+    <string name="usage_window_week">Woche</string>
+    <string name="usage_window_days">%1$d T.</string>
+    <string name="usage_window_hours">%1$d h</string>
     <plurals name="usage_hours">
         <item quantity="one">Letzte %d Stunde</item>
         <item quantity="other">Letzte %d Stunden</item>
@@ -496,6 +501,8 @@
     <string name="today">Heute</string>
     <string name="yesterday">Gestern</string>
     <string name="chat_usage_used">%1$s: %2$d %% genutzt</string>
+    <string name="chat_context_percent">%1$d %% Kontext</string>
+    <string name="chat_limit_percent">%1$s %2$d %%</string>
     <plurals name="chat_ran_commands">
         <item quantity="one">%d Befehl ausgeführt</item>
         <item quantity="other">%d Befehle ausgeführt</item>

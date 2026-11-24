@@ -877,6 +877,14 @@
         <translation>Πλαίσιο: %1% σε χρήση</translation>
     </message>
     <message>
+        <source>%1% context</source>
+        <translation>%1% πλαισίου</translation>
+    </message>
+    <message>
+        <source>%1 %2%</source>
+        <translation>%1 %2%</translation>
+    </message>
+    <message>
         <source>Resets in %1</source>
         <translation>Ανανεώνεται σε %1</translation>
     </message>

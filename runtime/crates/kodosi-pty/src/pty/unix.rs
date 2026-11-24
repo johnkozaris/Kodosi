@@ -211,6 +211,11 @@ impl KodosiPty {
         process_directory(pid).or_else(|| process_directory(self.child_pid))
     }
 
+    /// The terminal's own program, which leads the session of the terminal.
+    pub const fn child_pid(&self) -> u32 {
+        self.child_pid
+    }
+
     pub fn foreground_process_group(&self) -> Option<u32> {
         foreground_process_group(&self.master)
     }
@@ -779,6 +784,14 @@ fn process_program(pid: u32) -> Option<PathBuf> {
     };
     path.truncate(usize::try_from(length).ok().filter(|length| *length > 0)?);
     Some(PathBuf::from(std::ffi::OsString::from_vec(path)))
+}
+
+/// The session of a process. A program that a person starts in a terminal runs in the session of
+/// the terminal's shell; a background job that a daemon runs has a session of its own.
+pub fn process_session(pid: u32) -> Option<u32> {
+    nix::unistd::getsid(Some(Pid::from_raw(i32::try_from(pid).ok()?)))
+        .ok()
+        .and_then(|session| u32::try_from(session.as_raw()).ok())
 }
 
 pub fn process_group(pid: u32) -> Option<u32> {

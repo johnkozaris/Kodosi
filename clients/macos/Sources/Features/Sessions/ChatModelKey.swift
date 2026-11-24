@@ -10,7 +10,6 @@ struct ChatModelKey: View {
     let name: String
     let effort: String?
     @Binding var open: Bool
-    @State private var hovered = false
     @State private var flyout: AgentActions.Flyout?
 
     private var launcher: LauncherState? {
@@ -28,15 +27,14 @@ struct ChatModelKey: View {
     var body: some View {
         if session.canControl, let live = session.programLive {
             Button { open.toggle() } label: {
-                face.foregroundStyle(hovered || open ? theme.colors.ink : theme.colors.inkFaint)
+                face.padding(.horizontal, -3)
             }
-            .buttonStyle(.plain)
-            .onHover { hovered = $0 }
+            .buttonStyle(.kodosi(open ? .tinted : .secondary, size: .small))
             .task(id: session.program) {
                 await launcher?.refresh()
                 await launcher?.loadModels(session.agent.rawValue)
             }
-            .animation(theme.motion.hover, value: hovered)
+            .animation(theme.motion.snappy, value: open)
             .tip("Model")
             .accessibilityLabel(Text("Model"))
             .accessibilityValue(Text(verbatim: face.title))
@@ -54,7 +52,7 @@ struct ChatModelKey: View {
                 }
             }
         } else {
-            face
+            face.foregroundStyle(theme.colors.inkMuted).padding(.horizontal, 4)
         }
     }
 }

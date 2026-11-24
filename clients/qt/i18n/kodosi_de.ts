@@ -877,6 +877,14 @@
         <translation>Kontext: %1 % genutzt</translation>
     </message>
     <message>
+        <source>%1% context</source>
+        <translation>%1 % Kontext</translation>
+    </message>
+    <message>
+        <source>%1 %2%</source>
+        <translation>%1 %2 %</translation>
+    </message>
+    <message>
         <source>Resets in %1</source>
         <translation>Noch %1 bis zum Zurücksetzen</translation>
     </message>

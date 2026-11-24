@@ -55,12 +55,14 @@ AbstractButton {
             Item {
                 id: glyphSlot
                 anchors.verticalCenter: parent.verticalCenter
+                visible: children.length > 0
                 width: childrenRect.width
                 height: childrenRect.height
                 transform: Scale { id: glyphShape; origin.x: glyphSlot.width / 2; origin.y: glyphSlot.height / 2 }
             }
             ShimmerText {
                 anchors.verticalCenter: parent.verticalCenter
+                visible: root.title.length > 0
                 width: Math.min(implicitWidth, 130)
                 text: root.title
                 active: root.loading

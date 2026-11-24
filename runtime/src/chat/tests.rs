@@ -1086,6 +1086,138 @@ fn a_clear_from_the_chat_lets_the_next_message_go() {
 }
 
 #[test]
+fn a_rewind_shows_the_conversation_as_it_went_back() {
+    let mut play = Play::of(record!("reload"), &[]);
+    assert_eq!(play.people(), ["Say hello in five words.", "Say ok."]);
+    let record = record!("reload");
+    let mut hello: Value = record
+        .lines()
+        .find(|line| line.contains("\"k\":\"hello\""))
+        .and_then(|line| serde_json::from_str(line).ok())
+        .expect("the greeting");
+    hello["rewound"] = json!(true);
+    let history = record
+        .lines()
+        .find(|line| line.contains("\"k\":\"history\""))
+        .expect("the rows of the first prompt");
+
+    play.more(&format!("{hello}\n{history}"), &[]);
+
+    assert_eq!(play.people(), ["Say hello in five words."]);
+    assert_eq!(play.answers(), ["Hello, nice to meet you!"]);
+}
+
+#[test]
+fn a_picker_of_the_chat_stays_shown_in_the_terminal_and_the_next_message_goes_on() {
+    let mut play = Play::of(record!("text"), &[]);
+    play.chat.queue("/rewind".to_owned(), None);
+    let [rewind] = &play.agent.commands(&play.chat)[..] else {
+        panic!("the command goes to Claude Code");
+    };
+    let n = rewind["n"].clone();
+    play.take(&json!({"k": "waits", "n": n, "picker": true}));
+    assert!(play.view.queued[0].terminal);
+
+    play.chat.queue("Hello.".to_owned(), None);
+    play.follow();
+    let [next] = &play.agent.commands(&play.chat)[..] else {
+        panic!("a person can close the picker in the terminal with no word to the chat");
+    };
+    assert_eq!(next["text"], "Hello.");
+    play.take(&json!({"k": "did", "n": n}));
+
+    assert_eq!(
+        play.view
+            .queued
+            .iter()
+            .map(|queued| queued.text.as_str())
+            .collect::<Vec<_>>(),
+        ["Hello."]
+    );
+}
+
+#[test]
+fn a_command_of_the_chat_shows_once_as_its_persons_message_when_it_ends() {
+    let mut play = Play::of(record!("text"), &[]);
+    let run = |play: &mut Play, command: &str| {
+        play.chat.queue(command.to_owned(), Some(sam()));
+        let [handed] = &play.agent.commands(&play.chat)[..] else {
+            panic!("the command goes to Claude Code");
+        };
+        let n = handed["n"].clone();
+        play.take(&json!({"k": "did", "n": n}));
+    };
+    let row = |uuid: &str, text: &str| {
+        json!({"k": "row", "door": "command", "origin": {"kind": "engine"}, "uuid": uuid,
+            "content": [{"type": "text", "text": text}]})
+    };
+
+    run(&mut play, "/release-notes");
+    run(&mut play, "/context");
+    play.take(&row(
+        "c1",
+        "<command-name>/context</command-name>\n<command-args></command-args>",
+    ));
+    play.take(&row(
+        "c2",
+        "<local-command-stdout>\u{1b}[1mContext usage\u{1b}[22m\n\u{1b}]8;;https://claude.com\u{7}\u{1b}[38;2;153;153;153m\u{26c1} 2%\u{1b}[39m\u{1b}]8;;\u{7}</local-command-stdout>",
+    ));
+
+    assert_eq!(play.view.queued, []);
+    assert_eq!(
+        play.people(),
+        ["Say hello in five words.", "/release-notes", "/context"],
+        "Claude Code writes no row for some commands, and the row of others after their end"
+    );
+    let Some(ChatBody::Person { by, .. }) =
+        play.view.items.iter().rev().nth(1).map(|item| &item.body)
+    else {
+        panic!("the output follows its command");
+    };
+    assert_eq!(by, &Some(sam()));
+    assert_eq!(play.answers().last(), Some(&"Context usage\n\u{26c1} 2%"));
+}
+
+#[test]
+fn a_compaction_from_the_chat_shows_its_command_before_its_note() {
+    let mut play = Play::of(record!("text"), &[]);
+    play.chat.queue("/compact".to_owned(), None);
+    let [command] = &play.agent.commands(&play.chat)[..] else {
+        panic!("the command goes to Claude Code");
+    };
+    let n = command["n"].clone();
+
+    play.take(&json!({"k": "compact", "phase": "start"}));
+    play.take(&json!({"k": "compact", "phase": "end"}));
+    play.take(&json!({"k": "did", "n": n}));
+
+    let [.., command, note] = &play.view.items[..] else {
+        panic!("the chat has the command and its note");
+    };
+    assert!(matches!(&command.body, ChatBody::Person { text, .. } if text == "/compact"));
+    assert!(matches!(
+        &note.body,
+        ChatBody::Note {
+            note: ChatNote::Compacted
+        }
+    ));
+    assert_eq!(play.view.queued, []);
+}
+
+#[test]
+fn an_empty_message_of_claude_code_shows_nothing() {
+    let mut play = Play::of(record!("text"), &[]);
+    let answers = play.answers().len();
+
+    play.take(
+        &json!({"k": "row", "door": "response", "origin": {"kind": "model"}, "uuid": "empty",
+        "content": [{"type": "text", "text": "(no content)"}]}),
+    );
+
+    assert_eq!(play.answers().len(), answers);
+}
+
+#[test]
 fn claude_code_that_starts_again_in_the_terminal_starts_the_chat_again() {
     let mut play = Play::of(record!("text"), &[]);
     assert_eq!(play.people(), ["Say hello in five words."]);
@@ -1217,11 +1349,23 @@ fn events(record: &str) -> Vec<Value> {
 }
 
 async fn report(chat: &ChatHandle, link: &str, batch: u64, events: Vec<Value>) -> bool {
+    report_from(chat, link, batch, events, None).await
+}
+
+/// Reports as a module whose process runs in `session`.
+async fn report_from(
+    chat: &ChatHandle,
+    link: &str,
+    batch: u64,
+    events: Vec<Value>,
+    session: Option<u32>,
+) -> bool {
     let (reply, heard) = tokio::sync::oneshot::channel();
     let job = Job::Events {
         link: link.to_owned(),
         batch,
         events,
+        session,
         reply,
     };
     chat.jobs()
@@ -1454,6 +1598,32 @@ async fn reports_of_a_module_that_the_chat_does_not_follow_are_refused() {
         snapshot.items.len(),
         3,
         "only the rows of the followed module"
+    );
+}
+
+#[tokio::test]
+async fn an_agent_that_left_the_session_of_the_terminal_does_not_take_the_chat() {
+    let chat = ChatHandle::spawn();
+    chat.runs_in(100).await;
+    assert!(report_from(&chat, "terminal", 1, events(record!("text")), Some(100)).await);
+
+    let job = events(record!("command-allow"));
+    assert!(
+        !report_from(&chat, "background", 1, job, Some(200)).await,
+        "a background job of the agent keeps the terminal's environment, not its session"
+    );
+
+    let mut viewer = chat
+        .attach(String::new(), String::new())
+        .await
+        .expect("the chat opens");
+    let ChatFrame::Snapshot(snapshot) = frame(&mut viewer).await else {
+        panic!("the chat as it is comes first");
+    };
+    assert_eq!(
+        snapshot.items.len(),
+        3,
+        "only the rows of the terminal's agent"
     );
 }
 

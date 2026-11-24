@@ -1,20 +1,12 @@
 package com.kodosi.mobile.chat
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -32,24 +24,15 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.AppModel
-import com.kodosi.mobile.R
 import com.kodosi.mobile.terminals.AgentSettingsSection
 import com.kodosi.mobile.terminals.RuntimeSession
 import com.kodosi.mobile.terminals.TerminalFace
 import com.kodosi.mobile.terminals.changesAgent
 import com.kodosi.mobile.terminals.rememberAgentModels
-import com.kodosi.mobile.ui.AppIcon
-import com.kodosi.mobile.ui.AppSymbol
-import com.kodosi.mobile.ui.KodosiMenu
-import com.kodosi.mobile.ui.KodosiTheme
-import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.LinkOpener
 import com.kodosi.mobile.ui.LocalLinkOpener
 import kotlinx.coroutines.launch
@@ -117,56 +100,10 @@ fun TerminalChatView(model: AppModel, session: RuntimeSession, modifier: Modifie
                     showTerminal = {
                         hideKeyboard()
                         model.terminals.pick(TerminalFace.TERMINAL, session.id, session.face)
-                    }
-                ) { label, open, setOpen -> ModelKey(model, session, label, open, setOpen) }
+                    },
+                    changesAgent = session.changesAgent()
+                ) { AgentSettingsSection(model, session) }
             }
         }
-    }
-}
-
-/**
- * The model in a chat's facts opens the agent's part of the terminal's actions, which changes its
- * model and which `/model` also opens.
- */
-@Composable
-private fun ModelKey(
-    model: AppModel,
-    session: RuntimeSession,
-    label: String,
-    open: Boolean,
-    setOpen: (Boolean) -> Unit
-) {
-    val colors = KodosiTheme.colors
-    val changes = session.changesAgent()
-    Box {
-        Row(
-            Modifier.heightIn(min = 48.dp).then(
-                if (changes) {
-                    Modifier.clickable(
-                        remember { MutableInteractionSource() },
-                        indication = null,
-                        role = Role.Button,
-                        onClickLabel = stringResource(R.string.model)
-                    ) { setOpen(true) }
-                } else {
-                    Modifier
-                }
-            ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                label,
-                style = KodosiType.footnote,
-                color = colors.inkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis,
-                modifier = Modifier.widthIn(max = 180.dp)
-            )
-            if (changes) {
-                Spacer(Modifier.width(4.dp))
-                AppIcon(AppSymbol.CHEVRONS, Modifier.size(8.dp), tint = colors.inkFaint)
-            }
-        }
-        KodosiMenu(open && changes, { setOpen(false) }) { AgentSettingsSection(model, session) }
     }
 }

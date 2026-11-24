@@ -21,6 +21,8 @@ const COMMAND_WORDS = 160
 // A command that Claude Code shows in its own view of the terminal ends only when a person closes the view
 // there.
 const SHOWN_MS = 1500
+// Claude Code ends the run of these commands while their picker stays open in the terminal.
+const PICKERS = new Set(['rewind'])
 // The host takes at most 8 MiB in a request, and a character of the JSON takes up to three bytes there.
 const MOST_BATCH = 2 * 1024 * 1024
 const pending = []
@@ -42,6 +44,10 @@ let asks = 0
 // only in a session that started without them.
 let mode = ''
 let bypass = false
+// The person's prompts in the conversation. A rewind takes the conversation back to an earlier prompt.
+let turns = 0
+// The command of the chat whose picker can still be open in the terminal.
+let picking = 0
 // The model that a person chose in Kodosi. Claude Code asks before it leaves a warm cache, in its
 // terminal, where a person of the chat does not see the question.
 let chosen = ''
@@ -127,6 +133,15 @@ async function modesOff($) {
   }
 }
 
+// The count of the person's prompts in the conversation as Claude Code has it now.
+async function prompts($) {
+  try {
+    return await $.session.turns()
+  } catch (error) {
+    return turns
+  }
+}
+
 // The slash commands of the session, in the order of Claude Code's own menu.
 async function slashCommands($) {
   try {
@@ -194,9 +209,11 @@ function earlier(rows) {
 
 // The host follows the module from its hello, so what happens while the module reads the session waits
 // until the hello and the history are out. The host knows each row of the history by its id.
-async function hello($) {
+async function hello($, rewound) {
+  if (picking) tell($, 'did', { n: picking })
+  picking = 0
   greeting = true
-  const facts = { agent: 'claude' }
+  const facts = { agent: 'claude', rewound: rewound || undefined }
   let rows = []
   try {
     facts.session = await $.session.id()
@@ -206,6 +223,7 @@ async function hello($) {
     facts.usage = await $.session.usage()
     Object.assign(facts, await modesOff($))
     facts.commands = await slashCommands($)
+    turns = await prompts($)
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
     rows = []
@@ -255,6 +273,8 @@ async function stop($) {
 function run($, command) {
   if (command.do === 'stop') stop($)
   if (command.do !== 'prompt' && command.do !== 'change') return
+  if (picking) tell($, 'did', { n: picking })
+  picking = 0
   const text = String(command.text)
   const slash = /^\s*\/(\S+)\s*([\s\S]*)$/.exec(text)
   const model = slash && slash[1] === 'model' ? slash[2].trim().toLowerCase() : ''
@@ -262,7 +282,13 @@ function run($, command) {
   const sent = slash ? $.command.run({ command: slash[1], args: slash[2] }) : $.prompt.submit({ text, asUser: true })
   let ended = false
   sent.then(
-    result => tell($, 'did', { n: command.n, drop: result && result.drop ? String(result.drop) : undefined }),
+    result => {
+      const drop = result && result.drop ? String(result.drop) : undefined
+      if (slash && PICKERS.has(slash[1]) && !drop) {
+        picking = command.n
+        tell($, 'waits', { n: command.n, picker: true })
+      } else tell($, 'did', { n: command.n, drop })
+    },
     error => tell($, 'did', { n: command.n, error: String(error) }),
   ).finally(() => {
     ended = true
@@ -353,9 +379,19 @@ export function register(on) {
   })
 
   on('turn.start', async ($, e, next) => {
-    if (!e.agentId) turn = e.turnId
+    if (!e.agentId) {
+      turn = e.turnId
+      turns = await prompts($)
+    }
     tell($, 'turn', { agent: e.agentId })
     return next(e)
+  })
+
+  // A rewind puts the prompt it went back to in the prompt box again.
+  on('prompt.change', async ($, e, next) => {
+    const changed = await next(e)
+    if (socket && !greeting && (await prompts($)) < turns) hello($, true)
+    return changed
   })
 
   // The chat shows a helper's steps from its rows, so only the main conversation reports as it writes.

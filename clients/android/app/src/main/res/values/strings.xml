@@ -305,6 +305,11 @@
     <string name="usage_week">This week</string>
     <string name="usage_scope_month">%1$s, this month</string>
     <string name="usage_scope_week">%1$s, this week</string>
+    <string name="usage_window_month">month</string>
+    <string name="usage_window_day">day</string>
+    <string name="usage_window_week">week</string>
+    <string name="usage_window_days">%1$dd</string>
+    <string name="usage_window_hours">%1$dh</string>
     <plurals name="usage_hours">
         <item quantity="one">Last %d hour</item>
         <item quantity="other">Last %d hours</item>
@@ -503,6 +508,8 @@
     <string name="today">Today</string>
     <string name="yesterday">Yesterday</string>
     <string name="chat_usage_used">%1$s: %2$d%% used</string>
+    <string name="chat_context_percent">%1$d%% context</string>
+    <string name="chat_limit_percent">%1$s %2$d%%</string>
     <plurals name="chat_ran_commands">
         <item quantity="one">ran %d command</item>
         <item quantity="other">ran %d commands</item>

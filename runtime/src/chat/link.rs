@@ -305,6 +305,7 @@ async fn respond(
                     .and_then(Value::as_u64)
                     .unwrap_or_default(),
                 events,
+                session: peer.and_then(session_of),
                 reply,
             };
             if room.send(job).await.is_ok() && heard.await == Ok(true) {
@@ -348,6 +349,16 @@ async fn respond(
         }
         _ => (404, None),
     })
+}
+
+#[cfg(unix)]
+fn session_of(pid: u32) -> Option<u32> {
+    kodosi_pty::process_session(pid)
+}
+
+#[cfg(not(unix))]
+const fn session_of(_pid: u32) -> Option<u32> {
+    None
 }
 
 /// The agent's greeting carries the command line that its program started with. Some choices of

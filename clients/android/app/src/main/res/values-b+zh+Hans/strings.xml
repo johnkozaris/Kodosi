@@ -297,6 +297,11 @@
     <string name="usage_week">本周</string>
     <string name="usage_scope_month">%1$s，本月</string>
     <string name="usage_scope_week">%1$s，本周</string>
+    <string name="usage_window_month">月</string>
+    <string name="usage_window_day">天</string>
+    <string name="usage_window_week">周</string>
+    <string name="usage_window_days">%1$d天</string>
+    <string name="usage_window_hours">%1$d小时</string>
     <plurals name="usage_hours">
         <item quantity="other">过去 %d 小时</item>
     </plurals>
@@ -488,6 +493,8 @@
     <string name="today">今天</string>
     <string name="yesterday">昨天</string>
     <string name="chat_usage_used">%1$s：已用 %2$d%%</string>
+    <string name="chat_context_percent">上下文 %1$d%%</string>
+    <string name="chat_limit_percent">%1$s %2$d%%</string>
     <plurals name="chat_ran_commands">
         <item quantity="other">运行了 %d 条命令</item>
     </plurals>

@@ -297,6 +297,11 @@
     <string name="usage_week">Αυτή η εβδομάδα</string>
     <string name="usage_scope_month">%1$s, αυτόν τον μήνα</string>
     <string name="usage_scope_week">%1$s, αυτή την εβδομάδα</string>
+    <string name="usage_window_month">μήνας</string>
+    <string name="usage_window_day">ημέρα</string>
+    <string name="usage_window_week">εβδομάδα</string>
+    <string name="usage_window_days">%1$d ημ.</string>
+    <string name="usage_window_hours">%1$d ώ.</string>
     <plurals name="usage_hours">
         <item quantity="one">Τελευταία %d ώρα</item>
         <item quantity="other">Τελευταίες %d ώρες</item>
@@ -496,6 +501,8 @@
     <string name="today">Σήμερα</string>
     <string name="yesterday">Χθες</string>
     <string name="chat_usage_used">%1$s: %2$d%% σε χρήση</string>
+    <string name="chat_context_percent">%1$d%% πλαισίου</string>
+    <string name="chat_limit_percent">%1$s %2$d%%</string>
     <plurals name="chat_ran_commands">
         <item quantity="one">εκτέλεσε %d εντολή</item>
         <item quantity="other">εκτέλεσε %d εντολές</item>

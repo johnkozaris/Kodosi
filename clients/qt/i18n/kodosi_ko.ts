@@ -876,6 +876,14 @@
         <translation>컨텍스트: %1% 사용</translation>
     </message>
     <message>
+        <source>%1% context</source>
+        <translation>컨텍스트 %1%</translation>
+    </message>
+    <message>
+        <source>%1 %2%</source>
+        <translation>%1 %2%</translation>
+    </message>
+    <message>
         <source>Resets in %1</source>
         <translation>%1 후 초기화</translation>
     </message>
