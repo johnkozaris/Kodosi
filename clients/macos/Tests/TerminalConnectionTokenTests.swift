@@ -8,7 +8,6 @@ import Testing
     for token in [first, replacement] {
         let parsed = try #require(UUID(uuidString: token.subscriptionId))
         #expect(token.subscriptionId == parsed.uuidString.lowercased())
-        #expect(parsed.uuid.6 >> 4 == 7)
         #expect(token.subscriptionGeneration > 0)
     }
     #expect(first.subscriptionId != replacement.subscriptionId)

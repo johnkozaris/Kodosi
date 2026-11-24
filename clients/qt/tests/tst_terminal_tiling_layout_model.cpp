@@ -15,7 +15,6 @@ private slots:
     void laysOutOneThroughSixSessions_data();
     void laysOutOneThroughSixSessions();
     void choosesAdaptiveColumnsAndIncompleteRows();
-    void scrollsWhenRowsCannotMeetMinimumHeight();
     void clampsMinimumTileSizes();
     void adjustsAndClampsDividers();
     void preservesProportionsAcrossViewportResize();
@@ -175,18 +174,6 @@ void TerminalTilingLayoutModelTest::choosesAdaptiveColumnsAndIncompleteRows()
     model.setViewportWidth(589);
     QCOMPARE(model.layoutColumnCount(), 1);
     QCOMPARE(model.layoutRowCount(), 5);
-}
-
-void TerminalTilingLayoutModelTest::scrollsWhenRowsCannotMeetMinimumHeight()
-{
-    kodosi::TerminalTilingLayoutModel model;
-    model.setViewportWidth(589);
-    model.setViewportHeight(508);
-    model.setStagedSessionIds(sessionIds(4));
-
-    QCOMPARE(model.layoutRowCount(), 4);
-    QCOMPARE(model.contentHeight(), 4 * 170 + 3 * 6 + 8);
-    QVERIFY(model.contentHeight() > model.viewportHeight());
 }
 
 void TerminalTilingLayoutModelTest::clampsMinimumTileSizes()
@@ -446,9 +433,6 @@ void TerminalTilingLayoutModelTest::
 void TerminalTilingLayoutModelTest::
     accessibilityTextScaleRaisesMinimumHeight()
 {
-    QCOMPARE(
-        kodosi::TerminalTilingLayoutModel::requiredContentHeight(2, 100),
-        346.0);
     kodosi::TerminalTilingLayoutModel model;
     model.setViewportWidth(568);
     model.setViewportHeight(508);

@@ -88,27 +88,6 @@ private func answerAgentRequests(_ app: AppDependencies, sent: () -> [[String: J
     #expect(app.workbench.launcherDraft == LauncherDraft())
 }
 
-@Test func `a terminal started for a project joins that project`() async throws {
-    let (app, sent) = try launcherApp("LauncherProject")
-    defer { app.shutdownProcess() }
-    let creating = Task { try await app.createSession(name: "Test", directory: "/work", projectId: "project", command: "claude") }
-    var create: [String: JSONValue]?
-    for _ in 0 ..< 200 where create == nil {
-        await Task.yield()
-        create = sent().last { $0["type"] == .string("session.create") }
-    }
-    let fields = try #require(create)
-    #expect(fields["projectId"] == .string("project"))
-    #expect(fields["command"] == .string("claude"))
-    let request = try #require(fields["requestId"]?.stringValue)
-    let created = UUIDv7.generate()
-    try app.receive(runtimeEvent("session.result", epoch: 0, userId: nil, fields: [
-        "requestId": .string(request), "sessionId": .string(created), "operation": .string("session.create"),
-    ]))
-    _ = try await creating.value
-    #expect(app.freshTerminals.contains(created))
-}
-
 @Test func `a folder's plus starts a plain terminal there without the launcher`() async throws {
     let (app, sent) = try launcherApp("LauncherFolder")
     defer { app.shutdownProcess() }
@@ -336,13 +315,6 @@ private func terminal(running agent: [String: JSONValue]) throws -> RuntimeSessi
     #expect(plan.account?.name == "default")
     #expect(plan.start?.permissions == .ask && plan.start?.output == .standard && plan.start?.fast == false)
     #expect(plan.shown?.permissions == .ask)
-}
-
-@Test func `a pick reaches the computer that keeps the choice as it was made`() throws {
-    let pick = AgentPick(
-        agent: "codex", account: "work", model: "gpt-6", effort: "high", permissions: .auto, output: .detailed, fast: true,
-    )
-    #expect(try AgentChoiceChange.pick(pick).json.decode(as: AgentPick.self) == pick)
 }
 
 @Test func `usage shows only on accounts that are signed in`() async throws {

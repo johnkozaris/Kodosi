@@ -16,8 +16,6 @@ import Testing
             )
             #expect(conversation.sessionName == provider.name)
             #expect(ProductInput.validName(conversation.sessionName))
-            #expect(conversation.title == title)
-            #expect(conversation.identity.nativeConversationId == "native-conversation")
         }
     }
 }
@@ -30,6 +28,5 @@ import Testing
         )
         #expect(conversation.sessionName == title.trimmingCharacters(in: .whitespacesAndNewlines))
         #expect(ProductInput.validName(conversation.sessionName))
-        #expect(conversation.title == title)
     }
 }

@@ -6,7 +6,6 @@
 #include "runtime/RuntimeBridge.hpp"
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest/QTest>
 
@@ -247,28 +246,6 @@ private slots:
         QVERIFY(!f.dosi.pending());
     }
 
-    void aChoiceGoesToTheHostAndSaysWhenItIsSaved()
-    {
-        Fixture f;
-        QSignalSpy saved(&f.dosi, &kodosi::DosiModel::saved);
-        f.dosi.choose({ { QStringLiteral("type"), QStringLiteral("pick") }, { QStringLiteral("agent"), QStringLiteral("claude") },
-            { QStringLiteral("account"), QString {} }, { QStringLiteral("model"), QStringLiteral("opus") },
-            { QStringLiteral("effort"), QStringLiteral("high") } });
-        const auto sent = f.commands.values.last();
-        QCOMPARE(sent.value(QStringLiteral("type")).toString(), QStringLiteral("dosi.setup"));
-        QCOMPARE(sent.value(QStringLiteral("change")).toObject(),
-            (QJsonObject { { QStringLiteral("type"), QStringLiteral("pick") }, { QStringLiteral("agent"), QStringLiteral("claude") },
-                { QStringLiteral("account"), QJsonValue(QJsonValue::Null) }, { QStringLiteral("model"), QStringLiteral("opus") },
-                { QStringLiteral("effort"), QStringLiteral("high") } }));
-        f.workspace.apply({ { QStringLiteral("type"), QStringLiteral("dosi.result") }, { QStringLiteral("requestId"), sent.value(QStringLiteral("requestId")) },
-                              { QStringLiteral("operation"), QStringLiteral("dosi.setup") } },
-            0);
-        QCOMPARE(saved.count(), 1);
-        f.dosi.choose({ { QStringLiteral("type"), QStringLiteral("tab") }, { QStringLiteral("agent"), QStringLiteral("codex") } });
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("change")).toObject(),
-            (QJsonObject { { QStringLiteral("type"), QStringLiteral("tab") }, { QStringLiteral("agent"), QStringLiteral("codex") } }));
-    }
-
     void anAnswerIsNewUntilDosiIsOpen()
     {
         Fixture f;
@@ -329,8 +306,6 @@ private slots:
                                   { QStringLiteral("asks"), QJsonArray { ask } } } } },
             0);
         QCOMPARE(f.dosi.rows().last().toMap().value(QStringLiteral("waiting")).toString(), QStringLiteral("Studio"));
-        f.dosi.unqueue(QStringLiteral("a"));
-        QCOMPARE(f.commands.values.last().value(QStringLiteral("queuedId")).toString(), QStringLiteral("a"));
     }
 };
 

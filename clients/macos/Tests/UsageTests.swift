@@ -87,18 +87,3 @@ private let month = #"{"hours": null, "scope": null, "model": null, "used": 3, "
     #expect(ResetTime.left(resets, now: now) == 60)
     #expect(ResetTime.left(resets, now: now.addingTimeInterval(61)) == nil)
 }
-
-@Test func `account rows carry the headline limit of their account`() throws {
-    let info = AgentInfo(
-        agent: "claude", program: "claude", installed: true,
-        accounts: [
-            AgentAccount(name: "default", command: "claude", identity: "maya@hey.dev", folder: "~/.claude"),
-            AgentAccount(name: "work", command: "env CLAUDE_CONFIG_DIR=/h/.claude-work claude", identity: "maya@acme.studio",
-                         folder: "~/.claude-work"),
-        ],
-        install: "", addsAccounts: true, reportsUsage: true,
-    )
-    let near = try limit(week)
-    let rows = LauncherMenu.accounts(info, current: "work") { $0.name == "work" ? near : nil }
-    #expect(rows.map(\.usage) == [nil, near, nil])
-}

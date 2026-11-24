@@ -14,10 +14,10 @@ namespace kodosi {
 class TerminalRasterizer final {
 public:
     struct Palette {
-        QColor selectionBackground {92, 56, 37};
-        QColor selectionForeground {232, 225, 217};
-        QColor preeditBackground {219, 138, 98};
-        QColor preeditForeground {22, 14, 10};
+        QColor selectionBackground;
+        QColor selectionForeground;
+        QColor preeditBackground;
+        QColor preeditForeground;
         double minimumContrast = 1.0;
 
         bool operator==(const Palette&) const = default;
@@ -32,7 +32,7 @@ public:
     };
 
     struct Options {
-        Palette palette;
+        Palette palette = TerminalRasterizer::palette(TerminalLook::Dark);
         Overlay overlay;
         qreal lineHeight = 1.0;
         std::optional<TerminalCursorStyle> cursorStyle;
@@ -51,10 +51,6 @@ public:
         const QFont& font,
         qreal lineHeight = 1.0,
         qreal devicePixelRatio = 1.0);
-    [[nodiscard]] static QImage render(
-        const TerminalFrame& frame,
-        const QFont& font,
-        qreal devicePixelRatio);
     [[nodiscard]] static QImage render(
         const TerminalFrame& frame,
         const QFont& font,

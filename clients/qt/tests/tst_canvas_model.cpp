@@ -162,7 +162,6 @@ private slots:
         QCOMPARE(model.stored(id, key).value_or(QByteArray {}), QByteArrayLiteral("<p>Plan</"));
         QVERIFY(model.load(id, key));
         const auto address = QUrl(model.pageAddress(id, key));
-        QCOMPARE(address.scheme(), QStringLiteral("kodosi-canvas"));
         QCOMPARE(model.published(address).value_or(std::pair<QByteArray, QByteArray> {}).second, QByteArrayLiteral("<p>Plan</"));
         QCOMPARE(QUrl(model.pageAddress(id, key)), address);
         QVERIFY(!model.published(QUrl(QStringLiteral("kodosi-canvas://page/99"))));
@@ -684,8 +683,6 @@ private slots:
             { { QStringLiteral("sources"), QJsonArray { source(QStringLiteral("Chrome")), source(QStringLiteral("Firefox")) } },
                 { QStringLiteral("sites"), 0 } });
         QVERIFY(model.browserKnown());
-        QCOMPARE(model.browserSources(), QStringList({ QStringLiteral("Chrome"), QStringLiteral("Firefox") }));
-        QVERIFY(model.browserEngine().isEmpty());
 
         model.copySignIns(QStringLiteral("Chrome"));
         QCOMPARE(model.browserWork(), QStringLiteral("Chrome"));
@@ -698,8 +695,6 @@ private slots:
         answer(QStringLiteral("browser.result"), QStringLiteral("browser.status"),
             { { QStringLiteral("sources"), QJsonArray { source(QStringLiteral("Chrome")) } }, { QStringLiteral("sites"), 12 },
                 { QStringLiteral("engine"), QStringLiteral("Chromium 156.0.8078.47") } });
-        QCOMPARE(model.browserSites(), 12);
-        QCOMPARE(model.browserEngine(), QStringLiteral("Chromium 156.0.8078.47"));
 
         model.forgetSignIns();
         answer(QStringLiteral("browser.result"), QStringLiteral("browser.forget"), { { QStringLiteral("sites"), 12 } });

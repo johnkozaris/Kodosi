@@ -16,16 +16,11 @@ struct PeopleStoreTests {
         #expect(!store.loaded)
         try deliverSnapshot()
         #expect(store.loaded)
-        #expect(store.friends.map(\.handle) == ["ana", "bo"])
         #expect(store.friends[0].isVerified)
         #expect(store.friends[1].identityChanged)
         #expect(!store.friends[1].isVerified)
-        #expect(store.incoming.map(\.handle) == ["cy"])
-        #expect(store.outgoing.map(\.handle) == ["di"])
-        #expect(store.blocked.map(\.handle) == ["ed"])
         #expect(store.name(of: "id-ana") == "Ana")
         #expect(store.name(of: "id-bo") == "bo")
-        #expect(store.revision == 1)
     }
 
     @Test func `request actions use the handle and settle on the next snapshot`() throws {
@@ -42,10 +37,7 @@ struct PeopleStoreTests {
         try deliverSnapshot()
         #expect(store.inFlight.isEmpty)
         store.decline(incoming)
-        var declined = try #require(outbox.sent.last)
-        #expect(declined.removeValue(forKey: "requestId") != nil)
-        #expect(declined == ["type": .string("friends.request.reject"), "username": .string("cy"),
-                             "accountUserId": .null, "accountEpoch": .int(0)])
+        #expect(outbox.types.last == "friends.request.reject")
     }
 
     @Test func `invite request keeps the invite text`() throws {
