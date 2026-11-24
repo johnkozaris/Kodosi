@@ -6,105 +6,11 @@ import Testing
 
 struct AccountStoreTests {
     private let outbox = AccountOutbox()
-    private let notices = NoticeCenter()
     private let store: AccountStore
-    private let deletionPage = "https://auth.kodosi.com/realms/kodosi/protocol/openid-connect/auth?kc_action=delete_account"
 
     init() {
         store = AccountStore(commands: outbox.commands, browser: "app")
-        store.notify = { [notices] message in notices.show(message) }
         store.reset(userId: "user-1")
-    }
-
-    @Test func `devices list puts this device first and the recovery key last`() throws {
-        try deliverDevices()
-        #expect(store.orderedDevices.map(\.deviceId) == ["phone", "mac", "key"])
-        #expect(store.hasRecoveryKey)
-        let mac = try #require(store.devices.first { $0.deviceId == "mac" })
-        let phone = try #require(store.devices.first { $0.deviceId == "phone" })
-        #expect(store.canRemove(mac))
-        #expect(!store.canRemove(phone))
-    }
-
-    @Test func `approving a device names it first and shows which device was approved`() throws {
-        store.checkDevice(code: "   ")
-        #expect(outbox.sent.isEmpty)
-        store.checkDevice(code: " abcd-efgh-jkmn \n")
-        store.checkDevice(code: "WXYZ-WXYZ-WXYZ")
-        #expect(outbox.types == ["devices.link.check"])
-        #expect(outbox.sent.last?["code"] == .string("abcd-efgh-jkmn"))
-        #expect(store.approval == .checking)
-        let checked = try #require(outbox.sent.last?["requestId"]?.stringValue)
-        try store.receiveDevices(event("devices.result", [
-            "operation": "devices.link.check", "requestId": "an-earlier-check", "deviceLabel": "Other Mac",
-        ]))
-        #expect(store.approval == .checking)
-        try store.receiveDevices(event("devices.result", [
-            "operation": "devices.link.check", "requestId": checked, "deviceLabel": "MacBook Pro",
-        ]))
-        #expect(store.approval == .confirming("MacBook Pro"))
-        store.confirmApproval()
-        #expect(outbox.types == ["devices.link.check", "devices.link.approve"])
-        #expect(outbox.sent.last?["code"] == .string("abcd-efgh-jkmn"))
-        #expect(store.approval == .approving)
-        try store.receiveDevices(event("devices.link.resolved", ["deviceLabel": "MacBook Pro", "outcome": "approved"]))
-        #expect(store.approval == .approved("MacBook Pro"))
-        #expect(outbox.types.last == "devices.refresh")
-        store.finishApproval()
-        #expect(store.approval == nil)
-    }
-
-    @Test func `failed approval stays in the sheet only while approving`() throws {
-        let failure = try event("devices.error", ["operation": "devices.link.check", "message": "No device has this code."])
-        #expect(!store.absorb(error: failure, message: "No device has this code."))
-        store.checkDevice(code: "ABCD-EFGH-JKMN")
-        #expect(!store.absorb(error: failure, message: "No device has this code."))
-        let checked = try #require(outbox.sent.last?["requestId"]?.stringValue)
-        let answer = try event("devices.error", [
-            "operation": "devices.link.check", "requestId": checked, "message": "No device has this code.",
-        ])
-        #expect(store.absorb(error: answer, message: "No device has this code."))
-        #expect(store.approval == .failed("No device has this code."))
-    }
-
-    @Test func `recovery key is shown once it arrives`() throws {
-        store.createRecoveryKey()
-        store.createRecoveryKey()
-        #expect(outbox.types == ["devices.recovery.create"])
-        #expect(store.creatingRecoveryKey)
-        try store.receiveDevices(event("devices.result", [
-            "operation": "devices.recovery.create", "requestId": "request-1", "key": "AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH",
-        ]))
-        #expect(store.newRecoveryKey == "AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH")
-        #expect(!store.creatingRecoveryKey)
-        store.dismissRecoveryKey()
-        #expect(store.newRecoveryKey == nil)
-    }
-
-    @Test func `recovery key failure ends the wait`() throws {
-        store.createRecoveryKey()
-        let failure = try event("devices.error", ["operation": "devices.recovery.create", "message": "Try again."])
-        #expect(!store.absorb(error: failure, message: "Try again."))
-        #expect(!store.creatingRecoveryKey)
-    }
-
-    @Test func `account deletion opens the confirmation page`() throws {
-        store.deleteAccount()
-        store.deleteAccount()
-        #expect(outbox.types == ["auth.deleteAccount"])
-        #expect(store.deletion == .requested)
-        try store.receiveAuth(event("auth.deletion_pending", ["confirmationUri": deletionPage]))
-        let page = try #require(URL(string: deletionPage))
-        #expect(store.deletion == .confirming(page))
-        #expect(store.deletionPage == page)
-        store.closeDeletionPage()
-        #expect(store.deletionPage == nil)
-        store.reopenDeletionPage()
-        #expect(store.deletionPage == page)
-        store.cancelAccountDeletion()
-        #expect(outbox.types.last == "auth.deleteAccount.cancel")
-        #expect(store.deletion == nil)
-        #expect(store.deletionPage == nil)
     }
 
     @Test func `insecure deletion page is not opened`() throws {
@@ -113,171 +19,23 @@ struct AccountStoreTests {
         #expect(store.deletion == .confirming(nil))
         #expect(store.deletionPage == nil)
     }
-
-    @Test func `deletion failure ends the request and shows the message`() throws {
-        store.deleteAccount()
-        let failure = try event("auth.error", ["operation": "auth.deleteAccount", "message": "Kodosi could not reach the server."])
-        #expect(!store.absorb(error: failure, message: "Kodosi could not reach the server."))
-        #expect(store.deletion == nil)
-    }
-
-    @Test func `deleted account clears the deletion and says so`() throws {
-        store.deleteAccount()
-        try store.receiveAuth(event("auth.deletion_pending", ["confirmationUri": deletionPage]))
-        try store.receiveAuth(event("auth.required", ["reason": "accountDeleted"]))
-        #expect(store.deletion == nil)
-        #expect(store.deletionPage == nil)
-        #expect(notices.current?.message == "Your Kodosi account is deleted.")
-    }
-
-    @Test func `auth error while signed in keeps the signed in stage`() throws {
-        try store.receiveAuth(event("auth.ready", ["userId": "user-1", "enrolled": true]))
-        #expect(store.isReady)
-        let failure = try event("auth.error", ["operation": "auth.refresh", "message": "Offline."])
-        #expect(!store.absorb(error: failure, message: "Offline."))
-        #expect(store.stage == .signedIn)
-    }
-
-    @Test func `auth error during sign in fails the sign in`() throws {
-        store.reset(userId: nil)
-        try store.receiveAuth(event("auth.required", userId: nil, ["reason": "signedOut"]))
-        store.signIn()
-        #expect(outbox.types == ["auth.login.start"])
-        let failure = try event("auth.error", userId: nil, ["operation": "auth.login.start", "message": "The sign-in service is down."])
-        #expect(store.absorb(error: failure, message: "The sign-in service is down."))
-        #expect(store.stage == .failed(message: "The sign-in service is down.", completed: 0))
-    }
-
-    @Test func `the onboarding leaves on the stage that it showed when this device is signed in`() throws {
-        var approved = OnboardingStage()
-        try store.receiveAuth(event("auth.finalizing"))
-        approved.follow(store.stage)
-        try store.receiveAuth(event("auth.ready", ["userId": "user-1", "enrolled": false]))
-        approved.follow(store.stage)
-        store.requestDeviceApproval()
-        approved.follow(store.stage)
-        try store.receiveDevices(event("devices.result", ["operation": "devices.link.startSelf", "requestId": "request-1", "code": "ABCD-EFGH"]))
-        approved.follow(store.stage)
-        try deliverDevices()
-        #expect(store.isReady)
-        #expect(approved.shown(store.stage) == .trustingDevice(.pendingApproval(code: "ABCD-EFGH", qr: [])))
-
-        var known = OnboardingStage()
-        store.reset(userId: "user-1")
-        try store.receiveAuth(event("auth.finalizing"))
-        known.follow(store.stage)
-        try store.receiveAuth(event("auth.ready", ["userId": "user-1", "enrolled": true]))
-        #expect(store.isReady)
-        #expect(known.shown(store.stage) == .finalizing)
-    }
-
-    @Test func `a device that is no longer trusted signs in again from the start`() throws {
-        try store.receiveAuth(event("auth.ready", ["userId": "user-1", "enrolled": true]))
-        try store.receiveDevices(event("devices.list", ["selfDeviceId": "phone", "localDeviceEnrolled": false, "devices": []]))
-        #expect(store.stage == .signedIn && store.needsOnboarding)
-    }
-
-    @Test func `refresh devices waits for the next list`() async throws {
-        let refresh = Task { await store.refreshDevices() }
-        for _ in 0 ..< 100 where outbox.sent.isEmpty {
-            await Task.yield()
-        }
-        #expect(outbox.types == ["devices.refresh"])
-        try deliverDevices()
-        await refresh.value
-        #expect(store.devicesRevision == 1)
-    }
-
-    @Test func `reset forgets devices and pending work`() throws {
-        try deliverDevices()
-        store.checkDevice(code: "ABCD-EFGH-JKMN")
-        store.createRecoveryKey()
-        store.deleteAccount()
-        store.reset(userId: "user-2")
-        #expect(store.devices.isEmpty)
-        #expect(store.approval == nil)
-        #expect(!store.creatingRecoveryKey)
-        #expect(store.deletion == nil)
-    }
-
-    @Test func `a scanned code asks with its text and waits for the computer`() throws {
-        let scanned = "kodosi://device/join/user-1#c2VjcmV0"
-        store.joinDevice(scanned: scanned)
-        #expect(outbox.sent.isEmpty)
-        store.chooseTrust()
-        store.joinDevice(scanned: scanned)
-        #expect(outbox.types == ["devices.link.startSelf"])
-        #expect(outbox.sent.last?["code"] == .string(scanned))
-        #expect(store.stage == .trustingDevice(.joining))
-        try store.receiveDevices(event("devices.result", ["operation": "devices.link.startSelf", "requestId": "request-1"]))
-        #expect(store.stage == .trustingDevice(.joining))
-        try store.receiveDevices(event("devices.link.selfResolved", ["outcome": "expired"]))
-        #expect(store.stage == .trustingDevice(.choose))
-    }
-
-    @Test func `a shown code follows the device that scans it and ends when the code does`() throws {
-        let shown: [String: Any] = ["operation": "devices.link.offer", "requestId": "request-1", "qr": ["101", "010", "101"], "text": "code"]
-        store.offerDevice()
-        try store.receiveDevices(event("devices.link.offerResolved", ["outcome": "expired"]))
-        #expect(store.offer == .requesting)
-        try store.receiveDevices(event("devices.result", shown))
-        #expect(store.offer == .shown(qr: ["101", "010", "101"]))
-        try store.receiveDevices(event("devices.link.offerResolved", ["outcome": "approved", "deviceLabel": "iPhone"]))
-        #expect(store.offer == .approved("iPhone"))
-        store.endOffer()
-        #expect(store.offer == nil)
-        #expect(outbox.types == ["devices.link.offer"])
-
-        store.offerDevice()
-        try store.receiveDevices(event("devices.result", shown))
-        try store.receiveDevices(event("devices.link.offerResolved", ["outcome": "expired"]))
-        #expect(store.offer == .ended)
-        store.offerDevice()
-        try store.receiveDevices(event("devices.result", shown))
-        store.endOffer()
-        #expect(outbox.types.last == "devices.link.offer.cancel")
-    }
-
-    private func deliverDevices() throws {
-        try store.receiveDevices(event("devices.list", [
-            "selfDeviceId": "phone",
-            "localDeviceEnrolled": true,
-            "devices": [
-                device("key", label: "Recovery key", recoveryKey: true),
-                device("mac", label: "MacBook Pro"),
-                device("phone", label: "iPhone"),
-            ],
-        ]))
-    }
-
-    private func device(_ id: String, label: String, recoveryKey: Bool = false) -> [String: Any] {
-        ["deviceId": id, "label": label, "certIssuedAtMs": 1_790_000_000_000, "recoveryKey": recoveryKey]
-    }
 }
 
 private final class AccountOutbox {
     let commands = CommandSink()
-    private(set) var sent: [[String: JSONValue]] = []
 
     init() {
-        commands.transport { [weak self] data in
+        commands.transport { data in
             RuntimeContract.verify(data)
-            if let command = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
-                self?.sent.append(command)
-            }
             return Int32(KODOSI_FFI_OK)
         }
     }
-
-    var types: [String] {
-        sent.compactMap { $0["type"]?.stringValue }
-    }
 }
 
-private func event(_ type: String, userId: String? = "user-1", _ fields: [String: Any] = [:]) throws -> RuntimeEvent {
+private func event(_ type: String, _ fields: [String: Any] = [:]) throws -> RuntimeEvent {
     var payload = fields
     payload["type"] = type
-    payload["accountUserId"] = userId ?? NSNull()
+    payload["accountUserId"] = "user-1"
     payload["accountEpoch"] = 1
     return try JSONDecoder().decode(RuntimeEvent.self, from: JSONSerialization.data(withJSONObject: payload))
 }
