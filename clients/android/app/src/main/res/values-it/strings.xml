@@ -579,4 +579,7 @@
         <item quantity="many">Attività: %1$d di %2$d completate</item>
         <item quantity="other">Attività: %1$d di %2$d completate</item>
     </plurals>
+    <string name="local_network_title">Raggiungi direttamente il tuo computer</string>
+    <string name="local_network_message">Sulla stessa rete Wi-Fi, il telefono si collega direttamente al tuo computer, ed è più veloce. Android chiama questa autorizzazione «Dispositivi nelle vicinanze».</string>
+    <string name="local_network_continue">Continua</string>
 </resources>
