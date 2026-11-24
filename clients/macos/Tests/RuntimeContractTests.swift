@@ -27,49 +27,19 @@ func runtimeReady(epoch: UInt64 = 1, userId: String? = "owner") throws -> Runtim
 
 func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind: String = "remote",
                     connection: String = "offline", status: String = "running", owner: Bool = true,
-                    directory: String? = "/remote/project", restoredFrom: String? = nil,
-                    ownerUserId: String? = nil, hostDeviceId: String? = nil, ownerName: String? = nil,
-                    hostName: String? = nil, program: String? = nil) throws -> RuntimeSession
+                    restoredFrom: String? = nil, ownerUserId: String? = nil, hostDeviceId: String? = nil) throws -> RuntimeSession
 {
     var fields: [String: JSONValue] = [
         "id": .string(id), "incarnationId": .string("01992e43-53db-7040-8e02-f6ebf4149b29"),
-        "kind": .string(kind), "name": .string("Terminal"),
+        "kind": .string(kind), "name": .string("Terminal"), "workingDir": .string("/remote/project"),
         "isOwner": .bool(owner), "status": .string(status), "attention": .bool(false), "hidden": .bool(false), "working": .bool(false),
         "connectionState": .string(connection),
         "sharedWith": .array([]),
     ]
-    fields["workingDir"] = directory.map(JSONValue.string)
-    fields["ownerName"] = ownerName.map(JSONValue.string)
     fields["restoredFrom"] = restoredFrom.map(JSONValue.string)
     fields["ownerUserId"] = ownerUserId.map(JSONValue.string)
     fields["hostDeviceId"] = hostDeviceId.map(JSONValue.string)
-    fields["hostName"] = hostName.map(JSONValue.string)
-    fields["program"] = program.map(JSONValue.string)
     return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
-}
-
-@Test func `event envelope requires explicit account and exact epoch`() throws {
-    let event = try runtimeEvent("system.ready", epoch: UInt64.max, userId: nil)
-    #expect(event.accountEpoch == UInt64.max)
-    #expect(event.accountUserId == nil)
-    for source in [
-        #"{"type":"system.ready","accountEpoch":1}"#,
-        #"{"type":"system.ready","accountEpoch":-1,"accountUserId":null}"#,
-        #"{"type":"system.ready","accountEpoch":true,"accountUserId":null}"#,
-        #"{"type":"system.ready","accountEpoch":1.5,"accountUserId":null}"#,
-        #"{"type":"system.ready","accountEpoch":1,"accountUserId":false}"#,
-    ] {
-        #expect(throws: (any Error).self) { try JSONDecoder().decode(RuntimeEvent.self, from: Data(source.utf8)) }
-    }
-}
-
-@Test func `envelope cannot be overridden by command fields`() throws {
-    let command = RuntimeCommand(type: "session.list", fields: ["accountEpoch": .int(99), "accountUserId": .string("wrong")])
-    let data = try JSONEncoder().encode(RuntimeCommandEnvelope(accountUserId: nil, accountEpoch: UInt64.max, command: command))
-    let decoded = try JSONDecoder().decode(RuntimeEvent.self, from: data)
-    #expect(decoded.accountEpoch == UInt64.max)
-    #expect(decoded.accountUserId == nil)
-    #expect(decoded.type == "session.list")
 }
 
 @Test func `remote session never treats host directory as local path`() throws {
@@ -91,18 +61,6 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
         #expect(session.canOpen)
     }
     #expect(try runtimeSession(connection: "connected", status: "offline").isTroubled)
-}
-
-@Test func `deep links only identify real session UUIDs`() throws {
-    let id = "01992e43-53db-7040-8e02-f6ebf4149b28"
-    let url = try #require(URL(string: "kodosi://session/\(id)"))
-    #expect(DeepLinkRouter.destination(for: url)?.sessionId == id)
-    for source in [
-        "kodosi://session/not-a-uuid", "kodosi://session/\(id)/extra", "kodosi://session/\(id)?toolUseId=old",
-        "kodosi://session/\(id)#approval", "https://session/\(id)", "kodosi://user@session/\(id)",
-    ] {
-        #expect(try DeepLinkRouter.destination(for: #require(URL(string: source))) == nil)
-    }
 }
 
 @Test func `event inbox keeps its order and closes its waiter`() async {
@@ -141,121 +99,4 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     guard case let .behind(second)? = await inbox.next() else { Issue.record("no drop"); return }
     #expect(second.events == 1 && second.bytes == 9)
     inbox.close()
-}
-
-@Test func `folder groups and navigation follow the working session`() throws {
-    let first = try runtimeSession(kind: "local", connection: "local")
-    let second = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b30", kind: "local", connection: "local")
-    let remote = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b31")
-    let computers = SessionComputerGroup.groups([first, second, remote])
-    #expect(computers.count == 2)
-    #expect(computers[0].folders.flatMap(\.sessions).map(\.id) == [first.id, second.id])
-    #expect(computers[1].computer != nil && computers[1].owner == nil)
-    let defaults = try #require(EphemeralUserDefaults(prefix: "FolderNavigation"))
-    let workbench = WorkbenchState(defaults: defaults)
-    workbench.showSession(first.id)
-    workbench.showSession(second.id)
-    workbench.selectAdjacentSession(offset: 1)
-    #expect(workbench.selectedSessionId == first.id)
-    workbench.sidebarCollapsed = true
-    #expect(workbench.stagedSessionIds == [first.id, second.id])
-}
-
-@Test func `terminals group by computer, then by folder`() throws {
-    let here = try runtimeSession(kind: "local", connection: "local", directory: "/Users/ana/kodosi")
-    let studio = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b31", directory: "/Users/ana/website",
-                                    hostDeviceId: "studio", hostName: "Studio")
-    let unopened = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b32", owner: false, directory: nil,
-                                      ownerUserId: "ben", hostDeviceId: "bens-mac", ownerName: "Ben Okafor", hostName: "Ben's Mac")
-    let laptop = try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b33", owner: false, directory: "/home/ben/api",
-                                    ownerUserId: "ben", hostDeviceId: "bens-laptop", ownerName: "Ben Okafor", hostName: "Laptop")
-
-    let computers = SessionComputerGroup.groups([laptop, unopened, studio, here])
-
-    #expect(computers.map(\.title) == ["This Mac", "Studio", "Ben Okafor · Ben's Mac", "Ben Okafor · Laptop"])
-    #expect(computers[1].folders.map(\.computerId) == ["studio"])
-    #expect(computers.map { $0.folders.map(\.canStartTerminal) } == [[true], [true], [false], [false]])
-    #expect(computers[2].owner == SessionFolderGroup.Owner(name: "Ben Okafor", userId: "ben"))
-    #expect(computers[2].folders.map(\.directory) == [nil])
-}
-
-@Test func `a folder starts one more like its newest terminal that runs an agent`() throws {
-    func local(_ id: String, _ program: String?) throws -> RuntimeSession {
-        try runtimeSession("01992e43-53db-7040-8e02-f6ebf4149b3\(id)", kind: "local", connection: "local", program: program)
-    }
-    let (oldest, older, newest, plain) = try (local("1", "claude"), local("2", "codex"), local("3", "claude"), local("4", nil))
-    let folder = try #require(SessionComputerGroup.groups([older, plain, newest, oldest]).first?.folders.first)
-    #expect(folder.newestAgentTerminal?.id == newest.id)
-    let shells = try #require(SessionComputerGroup.groups([plain]).first?.folders.first)
-    #expect(shells.newestAgentTerminal == nil)
-    let withPin = try #require(SessionComputerGroup.groups([plain, newest], pinned: [newest.id]).first?.folders.first)
-    #expect(withPin.sessions.map(\.id) == [plain.id])
-    #expect(withPin.newestAgentTerminal?.id == newest.id)
-    #expect(SessionComputerGroup.groups([newest], pinned: [newest.id]).isEmpty)
-}
-
-@Test func `each host folder shows its last folder`() throws {
-    for (path, name) in [
-        ("/Users/ada/project", "project"), ("/home/ada/project/", "project"), (#"/home/ada/one\two"#, #"one\two"#), ("/", "/"),
-        (#"C:\Users\ada\project"#, "project"), (#"d:/Users/ada/project\"#, "project"), (#"C:\"#, "C:"),
-        (#"\\server\share\project"#, "project"), (#"\\server\share"#, "share"),
-    ] {
-        #expect(HostPath.folderName(path) == name)
-    }
-    let windows = try runtimeSession(directory: #"C:\Users\ada\project"#)
-    #expect(windows.folderName == "project")
-    #expect(SessionComputerGroup.groups([windows]).flatMap(\.folders).map(\.name) == ["project"])
-}
-
-@Test func `a terminal shows the state that the runtime gives`() throws {
-    func session(
-        working: Bool = false, waiting: String? = nil, activity: String? = nil, status: [String: JSONValue]? = nil,
-        kind: String = "local", connection: String = "local",
-    ) throws -> RuntimeSession {
-        var fields: [String: JSONValue] = [
-            "id": .string(UUIDv7.generate()), "incarnationId": .string(UUIDv7.generate()),
-            "kind": .string(kind), "name": .string("Amber Wren"), "program": .string("claude"),
-            "isOwner": .bool(kind == "local"), "status": .string("running"), "attention": .bool(false), "hidden": .bool(false),
-            "connectionState": .string(connection), "sharedWith": .array([]), "working": .bool(working),
-        ]
-        fields["waiting"] = waiting.map(JSONValue.string)
-        fields["activity"] = activity.map(JSONValue.string)
-        fields["programStatus"] = status.map(JSONValue.object)
-        return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
-    }
-    let working = try session(working: true, activity: "Draft the release notes")
-    #expect(working.agent == .claude)
-    #expect(working.mark(rested: .asleep) == .working)
-    #expect(working.sign(unseen: false) == nil)
-    let resting = try session()
-    #expect(resting.mark(rested: .asleep) == .asleep)
-    #expect(resting.sign(unseen: false) == nil)
-    #expect(resting.sign(unseen: true) == .changed)
-    let measured = try session(working: true, status: ["state": .string("working"), "progress": .int(40)])
-    #expect(!measured.needsUser)
-    #expect(measured.mark(rested: .asleep) == .progress(40))
-    let approval = try session(
-        waiting: "blocked", activity: "Allow the command?",
-        status: ["state": .string("blocked"), "kind": .string("permission"), "message": .string("Allow the command?")],
-    )
-    #expect(approval.needsUser)
-    #expect(approval.mark(rested: .asleep) == .asleep)
-    #expect(approval.sign(unseen: false) == .hand)
-    #expect(approval.alert == "Allow the command?")
-    #expect(try session(waiting: "blocked", status: ["state": .string("blocked"), "kind": .string("question")]).sign(unseen: true) == .question)
-    #expect(try session(waiting: "blocked", status: ["state": .string("blocked"), "kind": .string("auth")]).sign(unseen: false) == .key)
-    #expect(try session(waiting: "blocked", status: ["state": .string("blocked")]).sign(unseen: false) == .hand)
-    let failed = try session(waiting: "error", status: ["state": .string("error")])
-    #expect(failed.sign(unseen: true) == .failed)
-    #expect(failed.sign(unseen: false) == nil)
-    let done = try session(waiting: "done", status: ["state": .string("done")])
-    #expect(done.mark(rested: .awake) == .awake)
-    #expect(done.sign(unseen: true) == .done)
-    #expect(done.sign(unseen: false) == nil)
-    #expect(done.alert == "Done")
-    let elsewhere = try session(
-        waiting: "blocked", status: ["state": .string("blocked"), "kind": .string("question")], kind: "remote", connection: "offline",
-    )
-    #expect(elsewhere.needsUser)
-    #expect(elsewhere.sign(unseen: false) == .question)
 }

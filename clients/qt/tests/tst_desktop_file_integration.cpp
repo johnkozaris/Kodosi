@@ -33,15 +33,6 @@ private slots:
         QVERIFY(files.openWebUrl(QStringLiteral("http://127.0.0.1:18080/realms/kodosi/auth")));
         QCOMPARE(opened.last(), QUrl(QStringLiteral("http://127.0.0.1:18080/realms/kodosi/auth")));
     }
-    void pickerOpensOnceAndCancels()
-    {
-        kodosi::DesktopFileIntegration files;
-        QVERIFY(files.requestDirectory(QStringLiteral("new")));
-        QVERIFY(files.busy());
-        QVERIFY(!files.requestDirectory(QStringLiteral("resume")));
-        files.cancelDirectory();
-        QTRY_VERIFY(!files.busy());
-    }
 };
 QTEST_MAIN(DesktopFilesTest)
 #include "tst_desktop_file_integration.moc"

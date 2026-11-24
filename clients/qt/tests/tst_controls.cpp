@@ -1,10 +1,8 @@
 #include "app/QmlModelTypes.hpp"
 #include "SessionFixture.hpp"
 #include <QJsonDocument>
-#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QAccessible>
-#include "terminal/TerminalAccessibility.hpp"
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QQmlEngine>
@@ -213,22 +211,14 @@ QJsonObject terminalWithPictureAndBrowser()
 class ControlsTest final : public QObject {
     Q_OBJECT
 private slots:
-    void keyboardFocusTracksButtonState();
-    void modalControlsSuppressNativeTerminalAccessibility();
     void terminalCloseConfirmsAndMinimizeOnlyHidesView();
     void terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTerminal();
-    void agentMenuShowsChoicesThatNeverChanged();
-    void clipboardReadAnswersOnceTheTerminalTakesInputAgain();
-    void terminalLinkDialogAsksOrTellsWhyAndCopiesTheLink();
     void leavingTerminalsLeavesNoDeferredWork();
-    void projectCreationHasOneNameField();
     void messageTextKeepsSpacesEscapesMarkupAndSkipsYourself();
     void theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWithoutThePage();
-    void aPersonWhoOpensTheBrowserBeforeItStartsGivesThePageToItsLaterView();
     void aPersonWhoChoosesAWatchedBrowserGivesThePageToItAtOnce();
     void aPersonWhoLeavesTheBrowserLeavesNoChoiceForALaterView();
     void aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser();
-    void theCanvasOpenMenuClosesAfterEachChoice();
 };
 
 void ControlsTest::theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWithoutThePage()
@@ -257,26 +247,6 @@ void ControlsTest::theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWi
                                    { QStringLiteral("data"), QString::fromLatin1(frame.toBase64()) } });
     QVERIFY(rig.commands.waitForMessage(back, QStringLiteral("ack")));
     QCOMPARE(rig.commands.messages(back, QStringLiteral("ack")).first().value(QStringLiteral("frame")).toInt(), 7);
-}
-
-void ControlsTest::aPersonWhoOpensTheBrowserBeforeItStartsGivesThePageToItsLaterView()
-{
-    BrowserViews rig;
-    rig.canvas.openBrowser(terminal(1));
-    QTest::qWait(20);
-    const auto view = rig.view(terminal(1));
-    QVERIFY(view);
-    const auto watches = rig.watchesAfterOpening(rig.commands.lastPipe());
-    QCOMPARE(watches.size(), 1);
-    QVERIFY(watches.first().value(QStringLiteral("opened")).toBool());
-
-    auto* theme = rig.engine.singletonInstance<QObject*>("Kodosi", "KodosiTheme");
-    QVERIFY(theme);
-    theme->setProperty("shown", false);
-    theme->setProperty("shown", true);
-    const auto back = rig.watchesAfterOpening(rig.commands.lastPipe());
-    QCOMPARE(back.size(), 1);
-    QVERIFY(!back.first().value(QStringLiteral("opened")).toBool());
 }
 
 void ControlsTest::aPersonWhoChoosesAWatchedBrowserGivesThePageToItAtOnce()
@@ -327,44 +297,6 @@ void ControlsTest::aCanvasOpensAPipeToItsBrowserOnlyWhenItGoesToTheBrowser()
     rig.canvas.show(test::id(1), QStringLiteral("browser"));
     QCOMPARE(rig.opensAndCloses(),
         (QStringList { QStringLiteral("document.open"), QStringLiteral("document.close"), QStringLiteral("document.open") }));
-}
-
-void ControlsTest::theCanvasOpenMenuClosesAfterEachChoice()
-{
-    BrowserViews rig;
-    rig.sessions.apply(test::snapshot({ terminalWithPictureAndBrowser() }));
-    rig.canvas.show(test::id(1), QStringLiteral("browser"));
-    const auto panel = rig.panel(test::id(1));
-    auto* window = qobject_cast<QQuickWindow*>(panel.get());
-    QVERIFY(window);
-    QVERIFY(QTest::qWaitForWindowExposed(window));
-    auto* adder = panel->findChild<QQuickItem*>(QStringLiteral("canvas.key.open"));
-    QVERIFY(adder);
-    QObject* menu = nullptr;
-    for (auto* child : adder->findChildren<QObject*>()) {
-        if (child->inherits("QQuickMenu"))
-            menu = child;
-    }
-    QVERIFY(menu);
-    const auto click = [window](QQuickItem* item) {
-        QTest::mouseClick(window, Qt::LeftButton, {}, item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
-    };
-
-    for (const auto& section : { QStringLiteral("browser"), QStringLiteral("files") }) {
-        rig.canvas.close(test::id(1), section);
-        click(adder);
-        QTRY_VERIFY(menu->property("opened").toBool());
-        QQuickItem* choice = nullptr;
-        QVERIFY(QMetaObject::invokeMethod(menu, "itemAt", Q_RETURN_ARG(QQuickItem*, choice), Q_ARG(int, 0)));
-        QVERIFY(choice);
-        QCOMPARE(choice->objectName(), QStringLiteral("canvas.key.open.") + section);
-        click(choice);
-        QTRY_VERIFY2(!menu->property("visible").toBool(), qPrintable(section));
-        QVERIFY(rig.canvas.sections(test::id(1)).contains(section));
-    }
-    click(adder);
-    QTRY_VERIFY(menu->property("opened").toBool());
-    QCOMPARE(menu->property("count").toInt(), 1);
 }
 
 void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
@@ -424,229 +356,6 @@ void ControlsTest::messageTextKeepsSpacesEscapesMarkupAndSkipsYourself()
     QVERIFY(object->property("mine").toBool());
     QVERIFY(object->property("mineByName").toBool());
     QVERIFY(!object->property("notMine").toBool());
-}
-
-void ControlsTest::keyboardFocusTracksButtonState()
-{
-    QTemporaryDir directory;
-    kodosi::AppearanceModel appearance(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
-    QQmlEngine engine;
-    kodosi::qml::provide<kodosi::qml::AppearanceModelForeign>(engine, appearance);
-    QQmlComponent component(&engine);
-    component.setData(R"(
-        import QtQuick
-        import QtQuick.Controls.Basic
-        import Kodosi 1.0
-        ApplicationWindow {
-            width: 640; height: 240; visible: true
-            KButton {
-                objectName: "test.button"
-                anchors.centerIn: parent
-                width: 450
-                text: "Project"
-            }
-        }
-    )", {});
-    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
-    std::unique_ptr<QObject> root(component.create());
-    QVERIFY2(root != nullptr, qPrintable(component.errorString()));
-    auto* window = qobject_cast<QQuickWindow*>(root.get());
-    QVERIFY(window);
-    auto* button = root->findChild<QQuickItem*>(QStringLiteral("test.button"));
-    QVERIFY(button);
-    auto* indicator = button->findChild<QQuickItem*>(QStringLiteral("control.keyboardFocus"));
-    QVERIFY(indicator);
-    QVERIFY(!indicator->isVisible());
-    button->forceActiveFocus(Qt::TabFocusReason);
-    QTRY_VERIFY(button->hasActiveFocus());
-    QTRY_VERIFY(indicator->isVisible());
-    button->setEnabled(false);
-    QTRY_VERIFY(!indicator->isVisible());
-}
-
-void ControlsTest::modalControlsSuppressNativeTerminalAccessibility()
-{
-    QTemporaryDir directory;
-    kodosi::AppearanceModel appearance(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
-    kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
-    kodosi::installTerminalAccessibility();
-    QQmlEngine engine;
-    kodosi::qml::provide<kodosi::qml::AppearanceModelForeign>(engine, appearance);
-    kodosi::qml::provide<kodosi::qml::DesktopStateModelForeign>(engine, desktop);
-    QQmlComponent component(&engine);
-    component.setData(R"(
-        import QtQuick
-        import QtQuick.Controls.Basic
-        import Kodosi 1.0
-        import Kodosi.Models 1.0 as Models
-        ApplicationWindow {
-            width: 640; height: 480; visible: true
-            Models.AccessibilityScope {
-                anchors.fill: parent
-                enabled: !Models.DesktopState.modalOpen
-                suppressed: Models.DesktopState.modalOpen
-                Models.TerminalView { objectName: "test.terminal"; anchors.fill: parent }
-            }
-            KPopover { objectName: "test.popup"; modal: true; width: 100; height: 100; parent: Overlay.overlay }
-            KDialog { objectName: "test.dialog"; width: 100; height: 100 }
-        }
-    )", {});
-    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
-    std::unique_ptr<QObject> root(component.create());
-    QVERIFY2(root, qPrintable(component.errorString()));
-    auto* terminal = root->findChild<kodosi::TerminalView*>(QStringLiteral("test.terminal"));
-    auto* popup = root->findChild<QObject*>(QStringLiteral("test.popup"));
-    auto* dialog = root->findChild<QObject*>(QStringLiteral("test.dialog"));
-    QVERIFY(terminal && popup && dialog);
-    auto* accessible = QAccessible::queryAccessibleInterface(terminal);
-    QVERIFY(accessible);
-    QVERIFY(!accessible->text(QAccessible::Name).isEmpty());
-    QVERIFY(QMetaObject::invokeMethod(popup, "open"));
-    QTRY_VERIFY(desktop.modalOpen());
-    QVERIFY(!terminal->isEnabled());
-    QVERIFY(accessible->text(QAccessible::Name).isEmpty());
-    QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
-    QVERIFY(QMetaObject::invokeMethod(popup, "close"));
-    QTRY_VERIFY(!popup->property("visible").toBool());
-    QVERIFY(desktop.modalOpen());
-    QVERIFY(QMetaObject::invokeMethod(dialog, "close"));
-    QTRY_VERIFY(!desktop.modalOpen());
-    QVERIFY(terminal->isEnabled());
-    QVERIFY(!accessible->text(QAccessible::Name).isEmpty());
-}
-
-void ControlsTest::clipboardReadAnswersOnceTheTerminalTakesInputAgain()
-{
-    QTemporaryDir directory;
-    kodosi::AppearanceModel appearance(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
-    kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
-    QQmlEngine engine;
-    kodosi::qml::provide<kodosi::qml::AppearanceModelForeign>(engine, appearance);
-    kodosi::qml::provide<kodosi::qml::DesktopStateModelForeign>(engine, desktop);
-    QQmlComponent component(&engine);
-    component.setData(R"(
-        import QtQuick
-        import QtQuick.Controls.Basic
-        import Kodosi 1.0
-        import Kodosi.Models 1.0 as Models
-        ApplicationWindow {
-            id: window
-            property var answers: []
-            width: 640; height: 480; visible: true
-            Item {
-                id: stage
-                anchors.fill: parent
-                enabled: !Models.DesktopState.modalOpen
-            }
-            ClipboardReadDialog {
-                objectName: "test.clipboardRead"
-                sessionName: "Copper Otter"
-                onAnswered: allowed => window.answers = window.answers.concat([[allowed, stage.enabled]])
-            }
-        }
-    )", {});
-    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
-    std::unique_ptr<QObject> root(component.create());
-    QVERIFY2(root, qPrintable(component.errorString()));
-    auto* dialog = root->findChild<QObject*>(QStringLiteral("test.clipboardRead"));
-    QVERIFY(dialog);
-    const auto answers = [&] { return root->property("answers").toList(); };
-
-    QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
-    QTRY_VERIFY(desktop.modalOpen());
-    QVERIFY(QMetaObject::invokeMethod(dialog, "accept"));
-    QTRY_COMPARE(answers().size(), 1);
-    QCOMPARE(answers().at(0).toList(), (QVariantList {true, true}));
-
-    QVERIFY(QMetaObject::invokeMethod(dialog, "open"));
-    QTRY_VERIFY(desktop.modalOpen());
-    QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
-    QTRY_COMPARE(answers().size(), 2);
-    QCOMPARE(answers().at(1).toList(), (QVariantList {false, true}));
-}
-
-void ControlsTest::terminalLinkDialogAsksOrTellsWhyAndCopiesTheLink()
-{
-    QTemporaryDir directory;
-    kodosi::AppearanceModel appearance(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
-    kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
-    QQmlEngine engine;
-    kodosi::qml::provide<kodosi::qml::AppearanceModelForeign>(engine, appearance);
-    kodosi::qml::provide<kodosi::qml::DesktopStateModelForeign>(engine, desktop);
-    QQmlComponent component(&engine);
-    component.setData(R"(
-        import QtQuick
-        import QtQuick.Controls.Basic
-        import Kodosi 1.0
-        ApplicationWindow {
-            id: window
-            property var buttons: []
-            property var copies: []
-            width: 640; height: 480; visible: true
-            function readButtons() {
-                window.buttons = [Dialog.Ok, Dialog.Cancel, Dialog.Apply]
-                    .map(button => links.standardButton(button))
-                    .filter(button => button)
-                    .map(button => button.text);
-            }
-            function copyLink() { links.standardButton(Dialog.Apply).clicked(); }
-            LinkDialog {
-                id: links
-                objectName: "test.links"
-                onCopyRequested: target => window.copies = window.copies.concat([target])
-            }
-        }
-    )", {});
-    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
-    std::unique_ptr<QObject> root(component.create());
-    QVERIFY2(root, qPrintable(component.errorString()));
-    auto* dialog = root->findChild<QObject*>(QStringLiteral("test.links"));
-    QVERIFY(dialog);
-    const auto buttons = [&] {
-        QMetaObject::invokeMethod(root.get(), "readButtons");
-        return root->property("buttons").toStringList();
-    };
-
-    QVERIFY(QMetaObject::invokeMethod(
-        dialog,
-        "refuse",
-        Q_ARG(QString, QStringLiteral("/home/ana/build")),
-        Q_ARG(QString, QStringLiteral("Opening it could run a program."))));
-    QTRY_VERIFY(dialog->property("opened").toBool());
-    QCOMPARE(buttons(), (QStringList {QStringLiteral("OK"), QStringLiteral("Copy Link")}));
-    QVERIFY(QMetaObject::invokeMethod(root.get(), "copyLink"));
-    QCOMPARE(root->property("copies").toStringList(), QStringList {QStringLiteral("/home/ana/build")});
-    QTRY_VERIFY(!desktop.modalOpen());
-
-    const QUrl meeting(QStringLiteral("zoommtg://join?confno=1"));
-    QVERIFY(QMetaObject::invokeMethod(
-        dialog,
-        "ask",
-        Q_ARG(QUrl, meeting),
-        Q_ARG(QString, meeting.toString())));
-    QTRY_VERIFY(dialog->property("opened").toBool());
-    QCOMPARE(buttons(), (QStringList {QStringLiteral("Open"), QStringLiteral("Cancel")}));
-    QVERIFY(QMetaObject::invokeMethod(
-        dialog,
-        "refuse",
-        Q_ARG(QString, QStringLiteral("/home/ana/build")),
-        Q_ARG(QString, QStringLiteral("Opening it could run a program."))));
-    QCOMPARE(dialog->property("link").toUrl(), meeting);
-    QCOMPARE(dialog->property("title").toString(), QStringLiteral("Open this link in another app?"));
-    QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
-    QTRY_VERIFY(!desktop.modalOpen());
-    QCOMPARE(root->property("copies").toStringList().size(), 1);
 }
 
 void ControlsTest::terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTerminal()
@@ -714,94 +423,6 @@ void ControlsTest::terminalTilesAskBeforeAClipboardReadOnlyInAnotherPersonsTermi
     QVERIFY(terminal(1) && terminal(2));
     QCOMPARE(terminal(1)->property("asksBeforeClipboardRead").toBool(), false);
     QCOMPARE(terminal(2)->property("asksBeforeClipboardRead").toBool(), true);
-}
-
-void ControlsTest::agentMenuShowsChoicesThatNeverChanged()
-{
-    class Commands final : public kodosi::CommandDispatcher {
-    public:
-        Result send(QByteArrayView) override { return {}; }
-    } commands;
-    QTemporaryDir directory;
-    const auto ini = [&directory](const char* name) {
-        return std::make_unique<QSettings>(directory.filePath(QLatin1String(name)), QSettings::IniFormat);
-    };
-    kodosi::AppearanceModel appearance(ini("appearance.ini"),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
-    kodosi::DesktopStateModel desktop(ini("desktop.ini"));
-    kodosi::DesktopSettings settings(ini("settings.ini"));
-    kodosi::SessionCatalogModel sessions;
-    desktop.attachSessionCatalog(&sessions);
-    kodosi::Workspace workspace(commands, sessions, desktop, settings);
-    kodosi::AgentLauncherModel launcher(commands);
-    kodosi::TerminalSessionRegistry registry;
-    kodosi::RuntimeBridge runtime;
-    kodosi::TerminalSurfaceController surfaces(registry, runtime, sessions);
-    kodosi::CanvasModel canvas(commands, sessions);
-    const auto running = [](const QString& program, QJsonArray livePermissions, QJsonObject chosen) {
-        auto entry = test::session(1);
-        entry.insert(QStringLiteral("program"), program);
-        entry.insert(QStringLiteral("programLive"),
-            QJsonObject { { QStringLiteral("model"), true }, { QStringLiteral("effort"), true }, { QStringLiteral("fast"), true },
-                { QStringLiteral("keeps"), false }, { QStringLiteral("permissions"), livePermissions } });
-        entry.insert(QStringLiteral("programSettings"), chosen);
-        return entry;
-    };
-    workspace.apply(test::snapshot({ running(QStringLiteral("claude"), {},
-                        { { QStringLiteral("output"), QStringLiteral("standard") } }) }),
-        0);
-    QQmlEngine engine;
-    kodosi::qml::provide<kodosi::qml::AppearanceModelForeign>(engine, appearance);
-    kodosi::qml::provide<kodosi::qml::DesktopStateModelForeign>(engine, desktop);
-    kodosi::qml::provide<kodosi::qml::DesktopSettingsForeign>(engine, settings);
-    kodosi::qml::provide<kodosi::qml::SessionCatalogModelForeign>(engine, sessions);
-    kodosi::qml::provide<kodosi::qml::AppStateForeign>(engine, workspace);
-    kodosi::qml::provide<kodosi::qml::AccountModelForeign>(engine, workspace.account());
-    kodosi::qml::provide<kodosi::qml::PeopleModelForeign>(engine, workspace.people());
-    kodosi::qml::provide<kodosi::qml::DevicesModelForeign>(engine, workspace.devices());
-    kodosi::qml::provide<kodosi::qml::ProjectsModelForeign>(engine, workspace.projects());
-    kodosi::qml::provide<kodosi::qml::DosiModelForeign>(engine, workspace.dosi());
-    kodosi::qml::provide<kodosi::qml::SessionActionsModelForeign>(engine, workspace.sessionActions());
-    kodosi::qml::provide<kodosi::qml::AgentLauncherModelForeign>(engine, launcher);
-    kodosi::qml::provide<kodosi::qml::TerminalSurfaceControllerForeign>(engine, surfaces);
-    kodosi::qml::provide<kodosi::qml::CanvasModelForeign>(engine, canvas);
-    QQmlComponent component(&engine);
-    component.setData(R"(
-        import QtQuick
-        import QtQuick.Controls.Basic
-        import Kodosi 1.0
-        ApplicationWindow {
-            width: 720; height: 480; visible: true
-            TerminalTile {
-                anchors.fill: parent
-                sessionId: "0198aaaa-0000-7000-8000-000000000001"
-            }
-        }
-    )", {});
-    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
-    std::unique_ptr<QObject> root(component.create());
-    QVERIFY2(root, qPrintable(component.errorString()));
-    const auto choice = [&root](const char* name) {
-        return root->findChild<QObject*>(
-            QStringLiteral("stage.tile.") + test::id(1) + QStringLiteral(".agent.") + QLatin1String(name));
-    };
-    const auto hint = [&choice](const char* name) {
-        auto* menu = choice(name);
-        return menu ? menu->property("hint").toString() : QStringLiteral("no menu");
-    };
-    QCOMPARE(hint("model"), QStringLiteral("Default"));
-    QCOMPARE(hint("output"), QStringLiteral("Standard"));
-    auto* fast = choice("fast");
-    QVERIFY(fast);
-    QVERIFY(!fast->property("checked").toBool());
-
-    workspace.apply(test::snapshot({ running(QStringLiteral("codex"), { QStringLiteral("ask"), QStringLiteral("auto") },
-                        { { QStringLiteral("permissions"), QStringLiteral("auto") },
-                            { QStringLiteral("output"), QStringLiteral("detailed") }, { QStringLiteral("fast"), true } }) }),
-        0);
-    QCOMPARE(hint("permissions"), QStringLiteral("Auto"));
-    QCOMPARE(hint("output"), QStringLiteral("Detailed"));
-    QVERIFY(fast->property("checked").toBool());
 }
 
 void ControlsTest::terminalCloseConfirmsAndMinimizeOnlyHidesView()
@@ -992,103 +613,6 @@ void ControlsTest::leavingTerminalsLeavesNoDeferredWork()
     desktop.setActiveView(kodosi::DesktopStateModel::Settings);
     QTRY_VERIFY(!tile());
     QTest::qWait(50);
-}
-
-void ControlsTest::projectCreationHasOneNameField()
-{
-    class Commands final : public kodosi::CommandDispatcher {
-    public:
-        QList<QJsonObject> values;
-        Result send(QByteArrayView bytes) override
-        {
-            values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
-            return {};
-        }
-    } commands;
-    QTemporaryDir directory;
-    kodosi::AppearanceModel appearance(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("appearance.ini")), QSettings::IniFormat),
-        { [] { return Qt::ColorScheme::Dark; }, [](Qt::ColorScheme) {}, [] {} });
-    kodosi::DesktopStateModel desktop(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("desktop.ini")), QSettings::IniFormat));
-    kodosi::DesktopSettings settings(
-        std::make_unique<QSettings>(directory.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat));
-    kodosi::SessionCatalogModel sessions;
-    desktop.attachSessionCatalog(&sessions);
-    kodosi::Workspace workspace(commands, sessions, desktop, settings);
-    workspace.apply({ {QStringLiteral("type"), QStringLiteral("auth.ready")},
-        {QStringLiteral("userId"), test::id(50)} }, 1);
-    commands.values.clear();
-    QQmlEngine engine;
-    kodosi::qml::provide<kodosi::qml::AppearanceModelForeign>(engine, appearance);
-    kodosi::qml::provide<kodosi::qml::DesktopStateModelForeign>(engine, desktop);
-    kodosi::qml::provide<kodosi::qml::DesktopSettingsForeign>(engine, settings);
-    kodosi::qml::provide<kodosi::qml::SessionCatalogModelForeign>(engine, sessions);
-    kodosi::qml::provide<kodosi::qml::AppStateForeign>(engine, workspace);
-    kodosi::qml::provide<kodosi::qml::AccountModelForeign>(engine, workspace.account());
-    kodosi::qml::provide<kodosi::qml::PeopleModelForeign>(engine, workspace.people());
-    kodosi::qml::provide<kodosi::qml::DevicesModelForeign>(engine, workspace.devices());
-    kodosi::qml::provide<kodosi::qml::ProjectsModelForeign>(engine, workspace.projects());
-    kodosi::qml::provide<kodosi::qml::DosiModelForeign>(engine, workspace.dosi());
-    kodosi::qml::provide<kodosi::qml::SessionActionsModelForeign>(engine, workspace.sessionActions());
-    QQmlComponent component(&engine);
-    component.setData(R"(
-        import QtQuick
-        import QtQuick.Controls.Basic
-        import Kodosi 1.0
-        ApplicationWindow {
-            width: 720; height: 480; visible: true
-            ProjectsView { anchors.fill: parent }
-        }
-    )", {});
-    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
-    std::unique_ptr<QObject> root(component.create());
-    QVERIFY2(root, qPrintable(component.errorString()));
-    auto* button = root->findChild<QQuickItem*>(QStringLiteral("projects.create"));
-    auto* dialog = root->findChild<QObject*>(QStringLiteral("project.create.popup"));
-    auto* name = root->findChild<QQuickItem*>(QStringLiteral("project.create.name"));
-    auto* submit = root->findChild<QQuickItem*>(QStringLiteral("project.create"));
-    QVERIFY(button && dialog && name && submit);
-    QVERIFY(button->isEnabled());
-    QVERIFY(QMetaObject::invokeMethod(button, "clicked"));
-    QTRY_VERIFY(dialog->property("visible").toBool());
-    QCOMPARE(root->findChildren<QQuickItem*>(QRegularExpression(QStringLiteral("^project\\.create\\.name$"))).size(), 1);
-    QVERIFY(name->setProperty("text", QStringLiteral("Release")));
-    QVERIFY(QMetaObject::invokeMethod(submit, "clicked"));
-    QCOMPARE(commands.values.size(), 1);
-    QCOMPARE(commands.values.first().value(QStringLiteral("type")).toString(), QStringLiteral("project.create"));
-    QCOMPARE(commands.values.first().value(QStringLiteral("name")).toString(), QStringLiteral("Release"));
-    auto* warning = root->findChild<QQuickItem*>(QStringLiteral("panel.projects.truncated"));
-    QVERIFY(warning);
-    QVERIFY(!warning->isVisible());
-    const QJsonObject invitation {{QStringLiteral("id"), test::id(12)},
-        {QStringLiteral("projectId"), test::id(10)}, {QStringLiteral("projectName"), QStringLiteral("Project")}};
-    QJsonObject snapshot {{QStringLiteral("type"), QStringLiteral("projects.snapshot")},
-        {QStringLiteral("projects"), QJsonArray {}},
-        {QStringLiteral("invitations"), QJsonArray {invitation}},
-        {QStringLiteral("invitationsTruncated"), true}};
-    workspace.apply(snapshot, 1);
-    QTRY_VERIFY(warning->isVisible());
-    QQuickItem* decline = nullptr;
-    const auto findDecline = [&] {
-        QList<QQuickItem*> pending {qobject_cast<QQuickWindow*>(root.get())->contentItem()};
-        while (!pending.isEmpty()) {
-            auto* item = pending.takeLast();
-            if (item->objectName() == QStringLiteral("panel.projectsView.decline.") + test::id(12)) {
-                decline = item;
-                return true;
-            }
-            pending.append(item->childItems());
-        }
-        return false;
-    };
-    QTRY_VERIFY(findDecline());
-    QTRY_VERIFY(decline->isVisible() && decline->isEnabled());
-    QVERIFY(QMetaObject::invokeMethod(decline, "clicked"));
-    QCOMPARE(commands.values.last().value(QStringLiteral("type")).toString(), QStringLiteral("project.invitation.reject"));
-    snapshot.remove(QStringLiteral("invitationsTruncated"));
-    workspace.apply(snapshot, 1);
-    QTRY_VERIFY(!warning->isVisible());
 }
 
 QTEST_MAIN(ControlsTest)

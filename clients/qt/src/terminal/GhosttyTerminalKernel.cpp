@@ -2392,50 +2392,6 @@ GhosttyTerminalKernel::ConfigureResult GhosttyTerminalKernel::configure(
     return std::optional<Frame> {};
 }
 
-std::expected<std::size_t, GhosttyTerminalKernel::Failure>
-GhosttyTerminalKernel::scrollbackLimitLines() const
-{
-    std::scoped_lock lock(m_impl->mutex);
-    if (!m_impl->admitted || m_impl->failed) {
-        return std::unexpected(Failure {
-            Failure::Code::MissingCheckpoint,
-            QStringLiteral("Scrollback diagnostics require an admitted checkpoint."),
-        });
-    }
-    std::size_t lines = 0;
-    const auto result = ghostty_terminal_get(
-        m_impl->terminal.value,
-        GHOSTTY_TERMINAL_DATA_SCROLLBACK_MAX_LINES,
-        &lines);
-    if (result != GHOSTTY_SUCCESS) {
-        return std::unexpected(
-            ghosttyFailure(QStringLiteral("scrollback line limit query"), result));
-    }
-    return lines;
-}
-
-std::expected<std::size_t, GhosttyTerminalKernel::Failure>
-GhosttyTerminalKernel::scrollbackLimitBytes() const
-{
-    std::scoped_lock lock(m_impl->mutex);
-    if (!m_impl->admitted || m_impl->failed) {
-        return std::unexpected(Failure {
-            Failure::Code::MissingCheckpoint,
-            QStringLiteral("Terminal has no admitted checkpoint."),
-        });
-    }
-    std::size_t bytes = 0;
-    const auto result = ghostty_terminal_get(
-        m_impl->terminal.value,
-        GHOSTTY_TERMINAL_DATA_SCROLLBACK_MAX_BYTES,
-        &bytes);
-    if (result != GHOSTTY_SUCCESS) {
-        return std::unexpected(
-            ghosttyFailure(QStringLiteral("scrollback byte limit query"), result));
-    }
-    return bytes;
-}
-
 GhosttyTerminalKernel::Frame GhosttyTerminalKernel::frame() const
 {
     std::scoped_lock lock(m_impl->mutex);
