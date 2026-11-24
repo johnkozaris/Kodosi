@@ -368,7 +368,7 @@ internal fun ChangeLines(lines: List<ChangeLine>, modifier: Modifier = Modifier)
                         )
                     }
                 }
-                if (lines.size > most) Text("…", style = ChatType.mono, color = colors.inkFaint)
+                if (lines.size > SHOWN_CHANGE_LINES) Text("…", style = ChatType.mono, color = colors.inkFaint)
             }
         }
     }
