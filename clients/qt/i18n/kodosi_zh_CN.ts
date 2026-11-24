@@ -876,6 +876,14 @@
         <translation>上下文：已用 %1%</translation>
     </message>
     <message>
+        <source>%1% context</source>
+        <translation>上下文 %1%</translation>
+    </message>
+    <message>
+        <source>%1 %2%</source>
+        <translation>%1 %2%</translation>
+    </message>
+    <message>
         <source>Resets in %1</source>
         <translation>%1后重置</translation>
     </message>

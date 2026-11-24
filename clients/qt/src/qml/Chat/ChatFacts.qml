@@ -23,15 +23,30 @@ Item {
         return (models ? models.efforts || [] : []).filter(option => allowed.length === 0 || allowed.includes(option.id))
     }
     readonly property int level: levels.findIndex(option => option.id === facts.effort)
-    readonly property bool full: row.implicitWidth + (modeWords.visible ? 0 : modeWords.implicitWidth + 4) <= width
+    readonly property string effortWords: level >= 0 ? Models.DesktopSettings.effortLabel(facts.effort) : facts.effort || ""
+    readonly property string modeWords: (facts.mode || "").length > 0 ? facts.modeLabel || "" : ""
+    readonly property bool context: facts.context !== undefined
+    readonly property var limit: facts.limit || null
+    readonly property real wordsWidth: (modelKey.visible ? keyFace.wordWidth : plainFace.visible ? plainFace.wordWidth
+            : modeLabel.visible ? modeLabel.wordWidth : 0)
+        + (usageKey.visible && context ? contextWords.implicitWidth - contextPercent.implicitWidth : 0)
+        + (usageKey.visible && limit ? limitWords.implicitWidth - limitPercent.implicitWidth : 0)
+    property bool named: true
     property double now: Date.now()
 
+    function fit(): void {
+        if (width > 0)
+            named = named ? row.implicitWidth <= width : row.implicitWidth + wordsWidth <= width - 1
+    }
+    function levelInk(level: string): color {
+        return level === "reached" ? look.danger : level === "near" ? look.caution : look.ink
+    }
     function loadModels(): void {
         if (launcher && agent.length > 0 && models === null)
             launcher.loadModels(agent)
     }
     function openModel(): void {
-        if (modelKey.visible && modelKey.opens)
+        if (modelKey.visible)
             actions.open()
     }
     function openUsage(): void {
@@ -49,6 +64,8 @@ Item {
     }
     onAgentChanged: loadModels()
     onLauncherChanged: loadModels()
+    onWidthChanged: fit()
+    onWordsWidthChanged: fit()
 
     Connections {
         function onAgentsChanged() {
@@ -58,6 +75,108 @@ Item {
         target: root.launcher
     }
 
+    component ModeMark: Row {
+        id: mark
+
+        property string icon: ""
+        property string word: ""
+        property bool named: true
+        property color ink: KodosiTheme.look.ink
+        readonly property real wordWidth: wordLabel.implicitWidth + spacing
+        readonly property bool hovered: markHover.hovered
+
+        spacing: 4
+        Accessible.role: Accessible.StaticText
+        Accessible.name: word
+
+        HoverHandler { id: markHover }
+        KIcon {
+            anchors.verticalCenter: parent.verticalCenter
+            width: 13
+            height: 13
+            name: mark.icon || "hand"
+            strokeWidth: 2.2
+            color: mark.ink
+        }
+        PlainLabel {
+            id: wordLabel
+
+            anchors.verticalCenter: parent.verticalCenter
+            visible: mark.named
+            text: mark.word
+            color: mark.ink
+            font.pixelSize: KodosiTheme.fontCallout
+            font.weight: Font.Medium
+            Accessible.ignored: true
+        }
+    }
+    component ModelFace: Row {
+        id: face
+
+        property Look look: KodosiTheme.look
+        property color ink: look.ink
+        property string name: ""
+        property int level: -1
+        property int levels: 0
+        property string effort: ""
+        property string modeIcon: ""
+        property string modeWord: ""
+        property bool named: true
+        readonly property real wordWidth: modeWord.length > 0 ? mode.wordWidth : 0
+        readonly property bool barsHovered: barsHover.hovered
+        readonly property bool modeHovered: mode.hovered
+
+        spacing: 6
+
+        PlainLabel {
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(implicitWidth, 160)
+            text: face.name
+            color: face.ink
+            font.pixelSize: KodosiTheme.fontCallout
+            font.weight: Font.Medium
+            elide: Text.ElideMiddle
+        }
+        EffortBars {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: face.level >= 0
+            level: face.level
+            count: face.levels
+            barHeight: 10
+            barWidth: 2
+            lit: face.look.accent
+            unlit: KodosiTheme.alpha(face.look.ink, 0.2)
+
+            HoverHandler { id: barsHover }
+        }
+        PlainLabel {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: face.level < 0 && face.effort.length > 0
+            text: face.effort
+            color: face.ink
+            font.pixelSize: KodosiTheme.fontCallout
+            font.weight: Font.Medium
+        }
+        PlainLabel {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: face.modeWord.length > 0
+            text: "·"
+            color: face.look.inkFaint
+            font.pixelSize: KodosiTheme.fontCallout
+            font.weight: Font.Medium
+            Accessible.ignored: true
+        }
+        ModeMark {
+            id: mode
+
+            anchors.verticalCenter: parent.verticalCenter
+            visible: face.modeWord.length > 0
+            icon: face.modeIcon
+            word: face.modeWord
+            named: face.named
+            ink: face.ink
+        }
+    }
     component Fact: Item {
         id: fact
 
@@ -119,165 +238,126 @@ Item {
         }
     }
 
-    Row {
-        id: row
+    Flickable {
+        id: strip
 
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 12
+        anchors.fill: parent
+        anchors.topMargin: -2
+        anchors.bottomMargin: -2
+        contentWidth: row.implicitWidth
+        contentHeight: height
+        flickableDirection: Flickable.HorizontalFlick
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: contentWidth > width + 0.5
+        clip: interactive
 
-        AbstractButton {
-            id: modelKey
+        onInteractiveChanged: {
+            if (!interactive)
+                returnToBounds()
+        }
 
-            readonly property bool opens: actions.changesAgent
+        Row {
+            id: row
 
-            anchors.verticalCenter: parent.verticalCenter
-            visible: root.model.length > 0
-            implicitWidth: modelFace.implicitWidth
-            implicitHeight: 26
-            hoverEnabled: true
-            activeFocusOnTab: opens
-            objectName: "stage.tile." + root.sessionId + ".chat.model"
-            Accessible.role: opens ? Accessible.ButtonMenu : Accessible.StaticText
-            Accessible.name: qsTr("Model")
-            Accessible.description: root.level >= 0 ? root.modelName + ", " + Models.DesktopSettings.effortLabel(root.facts.effort) : root.modelName
-            ToolTip.visible: hovered && !actions.visible
-            ToolTip.text: barsHover.hovered ? Models.DesktopSettings.effortLabel(root.facts.effort) : qsTr("Model")
-            ToolTip.delay: Tip.delay
-            onClicked: root.openModel()
+            height: strip.height
+            spacing: 8
 
-            background: Rectangle {
-                anchors.fill: parent
-                anchors.margins: -3
-                radius: KodosiTheme.radiusXs
-                color: "transparent"
-                border.width: modelKey.visualFocus ? 1.5 : 0
-                border.color: root.look.accentStrong
-            }
-            contentItem: Item {
-                Row {
-                    id: modelFace
+            onImplicitWidthChanged: root.fit()
 
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 5
+            PickerKey {
+                id: modelKey
 
-                    PlainLabel {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.modelName
-                        color: modelKey.opens && (modelKey.hovered || actions.visible) ? root.look.ink : root.look.inkMuted
-                        font.pixelSize: KodosiTheme.fontFootnote
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.model.length > 0 && actions.changesAgent
+                look: root.look
+                open: actions.visible
+                accessoryShown: true
+                objectName: "stage.tile." + root.sessionId + ".chat.model"
+                Accessible.name: qsTr("Model")
+                Accessible.description: [root.modelName, root.effortWords, root.modeWords].filter(part => part.length > 0).join(", ")
+                ToolTip.visible: hovered && !actions.visible
+                ToolTip.text: keyFace.barsHovered ? root.effortWords : keyFace.modeHovered && !root.named ? root.modeWords : qsTr("Model")
+                ToolTip.delay: Tip.delay
+                accessory: ModelFace {
+                    id: keyFace
 
-                        Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
-                    }
-                    EffortBars {
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: root.level >= 0
-                        level: root.level
-                        count: root.levels.length
-                        barHeight: 10
-                        barWidth: 2
-                        lit: root.look.accent
-                        unlit: KodosiTheme.alpha(root.look.ink, 0.2)
+                    look: root.look
+                    ink: modelKey.open ? root.look.accentStrong : root.look.ink
+                    name: root.modelName
+                    level: root.level
+                    levels: root.levels.length
+                    effort: root.facts.effort || ""
+                    modeIcon: root.facts.modeIcon || ""
+                    modeWord: root.modeWords
+                    named: root.named
+                }
+                onClicked: root.openModel()
 
-                        HoverHandler { id: barsHover }
-                    }
-                    PlainLabel {
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: root.level < 0 && (root.facts.effort || "").length > 0
-                        text: root.facts.effort || ""
-                        color: root.look.inkMuted
-                        font.pixelSize: KodosiTheme.fontFootnote
-                    }
-                    KIcon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: modelKey.opens
-                        width: 10
-                        height: 10
-                        name: "chevrons"
-                        strokeWidth: 2.6
-                        color: root.look.inkFaint
-                    }
+                TerminalActions {
+                    id: actions
+
+                    y: -height - 6
+                    agentOnly: true
+                    session: root.session
+                    sessionId: root.sessionId
+                    identifier: "stage.tile." + root.sessionId
                 }
             }
-
-            TerminalActions {
-                id: actions
-
-                y: -height - 6
-                agentOnly: true
-                session: root.session
-                sessionId: root.sessionId
-                identifier: "stage.tile." + root.sessionId
-            }
-        }
-        Fact {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: (root.facts.mode || "").length > 0
-            tip: root.facts.modeLabel || ""
-            look: root.look
-
-            KIcon {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 13
-                height: 13
-                name: root.facts.modeIcon || "hand"
-                strokeWidth: 2.2
-                color: root.look.inkMuted
-            }
-            PlainLabel {
-                id: modeWords
+            ModelFace {
+                id: plainFace
 
                 anchors.verticalCenter: parent.verticalCenter
-                visible: root.full
-                text: root.facts.modeLabel || ""
-                color: root.look.inkMuted
-                font.pixelSize: KodosiTheme.fontFootnote
-                Accessible.ignored: true
+                visible: root.model.length > 0 && !actions.changesAgent
+                leftPadding: 4
+                rightPadding: 4
+                look: root.look
+                ink: root.look.inkMuted
+                name: root.modelName
+                level: root.level
+                levels: root.levels.length
+                effort: root.facts.effort || ""
+                modeIcon: root.facts.modeIcon || ""
+                modeWord: root.modeWords
+                named: root.named
+                Accessible.role: Accessible.StaticText
+                Accessible.name: [root.modelName, root.effortWords, root.modeWords].filter(part => part.length > 0).join(", ")
             }
-        }
-        AbstractButton {
-            id: usageKey
+            ModeMark {
+                id: modeLabel
 
-            readonly property bool context: root.facts.context !== undefined
-            readonly property bool limits: (root.facts.limits || []).length > 0
-
-            anchors.verticalCenter: parent.verticalCenter
-            visible: context || limits || (root.facts.cost || "").length > 0
-            implicitWidth: usageFace.implicitWidth + 12
-            implicitHeight: 26
-            hoverEnabled: true
-            activeFocusOnTab: true
-            objectName: "chat.usage.key"
-            Accessible.role: Accessible.ButtonMenu
-            Accessible.name: qsTr("Usage")
-            ToolTip.visible: hovered && !usage.visible
-            ToolTip.text: qsTr("Usage")
-            ToolTip.delay: Tip.delay
-            onClicked: {
-                if (usage.visible)
-                    usage.close()
-                else
-                    root.openUsage()
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.model.length === 0 && root.modeWords.length > 0
+                leftPadding: 4
+                rightPadding: 4
+                icon: root.facts.modeIcon || ""
+                word: root.modeWords
+                named: root.named
+                ink: root.look.inkMuted
+                ToolTip.visible: hovered && !root.named
+                ToolTip.text: root.modeWords
+                ToolTip.delay: Tip.delay
             }
+            PickerKey {
+                id: usageKey
 
-            background: Rectangle {
-                radius: KodosiTheme.radiusSm
-                color: usageKey.hovered || usage.visible ? KodosiTheme.alpha(root.look.ink, 0.07) : "transparent"
-                border.width: usageKey.visualFocus ? 1.5 : 0
-                border.color: root.look.accentStrong
-
-                Behavior on color { ColorAnimation { duration: KodosiTheme.motionHover } }
-            }
-            contentItem: Item {
-                Row {
-                    id: usageFace
-
-                    x: 6
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 8
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.context || root.limit !== null || (root.facts.cost || "").length > 0
+                look: root.look
+                open: usage.visible
+                accessoryShown: true
+                objectName: "chat.usage.key"
+                Accessible.name: qsTr("Usage")
+                Accessible.description: [root.context ? qsTr("Context: %1% used").arg(root.facts.context) : "",
+                    root.limit ? root.limit.spoken || "" : "", root.facts.cost || ""].filter(part => part.length > 0).join(", ")
+                ToolTip.visible: hovered && !usage.visible
+                ToolTip.text: qsTr("Usage")
+                ToolTip.delay: Tip.delay
+                accessory: Row {
+                    spacing: 6
 
                     Row {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: usageKey.context
+                        visible: root.context
                         spacing: 4
 
                         UsageRing {
@@ -289,151 +369,200 @@ Item {
                             limit: ({ used: root.facts.context ?? 0, level: root.facts.contextLevel || "normal" })
                         }
                         PlainLabel {
+                            id: contextWords
+
                             anchors.verticalCenter: parent.verticalCenter
+                            visible: root.named
+                            text: qsTr("%1% context").arg(root.facts.context ?? 0)
+                            color: root.levelInk(root.facts.contextLevel || "")
+                            font.pixelSize: KodosiTheme.fontCallout
+                            font.weight: Font.Medium
+                            font.features: { "tnum": 1 }
+                        }
+                        PlainLabel {
+                            id: contextPercent
+
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: !root.named
                             text: qsTr("%1%").arg(root.facts.context ?? 0)
-                            color: root.facts.contextLevel === "reached" ? root.look.danger
-                                : root.facts.contextLevel === "near" ? root.look.caution : root.look.inkMuted
-                            font.pixelSize: KodosiTheme.fontFootnote
+                            color: root.levelInk(root.facts.contextLevel || "")
+                            font.pixelSize: KodosiTheme.fontCallout
+                            font.weight: Font.Medium
                             font.features: { "tnum": 1 }
                         }
                     }
-                    UsageDial {
+                    Row {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: !!root.facts.limit
-                        limit: root.facts.limit || null
-                        size: 20
-                        look: root.look
-                        Accessible.ignored: true
+                        visible: root.limit !== null
+                        spacing: 4
+
+                        UsageRing {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 14
+                            height: 14
+                            lineWidth: 2
+                            look: root.look
+                            limit: root.limit
+                        }
+                        PlainLabel {
+                            id: limitWords
+
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: root.named
+                            text: qsTr("%1 %2%").arg(root.limit ? root.limit.window : "").arg(root.limit ? root.limit.used : 0)
+                            color: root.levelInk(root.limit ? root.limit.level : "")
+                            font.pixelSize: KodosiTheme.fontCallout
+                            font.weight: Font.Medium
+                            font.features: { "tnum": 1 }
+                        }
+                        PlainLabel {
+                            id: limitPercent
+
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: !root.named
+                            text: qsTr("%1%").arg(root.limit ? root.limit.used : 0)
+                            color: root.levelInk(root.limit ? root.limit.level : "")
+                            font.pixelSize: KodosiTheme.fontCallout
+                            font.weight: Font.Medium
+                            font.features: { "tnum": 1 }
+                        }
                     }
                     PlainLabel {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: !usageKey.context && !usageKey.limits
+                        visible: !root.context && root.limit === null
                         text: root.facts.cost || ""
-                        color: root.look.inkMuted
-                        font.pixelSize: KodosiTheme.fontFootnote
+                        color: root.look.ink
+                        font.pixelSize: KodosiTheme.fontCallout
+                        font.weight: Font.Medium
                         font.features: { "tnum": 1 }
                     }
                 }
-            }
+                onClicked: {
+                    if (usage.visible)
+                        usage.close()
+                    else
+                        root.openUsage()
+                }
 
-            KPopover {
-                id: usage
+                KPopover {
+                    id: usage
 
-                y: -height - 6
-                width: Math.max(240 + leftPadding + rightPadding, implicitWidth)
-                padding: 14
-                focus: true
-                closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
-                objectName: "chat.usage"
-                onAboutToShow: root.now = Date.now()
+                    y: -height - 6
+                    width: Math.max(240 + leftPadding + rightPadding, implicitWidth)
+                    padding: 14
+                    focus: true
+                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+                    objectName: "chat.usage"
+                    onAboutToShow: root.now = Date.now()
 
-                contentItem: Column {
-                    spacing: 12
-
-                    UsageLine {
-                        visible: usageKey.context
-                        title: qsTr("Context: %1% used").arg(root.facts.context ?? 0)
-                        detail: root.facts.tokens || ""
-                        look: root.look
-
-                        UsageRing {
-                            anchors.centerIn: parent
-                            width: 20
-                            height: 20
-                            lineWidth: 2.5
-                            look: root.look
-                            limit: ({ used: root.facts.context ?? 0, level: root.facts.contextLevel || "normal" })
-                        }
-                    }
-                    Repeater {
-                        model: root.facts.limits || []
+                    contentItem: Column {
+                        spacing: 12
 
                         UsageLine {
-                            id: limitLine
-
-                            required property var modelData
-                            readonly property string resets: Models.Launcher.timeToReset(modelData, root.now)
-
-                            title: modelData.spoken || ""
-                            detail: resets.length > 0 ? qsTr("Resets in %1").arg(resets) : ""
+                            visible: root.context
+                            title: qsTr("Context: %1% used").arg(root.facts.context ?? 0)
+                            detail: root.facts.tokens || ""
                             look: root.look
 
-                            UsageDial {
+                            UsageRing {
                                 anchors.centerIn: parent
-                                limit: limitLine.modelData
-                                size: 22
+                                width: 20
+                                height: 20
+                                lineWidth: 2.5
                                 look: root.look
-                                Accessible.ignored: true
+                                limit: ({ used: root.facts.context ?? 0, level: root.facts.contextLevel || "normal" })
                             }
                         }
-                    }
-                    UsageLine {
-                        visible: (root.facts.cost || "").length > 0
-                        title: qsTr("This conversation")
-                        detail: root.facts.cost || ""
-                        look: root.look
+                        Repeater {
+                            model: root.facts.limits || []
 
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: 18
-                            height: 18
-                            radius: 9
-                            color: "transparent"
-                            border.width: 1.5
-                            border.color: root.look.inkMuted
+                            UsageLine {
+                                id: limitLine
 
-                            PlainLabel {
+                                required property var modelData
+                                readonly property string resets: Models.Launcher.timeToReset(modelData, root.now)
+
+                                title: modelData.spoken || ""
+                                detail: resets.length > 0 ? qsTr("Resets in %1").arg(resets) : ""
+                                look: root.look
+
+                                UsageDial {
+                                    anchors.centerIn: parent
+                                    limit: limitLine.modelData
+                                    size: 22
+                                    look: root.look
+                                    Accessible.ignored: true
+                                }
+                            }
+                        }
+                        UsageLine {
+                            visible: (root.facts.cost || "").length > 0
+                            title: qsTr("This conversation")
+                            detail: root.facts.cost || ""
+                            look: root.look
+
+                            Rectangle {
                                 anchors.centerIn: parent
-                                text: "$"
-                                color: root.look.inkMuted
-                                font.pixelSize: KodosiTheme.fontCaption
-                                font.weight: Font.DemiBold
+                                width: 18
+                                height: 18
+                                radius: 9
+                                color: "transparent"
+                                border.width: 1.5
+                                border.color: root.look.inkMuted
+
+                                PlainLabel {
+                                    anchors.centerIn: parent
+                                    text: "$"
+                                    color: root.look.inkMuted
+                                    font.pixelSize: KodosiTheme.fontCaption
+                                    font.weight: Font.DemiBold
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        Fact {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: (root.facts.helpers ?? 0) > 0
-            tip: qsTr("%n helpers work", "", root.facts.helpers ?? 0)
-            look: root.look
+            Fact {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: (root.facts.helpers ?? 0) > 0
+                tip: qsTr("%n helpers work", "", root.facts.helpers ?? 0)
+                look: root.look
 
-            KIcon {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 14
-                height: 14
-                name: "people"
-                strokeWidth: 2
-                color: root.look.inkMuted
+                KIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 15
+                    height: 15
+                    name: "people"
+                    strokeWidth: 2
+                    color: root.look.inkMuted
+                }
+                PlainLabel {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: String(root.facts.helpers ?? 0)
+                    color: root.look.inkMuted
+                    font.pixelSize: KodosiTheme.fontCallout
+                }
             }
-            PlainLabel {
+            Fact {
                 anchors.verticalCenter: parent.verticalCenter
-                text: String(root.facts.helpers ?? 0)
-                color: root.look.inkMuted
-                font.pixelSize: KodosiTheme.fontFootnote
-            }
-        }
-        Fact {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: (root.facts.background ?? 0) > 0
-            tip: qsTr("%n commands run in the background", "", root.facts.background ?? 0)
-            look: root.look
+                visible: (root.facts.background ?? 0) > 0
+                tip: qsTr("%n commands run in the background", "", root.facts.background ?? 0)
+                look: root.look
 
-            KIcon {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 13
-                height: 13
-                name: "refresh"
-                strokeWidth: 2.2
-                color: root.look.inkMuted
-            }
-            PlainLabel {
-                anchors.verticalCenter: parent.verticalCenter
-                text: String(root.facts.background ?? 0)
-                color: root.look.inkMuted
-                font.pixelSize: KodosiTheme.fontFootnote
+                KIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 14
+                    height: 14
+                    name: "refresh"
+                    strokeWidth: 2.2
+                    color: root.look.inkMuted
+                }
+                PlainLabel {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: String(root.facts.background ?? 0)
+                    color: root.look.inkMuted
+                    font.pixelSize: KodosiTheme.fontCallout
+                }
             }
         }
     }

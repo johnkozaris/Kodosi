@@ -260,7 +260,7 @@ Item {
                     visible: !waiting.terminal
                     anchors.right: queuedColumn.left
                     anchors.rightMargin: 6
-                    anchors.verticalCenter: bubble.verticalCenter
+                    y: (bubble.height - height) / 2
                     glyph: "close"
                     size: 22
                     terminalLook: root.look
