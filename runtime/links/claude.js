@@ -133,6 +133,15 @@ async function modesOff($) {
   }
 }
 
+// The count of the person's prompts in the conversation as Claude Code has it now.
+async function prompts($) {
+  try {
+    return await $.session.turns()
+  } catch (error) {
+    return turns
+  }
+}
+
 // The slash commands of the session, in the order of Claude Code's own menu.
 async function slashCommands($) {
   try {
@@ -214,7 +223,7 @@ async function hello($, rewound) {
     facts.usage = await $.session.usage()
     Object.assign(facts, await modesOff($))
     facts.commands = await slashCommands($)
-    turns = await $.session.turns()
+    turns = await prompts($)
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
     rows = []
@@ -372,7 +381,7 @@ export function register(on) {
   on('turn.start', async ($, e, next) => {
     if (!e.agentId) {
       turn = e.turnId
-      turns = await $.session.turns().catch(() => turns)
+      turns = await prompts($)
     }
     tell($, 'turn', { agent: e.agentId })
     return next(e)
@@ -381,7 +390,7 @@ export function register(on) {
   // A rewind puts the prompt it went back to in the prompt box again.
   on('prompt.change', async ($, e, next) => {
     const changed = await next(e)
-    if (socket && !greeting && (await $.session.turns().catch(() => turns)) < turns) hello($, true)
+    if (socket && !greeting && (await prompts($)) < turns) hello($, true)
     return changed
   })
 
