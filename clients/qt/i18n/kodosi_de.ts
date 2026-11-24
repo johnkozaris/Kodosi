@@ -834,8 +834,20 @@
         <translation>Der Agent nimmt die nächste Nachricht in seinem Terminal an.</translation>
     </message>
     <message>
+        <source>%1 shows this in its terminal.</source>
+        <translation>%1 zeigt das in seinem Terminal.</translation>
+    </message>
+    <message>
+        <source>Show the terminal</source>
+        <translation>Terminal zeigen</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>In diesem Terminal läuft kein Agent</translation>
+    </message>
+    <message>
+        <source>Commands</source>
+        <translation>Befehle</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -853,12 +865,24 @@
         <translation>Modell</translation>
     </message>
     <message>
-        <source>Context: %1% used</source>
-        <translation>Kontext: %1 % genutzt</translation>
+        <source>Usage</source>
+        <translation>Nutzung</translation>
     </message>
     <message>
         <source>%1%</source>
         <translation>%1 %</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>Kontext: %1 % genutzt</translation>
+    </message>
+    <message>
+        <source>Resets in %1</source>
+        <translation>Noch %1 bis zum Zurücksetzen</translation>
+    </message>
+    <message>
+        <source>This conversation</source>
+        <translation>Dieses Gespräch</translation>
     </message>
     <message numerus="yes">
         <source>%n helpers work</source>
@@ -930,6 +954,10 @@
     <message>
         <source>Refused</source>
         <translation>Verweigert</translation>
+    </message>
+    <message>
+        <source>Recap</source>
+        <translation>Rückblick</translation>
     </message>
     <message>
         <source>Needs you to sign in</source>
@@ -1020,6 +1048,13 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>%n failed</source>
+        <translation>
+            <numerusform>%n fehlgeschlagen</numerusform>
+            <numerusform>%n fehlgeschlagen</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%n denied</source>
         <translation>
             <numerusform>%n abgelehnt</numerusform>
@@ -1093,10 +1128,6 @@
     <message>
         <source>Done</source>
         <translation>Fertig</translation>
-    </message>
-    <message>
-        <source>Failed</source>
-        <translation>Fehlgeschlagen</translation>
     </message>
 </context>
 <context>
@@ -5447,6 +5478,10 @@
     <message>
         <source>thinking</source>
         <translation>denkt nach</translation>
+    </message>
+    <message>
+        <source>%1 of %2 tokens</source>
+        <translation>%1 von %2 Tokens</translation>
     </message>
     <message numerus="yes">
         <source>%n steps</source>

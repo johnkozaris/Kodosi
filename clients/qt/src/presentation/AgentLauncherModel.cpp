@@ -338,12 +338,11 @@ QString AgentLauncherModel::resetIn(const QVariantMap& limit, double now) const
     return tr("%1m").arg(left->minutes);
 }
 
-QString AgentLauncherModel::spokenWithReset(const QVariantMap& limit, double now) const
+QString AgentLauncherModel::timeToReset(const QVariantMap& limit, double now) const
 {
-    const auto spoken = limit.value(QStringLiteral("spoken")).toString();
     const auto left = timeLeft(limit, now);
     if (!left)
-        return spoken;
+        return {};
     QStringList parts;
     if (left->days > 0)
         parts.append(tr("%n days", "", left->days));
@@ -351,7 +350,14 @@ QString AgentLauncherModel::spokenWithReset(const QVariantMap& limit, double now
         parts.append(tr("%n hours", "", left->hours));
     if (left->minutes > 0)
         parts.append(tr("%n minutes", "", left->minutes));
-    return tr("%1, resets in %2").arg(spoken, parts.join(u' '));
+    return parts.join(u' ');
+}
+
+QString AgentLauncherModel::spokenWithReset(const QVariantMap& limit, double now) const
+{
+    const auto spoken = limit.value(QStringLiteral("spoken")).toString();
+    const auto left = timeToReset(limit, now);
+    return left.isEmpty() ? spoken : tr("%1, resets in %2").arg(spoken, left);
 }
 
 void AgentLauncherModel::refreshUsage()

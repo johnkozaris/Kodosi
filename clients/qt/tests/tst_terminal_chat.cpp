@@ -199,7 +199,7 @@ private slots:
         QCOMPARE(commands.of(QStringLiteral("document.close")).size(), 2);
     }
 
-    void aTurnFoldsItsStepsIntoOneLineBeforeItsAnswer()
+    void aTurnShowsTheAgentsWordsAndFoldsTheStepsBetweenThem()
     {
         Commands commands;
         kodosi::SessionCatalogModel sessions;
@@ -215,16 +215,18 @@ private slots:
                 person(QStringLiteral("p2"), QStringLiteral("And?")), words(QStringLiteral("t3"), QStringLiteral("Nothing else.")),
                 turnEnd(QStringLiteral("e2"), QStringLiteral("done"), 900) }));
         const auto lines = chat.lines();
-        QCOMPARE(kinds(lines), QStringList({ QStringLiteral("person"), QStringLiteral("work"), QStringLiteral("answer"),
-                                   QStringLiteral("end"), QStringLiteral("person"), QStringLiteral("answer") }));
-        const auto work = lines.at(1).toMap();
-        QVERIFY(work.value(QStringLiteral("lead")).toBool());
-        QCOMPARE(work.value(QStringLiteral("steps")).toList().size(), 3);
-        QCOMPARE(work.value(QStringLiteral("sign")).toString(), QString {});
-        QVERIFY(!lines.at(2).toMap().value(QStringLiteral("lead")).toBool());
-        QCOMPARE(lines.at(2).toMap().value(QStringLiteral("text")).toString(), QStringLiteral("Done."));
-        QVERIFY(!lines.at(3).toMap().value(QStringLiteral("worked")).toString().isEmpty());
-        QVERIFY(lines.at(5).toMap().value(QStringLiteral("lead")).toBool());
+        QCOMPARE(kinds(lines), QStringList({ QStringLiteral("person"), QStringLiteral("answer"), QStringLiteral("work"),
+                                   QStringLiteral("answer"), QStringLiteral("end"), QStringLiteral("person"), QStringLiteral("answer") }));
+        QVERIFY(lines.at(1).toMap().value(QStringLiteral("lead")).toBool());
+        QCOMPARE(lines.at(1).toMap().value(QStringLiteral("text")).toString(), QStringLiteral("Looking."));
+        const auto work = lines.at(2).toMap();
+        QVERIFY(!work.value(QStringLiteral("lead")).toBool());
+        QCOMPARE(work.value(QStringLiteral("steps")).toList().size(), 2);
+        QVERIFY(!work.value(QStringLiteral("done")).toBool());
+        QVERIFY(!lines.at(3).toMap().value(QStringLiteral("lead")).toBool());
+        QCOMPARE(lines.at(3).toMap().value(QStringLiteral("text")).toString(), QStringLiteral("Done."));
+        QVERIFY(!lines.at(4).toMap().value(QStringLiteral("worked")).toString().isEmpty());
+        QVERIFY(lines.at(6).toMap().value(QStringLiteral("lead")).toBool());
         QVERIFY(!chat.empty());
     }
 

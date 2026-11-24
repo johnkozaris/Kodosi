@@ -1,10 +1,14 @@
 #include "presentation/ChatProse.hpp"
 
+#include <QDir>
+#include <QRegularExpression>
+#include <QUrl>
 #include <QVariantMap>
 
 #include <algorithm>
 
 #include <optional>
+#include <utility>
 
 namespace kodosi {
 namespace {
@@ -37,11 +41,40 @@ bool punctuation(QChar character)
     return character.isPunct() || character.isSymbol();
 }
 
+// A path as Ghostty finds one: names with slashes between them, and a line after a colon.
+const QRegularExpression& filePath()
+{
+    static const QRegularExpression path(QStringLiteral(R"((?<![\w/.:@-])(?:~/|\.{1,2}/|/)?(?:[\w.-]+/)+[\w.-]+(?::\d+){0,2})"));
+    return path;
+}
+
+// A path that does not start at a folder ends with the extension of a file, so words such as
+// "and/or" and numbers such as 3/4 stay text.
+QString fileAddress(QStringView found, const QString& folder)
+{
+    static const QRegularExpression line(QStringLiteral(R"((?::\d+){1,2}$)"));
+    static const QRegularExpression extension(QStringLiteral(R"(\.[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*$)"));
+    auto path = found.toString();
+    path.remove(line);
+    const bool rooted = path.startsWith(u'/') || path.startsWith(u"~/") || path.startsWith(u"./") || path.startsWith(u"../");
+    if (!rooted && !extension.match(path.section(u'/', -1)).hasMatch())
+        return {};
+    if (path.startsWith(u"~/"))
+        return path;
+    if (!path.startsWith(u'/')) {
+        if (folder.isEmpty())
+            return {};
+        path = folder + u'/' + path;
+    }
+    return QUrl::fromLocalFile(QDir::cleanPath(path)).toString(QUrl::FullyEncoded);
+}
+
 // The marks of one line. A mark that is never closed is the agent's own character.
 class Inline {
 public:
-    explicit Inline(QStringView text)
+    explicit Inline(QStringView text, std::optional<QString> folder = std::nullopt)
         : m_text(text)
+        , m_folder(std::move(folder))
     {
     }
 
@@ -59,6 +92,8 @@ public:
             } else if (character == u'[' && link(at, to, out)) {
                 continue;
             } else if (address(at, to, out)) {
+                continue;
+            } else if (path(at, to, out)) {
                 continue;
             } else if (emphasis(at, to, out)) {
                 continue;
@@ -87,8 +122,38 @@ private:
         auto inner = m_text.sliced(at + run, close - at - run);
         if (inner.size() > 1 && inner.startsWith(u' ') && inner.endsWith(u' '))
             inner = inner.sliced(1, inner.size() - 2);
-        out += QStringLiteral("<code>") + escaped(inner) + QStringLiteral("</code>");
+        out += QStringLiteral("<code>") + (m_folder ? Inline(inner, m_folder).paths() : escaped(inner)) + QStringLiteral("</code>");
         return close + run;
+    }
+
+    QString paths() const
+    {
+        QString out;
+        qsizetype at = 0;
+        while (at < m_text.size()) {
+            if (!path(at, m_text.size(), out)) {
+                out += escaped(m_text.sliced(at, 1));
+                ++at;
+            }
+        }
+        return out;
+    }
+
+    bool path(qsizetype& at, qsizetype to, QString& out) const
+    {
+        if (!m_folder)
+            return false;
+        const auto found = filePath().matchView(m_text, at, QRegularExpression::NormalMatch,
+            QRegularExpression::AnchorAtOffsetMatchOption);
+        if (!found.hasMatch() || found.capturedEnd() > to)
+            return false;
+        const auto target = fileAddress(found.capturedView(), *m_folder);
+        if (target.isEmpty())
+            return false;
+        out += QStringLiteral("<a href=\"") + escaped(target) + QStringLiteral("\">") + escaped(found.capturedView())
+            + QStringLiteral("</a>");
+        at = found.capturedEnd();
+        return true;
     }
 
     bool link(qsizetype& at, qsizetype to, QString& out) const
@@ -160,7 +225,16 @@ private:
     }
 
     QStringView m_text;
+    std::optional<QString> m_folder;
 };
+
+QString marked(QStringView text, const std::optional<QString>& folder)
+{
+    QStringList out;
+    for (const auto line : text.split(u'\n'))
+        out.append(Inline(line, folder).html(0, line.size()));
+    return QStringLiteral("<span style=\"white-space:pre-wrap\">") + out.join(u'\n') + QStringLiteral("</span>");
+}
 
 std::optional<QStringView> heading(QStringView line)
 {
@@ -241,10 +315,7 @@ QString ChatProse::html(QStringView text)
 
 QString ChatProse::text(const QString& text)
 {
-    QStringList out;
-    for (const auto line : QStringView(text).split(u'\n'))
-        out.append(html(line));
-    return QStringLiteral("<span style=\"white-space:pre-wrap\">") + out.join(u'\n') + QStringLiteral("</span>");
+    return marked(text, std::nullopt);
 }
 
 QStringList ChatProse::cells(QStringView line)
@@ -279,7 +350,7 @@ QStringList ChatProse::cells(QStringView line)
     return cells;
 }
 
-QVariantList ChatProse::blocks(const QString& source)
+QVariantList ChatProse::blocks(const QString& source, const QString& folder)
 {
     const QStringView text(source);
     QVariantList blocks;
@@ -300,7 +371,7 @@ QVariantList ChatProse::blocks(const QString& source)
             --end;
         joined = joined.sliced(start, end - start);
         if (!joined.isEmpty())
-            blocks.append(QVariantMap { { QStringLiteral("kind"), QStringLiteral("lines") }, { QStringLiteral("html"), ChatProse::text(joined) } });
+            blocks.append(QVariantMap { { QStringLiteral("kind"), QStringLiteral("lines") }, { QStringLiteral("html"), marked(joined, folder) } });
         lines.clear();
     };
     for (const auto line : text.split(u'\n')) {

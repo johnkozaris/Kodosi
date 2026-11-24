@@ -833,8 +833,20 @@
         <translation>Agent 会在它的终端中接收下一条消息。</translation>
     </message>
     <message>
+        <source>%1 shows this in its terminal.</source>
+        <translation>%1 在它的终端中显示此内容。</translation>
+    </message>
+    <message>
+        <source>Show the terminal</source>
+        <translation>显示终端</translation>
+    </message>
+    <message>
         <source>No agent runs in this terminal</source>
         <translation>此终端中没有运行的 Agent</translation>
+    </message>
+    <message>
+        <source>Commands</source>
+        <translation>命令</translation>
     </message>
     <message>
         <source>Or say what to do instead</source>
@@ -852,12 +864,24 @@
         <translation>模型</translation>
     </message>
     <message>
-        <source>Context: %1% used</source>
-        <translation>上下文：已用 %1%</translation>
+        <source>Usage</source>
+        <translation>用量</translation>
     </message>
     <message>
         <source>%1%</source>
         <translation>%1%</translation>
+    </message>
+    <message>
+        <source>Context: %1% used</source>
+        <translation>上下文：已用 %1%</translation>
+    </message>
+    <message>
+        <source>Resets in %1</source>
+        <translation>%1后重置</translation>
+    </message>
+    <message>
+        <source>This conversation</source>
+        <translation>此对话</translation>
     </message>
     <message numerus="yes">
         <source>%n helpers work</source>
@@ -926,6 +950,10 @@
     <message>
         <source>Refused</source>
         <translation>拒绝回答</translation>
+    </message>
+    <message>
+        <source>Recap</source>
+        <translation>回顾</translation>
     </message>
     <message>
         <source>Needs you to sign in</source>
@@ -1005,6 +1033,12 @@
         </translation>
     </message>
     <message numerus="yes">
+        <source>%n failed</source>
+        <translation>
+            <numerusform>%n 个失败</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <source>%n denied</source>
         <translation>
             <numerusform>%n 个被拒绝</numerusform>
@@ -1076,10 +1110,6 @@
     <message>
         <source>Done</source>
         <translation>完成</translation>
-    </message>
-    <message>
-        <source>Failed</source>
-        <translation>失败</translation>
     </message>
 </context>
 <context>
@@ -5409,6 +5439,10 @@
     <message>
         <source>thinking</source>
         <translation>思考中</translation>
+    </message>
+    <message>
+        <source>%1 of %2 tokens</source>
+        <translation>%2 个 token 中的 %1</translation>
     </message>
     <message numerus="yes">
         <source>%n steps</source>

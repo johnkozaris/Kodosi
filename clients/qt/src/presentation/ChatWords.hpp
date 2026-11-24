@@ -15,7 +15,7 @@ public:
     [[nodiscard]] static QString icon(const QString& kind);
     [[nodiscard]] static QString step(const QJsonObject& tool);
     [[nodiscard]] static QString summary(const QList<QJsonObject>& tools);
-    [[nodiscard]] static QStringList setbacks(const QList<QJsonObject>& tools);
+    [[nodiscard]] static QVariantList setbacks(const QList<QJsonObject>& tools);
     [[nodiscard]] static QString mode(const QString& mode);
     [[nodiscard]] static QString modeIcon(const QString& mode);
     [[nodiscard]] static QString duration(qint64 ms);

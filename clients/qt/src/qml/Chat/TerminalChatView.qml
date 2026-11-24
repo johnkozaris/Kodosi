@@ -7,10 +7,14 @@ FocusScope {
     id: root
 
     signal focused
+    signal terminalRequested
+    signal linkQuestionRequested(url link, string target)
+    signal linkRefused(string target, string reason)
 
     required property string sessionId
     required property var session
     required property Look look
+    property string otherComputer: ""
     property Models.TerminalChat watched: null
     readonly property Models.TerminalChat chat: Models.Chats.chat(sessionId)
     readonly property string agent: Models.DesktopSettings.agentLabel(session.program || "")
@@ -43,6 +47,17 @@ FocusScope {
             watched.unwatch()
     }
 
+    Connections {
+        function onLinkQuestionRequested(link: url, target: string) {
+            root.linkQuestionRequested(link, target)
+        }
+        function onLinkRefused(target: string, reason: string) {
+            root.linkRefused(target, reason)
+        }
+
+        target: root.chat
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -58,6 +73,7 @@ FocusScope {
             agent: root.agent
 
             onTapped: root.focused()
+            onLinkActivated: link => root.chat.follow(link, root.otherComputer)
         }
         ChatDock {
             id: dock
@@ -71,6 +87,8 @@ FocusScope {
             agent: root.agent
             room: root.height
             onSent: thread.toEnd(true)
+            onTerminalRequested: root.terminalRequested()
+            onLinkActivated: link => root.chat.follow(link, root.otherComputer)
         }
     }
 }

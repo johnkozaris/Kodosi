@@ -15,6 +15,7 @@ Column {
     readonly property bool open: chat.opened.indexOf(line.id) >= 0
 
     signal held()
+    signal linkActivated(string link)
 
     AbstractButton {
         id: header
@@ -26,7 +27,8 @@ Column {
         activeFocusOnTab: true
         objectName: "chat.work." + root.line.id
         Accessible.role: Accessible.Button
-        Accessible.name: [root.line.summary || ""].concat(root.line.setbacks || []).filter(words => words.length > 0).join(", ")
+        Accessible.name: [root.line.summary || ""].concat((root.line.setbacks || []).map(setback => setback.words))
+            .filter(words => words.length > 0).join(", ")
         Accessible.description: root.open ? qsTr("Hide the steps") : qsTr("Show the steps")
         ToolTip.visible: hovered
         ToolTip.text: Accessible.description
@@ -72,17 +74,17 @@ Column {
                     model: root.line.setbacks || []
 
                     PlainLabel {
-                        required property string modelData
+                        required property var modelData
 
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData
-                        color: root.look.inkFaint
+                        text: modelData.words
+                        color: modelData.state === "failed" ? root.look.caution : root.look.inkFaint
                         font.pixelSize: KodosiTheme.fontFootnote
                     }
                 }
                 StatusSign {
                     anchors.verticalCenter: parent.verticalCenter
-                    session: root.line.sign ? { sign: root.line.sign, asks: true, signLabel: root.line.sign === "done" ? qsTr("Done") : qsTr("Failed") } : null
+                    session: root.line.done ? { sign: "done", asks: true, signLabel: qsTr("Done") } : null
                     size: 11
                     look: root.look
                 }
@@ -116,6 +118,7 @@ Column {
                 chat: root.chat
                 look: root.look
                 onHeld: root.held()
+                onLinkActivated: link => root.linkActivated(link)
             }
         }
     }

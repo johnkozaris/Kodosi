@@ -12,6 +12,8 @@ Column {
     property bool live: false
     property Look look: KodosiTheme.look
 
+    signal linkActivated(string link)
+
     spacing: 9
     Accessible.role: Accessible.StaticText
 
@@ -55,7 +57,7 @@ Column {
                         selectionColor: root.look.accent
                         selectedTextColor: root.look.accentInk
                         Accessible.name: getText(0, length)
-                        onLinkActivated: link => Prose.open(link)
+                        onLinkActivated: link => root.linkActivated(link)
 
                         HoverHandler { cursorShape: words.hoveredLink.length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor }
                     }
@@ -89,7 +91,7 @@ Column {
                     selectedTextColor: root.look.accentInk
                     Accessible.role: Accessible.Heading
                     Accessible.name: getText(0, length)
-                    onLinkActivated: link => Prose.open(link)
+                    onLinkActivated: link => root.linkActivated(link)
                 }
             }
             Component {
@@ -164,6 +166,7 @@ Column {
                                 side: grid.sides[index] || "left"
                                 bold: true
                                 look: root.look
+                                onLinkActivated: link => root.linkActivated(link)
                             }
                         }
                         Rectangle {
@@ -183,6 +186,7 @@ Column {
                                 html: modelData
                                 side: grid.sides[index % grid.columnCount] || "left"
                                 look: root.look
+                                onLinkActivated: link => root.linkActivated(link)
                             }
                         }
                     }
@@ -207,6 +211,5 @@ Column {
         linkColor: look.accentStrong
         font.pixelSize: KodosiTheme.fontBody
         font.weight: bold ? Font.DemiBold : Font.Normal
-        onLinkActivated: link => Prose.open(link)
     }
 }
