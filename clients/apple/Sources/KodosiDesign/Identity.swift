@@ -104,7 +104,7 @@ public enum AgentKind: String, CaseIterable, Sendable {
         switch self {
         case .claude: "Claude Code"
         case .codex: "Codex"
-        case .copilot: "Copilot"
+        case .copilot: "Copilot CLI"
         case .cursor: "Cursor"
         case .opencode: "OpenCode"
         case .antigravity: "Antigravity CLI"
