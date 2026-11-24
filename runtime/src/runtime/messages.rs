@@ -145,7 +145,8 @@ pub(super) fn named<T: Copy>(text: &str, terminals: &[(T, &str)]) -> Vec<T> {
             .iter()
             .filter(|(_, name)| {
                 !name.is_empty()
-                    && after_name(rest, name).is_some_and(|next| !next.is_some_and(in_a_word))
+                    && after_name(rest, name)
+                        .is_some_and(|after| !after.chars().next().is_some_and(in_a_word))
             })
             .max_by_key(|(_, name)| name.len());
         if let Some((terminal, _)) = best {
@@ -159,14 +160,14 @@ fn in_a_word(character: char) -> bool {
     character.is_alphanumeric() || character == '_'
 }
 
-fn after_name(text: &str, name: &str) -> Option<Option<char>> {
+fn after_name<'text>(text: &'text str, name: &str) -> Option<&'text str> {
     let mut rest = text.chars();
     for expected in name.chars() {
         if !rest.next()?.to_lowercase().eq(expected.to_lowercase()) {
             return None;
         }
     }
-    Some(rest.next())
+    Some(rest.as_str())
 }
 
 pub(super) fn takes_messages(program: Option<&str>, status: Option<&ProgramStatus>) -> bool {
