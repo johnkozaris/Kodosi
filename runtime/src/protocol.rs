@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 110;
+pub const VERSION: u32 = 111;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
@@ -1011,6 +1011,9 @@ pub struct SessionEntry {
     /// that face of the terminal first, and the pipe `chat` carries the chat.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub face: Option<crate::terminal::TerminalFace>,
+    /// The helpers of the terminal's agent that work now.
+    #[serde(default, skip_serializing_if = "crate::terminal::no_helpers")]
+    pub helpers: u8,
     pub look: crate::terminal::TerminalLook,
     pub id: String,
     pub incarnation_id: String,

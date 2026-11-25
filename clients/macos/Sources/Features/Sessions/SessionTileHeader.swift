@@ -44,6 +44,9 @@ struct SessionTileHeader: View {
                     SessionActivityText(session: session).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
                         .help(session.activity ?? "")
                 }
+                if session.workingHelpers > 0 {
+                    HelperMarks(session: session).transition(AnyTransition.pop)
+                }
                 if let sign = deps.sign(of: session) {
                     StatusSign(form: sign).transition(AnyTransition.pop)
                 }

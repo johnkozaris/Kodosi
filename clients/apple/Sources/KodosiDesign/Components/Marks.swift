@@ -237,6 +237,35 @@ public struct AgentMark: View {
     }
 }
 
+/// The helpers that an agent started and that work now: a small squircle in the agent's color for
+/// each, up to three. It stays still, because the agent's own mark carries the light of work.
+public struct HelperMarks: View {
+    @Environment(\.theme) private var theme
+    public let kind: AgentKind
+    public var account: Int?
+    public let count: Int
+
+    public init(kind: AgentKind, account: Int? = nil, count: Int) {
+        self.kind = kind
+        self.account = account
+        self.count = count
+    }
+
+    public var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0 ..< min(count, 3), id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 2, style: .continuous).fill(kind.tint(account: account))
+                    .frame(width: 6, height: 6)
+                    .transition(AnyTransition.pop)
+            }
+        }
+        .animation(theme.motion.snappy, value: min(count, 3))
+        .accessibilityElement()
+        .accessibilityLabel(Text("\(count) helpers work", bundle: .module))
+        .tip(Text("\(count) helpers work", bundle: .module))
+    }
+}
+
 public struct StatusSign: View {
     public enum Form: Equatable, Sendable {
         case changed, hand, question, key, done, failed

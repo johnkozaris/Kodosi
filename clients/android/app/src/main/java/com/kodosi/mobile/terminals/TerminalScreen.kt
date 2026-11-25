@@ -90,6 +90,7 @@ import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.ButtonKind
 import com.kodosi.mobile.ui.ConfirmDialog
 import com.kodosi.mobile.ui.FileIcon
+import com.kodosi.mobile.ui.HelperMarks
 import com.kodosi.mobile.ui.KodosiButton
 import com.kodosi.mobile.ui.KodosiMenu
 import com.kodosi.mobile.ui.KodosiMenuItem
@@ -550,6 +551,28 @@ private fun TerminalActions(
     }
 }
 
+@Composable
+private fun <T : Any> NameSign(value: T?, label: String, content: @Composable (T) -> Unit) {
+    val fading = fade<Float>()
+    val pop = snappy<Float>()
+    AnimatedContent(
+        value,
+        transitionSpec = {
+            (fadeIn(fading) + scaleIn(pop, initialScale = 0.6f)) togetherWith
+                (fadeOut(fading) + scaleOut(pop, targetScale = 0.6f)) using SizeTransform(clip = false)
+        },
+        contentKey = { it != null },
+        label = label
+    ) { shown ->
+        if (shown != null) {
+            Row {
+                Spacer(Modifier.width(6.dp))
+                content(shown)
+            }
+        }
+    }
+}
+
 private sealed interface HeaderLine {
     data class Caption(val words: String, val color: Color) : HeaderLine
 
@@ -599,24 +622,10 @@ private fun Header(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    val fading = fade<Float>()
-                    val pop = snappy<Float>()
-                    AnimatedContent(
-                        session.sign(),
-                        transitionSpec = {
-                            (fadeIn(fading) + scaleIn(pop, initialScale = 0.6f)) togetherWith
-                                (fadeOut(fading) + scaleOut(pop, targetScale = 0.6f)) using SizeTransform(clip = false)
-                        },
-                        contentKey = { it != null },
-                        label = "sign"
-                    ) { sign ->
-                        if (sign != null) {
-                            Row {
-                                Spacer(Modifier.width(6.dp))
-                                StatusSign(sign, 13.dp)
-                            }
-                        }
+                    NameSign(session.helpers.takeIf { it > 0 }, "helpers") { count ->
+                        HelperMarks(session.agent, count, account = session.programAccount)
                     }
+                    NameSign(session.sign(), "sign") { sign -> StatusSign(sign, 13.dp) }
                 }
                 val line = if (session.unreachable(online)) {
                     captionOf(session, online).let { (words, color) -> HeaderLine.Caption(words, color) }

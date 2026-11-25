@@ -297,6 +297,9 @@ pub struct TerminalStatus {
     pub state: Option<crate::terminal::ProgramState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<crate::terminal::BlockedKind>,
+    /// The helpers of the program that work now.
+    #[serde(default, skip_serializing_if = "crate::terminal::no_helpers")]
+    pub helpers: u8,
     /// The owner of the terminal did not see its state yet. The server gives it only to the
     /// owner's devices.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -311,6 +314,11 @@ impl TerminalStatus {
             account: metadata.account.filter(|_| metadata.program.is_some()),
             state: metadata.status.as_ref().map(|status| status.state),
             kind: metadata.status.as_ref().and_then(|status| status.kind),
+            helpers: if metadata.program.is_some() {
+                metadata.helpers
+            } else {
+                0
+            },
             attention: false,
         }
     }
@@ -333,6 +341,7 @@ impl TerminalStatus {
             .is_none_or(crate::agents::is_agent_name)
             && (self.account.is_none() || self.program.is_some())
             && (self.kind.is_none() || self.state == Some(crate::terminal::ProgramState::Blocked))
+            && (self.helpers == 0 || self.program.is_some())
             && (!self.attention || self.waiting().is_some())
     }
 

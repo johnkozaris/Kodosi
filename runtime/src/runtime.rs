@@ -3380,6 +3380,7 @@ impl Runtime {
         entry.hidden = hidden;
         if !notice.online {
             entry.program_status = None;
+            entry.helpers = 0;
         }
         if !self.streams(id) {
             self.show_shared_status(id);
@@ -3446,6 +3447,7 @@ impl Runtime {
             entry.program = status.as_ref().and_then(|status| status.program.clone());
             entry.program_account = status.as_ref().and_then(|status| status.account);
             entry.program_status = status.as_ref().and_then(TerminalStatus::program_status);
+            entry.helpers = status.as_ref().map_or(0, |status| status.helpers);
         }
     }
 
@@ -3581,17 +3583,16 @@ impl Runtime {
             working: false,
             waiting: None,
             activity: None,
-            context: if live {
-                previous.and_then(|entry| entry.context.clone())
-            } else {
-                None
-            },
-            canvas: if live {
-                previous.and_then(|entry| entry.canvas.clone())
-            } else {
-                None
-            },
+            context: previous
+                .filter(|_| live)
+                .and_then(|entry| entry.context.clone()),
+            canvas: previous
+                .filter(|_| live)
+                .and_then(|entry| entry.canvas.clone()),
             face: previous.filter(|_| live).and_then(|entry| entry.face),
+            helpers: previous
+                .filter(|_| remote.online)
+                .map_or(0, |entry| entry.helpers),
             look: previous.map_or_default(|entry| entry.look),
             id: remote.id.to_string(),
             incarnation_id: remote.incarnation_id.to_string(),
@@ -3619,6 +3620,7 @@ impl Runtime {
         };
         if !streaming {
             forget_stale_title(&mut entry, shared);
+            entry.helpers = shared.map_or(0, |status| status.helpers);
         }
         entry
     }
@@ -3807,11 +3809,12 @@ impl Runtime {
             #[cfg(feature = "host")]
             SessionChange::Canvas { id } => self.sync_canvas(&id.to_string()),
             #[cfg(feature = "host")]
-            SessionChange::Chat { id, face } => {
+            SessionChange::Chat { id, face, helpers } => {
                 if let Some(local) = self.local.get_mut(&id)
-                    && local.entry.face != face
+                    && (local.entry.face, local.entry.helpers) != (face, helpers)
                 {
                     local.entry.face = face;
+                    local.entry.helpers = helpers;
                     self.publish_catalog();
                 }
             }
@@ -3864,6 +3867,7 @@ impl Runtime {
                     entry.context = metadata.context;
                     entry.canvas = metadata.canvas.map(|canvas| *canvas);
                     entry.face = metadata.face;
+                    entry.helpers = metadata.helpers;
                     entry.look = metadata.look;
                     self.publish_catalog();
                 }

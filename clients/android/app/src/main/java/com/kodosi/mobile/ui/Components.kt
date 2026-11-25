@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -391,6 +392,19 @@ private fun WorkingLight(colors: KodosiColors, size: Dp, modifier: Modifier) {
                 drawRoundRect(light, cornerRadius = CornerRadius((size * 0.3f).toPx()), style = Stroke(width * 2))
             }
     )
+}
+
+/**
+ * The helpers that an agent started and that work now: a small squircle in the agent's color for
+ * each, up to three. It stays still, because the agent's own mark carries the light of work.
+ */
+@Composable
+fun HelperMarks(kind: AgentKind, count: Int, modifier: Modifier = Modifier, account: Int? = null) {
+    val tint = kind.tint(account)
+    val words = pluralStringResource(R.plurals.chat_helpers, count, count)
+    Row(modifier.semantics { contentDescription = words }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        repeat(minOf(count, 3)) { Box(Modifier.size(6.dp).background(tint, RoundedCornerShape(2.dp))) }
+    }
 }
 
 @Composable

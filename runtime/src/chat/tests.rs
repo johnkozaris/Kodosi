@@ -621,6 +621,23 @@ async fn frame(ends: &mut crate::canvas::PipeEnds) -> ChatFrame {
 }
 
 #[tokio::test]
+async fn the_chat_tells_the_terminal_how_many_helpers_work() {
+    let chat = ChatHandle::spawn();
+    let record = record!("helper");
+    let ended = record
+        .find("{\"k\":\"turnEnd\"")
+        .expect("the first turn ends");
+    let first = &record[..=record[ended..].find('\n').expect("a line") + ended];
+    assert!(report(&chat, "one", 1, events(record!("text"))).await);
+    assert!(report(&chat, "one", 2, events(first)).await);
+    assert_eq!(
+        chat.linked().borrow().map(|agent| agent.helpers),
+        Some(1),
+        "the helper works on after the turn that started it"
+    );
+}
+
+#[tokio::test]
 async fn an_answer_of_a_viewer_reaches_the_agent_before_or_after_the_agent_asks_for_it() {
     let (asking, _) = record!("command-allow")
         .split_once("{\"answer\"")

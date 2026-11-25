@@ -16,7 +16,7 @@ Item {
     required property string agent
     property real room: 600
     readonly property real askRoom: room - 16 - composerArea.implicitHeight - factsRow.implicitHeight - 2 * dock.spacing
-        - (tasks.visible ? tasks.implicitHeight + dock.spacing : 0)
+        - (tasks.visible ? tasks.implicitHeight + dock.spacing : 0) - (helpers.visible ? helpers.implicitHeight + dock.spacing : 0)
     readonly property bool typed: chat.draft.trim().length > 0
     readonly property bool stops: chat.working && !typed
     readonly property bool away: chat.loaded && chat.state === "away"
@@ -237,6 +237,221 @@ Item {
                                 color: task.modelData.state === "working" ? root.look.ink : root.look.inkMuted
                                 font.pixelSize: KodosiTheme.fontFootnote
                                 wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Item {
+            id: helpers
+
+            readonly property var list: root.chat.helpers
+            property bool open: true
+            property var saying: []
+
+            Layout.fillWidth: true
+            implicitHeight: helperColumn.implicitHeight + 4
+            visible: list.length > 0
+
+            Bezel {
+                anchors.fill: parent
+                radius: 13
+                quiet: true
+                look: root.look
+                fill: root.look.raised
+            }
+            Column {
+                id: helperColumn
+
+                x: 10
+                y: 2
+                width: parent.width - 20
+
+                AbstractButton {
+                    id: helpersKey
+
+                    width: parent.width
+                    implicitHeight: 22
+                    hoverEnabled: true
+                    activeFocusOnTab: true
+                    objectName: "chat.helpers"
+                    Accessible.role: Accessible.Button
+                    Accessible.name: helpersWords.text
+                    Accessible.description: helpers.open ? qsTr("Hide the helpers") : qsTr("Show the helpers")
+                    ToolTip.visible: hovered
+                    ToolTip.text: Accessible.description
+                    ToolTip.delay: Tip.delay
+                    onClicked: helpers.open = !helpers.open
+
+                    background: Rectangle {
+                        radius: KodosiTheme.radiusXs
+                        color: "transparent"
+                        border.width: helpersKey.visualFocus ? 1.5 : 0
+                        border.color: root.look.accentStrong
+                    }
+                    contentItem: RowLayout {
+                        spacing: 7
+
+                        KIcon {
+                            Layout.preferredWidth: 11
+                            Layout.preferredHeight: 11
+                            name: "people"
+                            strokeWidth: 2.2
+                            color: root.look.inkMuted
+                        }
+                        PlainLabel {
+                            id: helpersWords
+
+                            Layout.fillWidth: true
+                            text: qsTr("%n helpers work", "", helpers.list.length)
+                            color: root.look.inkMuted
+                            font.pixelSize: KodosiTheme.fontFootnote
+                            elide: Text.ElideRight
+                        }
+                        KIcon {
+                            Layout.preferredWidth: 9
+                            Layout.preferredHeight: 9
+                            name: "chevron-up"
+                            rotation: helpers.open ? 180 : 0
+                            strokeWidth: 2.8
+                            color: root.look.inkFaint
+
+                            Behavior on rotation { NumberAnimation { duration: KodosiTheme.motionSnappy; easing.type: Easing.OutCubic } }
+                        }
+                    }
+                }
+                Column {
+                    width: parent.width
+                    visible: helpers.open
+                    leftPadding: 2
+                    bottomPadding: 6
+                    spacing: 8
+
+                    Repeater {
+                        model: Models.KeyedList { values: helpers.open ? helpers.list : [] }
+
+                        AbstractButton {
+                            id: helper
+
+                            required property var modelData
+                            readonly property string kind: modelData.kind || ""
+                            readonly property string task: modelData.task || ""
+                            readonly property int steps: modelData.steps ?? 0
+                            readonly property var doing: modelData.doing || null
+                            readonly property string said: modelData.said || ""
+                            readonly property bool says: helpers.saying.includes(modelData.id)
+                            readonly property string stepWords: qsTr("%n steps", "", steps)
+
+                            width: parent.width - 2
+                            implicitHeight: helperRow.implicitHeight
+                            hoverEnabled: true
+                            activeFocusOnTab: true
+                            objectName: "chat.helper." + modelData.id
+                            Accessible.role: Accessible.Button
+                            Accessible.name: [kind.length > 0 && task.length > 0 ? kind + " · " + task : kind + task, doing ? doing.target : "",
+                                doing || steps > 0 ? stepWords : "", says ? said : ""].filter(part => part.length > 0).join(", ")
+                            Accessible.description: says ? qsTr("Hide what the helper said") : qsTr("Show what the helper said")
+                            ToolTip.visible: hovered
+                            ToolTip.text: Accessible.description
+                            ToolTip.delay: Tip.delay
+                            onClicked: helpers.saying = says ? helpers.saying.filter(key => key !== modelData.id) : helpers.saying.concat([modelData.id])
+
+                            background: Rectangle {
+                                anchors.fill: parent
+                                anchors.margins: -3
+                                radius: KodosiTheme.radiusXs
+                                color: "transparent"
+                                border.width: helper.visualFocus ? 1.5 : 0
+                                border.color: root.look.accentStrong
+                            }
+                            contentItem: Row {
+                                id: helperRow
+
+                                spacing: 8
+
+                                AgentMark {
+                                    size: 18
+                                    program: root.session.program || ""
+                                    account: root.session.programAccount ?? -1
+                                    working: true
+                                }
+                                Column {
+                                    width: helper.width - 26
+                                    spacing: 2
+
+                                    Row {
+                                        width: parent.width
+
+                                        PlainLabel {
+                                            id: kindWords
+
+                                            width: Math.min(implicitWidth, parent.width)
+                                            visible: helper.kind.length > 0
+                                            text: helper.kind
+                                            color: root.look.ink
+                                            font.pixelSize: KodosiTheme.fontFootnote
+                                            font.weight: Font.DemiBold
+                                            elide: Text.ElideRight
+                                        }
+                                        PlainLabel {
+                                            width: Math.max(0, parent.width - (kindWords.visible ? kindWords.width : 0))
+                                            visible: helper.task.length > 0
+                                            text: helper.kind.length > 0 ? " · " + helper.task : helper.task
+                                            color: helper.kind.length > 0 ? root.look.inkMuted : root.look.ink
+                                            font.pixelSize: KodosiTheme.fontFootnote
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+                                    Row {
+                                        width: parent.width
+                                        visible: helper.doing !== null || helper.steps > 0
+                                        spacing: 6
+
+                                        KIcon {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            visible: helper.doing !== null
+                                            width: 15
+                                            height: 11
+                                            name: helper.doing ? helper.doing.icon || "cube" : "cube"
+                                            strokeWidth: 2.2
+                                            color: root.look.inkFaint
+                                        }
+                                        PlainLabel {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            visible: helper.doing !== null
+                                            width: Math.max(0, Math.min(implicitWidth, parent.width - 27 - stepsWords.implicitWidth))
+                                            text: helper.doing ? helper.doing.target : ""
+                                            color: root.look.inkMuted
+                                            font.family: "monospace"
+                                            font.pixelSize: KodosiTheme.fontCaption
+                                            elide: Text.ElideMiddle
+                                        }
+                                        PlainLabel {
+                                            id: stepsWords
+
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: helper.stepWords
+                                            color: root.look.inkFaint
+                                            font.pixelSize: KodosiTheme.fontCaption
+                                            font.features: { "tnum": 1 }
+                                        }
+                                    }
+                                    Text {
+                                        width: parent.width
+                                        visible: helper.says && helper.said.length > 0
+                                        topPadding: 2
+                                        text: helper.says ? Prose.styled(Models.Markdown.text(helper.said), root.look) : ""
+                                        textFormat: Text.RichText
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 6
+                                        elide: Text.ElideRight
+                                        color: root.look.inkMuted
+                                        linkColor: root.look.accentStrong
+                                        font.pixelSize: KodosiTheme.fontFootnote
+                                        onLinkActivated: link => root.linkActivated(link)
+                                    }
+                                }
                             }
                         }
                     }

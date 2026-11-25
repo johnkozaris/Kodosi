@@ -350,6 +350,7 @@ qt_add_qml_module(kodosi-ui
         qml/Controls/DashedSlot.qml
         qml/Controls/EffortBars.qml
         qml/Controls/EmptyState.qml
+        qml/Controls/HelperMarks.qml
         qml/Controls/IconTile.qml
         qml/Controls/KButton.qml
         qml/Controls/KFocusIndicator.qml

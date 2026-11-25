@@ -1,8 +1,8 @@
 import KodosiBridge
 import SwiftUI
 
-/// What sits under the conversation: the agent's list of its work, the waiting messages, the
-/// question of the agent, the composer and the facts of the session.
+/// What sits under the conversation: the agent's list of its work, the helpers that work for it,
+/// the waiting messages, the question of the agent, the composer and the facts of the session.
 struct ChatDock<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     @Bindable var chat: TerminalChat
@@ -38,9 +38,13 @@ struct ChatDock<ModelKey: View>: View {
         let ask = chat.asks.first
         let away = chat.chat != nil && chat.state == .away
         let tasks = chat.tasks.contains { $0.state != .done } ? chat.tasks : []
+        let helpers = chat.items.workingHelpers
         VStack(alignment: .leading, spacing: 8) {
             if !tasks.isEmpty {
                 ChatTasks(tasks: tasks).transition(AnyTransition.rise)
+            }
+            if !helpers.isEmpty {
+                ChatHelpers(helpers: helpers, agent: agent).transition(AnyTransition.rise)
             }
             ForEach(chat.queued) { queued in
                 ChatQueuedRow(chat: chat, queued: queued, agent: agent, showTerminal: showTerminal).transition(AnyTransition.rise)
@@ -78,6 +82,7 @@ struct ChatDock<ModelKey: View>: View {
         .padding(.horizontal, 10).padding(.top, 4).padding(.bottom, 8)
         .chatColumn()
         .animation(theme.motion.spring, value: tasks.isEmpty)
+        .animation(theme.motion.spring, value: helpers.map(\.id))
         .animation(theme.motion.spring, value: chat.queued.map(\.id))
         .animation(theme.motion.spring, value: ask?.id)
         .animation(theme.motion.fade, value: chat.state)
@@ -341,6 +346,135 @@ private struct ChatTaskLine: View {
     }
 }
 
+/// A helper that the agent started for a part of its work and that works now.
+struct ChatHelper: Identifiable, Equatable {
+    let id: String
+    /// The helper's kind, as the agent names it.
+    let kind: String
+    let task: String
+    let steps: Int
+    let doing: ChatStep?
+    let said: String
+}
+
+extension [ChatItem] {
+    /// The helpers that work now, in the order that the agent started them. A helper that goes on
+    /// after its turn is here until it ends.
+    var workingHelpers: [ChatHelper] {
+        compactMap { item in
+            guard case let .tool(tool) = item.body, tool.kind == .agent, tool.state == .running else { return nil }
+            guard case let .agent(kind, steps, doing, said)? = tool.detail else {
+                return ChatHelper(id: item.id, kind: "", task: tool.target, steps: 0, doing: nil, said: "")
+            }
+            return ChatHelper(id: item.id, kind: kind, task: tool.target, steps: steps, doing: doing, said: said)
+        }
+    }
+}
+
+/// The helpers that work for the agent: each one's task, the step that it takes and how many it
+/// took. A helper's row shows what it said last at a press.
+private struct ChatHelpers: View {
+    @Environment(\.theme) private var theme
+    let helpers: [ChatHelper]
+    let agent: AgentKind
+    @State private var open = true
+    @State private var saying: Set<String> = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Button { open.toggle() } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "person.2").font(mac: 10, ios: .caption, weight: .semibold).foregroundStyle(theme.colors.inkMuted)
+                        .accessibilityHidden(true)
+                    Text("\(helpers.count) helpers work", bundle: .module).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.up").font(mac: 8, ios: .caption2, weight: .bold)
+                        .rotationEffect(.degrees(open ? 180 : 0)).foregroundStyle(theme.colors.inkFaint)
+                        .accessibilityHidden(true)
+                }
+                .controlHeight(22).touchTarget(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(open ? Text("Hide the helpers", bundle: .module) : Text("Show the helpers", bundle: .module))
+            .accessibilityHint(open ? Text("Hide the helpers", bundle: .module) : Text("Show the helpers", bundle: .module))
+            .accessibilityIdentifier("chat.helpers")
+            if open {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(helpers) { helper in
+                        ChatHelperLine(helper: helper, agent: agent, says: saying.contains(helper.id)) {
+                            if saying.remove(helper.id) == nil {
+                                saying.insert(helper.id)
+                            }
+                        }
+                    }
+                }
+                .padding(.leading, 2).padding(.bottom, 6)
+                .transition(AnyTransition.unfold)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 2)
+        .background { BezelBackground(shape: RoundedRectangle(cornerRadius: 13, style: .continuous), fill: theme.colors.raised, bezel: .quiet) }
+        .animation(theme.motion.snappy, value: open)
+        .animation(theme.motion.snappy, value: saying)
+    }
+}
+
+private struct ChatHelperLine: View {
+    @Environment(\.theme) private var theme
+    let helper: ChatHelper
+    let agent: AgentKind
+    let says: Bool
+    let press: () -> Void
+
+    var body: some View {
+        Button(action: press) {
+            HStack(alignment: .top, spacing: 8) {
+                AgentMark(kind: agent, size: 18, activity: .working).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    title
+                    if helper.doing != nil || helper.steps > 0 {
+                        HStack(spacing: 6) {
+                            if let doing = helper.doing {
+                                StepSymbol(kind: doing.kind)
+                                Text(verbatim: doing.target).appTextStyle(.monoCaption).foregroundStyle(theme.colors.inkMuted)
+                                    .lineLimit(1).truncationMode(.middle)
+                            }
+                            Text("\(helper.steps) steps", bundle: .module).appTextStyle(.caption).fontWeight(.regular)
+                                .foregroundStyle(theme.colors.inkFaint).monospacedDigit().fixedSize()
+                        }
+                    }
+                    if says, !helper.said.isEmpty {
+                        Text(ProjectMessageText.formatted(helper.said)).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                            .lineLimit(6).padding(.top, 2)
+                            .transition(.opacity)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(says ? Text("Hide what the helper said", bundle: .module) : Text("Show what the helper said", bundle: .module))
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(says ? Text("Hide what the helper said", bundle: .module) : Text("Show what the helper said", bundle: .module))
+    }
+
+    private var title: some View {
+        HStack(spacing: 0) {
+            if !helper.kind.isEmpty {
+                Text(verbatim: helper.kind).fontWeight(.semibold).foregroundStyle(theme.colors.ink).fixedSize()
+            }
+            if !helper.task.isEmpty {
+                Text(verbatim: helper.kind.isEmpty ? helper.task : " · \(helper.task)")
+                    .foregroundStyle(helper.kind.isEmpty ? theme.colors.ink : theme.colors.inkMuted)
+                    .truncationMode(.tail)
+            }
+        }
+        .appTextStyle(.footnote)
+        .lineLimit(1)
+    }
+}
+
 private struct ChatFactsRow<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     let facts: ChatFacts
@@ -396,13 +530,6 @@ private struct ChatFactsRow<ModelKey: View>: View {
 
     private var others: some View {
         Group {
-            if facts.helpers > 0 {
-                Label { Text(verbatim: "\(facts.helpers)") } icon: { Image(systemName: "person.2") }
-                    .labelStyle(.titleAndIcon)
-                    .tip(Text("\(facts.helpers) helpers work", bundle: .module))
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(Text("\(facts.helpers) helpers work", bundle: .module))
-            }
             if facts.background > 0 {
                 Label { Text(verbatim: "\(facts.background)") } icon: { Image(systemName: "arrow.triangle.2.circlepath") }
                     .labelStyle(.titleAndIcon)

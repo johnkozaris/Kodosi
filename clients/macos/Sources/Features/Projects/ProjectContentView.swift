@@ -107,6 +107,9 @@ private struct ProjectTerminals: View {
                                                             naming: session.leadingSummary(summaryFirst) != nil)
                                     }
                                 } accessory: {
+                                    if session.workingHelpers > 0 {
+                                        HelperMarks(session: session).transition(AnyTransition.pop)
+                                    }
                                     if let sign = deps.sign(of: session) {
                                         StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
                                     }
@@ -286,6 +289,9 @@ private struct TabLabel: View {
                 .foregroundStyle(selected ? theme.colors.ink : theme.colors.inkMuted)
             if !session.isOwner, let owner = session.ownerName {
                 PersonAvatar(name: owner, key: session.ownerUserId, size: 15)
+            }
+            if session.workingHelpers > 0 {
+                HelperMarks(session: session).transition(AnyTransition.pop)
             }
             if let sign = deps.sign(of: session) {
                 StatusSign(form: sign, size: 10).transition(AnyTransition.pop)

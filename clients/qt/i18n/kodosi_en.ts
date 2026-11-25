@@ -12,7 +12,7 @@
     </message>
 </context>
 <context>
-    <name>ChatFacts</name>
+    <name>ChatDock</name>
     <message numerus="yes">
         <source>%n helpers work</source>
         <translation>
@@ -20,6 +20,16 @@
             <numerusform>%n helpers work</numerusform>
         </translation>
     </message>
+    <message numerus="yes">
+        <source>%n steps</source>
+        <translation>
+            <numerusform>%n step</numerusform>
+            <numerusform>%n steps</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>ChatFacts</name>
     <message numerus="yes">
         <source>%n commands run in the background</source>
         <translation>
@@ -153,6 +163,16 @@
         <translation>
             <numerusform>%n more terminal</numerusform>
             <numerusform>%n more terminals</numerusform>
+        </translation>
+    </message>
+</context>
+<context>
+    <name>HelperMarks</name>
+    <message numerus="yes">
+        <source>%n helpers work</source>
+        <translation>
+            <numerusform>%n helper works</numerusform>
+            <numerusform>%n helpers work</numerusform>
         </translation>
     </message>
 </context>

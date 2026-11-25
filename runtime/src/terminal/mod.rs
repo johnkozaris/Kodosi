@@ -45,9 +45,11 @@ pub use types::{
     TerminalPixelGeometry, TerminalSize,
 };
 
-pub(crate) use types::is_valid_folder;
+#[cfg(feature = "host")]
+pub(crate) use types::ChatAgent;
 #[cfg(test)]
 pub(crate) use types::snapshot_limits;
+pub(crate) use types::{is_valid_folder, no_helpers};
 
 pub(crate) enum SessionChange {
     RemoteEnded {
@@ -132,6 +134,7 @@ pub(crate) enum SessionChange {
     Chat {
         id: Uuid,
         face: Option<TerminalFace>,
+        helpers: u8,
     },
     #[cfg(feature = "host")]
     Ended {

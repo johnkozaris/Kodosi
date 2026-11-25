@@ -320,6 +320,9 @@ Item {
                 DosiKeys {
                     sessionId: root.sessionId
                 }
+                HelperMarks {
+                    session: root.session
+                }
                 StatusSign {
                     session: root.session
                     look: root.look

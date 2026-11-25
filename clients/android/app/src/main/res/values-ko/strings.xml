@@ -442,6 +442,10 @@
     <string name="chat_context_used">컨텍스트: %1$d%% 사용</string>
     <string name="chat_show_tasks">작업 보기</string>
     <string name="chat_hide_tasks">작업 숨기기</string>
+    <string name="chat_show_helpers">서브에이전트 보기</string>
+    <string name="chat_hide_helpers">서브에이전트 숨기기</string>
+    <string name="chat_show_helper_said">서브에이전트가 한 말 보기</string>
+    <string name="chat_hide_helper_said">서브에이전트가 한 말 숨기기</string>
     <string name="chat_takes_next">에이전트는 다음 메시지를 터미널에서 받아요.</string>
     <string name="chat_in_background">백그라운드</string>
     <plurals name="chat_helpers">

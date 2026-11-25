@@ -53,3 +53,9 @@ public extension AgentMark {
         self.init(kind: session.agent, account: session.programAccount, size: size, activity: activity, root: session.runsAsRoot)
     }
 }
+
+public extension HelperMarks {
+    init(session: RuntimeSession) {
+        self.init(kind: session.agent, account: session.programAccount, count: session.workingHelpers)
+    }
+}

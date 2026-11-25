@@ -367,7 +367,7 @@ QVariantMap SessionCatalogModel::fields(const Session& session) const
         { QStringLiteral("projectName"), s->projectName }, { QStringLiteral("status"), s->status }, { QStringLiteral("message"), s->message },
         { QStringLiteral("connectionState"), s->connectionState }, { QStringLiteral("stalled"), !local && s->stalled },
         { QStringLiteral("direct"), !local && s->direct }, { QStringLiteral("look"), s->look },
-        { QStringLiteral("face"), s->face },
+        { QStringLiteral("face"), s->face }, { QStringLiteral("helpers"), s->helpers },
         { QStringLiteral("isOwner"), s->isOwner }, { QStringLiteral("hostDeviceId"), local ? QString {} : s->hostDeviceId },
         { QStringLiteral("sharedWith"), s->sharedWith }, { QStringLiteral("canControl"), p.canType },
         { QStringLiteral("canClose"), p.canType || (!local && p.away) }, { QStringLiteral("hidden"), s->hidden },
@@ -461,6 +461,13 @@ std::optional<SessionCatalogModel::Session> SessionCatalogModel::decode(const QJ
     if (!face.isUndefined() && !face.isNull() && face != QJsonValue(QStringLiteral("terminal")) && face != QJsonValue(QStringLiteral("chat")))
         return std::nullopt;
     s.face = face.toString();
+    const auto helpers = o.value(QStringLiteral("helpers"));
+    if (!helpers.isUndefined() && !helpers.isNull()) {
+        const auto count = helpers.toInt(-1);
+        if (!helpers.isDouble() || count < 0 || count > 255 || count != helpers.toDouble())
+            return std::nullopt;
+        s.helpers = count;
+    }
     const auto reported = o.value(QStringLiteral("programStatus"));
     if (!reported.isUndefined() && !reported.isNull()) {
         if (!reported.isObject())

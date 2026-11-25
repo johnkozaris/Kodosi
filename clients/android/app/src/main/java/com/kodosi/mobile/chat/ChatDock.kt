@@ -40,6 +40,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,9 +68,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -81,17 +85,20 @@ import com.kodosi.mobile.terminals.AgentKind
 import com.kodosi.mobile.terminals.StatusForm
 import com.kodosi.mobile.terminals.agentLabel
 import com.kodosi.mobile.ui.ActionIcon
+import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
 import com.kodosi.mobile.ui.AppSymbol
 import com.kodosi.mobile.ui.Elevation
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
+import com.kodosi.mobile.ui.MarkActivity
 import com.kodosi.mobile.ui.MessageComposer
 import com.kodosi.mobile.ui.Radius
 import com.kodosi.mobile.ui.StatusSign
 import com.kodosi.mobile.ui.Unfolding
 import com.kodosi.mobile.ui.fade
 import com.kodosi.mobile.ui.raised
+import com.kodosi.mobile.ui.rememberWords
 import com.kodosi.mobile.ui.snappy
 import kotlinx.coroutines.delay
 
@@ -99,8 +106,8 @@ import kotlinx.coroutines.delay
 internal class KnownModels(val label: (String) -> String, val levels: (String?) -> List<String>)
 
 /**
- * What sits under the conversation: the agent's list of its work, the waiting messages, the
- * question of the agent, the composer and the facts of the session.
+ * What sits under the conversation: the agent's list of its work, the helpers that work for it,
+ * the waiting messages, the question of the agent, the composer and the facts of the session.
  */
 @Composable
 internal fun ChatDock(
@@ -118,6 +125,9 @@ internal fun ChatDock(
     val tasks = view.tasks.takeIf { list -> list.any { it.state != TaskState.DONE } }.orEmpty()
     val leaving = remember { mutableStateOf(tasks) }
     SideEffect { if (tasks.isNotEmpty()) leaving.value = tasks }
+    val helpers = remember(view.items) { view.items.workingHelpers }
+    val leavingHelpers = remember { mutableStateOf(helpers) }
+    SideEffect { if (helpers.isNotEmpty()) leavingHelpers.value = helpers }
     var modelOpen by remember { mutableStateOf(false) }
     var usageOpen by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
@@ -151,6 +161,13 @@ internal fun ChatDock(
         above = {
             Unfolding(tasks.isNotEmpty()) {
                 ChatTasks(tasks.ifEmpty { leaving.value }, Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+            }
+            Unfolding(helpers.isNotEmpty()) {
+                ChatHelpers(
+                    helpers.ifEmpty { leavingHelpers.value },
+                    agent,
+                    Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
             }
             view.queued.forEach { queued -> Queued(chat, queued, agent, showTerminal) }
         },
@@ -377,6 +394,146 @@ private fun TaskLine(task: ChatTask) {
     }
 }
 
+/**
+ * A helper that the agent started for a part of its work and that works now. [kind] is its kind as
+ * the agent names it.
+ */
+internal data class ChatHelper(
+    val id: String,
+    val kind: String,
+    val task: String,
+    val steps: Int,
+    val doing: ChatStep?,
+    val said: String
+)
+
+/**
+ * The helpers that work now, in the order that the agent started them. A helper that goes on after
+ * its turn is here until it ends.
+ */
+internal val List<ChatItem>.workingHelpers: List<ChatHelper>
+    get() = mapNotNull { item ->
+        val tool = (item.body as? ChatBody.Tool)?.tool ?: return@mapNotNull null
+        if (tool.kind != ChatToolKind.AGENT || tool.state != ChatToolState.RUNNING) return@mapNotNull null
+        val detail = tool.detail as? ChatToolDetail.Agent ?: ChatToolDetail.Agent()
+        ChatHelper(item.id, detail.name, tool.target, detail.steps, detail.doing, detail.said)
+    }
+
+/**
+ * The helpers that work for the agent: each one's task, the step that it takes and how many it
+ * took. A helper's row shows what it said last at a tap.
+ */
+@Composable
+private fun ChatHelpers(helpers: List<ChatHelper>, agent: AgentKind, modifier: Modifier = Modifier) {
+    val colors = KodosiTheme.colors
+    var open by rememberSaveable { mutableStateOf(true) }
+    var saying by rememberSaveable { mutableStateOf(emptySet<String>()) }
+    val turn by animateFloatAsState(if (open) 90f else -90f, snappy(), label = "helpers chevron")
+    val action = stringResource(if (open) R.string.chat_hide_helpers else R.string.chat_show_helpers)
+    Column(
+        modifier.fillMaxWidth().raised(colors, RoundedCornerShape(Radius.control)).padding(horizontal = 12.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(
+                remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClickLabel = action
+            ) { open = !open },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppIcon(AppSymbol.FRIENDS, Modifier.size(12.dp), tint = colors.inkMuted)
+            Spacer(Modifier.width(7.dp))
+            Text(
+                pluralStringResource(R.plurals.chat_helpers, helpers.size, helpers.size),
+                style = KodosiType.footnote,
+                color = colors.inkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(6.dp))
+            AppIcon(AppSymbol.FORWARD, Modifier.size(8.dp).graphicsLayer { rotationZ = turn }, tint = colors.inkFaint)
+        }
+        Unfolding(open) {
+            Column(Modifier.padding(bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                helpers.forEach { helper ->
+                    key(helper.id) {
+                        HelperLine(helper, agent, helper.id in saying) {
+                            saying = if (helper.id in saying) saying - helper.id else saying + helper.id
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val HelperSteps = KodosiType.caption.copy(fontWeight = FontWeight.Normal, fontFeatureSettings = "tnum")
+
+@Composable
+private fun HelperLine(helper: ChatHelper, agent: AgentKind, says: Boolean, press: () -> Unit) {
+    val colors = KodosiTheme.colors
+    val action = stringResource(if (says) R.string.chat_hide_helper_said else R.string.chat_show_helper_said)
+    val title = buildAnnotatedString {
+        if (helper.kind.isNotEmpty()) withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(helper.kind) }
+        when {
+            helper.task.isEmpty() -> Unit
+            helper.kind.isEmpty() -> append(helper.task)
+            else -> withStyle(SpanStyle(color = colors.inkMuted)) { append(" · ${helper.task}") }
+        }
+    }
+    Row(
+        Modifier.fillMaxWidth().clickable(
+            remember { MutableInteractionSource() },
+            indication = null,
+            role = Role.Button,
+            onClickLabel = action,
+            onClick = press
+        )
+    ) {
+        AgentMark(agent, 18.dp, activity = MarkActivity.WORKING)
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = KodosiType.footnote, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (helper.doing != null || helper.steps > 0) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    helper.doing?.let { step ->
+                        AppIcon(ChatWords.symbol(step.kind), Modifier.size(11.dp), tint = colors.inkFaint)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            step.target,
+                            style = ChatType.monoCaption,
+                            color = colors.inkMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.MiddleEllipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        pluralStringResource(R.plurals.chat_steps, helper.steps, helper.steps),
+                        style = HelperSteps,
+                        color = colors.inkFaint,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
+            Unfolding(says && helper.said.isNotEmpty()) {
+                Text(
+                    rememberWords(helper.said, true),
+                    style = KodosiType.footnote,
+                    color = colors.inkMuted,
+                    maxLines = 6,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
 /** Whether the menus of the facts are open, and the agent's part of the terminal's actions. */
 private class FactsMenus(
     val model: Boolean,
@@ -468,19 +625,12 @@ private fun ModelFact(
     }
 }
 
-/** The use key with the helpers and the background commands after it; without [menus] it only takes its room. */
+/** The use key with the background commands after it; without [menus] it only takes its room. */
 @Composable
 private fun UseFacts(facts: ChatFacts, named: Boolean, menus: FactsMenus?) {
     Row(horizontalArrangement = Arrangement.spacedBy(FactsGap), verticalAlignment = Alignment.CenterVertically) {
         if (facts.context != null || facts.limits.isNotEmpty() || (facts.cost ?: 0.0) > 0) {
             ChatUsageKey(facts, named, menus?.usage == true, menus?.setUsage ?: {}, menus != null)
-        }
-        if (facts.helpers > 0) {
-            Count(
-                AppSymbol.FRIENDS,
-                facts.helpers,
-                pluralStringResource(R.plurals.chat_helpers, facts.helpers, facts.helpers)
-            )
         }
         if (facts.background > 0) {
             Count(

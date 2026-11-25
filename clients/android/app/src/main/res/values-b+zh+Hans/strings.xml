@@ -442,6 +442,10 @@
     <string name="chat_context_used">上下文：已用 %1$d%%</string>
     <string name="chat_show_tasks">显示任务</string>
     <string name="chat_hide_tasks">隐藏任务</string>
+    <string name="chat_show_helpers">显示助手</string>
+    <string name="chat_hide_helpers">隐藏助手</string>
+    <string name="chat_show_helper_said">显示助手说的话</string>
+    <string name="chat_hide_helper_said">隐藏助手说的话</string>
     <string name="chat_takes_next">Agent 会在它的终端中接收下一条消息。</string>
     <string name="chat_in_background">后台</string>
     <plurals name="chat_helpers">

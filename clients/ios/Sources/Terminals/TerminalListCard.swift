@@ -30,6 +30,9 @@ struct TerminalListCard: View {
                 if !viewers.isEmpty {
                     AvatarStack(people: viewers, size: 20, limit: 3)
                 }
+                if session.workingHelpers > 0 {
+                    HelperMarks(session: session).transition(AnyTransition.pop)
+                }
                 if let sign {
                     StatusSign(form: sign, size: 13).transition(AnyTransition.pop)
                 } else if session.isTroubled {
@@ -41,6 +44,7 @@ struct TerminalListCard: View {
             }
         }
         .animation(theme.motion.snappy, value: sign)
+        .animation(theme.motion.snappy, value: session.workingHelpers > 0)
         .accessibilityValue(session.projectName.map { Text("In \($0)") } ?? Text(verbatim: ""))
     }
 }
