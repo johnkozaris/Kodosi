@@ -1,4 +1,3 @@
-#[cfg(unix)]
 use std::fs;
 use std::path::Path;
 
@@ -721,7 +720,7 @@ fn kodosi_leaves_no_plugin_in_antigravity_s_folder_when_it_stops() {
     let notes = root.join("data").join("agents");
     write_notes(&notes).unwrap();
     let home = root.join("home");
-    std::fs::create_dir_all(&home).unwrap();
+    fs::create_dir_all(&home).unwrap();
     let target = home.join(".gemini/config/plugins/kodosi");
 
     mount_antigravity_plugin(&home, &notes, false).unwrap();
