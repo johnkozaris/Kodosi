@@ -575,13 +575,17 @@ impl Browser {
         }
         prepare(&self.places).await?;
         let mut command = agent_browser_command(&self.places.binary, &self.places.sockets);
-        // Other users of the computer can read a command line, but not the environment.
+        // Other users of the computer can read a command line, but not the environment, so the
+        // key goes in the environment. The address goes on the command line: agent-browser takes
+        // an address from the environment only for a session that has none yet, and each new
+        // window of the terminal has a new address.
         command
-            .env("AGENT_BROWSER_CDP", driver.address())
             .env(
                 "AGENT_BROWSER_CDP_HEADERS",
                 serde_json::json!({ "Authorization": driver.authorization() }).to_string(),
             )
+            .arg("--cdp")
+            .arg(driver.address())
             .arg("--session")
             .arg(self.terminal.id.simple().to_string())
             .arg("--config")
