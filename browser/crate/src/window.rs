@@ -148,6 +148,7 @@ pub struct Window {
     open: watch::Receiver<bool>,
     used: watch::Receiver<Option<Instant>>,
     emptied: Arc<AtomicBool>,
+    watched: Arc<AtomicBool>,
 }
 
 impl Window {
@@ -195,6 +196,10 @@ impl Window {
     /// Whether the window ended because its last tab closed, as a browser's window does.
     pub fn emptied(&self) -> bool {
         self.emptied.load(Ordering::Acquire)
+    }
+
+    pub fn is_watched(&self) -> bool {
+        self.watched.load(Ordering::Acquire)
     }
 
     pub fn used_at(&self) -> Option<Instant> {
@@ -319,8 +324,10 @@ pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Resul
         open,
         used,
         emptied: Arc::default(),
+        watched: Arc::default(),
     };
     let emptied = Arc::clone(&window.emptied);
+    let watched = Arc::clone(&window.watched);
     let stopped = engine.stopped();
     let live = Live::new(
         engine,
@@ -331,7 +338,11 @@ pub(crate) fn open(engine: Arc<Engine>, address: &str, folder: PathBuf) -> Resul
         window.events.downgrade(),
     );
     tokio::spawn(async move {
-        emptied.store(live.run(events, stopped).await, Ordering::Release);
+        emptied.store(
+            live.run(events, stopped, Arc::clone(&watched)).await,
+            Ordering::Release,
+        );
+        watched.store(false, Ordering::Release);
         open_in.send_replace(false);
     });
     Ok(window)
@@ -541,6 +552,7 @@ impl Live {
         mut self,
         mut events: mpsc::Receiver<Event>,
         mut stopped: watch::Receiver<bool>,
+        watched: Arc<AtomicBool>,
     ) -> bool {
         let mut tick = tokio::time::interval(TICK);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -564,6 +576,7 @@ impl Live {
                 }
                 _ = stopped.changed() => break,
             }
+            watched.store(self.watched(), Ordering::Release);
         }
         self.engine.command(ToEngine::Stop { window: self.id });
         self.engine
@@ -1869,7 +1882,7 @@ mod tests {
     async fn a_window_ends_when_its_last_tab_closes_but_not_while_it_waits_for_its_first() {
         let (events_in, events) = mpsc::channel(8);
         let (_stop, stopped) = watch::channel(false);
-        let running = tokio::spawn(live().run(events, stopped));
+        let running = tokio::spawn(live().run(events, stopped, Arc::default()));
         let tabs = |ids: &[i64]| Event::Tabs {
             tabs: ids
                 .iter()
