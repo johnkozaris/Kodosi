@@ -138,16 +138,16 @@ public sealed class PushServiceTests
         Assert.All(messages, sent => Assert.Equal(("https://fcm.googleapis.com/v1/projects/kodosi-test/messages:send", "Bearer google-access"),
             (sent.Uri.ToString(), sent.Headers["Authorization"])));
         Assert.Equal(
-            """{"message":{"token":"fcm:token-1","data":{"pushed":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d:claude:blocked:permission:1 0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e::done::0"},"android":{"priority":"HIGH","collapse_key":"pushed","ttl":"3600s"}}}""",
+            """{"message":{"fid":"fcm:token-1","data":{"pushed":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d:claude:blocked:permission:1 0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e::done::0"},"android":{"priority":"HIGH","collapse_key":"pushed","ttl":"3600s"}}}""",
             messages[0].Body);
         Assert.Equal(
-            """{"message":{"token":"fcm:token-1","data":{"pushed":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d:claude:blocked::0 0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e::done::0"},"android":{"priority":"HIGH","collapse_key":"pushed","ttl":"3600s"}}}""",
+            """{"message":{"fid":"fcm:token-1","data":{"pushed":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d:claude:blocked::0 0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e::done::0"},"android":{"priority":"HIGH","collapse_key":"pushed","ttl":"3600s"}}}""",
             messages[1].Body);
         Assert.Equal(
-            """{"message":{"token":"fcm:token-1","data":{"pushed":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d::error::0 0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e::done::0"},"android":{"priority":"NORMAL","collapse_key":"pushed","ttl":"3600s"}}}""",
+            """{"message":{"fid":"fcm:token-1","data":{"pushed":"0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0d::error::0 0196d0a1-8f3e-7c2a-9b4d-5e6f7a8b9c0e::done::0"},"android":{"priority":"NORMAL","collapse_key":"pushed","ttl":"3600s"}}}""",
             messages[2].Body);
         Assert.Equal(
-            """{"message":{"token":"fcm:token-1","data":{"pushed":""},"android":{"priority":"NORMAL","collapse_key":"pushed","ttl":"3600s"}}}""",
+            """{"message":{"fid":"fcm:token-1","data":{"pushed":""},"android":{"priority":"NORMAL","collapse_key":"pushed","ttl":"3600s"}}}""",
             messages[3].Body);
 
         clock.Advance(TimeSpan.FromSeconds(3599) - TimeSpan.FromMinutes(5));
@@ -167,9 +167,7 @@ public sealed class PushServiceTests
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.NotFound, """{"error":{"code":404,"message":"Requested entity was not found.","status":"NOT_FOUND","details":[{"@type":"type.googleapis.com/google.firebase.fcm.v1.FcmError","errorCode":"UNREGISTERED"}]}}""", "Gone")]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":{"code":400,"message":"The registration token is not a valid FCM registration token","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.firebase.fcm.v1.FcmError","errorCode":"INVALID_ARGUMENT"}]}}""", "Gone")]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":{"code":400,"message":"Invalid value","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.BadRequest","fieldViolations":[{"field":"message.token","description":"Invalid registration token"}]}]}}""", "Gone")]
+    [InlineData(HttpStatusCode.NotFound, """{"error":{"code":404,"message":"NotRegistered","status":"NOT_FOUND","details":[{"@type":"type.googleapis.com/google.firebase.fcm.v1.FcmError","errorCode":"UNREGISTERED"}]}}""", "Gone")]
     [InlineData(HttpStatusCode.BadRequest, """{"error":{"code":400,"message":"Invalid value at 'message.data[0].value'","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.BadRequest","fieldViolations":[{"field":"message.data[0].value"}]}]}}""", "Refused")]
     [InlineData(HttpStatusCode.ServiceUnavailable, """{"error":{"code":503,"status":"UNAVAILABLE"}}""", "Retry")]
     public async Task GoogleSaysWhichTokensAreGone(HttpStatusCode status, string error, string outcome)

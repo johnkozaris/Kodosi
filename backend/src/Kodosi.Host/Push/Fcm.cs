@@ -24,12 +24,11 @@ internal sealed class Fcm(FcmSettings settings, IHttpClientFactory http, TimePro
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await AccessAsync(client, ct));
             using var response = await client.SendAsync(request, ct);
             if (response.IsSuccessStatusCode) return new(Delivered.Sent);
-            var (code, aboutToken) = await ErrorAsync(response, ct);
+            var code = await ErrorAsync(response, ct);
             var detail = $"{(int)response.StatusCode} {code}";
             switch (response.StatusCode)
             {
                 case HttpStatusCode.NotFound when code == "UNREGISTERED":
-                case HttpStatusCode.BadRequest when aboutToken:
                     return new(Delivered.Gone, detail);
                 case HttpStatusCode.Unauthorized:
                     access = null;
@@ -51,12 +50,12 @@ internal sealed class Fcm(FcmSettings settings, IHttpClientFactory http, TimePro
         }
     }
 
-    internal static byte[] Payload(string token, PushNotice notice) => PushJson.Written(json =>
+    internal static byte[] Payload(string installationId, PushNotice notice) => PushJson.Written(json =>
     {
         var alert = notice.Alert;
         json.WriteStartObject();
         json.WriteStartObject("message");
-        json.WriteString("token", token);
+        json.WriteString("fid", installationId);
         json.WriteStartObject("data");
         json.WriteString("pushed", string.Join(' ', notice.Pushed.Select(pushed =>
             $"{pushed.TerminalId}:{pushed.Status.Program}:{pushed.Status.State}:{pushed.Status.Kind}:{(alert is { Sound: true } && alert.TerminalId == pushed.TerminalId ? "1" : "0")}")));
@@ -119,29 +118,21 @@ internal sealed class Fcm(FcmSettings settings, IHttpClientFactory http, TimePro
         return PushJson.Signed(header, claims, bytes => settings.Key.SignData(bytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
     }
 
-    private static async Task<(string Code, bool AboutToken)> ErrorAsync(HttpResponseMessage response, CancellationToken ct)
+    private static async Task<string> ErrorAsync(HttpResponseMessage response, CancellationToken ct)
     {
         try
         {
             using var json = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync(ct));
-            if (!json.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object) return ("", false);
+            if (!json.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object) return "";
             var code = PushJson.Text(error, "status") ?? "";
-            var field = false;
             if (error.TryGetProperty("details", out var details) && details.ValueKind == JsonValueKind.Array)
                 foreach (var detail in details.EnumerateArray())
-                {
                     if (PushJson.Text(detail, "errorCode") is { } fcmCode) code = fcmCode;
-                    if (detail.ValueKind == JsonValueKind.Object && detail.TryGetProperty("fieldViolations", out var violations)
-                        && violations.ValueKind == JsonValueKind.Array)
-                        field |= violations.EnumerateArray().Any(violation => PushJson.Text(violation, "field") == "message.token");
-                }
-            var aboutToken = code == "INVALID_ARGUMENT"
-                && (field || PushJson.Text(error, "message")?.Contains("registration token", StringComparison.OrdinalIgnoreCase) == true);
-            return (code, aboutToken);
+            return code;
         }
         catch (JsonException)
         {
-            return ("", false);
+            return "";
         }
     }
 
