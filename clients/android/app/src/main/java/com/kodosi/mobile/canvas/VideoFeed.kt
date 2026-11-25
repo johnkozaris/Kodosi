@@ -96,6 +96,7 @@ abstract class VideoFeed(
             refused = { refused -> pipes.execute { if (decoder === refused) refuse() } },
             lost = { failed -> pipes.execute { if (decoder === failed) restart() } }
         )
+        shows()
         settle(width, height, density)
         restart()
     }
@@ -107,6 +108,7 @@ abstract class VideoFeed(
         pipes.execute {
             decoder?.close()
             decoder = null
+            shows()
             picture.value = false
             undecodable.value = false
             detached.countDown()
@@ -117,6 +119,7 @@ abstract class VideoFeed(
     private fun refuse() {
         decoder?.close()
         decoder = null
+        shows()
         undecodable.value = true
     }
 
@@ -150,6 +153,7 @@ abstract class VideoFeed(
     fun show(on: Boolean) = pipes.execute {
         if (active == on) return@execute
         active = on
+        shows()
         if (on) {
             join()
         } else {
@@ -301,7 +305,10 @@ abstract class VideoFeed(
         link.close()
         decoder?.close()
         decoder = null
+        shows()
     }
+
+    private fun shows() = pipes.shows(this, active && decoder != null)
 
     private companion object {
         const val HEADER = 7
@@ -436,6 +443,11 @@ internal class VideoDecoder(
             MediaFormat.createVideoFormat(type.mime, width, height).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_FRAME)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
+                setInteger(MediaFormat.KEY_PRIORITY, REALTIME)
+                // Qualcomm's decoders then run at their highest clock; others may refuse the rate.
+                if (QUALCOMM.any(chosen::startsWith)) {
+                    setInteger(MediaFormat.KEY_OPERATING_RATE, Short.MAX_VALUE.toInt())
+                }
                 val supported = next.supportedVendorParameters.toSet()
                 VENDOR_LOW_LATENCY.filterKeys { it in supported }.forEach { (key, value) -> setInteger(key, value) }
             },
@@ -523,6 +535,8 @@ internal class VideoDecoder(
     private companion object {
         const val TRIES = 3
         const val MAX_FRAME = 16 * 1024 * 1024
+        const val REALTIME = 0
+        val QUALCOMM = listOf("c2.qti.", "OMX.qcom.")
         const val CLOSE_MS = 500L
 
         // Switches of each vendor's decoders for the low latency that KEY_LOW_LATENCY asks of them.

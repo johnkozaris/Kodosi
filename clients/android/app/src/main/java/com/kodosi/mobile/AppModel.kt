@@ -7,6 +7,7 @@ import com.kodosi.mobile.account.AppLock
 import com.kodosi.mobile.account.SignInStage
 import com.kodosi.mobile.canvas.CanvasStore
 import com.kodosi.mobile.canvas.DocumentPages
+import com.kodosi.mobile.canvas.StreamingWifi
 import com.kodosi.mobile.canvas.VideoPipes
 import com.kodosi.mobile.dosi.DosiStore
 import com.kodosi.mobile.notifications.FirebaseConfiguration
@@ -93,7 +94,7 @@ class AppModel(
     val people = PeopleStore(commands)
     val dosi = DosiStore(commands)
     val canvas = CanvasStore(commands, words)
-    val video = VideoPipes(commands)
+    val video = VideoPipes(commands, wifi = StreamingWifi(application))
     internal val documents = DocumentPages(application, canvas, scope, ::notify)
     val lock = AppLock(preferences)
     val phase: StateFlow<Phase>

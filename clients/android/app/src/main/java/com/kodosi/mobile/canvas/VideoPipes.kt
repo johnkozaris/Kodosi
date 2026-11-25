@@ -15,12 +15,14 @@ import kotlinx.coroutines.yield
 // lower bitrate).
 class VideoPipes(
     private val commands: CommandSink,
-    thread: Executor = Executors.newSingleThreadExecutor { Thread(it, "Kodosi video") }
+    thread: Executor = Executors.newSingleThreadExecutor { Thread(it, "Kodosi video") },
+    private val wifi: StreamingWifi? = null
 ) : Executor by thread {
     val dispatcher: CoroutineDispatcher = thread.asCoroutineDispatcher()
 
     private val links = mutableListOf<DocumentLink>()
     private val feeds = mutableListOf<VideoFeed>()
+    private val showing = mutableSetOf<VideoFeed>()
     private val chosen = mutableSetOf<String>()
 
     @Volatile
@@ -30,6 +32,13 @@ class VideoPipes(
     // Matching raw `"pipe":"<id>"` bytes is safe because quotes inside JSON string values are
     // escaped and only pipe events have a "pipe" key.
     fun claims(json: ByteArray): Boolean = claimed.any(json::holds)
+
+    // Called on this executor's thread whenever a feed starts or stops decoding onto a surface.
+    internal fun shows(feed: VideoFeed, on: Boolean) {
+        val before = showing.isNotEmpty()
+        if (on) showing.add(feed) else showing.remove(feed)
+        if (showing.isNotEmpty() != before) wifi?.keep(showing.isNotEmpty())
+    }
 
     // Methods on the returned link must only be called on this executor's thread.
     fun link(session: String, key: String): DocumentLink = DocumentLink(commands, session, key, ::claim) {
