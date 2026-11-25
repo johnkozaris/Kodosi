@@ -1,5 +1,5 @@
-import AVFoundation
 import KodosiBridge
+import QuartzCore
 import SwiftUI
 
 #if os(macOS)
@@ -16,12 +16,11 @@ import SwiftUI
     }
 
     final class VideoSurface: NSView {
-        private let video = AVSampleBufferDisplayLayer()
+        private let player = VideoPlayer(layer: CAMetalLayer())
 
         init(feed: BrowserFeed) {
             super.init(frame: .zero)
-            video.videoGravity = .resizeAspect
-            layer = video
+            layer = player.layer
             wantsLayer = true
             show(feed)
         }
@@ -31,9 +30,23 @@ import SwiftUI
             nil
         }
 
+        override func layout() {
+            super.layout()
+            fit()
+        }
+
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            fit()
+        }
+
         func show(_ feed: BrowserFeed) {
-            let renderer = VideoRenderer(video.sampleBufferRenderer)
-            feed.show(on: self) { renderer.enqueue($0) }
+            let player = player
+            feed.show(on: self) { player.enqueue($0) }
+        }
+
+        private func fit() {
+            player.resize(to: bounds.size, scale: window?.backingScaleFactor ?? 1)
         }
     }
 
@@ -52,17 +65,14 @@ import SwiftUI
 
     final class VideoSurface: UIView {
         override static var layerClass: AnyClass {
-            AVSampleBufferDisplayLayer.self
+            CAMetalLayer.self
         }
 
-        private var video: AVSampleBufferDisplayLayer {
-            // swiftlint:disable:next force_cast
-            layer as! AVSampleBufferDisplayLayer
-        }
+        // swiftlint:disable:next force_cast
+        private lazy var player = VideoPlayer(layer: layer as! CAMetalLayer)
 
         init(feed: BrowserFeed) {
             super.init(frame: .zero)
-            video.videoGravity = .resizeAspect
             show(feed)
         }
 
@@ -71,32 +81,17 @@ import SwiftUI
             nil
         }
 
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            player.resize(to: bounds.size, scale: traitCollection.displayScale)
+        }
+
         func show(_ feed: BrowserFeed) {
-            let renderer = VideoRenderer(video.sampleBufferRenderer)
-            feed.show(on: self) { renderer.enqueue($0) }
+            let player = player
+            feed.show(on: self) { player.enqueue($0) }
         }
     }
 #endif
-
-/// Wraps `AVSampleBufferVideoRenderer` as `@unchecked Sendable`; AVFoundation accepts sample
-/// buffers from any thread, and frames arrive on the `BrowserPipes` task.
-private final class VideoRenderer: @unchecked Sendable {
-    private let renderer: AVSampleBufferVideoRenderer
-
-    init(_ renderer: AVSampleBufferVideoRenderer) {
-        self.renderer = renderer
-    }
-
-    /// Flushes a failed renderer and returns `false` so the feed requests a fresh keyframe.
-    func enqueue(_ sample: CMSampleBuffer) -> Bool {
-        let failed = renderer.status == .failed
-        if failed {
-            renderer.flush()
-        }
-        renderer.enqueue(sample)
-        return !failed
-    }
-}
 
 /// Renders the local `CALayerHost` when available, with `BrowserVideoView` underneath as a
 /// fallback still. While the layer is active, the video view matches the page's aspect ratio so a
@@ -107,8 +102,8 @@ struct BrowserPicture: View {
     let feed: BrowserFeed
     let blank: Bool
 
-    /// Returns `nil` in video-only mode so `AVSampleBufferDisplayLayer` handles aspect-fitting
-    /// directly without lagging behind frame size changes by a SwiftUI layout pass.
+    /// Returns `nil` in video-only mode so the video view fits each picture itself, without lagging
+    /// behind frame size changes by a SwiftUI layout pass.
     private var layerRatio: CGFloat? {
         feed.window.layer == nil ? nil : Self.ratio(of: feed.window.size)
     }

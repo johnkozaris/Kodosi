@@ -4,15 +4,14 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.graphics.SurfaceTexture
 import android.text.InputType
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.view.Surface
-import android.view.TextureView
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.view.ViewConfiguration
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
@@ -531,15 +530,15 @@ fun BrowserScreen(model: AppModel, session: String, browser: CanvasBrowser, ask:
 }
 
 @SuppressLint("ViewConstructor")
+// A SurfaceView hands the decoder's pictures straight to the display, a frame sooner than a
+// TextureView, which the app draws first.
 internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
     FrameLayout(context),
-    TextureView.SurfaceTextureListener {
-    private val texture = TextureView(context).also {
+    SurfaceHolder.Callback {
+    private val video = SurfaceView(context).also {
         addView(it, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        it.surfaceTextureListener =
-            this
+        it.holder.addCallback(this)
     }
-    private var surface: Surface? = null
     private var pressed = "left"
     private var clickCount = 0
     private var clickButton = ""
@@ -635,8 +634,8 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         val fit = minOf(width.toFloat() / shown.width, height.toFloat() / shown.height)
         val w = (shown.width * fit).toInt()
         val h = (shown.height * fit).toInt()
-        if (texture.layoutParams.width != w || texture.layoutParams.height != h) {
-            texture.layoutParams = LayoutParams(w, h, android.view.Gravity.CENTER)
+        if (video.layoutParams.width != w || video.layoutParams.height != h) {
+            video.layoutParams = LayoutParams(w, h, android.view.Gravity.CENTER)
         }
     }
 
@@ -644,18 +643,10 @@ internal class BrowserSurface(context: Context, private val feed: BrowserFeed) :
         fit()
         feed.resize(w, h, resources.displayMetrics.density)
     }
-    override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
-        surface = Surface(texture).also { feed.surface(it, this.width, this.height, resources.displayMetrics.density) }
-    }
-    override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = Unit
-    override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = feed.rendered()
-    override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-        feed.surface(null, 0, 0, 1f)
-        surface?.release()
-        surface =
-            null
-        return true
-    }
+    override fun surfaceCreated(holder: SurfaceHolder) =
+        feed.surface(holder.surface, width, height, resources.displayMetrics.density)
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
+    override fun surfaceDestroyed(holder: SurfaceHolder) = feed.detach()
 
     private fun countClick(button: String, x: Float, y: Float, pressedAt: Long) {
         val again = button == clickButton && pressedAt - releasedAt <= ViewConfiguration.getDoubleTapTimeout() &&

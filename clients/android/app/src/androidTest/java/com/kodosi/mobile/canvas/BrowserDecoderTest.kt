@@ -38,33 +38,49 @@ class BrowserDecoderTest {
     @Test
     fun aDecoderThatFailsAtEachTryMakesWayForTheNextOne() {
         val failing = { codec: VideoCodec, size: IntSize ->
-            listOf("c2.kodosi.missing.decoder") +
-                deviceDecoders(codec, size)
+            listOf("c2.kodosi.missing.decoder") + deviceDecoders(codec, size)
         }
-        BrowserDecoder(reader.surface, {}, refused = {}, lost = {}, decoders = failing).use { decoder ->
+        BrowserDecoder(reader.surface, {}, rendered = {}, refused = {}, lost = {}, decoders = failing).use { decoder ->
             assertEquals(IntSize(160, 96), stream(decoder, SMALLER, IntSize(160, 96)))
+        }
+    }
+
+    @Test
+    fun anHevcKeyframeShowsItsPicture() {
+        BrowserDecoder(reader.surface, {}, rendered = {}, refused = {}, lost = {}).use { decoder ->
+            assertEquals(IntSize(160, 96), stream(decoder, HEVC, IntSize(160, 96), VideoCodec.HEVC))
         }
     }
 
     @Test
     fun aDecoderThatFailsAtEachTryWithNoOtherLeftRefusesTheStreamOnce() {
         val refusals = LinkedBlockingQueue<BrowserDecoder>()
-        BrowserDecoder(reader.surface, {
-        }, refusals::add, lost = {}, decoders = { _, _ -> listOf("c2.kodosi.missing.decoder") })
-            .use { decoder ->
-                assertTrue(decoder.frame(Base64.getDecoder().decode(SMALLER), key = true, VideoCodec.H264))
-                assertEquals(decoder, refusals.poll(5, TimeUnit.SECONDS))
-                assertNull(refusals.poll(1, TimeUnit.SECONDS))
-            }
+        BrowserDecoder(
+            reader.surface,
+            {},
+            rendered = {},
+            refused = refusals::add,
+            lost = {},
+            decoders = { _, _ -> listOf("c2.kodosi.missing.decoder") }
+        ).use { decoder ->
+            assertTrue(decoder.frame(Base64.getDecoder().decode(SMALLER), key = true, VideoCodec.H264))
+            assertEquals(decoder, refusals.poll(5, TimeUnit.SECONDS))
+            assertNull(refusals.poll(1, TimeUnit.SECONDS))
+        }
     }
 
     // Software decoders (like the emulator's) buffer frames before emitting output, so resend the
     // keyframe until a decoded frame of the expected size arrives.
-    private fun stream(decoder: BrowserDecoder, frame: String, size: IntSize): IntSize? {
+    private fun stream(
+        decoder: BrowserDecoder,
+        frame: String,
+        size: IntSize,
+        codec: VideoCodec = VideoCodec.H264
+    ): IntSize? {
         val bytes = Base64.getDecoder().decode(frame)
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < end) {
-            decoder.frame(bytes, key = true, VideoCodec.H264)
+            decoder.frame(bytes, key = true, codec)
             if (pictures.poll(100, TimeUnit.MILLISECONDS) == size) return size
         }
         return null
@@ -74,5 +90,11 @@ class BrowserDecoderTest {
         const val SMALLER =
             "AAAAASdCwAyJigiGG8I83AgICB4QCEIwAAAAASjOPIAAAAABJbgAQACX///giigAfHAAEAuOAATn1/ffffffffPBm44Y++aDJf11" +
                 "11111110wZ11BlXXXXXXXXXTBnXUGVdddddddddMGddQZV111111110wZ11BlXXXXXXXXXTBnXg="
+
+        // A 160x96 keyframe from VideoToolbox.
+        const val HEVC =
+            "AAAAAUABDAP//wFgAAADALAAAAMAAAMAPAAABDAkAAAAAUIBAwFgAAADALAAAAMAAAMAPAAAoBQgYWIBDuRSCC5+E9C+ob1Q" +
+                "/qoI9VQT6qoK9VVBfqqqDPVVVBvqqqoO9VVVQf6qqqoEPVVVVSmoCAgIH8IBBAAAAAFEAcBy8FskAAAAASgBrwrbL09AU3/6" +
+                "OTvfPh//vg++gnG5/9nP/+6FT+u773+KRsn1Ht/32tg0oLvTTDe2W2A="
     }
 }

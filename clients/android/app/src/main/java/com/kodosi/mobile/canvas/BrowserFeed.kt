@@ -17,6 +17,8 @@ import com.kodosi.mobile.runtime.objects
 import com.kodosi.mobile.runtime.string
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -77,21 +79,35 @@ class BrowserFeed(
         pipes.execute { pipes.follow(this) }
     }
 
-    // TextureView retains its last frame on decoder stop, so only clear picture on surface change.
-    fun surface(surface: Surface?, width: Int, height: Int, density: Float) = pipes.execute {
+    // The surface keeps its last picture while a decoder starts again, so only a new surface clears
+    // the picture.
+    fun surface(surface: Surface, width: Int, height: Int, density: Float) = pipes.execute {
         decoder?.close()
         picture.value = false
         undecodable.value = false
-        decoder = surface?.let {
-            BrowserDecoder(
-                it,
-                sized = { shown -> pictureSize.value = shown },
-                refused = { refused -> pipes.execute { if (decoder === refused) refuse() } },
-                lost = { failed -> pipes.execute { if (decoder === failed) restart() } }
-            )
-        }
+        decoder = BrowserDecoder(
+            surface,
+            sized = { shown -> pictureSize.value = shown },
+            rendered = { shown -> pipes.execute { if (decoder === shown) picture.value = true } },
+            refused = { refused -> pipes.execute { if (decoder === refused) refuse() } },
+            lost = { failed -> pipes.execute { if (decoder === failed) restart() } }
+        )
         settle(width, height, density)
         restart()
+    }
+
+    // A SurfaceView's surface must have no producer once surfaceDestroyed returns, so this waits
+    // until the decoder lets go of it.
+    fun detach() {
+        val detached = CountDownLatch(1)
+        pipes.execute {
+            decoder?.close()
+            decoder = null
+            picture.value = false
+            undecodable.value = false
+            detached.countDown()
+        }
+        detached.await(DETACH_MS, TimeUnit.MILLISECONDS)
     }
 
     private fun refuse() {
@@ -99,8 +115,6 @@ class BrowserFeed(
         decoder = null
         undecodable.value = true
     }
-
-    fun rendered() = pipes.execute { picture.value = true }
 
     fun resize(width: Int, height: Int, density: Float) = pipes.execute { settle(width, height, density) }
 
@@ -283,6 +297,7 @@ class BrowserFeed(
         const val HEADER = 7
         const val KEY = 1
         const val SETTLE_MS = 250L
+        const val DETACH_MS = 1000L
     }
 }
 
@@ -299,6 +314,7 @@ internal fun deviceDecoders(codec: VideoCodec, size: IntSize): List<String> {
 internal class BrowserDecoder(
     private val surface: Surface,
     private val sized: (IntSize) -> Unit,
+    private val rendered: (BrowserDecoder) -> Unit,
     private val refused: (BrowserDecoder) -> Unit,
     private val lost: (BrowserDecoder) -> Unit,
     private val decoders: (VideoCodec, IntSize) -> List<String> = ::deviceDecoders
@@ -367,12 +383,24 @@ internal class BrowserDecoder(
                     feed()
                 }
 
+                // A timestamp of now shows the picture at the next refresh of the display.
                 override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
                     if (closed || this@BrowserDecoder.codec != codec) return
-                    runCatching { codec.releaseOutputBuffer(index, info.size > 0) }.onSuccess {
-                        if (info.size > 0 && !showed) {
+                    val shows = info.size > 0
+                    runCatching {
+                        if (shows) {
+                            codec.releaseOutputBuffer(
+                                index,
+                                System.nanoTime()
+                            )
+                        } else {
+                            codec.releaseOutputBuffer(index, false)
+                        }
+                    }.onSuccess {
+                        if (shows && !showed) {
                             showed = true
                             failures.remove(chosen)
+                            rendered(this@BrowserDecoder)
                         }
                     }
                 }
@@ -396,6 +424,8 @@ internal class BrowserDecoder(
             MediaFormat.createVideoFormat(type.mime, width, height).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_FRAME)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
+                val supported = next.supportedVendorParameters.toSet()
+                VENDOR_LOW_LATENCY.filterKeys { it in supported }.forEach { (key, value) -> setInteger(key, value) }
             },
             surface,
             null,
@@ -448,12 +478,16 @@ internal class BrowserDecoder(
         waiting = true
     }
 
+    // Returns once the codec let go of the surface, or after CLOSE_MS.
     override fun close() {
+        val released = CountDownLatch(1)
         handler.post {
             closed = true
             reset()
             thread.quitSafely()
+            released.countDown()
         }
+        released.await(CLOSE_MS, TimeUnit.MILLISECONDS)
     }
 
     // MediaFormat crop bounds are inclusive, hence + 1.
@@ -477,5 +511,16 @@ internal class BrowserDecoder(
     private companion object {
         const val TRIES = 3
         const val MAX_FRAME = 16 * 1024 * 1024
+        const val CLOSE_MS = 500L
+
+        // Switches of each vendor's decoders for the low latency that KEY_LOW_LATENCY asks of them.
+        val VENDOR_LOW_LATENCY = mapOf(
+            "vendor.qti-ext-dec-picture-order.enable" to 1,
+            "vendor.qti-ext-dec-low-latency.enable" to 1,
+            "vendor.rtc-ext-dec-low-latency.enable" to 1,
+            "vendor.low-latency.enable" to 1,
+            "vendor.hisi-ext-low-latency-video-dec.video-scene-for-low-latency-req" to 1,
+            "vendor.hisi-ext-low-latency-video-dec.video-scene-for-low-latency-rdy" to -1
+        )
     }
 }
