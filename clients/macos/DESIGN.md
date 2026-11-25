@@ -47,7 +47,7 @@ typography:
   body: {fontFamily: "system-ui", fontSize: "13pt"}
   footnote: {fontFamily: "system-ui", fontSize: "12pt"}
   caption: {fontFamily: "system-ui", fontSize: "11pt", fontWeight: 500}
-  mono: {fontFamily: "ui-monospace", fontSize: "12.5pt"}
+  mono: {fontFamily: "ui-monospace", fontSize: "12pt"}
 rounded: {xs: "6pt", sm: "8pt", md: "10pt", lg: "14pt", xl: "18pt", sheet: "22pt", tile: "12pt"}
 spacing: {sidebar: "252pt", dosi: "420pt", rail: "78pt", frame-inset: "8pt", header: "54pt", page: "36pt"}
 motion:

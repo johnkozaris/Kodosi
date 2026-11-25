@@ -6,7 +6,7 @@ import SwiftUI
 nonisolated enum DosiShelfFit {
     static let spacing: CGFloat = 4
     static let nameWidth: CGFloat = 112
-    static let nameSize: CGFloat = 11.5
+    static let nameSize: CGFloat = 11
 
     static func chip(_ name: String, sign: CGFloat?, theme: AppTheme) -> CGFloat {
         let font = NSFont.systemFont(ofSize: theme.scaled(nameSize), weight: .semibold)

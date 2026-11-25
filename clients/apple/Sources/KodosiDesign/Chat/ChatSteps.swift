@@ -120,7 +120,7 @@ struct ChatStepLine: View {
         HStack(spacing: 6) {
             StepSymbol(kind: tool.kind)
             Text(verbatim: ChatWords.step(tool))
-                .font(mac: 11.5, ios: .footnote, design: Self.code(tool) ? .monospaced : .default)
+                .font(mac: Self.code(tool) ? 11 : 12, ios: .footnote, design: Self.code(tool) ? .monospaced : .default)
                 .foregroundStyle(tool.state.isOpen ? theme.colors.ink : theme.colors.inkMuted)
                 .lineLimit(1).truncationMode(.middle)
             ChatStepState(state: tool.state)

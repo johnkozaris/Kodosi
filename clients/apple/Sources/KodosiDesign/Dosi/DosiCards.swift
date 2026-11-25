@@ -95,7 +95,7 @@ struct DosiQuestionCard: View {
                 if let reference = question.terminal, let session = place.terminal(reference) {
                     AgentMark(session: session, size: 18)
                 }
-                Text(question.question).font(mac: 12.5, ios: .subheadline, weight: .semibold).foregroundStyle(theme.colors.ink)
+                Text(question.question).font(mac: 12, ios: .subheadline, weight: .semibold).foregroundStyle(theme.colors.ink)
                     .textSelection(.enabled)
             }
             FlowLayout(spacing: 6) {
@@ -151,7 +151,7 @@ struct DosiNoticeView: View {
     var body: some View {
         switch notice.tone {
         case .stopped:
-            Text("Stopped", bundle: .module).font(mac: 10.5, ios: .caption2, design: .monospaced).foregroundStyle(theme.colors.inkFaint)
+            Text("Stopped", bundle: .module).font(mac: 10, ios: .caption2, design: .monospaced).foregroundStyle(theme.colors.inkFaint)
                 .padding(.horizontal, 8).controlHeight(18).background(theme.colors.surface, in: Capsule())
         case .failed, .signIn:
             VStack(alignment: .leading, spacing: 7) {
@@ -159,7 +159,7 @@ struct DosiNoticeView: View {
                     Image(systemName: notice.tone == .signIn ? "key.fill" : "exclamationmark.triangle.fill")
                         .font(mac: 12, ios: .footnote, weight: .semibold).foregroundStyle(theme.colors.caution)
                     Text(notice.tone == .signIn ? "Dosi needs you to sign in" : "Dosi stopped", bundle: .module)
-                        .font(mac: 12.5, ios: .subheadline, weight: .semibold).foregroundStyle(theme.colors.ink)
+                        .font(mac: 12, ios: .subheadline, weight: .semibold).foregroundStyle(theme.colors.ink)
                 }
                 if let text = notice.text, !text.isEmpty {
                     Text(text).appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted).textSelection(.enabled)

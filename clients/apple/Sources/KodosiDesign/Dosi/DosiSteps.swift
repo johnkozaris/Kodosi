@@ -23,7 +23,7 @@ struct DosiThought: View {
             }
             .buttonStyle(.plain).disabled(text.isEmpty)
             if open, !text.isEmpty {
-                Text(text).font(mac: 11.5, ios: .footnote).lineSpacing(2).foregroundStyle(theme.colors.inkFaint).textSelection(.enabled)
+                Text(text).font(mac: 12, ios: .footnote).lineSpacing(2).foregroundStyle(theme.colors.inkFaint).textSelection(.enabled)
                     .padding(.leading, 12)
                     .overlay(alignment: .leading) { Rectangle().fill(theme.colors.lifted).frame(width: 1) }
                     .padding(.leading, 4)
