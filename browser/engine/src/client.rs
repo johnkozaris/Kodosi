@@ -2,12 +2,12 @@ use std::os::raw::c_int;
 
 use cef::*;
 use shared_browser::{Dialog, DialogKind};
+use stream_encode::{Picture, refine::STILL_MS};
 
 #[cfg(target_os = "macos")]
 use crate::cf::{IOSurfaceGetHeight, IOSurfaceGetWidth};
 use crate::{
     cursor,
-    encode::STILL_MS,
     engine::{self, Capture, Origin, Painting, Shared},
     filters, renderer,
 };
@@ -192,7 +192,11 @@ wrap_render_handler! {
             if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
                 && capture.takes(width, height, Painting::Memory)
             {
-                capture.encoder.encode_pixels(pixels, width, height);
+                capture.encoder.encode(Picture::Pixels {
+                    bgra: pixels,
+                    width,
+                    height,
+                });
                 drawn(capture, dirty_rects, &self.shared);
             }
         }
@@ -225,7 +229,7 @@ wrap_render_handler! {
                 if let Some(capture) = capture.as_mut().filter(|capture| capture.tab == tab)
                     && capture.takes(width, height, Painting::Surface)
                 {
-                    capture.encoder.encode_surface(surface);
+                    capture.encoder.encode(Picture::Surface(surface));
                     drawn(capture, dirty_rects, &self.shared);
                 }
             }

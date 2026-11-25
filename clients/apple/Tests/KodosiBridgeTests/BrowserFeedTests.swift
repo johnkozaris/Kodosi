@@ -23,6 +23,22 @@ import Testing
 }
 
 @MainActor
+@Test func `a stream that moves to HEVC at a key frame goes on showing`() async throws {
+    let runtime = BrowserRuntime()
+    let shown = Shown()
+    runtime.feed.show(on: NSObject()) { _ in shown.add() }
+    let watching = Task { await runtime.feed.watch() }
+    defer { watching.cancel() }
+
+    let pipe = try await runtime.open()
+    try runtime.send(BrowserRuntime.keyFrame, on: pipe)
+    try runtime.send(BrowserRuntime.hevcKeyFrame(2), on: pipe)
+    try runtime.send(BrowserRuntime.hevcFrame(3), on: pipe)
+    #expect(try await runtime.messages(3) == ["ack", "ack", "ack"])
+    #expect(shown.count == 3)
+}
+
+@MainActor
 @Test func `a frame is acknowledged and shown while the main actor is busy`() async throws {
     let runtime = BrowserRuntime()
     let shown = Shown()
@@ -101,7 +117,7 @@ private final class Shown: Sendable {
 private final class BrowserRuntime {
     static let keyFrame: Data = {
         let start: [UInt8] = [0, 0, 0, 1]
-        let header: [UInt8] = [1, 0, 0, 0, 1, 1]
+        let header: [UInt8] = [1, 0, 0, 0, 1, 1, 0]
         let sequenceParameters: [UInt8] = [0x27, 0x42, 0x00, 0x0B, 0xAB, 0x41, 0x86, 0xF0, 0x2C, 0xC1, 0x4A]
         let pictureParameters: [UInt8] = [0x28, 0xCE, 0x3C, 0x80]
         let keyPicture: [UInt8] = [0x25, 0x88, 0x84]
@@ -111,9 +127,36 @@ private final class BrowserRuntime {
     static func frame(_ id: UInt32, anchor: Bool = false) -> Data {
         let start: [UInt8] = [0, 0, 0, 1]
         let number = withUnsafeBytes(of: id.bigEndian, Array.init)
-        let header: [UInt8] = [1] + number + [anchor ? 2 : 0]
+        let header: [UInt8] = [1] + number + [anchor ? 2 : 0, 0]
         let picture: [UInt8] = [0x21, 0xE0, 0x84]
         return Data(header + start + picture)
+    }
+
+    /// The parameter sets and picture of a 64x64 HEVC keyframe from VideoToolbox.
+    static func hevcKeyFrame(_ id: UInt32) -> Data {
+        let start: [UInt8] = [0, 0, 0, 1]
+        let videoParameters: [UInt8] = [
+            0x40, 0x01, 0x0C, 0x03, 0xFF, 0xFF, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00, 0xB0, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03,
+            0x00, 0x3C, 0x00, 0x00, 0x04, 0x30, 0x24,
+        ]
+        let sequenceParameters: [UInt8] = [
+            0x42, 0x01, 0x03, 0x01, 0x60, 0x00, 0x00, 0x03, 0x00, 0xB0, 0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x3C, 0x00,
+            0x00, 0xA0, 0x14, 0x20, 0x41, 0xC1, 0x8F, 0x88, 0x04, 0x3B, 0x91, 0x48, 0x20, 0xB9, 0xF8, 0x4F, 0x42, 0xFA, 0x86,
+            0xF5, 0x43, 0xFA, 0xA8, 0x23, 0xD5, 0x50, 0x4F, 0xAA, 0xA8, 0x2B, 0xD5, 0x55, 0x05, 0xFA, 0xAA, 0xA8, 0x33, 0xD5,
+            0x55, 0x50, 0x6F, 0xAA, 0xAA, 0xA8, 0x3B, 0xD5, 0x55, 0x55, 0x07, 0xFA, 0xAA, 0xAA, 0xA8, 0x10, 0xF5, 0x55, 0x55,
+            0x54, 0xA6, 0xA0, 0x20, 0x20, 0x20, 0x7F, 0x08, 0x04, 0x10,
+        ]
+        let pictureParameters: [UInt8] = [0x44, 0x01, 0xC0, 0x72, 0xF0, 0x5B, 0x24]
+        let keyPicture: [UInt8] = [0x28, 0x01, 0xAF, 0x0A, 0xDA, 0x34, 0x70, 0x41]
+        let header: [UInt8] = [1] + withUnsafeBytes(of: id.bigEndian, Array.init) + [1, 1]
+        return Data(
+            header + start + videoParameters + start + sequenceParameters + start + pictureParameters + start + keyPicture,
+        )
+    }
+
+    static func hevcFrame(_ id: UInt32) -> Data {
+        let header: [UInt8] = [1] + withUnsafeBytes(of: id.bigEndian, Array.init) + [0, 1]
+        return Data(header + [0, 0, 0, 1, 0x02, 0x01, 0xD0, 0x01, 0x83, 0x10])
     }
 
     static let terminalId = "01992e43-53db-7040-8e02-f6ebf4149b28"

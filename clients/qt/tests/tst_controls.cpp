@@ -234,9 +234,12 @@ void ControlsTest::theSharedBrowserAcknowledgesWithoutTheGuiThreadAndComesBackWi
     const auto watches = rig.watchesAfterOpening(back);
     QCOMPARE(watches.size(), 1);
     QVERIFY(!watches.first().value(QStringLiteral("opened")).toBool());
+    const auto decoders = watches.first().value(QStringLiteral("decoders")).toArray();
+    QCOMPARE(decoders.size(), 1);
+    QCOMPARE(decoders.first().toObject().value(QStringLiteral("codec")).toString(), QStringLiteral("h264"));
 
     QByteArray frame(1, '\x01');
-    frame += QByteArray::fromHex("0000000700") + QByteArray("delta");
+    frame += QByteArray::fromHex("000000070000") + QByteArray("delta");
     rig.commands.deliver(back, { { QStringLiteral("type"), QStringLiteral("document.frame") },
                                    { QStringLiteral("sequence"), 0 }, { QStringLiteral("more"), false },
                                    { QStringLiteral("data"), QString::fromLatin1(frame.toBase64()) } });

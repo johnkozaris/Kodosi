@@ -51,11 +51,11 @@ class BrowserPipesTest {
         val scope = CoroutineScope(SupervisorJob())
         try {
             scope.launch(pipes.dispatcher) { pipes.consume(runtime.browserEvents) }
-            BrowserFeed(pipes, "terminal", scope).show(true)
+            BrowserFeed(pipes, "terminal", scope, VideoCodec.decodable).show(true)
             val open = next(sent) { it.string("type") == "document.open" }.command
             commands.receive(answer("document.result", open.string("requestId"), "document.open"))
             val pipe = open.string("pipe")
-            val frame = Base64.getEncoder().encodeToString(byteArrayOf(1, 0, 0, 0, 7, 1, 0, 0, 0, 1, 0x65))
+            val frame = Base64.getEncoder().encodeToString(byteArrayOf(1, 0, 0, 0, 7, 1, 0, 0, 0, 0, 1, 0x65))
             runtime.onEvent(event("document.opened", """"pipe":"$pipe""""))
             runtime.onEvent(event("document.frame", """"pipe":"$pipe","sequence":0,"more":false,"data":"$frame""""))
             runtime.onEvent(event("sessions.snapshot", """"sessions":[]"""))

@@ -32,9 +32,13 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 // All mutable state is confined to the single-threaded BrowserPipes executor to preserve ordering
-// between UI calls and pipe events.
-class BrowserFeed(private val pipes: BrowserPipes, internal val session: String, scope: CoroutineScope) :
-    AutoCloseable {
+// between UI calls and pipe events. `decoders` tells the host what this device decodes.
+class BrowserFeed(
+    private val pipes: BrowserPipes,
+    internal val session: String,
+    scope: CoroutineScope,
+    private val decoders: List<JsonObject>
+) : AutoCloseable {
     val window: StateFlow<JsonObject>
         field = MutableStateFlow(fields())
     val icons: StateFlow<Map<String, ImageBitmap>>
@@ -202,7 +206,14 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
         val size = size ?: return
         sent = size
         watching = true
-        post(fields("type" to "watch", "size" to size, "opened" to pipes.takeChoice(session)))
+        post(
+            fields(
+                "type" to "watch",
+                "size" to size,
+                "decoders" to decoders,
+                "opened" to pipes.takeChoice(session)
+            )
+        )
     }
 
     private fun keepIcons(state: JsonObject) {
@@ -234,10 +245,11 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
         val id = ByteBuffer.wrap(bytes, 1, 4).order(ByteOrder.BIG_ENDIAN).int.toLong() and 0xffffffffL
         val key = bytes[5].toInt() and KEY != 0
         post(fields("type" to "ack", "frame" to id))
+        val codec = VideoCodec.of(bytes[6].toInt()) ?: return
         if (!key && !behind && id != (last?.plus(1)?.and(0xffffffffL))) restart()
         last = id
         if (behind && !key) return
-        if (decoder?.frame(bytes.copyOfRange(HEADER, bytes.size), key) != true) {
+        if (decoder?.frame(bytes.copyOfRange(HEADER, bytes.size), key, codec) != true) {
             restart()
             return
         }
@@ -268,15 +280,15 @@ class BrowserFeed(private val pipes: BrowserPipes, internal val session: String,
     }
 
     private companion object {
-        const val HEADER = 6
+        const val HEADER = 7
         const val KEY = 1
         const val SETTLE_MS = 250L
     }
 }
 
-// Return ranked AVC decoders because the default codec can reject a stream size another accepts.
-internal fun deviceDecoders(size: IntSize): List<String> {
-    val type = MediaFormat.MIMETYPE_VIDEO_AVC
+// Return ranked decoders because the default codec can reject a stream size another accepts.
+internal fun deviceDecoders(codec: VideoCodec, size: IntSize): List<String> {
+    val type = codec.mime
     val format = MediaFormat.createVideoFormat(type, size.width, size.height)
     return MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
         .filter { !it.isEncoder && !it.isAlias && type in it.supportedTypes }
@@ -289,42 +301,42 @@ internal class BrowserDecoder(
     private val sized: (IntSize) -> Unit,
     private val refused: (BrowserDecoder) -> Unit,
     private val lost: (BrowserDecoder) -> Unit,
-    private val decoders: (IntSize) -> List<String> = ::deviceDecoders
+    private val decoders: (VideoCodec, IntSize) -> List<String> = ::deviceDecoders
 ) : AutoCloseable {
     private val thread = HandlerThread("Kodosi browser decoder").apply { start() }
     private val handler = Handler(thread.looper)
     private val queued = AtomicInteger()
     private var codec: MediaCodec? = null
     private var name: String? = null
-    private var configured: IntSize? = null
+    private var configured: Stream? = null
     private var closed = false
     private var waiting = true
     private var showed = false
-    private var start: ByteArray? = null
+    private var start: Keyframe? = null
     private val failures = mutableMapOf<String, Int>()
     private val buffers = ArrayDeque<Int>()
     private val frames = ArrayDeque<ByteArray>()
 
-    fun frame(bytes: ByteArray, key: Boolean): Boolean {
+    fun frame(bytes: ByteArray, key: Boolean, codec: VideoCodec): Boolean {
         if (bytes.size > MAX_FRAME) return false
         if (queued.incrementAndGet() > 2) {
             queued.decrementAndGet()
             return false
         }
-        return handler.post { take(bytes, key) }.also { if (!it) queued.decrementAndGet() }
+        return handler.post { take(bytes, key, codec) }.also { if (!it) queued.decrementAndGet() }
     }
 
-    private fun take(bytes: ByteArray, key: Boolean) {
+    private fun take(bytes: ByteArray, key: Boolean, codec: VideoCodec) {
         if (closed || (waiting && !key)) {
             queued.decrementAndGet()
             return
         }
-        if (key) start = bytes
+        if (key) start = Keyframe(bytes, codec)
         try {
-            val size = if (key) H264.pictureSize(bytes) else null
-            if (size != null && size != configured) {
+            val stream = if (key) codec.pictureSize(bytes)?.let { Stream(codec, it) } else null
+            if (stream != null && stream != configured) {
                 reset()
-                create(size)
+                create(stream)
             }
             checkNotNull(codec)
             waiting = false
@@ -339,11 +351,12 @@ internal class BrowserDecoder(
         }
     }
 
-    private fun create(size: IntSize) {
-        val chosen = decoders(size).firstOrNull { failures.getOrDefault(it, 0) < TRIES } ?: throw NoDecoder()
+    private fun create(stream: Stream) {
+        val (type, size) = stream
+        val chosen = decoders(type, size).firstOrNull { failures.getOrDefault(it, 0) < TRIES } ?: throw NoDecoder()
         name = chosen
         showed = false
-        configured = size
+        configured = stream
         val next = MediaCodec.createByCodecName(chosen)
         codec = next
         next.setCallback(
@@ -376,11 +389,11 @@ internal class BrowserDecoder(
             },
             handler
         )
-        val video = requireNotNull(next.codecInfo.getCapabilitiesForType(TYPE).videoCapabilities)
+        val video = requireNotNull(next.codecInfo.getCapabilitiesForType(type.mime).videoCapabilities)
         val width = (size.width + video.widthAlignment - 1) / video.widthAlignment * video.widthAlignment
         val height = (size.height + video.heightAlignment - 1) / video.heightAlignment * video.heightAlignment
         next.configure(
-            MediaFormat.createVideoFormat(TYPE, width, height).apply {
+            MediaFormat.createVideoFormat(type.mime, width, height).apply {
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_FRAME)
                 setInteger(MediaFormat.KEY_LOW_LATENCY, 1)
             },
@@ -417,7 +430,7 @@ internal class BrowserDecoder(
         reset()
         if (failed != null) {
             failures[failed] = failures.getOrDefault(failed, 0) + 1
-            start?.let { frame(it, key = true) }
+            start?.let { frame(it.bytes, key = true, it.codec) }
         }
         lost(this)
     }
@@ -457,8 +470,11 @@ internal class BrowserDecoder(
 
     private class NoDecoder : Exception()
 
+    private data class Stream(val codec: VideoCodec, val size: IntSize)
+
+    private class Keyframe(val bytes: ByteArray, val codec: VideoCodec)
+
     private companion object {
-        const val TYPE = MediaFormat.MIMETYPE_VIDEO_AVC
         const val TRIES = 3
         const val MAX_FRAME = 16 * 1024 * 1024
     }

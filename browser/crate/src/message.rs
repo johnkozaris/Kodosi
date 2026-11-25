@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 mod wire;
 
 #[cfg(feature = "host")]
-pub(crate) use wire::{Frame, Input, KeyAction, MouseAction, MouseButton, ToViewer, ToWindow};
+pub(crate) use wire::{Act, Input, ToViewer, ToWindow};
 
 /// Authenticated viewer supplied by the host. `id` identifies a single view; multiple views
 /// belonging to the same user share `person`.
@@ -17,14 +17,6 @@ pub struct Viewer {
     pub name: String,
     /// True when the viewer runs on the same machine as the browser engine.
     pub local: bool,
-}
-
-/// Viewport dimensions in CSS pixels and device scale factor.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Size {
-    pub width: u32,
-    pub height: u32,
-    pub scale: f32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]

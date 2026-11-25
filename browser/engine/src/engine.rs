@@ -10,16 +10,20 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use cef::*;
 use shared_browser::{
-    Dialog, MenuItem, Size,
+    Dialog, MenuItem,
     link::{EngineTab, FromEngine, MOST_ICON, ToEngine},
+};
+use stream::Size;
+use stream_encode::{
+    Encoder, Settings,
+    refine::{Cleanup, REFINE_MS},
 };
 
 #[cfg(target_os = "macos")]
 use crate::layer::Layer;
 use crate::{
     client,
-    encode::{Cleanup, Encoder, REFINE_MS},
-    link::Link,
+    link::{Link, Pictures},
     renderer,
 };
 
@@ -82,6 +86,9 @@ wrap_app! {
 }
 
 pub(crate) fn start(link: Link) {
+    link.send(&FromEngine::Encodes {
+        codecs: Encoder::encodable(),
+    });
     ENGINE.with(|engine| {
         *engine.borrow_mut() = Some(Engine::new(link));
     });
@@ -870,6 +877,7 @@ fn run(command: ToEngine) {
         } => open_window(window, &address, size),
         ToEngine::Resize { window, size } => resize(window, size),
         ToEngine::Capture { .. }
+        | ToEngine::Format { .. }
         | ToEngine::Stop { .. }
         | ToEngine::Keyframe { .. }
         | ToEngine::Recover { .. }
@@ -963,17 +971,23 @@ fn resize(window: i64, size: Size) {
     }
 }
 
-/// Invalidates the view on capture start, keyframe, or recovery requests so static pages emit a
-/// frame immediately.
+/// Invalidates the view on capture start, format change, keyframe, or recovery requests so static
+/// pages emit a frame immediately.
 fn capture(command: &ToEngine) {
     let repaint_tab = with(|engine| match *command {
         ToEngine::Capture {
             window,
             tab,
             bitrate,
+            format,
         } => {
             let shared = engine.shared_of(window)?;
-            let encoder = Encoder::new(window, bitrate, engine.link().clone());
+            let pictures = Pictures {
+                window,
+                still: false,
+                link: engine.link().clone(),
+            };
+            let encoder = Encoder::new(Settings { format, bitrate }, Arc::new(pictures));
             *shared.capture.borrow_mut() = Some(Capture {
                 window,
                 tab,
@@ -982,6 +996,15 @@ fn capture(command: &ToEngine) {
                 settling: None,
             });
             engine.browser_of(tab)
+        }
+        ToEngine::Format { window, format } => {
+            let shared = engine.shared_of(window)?;
+            let mut capture = shared.capture.borrow_mut();
+            let capture = capture.as_mut()?;
+            capture.encoder.set_format(format);
+            engine
+                .browser_of(capture.tab)
+                .filter(|_| !capture.waits_for_page())
         }
         ToEngine::Stop { window } => {
             engine.shared_of(window)?.capture.borrow_mut().take();
@@ -1005,7 +1028,6 @@ fn capture(command: &ToEngine) {
                 .browser_of(capture.tab)
                 .filter(|_| !capture.waits_for_page())
         }
-        #[cfg(target_os = "macos")]
         ToEngine::Held { window, ref marks } => {
             let shared = engine.shared_of(window)?;
             if let Some(capture) = shared.capture.borrow_mut().as_mut() {

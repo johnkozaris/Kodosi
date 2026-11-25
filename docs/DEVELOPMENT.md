@@ -42,10 +42,11 @@ Run from the repository root (`just --list` shows every available recipe):
 | `just documents-app-check` | Format-check and lint the standalone Tauri documents app |
 | `just documents-app-run <files>` | Launch the standalone documents app with one window per file |
 | `just browser-check` | Format-check, lint, and test the shared browser crate and engine |
+| `just stream-check` | Format-check, lint, and test the stream crates and encoders |
 | `just browser-engine-build` | Build Kodosi Browser for development into `.tools/kodosi-browser/` |
 | `just rust-check` | Run all Rust formatting, Clippy, dependency, Ghostty, and test checks |
 | `just backend-check` | Verify the .NET SDK pin, build, and run backend tests (DB tests require Docker) |
-| `just check-all` | Run Rust, documents, browser, backend, and translation checks |
+| `just check-all` | Run Rust, documents, browser, stream, backend, and translation checks |
 | `just mac-build`, `just mac-check` | Build or fully check the macOS app |
 | `just linux-build`, `just linux-check` | Build or fully check the Linux app |
 | `just windows-check` | Build and check the Windows app (run on Windows) |
@@ -66,7 +67,7 @@ Run the checks covering everything you touched:
 | Area changed | Command |
 | --- | --- |
 | Runtime, protocol contract, or Rust dependency | `just rust-check` |
-| Live documents or shared browser | `just documents-check`, `just documents-app-check`, `just browser-check` |
+| Live documents, shared browser, or video streams | `just documents-check`, `just documents-app-check`, `just browser-check`, `just stream-check` |
 | Backend | `just backend-check` |
 | Sign-in theme or extension | `just sign-in-check` |
 | Any user-facing string | `just translations-check` |

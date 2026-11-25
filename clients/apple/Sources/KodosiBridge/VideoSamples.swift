@@ -1,29 +1,60 @@
 import CoreMedia
 import Foundation
 
-struct H264Samples {
-    private static let sequenceParameters: UInt8 = 7
-    private static let pictureParameters: UInt8 = 8
-    private static let pictures: Set<UInt8> = [1, 5]
+/// The codec byte in a frame's header.
+enum VideoCodec: UInt8, Sendable {
+    case h264 = 0
+    case hevc = 1
 
+    /// NAL unit types of the parameter sets, in the order a format description takes them.
+    fileprivate var parameterSets: [UInt8] {
+        switch self {
+        case .h264: [7, 8]
+        case .hevc: [32, 33, 34]
+        }
+    }
+
+    fileprivate func type(of unit: Data) -> UInt8? {
+        unit.first.map { header in
+            switch self {
+            case .h264: header & 0x1F
+            case .hevc: (header >> 1) & 0x3F
+            }
+        }
+    }
+
+    fileprivate func isPicture(_ type: UInt8) -> Bool {
+        switch self {
+        case .h264: type == 1 || type == 5
+        case .hevc: type < 32
+        }
+    }
+}
+
+/// Turns Annex B frames into samples for VideoToolbox, keeping the format of the last parameter
+/// sets. A stream changes codec only at a keyframe, which carries the new codec's sets.
+struct VideoSamples {
+    private var codec: VideoCodec?
     private var format: CMVideoFormatDescription?
 
-    mutating func sample(of data: Data) -> CMSampleBuffer? {
-        var sequence: Data?
-        var picture: Data?
+    mutating func sample(of data: Data, codec: VideoCodec) -> CMSampleBuffer? {
+        if codec != self.codec {
+            self.codec = codec
+            format = nil
+        }
+        var sets: [UInt8: Data] = [:]
         var slices: [Data] = []
         for unit in Self.units(of: data) {
-            guard let type = unit.first.map({ $0 & 0x1F }) else { continue }
-            if type == Self.sequenceParameters {
-                sequence = unit
-            } else if type == Self.pictureParameters {
-                picture = unit
-            } else if Self.pictures.contains(type) {
+            guard let type = codec.type(of: unit) else { continue }
+            if codec.parameterSets.contains(type) {
+                sets[type] = unit
+            } else if codec.isPicture(type) {
                 slices.append(unit)
             }
         }
-        if let sequence, let picture {
-            format = Self.format(sequence, picture) ?? format
+        let units = codec.parameterSets.compactMap { sets[$0] }
+        if units.count == codec.parameterSets.count {
+            format = Self.format(codec, units) ?? format
         }
         guard let format, !slices.isEmpty else { return nil }
         return Self.sample(slices, format)
@@ -57,20 +88,26 @@ struct H264Samples {
         return ranges.map { data[data.startIndex + $0.lowerBound ..< data.startIndex + $0.upperBound] }
     }
 
-    private static func format(_ sequence: Data, _ picture: Data) -> CMVideoFormatDescription? {
-        let first = [UInt8](sequence)
-        let second = [UInt8](picture)
-        return first.withUnsafeBufferPointer { firstBytes in
-            second.withUnsafeBufferPointer { secondBytes in
-                let sets = [firstBytes.baseAddress!, secondBytes.baseAddress!]
-                let sizes = [first.count, second.count]
-                var format: CMVideoFormatDescription?
-                let status = CMVideoFormatDescriptionCreateFromH264ParameterSets(
-                    allocator: kCFAllocatorDefault, parameterSetCount: 2, parameterSetPointers: sets,
+    private static func format(_ codec: VideoCodec, _ units: [Data]) -> CMVideoFormatDescription? {
+        let bytes = [UInt8](units.joined())
+        let sizes = units.map(\.count)
+        let starts = sizes.indices.map { sizes[..<$0].reduce(0, +) }
+        return bytes.withUnsafeBufferPointer { joined in
+            let sets = starts.map { joined.baseAddress! + $0 }
+            var format: CMVideoFormatDescription?
+            let status = switch codec {
+            case .h264:
+                CMVideoFormatDescriptionCreateFromH264ParameterSets(
+                    allocator: kCFAllocatorDefault, parameterSetCount: sets.count, parameterSetPointers: sets,
                     parameterSetSizes: sizes, nalUnitHeaderLength: 4, formatDescriptionOut: &format,
                 )
-                return status == noErr ? format : nil
+            case .hevc:
+                CMVideoFormatDescriptionCreateFromHEVCParameterSets(
+                    allocator: kCFAllocatorDefault, parameterSetCount: sets.count, parameterSetPointers: sets,
+                    parameterSetSizes: sizes, nalUnitHeaderLength: 4, extensions: nil, formatDescriptionOut: &format,
+                )
             }
+            return status == noErr ? format : nil
         }
     }
 

@@ -23,7 +23,7 @@ namespace kodosi {
 namespace {
 constexpr char messageTag = 0;
 constexpr char frameTag = 1;
-constexpr qsizetype frameHeader = 6;
+constexpr qsizetype frameHeader = 7;
 constexpr char keyFlag = 1;
 constexpr int settleWait = 250;
 constexpr qsizetype mostTyped = 16 * 1024;
@@ -379,8 +379,12 @@ void BrowserVideo::watch()
 {
     m_sentSize = sizeMessage();
     m_watching = true;
+    // OpenH264 decodes H.264 only, so the host streams H.264 while this view watches.
+    const QJsonObject h264 { { QStringLiteral("codec"), QStringLiteral("h264") },
+        { QStringLiteral("hardware"), false } };
     post({ { QStringLiteral("type"), QStringLiteral("watch") },
         { QStringLiteral("size"), m_sentSize },
+        { QStringLiteral("decoders"), QJsonArray { h264 } },
         { QStringLiteral("opened"), m_canvas && m_canvas->takeChoice(m_sessionId) } });
 }
 

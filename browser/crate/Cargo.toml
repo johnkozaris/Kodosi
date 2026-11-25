@@ -67,6 +67,7 @@ getrandom = { version = "0.4.3", features = ["std"], optional = true }
 rusqlite = { version = "0.43.0", default-features = false, features = ["bundled"], optional = true }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", optional = true }
+stream = { path = "../../stream/crates/stream" }
 thiserror = { version = "2.0.21", optional = true }
 tokio = { version = "1.54.1", features = ["fs", "io-util", "macros", "net", "process", "rt", "sync", "time"], optional = true }
 tokio-tungstenite = { version = "0.30.0", optional = true }

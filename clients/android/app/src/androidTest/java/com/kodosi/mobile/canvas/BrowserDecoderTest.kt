@@ -37,7 +37,10 @@ class BrowserDecoderTest {
 
     @Test
     fun aDecoderThatFailsAtEachTryMakesWayForTheNextOne() {
-        val failing = { size: IntSize -> listOf("c2.kodosi.missing.decoder") + deviceDecoders(size) }
+        val failing = { codec: VideoCodec, size: IntSize ->
+            listOf("c2.kodosi.missing.decoder") +
+                deviceDecoders(codec, size)
+        }
         BrowserDecoder(reader.surface, {}, refused = {}, lost = {}, decoders = failing).use { decoder ->
             assertEquals(IntSize(160, 96), stream(decoder, SMALLER, IntSize(160, 96)))
         }
@@ -46,9 +49,10 @@ class BrowserDecoderTest {
     @Test
     fun aDecoderThatFailsAtEachTryWithNoOtherLeftRefusesTheStreamOnce() {
         val refusals = LinkedBlockingQueue<BrowserDecoder>()
-        BrowserDecoder(reader.surface, {}, refusals::add, lost = {}, decoders = { listOf("c2.kodosi.missing.decoder") })
+        BrowserDecoder(reader.surface, {
+        }, refusals::add, lost = {}, decoders = { _, _ -> listOf("c2.kodosi.missing.decoder") })
             .use { decoder ->
-                assertTrue(decoder.frame(Base64.getDecoder().decode(SMALLER), key = true))
+                assertTrue(decoder.frame(Base64.getDecoder().decode(SMALLER), key = true, VideoCodec.H264))
                 assertEquals(decoder, refusals.poll(5, TimeUnit.SECONDS))
                 assertNull(refusals.poll(1, TimeUnit.SECONDS))
             }
@@ -60,7 +64,7 @@ class BrowserDecoderTest {
         val bytes = Base64.getDecoder().decode(frame)
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (System.nanoTime() < end) {
-            decoder.frame(bytes, key = true)
+            decoder.frame(bytes, key = true, VideoCodec.H264)
             if (pictures.poll(100, TimeUnit.MILLISECONDS) == size) return size
         }
         return null

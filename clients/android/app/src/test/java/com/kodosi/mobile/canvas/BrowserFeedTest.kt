@@ -3,12 +3,14 @@ package com.kodosi.mobile.canvas
 import com.kodosi.mobile.runtime.RuntimeJson
 import com.kodosi.mobile.runtime.SentCommands
 import com.kodosi.mobile.runtime.event
+import com.kodosi.mobile.runtime.fields
 import com.kodosi.mobile.runtime.string
 import java.util.Base64
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonPrimitive
@@ -35,6 +37,7 @@ class BrowserFeedTest {
 
         news("document.opened", pipe)
         assertEquals(true, watched()?.get("opened")?.jsonPrimitive?.boolean)
+        assertEquals(JsonArray(decoders), watched()?.get("decoders"))
         news("document.lost", pipe, """"message":"Studio is offline."""")
         assertTrue(feed.reconnecting.value)
         assertEquals("Studio is offline.", feed.failure.value)
@@ -77,8 +80,10 @@ class BrowserFeedTest {
         assertEquals(false, look())
     }
 
+    private val decoders = listOf(fields("codec" to "h264", "hardware" to true))
+
     private fun TestScope.feed() =
-        BrowserFeed(pipes, "terminal", backgroundScope).also { it.resize(1080, 1740, 2.625f) }
+        BrowserFeed(pipes, "terminal", backgroundScope, decoders).also { it.resize(1080, 1740, 2.625f) }
 
     private fun look(): Boolean? {
         val pipe = sent.last("document.open").string("pipe")

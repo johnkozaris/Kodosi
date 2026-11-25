@@ -205,14 +205,32 @@ The viewport tracks the dimensions of the active viewing device (the one that la
 another of the same user's devices once they open the browser there). Encoding targets the
 highest-DPI viewer's pixel density within encoder limits, and static pages progressively refine
 until sharp. During resizes, clients hold their previous frame until Chromium finishes painting at
-the new size, hiding Chromium's placeholder flashes. Slow clients drop stale frames and recover on
-the next keyframe (or on macOS hosts, a small delta frame referencing only frames acknowledged by
-all viewers).
+the new size, hiding Chromium's placeholder flashes.
 
 Encoded frames and pointer/keyboard input travel over the terminal's encrypted channel. The agent
 controls its window via `agent-browser` over a host-managed local port scoped strictly to that
 terminal's tabs. Private terminals share one persistent browser profile; shared terminals each get
 an isolated, ephemeral profile tied to the terminal's lifetime.
+
+### Video streams
+
+[stream/](../stream/) is a standalone library for live video with no Kodosi imports: the protocol
+between a stream and its viewers, the flow control that decides which viewer takes which frame, and
+the encoders, chosen at run time from what the computer has (VideoToolbox with Metal conversion on
+macOS, OpenH264 elsewhere). The browser engine encodes with it, and the host's window runs its
+flow control.
+
+Each viewer declares the codecs it decodes and which of them in hardware. A stream uses HEVC only
+while its source encodes it and every viewer decodes it in hardware, since decoding HEVC in
+software costs more than the bits it saves; otherwise it uses H.264, which every viewer decodes.
+When the viewers change, the encoder restarts in the new codec with a keyframe, and every frame
+names its codec. Pictures are BT.709 limited range, tagged in the stream and converted the same
+way by every client.
+
+Slow viewers skip frames and recover on the next keyframe. When every viewer supports them, the
+encoder also marks long-term references, and a viewer that missed frames recovers from an anchor:
+a small frame that references only marks every viewer acknowledged. Some hardware decoders freeze
+on long-term references, so a stream with any viewer that does not declare them has none.
 
 ## Localization
 

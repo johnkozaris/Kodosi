@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::link::FrameKind;
+use crate::FrameKind;
 
 /// Max unacked bytes in flight per viewer before dropping frames.
 const WAITING_MOST: usize = 2 * 1024 * 1024;
@@ -21,7 +21,7 @@ const ANCHOR_FLOOR: Duration = Duration::from_millis(250);
 const STEADY: Duration = Duration::from_secs(10);
 const MOST_FALLS: u32 = 3;
 /// Inactivity timeout before evicting a viewer that stops acking frames.
-pub(crate) const HOPELESS: Duration = Duration::from_secs(15);
+pub const HOPELESS: Duration = Duration::from_secs(15);
 /// Queuing delay threshold indicating the link is slower than the current bitrate.
 const QUEUE_LIMIT: Duration = Duration::from_millis(40);
 const STEER_EVERY: Duration = Duration::from_millis(250);
@@ -252,13 +252,13 @@ struct MarkedFrame {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Ask {
+pub enum Ask {
     Keyframe,
     Recover,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct Delivery {
+pub struct Delivery {
     pub to: Vec<String>,
     pub ask: Option<Ask>,
 }
@@ -268,7 +268,7 @@ pub(crate) struct Delivery {
 /// Viewers ack received frames; a viewer that falls behind skips frames until the next keyframe
 /// or recovery anchor to avoid latency buildup. Bitrate tracks the viewer in control so passive
 /// viewers do not degrade quality for the active user.
-pub(crate) struct Flow {
+pub struct Flow {
     seats: HashMap<String, Seat>,
     marks: VecDeque<MarkedFrame>,
     held: Vec<u64>,
@@ -281,8 +281,14 @@ pub(crate) struct Flow {
     recovered_at: Option<Instant>,
 }
 
+impl Default for Flow {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Flow {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             seats: HashMap::new(),
             marks: VecDeque::new(),
@@ -296,11 +302,11 @@ impl Flow {
         }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.seats.is_empty()
     }
 
-    pub(crate) fn seat(&mut self, viewer: &str, anchors: bool, local: bool, now: Instant) {
+    pub fn seat(&mut self, viewer: &str, anchors: bool, local: bool, now: Instant) {
         self.forget(viewer);
         if self.seats.is_empty() {
             self.bitrate = if local {
@@ -314,16 +320,16 @@ impl Flow {
             .insert(viewer.to_owned(), Seat::new(anchors, local, now));
     }
 
-    pub(crate) const fn bitrate(&self) -> u32 {
+    pub const fn bitrate(&self) -> u32 {
         self.bitrate
     }
 
-    pub(crate) fn leave(&mut self, viewer: &str) {
+    pub fn leave(&mut self, viewer: &str) {
         self.seats.remove(viewer);
         self.forget(viewer);
     }
 
-    pub(crate) fn frame(
+    pub fn frame(
         &mut self,
         id: u32,
         kind: FrameKind,
@@ -374,7 +380,7 @@ impl Flow {
     }
 
     /// Records a frame dropped before delivery, invalidating subsequent deltas and any mark on it.
-    pub(crate) fn lost(&mut self, viewer: &str, id: u32, now: Instant) {
+    pub fn lost(&mut self, viewer: &str, id: u32, now: Instant) {
         let Some(seat) = self.seats.get_mut(viewer) else {
             return;
         };
@@ -389,7 +395,7 @@ impl Flow {
             .retain(|marked| marked.id != id || !marked.waiting.contains(viewer));
     }
 
-    pub(crate) fn reset(
+    pub fn reset(
         &mut self,
         viewer: &str,
         now: Instant,
@@ -400,14 +406,14 @@ impl Flow {
         self.ask(now, queued)
     }
 
-    pub(crate) fn keyframe_asked(&mut self, now: Instant) {
+    pub fn keyframe_asked(&mut self, now: Instant) {
         self.keyframe_at = Some(now);
     }
 
     /// Decides whether to request a keyframe or recovery anchor for caught-up viewers.
     ///
     /// Also called on timer ticks so recovery proceeds on static pages with no incoming frames.
-    pub(crate) fn ask(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
+    pub fn ask(&mut self, now: Instant, queued: impl Fn(&str) -> usize) -> Option<Ask> {
         let anchors = self.anchors;
         let costs_others = self.seats.values().any(|seat| seat.holds == Holds::Stream);
         let wants_key = self
@@ -437,7 +443,7 @@ impl Flow {
         allowed.then_some(Ask::Recover)
     }
 
-    pub(crate) fn ack(&mut self, viewer: &str, frame: u32, now: Instant) {
+    pub fn ack(&mut self, viewer: &str, frame: u32, now: Instant) {
         let Some(seat) = self.seats.get_mut(viewer) else {
             return;
         };
@@ -454,11 +460,11 @@ impl Flow {
     }
 
     /// Drains reference marks acknowledged by all viewers since the last call.
-    pub(crate) fn held(&mut self) -> Vec<u64> {
+    pub fn held(&mut self) -> Vec<u64> {
         std::mem::take(&mut self.held)
     }
 
-    pub(crate) fn hopeless(&mut self, now: Instant) -> Vec<String> {
+    pub fn hopeless(&mut self, now: Instant) -> Vec<String> {
         let gone: Vec<String> = self
             .seats
             .iter()
@@ -496,7 +502,7 @@ impl Flow {
     /// Adjusts bitrate toward the controlling viewer's link (or all remote viewers if none has
     /// control), capping it below measured saturated throughput. Only frames sent after the last
     /// cut count toward the queuing delay, since a cut shows only in those frames.
-    pub(crate) fn steer(&mut self, control: Option<&str>, now: Instant) -> Option<u32> {
+    pub fn steer(&mut self, control: Option<&str>, now: Instant) -> Option<u32> {
         if self
             .steered_at
             .is_some_and(|at| now.duration_since(at) < STEER_EVERY)

@@ -2,7 +2,6 @@
 mod cf;
 mod client;
 mod cursor;
-mod encode;
 mod engine;
 mod filters;
 #[cfg(target_os = "macos")]

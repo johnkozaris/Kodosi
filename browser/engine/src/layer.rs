@@ -6,6 +6,7 @@
 use std::{
     ffi::c_void,
     ptr,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -16,7 +17,9 @@ use objc2::{
     runtime::{AnyClass, AnyObject},
 };
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-use shared_browser::{Size, link::FromEngine};
+use shared_browser::link::FromEngine;
+use stream::{Format, Size};
+use stream_encode::{Encoder, Picture, Settings};
 
 use crate::{
     cf::{
@@ -26,9 +29,8 @@ use crate::{
         IOSurfaceSetValues, IOSurfaceUnlock, Owned, dictionary, kIOSurfaceBytesPerElement,
         kIOSurfaceHeight, kIOSurfacePixelFormat, kIOSurfaceWidth, number_i64,
     },
-    encode::Encoder,
     engine,
-    link::Link,
+    link::{Link, Pictures},
 };
 
 /// Triple-buffer cap: the window server can hold both the current and previous `IOSurface`,
@@ -203,7 +205,18 @@ impl Layer {
             let queue: Option<Retained<AnyObject>> = msg_send![&*device, newCommandQueue];
             (context, root, device, queue.ok_or("no Metal queue")?)
         };
-        let encoder = Encoder::stills(window, STILL_BITRATE, link.clone());
+        let stills = Pictures {
+            window,
+            still: true,
+            link: link.clone(),
+        };
+        let encoder = Encoder::new(
+            Settings {
+                format: Format::default(),
+                bitrate: STILL_BITRATE,
+            },
+            Arc::new(stills),
+        );
         transaction(|| {
             // SAFETY: `root` and `context` are valid CA objects, and `white` stays live until
             // `CGColorRelease`.
@@ -327,7 +340,7 @@ impl Layer {
         }
         if let (Some(_), Some(shown)) = (self.tab, &self.shown) {
             self.encoder.want_key();
-            self.encoder.encode_surface(shown.raw.mutable());
+            self.encoder.encode(Picture::Surface(shown.raw.mutable()));
             self.stills.made(now);
         }
     }

@@ -4,6 +4,7 @@ import Foundation
 import ImageIO
 import Observation
 import Synchronization
+import VideoToolbox
 
 /// Frames arrive, get acknowledged, and render on the `BrowserPipes` task so a busy main thread
 /// never triggers host backpressure. Per-frame acks prevent queueing and let the host match quality
@@ -31,17 +32,21 @@ public final class BrowserFeed {
         var display: (@Sendable (CMSampleBuffer) -> Bool)?
         var surface = 0
         var shown = false
-        var samples = H264Samples()
+        var samples = VideoSamples()
         var lastFrame: UInt32 = 0
         var holds = Holds.nothing
     }
 
-    private nonisolated static let frameHeader = 6
+    private nonisolated static let frameHeader = 7
     private nonisolated static let messageTag: UInt8 = 0
     private nonisolated static let frameTag: UInt8 = 1
     private nonisolated static let keyFlag: UInt8 = 1
     private nonisolated static let anchorFlag: UInt8 = 2
     private static let settle = Duration.milliseconds(250)
+    private static let decoders = [
+        Decoder(codec: "h264", hardware: VTIsHardwareDecodeSupported(kCMVideoCodecType_H264)),
+        Decoder(codec: "hevc", hardware: VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC)),
+    ]
     #if os(macOS)
         private static let hostsLayer = NSClassFromString("CALayerHost") != nil
     #else
@@ -248,7 +253,7 @@ public final class BrowserFeed {
         video.withLock { $0.holds = .nothing }
         let size = currentSize
         sentSize = size
-        post(.watch(size, opened: opened, layer: Self.hostsLayer))
+        post(.watch(size, decoders: Self.decoders, opened: opened, layer: Self.hostsLayer))
         opened = false
     }
 
@@ -356,6 +361,7 @@ public final class BrowserFeed {
         let key = header[5] & Self.keyFlag != 0
         let anchor = header[5] & Self.anchorFlag != 0
         post(.ack(id))
+        guard let codec = VideoCodec(rawValue: header[6]) else { return }
         let (restarts, shown) = video.withLock { video -> (Bool, Heard?) in
             if video.holds == .stream, id != video.lastFrame &+ 1 {
                 video.holds = .gap
@@ -369,7 +375,9 @@ public final class BrowserFeed {
             default:
                 break
             }
-            guard let sample = video.samples.sample(of: message.dropFirst(Self.frameHeader)) else { return (false, nil) }
+            guard let sample = video.samples.sample(of: message.dropFirst(Self.frameHeader), codec: codec) else {
+                return (false, nil)
+            }
             video.holds = .stream
             let going = video.display?(sample) ?? true
             defer { video.shown = true }
@@ -394,7 +402,7 @@ private enum Holds {
 }
 
 private enum ToBrowserWindow: Encodable {
-    case watch(BrowserSize, opened: Bool, layer: Bool)
+    case watch(BrowserSize, decoders: [Decoder], opened: Bool, layer: Bool)
     case size(BrowserSize)
     case ack(UInt32)
     case keyframe
@@ -403,9 +411,10 @@ private enum ToBrowserWindow: Encodable {
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: Field.self)
         switch self {
-        case let .watch(size, opened, layer):
+        case let .watch(size, decoders, opened, layer):
             try container.encode("watch", forKey: .type)
             try container.encode(size, forKey: .size)
+            try container.encode(decoders, forKey: .decoders)
             try container.encode(true, forKey: .anchors)
             try container.encode(opened, forKey: .opened)
             try container.encode(layer, forKey: .layer)
@@ -423,7 +432,12 @@ private enum ToBrowserWindow: Encodable {
         }
     }
 
-    private enum Field: String, CodingKey { case type, size, frame, input, anchors, opened, layer }
+    private enum Field: String, CodingKey { case type, size, frame, input, decoders, anchors, opened, layer }
+}
+
+private struct Decoder: Encodable {
+    let codec: String
+    let hardware: Bool
 }
 
 private struct BrowserSize: Encodable, Equatable {

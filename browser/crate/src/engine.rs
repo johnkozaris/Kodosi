@@ -11,6 +11,7 @@ use std::{
 };
 
 use serde_json::{Value, json};
+use stream::{Codec, FrameKind, Size};
 use tokio::{
     io::{AsyncBufReadExt as _, BufReader},
     net::TcpListener,
@@ -21,8 +22,7 @@ use tokio::{
 use crate::{
     Error,
     devtools::{self, Devtools},
-    link::{EncodedFrame, EngineTab, FrameKind, FromEngine, ToEngine},
-    message::Size,
+    link::{EncodedFrame, EngineTab, FromEngine, ToEngine},
     socket::{Report, Socket},
     window::Event,
 };
@@ -100,6 +100,7 @@ pub(crate) struct OpenedPage {
 pub(crate) struct Engine {
     devtools: Devtools,
     address: String,
+    encodable: Vec<Codec>,
     commands: mpsc::Sender<ToEngine>,
     routes: Arc<Mutex<Routes>>,
     /// Notified whenever tab-to-window mappings are updated.
@@ -145,15 +146,22 @@ impl Engine {
             )
             .await?;
         let (commands, waiting) = mpsc::channel(COMMANDS);
-        let (reports_in, reports) = mpsc::channel(COMMANDS);
+        let (reports_in, mut reports) = mpsc::channel(COMMANDS);
         tokio::spawn(async move {
             if let Err(problem) = socket.accept(waiting, reports_in).await {
                 tracing::warn!(%problem, "the browser's link is gone");
             }
         });
+        let Some(Report::Said(FromEngine::Encodes { codecs: encodable })) = reports.recv().await
+        else {
+            return Err(Error::Engine(
+                "the browser did not say what it encodes".to_owned(),
+            ));
+        };
         let engine = Arc::new(Self {
             devtools,
             address,
+            encodable,
             commands,
             routes: Arc::default(),
             placed: watch::Sender::new(()),
@@ -173,6 +181,7 @@ impl Engine {
         Arc::new(Self {
             devtools: Devtools::idle(),
             address: String::new(),
+            encodable: vec![Codec::H264, Codec::Hevc],
             commands: mpsc::channel(COMMANDS).0,
             routes: Arc::default(),
             placed: watch::Sender::new(()),
@@ -187,6 +196,11 @@ impl Engine {
 
     pub(crate) fn devtools(&self) -> &Devtools {
         &self.devtools
+    }
+
+    /// Codecs the engine's computer encodes in real time.
+    pub(crate) fn encodable(&self) -> &[Codec] {
+        &self.encodable
     }
 
     pub(crate) fn command(&self, command: ToEngine) {
@@ -518,7 +532,7 @@ impl Engine {
         let window = frame.window;
         let sender = {
             let mut routes = self.routes();
-            if frame.kind == FrameKind::Key {
+            if frame.picture.kind == FrameKind::Key {
                 routes.behind.remove(&window);
             } else if routes.behind.contains(&window) {
                 return;
@@ -542,7 +556,7 @@ impl Engine {
     fn report(&self, report: Report) -> Vec<(mpsc::Sender<Event>, Event)> {
         let said = match report {
             Report::Frame(frame) if frame.still => {
-                return self.to_window(frame.window, Event::Still(frame.data));
+                return self.to_window(frame.window, Event::Still(frame.picture));
             }
             Report::Frame(frame) => {
                 self.deliver_frame(frame);
@@ -556,6 +570,7 @@ impl Engine {
                 .map_or_default(|sender| vec![(sender, event)])
         };
         match said {
+            FromEngine::Encodes { .. } => Vec::new(),
             FromEngine::Failed { window, problem } => {
                 tracing::warn!(%problem, "the capture stopped");
                 self.to_window(window, Event::CaptureFailed)

@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use crate::message::{KeyAction, MouseAction, MouseButton};
+use stream::viewer::{KeyAction, MouseAction, MouseButton};
 
 const META: u8 = 4;
 const CONTROL: u8 = 2;

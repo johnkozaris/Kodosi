@@ -1,24 +1,16 @@
-#[cfg(target_os = "macos")]
-mod mac;
-#[cfg(not(target_os = "macos"))]
-mod software;
-#[cfg(target_os = "macos")]
-mod sps;
+//! Static pictures get extra passes so rate control can spend bits sharpening them.
 
-#[cfg(target_os = "macos")]
-pub(crate) use mac::Encoder;
-#[cfg(not(target_os = "macos"))]
-pub(crate) use software::Encoder;
+use std::time::Duration;
 
-const FRAME_RATE: u32 = 60;
-/// Delay before re-encoding after a dropped frame so viewers still get the latest state if the
-/// page goes idle.
-const REDRAW_AFTER_MS: i64 = 100;
+pub(crate) const FRAME_RATE: u32 = 60;
+/// Delay before the last picture is encoded again after the encoder or its consumer dropped one,
+/// so viewers still get the latest state when the source goes idle.
+pub(crate) const RETRY: Duration = Duration::from_millis(100);
 
 /// After the page stays idle for `STILL_MS`, re-encode the last frame every `REFINE_MS` so
 /// rate control can spend extra bits sharpening static detail.
-pub(crate) const STILL_MS: i64 = 250;
-pub(crate) const REFINE_MS: i64 = 33;
+pub const STILL_MS: i64 = 250;
+pub const REFINE_MS: i64 = 33;
 /// Cap on refinement passes: `OpenH264` converges from 40 to 54 dB on static text in ~45
 /// frames (plus some frames skipped by rate control), after which extra passes waste bits.
 const REFINEMENTS: u32 = 60;
@@ -32,14 +24,14 @@ const CLEAN_AFTER: usize = 3;
 const FIRST_REFINEMENTS: usize = 6;
 
 #[derive(Default)]
-pub(crate) struct Cleanup {
+pub struct Cleanup {
     changed: f64,
     left: u32,
     pictures: u64,
 }
 
 impl Cleanup {
-    pub(crate) fn drawn(&mut self, share: f64) -> Option<u64> {
+    pub fn drawn(&mut self, share: f64) -> Option<u64> {
         self.pictures += 1;
         self.changed += share;
         if self.changed >= LARGE_CHANGE {
@@ -49,11 +41,11 @@ impl Cleanup {
         (self.left > 0).then_some(self.pictures)
     }
 
-    pub(crate) const fn due(&self, picture: u64) -> bool {
+    pub const fn due(&self, picture: u64) -> bool {
         picture == self.pictures && self.left > 0
     }
 
-    pub(crate) const fn refined(&mut self) {
+    pub const fn refined(&mut self) {
         self.left = self.left.saturating_sub(1);
     }
 }

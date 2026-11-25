@@ -70,16 +70,16 @@ pub unsafe extern "C" fn kodosi_video_decoder_free(decoder: *mut KodosiVideoDeco
     }
 }
 
-// The encoder emits limited-range BT.601 (Kr = 0.299, Kb = 0.114) without color
-// metadata. Coefficients combine 255/219 luma and 255/224 chroma scaling and
-// are scaled by 2^13 so each fits in 16 bits for SIMD auto-vectorization.
+// Every encoder emits limited-range BT.709 (Kr = 0.2126, Kb = 0.0722). Coefficients
+// combine 255/219 luma and 255/224 chroma scaling and are scaled by 2^13 so each
+// fits in 16 bits for SIMD auto-vectorization.
 const SHIFT: u32 = 13;
 const ROUND: i32 = 1 << (SHIFT - 1);
 const LUMA: i32 = 9_539;
-const RED_FROM_V: i32 = 13_075;
-const GREEN_FROM_U: i32 = -3_209;
-const GREEN_FROM_V: i32 = -6_660;
-const BLUE_FROM_U: i32 = 16_525;
+const RED_FROM_V: i32 = 14_686;
+const GREEN_FROM_U: i32 = -1_747;
+const GREEN_FROM_V: i32 = -4_366;
+const BLUE_FROM_U: i32 = 17_305;
 const BLOCK: usize = 32;
 
 fn write_rgba(
@@ -211,5 +211,38 @@ mod tests {
             (width, height),
             &mut rgba
         ));
+    }
+
+    #[test]
+    fn colours_come_back_as_a_bt709_encoder_wrote_them() {
+        let (red, blue) = (0.2126_f64, 0.0722_f64);
+        let green = 1.0 - red - blue;
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "the samples round into 0..=255"
+        )]
+        let sample = |value: f64| value.round() as u8;
+        for colour in [
+            [255, 255, 255],
+            [0, 0, 0],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 255],
+        ] {
+            let [r, g, b] = colour.map(|channel| f64::from(channel) / 255.0);
+            let luma = red.mul_add(r, green.mul_add(g, blue * b));
+            let back = rgba_of(
+                sample(luma.mul_add(219.0, 16.0)),
+                sample(128.0 + 224.0 * (b - luma) / (2.0 * (1.0 - blue))),
+                sample(128.0 + 224.0 * (r - luma) / (2.0 * (1.0 - red))),
+            );
+            for (shown, wanted) in back.into_iter().zip(colour) {
+                assert!(
+                    shown.abs_diff(wanted) <= 1,
+                    "{colour:?} came back as {back:?}"
+                );
+            }
+        }
     }
 }
