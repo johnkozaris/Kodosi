@@ -57,8 +57,10 @@ struct DevicesSection: View {
 
 struct DeviceRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.theme) private var theme
     @State private var confirmingRemoval = false
     @State private var confirmingSleep = false
+    @State private var confirmingTest = false
     let device: MyDeviceEntry
 
     private var account: AccountStore {
@@ -77,17 +79,50 @@ struct DeviceRow: View {
         account.computers.contains(device)
     }
 
+    private var power: ComputerPower? {
+        model.power.computers[device.deviceId]
+    }
+
     private var addedAt: Date {
         Date(timeIntervalSince1970: TimeInterval(device.certIssuedAtMs) / 1000)
     }
 
     private var subtitle: String {
         if device.recoveryKey {
-            String(localized: "Approves a new device when you have no other device")
-        } else if isThisDevice {
-            ThisDevice.title
-        } else {
-            String(localized: "Added \(addedAt, format: .dateTime.day().month().year())")
+            return String(localized: "Approves a new device when you have no other device")
+        }
+        if isThisDevice {
+            return ThisDevice.title
+        }
+        let awake: String? = switch power?.keepAwake {
+        case .always?: String(localized: "Always awake")
+        case .never?: String(localized: "Can sleep while agents work")
+        case .agents?, nil: nil
+        }
+        let parts = [awake, power?.problem ?? power?.note].compactMap(\.self)
+        return parts.isEmpty ? String(localized: "Added \(addedAt, format: .dateTime.day().month().year())") : parts.joined(separator: " · ")
+    }
+
+    @ContentBuilder
+    private var powerActions: some View {
+        if let power {
+            Picker(selection: Binding(get: { power.keepAwake }, set: { model.power.keepAwake($0, on: device.deviceId) })) {
+                Text("While agents work").tag(KeepAwake.agents)
+                Text("Always").tag(KeepAwake.always)
+                Text("Never").tag(KeepAwake.never)
+            } label: {
+                Label("Stay awake", systemImage: "sun.max")
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("settings.devices.keepAwake.\(device.deviceId)")
+        }
+        Button { confirmingSleep = true } label: {
+            Label("Sleep…", systemImage: "powersleep")
+        }
+        if power?.canTest == true {
+            Button { confirmingTest = true } label: {
+                Label("Test wake…", systemImage: "alarm")
+            }
         }
     }
 
@@ -95,11 +130,17 @@ struct DeviceRow: View {
         ListRow(device.title, subtitle: subtitle, symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
                 tint: isThisDevice ? TileTint.orange : TileTint.graphite)
         {
-            if sleeps {
+            if let busy = power?.busy {
+                Text(busy == .waking ? "Waking…" : "Testing…").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                    .accessibilityIdentifier("settings.devices.busy.\(device.deviceId)")
+            } else if power?.canWake == true {
+                Button("Wake") { model.power.wake(device.deviceId) }
+                    .buttonStyle(.kodosi(.ghost, size: .small))
+                    .accessibilityLabel(Text("Wake \(device.title)"))
+                    .accessibilityIdentifier("settings.devices.wake.\(device.deviceId)")
+            } else if sleeps {
                 Menu {
-                    Button { confirmingSleep = true } label: {
-                        Label("Sleep…", systemImage: "powersleep")
-                    }
+                    powerActions
                 } label: {
                     IconButtonFace(symbol: "ellipsis", size: 32)
                 }
@@ -115,11 +156,10 @@ struct DeviceRow: View {
                     .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
             }
         }
+        .wholeSubtitle()
         .contextMenu {
-            if sleeps {
-                Button { confirmingSleep = true } label: {
-                    Label("Sleep…", systemImage: "powersleep")
-                }
+            if sleeps, power?.busy == nil {
+                powerActions
             }
             if removable {
                 Button(role: .destructive) { confirmingRemoval = true } label: {
@@ -132,6 +172,12 @@ struct DeviceRow: View {
                 .accessibilityIdentifier("settings.devices.confirmSleep")
         } message: {
             Text("Its terminals pause until it wakes.")
+        }
+        .confirmationDialog(Text("Test the wake of \(device.title)?"), isPresented: $confirmingTest, titleVisibility: .visible) {
+            Button("Test") { model.power.testWake(device) }
+                .accessibilityIdentifier("settings.devices.confirmTestWake")
+        } message: {
+            Text("Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.")
         }
         .confirmationDialog(Text("Remove \(device.title)?"), isPresented: $confirmingRemoval, titleVisibility: .visible) {
             Button("Remove", role: .destructive) { account.revokeDevice(device) }

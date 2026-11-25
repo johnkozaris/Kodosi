@@ -81,7 +81,9 @@ métadonnées des projets et des terminaux, le type d'agent et l'état signalé 
 consulté cet état, les en-têtes de routage, l'horodatage et la taille des textes chiffrés (sauf
 pour le trafic qui emprunte un chemin direct en pair à pair). Il voit également l'état d'activité
 de chaque appareil (dans Kodosi, dans une autre app de bureau ou inactif) afin d'acheminer les
-notifications uniquement vers un appareil actif.
+notifications uniquement vers un appareil actif. Il ne voit pas comment vos ordinateurs se
+réveillent : leurs adresses réseau et leurs réglages de réveil ne circulent qu'entre vos propres
+appareils, chiffrés de bout en bout.
 
 Les notifications push mobiles transitent par APNs d'Apple ou FCM de Google. Ces fournisseurs
 voient les identifiants des terminaux en attente, terminés ou en échec, ainsi que leur type d'agent

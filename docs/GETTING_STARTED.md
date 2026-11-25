@@ -256,7 +256,30 @@ it awake. To change this, choose **Stay awake** in **Settings › General** on t
 **While agents work**, **Always**, or **Never**. You can still put a computer to sleep yourself.
 
 To put another of your computers to sleep, open **Settings** and click **Sleep…** next to it under
-**Your devices** (on a phone, tap **⋯** first). Its terminals pause until it wakes.
+**Your devices** (on a phone, tap **⋯** first). Its terminals pause until it wakes. **Stay awake**
+next to it chooses when that computer stays awake.
+
+### Waking a computer
+
+To wake a sleeping computer, click **Wake** next to it in **Settings**, on one of its terminals, or
+in the computer list of a new terminal. The wake signal must come from inside the network of the
+sleeping computer. Kodosi sends it from the device that you use when that device is on the same
+network, and otherwise from another of your computers there that is awake. An iPhone or iPad always
+asks one of your computers.
+
+A computer wakes through a network cable, not through Wi-Fi, and only when its system allows it.
+**Settings** shows for each computer what Kodosi expects, or the one setting to change:
+
+- On a Mac, turn on **Wake for network access** in System Settings.
+- On Windows, let the network adapter wake the computer, in Device Manager.
+- On Linux, turn on Wake-on-LAN for the wired connection.
+
+A Mac sends the wake signal only if Kodosi may use the local network. Allow it in System Settings,
+in **Privacy & Security**.
+
+To be sure, click **Test wake…** next to a computer that is awake (on a phone, tap **⋯** first).
+Kodosi puts it to sleep, wakes it and keeps the result. Stay near the computer for the first test:
+if it doesn't wake, wake it by hand.
 
 ### Recovery keys
 
@@ -335,6 +358,7 @@ app immediately.
 | `kodosi skill` | Prints the agent skill for collaborating in Kodosi; `kodosi skill canvas` prints the canvas skill. |
 | `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |
 | `kodosi devices sleep <computer>` | Puts another of your computers to sleep. Its terminals pause until it wakes. `kodosi devices keep-awake` with `agents`, `always` or `never` chooses when this computer stays awake. |
+| `kodosi devices wake <computer>` | Wakes a sleeping computer of yours and waits until it is online. `kodosi devices test-wake <computer>` puts a computer to sleep, wakes it and keeps the result. `kodosi devices list` shows what Kodosi expects of each computer. |
 | `kodosi host` | Runs the host independently so terminals keep running after you quit the app. Use `kodosi host stop` to stop a background host. |
 
 `message`, `input`, and `keys` refuse to run while you're actively typing in that terminal.

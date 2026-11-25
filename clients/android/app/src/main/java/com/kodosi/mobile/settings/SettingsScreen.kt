@@ -101,6 +101,7 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
     var checked by remember { mutableStateOf<Pair<String, String>?>(null) }
     var removing by remember { mutableStateOf<Device?>(null) }
     var sleeping by remember { mutableStateOf<Device?>(null) }
+    var testing by remember { mutableStateOf<Device?>(null) }
     var recovery by remember { mutableStateOf<String?>(null) }
     var creatingRecovery by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
@@ -197,12 +198,19 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
                             else -> 1
                         }
                     }.forEach { device ->
+                        val power = account.power[device.deviceId]
+                        val awake = when (power?.keepAwake) {
+                            "always" -> stringResource(R.string.always_awake)
+                            "never" -> stringResource(R.string.can_sleep_while_agents_work)
+                            else -> null
+                        }
+                        val state = listOfNotNull(awake, power?.problem ?: power?.note).joinToString(" · ")
                         ListLine(
                             if (device.recoveryKey) stringResource(R.string.recovery_key) else device.label,
                             subtitle = when {
                                 device.deviceId == account.selfDeviceId -> stringResource(R.string.this_device)
                                 device.recoveryKey -> stringResource(R.string.recovery_message)
-                                else -> null
+                                else -> state.ifEmpty { null }
                             },
                             leading = {
                                 IconTile(
@@ -220,11 +228,59 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
                                     removing = device
                                 }) { Text(stringResource(R.string.remove)) }
                             }
-                            if (device in account.computers) {
+                            if (power?.busy != null) {
+                                Text(
+                                    stringResource(if (power.waking) R.string.waking else R.string.testing_wake),
+                                    style = KodosiType.footnote,
+                                    color = colors.inkMuted
+                                )
+                            } else if (power?.canWake == true) {
+                                KodosiTextButton(onClick = { model.account.wakeComputer(device.deviceId) }) {
+                                    Text(stringResource(R.string.wake_computer))
+                                }
+                            } else if (device in account.computers) {
                                 var actions by remember { mutableStateOf(false) }
                                 Box {
                                     ActionIcon(AppSymbol.MORE, R.string.more, { actions = true }, open = actions)
                                     KodosiMenu(actions, { actions = false }) {
+                                        if (power != null) {
+                                            Text(
+                                                stringResource(R.string.stay_awake),
+                                                style = KodosiType.footnote,
+                                                color = colors.inkMuted,
+                                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                                            )
+                                            listOf(
+                                                "agents" to R.string.keep_awake_agents,
+                                                "always" to R.string.keep_awake_always,
+                                                "never" to R.string.keep_awake_never
+                                            ).forEach { (choice, words) ->
+                                                KodosiMenuItem(
+                                                    text = {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Text(
+                                                                stringResource(words),
+                                                                Modifier.weight(1f, fill = false)
+                                                            )
+                                                            if (power.keepAwake == choice) {
+                                                                Spacer(Modifier.size(10.dp))
+                                                                AppIcon(
+                                                                    AppSymbol.CHECK,
+                                                                    Modifier.size(12.dp),
+                                                                    tint = colors.accentStrong
+                                                                )
+                                                            }
+                                                        }
+                                                    },
+                                                    onClick = {
+                                                        actions = false
+                                                        if (power.keepAwake != choice) {
+                                                            model.account.keepAwake(device.deviceId, choice)
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
                                         KodosiMenuItem(
                                             text = { Text(stringResource(R.string.sleep_computer)) },
                                             onClick = {
@@ -232,6 +288,15 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
                                                 sleeping = device
                                             }
                                         )
+                                        if (power?.canTest == true) {
+                                            KodosiMenuItem(
+                                                text = { Text(stringResource(R.string.test_wake)) },
+                                                onClick = {
+                                                    actions = false
+                                                    testing = device
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -616,6 +681,18 @@ fun SettingsScreen(model: AppModel, friends: () -> Unit, licenses: () -> Unit) {
             {
                 sleeping = null
                 scope.launch { model.runAction { model.account.sleepComputer(device) } }
+            }
+        )
+    }
+    testing?.let { device ->
+        ConfirmDialog(
+            stringResource(R.string.test_wake_title, device.label),
+            stringResource(R.string.test_wake_message),
+            stringResource(R.string.test_wake_action),
+            { testing = null },
+            {
+                testing = null
+                model.account.testWake(device)
             }
         )
     }

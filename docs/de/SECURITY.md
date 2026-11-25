@@ -77,7 +77,9 @@ den Agent-Typ und den gemeldeten Status jedes Terminals (etwa ob es arbeitet ode
 wartet, niemals jedoch Terminaltext), ob du diesen Status bereits gesehen hast, Routing-Header,
 Zeitpunkte sowie die Größen der Chiffretexte (außer bei Datenverkehr über eine direkte
 Peer-to-Peer-Verbindung). Außerdem sieht es den Aktivitätsstatus jedes Geräts (in Kodosi, in einer
-anderen Desktop-App oder inaktiv), damit Mitteilungen nur an ein aktives Gerät gehen.
+anderen Desktop-App oder inaktiv), damit Mitteilungen nur an ein aktives Gerät gehen. Es sieht
+nicht, wie deine Computer aufwachen: Ihre Netzwerkadressen und Aufweck-Einstellungen gehen nur
+Ende-zu-Ende-verschlüsselt zwischen deinen eigenen Geräten hin und her.
 
 Mobile Push-Mitteilungen laufen über APNs von Apple oder FCM von Google. Diese Anbieter sehen die
 IDs von wartenden, fertigen oder fehlgeschlagenen Terminals sowie deren Agent-Typ und Status,

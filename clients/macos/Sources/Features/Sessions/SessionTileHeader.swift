@@ -99,8 +99,17 @@ struct SessionTileHeader: View {
                 .accessibilityIdentifier("\(stageId).unreachable.retry")
         } else {
             if session.kind == .remote, session.isConnected, session.status == .offline {
-                Text(session.statusLabel).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
+                let power = session.hostDeviceId.flatMap { deps.power.computers[$0] }
+                Text(power?.problem ?? session.statusLabel).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)
+                    .help(power?.problem ?? "")
                     .accessibilityIdentifier("\(stageId).offline")
+                if let power, power.canWake || power.busy == .waking {
+                    Button(power.canWake ? "Wake" : "Waking…") { deps.power.wake(power.deviceId) }
+                        .buttonStyle(.kodosi(.ghost, size: .small))
+                        .disabled(!power.canWake)
+                        .opacity(showsActions ? 1 : 0.28)
+                        .accessibilityIdentifier("\(stageId).offline.wake")
+                }
             }
             if session.kind == .remote, session.isConnected, let notice = session.message {
                 Text(notice).appTextStyle(.caption).foregroundStyle(theme.colors.caution).lineLimit(1)

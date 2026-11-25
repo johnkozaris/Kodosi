@@ -74,7 +74,8 @@ each terminal's agent type and reported state (such as working or waiting for ap
 terminal text), whether you have viewed that state yet, routing headers, timing, and ciphertext
 sizes (except for traffic taking a direct peer-to-peer path). It also sees per-device activity
 status (in Kodosi, in another desktop app, or idle) so notifications route only to an active
-device.
+device. It does not see how your computers wake: their network addresses and wake settings travel
+only between your own devices, encrypted end to end.
 
 Mobile push notifications travel through Apple's APNs or Google's FCM. Those providers see the IDs
 of terminals that are waiting, finished, or failed along with their agent type and state, never

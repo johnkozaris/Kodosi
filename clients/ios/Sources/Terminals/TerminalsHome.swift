@@ -21,8 +21,14 @@ struct TerminalsHome: View {
         let placeholder = Placeholder(isEmpty: sessions.isEmpty, listed: store.loaded && store.listed, searching: !query.isEmpty)
         List {
             ForEach(computers) { computer in
-                ComputerHeader(group: computer, newTerminal: starting(TerminalCatalog.newTerminal(on: computer, online: online)))
-                    .cardRow(top: computer.id == computers.first?.id ? 4 : 18, bottom: 0)
+                ComputerHeader(group: computer, newTerminal: starting(TerminalCatalog.newTerminal(on: computer, online: online)),
+                               power: computer.computerId.flatMap { model.power.computers[$0] })
+                {
+                    if let id = computer.computerId {
+                        model.power.wake(id)
+                    }
+                }
+                .cardRow(top: computer.id == computers.first?.id ? 4 : 18, bottom: 0)
                 ForEach(computer.folders) { folder in
                     if folder.directory != nil {
                         FolderHeader(folder: folder, newTerminal: starting(TerminalCatalog.newTerminal(in: folder, online: online)))
@@ -161,6 +167,8 @@ private struct ComputerHeader: View {
     @Environment(\.theme) private var theme
     let group: SessionComputerGroup
     let newTerminal: (() -> Void)?
+    let power: ComputerPower?
+    let wake: () -> Void
 
     var body: some View {
         let count = group.sessions.count
@@ -178,6 +186,15 @@ private struct ComputerHeader: View {
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("terminals.computer.\(AccessibilityIdentifier.token(group.id))")
             Spacer(minLength: 0)
+            if power?.busy == .waking {
+                Text("Waking…").appTextStyle(.caption)
+                    .accessibilityIdentifier("terminals.group.waking.\(AccessibilityIdentifier.token(group.id))")
+            } else if power?.canWake == true {
+                Button("Wake", action: wake)
+                    .buttonStyle(.kodosi(.ghost, size: .small))
+                    .accessibilityLabel(Text("Wake \(group.title)"))
+                    .accessibilityIdentifier("terminals.group.wake.\(AccessibilityIdentifier.token(group.id))")
+            }
             if let newTerminal {
                 IconButton(
                     title: "New terminal", symbol: "plus", identifier: "terminals.group.new.\(AccessibilityIdentifier.token(group.id))", size: 28,

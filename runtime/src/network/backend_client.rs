@@ -1474,6 +1474,12 @@ impl BackendClient {
         terminal_connections::ask_computer(self, device, request).await
     }
 
+    /// The address that the internet sees for this device.
+    pub(crate) async fn public_ipv4(&self) -> Option<std::net::Ipv4Addr> {
+        let credentials = self.credentials().ok()?;
+        self.peers(&credentials).ok()?.public_ipv4().await
+    }
+
     #[cfg(feature = "host")]
     pub(crate) fn answer_calls(&self, answering: terminal_connections::Answering) {
         terminal_connections::answer_calls(self.clone(), answering);

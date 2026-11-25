@@ -344,6 +344,8 @@ class AppModel(
 
             "connection" -> account.receiveConnection(event)
 
+            "power" -> account.receivePower(event)
+
             "sessions", "session" -> {
                 terminals.receive(event)
                 canvas.observe(terminals.state.value.sessions)

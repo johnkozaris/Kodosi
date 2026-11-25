@@ -362,6 +362,8 @@ private fun Home(model: AppModel) {
                             account.computers.map {
                                 it.deviceId
                             }.toSet(),
+                            account.power,
+                            model.account::wakeComputer,
                             account.online,
                             summaryFirst = preferences.summaryFirst,
                             open = terminal,

@@ -504,6 +504,18 @@ impl Peers {
         Ok(client)
     }
 
+    pub(crate) async fn public_ipv4(self: &Arc<Self>) -> Option<Ipv4Addr> {
+        let bound = self.bind().await.ok()?;
+        let dual = bound.socket.local_addr().ok()?.is_ipv6();
+        self.reflexive(&bound, dual)
+            .await
+            .into_iter()
+            .find_map(|address| match address.ip() {
+                IpAddr::V4(ip) => Some(ip),
+                IpAddr::V6(ip) => ip.to_ipv4_mapped(),
+            })
+    }
+
     #[cfg(feature = "host")]
     fn server(&self) -> Result<quinn::ServerConfig> {
         let crypto = QuicServerConfig::with_initial(self.keys.direct_server(), initial_suite()?)

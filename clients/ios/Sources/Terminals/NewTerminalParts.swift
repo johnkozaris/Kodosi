@@ -118,6 +118,14 @@ extension SheetRow where Trailing == EmptyView {
     }
 }
 
+/// An action that a `ChoiceRow` offers below its choices.
+struct ChoiceAction: Identifiable {
+    let id: String
+    let title: String
+    var disabled = false
+    let perform: () -> Void
+}
+
 struct ChoiceRow<Value: Hashable, Leading: View, Accessory: View>: View {
     @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -129,11 +137,12 @@ struct ChoiceRow<Value: Hashable, Leading: View, Accessory: View>: View {
     let selection: Value
     let label: (Value) -> String
     let choose: (Value) -> Void
+    var actions: [ChoiceAction] = []
     @ContentBuilder let leading: () -> Leading
     @ContentBuilder let accessory: () -> Accessory
 
     var body: some View {
-        if values.count > 1 {
+        if values.count > 1 || !actions.isEmpty {
             Menu {
                 Picker(selection: Binding { selection } set: { choose($0) }) {
                     ForEach(values, id: \.self) { value in
@@ -141,6 +150,9 @@ struct ChoiceRow<Value: Hashable, Leading: View, Accessory: View>: View {
                     }
                 } label: {
                     Text(verbatim: title)
+                }
+                ForEach(actions) { action in
+                    Button(action.title, action: action.perform).disabled(action.disabled).accessibilityIdentifier(action.id)
                 }
             } label: {
                 row(chooses: true)
@@ -174,11 +186,12 @@ struct ChoiceRow<Value: Hashable, Leading: View, Accessory: View>: View {
 extension ChoiceRow where Accessory == EmptyView {
     init(
         title: String, subtitle: String? = nil, value: String, loading: Bool = false, values: [Value], selection: Value,
-        label: @escaping (Value) -> String, choose: @escaping (Value) -> Void, @ContentBuilder leading: @escaping () -> Leading,
+        label: @escaping (Value) -> String, choose: @escaping (Value) -> Void, actions: [ChoiceAction] = [],
+        @ContentBuilder leading: @escaping () -> Leading,
     ) {
         self.init(
             title: title, subtitle: subtitle, value: value, loading: loading, values: values, selection: selection, label: label,
-            choose: choose, leading: leading,
+            choose: choose, actions: actions, leading: leading,
         ) { EmptyView() }
     }
 }

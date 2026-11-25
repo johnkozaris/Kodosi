@@ -286,7 +286,30 @@ Siempre puedes suspender un ordenador tú mismo.
 
 Para suspender otro de tus ordenadores, abre **Ajustes** y haz clic en **Suspender…** junto a él, en
 **Tus dispositivos** (en un teléfono, toca antes **⋯**). Sus terminales se pausan hasta que se
-reactive.
+reactive. Con **Mantener despierto** junto a él eliges cuándo se mantiene despierto ese ordenador.
+
+### Reactivar un ordenador
+
+Para reactivar un ordenador suspendido, haz clic en **Reactivar** junto a él en **Ajustes**, en uno
+de sus terminales o en la lista de ordenadores de un terminal nuevo. La señal de reactivación debe
+salir de la red del ordenador suspendido. Kodosi la envía desde el dispositivo que usas cuando está
+en la misma red y, si no, desde otro de tus ordenadores de esa red que esté despierto. Un iPhone o
+iPad siempre se lo pide a uno de tus ordenadores.
+
+Un ordenador se reactiva por cable de red, no por Wi-Fi, y solo cuando su sistema lo permite.
+**Ajustes** muestra para cada ordenador lo que Kodosi espera, o el único ajuste que debes cambiar:
+
+- En un Mac, activa **Activar para acceso a la red** en Ajustes del Sistema.
+- En Windows, permite que el adaptador de red reactive el equipo, en el Administrador de
+  dispositivos.
+- En Linux, activa Wake-on-LAN en la conexión por cable.
+
+Un Mac envía la señal de reactivación solo si Kodosi puede usar la red local. Permítelo en Ajustes
+del Sistema, en **Privacidad y seguridad**.
+
+Para asegurarte, haz clic en **Probar la reactivación…** junto a un ordenador despierto (en un
+teléfono, toca antes **⋯**). Kodosi lo suspende, lo reactiva y guarda el resultado. Quédate cerca
+del ordenador en la primera prueba: si no se reactiva, reactívalo a mano.
 
 ### Claves de recuperación
 
@@ -368,6 +391,7 @@ aparecen en la app al instante.
 | `kodosi skill` | Imprime la skill de agente para colaborar en Kodosi; `kodosi skill canvas` imprime la skill del lienzo. |
 | `kodosi dosi skill` | Imprime la skill que permite a otro agente actuar como Dosi. |
 | `kodosi devices sleep <computer>` | Suspende otro de tus ordenadores. Sus terminales se pausan hasta que se reactive. `kodosi devices keep-awake` con `agents`, `always` o `never` elige cuándo este ordenador se mantiene despierto. |
+| `kodosi devices wake <computer>` | Reactiva un ordenador tuyo suspendido y espera hasta que esté en línea. `kodosi devices test-wake <computer>` suspende un ordenador, lo reactiva y guarda el resultado. `kodosi devices list` muestra lo que Kodosi espera de cada ordenador. |
 | `kodosi host` | Ejecuta el host de forma independiente para que los terminales sigan funcionando tras cerrar la app. Usa `kodosi host stop` para detener un host en segundo plano. |
 
 `message`, `input` y `keys` no se ejecutan mientras estés escribiendo activamente en ese terminal.

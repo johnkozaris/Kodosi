@@ -476,6 +476,12 @@ mod tests {
                 ("heightPixels", json!(480)),
                 ("cellWidthPixels", json!(10)),
                 ("cellHeightPixels", json!(20)),
+                ("hardware", json!("02:11:22:33:44:55")),
+                (
+                    "sleeper",
+                    json!({"system":"linux","links":[{"hardware":"02:11:22:33:44:55",
+                        "medium":"cable","address":"192.0.2.10","prefix":24,"wakes":"on"}]}),
+                ),
             ] {
                 if let Some(field) = object.get_mut(name) {
                     *field = replacement;

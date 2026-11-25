@@ -220,19 +220,83 @@ ColumnLayout {
                 readonly property bool self: modelData.deviceId === Models.Devices.selfDeviceId
                 readonly property bool recoveryKey: modelData.recoveryKey === true
                 readonly property bool online: Models.Devices.computers.some(computer => computer.deviceId === modelData.deviceId)
+                readonly property var power: Models.Devices.power[modelData.deviceId] || ({})
+                readonly property string awake: power.keepAwake === "always" ? qsTr("Always awake")
+                    : power.keepAwake === "never" ? qsTr("Can sleep while agents work") : ""
 
                 iconName: recoveryKey ? "lock" : "laptop"
                 tint: self ? KodosiTheme.accent : "#4f9bb0"
                 title: recoveryKey ? qsTr("Recovery key") : deviceRow.modelData.label
-                subtitle: recoveryKey ? qsTr("Approves a new device when you have no other device") : ""
+                subtitle: recoveryKey ? qsTr("Approves a new device when you have no other device")
+                    : [awake, power.problem || power.note || ""].filter(part => part.length > 0).join(" · ")
+                wholeSubtitle: true
 
                 Tag { visible: deviceRow.self; text: qsTr("This computer"); tone: Tag.Accent }
+                PlainLabel {
+                    color: KodosiTheme.inkMuted
+                    font.pixelSize: KodosiTheme.fontFootnote
+                    objectName: "panel.settingsView.busy" + "." + deviceRow.modelData.deviceId
+                    text: deviceRow.power.busy === "testing" ? qsTr("Testing…") : qsTr("Waking…")
+                    visible: !!deviceRow.power.busy
+                }
+                KButton {
+                    Accessible.id: objectName
+                    compact: true
+                    objectName: "panel.settingsView.wake" + "." + deviceRow.modelData.deviceId
+                    text: qsTr("Wake")
+                    visible: Models.Devices.localDeviceEnrolled && deviceRow.power.canWake === true
+                    variant: KButton.Ghost
+
+                    onClicked: Models.Devices.wake(deviceRow.modelData.deviceId)
+                }
+                KButton {
+                    id: stayAwake
+
+                    Accessible.id: objectName
+                    compact: true
+                    objectName: "panel.settingsView.keepAwake" + "." + deviceRow.modelData.deviceId
+                    text: qsTr("Stay awake")
+                    iconName: "chevron-down"
+                    iconTrailing: true
+                    visible: Models.Devices.localDeviceEnrolled && deviceRow.online && !deviceRow.self
+                        && !deviceRow.power.busy && !!deviceRow.power.keepAwake
+                    variant: KButton.Ghost
+
+                    onClicked: stayAwakeMenu.popup(stayAwake, 0, stayAwake.height + 4)
+
+                    AgentChoiceMenu {
+                        id: stayAwakeMenu
+
+                        objectName: stayAwake.objectName + ".menu"
+                        options: [
+                            { id: "agents", label: qsTr("While agents work") },
+                            { id: "always", label: qsTr("Always") },
+                            { id: "never", label: qsTr("Never") }
+                        ]
+                        current: deviceRow.power.keepAwake || ""
+                        onPicked: id => Models.Devices.setKeepAwake(id, deviceRow.modelData.deviceId)
+                    }
+                }
+                KButton {
+                    Accessible.id: objectName
+                    compact: true
+                    objectName: "panel.settingsView.testWake" + "." + deviceRow.modelData.deviceId
+                    text: qsTr("Test wake…")
+                    visible: Models.Devices.localDeviceEnrolled && deviceRow.online && deviceRow.power.canTest === true
+                    variant: KButton.Ghost
+
+                    onClicked: {
+                        testWake.deviceId = deviceRow.modelData.deviceId;
+                        testWake.label = deviceRow.title;
+                        testWake.open();
+                    }
+                }
                 KButton {
                     Accessible.id: objectName
                     compact: true
                     objectName: "panel.settingsView.sleep" + "." + deviceRow.modelData.deviceId
                     text: qsTr("Sleep…")
-                    visible: Models.Devices.localDeviceEnrolled && deviceRow.online
+                    visible: Models.Devices.localDeviceEnrolled && deviceRow.online && !deviceRow.power.busy
                     variant: KButton.Ghost
 
                     onClicked: {
@@ -589,6 +653,25 @@ ColumnLayout {
             width: 340
             color: KodosiTheme.inkMuted
             text: qsTr("Its terminals pause until it wakes.")
+            wrapMode: Text.WordWrap
+        }
+    }
+    KDialog {
+        id: testWake
+
+        property string deviceId: ""
+        property string label: ""
+
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        title: qsTr("Test the wake of %1?").arg(label)
+        onOpened: standardButton(Dialog.Ok).text = qsTr("Test")
+
+        onAccepted: Models.Devices.testWake(deviceId)
+
+        PlainLabel {
+            width: 340
+            color: KodosiTheme.inkMuted
+            text: qsTr("Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.")
             wrapMode: Text.WordWrap
         }
     }

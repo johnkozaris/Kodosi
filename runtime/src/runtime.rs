@@ -53,6 +53,7 @@ mod restore;
 mod saver;
 mod sharing;
 mod terminal_folders;
+mod wake;
 
 #[cfg(test)]
 mod tests;
@@ -766,14 +767,46 @@ enum Completion {
     #[cfg(feature = "host")]
     Slept {
         result: std::io::Result<()>,
+        slept: bool,
     },
     Asked {
         command: Command,
+        computer: String,
         result: Result<Value>,
     },
     Checked {
         held: Box<sharing::Held>,
         facts: sharing::Facts,
+    },
+    WakeDescribed {
+        device: String,
+        number: u64,
+        reported: Option<crate::protocol::WakeTest>,
+        result: Result<crate::protocol::WakeDetails>,
+    },
+    OwnNetwork {
+        own: crate::wake::OwnNetwork,
+        connects: Option<u64>,
+    },
+    Roused {
+        device: String,
+        details: crate::protocol::WakeDetails,
+        roused: crate::wake::Roused,
+    },
+    WakeTested {
+        device: String,
+        details: crate::protocol::WakeDetails,
+        tested: crate::wake::Tested,
+    },
+    #[cfg(feature = "host")]
+    WakeRead {
+        command: Command,
+        own: crate::wake::OwnNetwork,
+    },
+    #[cfg(feature = "host")]
+    WakeSignaled {
+        command: Command,
+        signal: Result<crate::protocol::WakeSignal>,
     },
     TerminalFolders {
         device: String,
@@ -1214,6 +1247,7 @@ struct Runtime {
     attention: attention::Attention,
     project_latest: HashMap<String, u64>,
     project_seen: project_seen::ProjectSeen,
+    wakes: wake::Wakes,
     reconnect: HashMap<Uuid, Reconnect>,
     typing: HashMap<Uuid, usize>,
     inputs: u64,
@@ -1280,6 +1314,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
     })?;
     let network_events = network.events();
     let project_seen = project_seen::ProjectSeen::load(&config.data_root);
+    let wakes = wake::Wakes::load(&config.data_root);
     let scope = Scope {
         user: None,
         epoch: crate::identity::now_ms(),
@@ -1395,6 +1430,7 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         attention: attention::Attention::default(),
         project_latest: HashMap::new(),
         project_seen,
+        wakes,
         reconnect: HashMap::new(),
         typing: HashMap::new(),
         inputs: 0,
@@ -1894,7 +1930,6 @@ impl Runtime {
         }
         events.push(self.listing(self.entries()).event());
         events.push(self.event(self.dosi.snapshot())?);
-        #[cfg(feature = "host")]
         events.push(self.event(self.power_event())?);
         for value in self.cached_events.values() {
             events.push(self.event(value.clone())?);
@@ -1921,6 +1956,7 @@ impl Runtime {
         if online != self.online {
             self.online = online;
             self.emit(self.connection_event());
+            self.publish_power();
         }
     }
 
@@ -2145,7 +2181,7 @@ impl Runtime {
                 Some(sign_in) = sign_ins.recv() => self.sign_in_asked(sign_in),
                 Ok(()) = link.changed() => {}
                 () = &mut timer, if due.is_some() => {}
-                _ = retry.tick(), if !background => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); }
+                _ = retry.tick(), if !background => { #[cfg(feature = "host")] { self.publish_locals(); self.retire_publications(); self.remember_conversations(); self.save_terminals(HashMap::new()); self.check_mentions(); self.tell_mentions(); self.type_agent_changes(); } self.started_remotes(); self.ask_folders(); self.ask_wakes(); }
             }
         }
         self.send_waiting_list();
@@ -2210,6 +2246,7 @@ impl Runtime {
         #[cfg(feature = "host")]
         self.power.saved().await;
         self.project_seen.saved().await;
+        self.wakes.saved().await;
         self.network.shutdown().await;
     }
 
@@ -3120,6 +3157,7 @@ impl Runtime {
         self.views.clear();
         self.reconnect.clear();
         self.folder_asks.clear();
+        self.wakes.forget_account();
         self.listed.clear();
         self.remotes.clear();
         self.reopen_pipes();
@@ -3151,6 +3189,7 @@ impl Runtime {
         self.apply_wanted();
         self.emit(self.auth_event());
         self.publish_catalog();
+        self.publish_power();
         self.dosi_account();
         Ok(())
     }
@@ -3244,6 +3283,7 @@ impl Runtime {
                 self.cached_events.insert(kind.to_owned(), event.clone());
             }
             let content = (kind == "project.snapshot").then(|| event["content"].clone());
+            self.devices_changed(kind, &event);
             self.emit(event);
             if let Some(content) = content {
                 #[cfg(feature = "host")]

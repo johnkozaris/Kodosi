@@ -6,7 +6,7 @@ enum LauncherMenu: String, Equatable {
     case computer, folder, account, model, modes
 
     enum Pick: Equatable {
-        case computer(String?), folder(String), anotherFolder, account(String), newAccount, model(String?)
+        case computer(String?), wake(String), folder(String), anotherFolder, account(String), newAccount, model(String?)
         case permissions(AgentPermissions), output(AgentOutput), chat(Bool)
     }
 
@@ -16,10 +16,16 @@ enum LauncherMenu: String, Equatable {
     static let choose = "menu.choose"
     static let standard = "menu.default"
     static let here = "menu.here"
+    static let wake = "menu.wake."
 
     func pick(_ id: String) -> Pick {
         switch self {
-        case .computer: .computer(id == Self.here ? nil : id)
+        case .computer:
+            if id.hasPrefix(Self.wake) {
+                .wake(String(id.dropFirst(Self.wake.count)))
+            } else {
+                .computer(id == Self.here ? nil : id)
+            }
         case .folder: id == Self.choose ? .anotherFolder : .folder(id)
         case .account: id == Self.add ? .newAccount : .account(id)
         case .model: .model(id == Self.standard ? nil : id)
@@ -48,10 +54,18 @@ enum LauncherMenu: String, Equatable {
         }
     }
 
-    static func computers(_ computers: [MyDeviceEntry], current: String?) -> [PickerRow] {
+    static func computers(_ computers: [MyDeviceEntry], asleep: [MyDeviceEntry], power: [String: ComputerPower], current: String?) -> [PickerRow] {
         let here = String(localized: "This Mac")
         return [PickerRow(id: Self.here, title: here, icon: .device(here), current: current == nil)]
             + computers.map { PickerRow(id: $0.deviceId, title: $0.label, icon: .device($0.label), current: $0.deviceId == current) }
+            + asleep.map { device in
+                let waking = power[device.deviceId]?.busy == .waking
+                return PickerRow(
+                    id: Self.wake + device.deviceId, kind: waking ? .note : .action,
+                    title: waking ? String(localized: "Waking \(device.label)…") : String(localized: "Wake \(device.label)"),
+                    icon: .device(device.label),
+                )
+            }
     }
 
     static func accounts(

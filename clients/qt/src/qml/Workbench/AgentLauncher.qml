@@ -21,6 +21,8 @@ ColumnLayout {
     readonly property font commandFont: Qt.font({ family: "monospace", pixelSize: KodosiTheme.fontBody, weight: Font.Medium })
     readonly property string home: Models.DesktopSettings.homeDirectory
     readonly property var computers: Models.Devices.computers
+    readonly property var asleep: Models.Devices.asleep
+    readonly property bool picksComputer: computers.length > 0 || asleep.length > 0
     readonly property string computer: {
         const wanted = Models.DesktopSettings.lastComputer
         return computers.some(entry => entry.deviceId === wanted) ? wanted : ""
@@ -211,6 +213,11 @@ ColumnLayout {
         return [{ id: "menu.here", kind: "choice", icon: "device", title: qsTr("This computer"), current: computer.length === 0 }]
             .concat(computers.map(entry => ({ id: entry.deviceId, kind: "choice", icon: "device", title: entry.label,
                 current: entry.deviceId === computer })))
+            .concat(asleep.map(entry => {
+                const waking = (Models.Devices.power[entry.deviceId] || {}).busy === "waking"
+                return { id: "menu.wake." + entry.deviceId, kind: waking ? "note" : "action", icon: "device", working: waking,
+                    title: waking ? qsTr("Waking %1…").arg(entry.label) : qsTr("Wake %1").arg(entry.label) }
+            }))
     }
     function popover(kind: string): LauncherDropdown {
         return kind === "computer" ? computerPopover : kind === "folder" ? folderPopover : kind === "account" ? accountPopover
@@ -240,6 +247,10 @@ ColumnLayout {
     }
     function pick(kind: string, id: string): void {
         if (kind === "computer") {
+            if (id.startsWith("menu.wake.")) {
+                Models.Devices.wake(id.slice(10))
+                return
+            }
             Models.DesktopSettings.lastComputer = id === "menu.here" ? "" : id
         } else if (kind === "folder" && computer.length > 0) {
             const listing = launcher.listing
@@ -561,7 +572,7 @@ ColumnLayout {
             }
             Row {
                 anchors.right: parent.right
-                anchors.rightMargin: root.computers.length > 0 || root.offline || root.inSheet ? 6 : 12
+                anchors.rightMargin: root.picksComputer || root.offline || root.inSheet ? 6 : 12
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.verticalCenterOffset: 2
                 spacing: 5
@@ -573,7 +584,7 @@ ColumnLayout {
                     readonly property bool open: root.menuKind === "computer"
 
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.computers.length > 0
+                    visible: root.picksComputer
                     objectName: "launcher.computer"
                     Accessible.id: objectName
                     Accessible.name: qsTr("Computer")
@@ -624,7 +635,7 @@ ColumnLayout {
                 }
                 KIcon {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.computers.length === 0
+                    visible: !root.picksComputer
                     width: KodosiTheme.scaled(13)
                     height: KodosiTheme.scaled(13)
                     name: "laptop"
@@ -633,7 +644,7 @@ ColumnLayout {
                 }
                 PlainLabel {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: root.computers.length === 0
+                    visible: !root.picksComputer
                     text: qsTr("This computer")
                     color: root.look.inkMuted
                     font.pixelSize: KodosiTheme.fontFootnote

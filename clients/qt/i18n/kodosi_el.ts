@@ -177,6 +177,14 @@
         <translation>Λήψη φακέλων από %1</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>Αφύπνιση %1…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>Αφύπνιση %1</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>Agents</translation>
     </message>
@@ -1376,12 +1384,52 @@
         <translation>Οι συσκευές σας</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>Πάντα ξύπνιος</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>Μπορεί να μπει σε ύπνο όσο δουλεύουν οι agents</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>Εγκρίνει μια νέα συσκευή όταν δεν έχετε άλλη</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>Αυτός ο υπολογιστής</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>Δοκιμή…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Αφύπνιση…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Αφύπνιση</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Αποτροπή ύπνου</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Όσο δουλεύουν οι agents</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Πάντα</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Ποτέ</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>Δοκιμή αφύπνισης…</translation>
     </message>
     <message>
         <source>Sleep…</source>
@@ -1550,6 +1598,18 @@
     <message>
         <source>Its terminals pause until it wakes.</source>
         <translation>Τα τερματικά του σταματούν προσωρινά μέχρι να ξυπνήσει.</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>Δοκιμή αφύπνισης του υπολογιστή %1;</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>Δοκιμή</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Το Kodosi τον θέτει σε ύπνο και τον ξυπνά ξανά. Τα τερματικά του σταματούν προσωρινά για περίπου ένα λεπτό. Αν δεν ξυπνήσει, ξυπνήστε τον με το χέρι.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -4695,6 +4755,14 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>Το τερματικό θα ανοίξει όταν επιστρέψει ο υπολογιστής του.</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Αφύπνιση…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Αφύπνιση</translation>
     </message>
     <message>
         <source>The terminal opens when the connection is back.</source>

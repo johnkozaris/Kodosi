@@ -80,7 +80,8 @@ trabajando o esperando aprobación, nunca el texto del terminal), si ya has vist
 cabeceras de enrutamiento, los tiempos y los tamaños del texto cifrado (salvo en el tráfico que
 sigue una ruta directa punto a punto). También ve el estado de actividad de cada dispositivo (en
 Kodosi, en otra app de escritorio o inactivo) para que las notificaciones lleguen únicamente a un
-dispositivo activo.
+dispositivo activo. No ve cómo se reactivan tus ordenadores: sus direcciones de red y sus ajustes de
+reactivación solo viajan entre tus propios dispositivos, cifrados de extremo a extremo.
 
 Las notificaciones push móviles viajan a través de APNs de Apple o FCM de Google. Esos proveedores
 ven los ID de los terminales que están esperando, han terminado o han fallado junto con su tipo de

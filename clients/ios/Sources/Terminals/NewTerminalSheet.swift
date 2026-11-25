@@ -230,6 +230,14 @@ struct NewTerminalSheet: View {
         return ChoiceRow(
             title: String(localized: "Computer"), value: name, values: computers.map(\.deviceId), selection: launcher.computer ?? "",
             label: { id in computers.first { $0.deviceId == id }?.label ?? id }, choose: { draft.computer = $0 },
+            actions: model.power.asleep(among: model.account.devices).map { device in
+                let waking = model.power.computers[device.deviceId]?.busy == .waking
+                return ChoiceAction(
+                    id: "terminals.new.wake.\(device.deviceId)",
+                    title: waking ? String(localized: "Waking \(device.label)…") : String(localized: "Wake \(device.label)"),
+                    disabled: waking,
+                ) { model.power.wake(device.deviceId) }
+            },
             leading: { IconTile(symbol: DeviceGlyph.symbol(for: name), tint: TileTint.graphite, size: 28) },
         )
         .accessibilityIdentifier("terminals.new.computer")

@@ -177,6 +177,14 @@
         <translation>正在获取 %1 的文件夹</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>正在唤醒 %1…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>唤醒 %1</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>Agent</translation>
     </message>
@@ -1357,12 +1365,52 @@
         <translation>你的设备</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>始终保持唤醒</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>Agent 工作时也可睡眠</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>没有其他设备时批准新设备</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>这台电脑</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>正在测试…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>正在唤醒…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>唤醒</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>保持唤醒</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Agent 工作时</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>始终</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>永不</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>测试唤醒…</translation>
     </message>
     <message>
         <source>Sleep…</source>
@@ -1531,6 +1579,18 @@
     <message>
         <source>Its terminals pause until it wakes.</source>
         <translation>在它被唤醒之前，它的终端会暂停。</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>要测试唤醒 %1 吗？</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>测试</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi 会让它进入睡眠，然后再唤醒它。它的终端会暂停约一分钟。如果它没有被唤醒，请手动唤醒它。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -4663,6 +4723,14 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>电脑重新上线后，终端会打开。</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>正在唤醒…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>唤醒</translation>
     </message>
     <message>
         <source>The terminal opens when the connection is back.</source>

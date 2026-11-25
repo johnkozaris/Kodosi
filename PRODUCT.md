@@ -48,10 +48,11 @@ decision is needed.
 The iOS and Android apps let you watch, answer, and control terminals running on your computers,
 as well as participate in projects while away from your desk.
 
-### Sleep
+### Sleep and wake
 A computer doesn't go to sleep by itself while an agent works on it, but an agent that waits for
-you doesn't keep it awake. You can set a computer to stay awake always, or never, and put any of
-your computers to sleep from another of your devices.
+you doesn't keep it awake. From any of your devices you can set a computer to stay awake always,
+or never, put it to sleep and wake it again. Kodosi shows for each computer if it wakes, and names
+the one setting to change when it doesn't.
 
 ## Design decisions
 

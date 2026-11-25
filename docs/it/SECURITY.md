@@ -80,7 +80,8 @@ attesa di approvazione, mai il testo del terminale), se hai già visualizzato qu
 header di instradamento, le tempistiche e le dimensioni del testo cifrato (tranne per il traffico
 che segue un percorso peer-to-peer diretto). Vede inoltre lo stato di attività di ciascun
 dispositivo (in Kodosi, in un'altra app desktop o inattivo), così da inviare le notifiche solo a un
-dispositivo attivo.
+dispositivo attivo. Non vede come si riattivano i tuoi computer: i loro indirizzi di rete e le
+impostazioni di riattivazione viaggiano solo tra i tuoi dispositivi, crittografati end-to-end.
 
 Le notifiche push mobili transitano tramite APNs di Apple o FCM di Google. Questi provider vedono
 gli ID dei terminali in attesa, completati o non riusciti insieme al tipo di agente e allo stato,

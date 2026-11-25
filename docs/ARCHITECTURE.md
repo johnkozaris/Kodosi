@@ -107,8 +107,27 @@ device they're actively using:
 A device can open an end-to-end encrypted channel to the host of another computer belonging to the
 same user. It works like a view's channel but reaches the host itself, which serves launcher
 queries on it (listing available agents and folders, and starting new terminals) and power calls
-(putting that computer to sleep, and its stay-awake setting). The host treats it like another
-client and accepts calls only from the user's own approved devices.
+(putting that computer to sleep, its stay-awake setting, and the wake calls below). The host
+treats it like another client and accepts calls only from the user's own approved devices.
+
+### Waking a computer
+
+A sleeping computer answers nothing, so everything that a wake needs must be known before it
+sleeps. While a computer is awake, it reads how it can wake: the hardware address and network of
+each card, whether the card uses a cable, the address of its router, and the wake setting of the
+operating system. The user's other devices ask for this over a remote host call and keep the
+answer, which also says when the computer stays awake. The backend never gets it.
+
+The wake signal is a broadcast on the local network of the sleeping computer, so a device of the
+user on that network must send it. The device that asks sends it itself when it is on that network
+and its system lets an app broadcast. Otherwise it asks each awake computer of the user to send it,
+through a remote host call, and a computer on another network declines. Two networks count as the
+same when they have the same address range and the same router; when a router is unknown, the
+public address decides. The device repeats the signal until the computer is online again, and
+gives up after a time with one thing for the person to do.
+
+What a computer reads is only an expectation. A wake test puts the computer to sleep, wakes it and
+tells it the result, which the computer keeps with the card that it tested.
 
 ## Backend and projects
 

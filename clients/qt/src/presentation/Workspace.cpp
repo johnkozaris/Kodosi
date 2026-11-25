@@ -507,6 +507,11 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
     }
     if (type == QStringLiteral("power.state")) {
         m_devices.m_keepAwake = event.value(QStringLiteral("keepAwake")).toString();
+        m_devices.m_power.clear();
+        for (const auto& value : event.value(QStringLiteral("computers")).toArray()) {
+            const auto computer = value.toObject();
+            m_devices.m_power.insert(computer.value(QStringLiteral("deviceId")).toString(), computer.toVariantMap());
+        }
         emit m_devices.changed();
         return;
     }

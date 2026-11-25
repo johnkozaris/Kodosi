@@ -177,6 +177,14 @@
         <translation>Obteniendo las carpetas de %1</translation>
     </message>
     <message>
+        <source>Waking %1…</source>
+        <translation>Reactivando %1…</translation>
+    </message>
+    <message>
+        <source>Wake %1</source>
+        <translation>Reactivar %1</translation>
+    </message>
+    <message>
         <source>Agents</source>
         <translation>Agentes</translation>
     </message>
@@ -1376,12 +1384,52 @@
         <translation>Tus dispositivos</translation>
     </message>
     <message>
+        <source>Always awake</source>
+        <translation>Siempre despierto</translation>
+    </message>
+    <message>
+        <source>Can sleep while agents work</source>
+        <translation>Puede suspenderse mientras trabajan los agentes</translation>
+    </message>
+    <message>
         <source>Approves a new device when you have no other device</source>
         <translation>Aprueba un dispositivo nuevo cuando no tienes otro</translation>
     </message>
     <message>
         <source>This computer</source>
         <translation>Este ordenador</translation>
+    </message>
+    <message>
+        <source>Testing…</source>
+        <translation>Probando…</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Reactivando…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Reactivar</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Mantener despierto</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Mientras trabajan los agentes</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Siempre</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Nunca</translation>
+    </message>
+    <message>
+        <source>Test wake…</source>
+        <translation>Probar la reactivación…</translation>
     </message>
     <message>
         <source>Sleep…</source>
@@ -1550,6 +1598,18 @@
     <message>
         <source>Its terminals pause until it wakes.</source>
         <translation>Sus terminales se pausan hasta que se reactive.</translation>
+    </message>
+    <message>
+        <source>Test the wake of %1?</source>
+        <translation>¿Probar la reactivación de %1?</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>Probar</translation>
+    </message>
+    <message>
+        <source>Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.</source>
+        <translation>Kodosi lo suspende y lo reactiva de nuevo. Sus terminales se pausan durante un minuto aproximadamente. Si no se reactiva, reactívalo a mano.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -4695,6 +4755,14 @@
     <message>
         <source>The terminal opens when its computer is back.</source>
         <translation>El terminal se abrirá cuando su ordenador vuelva.</translation>
+    </message>
+    <message>
+        <source>Waking…</source>
+        <translation>Reactivando…</translation>
+    </message>
+    <message>
+        <source>Wake</source>
+        <translation>Reactivar</translation>
     </message>
     <message>
         <source>The terminal opens when the connection is back.</source>

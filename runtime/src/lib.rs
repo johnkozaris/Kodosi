@@ -45,6 +45,7 @@ pub mod protocol;
 pub mod provider;
 mod runtime;
 pub mod terminal;
+mod wake;
 mod worktree;
 
 pub use config::{Config, HostKind};

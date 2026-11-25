@@ -1,14 +1,13 @@
 use std::{io, path::Path, time::Duration};
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 use tokio::sync::watch;
 
 use super::{Completion, Runtime, saver::Saver};
 use crate::{
     Command, Error, Result,
     network::Moment,
-    protocol::{KeepAwake, SessionEntry, SessionKind},
+    protocol::{KeepAwake, SessionEntry, SessionKind, WakeTest},
 };
 
 /// An agent that stops often asks its person a question, or gets its next task at once. The
@@ -27,14 +26,20 @@ enum Wanted {
     Off,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Saved {
     keep_awake: KeepAwake,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    tested: Option<WakeTest>,
 }
 
 pub(super) struct Power {
     keep_awake: KeepAwake,
+    /// Whether a test from another device woke this computer through one of its cards.
+    tested: Option<WakeTest>,
+    /// Whether the last sleep that another device asked for was a real sleep.
+    slept: bool,
     agents_work: bool,
     wanted: watch::Sender<Wanted>,
     saver: Saver,
@@ -61,14 +66,16 @@ impl Power {
         hold: impl Fn() -> Option<Held> + Send + Sync + 'static,
     ) -> Self {
         let file = data_root.join("power.json");
-        let keep_awake = std::fs::read(&file)
+        let saved = std::fs::read(&file)
             .ok()
             .and_then(|bytes| serde_json::from_slice::<Saved>(&bytes).ok())
-            .map_or_else(KeepAwake::default, |saved| saved.keep_awake);
+            .unwrap_or_default();
         let (wanted, changes) = watch::channel(Wanted::Off);
         tokio::spawn(keep(changes, std::sync::Arc::new(hold)));
         let power = Self {
-            keep_awake,
+            keep_awake: saved.keep_awake,
+            tested: saved.tested,
+            slept: false,
             agents_work: false,
             wanted,
             saver: Saver::file(file, "the power setting"),
@@ -86,12 +93,34 @@ impl Power {
             return false;
         }
         self.keep_awake = keep_awake;
-        match serde_json::to_vec(&Saved { keep_awake }) {
+        self.save();
+        self.want();
+        true
+    }
+
+    pub(super) const fn tested(&self) -> Option<&WakeTest> {
+        self.tested.as_ref()
+    }
+
+    /// A computer that did not sleep also comes back, so a wake counts only after a real sleep.
+    pub(super) fn record_test(&mut self, test: WakeTest) -> bool {
+        if test.woke && !self.slept {
+            return false;
+        }
+        self.tested = Some(test);
+        self.save();
+        true
+    }
+
+    fn save(&self) {
+        let saved = Saved {
+            keep_awake: self.keep_awake,
+            tested: self.tested.clone(),
+        };
+        match serde_json::to_vec(&saved) {
             Ok(bytes) => self.saver.save(bytes),
             Err(error) => tracing::warn!(%error, "could not save the power setting"),
         }
-        self.want();
-        true
     }
 
     pub(super) fn agents_work(&mut self, working: bool) {
@@ -122,17 +151,13 @@ fn agent_works(entry: &SessionEntry) -> bool {
 }
 
 impl Runtime {
-    pub(super) fn power_event(&self) -> Value {
-        json!({"type":"power.state", "keepAwake":self.power.keeps_awake()})
-    }
-
     pub(super) fn follow_agents(&mut self, entries: &[SessionEntry]) {
         self.power.agents_work(entries.iter().any(agent_works));
     }
 
     pub(super) fn keep_awake(&mut self, command: &Command, keep_awake: KeepAwake) {
         if self.power.keep_awake(keep_awake) {
-            self.emit(self.power_event());
+            self.publish_power();
         }
         self.result(command);
     }
@@ -174,22 +199,30 @@ impl Runtime {
                 .await
                 .map_err(io::Error::other)
                 .flatten();
-            if matches!(result, Ok(kodosi_os::power::Sleep::Starts)) {
-                let until = tokio::time::Instant::now() + SLEEP_STARTS;
-                while tokio::time::Instant::now() < until && !before.slept_until(Moment::now()) {
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+            let slept = match &result {
+                Ok(kodosi_os::power::Sleep::Starts) => {
+                    let until = tokio::time::Instant::now() + SLEEP_STARTS;
+                    while tokio::time::Instant::now() < until && !before.slept_until(Moment::now())
+                    {
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                    }
+                    before.slept_until(Moment::now())
                 }
-            }
+                Ok(kodosi_os::power::Sleep::Ended) => before.slept_through(Moment::now()),
+                Err(_) => false,
+            };
             Completion::Slept {
                 result: result.map(drop),
+                slept,
             }
         });
     }
 
-    pub(super) fn slept(&mut self, result: &io::Result<()>) {
+    pub(super) fn slept(&mut self, result: &io::Result<()>, slept: bool) {
         if let Err(error) = result {
             tracing::warn!(%error, "this computer did not go to sleep");
         }
+        self.power.slept = slept;
         self.network.resume();
         self.retry_views_now();
     }
@@ -326,5 +359,26 @@ mod tests {
         assert_eq!(again.keeps_awake(), KeepAwake::Always);
         settle().await;
         assert_eq!(holds.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn a_wake_counts_only_after_a_real_sleep() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut power = power(folder.path(), &Arc::new(AtomicUsize::new(0)));
+        let test = |woke| WakeTest {
+            hardware: "02:00:5e:10:20:30".to_owned(),
+            woke,
+        };
+
+        assert!(
+            !power.record_test(test(true)),
+            "a computer that stayed awake also comes back"
+        );
+        assert!(power.tested().is_none());
+        assert!(power.record_test(test(false)));
+
+        power.slept = true;
+        assert!(power.record_test(test(true)));
+        assert_eq!(power.tested().map(|test| test.woke), Some(true));
     }
 }

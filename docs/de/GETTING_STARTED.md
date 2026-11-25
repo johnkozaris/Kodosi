@@ -292,7 +292,32 @@ versetzen.
 
 Um einen anderen deiner Computer in den Ruhezustand zu versetzen, öffne die **Einstellungen** und
 klicke unter **Deine Geräte** neben ihm auf **Ruhezustand…** (auf einem Smartphone tippst du zuerst
-auf **⋯**). Seine Terminals pausieren, bis er wieder aufwacht.
+auf **⋯**). Seine Terminals pausieren, bis er wieder aufwacht. Mit **Wach bleiben** daneben wählst
+du, wann dieser Computer wach bleibt.
+
+### Einen Computer aufwecken
+
+Um einen Computer aus dem Ruhezustand aufzuwecken, klicke in den **Einstellungen** neben ihm, in
+einem seiner Terminals oder in der Computerliste eines neuen Terminals auf **Aufwecken**. Das
+Wecksignal muss aus dem Netzwerk des schlafenden Computers kommen. Kodosi sendet es von dem Gerät,
+das du gerade benutzt, wenn es im selben Netzwerk ist, und sonst von einem anderen deiner Computer
+dort, der wach ist. Ein iPhone oder iPad bittet immer einen deiner Computer darum.
+
+Ein Computer wacht über ein Netzwerkkabel auf, nicht über WLAN, und nur, wenn sein System es
+erlaubt. Die **Einstellungen** zeigen für jeden Computer, was Kodosi erwartet, oder die eine
+Einstellung, die du ändern musst:
+
+- Auf einem Mac: Aktiviere in den Systemeinstellungen **Ruhezustand bei Netzwerkzugriff beenden**.
+- Unter Windows: Erlaube im Geräte-Manager, dass der Netzwerkadapter den Computer aktiviert.
+- Unter Linux: Aktiviere Wake-on-LAN für die Kabelverbindung.
+
+Ein Mac sendet das Wecksignal nur, wenn Kodosi das lokale Netzwerk nutzen darf. Erlaube es in den
+Systemeinstellungen unter **Datenschutz & Sicherheit**.
+
+Um sicherzugehen, klicke neben einem wachen Computer auf **Aufwecken testen…** (auf einem
+Smartphone tippst du zuerst auf **⋯**). Kodosi versetzt ihn in den Ruhezustand, weckt ihn auf und
+merkt sich das Ergebnis. Bleib beim ersten Test in der Nähe des Computers: Wenn er nicht aufwacht,
+wecke ihn von Hand.
 
 ### Wiederherstellungsschlüssel
 
@@ -376,6 +401,7 @@ der App sofort sichtbar.
 | `kodosi skill` | Gibt den Agent-Skill für die Zusammenarbeit in Kodosi aus; `kodosi skill canvas` gibt den Canvas-Skill aus. |
 | `kodosi dosi skill` | Gibt den Skill aus, mit dem ein anderer Agent als Dosi auftreten kann. |
 | `kodosi devices sleep <computer>` | Versetzt einen anderen deiner Computer in den Ruhezustand. Seine Terminals pausieren, bis er wieder aufwacht. Mit `kodosi devices keep-awake` und `agents`, `always` oder `never` wählst du, wann dieser Computer wach bleibt. |
+| `kodosi devices wake <computer>` | Weckt einen deiner Computer aus dem Ruhezustand auf und wartet, bis er online ist. `kodosi devices test-wake <computer>` versetzt einen Computer in den Ruhezustand, weckt ihn auf und merkt sich das Ergebnis. `kodosi devices list` zeigt, was Kodosi von jedem Computer erwartet. |
 | `kodosi host` | Führt den Host eigenständig aus, sodass Terminals weiterlaufen, nachdem du die App beendet hast. Mit `kodosi host stop` stoppst du einen im Hintergrund laufenden Host. |
 
 `message`, `input` und `keys` brechen ab, solange du aktiv in diesem Terminal tippst. `message`

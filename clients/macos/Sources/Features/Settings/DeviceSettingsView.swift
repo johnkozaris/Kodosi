@@ -9,6 +9,8 @@ struct DeviceSettingsView: View {
     @FocusState private var codeFocused: Bool
     @State private var revoke: MyDeviceEntry?
     @State private var sleeping: MyDeviceEntry?
+    @State private var testing: MyDeviceEntry?
+    @State private var choosingAwake: String?
     @State private var signingOut = false
     @State private var deletingAccount = false
     @State private var replacingRecoveryKey = false
@@ -57,15 +59,13 @@ struct DeviceSettingsView: View {
                                     symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
                                     tint: device.deviceId == deps.account.selfDeviceId ? TileTint.orange : TileTint.graphite)
                             {
-                                if deps.account.computers.contains(device) {
-                                    Button("Sleep…") { sleeping = device }.buttonStyle(.kodosi(.ghost, size: .small))
-                                        .accessibilityIdentifier("settings.devices.sleep.\(device.deviceId)")
-                                }
+                                power(of: device)
                                 if deps.account.canRemove(device) {
                                     Button("Remove…") { revoke = device }.buttonStyle(.kodosi(.ghost, size: .small))
                                         .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
                                 }
                             }
+                            .wholeSubtitle()
                         }
                     }
                 }
@@ -158,6 +158,7 @@ struct DeviceSettingsView: View {
             }
         }
         .animation(theme.motion.spring, value: deps.account.devices)
+        .animation(theme.motion.spring, value: deps.power.computers)
         .animation(theme.motion.spring, value: deps.account.deletion)
         .animation(theme.motion.spring, value: deps.account.deviceRequests)
         .animation(theme.motion.spring, value: deps.account.pendingReset)
@@ -168,6 +169,12 @@ struct DeviceSettingsView: View {
             Button("Sleep") { deps.power.sleep(device) }
                 .accessibilityIdentifier("settings.devices.confirmSleep")
         } message: { _ in Text("Its terminals pause until it wakes.") }
+        .confirmationDialog("Test the wake of \(testing?.title ?? "")?", item: $testing, titleVisibility: .visible) { device in
+            Button("Test") { deps.power.testWake(device) }
+                .accessibilityIdentifier("settings.devices.confirmTestWake")
+        } message: { _ in
+            Text("Kodosi puts it to sleep and wakes it again. Its terminals pause for about a minute. If it does not wake, wake it by hand.")
+        }
         .confirmationDialog(Text("Approve \(confirmingLabel ?? "")?"), isPresented: Binding(get: { confirmingLabel != nil }, set: { _ in }),
                             titleVisibility: .visible)
         {
@@ -210,11 +217,85 @@ struct DeviceSettingsView: View {
 
     private func subtitle(_ device: MyDeviceEntry) -> String? {
         if device.recoveryKey {
-            String(localized: "Approves a new device when you have no other device")
-        } else if device.deviceId == deps.account.selfDeviceId {
-            String(localized: "This Mac")
-        } else {
-            nil
+            return String(localized: "Approves a new device when you have no other device")
+        }
+        let power = deps.power.computers[device.deviceId]
+        let own = device.deviceId == deps.account.selfDeviceId ? String(localized: "This Mac") : nil
+        let awake: String? = switch power?.keepAwake {
+        case .always?: String(localized: "Always awake")
+        case .never?: String(localized: "Can sleep while agents work")
+        case .agents?, nil: nil
+        }
+        let parts = [own, awake, power?.problem ?? power?.note].compactMap(\.self)
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    @ContentBuilder
+    private func power(of device: MyDeviceEntry) -> some View {
+        let power = deps.power.computers[device.deviceId]
+        if let busy = power?.busy {
+            Text(busy == .waking ? "Waking…" : "Testing…").appTextStyle(.footnote).foregroundStyle(theme.colors.inkMuted)
+                .accessibilityIdentifier("settings.devices.busy.\(device.deviceId)")
+        } else if power?.canWake == true {
+            Button("Wake") { deps.power.wake(device.deviceId) }.buttonStyle(.kodosi(.ghost, size: .small))
+                .accessibilityIdentifier("settings.devices.wake.\(device.deviceId)")
+        } else if deps.account.computers.contains(device) {
+            if let power {
+                stayAwake(device, current: power.keepAwake)
+            }
+            if power?.canTest == true {
+                Button("Test wake…") { testing = device }.buttonStyle(.kodosi(.ghost, size: .small))
+                    .accessibilityIdentifier("settings.devices.testWake.\(device.deviceId)")
+            }
+            Button("Sleep…") { sleeping = device }.buttonStyle(.kodosi(.ghost, size: .small))
+                .accessibilityIdentifier("settings.devices.sleep.\(device.deviceId)")
+        }
+    }
+
+    private func stayAwake(_ device: MyDeviceEntry, current: KeepAwake) -> some View {
+        Button { choosingAwake = device.deviceId } label: {
+            HStack(spacing: 5) {
+                Text("Stay awake")
+                Image(systemName: "chevron.down").font(scaled: 9, weight: .bold)
+            }
+        }
+        .buttonStyle(.kodosi(.ghost, size: .small))
+        .accessibilityValue(Text(awakeTitle(current)))
+        .accessibilityIdentifier("settings.devices.keepAwake.\(device.deviceId)")
+        .kodosiPopover(isPresented: awakeMenu(device), alignment: .trailing) {
+            VStack(alignment: .leading, spacing: 1) {
+                ForEach(KeepAwake.allCases, id: \.self) { choice in
+                    Button {
+                        choosingAwake = nil
+                        if choice != current {
+                            deps.power.keepAwake(choice, on: device.deviceId)
+                        }
+                    } label: {
+                        MenuRow(title: awakeTitle(choice), selected: choice == current)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.devices.keepAwake.\(device.deviceId).\(choice.rawValue)")
+                }
+            }
+            .padding(6)
+            .frame(minWidth: 200)
+            .popoverSheet()
+        }
+    }
+
+    private func awakeMenu(_ device: MyDeviceEntry) -> Binding<Bool> {
+        Binding(get: { choosingAwake == device.deviceId }, set: { open in
+            if !open {
+                choosingAwake = nil
+            }
+        })
+    }
+
+    private func awakeTitle(_ choice: KeepAwake) -> String {
+        switch choice {
+        case .agents: String(localized: "While agents work")
+        case .always: String(localized: "Always")
+        case .never: String(localized: "Never")
         }
     }
 

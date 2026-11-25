@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kodosi.mobile.R
+import com.kodosi.mobile.account.ComputerPower
 import com.kodosi.mobile.ui.ActionIcon
 import com.kodosi.mobile.ui.AgentMark
 import com.kodosi.mobile.ui.AppIcon
@@ -57,6 +58,7 @@ import com.kodosi.mobile.ui.HelperMarks
 import com.kodosi.mobile.ui.KodosiCard
 import com.kodosi.mobile.ui.KodosiField
 import com.kodosi.mobile.ui.KodosiSpinner
+import com.kodosi.mobile.ui.KodosiTextButton
 import com.kodosi.mobile.ui.KodosiTheme
 import com.kodosi.mobile.ui.KodosiType
 import com.kodosi.mobile.ui.MarkActivity
@@ -71,6 +73,8 @@ import com.kodosi.mobile.ui.snappy
 fun TerminalsScreen(
     store: TerminalStore,
     onlineHosts: Set<String>,
+    power: Map<String, ComputerPower>,
+    wake: (String) -> Unit,
     online: Boolean,
     summaryFirst: Boolean,
     open: (String) -> Unit,
@@ -112,6 +116,8 @@ fun TerminalsScreen(
                     } else {
                         null
                     },
+                    power[group.place.id].takeIf { own },
+                    { wake(group.place.id) },
                     Modifier.animateItem(fade(), snappy(), fade())
                 )
             }
@@ -211,7 +217,13 @@ private fun SearchField(query: TextFieldState) {
 }
 
 @Composable
-private fun GroupHeader(group: TerminalGroup, start: (() -> Unit)?, modifier: Modifier = Modifier) {
+private fun GroupHeader(
+    group: TerminalGroup,
+    start: (() -> Unit)?,
+    power: ComputerPower?,
+    wake: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val colors = KodosiTheme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -232,6 +244,12 @@ private fun GroupHeader(group: TerminalGroup, start: (() -> Unit)?, modifier: Mo
         )
         Spacer(Modifier.width(7.dp))
         Text(group.sessions.size.toString(), style = KodosiType.caption, color = colors.inkFaint)
+        if (power?.waking == true) {
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.waking), style = KodosiType.caption, color = colors.inkMuted)
+        } else if (power?.canWake == true) {
+            KodosiTextButton(onClick = wake) { Text(stringResource(R.string.wake_computer)) }
+        }
         if (start != null) ActionIcon(AppSymbol.ADD, R.string.new_terminal, start)
     }
 }

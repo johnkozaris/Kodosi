@@ -37,7 +37,7 @@ fn validate_participants(users: &[String]) -> Result<()> {
     Ok(())
 }
 
-pub const VERSION: u32 = 113;
+pub const VERSION: u32 = 114;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
 /// How long a command that lets someone new in waits for the owner's answer in the app.
@@ -815,6 +815,45 @@ pub enum Command {
         #[serde(rename = "keepAwake")]
         keep_awake: KeepAwake,
     },
+    /// Wakes a sleeping computer of the person. This device sends the wake signal when it is on
+    /// the network of that computer, and asks each awake computer of the person to do the same.
+    #[serde(rename = "power.wake")]
+    Wake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "deviceId")]
+        device_id: String,
+    },
+    /// Puts a computer of the person to sleep, wakes it, and records on it whether it woke.
+    #[serde(rename = "power.test")]
+    TestWake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(rename = "deviceId")]
+        device_id: String,
+    },
+    /// Asks the computer that takes the command how it wakes.
+    #[serde(rename = "power.describe")]
+    DescribeWake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    /// The computer that takes the command sends the wake signal for a sleeping computer, when
+    /// it is on the network of that computer.
+    #[serde(rename = "power.signal")]
+    SignalWake {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        sleeper: WakeDetails,
+    },
+    /// Tells the computer that takes the command whether a test woke it through a card.
+    #[serde(rename = "power.tested")]
+    RecordWakeTest {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        hardware: String,
+        woke: bool,
+    },
     #[serde(rename = "repositories.list")]
     ListRepositories {
         #[serde(rename = "requestId")]
@@ -1551,11 +1590,18 @@ pub enum EventBody {
         /// When this computer stays awake. A device that hosts no terminals has no such setting.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         keep_awake: Option<KeepAwake>,
+        /// The computers of the person whose wake this device knows.
+        #[serde(default)]
+        computers: Vec<ComputerPower>,
     },
     #[serde(rename = "power.result")]
     PowerResult {
         request_id: String,
         operation: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        wake: Option<WakeDetails>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signal: Option<WakeSignal>,
     },
     #[serde(rename = "power.error")]
     PowerError {
@@ -1799,6 +1845,165 @@ pub enum KeepAwake {
     /// The whole time that Kodosi runs on it.
     Always,
     Never,
+}
+
+pub(crate) const WAKE_LINKS_MOST: usize = 8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ComputerSystem {
+    Mac,
+    Windows,
+    Linux,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WakeMedium {
+    Cable,
+    Radio,
+}
+
+/// Whether the operating system lets a packet from the network wake the computer through a card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WakeSetting {
+    On,
+    Off,
+    Unknown,
+}
+
+/// A connected network card of a computer. The addresses are text: six hexadecimal bytes with
+/// colons for hardware, four decimal numbers with dots for IPv4.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WakeLink {
+    pub hardware: String,
+    pub medium: WakeMedium,
+    pub address: String,
+    pub prefix: u8,
+    /// The hardware address of the router, which tells one network from another network with
+    /// the same addresses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub router: Option<String>,
+    pub wakes: WakeSetting,
+}
+
+/// A test put the computer to sleep and sent the wake signal to this card.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WakeTest {
+    pub hardware: String,
+    pub woke: bool,
+}
+
+/// What a computer reads about its own wake while it is awake. The person's other devices keep
+/// it, because a sleeping computer answers nothing. The server never gets it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WakeDetails {
+    pub system: ComputerSystem,
+    pub links: Vec<WakeLink>,
+    /// The public IPv4 address, for a device that cannot read the hardware address of its router.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public: Option<String>,
+    /// Windows with Fast Startup does not wake after a shutdown.
+    #[serde(default)]
+    pub fast_startup: bool,
+    #[serde(default)]
+    pub keep_awake: KeepAwake,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tested: Option<WakeTest>,
+}
+
+impl WakeDetails {
+    pub(crate) fn validate(&self) -> Result<()> {
+        let hardware = |text: &str| {
+            crate::wake::hardware(text)
+                .map(drop)
+                .ok_or_else(|| Error::Invalid("a hardware address is not valid".to_owned()))
+        };
+        if self.links.len() > WAKE_LINKS_MOST {
+            return Err(Error::Invalid("too many network cards".to_owned()));
+        }
+        for link in &self.links {
+            hardware(&link.hardware)?;
+            if let Some(router) = &link.router {
+                hardware(router)?;
+            }
+            if link.address.parse::<std::net::Ipv4Addr>().is_err()
+                || !(1..=30).contains(&link.prefix)
+            {
+                return Err(Error::Invalid("a network address is not valid".to_owned()));
+            }
+        }
+        if let Some(public) = &self.public
+            && public.parse::<std::net::Ipv4Addr>().is_err()
+        {
+            return Err(Error::Invalid("the public address is not valid".to_owned()));
+        }
+        if let Some(test) = &self.tested {
+            hardware(&test.hardware)?;
+        }
+        Ok(())
+    }
+}
+
+/// What a computer did with a request to send the wake signal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WakeSignal {
+    Sent,
+    /// The computer is not on the network of the sleeping computer.
+    Elsewhere,
+    /// The operating system of the computer did not let Kodosi send on the local network.
+    Refused,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum WakeAbility {
+    /// A test woke it.
+    Tested,
+    /// Its settings allow a wake, and no test ran.
+    Ready,
+    /// A test did not wake it.
+    Failed,
+    /// A setting of its operating system must change first.
+    Fix,
+    /// It is only on Wi-Fi.
+    Radio,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum PowerBusy {
+    Waking,
+    Testing,
+}
+
+/// How one computer of the person wakes, as this device knows it now.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ComputerPower {
+    pub device_id: String,
+    pub wake: WakeAbility,
+    /// What the person can expect of a wake, or the one setting to change for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<Text>,
+    /// Why this computer does not wake now, with the one thing to do. The apps show it where
+    /// they show that the computer is offline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub problem: Option<Text>,
+    /// This device can ask for a wake now: the computer is offline, and a device of the person is
+    /// awake on its network.
+    pub can_wake: bool,
+    pub can_test: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub busy: Option<PowerBusy>,
+    /// When the computer stays awake, as it said the last time that this device asked.
+    pub keep_awake: KeepAwake,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -2208,6 +2413,11 @@ impl Command {
             Self::ListFolders { .. } => "folders.list",
             Self::Sleep { .. } => "power.sleep",
             Self::KeepAwake { .. } => "power.keepAwake",
+            Self::Wake { .. } => "power.wake",
+            Self::TestWake { .. } => "power.test",
+            Self::DescribeWake { .. } => "power.describe",
+            Self::SignalWake { .. } => "power.signal",
+            Self::RecordWakeTest { .. } => "power.tested",
             Self::ListRepositories { .. } => "repositories.list",
             Self::DosiSend { .. } => "dosi.send",
             Self::DosiStop { .. } => "dosi.stop",
@@ -2256,6 +2466,9 @@ impl Command {
                 | Self::ShareSession { .. }
                 | Self::Sleep { .. }
                 | Self::KeepAwake { .. }
+                | Self::DescribeWake { .. }
+                | Self::SignalWake { .. }
+                | Self::RecordWakeTest { .. }
         )
     }
 
@@ -2361,6 +2574,11 @@ impl Command {
             | Self::ListFolders { request_id, .. }
             | Self::Sleep { request_id }
             | Self::KeepAwake { request_id, .. }
+            | Self::Wake { request_id, .. }
+            | Self::TestWake { request_id, .. }
+            | Self::DescribeWake { request_id }
+            | Self::SignalWake { request_id, .. }
+            | Self::RecordWakeTest { request_id, .. }
             | Self::ListRepositories { request_id, .. }
             | Self::DosiSend { request_id, .. }
             | Self::DosiStop { request_id }
@@ -2837,7 +3055,15 @@ impl Command {
         self.validate_dosi()?;
         self.validate_canvas()?;
         match self {
-            Self::RevokeDevice { device_id, .. } => text(device_id, "deviceId", 1024)?,
+            Self::RevokeDevice { device_id, .. }
+            | Self::Wake { device_id, .. }
+            | Self::TestWake { device_id, .. } => text(device_id, "deviceId", 1024)?,
+            Self::SignalWake { sleeper, .. } => sleeper.validate()?,
+            Self::RecordWakeTest { hardware, .. } => {
+                crate::wake::hardware(hardware)
+                    .map(drop)
+                    .ok_or_else(|| Error::Invalid("a hardware address is not valid".to_owned()))?;
+            }
             Self::RegisterPush {
                 platform,
                 token,
@@ -3301,6 +3527,11 @@ pub(crate) mod tests {
             json!({"type":"folders.list","requestId":ID,"path":DIRECTORY}),
             json!({"type":"power.sleep","requestId":ID}),
             json!({"type":"power.keepAwake","requestId":ID,"keepAwake":"always"}),
+            json!({"type":"power.wake","requestId":ID,"deviceId":ID}),
+            json!({"type":"power.test","requestId":ID,"deviceId":ID}),
+            json!({"type":"power.describe","requestId":ID}),
+            json!({"type":"power.signal","requestId":ID,"sleeper":{"system":"linux","links":[{"hardware":"02:00:5e:10:20:30","medium":"cable","address":"192.168.1.20","prefix":24,"router":"02:00:5e:00:00:01","wakes":"on"}],"public":"203.0.113.7","fastStartup":false}}),
+            json!({"type":"power.tested","requestId":ID,"hardware":"02:00:5e:10:20:30","woke":true}),
             resize(),
             json!({"type":"project.show","requestId":ID,"projectId":ID}),
             json!({"type":"dosi.send","requestId":ID,"text":"What needs me?\nAnd why?","context":{"terminal":ID,"project":null}}),

@@ -291,7 +291,32 @@ agents**, **Toujours** ou **Jamais**. Vous pouvez toujours mettre un ordinateur 
 
 Pour mettre en veille un autre de vos ordinateurs, ouvrez **Réglages** et cliquez sur **Mettre en
 veille…** à côté de lui, sous **Vos appareils** (sur un téléphone, touchez d'abord **⋯**). Ses
-terminaux sont en pause jusqu'à son réveil.
+terminaux sont en pause jusqu'à son réveil. **Rester éveillé** à côté de lui choisit quand cet
+ordinateur reste éveillé.
+
+### Réveiller un ordinateur
+
+Pour réveiller un ordinateur en veille, cliquez sur **Réveiller** à côté de lui dans **Réglages**,
+sur l'un de ses terminaux ou dans la liste des ordinateurs d'un nouveau terminal. Le signal de
+réveil doit partir du réseau de l'ordinateur en veille. Kodosi l'envoie depuis l'appareil que vous
+utilisez lorsqu'il est sur le même réseau, et sinon depuis un autre de vos ordinateurs éveillés sur
+ce réseau. Un iPhone ou un iPad le demande toujours à l'un de vos ordinateurs.
+
+Un ordinateur se réveille par un câble réseau, pas en Wi-Fi, et seulement si son système
+l'autorise. **Réglages** indique pour chaque ordinateur ce que Kodosi attend, ou le seul réglage à
+modifier :
+
+- Sur un Mac, activez **Réactiver lors des accès réseau** dans Réglages Système.
+- Sous Windows, autorisez la carte réseau à sortir l'ordinateur de veille, dans le Gestionnaire de
+  périphériques.
+- Sous Linux, activez Wake-on-LAN pour la connexion filaire.
+
+Un Mac n'envoie le signal de réveil que si Kodosi peut utiliser le réseau local. Autorisez-le dans
+Réglages Système, sous **Confidentialité et sécurité**.
+
+Pour en être sûr, cliquez sur **Tester le réveil…** à côté d'un ordinateur éveillé (sur un
+téléphone, touchez d'abord **⋯**). Kodosi le met en veille, le réveille et garde le résultat.
+Restez près de l'ordinateur pour le premier test : s'il ne se réveille pas, réveillez-le à la main.
 
 ### Clés de récupération
 
@@ -376,6 +401,7 @@ immédiatement dans l'app.
 | `kodosi skill` | Affiche le skill permettant à un agent de collaborer dans Kodosi ; `kodosi skill canvas` affiche le skill du canvas. |
 | `kodosi dosi skill` | Affiche le skill permettant à un autre agent d'agir comme Dosi. |
 | `kodosi devices sleep <computer>` | Met en veille un autre de vos ordinateurs. Ses terminaux sont en pause jusqu'à son réveil. `kodosi devices keep-awake` avec `agents`, `always` ou `never` choisit quand cet ordinateur reste éveillé. |
+| `kodosi devices wake <computer>` | Réveille l'un de vos ordinateurs en veille et attend qu'il soit en ligne. `kodosi devices test-wake <computer>` met un ordinateur en veille, le réveille et garde le résultat. `kodosi devices list` indique ce que Kodosi attend de chaque ordinateur. |
 | `kodosi host` | Exécute l'hôte de façon indépendante afin que vos terminaux restent actifs après avoir quitté l'app. Utilisez `kodosi host stop` pour arrêter un hôte en arrière-plan. |
 
 `message`, `input` et `keys` refusent de s'exécuter pendant que vous tapez activement dans ce
