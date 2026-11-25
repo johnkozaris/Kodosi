@@ -29,9 +29,9 @@ private fun element(value: Any?): JsonElement = when (value) {
 inline fun <reified T> RuntimeEvent.value(key: String): T =
     RuntimeJson.decodeFromJsonElement(payload[key] ?: throw InvalidEvent("Missing $key in $type"))
 
-fun JsonObject.string(key: String): String? = (get(key) as? JsonPrimitive)?.contentOrNull
+fun JsonObject.string(key: String): String? = (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
-fun JsonObject.number(key: String): Long? = (get(key) as? JsonPrimitive)?.longOrNull
+fun JsonObject.number(key: String): Long? = (get(key) as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
 
 fun JsonObject.flag(key: String): Boolean = (get(key) as? JsonPrimitive)?.booleanOrNull == true
 

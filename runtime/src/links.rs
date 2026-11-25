@@ -227,7 +227,7 @@ fn has_hidden_characters(value: &str) -> bool {
 
 /// Controls, line breaks, direction marks and invisible marks can make a link look like another
 /// one.
-fn is_hidden(letter: char) -> bool {
+pub(crate) fn is_hidden(letter: char) -> bool {
     matches!(
         letter.general_category(),
         GeneralCategory::Control

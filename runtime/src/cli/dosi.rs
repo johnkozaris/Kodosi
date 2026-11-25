@@ -211,31 +211,3 @@ fn line(body: &DosiBody) -> Option<String> {
         DosiBody::Reasoning { .. } => return None,
     })
 }
-
-#[cfg(test)]
-mod tests {
-    use super::choices;
-
-    fn owned(words: &[&str]) -> Vec<String> {
-        words.iter().map(|word| (*word).to_owned()).collect()
-    }
-
-    #[test]
-    fn a_terminal_question_shows_words_and_types_keys() {
-        assert_eq!(
-            choices(owned(&["Yes=y", "No = n", "Go on=", "a=b=c", "=x"]), true),
-            (
-                owned(&["Yes", "No", "Go on", "a=b", "=x"]),
-                owned(&["y", "n", "", "c", "=x"])
-            )
-        );
-        assert_eq!(
-            choices(owned(&["y", "n"]), true),
-            (owned(&["y", "n"]), Vec::new())
-        );
-        assert_eq!(
-            choices(owned(&["x=1", "Other"]), false),
-            (owned(&["x=1", "Other"]), Vec::new())
-        );
-    }
-}

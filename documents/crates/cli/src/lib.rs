@@ -333,7 +333,6 @@ fn random_client() -> Result<String, Failed> {
 struct Seat {
     pipe: Pipe,
     client: String,
-    rev: u64,
     seq: u64,
     next_query: u64,
     used_at: Instant,
@@ -354,7 +353,6 @@ impl Seat {
         loop {
             match message(&mut pipe).await? {
                 ToClient::Joined {
-                    rev,
                     seq,
                     catchup: Catchup::Snapshot { .. } | Catchup::Missed { .. },
                     ..
@@ -362,7 +360,6 @@ impl Seat {
                     return Ok(Self {
                         pipe,
                         client,
-                        rev,
                         seq: seq.unwrap_or(0),
                         next_query: 1,
                         used_at: Instant::now(),
@@ -376,12 +373,6 @@ impl Seat {
         }
     }
 
-    fn note(&mut self, message: ToClient) {
-        if let ToClient::Changed(changed) = message {
-            self.rev = changed.rev;
-        }
-    }
-
     async fn query(&mut self, body: Value) -> Result<(u64, Value), Failed> {
         self.ask(|id| ToDocument::Query { id, body }).await
     }
@@ -391,15 +382,14 @@ impl Seat {
         self.next_query += 1;
         send(&self.pipe, &asked(id)).await?;
         loop {
-            match message(&mut self.pipe).await? {
-                ToClient::Answer {
-                    id: answered,
-                    rev,
-                    body,
-                } if answered == id => {
-                    return Ok((rev, body));
-                }
-                other => self.note(other),
+            if let ToClient::Answer {
+                id: answered,
+                rev,
+                body,
+            } = message(&mut self.pipe).await?
+                && answered == id
+            {
+                return Ok((rev, body));
             }
         }
     }
@@ -418,7 +408,6 @@ impl Seat {
                 ToClient::Changed(changed)
                     if changed.client == self.client && changed.seq == seq =>
                 {
-                    self.rev = changed.rev;
                     return Ok(changed.rev);
                 }
                 ToClient::Refused {
@@ -431,7 +420,7 @@ impl Seat {
                         format!("The change was refused: {reason:?}. Read again.")
                     })));
                 }
-                other => self.note(other),
+                _ => {}
             }
         }
     }

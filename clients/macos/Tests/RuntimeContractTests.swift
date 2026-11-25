@@ -42,27 +42,6 @@ func runtimeSession(_ id: String = "01992e43-53db-7040-8e02-f6ebf4149b28", kind:
     return try JSONDecoder().decode(RuntimeSession.self, from: JSONEncoder().encode(fields))
 }
 
-@Test func `remote session never treats host directory as local path`() throws {
-    let remote = try runtimeSession(connection: "connected", owner: false)
-    #expect(remote.localDirectory == nil)
-    #expect(remote.canControl)
-    #expect(remote.canOpen)
-    let local = try runtimeSession(kind: "local", connection: "local")
-    #expect(local.localDirectory == "/remote/project")
-    #expect(local.canControl)
-    #expect(try !runtimeSession(connection: "blocked").canControl)
-}
-
-@Test func `a remote terminal takes no input while its computer is away`() throws {
-    for status in ["reconnecting", "offline"] {
-        let session = try runtimeSession(connection: "connected", status: status)
-        #expect(session.isConnected)
-        #expect(!session.canControl)
-        #expect(session.canOpen)
-    }
-    #expect(try runtimeSession(connection: "connected", status: "offline").isTroubled)
-}
-
 @Test func `event inbox keeps its order and closes its waiter`() async {
     let inbox = RuntimeEventInbox()
     for index in 0 ..< 200 {

@@ -142,7 +142,6 @@ struct Running {
     child: Child,
     adapter: Adapter,
     key: Key,
-    message: String,
     text: String,
     resuming: bool,
     heard: bool,
@@ -502,7 +501,6 @@ impl Engine {
         });
         if reused {
             if let Some(running) = self.process.as_mut() {
-                running.message = message;
                 running.text = text;
             }
         } else {
@@ -602,7 +600,7 @@ impl Engine {
         &mut self,
         runner: agents::Runner,
         key: Key,
-        message: String,
+        message: &str,
         text: String,
         out: &mut Output,
     ) {
@@ -635,7 +633,7 @@ impl Engine {
                 model: pick.model.as_deref(),
                 effort: pick.effort.as_deref(),
             },
-            &message,
+            message,
         );
         let mut variables = runner
             .variables
@@ -670,14 +668,13 @@ impl Engine {
         );
         match spawned {
             Ok(child) => {
-                if let Some(line) = adapter.message(&message) {
+                if let Some(line) = adapter.message(message) {
                     child.write(line);
                 }
                 self.process = Some(Running {
                     child,
                     adapter,
                     key,
-                    message,
                     text,
                     resuming,
                     heard: false,
@@ -789,7 +786,7 @@ impl Engine {
             return;
         }
         match result {
-            Ok(runner) => self.start(runner, key, message, text, out),
+            Ok(runner) => self.start(runner, key, &message, text, out),
             Err(error) => self.finish(true, Some(error), out),
         }
     }

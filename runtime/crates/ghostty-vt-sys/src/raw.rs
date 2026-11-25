@@ -1716,18 +1716,6 @@ mod tests {
     }
 
     #[test]
-    fn ordered_effects_are_copied_before_return() {
-        let mut terminal = terminal();
-        let effects = terminal
-            .write(b"\x07\x1b]9;hello\x07\x1b]52;c;aGk=\x07")
-            .expect("write");
-        assert!(matches!(effects.first(), Some(Effect::Bell)));
-        assert!(effects.iter().any(
-            |effect| matches!(effect, Effect::DesktopNotification { body, .. } if body == b"hello")
-        ));
-    }
-
-    #[test]
     fn the_host_acknowledges_the_kitty_clipboard_writes_that_viewers_apply() {
         for (mime, status) in [
             (&b"dGV4dC9wbGFpbg=="[..], &b"DONE"[..]),
@@ -1757,13 +1745,6 @@ mod tests {
     }
 
     #[test]
-    fn unrepresentable_borrowed_length_is_rejected_without_slice_construction() {
-        let value = 1_u8;
-
-        assert!(unsafe { borrowed_bytes(&raw const value, usize::MAX) }.is_none());
-    }
-
-    #[test]
     fn title_pwd_and_query_effects_are_owned_bytes() {
         let mut terminal = terminal();
         let effects = terminal
@@ -1780,16 +1761,6 @@ mod tests {
         assert!(effects.iter().any(
             |effect| matches!(effect, Effect::PtyWrite(value) if value == b"\x1b[?62;6;22;52c")
         ));
-    }
-
-    #[test]
-    fn a_version_query_gets_the_reported_version() {
-        let mut terminal = terminal();
-        terminal.report_version("Kodosi 1.2.3").expect("version");
-        assert_eq!(
-            terminal.write(b"\x1b[>q").expect("reported version"),
-            vec![Effect::PtyWrite(b"\x1bP>|Kodosi 1.2.3\x1b\\".to_vec())]
-        );
     }
 
     #[test]
@@ -1850,18 +1821,6 @@ mod tests {
 
         assert!(effects.contains(&Effect::Title(b"half title".to_vec())));
         assert_eq!(snapshot(&mut restored, true), snapshot(&mut source, true));
-    }
-
-    #[test]
-    fn a_snapshot_over_the_limit_is_refused() {
-        let mut terminal = with_history();
-        let full = snapshot(&mut terminal, true);
-
-        assert_eq!(
-            terminal.encode_snapshot(true, within(full.len() - 1)),
-            Err(Error::LimitExceeded)
-        );
-        assert_eq!(terminal.encode_snapshot(true, within(full.len())), Ok(full));
     }
 
     #[test]

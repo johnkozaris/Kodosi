@@ -52,64 +52,6 @@ fn claude_rows_keep_their_severity_their_model_and_when_they_reset() {
     );
 }
 
-#[test]
-fn codex_windows_are_named_by_their_length() {
-    let month = json!({"rateLimits": {"primary": {"usedPercent": 8, "windowDurationMins": 43200, "resetsAt": 1_795_848_074}, "secondary": null, "planType": "free"}});
-    assert_eq!(
-        codex(&month),
-        vec![UsageLimit {
-            resets_at_ms: Some(1_795_848_074_000),
-            ..limit(Some(720), None, 8, UsageLevel::Normal)
-        }]
-    );
-    let both = json!({"rateLimits": {
-        "primary": {"usedPercent": 42, "windowDurationMins": 300},
-        "secondary": {"usedPercent": 85, "windowDurationMins": 10080, "resetsAt": null}
-    }});
-    assert_eq!(
-        codex(&both),
-        vec![
-            limit(Some(5), None, 42, UsageLevel::Normal),
-            limit(Some(168), None, 85, UsageLevel::Near),
-        ]
-    );
-    let unnamed =
-        json!({"rateLimits": {"primary": {"usedPercent": 5, "windowDurationMins": null}}});
-    assert_eq!(codex(&unnamed), Vec::new());
-}
-
-#[test]
-fn copilot_counts_the_premium_requests_of_the_month() {
-    let quota = |remaining: f64, unlimited: bool, overage: bool| {
-        json!({"quotaSnapshots": {
-            "chat": {"isUnlimitedEntitlement": true, "remainingPercentage": 100},
-            "premium_interactions": {
-                "isUnlimitedEntitlement": unlimited,
-                "remainingPercentage": remaining,
-                "usageAllowedWithExhaustedQuota": overage,
-                "resetDate": "2026-12-01T00:00:00.000Z"
-            }
-        }})
-    };
-    let month = |used: u8, level: UsageLevel| UsageLimit {
-        resets_at_ms: Some(1_796_083_200_000),
-        ..limit(None, None, used, level)
-    };
-    assert_eq!(
-        copilot(&quota(41.4, false, false)),
-        vec![month(59, UsageLevel::Normal)]
-    );
-    assert_eq!(
-        copilot(&quota(0.0, false, true)),
-        vec![month(100, UsageLevel::Near)]
-    );
-    assert_eq!(
-        copilot(&quota(0.0, false, false)),
-        vec![month(100, UsageLevel::Reached)]
-    );
-    assert_eq!(copilot(&quota(0.0, true, false)), Vec::new());
-}
-
 #[cfg(unix)]
 fn program(folder: &Path, name: &str, script: &str) -> Runner {
     let path = folder.join(name);

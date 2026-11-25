@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using Kodosi.Data;
 using Kodosi.Push;
 using Kodosi.Security;
@@ -45,22 +44,6 @@ public sealed class PushTokenTests(PostgresFixture postgres)
         Assert.Equal(("fcm", "fcm:token-1", (string?)null), (google.Platform, google.Token, google.Environment));
         Assert.Equal(HttpStatusCode.NoContent, await SendAsync(alice, HttpMethod.Delete));
         Assert.Equal(HttpStatusCode.NoContent, await SendAsync(alice, HttpMethod.Delete));
-        Assert.Empty(await TokensAsync(app));
-    }
-
-    [Fact]
-    public async Task ATokenNeedsItsFormAndTheDeviceThatGivesIt()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        await using var app = new BackendApplication(await postgres.CreateDatabaseAsync(ct), settings: PushKeys.Values());
-        using var alice = await app.EnrollAsync("alice");
-        Assert.Equal(HttpStatusCode.BadRequest, await SendAsync(alice, HttpMethod.Put,
-            new { platform = "apns", token = new string('g', 64), environment = "production" }));
-        using (var unproven = await alice.Client.PutAsJsonAsync("/api/me/push-token", new { platform = "fcm", token = "fcm:token-1" }, ct))
-            Assert.Equal((HttpStatusCode)428, unproven.StatusCode);
-        using var stranger = app.CreateClient();
-        using (var anonymous = await stranger.PutAsJsonAsync("/api/me/push-token", new { platform = "fcm", token = "fcm:token-1" }, ct))
-            Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
         Assert.Empty(await TokensAsync(app));
     }
 

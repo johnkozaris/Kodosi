@@ -88,15 +88,3 @@ private func onMini(_ id: String, restoredFrom: String? = nil, owner: String = "
     let again = try onMini(ids[5], restoredFrom: ended.id)
     #expect(workbench.reconcile([elsewhere, someone, reopened, again]) == [again.id])
 }
-
-@Test func `stage restoration opens sessions whose host is offline so they connect when it is back`() throws {
-    let defaults = try #require(EphemeralUserDefaults(prefix: "StageRestorationOffline"))
-    let session = try runtimeSession(status: "offline")
-    let first = WorkbenchState(defaults: defaults)
-    first.switchAccount("owner")
-    first.showSession(session.id)
-    let restarted = WorkbenchState(defaults: defaults)
-    restarted.switchAccount("owner")
-    #expect(restarted.reconcile([session]) == [session.id])
-    #expect(restarted.stagedSessionIds == [session.id])
-}

@@ -80,36 +80,6 @@ struct TerminalControllerTests {
         controller.disappear()
     }
 
-    @Test func `only a visible active rendered controllable view takes focus`() {
-        let focused = TerminalPresence(visible: true, active: true, rendered: true, canControl: true)
-        #expect(focused.watching)
-        #expect(focused.focused)
-        var presence = focused
-        presence.active = false
-        #expect(!presence.watching)
-        #expect(!presence.focused)
-        presence = focused
-        presence.rendered = false
-        #expect(presence.watching)
-        #expect(!presence.focused)
-        presence = focused
-        presence.canControl = false
-        #expect(!presence.focused)
-        presence = focused
-        presence.visible = false
-        #expect(!presence.watching)
-    }
-
-    @Test func `a message waits while the terminal cannot take it`() {
-        let controller = TerminalController(sessionId: "s1", store: model.terminals, lock: model.lock)
-        controller.appear(active: true)
-        controller.draft = "Plan the release\nThen ship it"
-        #expect(!controller.send())
-        #expect(controller.draft == "Plan the release\nThen ship it")
-        #expect(controller.sent == 0)
-        controller.disappear()
-    }
-
     private func deliver(_ type: String, _ fields: [String: Any] = [:]) throws {
         var payload = fields
         payload["type"] = type

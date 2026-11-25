@@ -107,15 +107,6 @@ fn expiry_of(expiry: i64) -> Option<f64> {
     Some(seconds)
 }
 
-fn same_site_of(value: i64) -> Option<&'static str> {
-    match value {
-        0 => Some("None"),
-        1 => Some("Lax"),
-        2 => Some("Strict"),
-        _ => None,
-    }
-}
-
 fn read_store(store: &Path) -> Result<Vec<Cookie>, CopyError> {
     let connection = open_store(store)?;
     let mut statement = connection.prepare(
@@ -133,7 +124,7 @@ fn read_store(store: &Path) -> Result<Vec<Cookie>, CopyError> {
                 expires: expiry_of(row.get(4)?),
                 secure: row.get(5)?,
                 http_only: row.get(6)?,
-                same_site: same_site_of(row.get(7)?),
+                same_site: super::same_site_of(row.get(7)?),
             },
             attributes,
         ))
