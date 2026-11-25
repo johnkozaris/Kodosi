@@ -48,7 +48,7 @@ mod pipes;
 mod project_seen;
 #[cfg(feature = "host")]
 mod restore;
-mod saver;
+pub(crate) mod saver;
 mod terminal_folders;
 
 #[cfg(test)]

@@ -6,7 +6,7 @@ use tokio::sync::watch;
 /// Serializes blocking file writes off the runtime task (which also carries what people type),
 /// coalescing overlapping saves so only the latest bytes are written and an older write can never
 /// overwrite a newer one.
-pub(super) struct Saver {
+pub(crate) struct Saver {
     /// `(sequence, bytes)` of the latest requested save.
     newest: watch::Sender<(u64, Bytes)>,
     /// `(sequence, failed)` of the most recently completed write.
@@ -14,7 +14,7 @@ pub(super) struct Saver {
 }
 
 impl Saver {
-    pub(super) fn file(file: PathBuf, what: &'static str) -> Self {
+    pub(crate) fn file(file: PathBuf, what: &'static str) -> Self {
         Self::new(what, move |bytes| {
             kodosi_os::fs::write_private(&file, bytes)
         })
@@ -44,7 +44,7 @@ impl Saver {
         Self { newest, done }
     }
 
-    pub(super) fn save(&self, bytes: Vec<u8>) {
+    pub(crate) fn save(&self, bytes: Vec<u8>) {
         self.newest.send_modify(|(number, newest)| {
             *number += 1;
             *newest = Bytes::from(bytes);
@@ -56,7 +56,7 @@ impl Saver {
         self.done.borrow().1
     }
 
-    pub(super) async fn saved(&self) {
+    pub(crate) async fn saved(&self) {
         let number = self.newest.borrow().0;
         let mut done = self.done.clone();
         drop(done.wait_for(|(done, _)| *done >= number).await);

@@ -57,6 +57,9 @@ pub(super) async fn without_terminal(action: &Action, data_root: &Path) -> Resul
     Ok(None)
 }
 
+/// `kodosi show window <words>` shows the window whose app or title holds the words.
+const WINDOW: &str = "window";
+
 pub(super) async fn show(
     things: Vec<PathBuf>,
     client: &mut local_host::Client,
@@ -67,9 +70,29 @@ pub(super) async fn show(
     let mut paths = Vec::new();
     let mut address = None;
     let mut browser = false;
-    for thing in things {
+    let mut screen = None;
+    let mut things = things.into_iter();
+    while let Some(thing) = things.next() {
         if thing.as_os_str() == crate::canvas::BROWSER_PIPE {
             browser = true;
+            continue;
+        }
+        if thing.as_os_str() == crate::canvas::SCREEN_PIPE {
+            screen = Some(json!({"kind":"screen"}));
+            continue;
+        }
+        if thing.as_os_str() == WINDOW {
+            let words = things
+                .by_ref()
+                .map(|word| word.to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+                .join(" ");
+            if words.is_empty() {
+                return Err(Error::Invalid(
+                    "Name the window by words of its app or title.".to_owned(),
+                ));
+            }
+            screen = Some(json!({"kind":"window","words":words}));
             continue;
         }
         match thing
@@ -92,7 +115,7 @@ pub(super) async fn show(
     let event = request(
         client,
         context,
-        json!({"type":"canvas.show","sessionId":session,"paths":paths,"address":address,"browser":browser,"folder":folder}),
+        json!({"type":"canvas.show","sessionId":session,"paths":paths,"address":address,"browser":browser,"screen":screen,"folder":folder}),
         json_output,
     )
     .await?;
@@ -192,7 +215,7 @@ fn answer_text(event: &Value) -> &str {
 }
 
 fn key(canvas: &Value, name: &str) -> Result<String> {
-    if name == "browser" {
+    if name == crate::canvas::BROWSER_PIPE || name == crate::canvas::SCREEN_PIPE {
         return Ok(name.to_owned());
     }
     let items = canvas["items"].as_array().map_or(&[][..], Vec::as_slice);
@@ -244,6 +267,9 @@ fn listed(canvas: &Value) -> String {
             || format!("browser  {state}"),
             |tab| format!("browser  {state}  {tab}"),
         ));
+    }
+    if canvas["screen"] == true {
+        lines.push("screen  this computer's screen, for its owner's devices".to_owned());
     }
     if lines.is_empty() {
         "The canvas of this terminal shows nothing.".to_owned()

@@ -8,6 +8,7 @@ on:
       - documents/**
       - browser/**
       - stream/**
+      - screen/**
       - protocol/**
       - terminal/ghostty/**
       - Ghostty.lock

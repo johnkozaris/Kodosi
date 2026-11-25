@@ -82,10 +82,10 @@ enum Action {
         topic: Option<SkillTopic>,
     },
     #[command(
-        about = "Show files, a web address or the shared browser to the people of this terminal on its canvas, which opens for them: pages, pictures, documents, sheets, presentations, PDFs and web apps."
+        about = "Show files, a web address, the shared browser or this computer's screen to the people of this terminal on its canvas, which opens for them: pages, pictures, documents, sheets, presentations, PDFs and web apps."
     )]
     Show {
-        /// Files, and at most one address (http, https or file) for the shared browser. The word browser shows the shared browser as it is, without a new load of its page.
+        /// Files, and at most one address (http, https or file) for the shared browser. The word browser shows the shared browser as it is, without a new load of its page. The word screen shows this computer's screen, and window followed by words shows the window whose app or title holds them; only the devices of this computer's owner see it, when the person at the computer allowed it.
         #[arg(required = true)]
         things: Vec<PathBuf>,
     },

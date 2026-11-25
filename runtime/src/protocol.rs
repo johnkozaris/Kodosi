@@ -40,6 +40,8 @@ fn validate_participants(users: &[String]) -> Result<()> {
 pub const VERSION: u32 = 111;
 include!(concat!(env!("OUT_DIR"), "/protocol_contract.rs"));
 pub const MAX_COMMAND_BYTES: usize = 2 * 1024 * 1024;
+/// The words that name a window for `kodosi show window`, at most.
+const MOST_WINDOW_WORDS: usize = 512;
 pub(crate) const MESSAGE_MAX_BYTES: usize = 1500;
 pub(crate) const REPORT_NOTE_BYTES: usize = 1000;
 const DEVICE_CODE_BYTES: usize = 256;
@@ -548,6 +550,8 @@ pub enum Command {
         address: Option<String>,
         #[serde(default)]
         browser: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        screen: Option<crate::canvas::ScreenShown>,
         folder: String,
     },
     #[serde(rename = "canvas.browser")]
@@ -603,6 +607,19 @@ pub enum Command {
     BrowserGet {
         #[serde(rename = "requestId")]
         request_id: String,
+    },
+    /// Whether this computer shares its screen with its owner's other devices. Only the person
+    /// at the computer decides, so its own app alone asks and changes it.
+    #[serde(rename = "screen.status")]
+    ScreenStatus {
+        #[serde(rename = "requestId")]
+        request_id: String,
+    },
+    #[serde(rename = "screen.allow")]
+    ScreenAllow {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        allowed: bool,
     },
     /// The runtime keeps the pipe for the client until it closes it, and opens it again after
     /// each loss.
@@ -1407,6 +1424,20 @@ pub enum EventBody {
         operation: String,
         message: Text,
     },
+    /// `available` is false where Kodosi Screen did not come with the app.
+    #[serde(rename = "screen.result")]
+    ScreenResult {
+        request_id: String,
+        operation: String,
+        allowed: bool,
+        available: bool,
+    },
+    #[serde(rename = "screen.error")]
+    ScreenError {
+        request_id: String,
+        operation: String,
+        message: Text,
+    },
     #[serde(rename = "document.result")]
     DocumentResult {
         request_id: String,
@@ -1843,6 +1874,8 @@ impl EventBody {
             | Self::CanvasError { request_id, .. }
             | Self::BrowserResult { request_id, .. }
             | Self::BrowserError { request_id, .. }
+            | Self::ScreenResult { request_id, .. }
+            | Self::ScreenError { request_id, .. }
             | Self::DocumentResult { request_id, .. }
             | Self::DocumentError { request_id, .. }
             | Self::RepositoriesResult { request_id, .. }
@@ -1910,6 +1943,8 @@ impl EventBody {
             Self::CanvasError { .. } => "canvas.error",
             Self::BrowserResult { .. } => "browser.result",
             Self::BrowserError { .. } => "browser.error",
+            Self::ScreenResult { .. } => "screen.result",
+            Self::ScreenError { .. } => "screen.error",
             Self::DocumentResult { .. } => "document.result",
             Self::DocumentError { .. } => "document.error",
             Self::DocumentOpened { .. } => "document.opened",
@@ -2041,6 +2076,8 @@ impl Command {
             Self::BrowserForget { .. } => "browser.forget",
             Self::BrowserClear { .. } => "browser.clear",
             Self::BrowserGet { .. } => "browser.get",
+            Self::ScreenStatus { .. } => "screen.status",
+            Self::ScreenAllow { .. } => "screen.allow",
             Self::DocumentOpen { .. } => "document.open",
             Self::DocumentSend { .. } => "document.send",
             Self::DocumentClose { .. } => "document.close",
@@ -2188,6 +2225,8 @@ impl Command {
             | Self::BrowserForget { request_id }
             | Self::BrowserClear { request_id }
             | Self::BrowserGet { request_id }
+            | Self::ScreenStatus { request_id }
+            | Self::ScreenAllow { request_id, .. }
             | Self::DocumentOpen { request_id, .. }
             | Self::DocumentSend { request_id, .. }
             | Self::DocumentClose { request_id, .. }
@@ -2407,15 +2446,23 @@ impl Command {
                 paths,
                 address,
                 browser,
+                screen,
                 folder,
                 ..
             } => {
-                if (paths.is_empty() && address.is_none() && !browser)
+                if (paths.is_empty() && address.is_none() && !browser && screen.is_none())
                     || paths.len() > crate::canvas::MOST_PATHS
                 {
                     return Err(Error::Invalid(format!(
-                        "Show 1 to {} files, an address or the browser.",
+                        "Show 1 to {} files, an address, the browser or the screen.",
                         crate::canvas::MOST_PATHS
+                    )));
+                }
+                if let Some(crate::canvas::ScreenShown::Window { words }) = screen
+                    && (words.trim().is_empty() || words.len() > MOST_WINDOW_WORDS)
+                {
+                    return Err(Error::Invalid(format!(
+                        "Name the window in 1 to {MOST_WINDOW_WORDS} bytes of its app or title."
                     )));
                 }
                 for path in paths {
@@ -3134,6 +3181,8 @@ pub(crate) mod tests {
             json!({"type":"app.network","requestId":ID}),
             json!({"type":"app.resync","requestId":ID}),
             json!({"type":"app.look","requestId":ID,"look":"light"}),
+            json!({"type":"screen.status","requestId":ID}),
+            json!({"type":"screen.allow","requestId":ID,"allowed":true}),
             json!({"type":"session.share","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"userIds":[ID]}),
             json!({"type":"session.attachProject","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID,"projectId":null}),
             json!({"type":"session.hide","requestId":ID,"sessionId":ID,"expectedRuntimeIncarnationId":ID}),

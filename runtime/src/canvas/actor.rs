@@ -11,11 +11,13 @@ use uuid::Uuid;
 
 use super::{
     BROWSER_PIPE, Canvas, CanvasAnswer, CanvasBrowser, CanvasOpen, CanvasRequest, PipeEnds,
+    SCREEN_PIPE, ScreenShown,
     attach::{Part, Uploads},
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
     files::{self, Files, Showing, Stamp, key_of},
     render,
+    screen::ScreenHost,
 };
 use crate::documents::{DocumentAction, DocumentHost, RenderArguments};
 use crate::text::Text;
@@ -30,6 +32,7 @@ pub(crate) struct CanvasServices {
     pub(crate) documents: DocumentHost,
     pub(crate) browsers: BrowserHost,
     pub(crate) agent_browser: PathBuf,
+    pub(crate) screen: ScreenHost,
 }
 
 impl CanvasServices {
@@ -38,12 +41,14 @@ impl CanvasServices {
             documents: DocumentHost::new(data_root),
             browsers: BrowserHost::new(data_root, isolated),
             agent_browser: browser::agent_browser(),
+            screen: ScreenHost::new(data_root),
         }
     }
 
     pub(crate) async fn close(&self) {
         self.documents.close().await;
         self.browsers.close().await;
+        self.screen.saved().await;
     }
 }
 
@@ -98,6 +103,7 @@ pub(crate) struct Show {
     pub(crate) paths: Vec<PathBuf>,
     pub(crate) address: Option<String>,
     pub(crate) browser_as_it_is: bool,
+    pub(crate) screen: Option<ScreenShown>,
     pub(crate) folder: PathBuf,
     pub(crate) terminal: String,
     pub(crate) agent: Option<String>,
@@ -111,6 +117,7 @@ pub(crate) struct CanvasHandle {
     folder: watch::Sender<PathBuf>,
     shared: watch::Sender<bool>,
     documents: DocumentHost,
+    screen: ScreenHost,
 }
 
 impl CanvasHandle {
@@ -136,6 +143,9 @@ impl CanvasHandle {
             browsers: services.browsers,
             agent_browser: services.agent_browser,
             browser: None,
+            screen: services.screen.clone(),
+            allowed: services.screen.allowed(),
+            screen_shown: false,
             open: None,
             change: None,
         };
@@ -147,6 +157,7 @@ impl CanvasHandle {
             folder,
             shared,
             documents: services.documents,
+            screen: services.screen,
         }
     }
 
@@ -210,6 +221,18 @@ impl CanvasHandle {
         name: String,
         local: bool,
     ) -> Result<PipeEnds, Text> {
+        if key == SCREEN_PIPE {
+            if !self.state.borrow().screen {
+                return Err(text!("This computer's screen is not on the canvas."));
+            }
+            let viewer = shared_browser::Viewer {
+                id: view,
+                person,
+                name,
+                local,
+            };
+            return self.screen.watch(viewer).await;
+        }
         if key == BROWSER_PIPE {
             let (reply, answer) = oneshot::channel();
             let viewer = shared_browser::Viewer {
@@ -353,6 +376,9 @@ struct Actor {
     browsers: BrowserHost,
     agent_browser: PathBuf,
     browser: Option<(Arc<Browser>, watch::Receiver<CanvasBrowser>)>,
+    screen: ScreenHost,
+    allowed: watch::Receiver<bool>,
+    screen_shown: bool,
     open: Option<CanvasOpen>,
     change: Option<CanvasOpen>,
 }
@@ -378,6 +404,12 @@ impl Actor {
                 changed = self.sharing.changed() => {
                     if changed.is_ok() && let Some(browser) = self.existing() {
                         tokio::spawn(async move { browser.change_profile().await });
+                    }
+                }
+                changed = self.allowed.changed() => {
+                    if changed.is_ok() && !*self.allowed.borrow_and_update() {
+                        self.screen_shown = false;
+                        self.publish();
                     }
                 }
                 _ = check.tick(), if !self.files.is_empty() => {
@@ -410,12 +442,10 @@ impl Actor {
                 .as_ref()
                 .and_then(|(browser, _)| browser.page()),
         );
-        let shows = |mark: &&CanvasOpen| {
-            if mark.key == BROWSER_PIPE {
-                self.browser.is_some()
-            } else {
-                self.files.contains(&mark.key)
-            }
+        let shows = |mark: &&CanvasOpen| match mark.key.as_str() {
+            BROWSER_PIPE => self.browser.is_some(),
+            SCREEN_PIPE => self.screen_shown,
+            key => self.files.contains(key),
         };
         let canvas = Canvas {
             sequence: self.stamp.now(),
@@ -424,6 +454,7 @@ impl Actor {
                 .browser
                 .as_ref()
                 .map(|(_, state)| state.borrow().clone()),
+            screen: self.screen_shown,
             open: self.open.as_ref().filter(shows).cloned(),
             change: self.change.as_ref().filter(shows).cloned(),
         };
@@ -534,6 +565,7 @@ impl Actor {
             paths,
             address,
             browser_as_it_is,
+            screen,
             folder,
             terminal,
             agent,
@@ -545,6 +577,13 @@ impl Actor {
             drop(reply.send(Err(missing)));
             return;
         }
+        let screen_line = match self.show_screen(screen, &terminal).await {
+            Ok(line) => line,
+            Err(problem) => {
+                drop(reply.send(Err(problem)));
+                return;
+            }
+        };
         let can_browse = self.browser.is_some() || browser::missing(&self.agent_browser).is_none();
         let examined = match files::examine_all(paths).await {
             Ok(examined) => examined,
@@ -558,6 +597,8 @@ impl Actor {
             .partition(|file| can_browse && file.loads.is_some() && file.address().is_some());
         let showing = self.files.show(kept, &self.stamp);
         let mut lines = shown(&showing, &terminal);
+        let screen = screen_line.is_some();
+        lines.extend(screen_line);
         let mut addresses = Vec::from_iter(address);
         for page in pages {
             lines.push(format!(
@@ -582,6 +623,8 @@ impl Actor {
         let browser = (!addresses.is_empty()).then(|| self.browser());
         let key = if browser.is_some() || browser_as_it_is {
             Some(BROWSER_PIPE.to_owned())
+        } else if screen {
+            Some(SCREEN_PIPE.to_owned())
         } else {
             showing.shown.first().map(|shown| shown.key.clone())
         };
@@ -597,34 +640,23 @@ impl Actor {
             return;
         };
         tokio::spawn(async move {
-            let mut code = 0;
-            for (index, address) in addresses.into_iter().enumerate() {
-                let arguments = if index == 0 {
-                    vec!["open".to_owned(), address]
-                } else {
-                    vec!["tab".to_owned(), "new".to_owned(), address]
-                };
-                match browser
-                    .run(folder.clone(), arguments, &terminal, agent.clone())
-                    .await
-                {
-                    Ok(CanvasAnswer::Text { text, code: run }) => {
-                        lines.push(text.trim_end().to_owned());
-                        code = code.max(run);
-                    }
-                    Ok(_) => {}
-                    Err(problem) => {
-                        drop(reply.send(Err(problem)));
-                        return;
-                    }
-                }
-            }
-            lines.retain(|line| !line.is_empty());
-            drop(reply.send(Ok(CanvasAnswer::Text {
-                text: lines.join("\n"),
-                code,
-            })));
+            let opened = open_addresses(&browser, addresses, &folder, &terminal, agent, lines);
+            drop(reply.send(opened.await));
         });
+    }
+
+    async fn show_screen(
+        &mut self,
+        screen: Option<ScreenShown>,
+        terminal: &str,
+    ) -> Result<Option<String>, Text> {
+        let Some(screen) = screen else {
+            return Ok(None);
+        };
+        let line = shown_screen(&screen, terminal);
+        self.screen.show(screen).await?;
+        self.screen_shown = true;
+        Ok(Some(line))
     }
 
     async fn request(&mut self, request: CanvasRequest, reply: Reply) {
@@ -642,15 +674,27 @@ impl Actor {
                 if browser && let Some((browser, _)) = self.browser.take() {
                     tokio::spawn(async move { browser.remove().await });
                 }
+                let screen = keys.iter().any(|key| key == SCREEN_PIPE);
+                if screen {
+                    self.screen_shown = false;
+                }
                 let files = keys
                     .into_iter()
-                    .filter(|key| key != BROWSER_PIPE)
+                    .filter(|key| key != BROWSER_PIPE && key != SCREEN_PIPE)
                     .collect::<Vec<_>>();
-                if !(browser && files.is_empty()) {
+                if !((browser || screen) && files.is_empty()) {
                     self.files.remove(&files);
                 }
                 self.publish();
                 drop(reply.send(Ok(CanvasAnswer::Done)));
+            }
+            CanvasRequest::ShowScreen => {
+                let answer = self.screen.check().map(|()| CanvasAnswer::Done);
+                if answer.is_ok() {
+                    self.screen_shown = true;
+                    self.publish();
+                }
+                drop(reply.send(answer));
             }
             CanvasRequest::Trash { key } => {
                 let answer = self.trash(key).await;
@@ -809,6 +853,49 @@ impl Actor {
 
 fn pictures(data_root: &Path, id: Uuid) -> PathBuf {
     data_root.join("render").join(id.to_string())
+}
+
+/// Opens the first address in the shared browser's tab and the others in new tabs, and answers
+/// with the lines so far and what each run said.
+async fn open_addresses(
+    browser: &Arc<Browser>,
+    addresses: Vec<String>,
+    folder: &Path,
+    terminal: &str,
+    agent: Option<String>,
+    mut lines: Vec<String>,
+) -> Result<CanvasAnswer, Text> {
+    let mut code = 0;
+    for (index, address) in addresses.into_iter().enumerate() {
+        let arguments = if index == 0 {
+            vec!["open".to_owned(), address]
+        } else {
+            vec!["tab".to_owned(), "new".to_owned(), address]
+        };
+        if let CanvasAnswer::Text { text, code: run } = browser
+            .run(folder.to_owned(), arguments, terminal, agent.clone())
+            .await?
+        {
+            lines.push(text.trim_end().to_owned());
+            code = code.max(run);
+        }
+    }
+    lines.retain(|line| !line.is_empty());
+    Ok(CanvasAnswer::Text {
+        text: lines.join("\n"),
+        code,
+    })
+}
+
+fn shown_screen(screen: &ScreenShown, terminal: &str) -> String {
+    match screen {
+        ScreenShown::Screen => {
+            format!("The canvas of {terminal} shows this computer's screen to its owner's devices.")
+        }
+        ScreenShown::Window { words } => format!(
+            "The canvas of {terminal} shows the window on this computer whose app or title holds \u{201c}{words}\u{201d}, or the whole screen when none does, to its owner's devices."
+        ),
+    }
 }
 
 fn shown(showing: &Showing, terminal: &str) -> Vec<String> {

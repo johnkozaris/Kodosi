@@ -196,6 +196,16 @@ impl Runtime {
                     "The browsers of a computer are in the app on that computer."
                 )));
             }
+            #[cfg(feature = "host")]
+            Command::ScreenStatus { .. } | Command::ScreenAllow { .. } => {
+                self.use_screen(command)?;
+            }
+            #[cfg(not(feature = "host"))]
+            Command::ScreenStatus { .. } | Command::ScreenAllow { .. } => {
+                return Err(Error::Refused(text!(
+                    "Only the app on a computer shares its screen."
+                )));
+            }
             Command::DocumentSend { .. } => self.send_to_document(command)?,
             Command::DocumentClose { .. } => self.close_document(command)?,
             #[cfg(feature = "host")]
@@ -612,6 +622,19 @@ impl Runtime {
     }
 
     #[cfg(feature = "host")]
+    fn use_screen(&self, command: &Command) -> Result<()> {
+        let screen = &self.services.screen;
+        if let Command::ScreenAllow { allowed, .. } = command {
+            screen.allow(*allowed).map_err(Error::Text)?;
+        }
+        let mut value = super::answer(command, Ok(()));
+        value["allowed"] = json!(*screen.allowed().borrow());
+        value["available"] = json!(screen.available());
+        self.emit(value);
+        Ok(())
+    }
+
+    #[cfg(feature = "host")]
     fn use_canvas(&mut self, command: &Command) -> Result<()> {
         let id = parse_id(command.session_id().unwrap_or_default())?;
         let (canvas, terminal, agent) = self
@@ -641,6 +664,7 @@ impl Runtime {
                     paths,
                     address,
                     browser,
+                    screen,
                     folder,
                     ..
                 } => {
@@ -649,6 +673,7 @@ impl Runtime {
                             paths: paths.iter().map(PathBuf::from).collect(),
                             address: address.clone(),
                             browser_as_it_is: *browser,
+                            screen: screen.clone(),
                             folder: PathBuf::from(folder),
                             terminal,
                             agent,

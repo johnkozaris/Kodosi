@@ -13,7 +13,11 @@ mod files;
 #[cfg(feature = "host")]
 mod page;
 #[cfg(feature = "host")]
+mod pipe;
+#[cfg(feature = "host")]
 mod render;
+#[cfg(feature = "host")]
+mod screen;
 #[cfg(all(test, feature = "host"))]
 mod tests;
 
@@ -27,6 +31,9 @@ pub const MOST_FILE_BYTES: u64 = 32 * 1024 * 1024;
 pub const PART_BYTES: usize = 256 * 1024;
 #[cfg(feature = "host")]
 pub(crate) const BROWSER_PIPE: &str = "browser";
+/// The key of this computer's screen on the canvas, and of a pipe to it.
+#[cfg(feature = "host")]
+pub(crate) const SCREEN_PIPE: &str = "screen";
 pub(crate) const PIPE_QUEUE: usize = 64;
 pub(crate) const MOST_PIPE_FRAME: usize = 64 * 1024 * 1024;
 pub const MOST_PATHS: usize = MOST_ITEMS;
@@ -48,7 +55,10 @@ pub struct Canvas {
     pub items: Vec<CanvasItem>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser: Option<CanvasBrowser>,
-    /// Most recent item explicitly opened via `kodosi show` (a file or the browser).
+    /// This computer's screen is on the canvas, for its owner's devices.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub screen: bool,
+    /// Most recent item explicitly opened via `kodosi show` (a file, the browser or the screen).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub open: Option<CanvasOpen>,
     /// Most recent item updated in place (any file edit or an agent browser command).
@@ -230,6 +240,23 @@ pub enum CanvasRequest {
     Act {
         action: BrowserAct,
     },
+    /// Puts this computer's screen on the canvas; only its owner's devices may.
+    ShowScreen,
+}
+
+/// What of this computer's screen `kodosi show` puts on the canvas.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum ScreenShown {
+    /// The main display.
+    Screen,
+    /// The window whose app or title holds the words.
+    Window { words: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -277,7 +304,7 @@ pub enum CanvasAnswer {
 impl Canvas {
     #[cfg(feature = "host")]
     pub(crate) fn is_empty(&self) -> bool {
-        self.items.is_empty() && self.browser.is_none()
+        self.items.is_empty() && self.browser.is_none() && !self.screen
     }
 
     pub(crate) fn is_valid(&self) -> bool {
@@ -341,7 +368,8 @@ impl CanvasRequest {
             }
             Self::Act {
                 action: BrowserAct::Wake,
-            } => true,
+            }
+            | Self::ShowScreen => true,
         }
     }
 }

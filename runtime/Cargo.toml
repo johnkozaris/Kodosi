@@ -74,7 +74,7 @@ version.workspace = true
 
 [features]
 default = ["host"]
-host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:httparse", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:rusqlite", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
+host = ["dep:clap", "dep:documents", "dep:documents-cli", "dep:httparse", "dep:kodosi-pty", "dep:pulldown-cmark", "dep:rusqlite", "dep:screen", "dep:shared-browser", "dep:tar", "shared-browser/host", "tokio/process", "tokio/signal"]
 
 [dependencies]
 ghostty-vt = { path = "crates/ghostty-vt" }
@@ -114,6 +114,9 @@ zeroize = { workspace = true }
 clap = { version = "4.6.7", features = ["derive"], optional = true }
 httparse = { version = "1.10.1", optional = true }
 pulldown-cmark = { version = "=0.13.6", default-features = false, features = ["html"], optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+screen = { path = "../screen/crates/screen", optional = true }
 
 [build-dependencies]
 serde_json = { workspace = true }
