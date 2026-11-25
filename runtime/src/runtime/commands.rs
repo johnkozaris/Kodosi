@@ -1757,6 +1757,7 @@ impl Runtime {
                     context: None,
                     canvas: None,
                     face: None,
+                    helpers: 0,
                     look: self.look.now(),
                     id: id.to_string(),
                     incarnation_id: terminal.incarnation_id.to_string(),

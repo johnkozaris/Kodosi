@@ -53,13 +53,14 @@ impl Format for Pdf {
     }
 
     fn seals(change: &Change) -> bool {
-        matches!(
-            change,
+        match change {
             Change::Worked {
                 work: PageWork::Redact { .. },
                 ..
-            }
-        )
+            } => true,
+            Change::Group { changes } => changes.iter().any(Self::seals),
+            _ => false,
+        }
     }
 
     fn describe_place(model: &Model, place: &Value) -> Value {

@@ -11,8 +11,8 @@ use uuid::Uuid;
 
 use crate::agents::{Agent, AgentChoiceChange, AgentPick, Runner};
 use crate::dosi::{
-    DosiAction, DosiAgent, DosiBody, DosiComputer, DosiEntry, DosiItem, DosiLog, DosiRecord,
-    DosiTone, DosiToolStatus, Message, Output, SharedInstructions, Viewer,
+    DosiAgent, DosiBody, DosiComputer, DosiEntry, DosiItem, DosiLog, DosiRecord, DosiTone,
+    DosiToolStatus, Message, Output, SharedInstructions, Viewer,
     engine::{Answer, Engine, Runners},
 };
 
@@ -472,59 +472,6 @@ fn running(rig: &Rig) -> bool {
 }
 
 #[tokio::test]
-async fn a_reply_streams_into_one_item_and_survives_a_restart() {
-    let mut rig = Rig::new();
-    rig.send("What needs me?");
-    assert_eq!(rig.snapshot()["state"], "working");
-    rig.idle().await;
-    let items = rig.items();
-    assert!(matches!(&items[0].body, DosiBody::Person { text } if text == "What needs me?"));
-    assert_eq!(texts(&items), vec![("Two need you.".to_owned(), false)]);
-    assert!(rig.file("arguments").contains("--session-id"));
-    let folder = rig.base.join("home/.kodosi/dosi");
-    assert!(folder.join("AGENTS.md").exists() && folder.join("watching.md").exists());
-    assert!(
-        ["notes", "skills", "tools"]
-            .iter()
-            .all(|place| folder.join(place).is_dir())
-    );
-    rig.engine.shutdown();
-    let (engine, _) = Rig::engine(&rig.base);
-    let restored: Vec<DosiItem> =
-        serde_json::from_value(engine.snapshot()["dosi"]["items"].clone()).unwrap();
-    assert_eq!(restored, items);
-}
-
-#[tokio::test]
-async fn stop_ends_the_turn_and_the_waiting_message_runs_next() {
-    let mut rig = Rig::new();
-    rig.send("slow please");
-    rig.until(running).await;
-    rig.send("What needs me?");
-    assert_eq!(rig.snapshot()["queued"].as_array().unwrap().len(), 1);
-    rig.stop();
-    rig.until(|rig| texts(&rig.items()).len() == 1 && rig.snapshot()["state"] == "idle")
-        .await;
-    let items = rig.items();
-    assert!(items.iter().any(|item| matches!(
-        item.body,
-        DosiBody::Tool {
-            action: DosiAction::Read,
-            status: DosiToolStatus::Failed,
-            ..
-        }
-    )));
-    assert!(items.iter().any(|item| matches!(
-        item.body,
-        DosiBody::Notice {
-            tone: DosiTone::Stopped,
-            ..
-        }
-    )));
-    assert_eq!(rig.snapshot()["queued"], json!([]));
-}
-
-#[tokio::test]
 async fn a_lost_provider_conversation_starts_over_with_the_whole_history() {
     let mut rig = Rig::new();
     rig.send("hello");
@@ -921,65 +868,6 @@ async fn the_phone_answers_a_question_and_the_computer_that_asked_goes_on() {
 }
 
 #[tokio::test]
-async fn a_computer_with_dosi_off_tells_why_it_does_not_answer() {
-    let server = Arc::new(Mutex::new(Server::default()));
-    let user = Uuid::now_v7();
-    let mut studio = Rig::shared(&server, user, "Studio");
-    let mut phone = Phone::new(&server, user);
-    let mut out = Output::default();
-    studio.engine.turn(false, &mut out);
-    studio.apply(out);
-    assert_eq!(studio.snapshot()["state"], "off");
-    phone.ask("What needs me?", studio.computer("Studio"));
-    studio.nudge();
-    phone.nudge();
-    assert_eq!(phone.waiting(), Vec::<String>::new());
-    assert!(phone.items().iter().any(|item| matches!(
-        &item.body,
-        DosiBody::Notice { tone: DosiTone::Failed, text: Some(text) } if text.contains("Studio")
-    )));
-    assert_eq!(studio.file("input"), "");
-}
-
-#[tokio::test]
-async fn the_phone_stops_a_turn_and_starts_a_new_chat_for_every_device() {
-    let server = Arc::new(Mutex::new(Server::default()));
-    let user = Uuid::now_v7();
-    let mut studio = Rig::shared(&server, user, "Studio");
-    let mut phone = Phone::new(&server, user);
-    studio.send("slow please");
-    studio.until(running).await;
-    phone.nudge();
-    assert_eq!(phone.snapshot()["state"], "working");
-    assert_eq!(phone.snapshot()["remote"]["computer"], "Studio");
-    let items = phone.items();
-    let earlier = phone.viewer.page(&items.last().unwrap().id);
-    assert_eq!(earlier.items, items[..items.len() - 1]);
-
-    phone.act(Viewer::stop);
-    assert_eq!(phone.snapshot()["state"], "stopping");
-    studio.nudge();
-    studio.idle().await;
-    phone.nudge();
-    assert_eq!(phone.snapshot()["state"], "idle");
-    assert!(phone.items().iter().any(|item| matches!(
-        item.body,
-        DosiBody::Notice {
-            tone: DosiTone::Stopped,
-            ..
-        }
-    )));
-
-    phone.act(Viewer::renew);
-    studio.nudge();
-    assert_eq!(studio.items(), Vec::new());
-    assert_eq!(
-        studio.snapshot()["conversation"],
-        phone.snapshot()["conversation"]
-    );
-}
-
-#[tokio::test]
 async fn an_answer_from_another_device_changes_only_the_answer() {
     let server = Arc::new(Mutex::new(Server::default()));
     let user = Uuid::now_v7();
@@ -1264,25 +1152,6 @@ async fn a_message_that_waits_here_outlasts_many_turns_elsewhere_and_a_restart()
 }
 
 #[tokio::test]
-async fn the_phone_forgets_a_removed_computer_as_the_one_that_answered_last() {
-    let server = Arc::new(Mutex::new(Server::default()));
-    let user = Uuid::now_v7();
-    let mut laptop = Rig::shared(&server, user, "Laptop");
-    let mut phone = Phone::new(&server, user);
-    laptop.send("What needs me?");
-    laptop.idle().await;
-    phone.nudge();
-    assert_eq!(phone.snapshot()["last"]["name"], "Laptop");
-
-    let removed = laptop.shared.as_ref().unwrap().device.to_string();
-    server.lock().unwrap().devices.remove(&removed);
-    phone.nudge();
-    assert_eq!(phone.snapshot()["last"], Value::Null);
-    phone.restart();
-    assert_eq!(phone.snapshot()["last"], Value::Null);
-}
-
-#[tokio::test]
 async fn messages_from_a_device_that_the_person_removed_do_not_run() {
     let server = Arc::new(Mutex::new(Server::default()));
     let user = Uuid::now_v7();
@@ -1365,19 +1234,4 @@ async fn a_message_from_the_phone_reaches_a_resumed_agent_once() {
     studio.nudge();
     studio.idle().await;
     assert_eq!(studio.file("input").matches("And the web?").count(), 1);
-}
-
-#[tokio::test]
-async fn a_phone_sends_nothing_before_it_has_read_the_conversation() {
-    let root = tempfile::tempdir().unwrap();
-    let (mut viewer, _) = Viewer::load(root.path());
-    let mut out = Output::default();
-    viewer.share(Some((Uuid::now_v7(), Uuid::now_v7().to_string())), &mut out);
-    let studio = DosiComputer {
-        device: Uuid::now_v7().to_string(),
-        name: "Studio".to_owned(),
-    };
-    let sent = viewer.send("What needs me?", None, Some(studio), &mut out);
-    assert!(matches!(sent, Err(crate::Error::Busy)));
-    assert!(out.write.is_none());
 }

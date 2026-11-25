@@ -690,10 +690,6 @@
                         }
                       ]
                     },
-                    "helpers": {
-                      "format": "u32",
-                      "type": "integer"
-                    },
                     "limits": {
                       "items": {
                         "additionalProperties": false,
@@ -2993,10 +2989,6 @@
                                     "type": "null"
                                   }
                                 ]
-                              },
-                              "helpers": {
-                                "format": "u32",
-                                "type": "integer"
                               },
                               "limits": {
                                 "items": {
@@ -12142,6 +12134,10 @@
                     }
                   ]
                 },
+                "helpers": {
+                  "format": "u8",
+                  "type": "integer"
+                },
                 "hidden": {
                   "type": "boolean"
                 },
@@ -18067,7 +18063,7 @@
     ]
   },
   "ffiAbiVersion": 11,
-  "protocolVersion": 110,
+  "protocolVersion": 111,
   "terminal": {
     "checkpointMaxBytes": 281018368,
     "checkpointSchema": 6,

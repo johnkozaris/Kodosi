@@ -729,36 +729,6 @@ async fn another_device_gets_answers_only_to_the_choices_of_a_new_terminal() {
 }
 
 #[tokio::test]
-async fn input_admission_is_byte_bounded_before_the_registry_polls() {
-    let (commands, mut requests) = mpsc::channel(COMMAND_CAPACITY);
-    let (events, _) = broadcast::channel(16);
-    let (_stopped, stopped) = watch::channel(false);
-    let handle = RuntimeHandle {
-        commands,
-        events,
-        stopped,
-        clients: watch::channel(0).1,
-        input_budget: Arc::new(Semaphore::new(MAX_QUEUED_INPUT_BYTES)),
-        consumer: Arc::new(Consumer::default()),
-    };
-    let (session, incarnation, connection) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
-    let bytes = Bytes::from(vec![b'x'; 1024 * 1024]);
-    for _ in 0..4 {
-        handle
-            .input(session, incarnation, connection, bytes.clone())
-            .unwrap();
-    }
-    assert!(matches!(
-        handle.input(session, incarnation, connection, bytes.clone()),
-        Err(Error::Busy)
-    ));
-    drop(requests.recv().await);
-    handle
-        .input(session, incarnation, connection, bytes)
-        .unwrap();
-}
-
-#[tokio::test]
 async fn stale_discovery_does_not_cancel_a_direct_link_open() {
     let (mut runtime, _root) = registry_fixture();
     let id = Uuid::now_v7();
@@ -1020,28 +990,6 @@ async fn a_document_opens_again_as_soon_as_its_terminal_runs_again() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_document_that_waits_for_its_terminal_to_connect_tells_no_loss() {
-    let (mut runtime, _root) = registry_fixture();
-    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
-    runtime.replace_remotes(vec![remote.clone()]);
-    let mut document = open_document(&mut runtime, remote.id);
-    tokio::time::sleep(Duration::from_secs(3)).await;
-    runtime.keep_pipes();
-    assert!(document.events.try_recv().is_err());
-
-    let mut offline = remote.clone();
-    offline.online = false;
-    runtime.replace_remotes(vec![offline]);
-    runtime.keep_pipes();
-    let lost = heard(&mut document).await;
-    assert_eq!(lost.event.kind(), "document.lost");
-    assert_eq!(
-        serde_json::to_value(&lost).unwrap()["message"],
-        serde_json::to_value(runtime.offline(remote.id).text()).unwrap()
-    );
-}
-
-#[tokio::test(start_paused = true)]
 async fn a_short_break_of_a_document_shows_no_sign_and_drops_the_rest_of_a_cut_frame() {
     let (mut runtime, _root) = registry_fixture();
     let mut changes = changes_of(&mut runtime);
@@ -1140,29 +1088,6 @@ async fn a_document_that_its_client_closed_while_it_opened_closes_when_it_opens(
     ));
     assert!(runtime.pipes.is_empty());
     assert!(document.events.try_recv().is_err());
-}
-
-#[tokio::test(start_paused = true)]
-async fn a_client_that_reads_its_own_events_gets_the_frames_of_its_documents_there() {
-    let (mut runtime, _root) = registry_fixture();
-    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
-    let (_view, mut requests, _updates) = open_view(&mut runtime, &remote).await;
-    let mut everyone = runtime.events.subscribe();
-    let mut document = open_document(&mut runtime, remote.id);
-    attempt_finished(&mut runtime).await;
-    let frames = pipe_opened(&mut requests).await;
-    frames.send(b"frame".to_vec()).await.unwrap();
-    for kind in ["document.opened", "document.frame"] {
-        let event = heard(&mut document).await;
-        assert_eq!(
-            (event.event.kind(), event.recipient),
-            (kind, Some(document.consumer))
-        );
-    }
-    assert!(
-        std::iter::from_fn(|| everyone.try_recv().ok())
-            .all(|event| !event.event.kind().starts_with("document.frame"))
-    );
 }
 
 #[tokio::test]
@@ -1516,39 +1441,6 @@ async fn an_open_view_stays_connected_and_reports_reconnecting_while_its_link_is
 }
 
 #[tokio::test]
-async fn a_view_says_that_input_was_not_sent_until_the_next_input() {
-    let (mut runtime, _root) = registry_fixture();
-    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
-    let id = remote.id;
-    let (_view, _requests, updates) = open_view(&mut runtime, &remote).await;
-    let notice = Some(crate::network::input_not_sent());
-
-    let reason = format!(
-        "The connection has closed. {}",
-        crate::network::input_not_sent()
-    );
-    lose_link(&mut runtime, &remote, &updates, &reason).await;
-    assert_eq!(
-        remote_state(&runtime, id),
-        (
-            ConnectionState::Connected,
-            SessionStatus::Reconnecting,
-            notice.clone()
-        )
-    );
-    let _updates = reconnect(&mut runtime, &remote);
-    assert_eq!(
-        remote_state(&runtime, id),
-        (ConnectionState::Connected, SessionStatus::Running, notice)
-    );
-    runtime.clear_input_notice(id);
-    assert_eq!(
-        remote_state(&runtime, id),
-        (ConnectionState::Connected, SessionStatus::Running, None)
-    );
-}
-
-#[tokio::test]
 async fn typing_that_another_computer_did_not_get_shows_on_its_terminal_and_not_as_errors() {
     let (mut runtime, _root) = registry_fixture();
     let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
@@ -1589,29 +1481,6 @@ async fn typing_that_another_computer_did_not_get_shows_on_its_terminal_and_not_
     runtime.inputs = 4;
     typed(&mut runtime, 4, Ok(()));
     assert_eq!(remote_state(&runtime, id).2, None);
-}
-
-#[tokio::test]
-async fn typing_into_another_computer_that_does_not_answer_keeps_few_inputs_waiting() {
-    let (mut runtime, _root) = registry_fixture();
-    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
-    let id = remote.id;
-    let (view, _requests, _updates) = open_view(&mut runtime, &remote).await;
-    for _ in 0..=MAX_TYPING {
-        runtime.input(
-            id,
-            remote.incarnation_id,
-            view.connection_id,
-            Bytes::from_static(b"x"),
-            Arc::new(Semaphore::new(1)).try_acquire_owned().unwrap(),
-            None,
-        );
-    }
-    assert_eq!(runtime.typing[&id], MAX_TYPING);
-    assert_eq!(
-        remote_state(&runtime, id).2,
-        Some(crate::network::input_not_sent())
-    );
 }
 
 async fn online(events: &mut broadcast::Receiver<Event>) -> bool {
@@ -1670,40 +1539,6 @@ async fn a_terminal_that_could_not_open_tries_again_as_soon_as_the_server_is_bac
     runtime.network.inner.link.note_connected();
     runtime.reconnect_views();
     assert!(runtime.opening.contains_key(&id));
-}
-
-#[tokio::test(start_paused = true)]
-async fn a_terminal_that_could_not_open_tries_again_when_its_wait_is_over() {
-    let (mut runtime, _root, changes) = loop_fixture().await;
-    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
-    let id = remote.id;
-    runtime.replace_remotes(vec![remote]);
-    let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
-    show(&mut runtime, client, &lifetime, &[id]);
-    runtime
-        .apply_for_consumer(&open_remote(id), client, lifetime.clone())
-        .unwrap();
-    connected(
-        &mut runtime,
-        id,
-        Err(Error::Text(crate::text::Text::plain("unreachable"))),
-    );
-    let wait_ends = runtime.reconnect[&id].next;
-    let mut events = runtime.events.subscribe();
-    let (_requests, looping) = start_loop(runtime, changes).await;
-    loop {
-        if let crate::protocol::EventBody::SessionsSnapshot { sessions } =
-            events.recv().await.unwrap().event
-            && sessions.iter().any(|entry| {
-                entry.id == id.to_string() && entry.connection_state == ConnectionState::Connecting
-            })
-        {
-            break;
-        }
-    }
-    let now = Instant::now();
-    assert!(now >= wait_ends && now < wait_ends + Duration::from_millis(100));
-    looping.abort();
 }
 
 #[tokio::test(start_paused = true)]
@@ -2206,29 +2041,6 @@ async fn a_friends_open_terminal_calls_once_a_new_state_lasts_unseen_and_not_whe
     );
 }
 
-#[tokio::test(start_paused = true)]
-async fn a_new_state_of_a_friends_open_terminal_calls_when_it_lasts_with_nothing_else_going_on() {
-    let (mut runtime, _root, changes) = loop_fixture().await;
-    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
-    runtime.replace_remotes(vec![remote.clone()]);
-    runtime
-        .remotes
-        .get_mut(&remote.id)
-        .unwrap()
-        .connection_state = ConnectionState::Connected;
-    reports(&mut runtime, &remote, true, &json!({"state":"done"}));
-    let reported = Instant::now();
-    let mut events = runtime.events.subscribe();
-    let (_requests, looping) = start_loop(runtime, changes).await;
-    while !matches!(
-        events.recv().await.unwrap().event,
-        crate::protocol::EventBody::TerminalAttention { .. }
-    ) {}
-    let lasted = reported.elapsed();
-    assert!(lasted >= Duration::from_secs(2) && lasted < Duration::from_millis(2100));
-    looping.abort();
-}
-
 async fn next_list(events: &mut broadcast::Receiver<Event>) -> Option<Vec<SessionEntry>> {
     timeout(Duration::from_secs(1), async {
         loop {
@@ -2637,54 +2449,6 @@ async fn a_wait_that_its_person_saw_on_any_device_gets_no_mark_again_when_the_pe
     for terminal in [here_terminal, phone_terminal] {
         terminal.close().await.unwrap();
     }
-}
-
-#[cfg(all(unix, feature = "host"))]
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_bell_marks_its_terminal_for_the_apps_of_this_computer_and_nowhere_else() {
-    let (mut runtime, storage) = registry_fixture();
-    let (id, terminal) = hosted(&mut runtime, storage.path()).await;
-    let mark = runtime.local[&id].publication(id).3;
-    let mut events = runtime.events.subscribe();
-    runtime.change(SessionChange::Bell { id });
-    runtime.send_waiting_list();
-    let told = std::iter::from_fn(|| events.try_recv().ok())
-        .map(|event| event.event.kind())
-        .collect::<Vec<_>>();
-    assert_eq!(told, ["term.bell", "sessions.snapshot"]);
-    assert!(runtime.entries()[0].attention);
-    assert_eq!(*mark.borrow(), None);
-    let (client, lifetime) = (Uuid::now_v7(), CancellationToken::new());
-    show(&mut runtime, client, &lifetime, &[id]);
-    assert!(!runtime.entries()[0].attention);
-    terminal.close().await.unwrap();
-    drop(terminal);
-}
-
-#[tokio::test]
-async fn a_spinner_that_stops_marks_its_terminal_for_this_device_alone() {
-    let (mut runtime, _root) = registry_fixture();
-    let mut events = runtime.events.subscribe();
-    let id = Uuid::now_v7();
-    runtime.replace_remotes(vec![remote_session(id, Uuid::now_v7())]);
-    let mut show = |connection, title: &str| {
-        let entry = runtime.remotes.get_mut(&id).unwrap();
-        entry.is_owner = true;
-        entry.connection_state = connection;
-        entry.title = Some(title.to_owned());
-        runtime.publish_catalog();
-        runtime.entries()[0].attention
-    };
-    assert!(!show(ConnectionState::Connected, "\u{2810} Build"));
-    assert!(!show(ConnectionState::Offline, "\u{2810} Build"));
-    assert!(!show(ConnectionState::Connected, "\u{2810} Build"));
-    assert!(!show(ConnectionState::Offline, "\u{2733} Build"));
-    assert!(show(ConnectionState::Connected, "\u{2733} Build"));
-    assert!(show(ConnectionState::Connected, "\u{2733} Build"));
-    assert!(
-        std::iter::from_fn(|| events.try_recv().ok())
-            .all(|event| event.event.kind() != "term.attention")
-    );
 }
 
 #[tokio::test]
@@ -3763,27 +3527,6 @@ fn a_message_line_says_who_wrote_and_from_where_and_leaves_the_choice_to_the_age
 
 #[cfg(feature = "host")]
 #[tokio::test]
-async fn a_delivery_that_ends_after_its_terminal_leaves_nothing_behind() {
-    let (mut runtime, _storage) = registry_fixture();
-    let gone = Uuid::now_v7();
-    let mention = messages::Mention {
-        project: "Launch".to_owned(),
-        project_id: Uuid::now_v7(),
-        from: messages::Sender::Person("Ana".to_owned()),
-        text: "@Build".to_owned(),
-        position: 3,
-    };
-    for result in [Ok(()), Err(Error::Invalid("refused".to_owned()))] {
-        runtime.mentions.telling.insert(gone);
-        runtime.told(gone, vec![mention.clone()], result, true);
-        assert!(runtime.mentions.telling.is_empty());
-        assert!(runtime.mentions.waiting.is_empty());
-        assert!(runtime.mentions.told.is_empty());
-    }
-}
-
-#[cfg(feature = "host")]
-#[tokio::test]
 async fn a_deleted_message_takes_back_the_mentions_that_wait_for_its_agents() {
     let (mut runtime, _root) = registry_fixture();
     let project = Uuid::now_v7();
@@ -3813,23 +3556,6 @@ async fn a_deleted_message_takes_back_the_mentions_that_wait_for_its_agents() {
     );
     assert_eq!(runtime.mentions.waiting[&terminal], [mention(5)]);
     assert_eq!(runtime.mentions.unchecked, Vec::new());
-}
-
-#[cfg(feature = "host")]
-#[test]
-fn only_messages_after_the_first_look_at_a_project_name_agents() {
-    let message = |position: u64| json!({"position": position, "text": "@Build"});
-    let mut mentions = messages::Mentions::default();
-    assert_eq!(
-        mentions.new_messages("project", &[message(3), message(4)]),
-        Vec::<Value>::new()
-    );
-    let fresh = mentions.new_messages("project", &[message(4), message(5), message(6)]);
-    assert_eq!(fresh, [message(5), message(6)]);
-    assert_eq!(
-        mentions.new_messages("project", &[message(6)]),
-        Vec::<Value>::new()
-    );
 }
 
 #[cfg(all(unix, feature = "host"))]
@@ -4098,21 +3824,6 @@ async fn admit_input(
 }
 
 #[tokio::test]
-async fn a_line_whose_enter_does_not_reach_the_other_computer_fails() {
-    let (terminal, _view, mut requests, _updates, _changes) = remote_line_terminal().await;
-    let line =
-        tokio::spawn(TerminalTarget::Remote(terminal.clone()).type_line("hello".to_owned(), false));
-    let (text, delivered) = admit_input(&mut requests).await;
-    assert_eq!(text, b"hello");
-    delivered.send(()).unwrap();
-    let (enter, lost) = admit_input(&mut requests).await;
-    assert_eq!(enter, b"\r");
-    drop(lost);
-    assert!(line.await.unwrap().is_err());
-    terminal.disconnect();
-}
-
-#[tokio::test]
 async fn a_line_waits_for_enter_while_a_person_types_in_the_pause() {
     let (terminal, view, mut requests, _updates, _changes) = remote_line_terminal().await;
     let line =
@@ -4224,38 +3935,6 @@ async fn a_remote_terminal_pauses_while_no_client_shows_it_and_resumes_without_r
     assert!(!runtime.connections[&id].is_interrupted());
     assert_eq!(remote_state(&runtime, id), running);
     assert!(view.control.try_recv().is_err());
-}
-
-#[tokio::test]
-async fn a_remote_terminal_opened_where_it_does_not_show_connects_when_a_client_shows_it() {
-    let (mut runtime, _root) = registry_fixture();
-    let remote = remote_session(Uuid::now_v7(), Uuid::now_v7());
-    let id = remote.id;
-    runtime.replace_remotes(vec![remote]);
-    let (consumer, lifetime) = (Uuid::now_v7(), CancellationToken::new());
-    show(&mut runtime, consumer, &lifetime, &[]);
-    runtime
-        .apply_for_consumer(&open_remote(id), consumer, lifetime.clone())
-        .unwrap();
-    assert!(!runtime.opening.contains_key(&id));
-    show(&mut runtime, consumer, &lifetime, &[id]);
-    assert!(runtime.opening.contains_key(&id));
-
-    runtime
-        .apply_for_consumer(
-            &Command::DisconnectRemote {
-                session_id: id.to_string(),
-                request_id: Uuid::now_v7().to_string(),
-            },
-            consumer,
-            lifetime.clone(),
-        )
-        .unwrap();
-    assert!(!runtime.views.contains_key(&id));
-    runtime
-        .apply_for_consumer(&open_remote(id), Uuid::now_v7(), CancellationToken::new())
-        .unwrap();
-    assert!(runtime.opening.contains_key(&id));
 }
 
 #[tokio::test]

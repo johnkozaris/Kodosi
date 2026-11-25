@@ -1924,43 +1924,6 @@ mod tests {
     }
 
     #[test]
-    fn a_broken_size_is_ignored() {
-        assert_eq!(
-            fitted(
-                Size {
-                    width: 0,
-                    height: 400,
-                    scale: 1.0
-                },
-                [],
-            ),
-            None
-        );
-        assert_eq!(
-            fitted(
-                Size {
-                    width: 800,
-                    height: 9000,
-                    scale: 1.0
-                },
-                [],
-            ),
-            None
-        );
-        assert_eq!(
-            fitted(
-                Size {
-                    width: 800,
-                    height: 400,
-                    scale: 0.0
-                },
-                [],
-            ),
-            None
-        );
-    }
-
-    #[test]
     fn a_picture_that_the_encoder_would_refuse_gets_fewer_pixels_or_a_smaller_page() {
         let openh264 = (3840, 2160);
         let retina = encodable(

@@ -442,6 +442,10 @@
     <string name="chat_context_used">コンテキスト：%1$d%% 使用</string>
     <string name="chat_show_tasks">タスクを表示</string>
     <string name="chat_hide_tasks">タスクを非表示</string>
+    <string name="chat_show_helpers">サブエージェントを表示</string>
+    <string name="chat_hide_helpers">サブエージェントを非表示</string>
+    <string name="chat_show_helper_said">サブエージェントの発言を表示</string>
+    <string name="chat_hide_helper_said">サブエージェントの発言を非表示</string>
     <string name="chat_takes_next">エージェントは次のメッセージをターミナルで受け取ります。</string>
     <string name="chat_in_background">バックグラウンド</string>
     <plurals name="chat_helpers">

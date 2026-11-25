@@ -3,12 +3,14 @@ import KodosiLinks
 import SwiftUI
 
 /// The chat of a terminal in the place of its screen. It is a conversation of Kodosi, as a
-/// project's, in the look of what holds it: a terminal's tile or the app. `me` is the account of
-/// this app: the messages of other people show their names. `modelKey` gets the agent's model and
-/// effort, and the app makes them the key of its action that changes them, which `/model` also
-/// opens. `showTerminal` shows the terminal's screen in the place of the chat. A link opens by the
-/// rules of a link in the terminal, and `otherComputer` names the computer of a terminal that is
-/// not on this device, where its files are.
+/// project's, in the look of what holds it: a terminal's tile or the app. Its rows keep the name of
+/// the agent that wrote them after the agent ends, and `agent`, the terminal's program, names them
+/// until the agent reports. `me` is the account of this app: the messages of other people show
+/// their names. `modelKey` gets the agent's model and effort, and the app makes them the key of its
+/// action that changes them, which `/model` also opens. `showTerminal` shows the terminal's screen
+/// in the place of the chat. A link opens by the rules of a link in the terminal, and
+/// `otherComputer` names the computer of a terminal that is not on this device, where its files
+/// are.
 public struct TerminalChatView<ModelKey: View>: View {
     @Environment(\.theme) private var theme
     let chat: TerminalChat
@@ -34,7 +36,7 @@ public struct TerminalChatView<ModelKey: View>: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            ChatThread(chat: chat, agent: agent, me: me, sent: sent)
+            ChatThread(chat: chat, agent: chat.facts.agent.flatMap(AgentKind.init(rawValue:)) ?? agent, me: me, sent: sent)
             ChatDock(chat: chat, agent: agent, focused: $focused, modelKey: modelKey, showTerminal: showTerminal) { sent += 1 }
                 .layoutPriority(1)
         }

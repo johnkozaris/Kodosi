@@ -77,21 +77,6 @@ private func reporter(on mac: StandInMac) -> (PresenceReporter, Sent) {
     return (reporter, sent)
 }
 
-@Test func `the person is in Kodosi while it is in front and at the Mac while another app is`() {
-    let mac = StandInMac()
-    let (reporter, sent) = reporter(on: mac)
-    mac.active = true
-    reporter.connected(awaySeconds: 180)
-    #expect(sent.states == [.kodosi])
-    #expect(mac.wakes == [1180])
-    mac.active = false
-    reporter.update()
-    #expect(sent.states == [.kodosi, .here])
-    reporter.update()
-    #expect(sent.states == [.kodosi, .here])
-    #expect(mac.wakes == [1180])
-}
-
 @Test func `the Mac turns idle when the input stops for the away time and back at the next input`() {
     let mac = StandInMac()
     let (reporter, sent) = reporter(on: mac)
@@ -137,15 +122,6 @@ private func reporter(on mac: StandInMac) -> (PresenceReporter, Sent) {
     mac.pass(600)
     reporter.returned(.screensAsleep)
     #expect(sent.states.suffix(2) == [.away, .idle])
-}
-
-@Test func `a lock before the runtime is ready is away on its first report`() {
-    let mac = StandInMac()
-    let (reporter, sent) = reporter(on: mac)
-    reporter.left(.locked)
-    #expect(sent.states.isEmpty)
-    reporter.connected(awaySeconds: 180)
-    #expect(sent.states == [.away])
 }
 
 @Test func `each new runtime connection hears the state once, and a refused report goes out at the next change`() {

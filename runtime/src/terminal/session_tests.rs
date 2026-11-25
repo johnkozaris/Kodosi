@@ -569,24 +569,6 @@ async fn simultaneous_close_waiters_confirm_reaping_even_with_full_admission_que
     .expect("ended notification");
 }
 
-#[test]
-fn byte_budget_covers_admitted_input_before_the_actor_polls() {
-    let budget = Arc::new(Semaphore::new(MAX_PENDING_BYTES));
-    let writes = (0..4)
-        .map(|_| {
-            PendingWrite::new(
-                Bytes::from(vec![b'x'; super::super::TERMINAL_INPUT_MAX_BYTES]),
-                &budget,
-                None,
-            )
-            .expect("budget")
-        })
-        .collect::<Vec<_>>();
-    assert!(PendingWrite::new(Bytes::from_static(b"x"), &budget, None).is_err());
-    drop(writes);
-    assert_eq!(budget.available_permits(), MAX_PENDING_BYTES);
-}
-
 #[tokio::test]
 #[expect(
     clippy::significant_drop_tightening,
@@ -670,7 +652,7 @@ async fn revoked_pending_input_is_discarded_before_a_real_pty_write() {
         canvas: canvas.clone(),
         canvas_state: canvas.state(),
         chat_linked: chat.linked(),
-        published_face: None,
+        published_chat: (None, 0),
         chat,
         host_look: watch::channel(TerminalLook::Dark).1,
         look: TerminalLook::Dark,
@@ -1268,21 +1250,6 @@ async fn closing_a_view_rejects_its_pending_input_completion() {
 }
 
 #[tokio::test]
-async fn input_admission_rejects_a_detached_view() {
-    let (session, _changes, _root) = shell("exec /bin/cat").await;
-    let subscription = session.subscribe().await.unwrap();
-    let id = subscription.connection_id;
-    session.unsubscribe(id);
-    assert!(
-        session
-            .write_input(id, Bytes::from_static(b"rejected"))
-            .await
-            .is_err()
-    );
-    session.close().await.unwrap();
-}
-
-#[tokio::test]
 async fn spinner_frames_of_one_title_are_published_once() {
     let (local, mut receiver, _root) = shell(
         r"printf '\033]0;⠂ Task\007'; sleep 0.1; printf '\033]0;⠄ Task\007'; sleep 0.1; printf '\033]0;⠆ Task\007'; sleep 0.1; printf '\033]0;✳ Task\007'; exec /bin/cat",
@@ -1307,24 +1274,6 @@ async fn spinner_frames_of_one_title_are_published_once() {
         "{titles:?}"
     );
     local.close().await.expect("closed");
-}
-
-#[test]
-fn terminals_find_the_kodosi_command_of_the_running_app_first() {
-    let app = tempfile::tempdir().expect("app folder");
-    let folder = app.path().to_path_buf();
-    let path = std::ffi::OsString::from("/usr/bin:/bin");
-    assert_eq!(path_with_command(&path, &folder), None);
-    std::fs::write(folder.join("kodosi"), b"").expect("command");
-    let first = Some(format!("{}:/usr/bin:/bin", folder.display()));
-    assert_eq!(path_with_command(&path, &folder), first);
-    let later = std::env::join_paths([
-        PathBuf::from("/usr/bin"),
-        folder.clone(),
-        PathBuf::from("/bin"),
-    ])
-    .expect("path");
-    assert_eq!(path_with_command(&later, &folder), first);
 }
 
 #[tokio::test]

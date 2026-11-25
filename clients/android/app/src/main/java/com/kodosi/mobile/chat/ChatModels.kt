@@ -364,8 +364,8 @@ enum class TaskState {
 
 /**
  * [agent] is the agent's name as the terminal's program has it, [cost] what the agent estimates
- * that the conversation cost in US dollars, [helpers] the helpers that work now, and [background]
- * the commands that run on after their calls ended.
+ * that the conversation cost in US dollars, and [background] the commands that run on after their
+ * calls ended.
  */
 @Serializable
 data class ChatFacts(
@@ -378,7 +378,6 @@ data class ChatFacts(
     val context: ChatContext? = null,
     val limits: List<UsageLimit> = emptyList(),
     val cost: Double? = null,
-    val helpers: Int = 0,
     val background: Int = 0
 )
 

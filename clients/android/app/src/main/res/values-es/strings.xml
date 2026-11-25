@@ -454,6 +454,10 @@
     <string name="chat_context_used">Contexto: %1$d %% usado</string>
     <string name="chat_show_tasks">Mostrar las tareas</string>
     <string name="chat_hide_tasks">Ocultar las tareas</string>
+    <string name="chat_show_helpers">Mostrar los ayudantes</string>
+    <string name="chat_hide_helpers">Ocultar los ayudantes</string>
+    <string name="chat_show_helper_said">Mostrar lo que dijo el ayudante</string>
+    <string name="chat_hide_helper_said">Ocultar lo que dijo el ayudante</string>
     <string name="chat_takes_next">El agente toma el siguiente mensaje en su terminal.</string>
     <string name="chat_in_background">en segundo plano</string>
     <plurals name="chat_helpers">

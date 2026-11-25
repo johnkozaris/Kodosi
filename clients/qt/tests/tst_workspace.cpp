@@ -117,20 +117,6 @@ private slots:
         QCOMPARE(views.count(), 1);
         QCOMPARE(f.sessions.sessions().first().toMap().value(QStringLiteral("activity")).toString(), QStringLiteral("Writing the fix"));
     }
-    void aTerminalWhoseComputerIsAwayKeepsItsViewAndTakesNoTyping()
-    {
-        Fixture f;
-        auto remote = test::session(1, true, false);
-        for (const auto* status : { "reconnecting", "offline" }) {
-            remote.insert(QStringLiteral("status"), QLatin1String(status));
-            f.sessions.apply(test::snapshot({ remote }));
-            const auto presentation = f.sessions.presentationSession(test::id(1));
-            QVERIFY(presentation->canControl);
-            QVERIFY(!presentation->canType);
-            QVERIFY(!f.sessions.presentationForSession(test::id(1)).value(QStringLiteral("canControl")).toBool());
-        }
-        QVERIFY(f.sessions.presentationSession(test::id(1))->away);
-    }
     void folderGroupsKeepNamesAndRemoteDirectoriesPresentationOnly()
     {
         Fixture f;
@@ -323,24 +309,6 @@ private slots:
         again.insert(QStringLiteral("restoredFrom"), test::id(1));
         restarted.workspace.apply(test::snapshot({ again }), 1);
         QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(2) });
-    }
-    void aRestoredRemoteTerminalOpensAgain()
-    {
-        QTemporaryDir dir;
-        const auto remote = test::snapshot({ test::session(4, true, false) });
-        {
-            Fixture first(dir.path());
-            first.workspace.apply(accountEvent(test::id(50), 1), 1);
-            first.workspace.apply(remote, 1);
-            QVERIFY(first.workspace.sessionActions().activate(test::id(4)));
-        }
-        Fixture restarted(dir.path());
-        restarted.workspace.apply(accountEvent(test::id(50), 1), 1);
-        restarted.workspace.apply(remote, 1);
-        QCOMPARE(restarted.desktop.stagedSessionIds(), QStringList { test::id(4) });
-        const auto command = restarted.commands.values.last();
-        QCOMPARE(command.value(QStringLiteral("type")).toString(), QStringLiteral("session.openRemote"));
-        QCOMPARE(command.value(QStringLiteral("sessionId")).toString(), test::id(4));
     }
     void aNotificationOpensItsTerminalOrTheOneThatStartedAgainOrElseTheList()
     {

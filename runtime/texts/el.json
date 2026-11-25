@@ -96,7 +96,6 @@
 "Project membership changed; refresh before retrying.": "Τα μέλη του έργου άλλαξαν. Ανανεώστε πριν δοκιμάσετε ξανά.",
 "Refresh the project before changing its members.": "Ανανεώστε το έργο πριν αλλάξετε τα μέλη του.",
 "Remote access is still connecting. Try again when this device is online and approved.": "Η απομακρυσμένη πρόσβαση συνδέεται ακόμα. Δοκιμάστε ξανά όταν αυτή η συσκευή είναι σε σύνδεση και εγκεκριμένη.",
-"Remote input exceeded its connection buffer, and Kodosi did not send it again.": "Η απομακρυσμένη είσοδος ξεπέρασε την προσωρινή μνήμη της σύνδεσης και το Kodosi δεν την έστειλε ξανά.",
 "Remove the current recovery key first.": "Αφαιρέστε πρώτα το τρέχον κλειδί ανάκτησης.",
 "Remove this device from another approved device.": "Αφαιρέστε αυτή τη συσκευή από άλλη εγκεκριμένη συσκευή.",
 "Run it in a terminal of Kodosi, whose chat shows the agent.": "Εκτελέστε το σε ένα τερματικό του Kodosi, του οποίου η συνομιλία δείχνει τον agent.",

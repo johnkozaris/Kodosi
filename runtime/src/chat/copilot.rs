@@ -121,12 +121,6 @@ impl Copilot {
     pub(super) const NAME: &'static str = "copilot";
 
     fn show(&self, chat: &mut Chat) {
-        let helpers = self
-            .helpers
-            .values()
-            .filter(|helper| helper.working)
-            .count();
-        chat.change_facts(|facts| facts.helpers = u32::try_from(helpers).unwrap_or(u32::MAX));
         show_state(chat, self.linked, self.turn.is_some(), self.now.clone());
     }
 

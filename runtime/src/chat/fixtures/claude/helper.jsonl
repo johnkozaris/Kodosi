@@ -23,7 +23,7 @@
 {"k":"text","t":1795226839980,"block":0,"text":" result arrives."}
 {"k":"row","t":1795226839981,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"2c7910ea-de1e-4c08-bc84-319626b59c02","content":[{"type":"text","text":"The Explore subagent is still searching, so I don't have the answer yet. I'll report it when the result arrives."}]}
 {"k":"stepEnd","t":1795226839989}
-{"k":"mode","t":1795226839991,"mode":"default","background":1}
+{"k":"mode","t":1795226839991,"mode":"default","background":0}
 {"k":"turnEnd","t":1795226839999,"ms":2925,"reason":"answer"}
 {"k":"measure","t":1795226840000,"context":{"tokens":42272,"window":1000000,"percent":4},"limits":[{"kind":"seven_day","percentUsed":18,"resetsAt":"2026-01-08T12:00:00.000Z"}],"cost":{"usd":0.21523730000000005}}
 {"k":"row","t":1795226840679,"door":"response","origin":{"kind":"model","model":"claude-sonnet-5-5"},"uuid":"2cb33b45-cf7b-423d-9196-458d4211f6bf","agent":"ae4984a9a698a2db6","content":[{"type":"tool_use","id":"toolu_01FNuiofKKcqF8WAMa8hHbzB","name":"Bash","input":{"command":"grep -rniE \"tax\" /home/sam/shop | grep -iE \"rate|=|const\" | head -30"}}]}

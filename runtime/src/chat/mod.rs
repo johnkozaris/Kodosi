@@ -554,9 +554,6 @@ pub struct ChatFacts {
     /// What the agent estimates that the conversation cost, in US dollars.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost: Option<f64>,
-    /// Helpers that work now.
-    #[serde(default, skip_serializing_if = "is_zero")]
-    pub helpers: u32,
     /// Commands that run on after their calls ended.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub background: u32,

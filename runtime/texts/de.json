@@ -96,7 +96,6 @@
 "Project membership changed; refresh before retrying.": "Die Mitglieder des Projekts haben sich geändert. Aktualisiere, bevor du es erneut versuchst.",
 "Refresh the project before changing its members.": "Aktualisiere das Projekt, bevor du seine Mitglieder änderst.",
 "Remote access is still connecting. Try again when this device is online and approved.": "Der Fernzugriff verbindet sich noch. Versuche es erneut, wenn dieses Gerät online und freigegeben ist.",
-"Remote input exceeded its connection buffer, and Kodosi did not send it again.": "Die entfernte Eingabe hat den Puffer der Verbindung überschritten, und Kodosi hat sie nicht erneut gesendet.",
 "Remove the current recovery key first.": "Entferne zuerst den aktuellen Wiederherstellungsschlüssel.",
 "Remove this device from another approved device.": "Entferne dieses Gerät von einem anderen freigegebenen Gerät aus.",
 "Run it in a terminal of Kodosi, whose chat shows the agent.": "Starte es in einem Terminal von Kodosi, dessen Chat den Agent zeigt.",

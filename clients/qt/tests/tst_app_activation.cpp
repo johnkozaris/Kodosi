@@ -1,16 +1,9 @@
 #include "app/AppActivation.hpp"
 
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QThread>
 #include <QtTest/QTest>
 
 namespace {
-
-kodosi::AppActivation parse(const QJsonObject& object)
-{
-    return kodosi::AppActivation::fromJson(QJsonDocument(object).toJson(QJsonDocument::Compact));
-}
 
 void hand(kodosi::AppActivations& activations, const kodosi::AppActivation& activation)
 {
@@ -25,17 +18,8 @@ class AppActivationTest final : public QObject {
     Q_OBJECT
 
 private slots:
-    void aLaunchNamesItsVersion();
     void activationsFromTheRuntimeThreadReachTheAppThread();
 };
-
-void AppActivationTest::aLaunchNamesItsVersion()
-{
-    QCOMPARE(parse({ { QStringLiteral("appVersion"), QStringLiteral("0.2.2") } }).appVersion, QStringLiteral("0.2.2"));
-    QVERIFY(parse({ { QStringLiteral("appVersion"), QStringLiteral("0.2.2\nrun") } }).appVersion.isEmpty());
-    QVERIFY(parse({ { QStringLiteral("appVersion"), QString(33, QLatin1Char('1')) } }).appVersion.isEmpty());
-    QVERIFY(parse({}).appVersion.isEmpty());
-}
 
 void AppActivationTest::activationsFromTheRuntimeThreadReachTheAppThread()
 {

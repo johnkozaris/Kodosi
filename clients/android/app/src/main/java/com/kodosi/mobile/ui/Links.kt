@@ -79,10 +79,10 @@ fun LinkActions(content: @Composable () -> Unit) {
             when (val review = LinkPolicy.review(address, computer)) {
                 is LinkReview.Open -> {
                     if (review.asks) {
-                        pending = address to review
-                    } else if (!launch(context, address)) {
+                        pending = review.address to review
+                    } else if (!launch(context, review.address)) {
                         pending =
-                            address to LinkReview.Invalid
+                            review.address to LinkReview.Invalid
                     }
                 }
 

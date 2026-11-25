@@ -16,11 +16,12 @@ device, and let a friend or another agent step into the same work.
   that friends share, are side by side on each of the person's devices. Each is a real
   process on the computer that hosts it.
 - **Attention.** A terminal shows what its program reports: working, waiting for a
-  person, done or failed. Kodosi tells the person when a terminal needs them.
+  person, done or failed, and the helpers that its agent started while they work. Kodosi
+  tells the person when a terminal needs them.
 - **Chat.** A terminal with an agent also shows as a chat, a second view of the same
-  terminal: what the person wrote, what the agent answered and did, and its questions
-  with their answers as keys. The person goes between the screen and the chat, and what
-  happens in one shows in the other.
+  terminal: what the person wrote, what the agent answered and did, the helpers that
+  work for it, and its questions with their answers as keys. The person goes between the
+  screen and the chat, and what happens in one shows in the other.
 - **Sharing.** A person shares a terminal with friends or with a project, and everyone
   it is shared with gets full control.
 - **Projects.** A project holds a conversation, tasks, repositories and terminals from

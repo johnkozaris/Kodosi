@@ -1181,6 +1181,10 @@ Item {
                                         limit: 2
                                         ring: row.selected ? KodosiTheme.raised : KodosiTheme.ground
                                     }
+                                    HelperMarks {
+                                        session: row.session
+                                        visible: working && !actions.visible
+                                    }
                                     StatusSign {
                                         id: sign
                                         session: row.session

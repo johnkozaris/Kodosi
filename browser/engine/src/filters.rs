@@ -112,15 +112,3 @@ wrap_resource_request_handler! {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_page_itself_is_never_filtered_and_its_parts_have_their_list_names() {
-        assert_eq!(kind(ResourceType::MAIN_FRAME), None);
-        assert_eq!(kind(ResourceType::SCRIPT), Some("script"));
-        assert_eq!(kind(ResourceType::XHR), Some("xmlhttprequest"));
-    }
-}

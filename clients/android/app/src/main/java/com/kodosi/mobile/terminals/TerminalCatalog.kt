@@ -1,6 +1,6 @@
 package com.kodosi.mobile.terminals
 
-import java.text.Collator
+import com.kodosi.mobile.account.byName
 
 enum class StatusForm { CHANGED, HAND, QUESTION, KEY, DONE, FAILED }
 
@@ -71,10 +71,6 @@ object TerminalCatalog {
         }
     }
 
-    private fun <T> sorted(groups: Map<String, Pair<String, T>>): List<Pair<String, Pair<String, T>>> {
-        val collator = Collator.getInstance().apply { strength = Collator.SECONDARY }
-        return groups.entries.sortedWith { left, right ->
-            collator.compare(left.value.first, right.value.first).takeIf { it != 0 } ?: left.key.compareTo(right.key)
-        }.map { it.key to it.value }
-    }
+    private fun <T> sorted(groups: Map<String, Pair<String, T>>): List<Pair<String, Pair<String, T>>> =
+        groups.entries.sortedWith(byName({ it.value.first }, { it.key })).map { it.key to it.value }
 }

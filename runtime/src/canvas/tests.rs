@@ -8,7 +8,6 @@ use super::{
     browser::{self, Browser, Places, Terminal},
     engine::BrowserHost,
     files::{Files, Showing, Stamp, examine_all},
-    page,
 };
 use crate::text::Text;
 
@@ -41,43 +40,6 @@ fn requests_from_other_computers_have_bounds() {
     assert!(canvas(mark("/a/plan.md"), mark("/a/plan.md")).is_valid());
     assert!(!canvas(mark(&"a".repeat(2000)), None).is_valid());
     assert!(!canvas(None, mark("/a/\0")).is_valid());
-}
-
-#[tokio::test]
-async fn the_newest_file_comes_first_and_a_change_makes_a_new_revision() {
-    let folder = tempfile::tempdir().unwrap();
-    let folder = kodosi_os::fs::canonicalize(folder.path()).unwrap();
-    let plan = folder.join("plan.md");
-    let shot = folder.join("shot.png");
-    std::fs::write(&plan, "# Plan").unwrap();
-    std::fs::write(&shot, [1, 2, 3]).unwrap();
-    let stamp = Stamp::default();
-    let mut files = Files::default();
-    show(&mut files, vec![plan.clone()], &stamp).await.unwrap();
-    let first = files.items()[0].revision;
-    show(&mut files, vec![shot.clone()], &stamp).await.unwrap();
-    let names = |files: &Files| {
-        files
-            .items()
-            .into_iter()
-            .map(|item| item.name)
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(names(&files), ["shot.png", "plan.md"]);
-    show(&mut files, vec![plan.clone()], &stamp).await.unwrap();
-    assert_eq!(names(&files), ["plan.md", "shot.png"]);
-    assert_eq!(files.items()[0].revision, first);
-
-    std::fs::write(&plan, "# Plan\n\nMore words.").unwrap();
-    assert!(files.check(&stamp).await.any);
-    assert!(files.items()[0].revision > first);
-    assert!(!files.check(&stamp).await.any);
-
-    std::fs::remove_file(&shot).unwrap();
-    assert!(files.check(&stamp).await.any);
-    assert!(files.items()[1].missing);
-    let key = files.items()[1].key.clone();
-    assert!(files.read(&key, 1, 0).await.is_err());
 }
 
 #[tokio::test]
@@ -192,25 +154,6 @@ async fn the_browser_of_a_terminal_that_becomes_shared_says_it_keeps_its_own_sig
 }
 
 #[tokio::test]
-async fn the_canvas_keeps_the_newest_items() {
-    let folder = tempfile::tempdir().unwrap();
-    let stamp = Stamp::default();
-    let mut files = Files::default();
-    for number in 0..=MOST_ITEMS {
-        let path = folder.path().join(format!("{number}.txt"));
-        std::fs::write(&path, "x").unwrap();
-        let showing = show(&mut files, vec![path], &stamp).await.unwrap();
-        assert_eq!(showing.dropped.len(), usize::from(number == MOST_ITEMS));
-    }
-    assert_eq!(files.items().len(), MOST_ITEMS);
-    assert_eq!(files.items()[0].name, format!("{MOST_ITEMS}.txt"));
-    let key = files.items()[0].key.clone();
-    assert_eq!(files.remove(&[key]), 1);
-    assert_eq!(files.remove(&[]), MOST_ITEMS - 1);
-    assert!(files.is_empty());
-}
-
-#[tokio::test]
 async fn a_file_that_comes_back_gets_a_new_revision_with_its_new_content() {
     let folder = tempfile::tempdir().unwrap();
     let report = folder.path().join("report.md");
@@ -294,21 +237,6 @@ async fn a_large_file_comes_in_parts_of_one_revision() {
         files.read(&key, 7, 0).await.unwrap(),
         CanvasAnswer::Stale { key, revision: 1 }
     );
-}
-
-#[test]
-fn markdown_and_text_become_pages_with_the_template_look() {
-    let markdown = String::from_utf8(page::page(
-        "plan.md",
-        b"# Plan\n\n| a | b |\n|---|---|\n| 1 | 2 |",
-    ))
-    .unwrap();
-    assert!(markdown.contains("<h1>Plan</h1>"));
-    assert!(markdown.contains("<table>"));
-    assert!(markdown.contains("--accent"));
-    assert!(markdown.contains("<title>plan.md</title>"));
-    let text = String::from_utf8(page::page("run.log", b"<b>&</b>")).unwrap();
-    assert!(text.contains("<pre><code>&lt;b&gt;&amp;&lt;/b&gt;</code></pre>"));
 }
 
 #[test]

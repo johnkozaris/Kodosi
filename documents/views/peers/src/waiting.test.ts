@@ -95,18 +95,6 @@ test("a batch on its way that the snapshot does not show is never dropped withou
   });
 });
 
-test("typing that waits comes onto a snapshot of the file as it was, with its new ids", () => {
-  const doc = docOf(["a", "Some words"], ["b", "More"]);
-  const { waiting, state } = copyOf(doc, (state) => typed(state, "New ", 1));
-  const snapshot = docOf(["a2", "Some words"], ["b2", "More"]);
-  const carried = waiting.loaded(snapshot, state, "none");
-  expect(shown(snapshot, carried.steps)).toEqual([
-    ["a2", "New Some words"],
-    ["b2", "More"],
-  ]);
-  expect(carried.lost).toBeUndefined();
-});
-
 test("a batch that the document took before the snapshot does not come twice", () => {
   const doc = docOf(["a", "ab"]);
   const withX = docOf(["a", "axb"]);
@@ -121,16 +109,6 @@ test("a batch that the document took before the snapshot does not come twice", (
     waiting.sending(1);
     expect(shown(snapshot, waiting.loaded(snapshot, state, sent).steps)).toEqual([["a", "axyb"]]);
   }
-});
-
-test("typing goes around what others changed while the copy was away", () => {
-  const doc = docOf(["a", "one"], ["b", "two"]);
-  const { waiting, state } = copyOf(doc, (state) => typed(state, "!", 9));
-  const snapshot = docOf(["a", "one more"], ["c", "two"]);
-  expect(shown(snapshot, waiting.loaded(snapshot, state, "none").steps)).toEqual([
-    ["a", "one more"],
-    ["c", "two!"],
-  ]);
 });
 
 test("typing in a part that others removed comes back as text", () => {

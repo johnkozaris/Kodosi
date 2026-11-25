@@ -355,7 +355,7 @@ Item {
             Row {
                 id: usePart
 
-                visible: root.useShown || (root.facts.helpers ?? 0) > 0 || (root.facts.background ?? 0) > 0
+                visible: root.useShown || (root.facts.background ?? 0) > 0
                 spacing: 8
 
                 PickerKey {
@@ -541,27 +541,6 @@ Item {
                                 }
                             }
                         }
-                    }
-                }
-                Fact {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: (root.facts.helpers ?? 0) > 0
-                    tip: qsTr("%n helpers work", "", root.facts.helpers ?? 0)
-                    look: root.look
-
-                    KIcon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 15
-                        height: 15
-                        name: "people"
-                        strokeWidth: 2
-                        color: root.look.inkMuted
-                    }
-                    PlainLabel {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: String(root.facts.helpers ?? 0)
-                        color: root.look.inkMuted
-                        font.pixelSize: KodosiTheme.fontCallout
                     }
                 }
                 Fact {

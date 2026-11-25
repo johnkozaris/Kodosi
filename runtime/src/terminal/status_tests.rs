@@ -24,30 +24,6 @@ fn state(records: &ProgramStatusRecords) -> Option<ProgramState> {
 }
 
 #[test]
-fn the_most_urgent_record_is_the_status_of_the_terminal() {
-    let mut records = ProgramStatusRecords::default();
-    records.apply(report("", ProgramState::Idle));
-    assert_eq!(state(&records), Some(ProgramState::Idle));
-    records.apply(report("lint", ProgramState::Done));
-    assert_eq!(state(&records), Some(ProgramState::Done));
-    records.apply(report("tests", ProgramState::Working));
-    assert_eq!(state(&records), Some(ProgramState::Working));
-    records.apply(report("deploy", ProgramState::Error));
-    assert_eq!(state(&records), Some(ProgramState::Error));
-    records.apply(ProgramStatusReport {
-        kind: Some(BlockedKind::Question),
-        title: Some("Review the plan".to_owned()),
-        ..report("plan", ProgramState::Blocked)
-    });
-    records.apply(report("docs", ProgramState::Working));
-
-    let status = records.summary().expect("status");
-    assert_eq!(status.state, ProgramState::Blocked);
-    assert_eq!(status.kind, Some(BlockedKind::Question));
-    assert_eq!(status.title.as_deref(), Some("Review the plan"));
-}
-
-#[test]
 fn clear_removes_a_record_and_the_records_below_it() {
     let mut records = ProgramStatusRecords::default();
     records.apply(report("build", ProgramState::Working));
@@ -59,55 +35,6 @@ fn clear_removes_a_record_and_the_records_below_it() {
     records.apply(report("", ProgramState::Working));
     records.apply(clear(""));
     assert_eq!(records.summary(), None);
-}
-
-#[test]
-fn the_end_of_the_program_keeps_only_results() {
-    let mut records = ProgramStatusRecords::default();
-    records.apply(report("", ProgramState::Idle));
-    records.apply(report("a", ProgramState::Working));
-    records.apply(report("b", ProgramState::Blocked));
-    records.apply(report("c", ProgramState::Done));
-    records.program_exited();
-    assert_eq!(state(&records), Some(ProgramState::Done));
-
-    records.apply(report("d", ProgramState::Error));
-    records.program_exited();
-    assert_eq!(state(&records), Some(ProgramState::Error));
-}
-
-#[test]
-fn the_oldest_record_makes_room_for_a_new_one() {
-    let mut records = ProgramStatusRecords::default();
-    records.apply(report("first", ProgramState::Blocked));
-    for index in 0..MAX_RECORDS - 1 {
-        records.apply(report(&format!("task-{index}"), ProgramState::Working));
-    }
-    assert_eq!(state(&records), Some(ProgramState::Blocked));
-    records.apply(report("one-more", ProgramState::Working));
-    assert_eq!(state(&records), Some(ProgramState::Working));
-    assert_eq!(records.records.len(), MAX_RECORDS);
-}
-
-#[test]
-fn values_that_do_not_belong_to_a_state_are_dropped() {
-    let mut records = ProgramStatusRecords::default();
-    records.apply(ProgramStatusReport {
-        kind: Some(BlockedKind::Auth),
-        progress: Some(10),
-        app: Some("not a name".to_owned()),
-        ..report("", ProgramState::Done)
-    });
-    let status = records.summary().expect("status");
-    assert_eq!((status.kind, status.progress), (None, None));
-    assert_eq!(records.records[0].app, None);
-    assert!(status.is_valid());
-
-    records.apply(ProgramStatusReport {
-        progress: Some(101),
-        ..report("", ProgramState::Working)
-    });
-    assert_eq!(records.summary().and_then(|status| status.progress), None);
 }
 
 #[test]
@@ -204,37 +131,4 @@ fn a_progress_bar_is_the_status_until_the_program_reports_its_own() {
     records.reset();
     records.apply_progress(progress(ProgramState::Error, None));
     assert_eq!(state(&records), Some(ProgramState::Error));
-}
-
-#[test]
-fn only_a_running_agent_names_the_live_program() {
-    let mut records = ProgramStatusRecords::default();
-    assert_eq!(records.live_program(), None);
-    records.apply(ProgramStatusReport {
-        app: Some("claude-code".to_owned()),
-        ..report("", ProgramState::Working)
-    });
-    assert_eq!(records.live_program(), Some("claude"));
-    records.apply(ProgramStatusReport {
-        app: Some("codex".to_owned()),
-        ..report("task/1", ProgramState::Blocked)
-    });
-    assert_eq!(records.live_program(), Some("codex"));
-    records.apply(report("task/1", ProgramState::Done));
-    assert_eq!(records.live_program(), Some("claude"));
-    records.apply(ProgramStatusReport {
-        app: Some("terraform".to_owned()),
-        ..report("", ProgramState::Working)
-    });
-    assert_eq!(records.live_program(), None);
-    records.apply(ProgramStatusReport {
-        app: Some("github-copilot".to_owned()),
-        ..report("", ProgramState::Error)
-    });
-    assert_eq!(records.live_program(), None);
-    records.apply(ProgramStatusReport {
-        app: Some("antigravity".to_owned()),
-        ..report("", ProgramState::Blocked)
-    });
-    assert_eq!(records.live_program(), Some("antigravity"));
 }

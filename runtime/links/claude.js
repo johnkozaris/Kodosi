@@ -153,6 +153,13 @@ async function slashCommands($) {
   }
 }
 
+// Claude Code names its module call before the reason of a refusal, as in "kodosi: $.command.run: no command
+// named /x in this session".
+function reason(error) {
+  const words = String(error && error.message ? error.message : error).replace(/^[\w-]+: \$\.[\w.]+: /, '')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
 // The host has each event that came before, so a request that follows finds what it names.
 function settled($) {
   if (!sending && pending.length === 0) return Promise.resolve()
@@ -210,11 +217,10 @@ function earlier(rows) {
 // The host follows the module from its hello, so what happens while the module reads the session waits
 // until the hello and the history are out. The host knows each row of the history by its id.
 async function hello($, rewound) {
-  if (picking) tell($, 'did', { n: picking })
-  picking = 0
   greeting = true
   const facts = { agent: 'claude', rewound: rewound || undefined }
   let rows = []
+  let read = true
   try {
     facts.session = await $.session.id()
     facts.version = (await $.session.version()).version
@@ -226,13 +232,19 @@ async function hello($, rewound) {
     turns = await prompts($)
     rows = earlier(await $.session.messages({ last: HISTORY }))
   } catch (error) {
-    rows = []
+    read = false
   }
-  facts.mode = mode || undefined
-  facts.bypass = bypass
   greeting = false
-  tell($, 'hello', facts)
-  for (let at = 0; at < rows.length; at += HISTORY_PART) tell($, 'history', { rows: rows.slice(at, at + HISTORY_PART) })
+  // A module that can no longer read its session, as at the end of Claude Code or after a reload of
+  // its plugins, counts no prompts, and that is no rewind.
+  if (read || !rewound) {
+    if (picking) tell($, 'did', { n: picking })
+    picking = 0
+    facts.mode = mode || undefined
+    facts.bypass = bypass
+    tell($, 'hello', facts)
+    for (let at = 0; at < rows.length; at += HISTORY_PART) tell($, 'history', { rows: rows.slice(at, at + HISTORY_PART) })
+  }
   pending.push(...early.splice(0))
   flush($)
 }
@@ -289,7 +301,7 @@ function run($, command) {
         tell($, 'waits', { n: command.n, picker: true })
       } else tell($, 'did', { n: command.n, drop })
     },
-    error => tell($, 'did', { n: command.n, error: String(error) }),
+    error => tell($, 'did', { n: command.n, error: reason(error) }),
   ).finally(() => {
     ended = true
     if (model && chosen === model) chosen = ''
@@ -500,7 +512,7 @@ export function register(on) {
 
   on('classic.Stop', async ($, e, next) => {
     newMode($, e.permission_mode, undefined, {
-      background: (e.background_tasks || []).filter(task => task.status === 'running').length,
+      background: (e.background_tasks || []).filter(task => task.type === 'shell' && task.status === 'running').length,
     })
     return next(e)
   })

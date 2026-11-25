@@ -100,6 +100,10 @@ impl Viewer {
         self.chat.ask(text.trim(), context, computer, out)
     }
 
+    #[cfg_attr(
+        feature = "host",
+        expect(dead_code, reason = "a computer runs the engine")
+    )]
     pub(crate) fn stop(&mut self, out: &mut Output) {
         self.chat.stop_remote(out);
     }
@@ -123,6 +127,10 @@ impl Viewer {
         self.chat.renew(out);
     }
 
+    #[cfg_attr(
+        feature = "host",
+        expect(dead_code, reason = "a computer runs the engine")
+    )]
     pub(crate) fn page(&self, before: &str) -> DosiPage {
         self.chat.page(before)
     }

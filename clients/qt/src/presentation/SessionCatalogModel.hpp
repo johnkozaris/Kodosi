@@ -61,6 +61,8 @@ public:
         QString look;
         // Where the agent that reports to the terminal's chat works, while one does.
         QString face;
+        // The helpers of the terminal's agent that work now.
+        int helpers = 0;
         bool stalled = false;
         bool direct = false;
         QString message;

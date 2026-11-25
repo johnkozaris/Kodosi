@@ -96,7 +96,6 @@
 "Project membership changed; refresh before retrying.": "项目成员已变更。重试前请先刷新。",
 "Refresh the project before changing its members.": "更改成员前请先刷新项目。",
 "Remote access is still connecting. Try again when this device is online and approved.": "远程访问仍在连接中。请在此设备在线并获得批准后重试。",
-"Remote input exceeded its connection buffer, and Kodosi did not send it again.": "远程输入超出了连接缓冲区，Kodosi 没有重新发送。",
 "Remove the current recovery key first.": "请先移除当前的恢复密钥。",
 "Remove this device from another approved device.": "请从另一台已批准的设备移除此设备。",
 "Run it in a terminal of Kodosi, whose chat shows the agent.": "请在 Kodosi 的终端中运行它，该终端的聊天会显示这个 Agent。",

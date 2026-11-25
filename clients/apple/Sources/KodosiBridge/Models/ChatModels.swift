@@ -380,6 +380,8 @@ public struct ChatPerson: Decodable, Equatable, Sendable {
 }
 
 public struct ChatFacts: Decodable, Equatable, Sendable {
+    /// The agent of the conversation, by the name of its program. It stays after the agent ends.
+    public var agent: String?
     public var model: String?
     /// The folder that the agent works in, on the terminal's computer.
     public var folder: String?
@@ -389,23 +391,21 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
     public var limits: [UsageLimit]
     /// What the agent estimates that the conversation cost, in US dollars.
     public var cost: Double?
-    /// Helpers that work now.
-    public var helpers: Int
     /// Commands that run on after their calls ended.
     public var background: Int
 
     private enum Key: String, CodingKey {
-        case model, folder, effort, mode, context, limits, cost, helpers, background
+        case agent, model, folder, effort, mode, context, limits, cost, background
     }
 
     public init() {
         limits = []
-        helpers = 0
         background = 0
     }
 
     public init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: Key.self)
+        agent = try fields.decodeIfPresent(String.self, forKey: .agent)
         model = try fields.decodeIfPresent(String.self, forKey: .model)
         folder = try fields.decodeIfPresent(String.self, forKey: .folder)
         effort = try fields.decodeIfPresent(String.self, forKey: .effort)
@@ -413,7 +413,6 @@ public struct ChatFacts: Decodable, Equatable, Sendable {
         context = try fields.decodeIfPresent(ChatContext.self, forKey: .context)
         limits = try fields.decodeIfPresent([UsageLimit].self, forKey: .limits) ?? []
         cost = try fields.decodeIfPresent(Double.self, forKey: .cost)
-        helpers = try fields.decodeIfPresent(Int.self, forKey: .helpers) ?? 0
         background = try fields.decodeIfPresent(Int.self, forKey: .background) ?? 0
     }
 }

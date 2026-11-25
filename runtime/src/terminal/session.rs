@@ -20,9 +20,9 @@ use super::status::ProgramStatusRecords;
 use super::subscribers::Subscribers;
 use super::title::titles_look_same;
 use super::{
-    BlockedKind, CellPixels, ControlFrame, DataFrame, NO_AGENT, ProgramState, SessionChange,
-    Subscription, TYPING, TerminalFace, TerminalLook, TerminalPixelGeometry, TerminalSize,
-    agent_asks, someone_typing,
+    BlockedKind, CellPixels, ChatAgent, ControlFrame, DataFrame, NO_AGENT, ProgramState,
+    SessionChange, Subscription, TYPING, TerminalFace, TerminalLook, TerminalPixelGeometry,
+    TerminalSize, agent_asks, someone_typing,
 };
 use crate::{
     Error, Result,
@@ -266,7 +266,7 @@ impl TerminalSession {
             canvas,
             canvas_state,
             chat_linked: chat.linked(),
-            published_face: None,
+            published_chat: (None, 0),
             chat,
             host_look,
             look,
@@ -785,8 +785,8 @@ struct LocalActor {
     canvas: CanvasHandle,
     canvas_state: watch::Receiver<Canvas>,
     chat: ChatHandle,
-    chat_linked: watch::Receiver<Option<TerminalFace>>,
-    published_face: Option<TerminalFace>,
+    chat_linked: watch::Receiver<Option<ChatAgent>>,
+    published_chat: (Option<TerminalFace>, u8),
     host_look: watch::Receiver<TerminalLook>,
     look: TerminalLook,
     pictures: PathBuf,
@@ -849,6 +849,7 @@ impl LocalActor {
             context: self.published_context.clone(),
             canvas: self.canvas.current().map(Box::new),
             face: self.face(),
+            helpers: self.helpers(),
             look: self.look,
         }
     }
@@ -875,7 +876,7 @@ impl LocalActor {
     /// Where the agent that reports to the chat works. An agent of the chat waits for its sign-in
     /// in the terminal, where its own steps ask the person.
     fn face(&self) -> Option<TerminalFace> {
-        let face = (*self.chat_linked.borrow())?;
+        let face = (*self.chat_linked.borrow())?.face;
         let signs_in = face == TerminalFace::Chat
             && self
                 .status
@@ -888,18 +889,26 @@ impl LocalActor {
         })
     }
 
+    fn helpers(&self) -> u8 {
+        self.chat_linked.borrow().map_or(0, |agent| agent.helpers)
+    }
+
     fn publish_chat(&mut self) {
-        let face = self.face();
-        if face == self.published_face {
+        let (face, helpers) = (self.face(), self.helpers());
+        if (face, helpers) == self.published_chat {
             return;
         }
         self.metadata_dirty = true;
         if self
             .changes
-            .try_send(SessionChange::Chat { id: self.id, face })
+            .try_send(SessionChange::Chat {
+                id: self.id,
+                face,
+                helpers,
+            })
             .is_ok()
         {
-            self.published_face = face;
+            self.published_chat = (face, helpers);
         }
     }
 

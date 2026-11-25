@@ -93,7 +93,7 @@ pub(super) async fn serve(
     endpoint: kodosi_os::ipc::Endpoint,
     server: PathBuf,
     room: mpsc::WeakSender<Job>,
-    mut chat: watch::Receiver<Option<crate::terminal::TerminalFace>>,
+    mut chat: watch::Receiver<Option<crate::terminal::ChatAgent>>,
     stop: CancellationToken,
 ) {
     let mut listener = match kodosi_os::ipc::Listener::bind(&endpoint).await {
