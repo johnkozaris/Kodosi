@@ -53,6 +53,7 @@ pub(super) enum Job {
         reply: oneshot::Sender<bool>,
     },
     /// The session of the terminal's own program.
+    #[cfg(unix)]
     Terminal {
         session: u32,
     },
@@ -140,6 +141,7 @@ impl ChatHandle {
     }
 
     /// The terminal's own program started with this session.
+    #[cfg(unix)]
     pub(crate) async fn runs_in(&self, session: u32) {
         self.jobs.send(Job::Terminal { session }).await.ok();
     }
@@ -303,6 +305,7 @@ impl Room {
                     .map(str::to_owned);
                 drop(reply.send(conversation));
             }
+            #[cfg(unix)]
             Job::Terminal { session } => self.terminal = Some(session),
             Job::Change { line, reply } => {
                 let command = self
