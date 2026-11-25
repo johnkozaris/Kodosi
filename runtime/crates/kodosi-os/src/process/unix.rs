@@ -22,7 +22,7 @@ pub(super) fn default_shell() -> PathBuf {
 pub(super) fn session_environment() -> Option<Vec<(OsString, OsString)>> {
     use zbus::{blocking, proxy::CacheProperties};
 
-    let variables: Vec<String> = crate::session_bus::ask(|connection| {
+    let variables: Vec<String> = crate::bus::ask_session(|connection| {
         let manager: blocking::Proxy<'_> = blocking::proxy::Builder::new(connection)
             .destination("org.freedesktop.systemd1")
             .ok()?

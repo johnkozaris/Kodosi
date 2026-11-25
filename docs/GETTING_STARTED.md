@@ -248,6 +248,16 @@ When two of your devices can reach each other directly, terminal and browser tra
 peer for lower latency. On a local network, macOS, iOS, and Android prompt once for local network
 permission; if declined, traffic falls back to the relay server.
 
+### Sleep and staying awake
+
+A computer doesn't go to sleep by itself while an agent works in one of its terminals, and it can
+sleep again a few minutes after its agents stop. An agent that waits for your answer doesn't keep
+it awake. To change this, choose **Stay awake** in **Settings › General** on that computer:
+**While agents work**, **Always**, or **Never**. You can still put a computer to sleep yourself.
+
+To put another of your computers to sleep, open **Settings** and click **Sleep…** next to it under
+**Your devices** (on a phone, tap **⋯** first). Its terminals pause until it wakes.
+
 ### Recovery keys
 
 Create a recovery key in **Settings** and store it somewhere safe. If you ever lose all your
@@ -324,6 +334,7 @@ app immediately.
 | `kodosi browser open <address>` | Opens a URL in this terminal's shared browser (all other agent-browser commands work too). |
 | `kodosi skill` | Prints the agent skill for collaborating in Kodosi; `kodosi skill canvas` prints the canvas skill. |
 | `kodosi dosi skill` | Prints the skill that lets another agent act as Dosi. |
+| `kodosi devices sleep <computer>` | Puts another of your computers to sleep. Its terminals pause until it wakes. `kodosi devices keep-awake` with `agents`, `always` or `never` chooses when this computer stays awake. |
 | `kodosi host` | Runs the host independently so terminals keep running after you quit the app. Use `kodosi host stop` to stop a background host. |
 
 `message`, `input`, and `keys` refuse to run while you're actively typing in that terminal.

@@ -1384,6 +1384,10 @@
         <translation>Αυτός ο υπολογιστής</translation>
     </message>
     <message>
+        <source>Sleep…</source>
+        <translation>Ύπνος…</translation>
+    </message>
+    <message>
         <source>Remove…</source>
         <translation>Αφαίρεση…</translation>
     </message>
@@ -1534,6 +1538,18 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>Οι άλλες συσκευές σας χάνουν την πρόσβαση μέχρι να τις εγκρίνετε ξανά από αυτόν τον υπολογιστή. Οι φίλοι πρέπει να σας εμπιστευτούν ξανά και δημιουργείτε ξανά τα έργα σας. Αν ο λογαριασμός σας έχει συσκευές, αυτός ο υπολογιστής περιμένει μία ημέρα. Αν έχετε άλλη συσκευή ή κλειδί ανάκτησης, ακυρώστε και χρησιμοποιήστε τα: κρατάτε τους φίλους και τα έργα σας.</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>Να τεθεί ο υπολογιστής %1 σε ύπνο;</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>Ύπνος</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>Τα τερματικά του σταματούν προσωρινά μέχρι να ξυπνήσει.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2482,6 +2498,34 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>Τα τερματικά σας συνεχίζουν να τρέχουν. Ανοίξτε ξανά το Kodosi για να τα δείτε.</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Αποτροπή ύπνου</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
+        <translation>Αυτός ο υπολογιστής δεν μπαίνει μόνος του σε ύπνο όσο τρέχει το Kodosi.</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>Αυτός ο υπολογιστής μπορεί να μπει σε ύπνο όσο δουλεύει ένας agent. Ο agent τότε σταματά προσωρινά μέχρι να ξυπνήσει ο υπολογιστής.</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>Αυτός ο υπολογιστής δεν μπαίνει μόνος του σε ύπνο όσο δουλεύει ένας agent, ούτε για λίγα λεπτά μετά. Ένας agent που σας περιμένει δεν τον κρατά ξύπνιο.</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Όσο δουλεύουν οι agents</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Πάντα</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Ποτέ</translation>
     </message>
     <message>
         <source>Notifications</source>

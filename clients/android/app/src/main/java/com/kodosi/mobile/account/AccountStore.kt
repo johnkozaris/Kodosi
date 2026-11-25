@@ -265,6 +265,10 @@ class AccountStore(private val commands: CommandSink, private val words: Words, 
         commands.request("devices.revoke", fields("deviceId" to device.deviceId))
     }
 
+    suspend fun sleepComputer(device: Device) {
+        commands.request("power.sleep", fields("computer" to device.deviceId))
+    }
+
     suspend fun createRecoveryKey(): String? = commands.request("devices.recovery.create").string("key")
 
     fun stopReset() {

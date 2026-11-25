@@ -1365,6 +1365,10 @@
         <translation>这台电脑</translation>
     </message>
     <message>
+        <source>Sleep…</source>
+        <translation>睡眠…</translation>
+    </message>
+    <message>
         <source>Remove…</source>
         <translation>移除…</translation>
     </message>
@@ -1515,6 +1519,18 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>在你从这台电脑重新批准之前，你的其他设备将无法访问。好友需要重新信任你，你也需要重新创建项目。如果你的账号有设备，这台电脑需要等待一天。如果你有另一台设备或恢复密钥，请取消并使用它：这样可以保留你的好友和项目。</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>要让 %1 进入睡眠吗？</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>睡眠</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>在它被唤醒之前，它的终端会暂停。</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2461,6 +2477,34 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>你的终端会继续运行。再次打开 Kodosi 即可查看。</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>保持唤醒</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
+        <translation>Kodosi 运行时，这台电脑不会自行进入睡眠。</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>Agent 工作时，这台电脑仍可能进入睡眠。Agent 会暂停，直到电脑被唤醒。</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>Agent 工作时及之后几分钟内，这台电脑不会自行进入睡眠。等待你回复的 Agent 不会让它保持唤醒。</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Agent 工作时</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>始终</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>永不</translation>
     </message>
     <message>
         <source>Notifications</source>

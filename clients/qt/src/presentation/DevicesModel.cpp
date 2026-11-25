@@ -20,6 +20,19 @@ void DevicesModel::revoke(const QString& deviceId)
         QStringLiteral("devices.revoke"), { { QStringLiteral("deviceId"), deviceId } });
 }
 
+void DevicesModel::sleep(const QString& deviceId)
+{
+    m_workspace.sendUntracked(QStringLiteral("power.sleep"), { { QStringLiteral("computer"), deviceId } });
+}
+
+void DevicesModel::setKeepAwake(const QString& keepAwake)
+{
+    m_keepAwake = keepAwake;
+    emit changed();
+    m_workspace.sendUntracked(
+        QStringLiteral("power.keepAwake"), { { QStringLiteral("keepAwake"), keepAwake } });
+}
+
 void DevicesModel::approve(const QString& code)
 {
     if (!m_checkRequest.isEmpty() && m_checkedLabel.isEmpty())

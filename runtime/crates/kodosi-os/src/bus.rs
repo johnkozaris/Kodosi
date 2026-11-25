@@ -4,15 +4,24 @@ use zbus::blocking::{Connection, connection::Builder};
 
 const LIMIT: Duration = Duration::from_secs(3);
 
-pub(crate) fn ask<T: Send + 'static>(
+pub(crate) fn ask_session<T: Send + 'static>(
+    question: impl FnOnce(&Connection) -> Option<T> + Send + 'static,
+) -> Option<T> {
+    ask(Builder::session, question)
+}
+
+pub(crate) fn ask_system<T: Send + 'static>(
+    question: impl FnOnce(&Connection) -> Option<T> + Send + 'static,
+) -> Option<T> {
+    ask(Builder::system, question)
+}
+
+fn ask<T: Send + 'static>(
+    bus: fn() -> zbus::Result<Builder<'static>>,
     question: impl FnOnce(&Connection) -> Option<T> + Send + 'static,
 ) -> Option<T> {
     within(LIMIT, move || {
-        let connection = Builder::session()
-            .ok()?
-            .method_timeout(LIMIT)
-            .build()
-            .ok()?;
+        let connection = bus().ok()?.method_timeout(LIMIT).build().ok()?;
         question(&connection)
     })
 }
@@ -23,7 +32,7 @@ fn within<T: Send + 'static>(
 ) -> Option<T> {
     let (answer, answered) = mpsc::sync_channel(1);
     thread::Builder::new()
-        .name("kodosi-session-bus".into())
+        .name("kodosi-bus".into())
         .spawn(move || drop(answer.send(work())))
         .ok()?;
     answered.recv_timeout(limit).ok().flatten()

@@ -212,6 +212,9 @@
     <string name="not_a_new_device_code">这不是新设备的二维码。</string>
     <string name="code_scanner_unavailable">二维码扫描器不可用。</string>
     <string name="remove_device_message">它会断开连接。要再次使用，请重新批准。Kodosi 不会撤销它已执行的命令。</string>
+    <string name="sleep_computer">睡眠</string>
+    <string name="sleep_computer_title">要让 %1$s 进入睡眠吗？</string>
+    <string name="sleep_computer_message">在它被唤醒之前，它的终端会暂停。</string>
     <string name="create_recovery_key">生成恢复密钥</string>
     <string name="recovery_message">没有其他设备时批准新设备</string>
     <string name="keep_recovery_key">请将此密钥保存在安全的地方。它只会显示一次。</string>

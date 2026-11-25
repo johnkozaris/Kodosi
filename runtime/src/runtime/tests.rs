@@ -550,6 +550,8 @@ fn registry_fixture() -> (Runtime, tempfile::TempDir) {
             #[cfg(feature = "host")]
             look: look::HostLook::load(&config.data_root),
             #[cfg(feature = "host")]
+            power: power::Power::unheld(&config.data_root),
+            #[cfg(feature = "host")]
             mentions: messages::Mentions::default(),
             #[cfg(feature = "host")]
             agent_changes: changes::AgentChanges::default(),

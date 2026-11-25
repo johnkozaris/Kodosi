@@ -220,6 +220,9 @@
     <string name="not_a_new_device_code">This is not the code of a new device.</string>
     <string name="code_scanner_unavailable">The code scanner is not available.</string>
     <string name="remove_device_message">It disconnects. Approve it again to use it. Kodosi does not undo the commands that it already ran.</string>
+    <string name="sleep_computer">Sleep</string>
+    <string name="sleep_computer_title">Put %1$s to sleep?</string>
+    <string name="sleep_computer_message">Its terminals pause until it wakes.</string>
     <string name="create_recovery_key">Make a recovery key</string>
     <string name="recovery_message">Approves a new device when you have no other device</string>
     <string name="keep_recovery_key">Keep this key somewhere safe. It is shown only once.</string>

@@ -243,7 +243,7 @@ async fn admit(
     if user != credentials.user_id || crate::identity::recovery::is_recovery_device(device) {
         return Err(refuse(
             "access",
-            text!("Only your own devices can start terminals on this computer."),
+            text!("Only your own devices can use this computer."),
         ));
     }
     let approved = |identity: &VerifiedIdentity| {

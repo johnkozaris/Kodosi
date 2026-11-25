@@ -281,6 +281,19 @@ Browser-Datenverkehr für geringere Latenz direkt zwischen ihnen (Peer-to-Peer).
 Netzwerk fragen macOS, iOS und Android einmal nach der Berechtigung für das lokale Netzwerk; lehnst
 du sie ab, läuft der Verkehr ersatzweise über den Relay-Server.
 
+### Ruhezustand und wach bleiben
+
+Ein Computer geht nicht von selbst in den Ruhezustand, während ein Agent in einem seiner Terminals
+arbeitet, und er kann einige Minuten nach dem Ende seiner Agenten wieder in den Ruhezustand gehen.
+Ein Agent, der auf deine Antwort wartet, hält ihn nicht wach. Um das zu ändern, wähle auf diesem
+Computer unter **Einstellungen › Allgemein** bei **Wach bleiben** eine Option: **Während Agenten
+arbeiten**, **Immer** oder **Nie**. Du kannst einen Computer weiterhin selbst in den Ruhezustand
+versetzen.
+
+Um einen anderen deiner Computer in den Ruhezustand zu versetzen, öffne die **Einstellungen** und
+klicke unter **Deine Geräte** neben ihm auf **Ruhezustand…** (auf einem Smartphone tippst du zuerst
+auf **⋯**). Seine Terminals pausieren, bis er wieder aufwacht.
+
 ### Wiederherstellungsschlüssel
 
 Erstelle in den **Einstellungen** einen Wiederherstellungsschlüssel und bewahre ihn sicher auf.
@@ -362,6 +375,7 @@ der App sofort sichtbar.
 | `kodosi browser open <address>` | Öffnet eine URL im geteilten Browser dieses Terminals (alle anderen agent-browser-Befehle funktionieren ebenfalls). |
 | `kodosi skill` | Gibt den Agent-Skill für die Zusammenarbeit in Kodosi aus; `kodosi skill canvas` gibt den Canvas-Skill aus. |
 | `kodosi dosi skill` | Gibt den Skill aus, mit dem ein anderer Agent als Dosi auftreten kann. |
+| `kodosi devices sleep <computer>` | Versetzt einen anderen deiner Computer in den Ruhezustand. Seine Terminals pausieren, bis er wieder aufwacht. Mit `kodosi devices keep-awake` und `agents`, `always` oder `never` wählst du, wann dieser Computer wach bleibt. |
 | `kodosi host` | Führt den Host eigenständig aus, sodass Terminals weiterlaufen, nachdem du die App beendet hast. Mit `kodosi host stop` stoppst du einen im Hintergrund laufenden Host. |
 
 `message`, `input` und `keys` brechen ab, solange du aktiv in diesem Terminal tippst. `message`

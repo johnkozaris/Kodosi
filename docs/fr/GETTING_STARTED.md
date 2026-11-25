@@ -281,6 +281,18 @@ navigateur circule en pair à pair pour réduire la latence. Sur un réseau loca
 Android demandent une fois l'autorisation d'accès au réseau local ; si vous la refusez, le trafic
 passe par le serveur relais.
 
+### Mise en veille et maintien en éveil
+
+Un ordinateur ne se met pas en veille de lui-même pendant qu'un agent travaille dans l'un de ses
+terminaux, et il peut de nouveau se mettre en veille quelques minutes après l'arrêt de ses agents.
+Un agent qui attend votre réponse ne le garde pas éveillé. Pour changer cela, choisissez une option
+pour **Rester éveillé** dans **Réglages › Général** sur cet ordinateur : **Pendant le travail des
+agents**, **Toujours** ou **Jamais**. Vous pouvez toujours mettre un ordinateur en veille vous-même.
+
+Pour mettre en veille un autre de vos ordinateurs, ouvrez **Réglages** et cliquez sur **Mettre en
+veille…** à côté de lui, sous **Vos appareils** (sur un téléphone, touchez d'abord **⋯**). Ses
+terminaux sont en pause jusqu'à son réveil.
+
 ### Clés de récupération
 
 Créez une clé de récupération dans **Réglages** et conservez-la en lieu sûr. Si vous perdez tous
@@ -363,6 +375,7 @@ immédiatement dans l'app.
 | `kodosi browser open <address>` | Ouvre une URL dans le navigateur partagé de ce terminal (toutes les autres commandes d'agent-browser fonctionnent aussi). |
 | `kodosi skill` | Affiche le skill permettant à un agent de collaborer dans Kodosi ; `kodosi skill canvas` affiche le skill du canvas. |
 | `kodosi dosi skill` | Affiche le skill permettant à un autre agent d'agir comme Dosi. |
+| `kodosi devices sleep <computer>` | Met en veille un autre de vos ordinateurs. Ses terminaux sont en pause jusqu'à son réveil. `kodosi devices keep-awake` avec `agents`, `always` ou `never` choisit quand cet ordinateur reste éveillé. |
 | `kodosi host` | Exécute l'hôte de façon indépendante afin que vos terminaux restent actifs après avoir quitté l'app. Utilisez `kodosi host stop` pour arrêter un hôte en arrière-plan. |
 
 `message`, `input` et `keys` refusent de s'exécuter pendant que vous tapez activement dans ce

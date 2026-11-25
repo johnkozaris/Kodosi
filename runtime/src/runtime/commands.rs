@@ -337,6 +337,16 @@ impl Runtime {
                 return Err(Error::Refused(text!("This device cannot start terminals.")));
             }
             #[cfg(feature = "host")]
+            Command::Sleep { .. } => self.sleep(command)?,
+            #[cfg(feature = "host")]
+            Command::KeepAwake { keep_awake, .. } => self.keep_awake(command, *keep_awake),
+            #[cfg(not(feature = "host"))]
+            Command::Sleep { .. } | Command::KeepAwake { .. } => {
+                return Err(Error::Invalid(
+                    "A power command goes to a computer.".to_owned(),
+                ));
+            }
+            #[cfg(feature = "host")]
             Command::ListFolders { path, .. } => {
                 self.job_capacity()?;
                 let home = self.config.home.clone();
@@ -1661,6 +1671,12 @@ impl Runtime {
                 Err(error) => self.error(&command, &error),
             },
             #[cfg(feature = "host")]
+            Completion::SleepChecked { command, result } if current => {
+                self.sleep_checked(&command, result);
+            }
+            #[cfg(feature = "host")]
+            Completion::Slept { result } => self.slept(&result),
+            #[cfg(feature = "host")]
             Completion::Folders { command, result } if current => match result {
                 Ok(folders) => {
                     self.emit(json!({"type":"folders.result", "requestId":command.request_id(), "operation":command.operation(), "folders":folders}));
@@ -1744,7 +1760,8 @@ impl Runtime {
             #[cfg(feature = "host")]
             Completion::Provider { command, .. }
             | Completion::Folders { command, .. }
-            | Completion::Repositories { command, .. } => {
+            | Completion::Repositories { command, .. }
+            | Completion::SleepChecked { command, .. } => {
                 self.error(&command, &Error::Stale);
             }
             Completion::Asked { command, .. } => self.error(&command, &Error::Stale),

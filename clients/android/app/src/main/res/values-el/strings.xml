@@ -212,6 +212,9 @@
     <string name="not_a_new_device_code">Αυτός δεν είναι ο κωδικός μιας νέας συσκευής.</string>
     <string name="code_scanner_unavailable">Ο σαρωτής κωδικών δεν είναι διαθέσιμος.</string>
     <string name="remove_device_message">Αποσυνδέεται. Εγκρίνετέ τη ξανά για να τη χρησιμοποιήσετε. Το Kodosi δεν αναιρεί τις εντολές που έχει ήδη εκτελέσει.</string>
+    <string name="sleep_computer">Ύπνος</string>
+    <string name="sleep_computer_title">Να τεθεί ο υπολογιστής %1$s σε ύπνο;</string>
+    <string name="sleep_computer_message">Τα τερματικά του σταματούν προσωρινά μέχρι να ξυπνήσει.</string>
     <string name="create_recovery_key">Δημιουργία κλειδιού ανάκτησης</string>
     <string name="recovery_message">Εγκρίνει μια νέα συσκευή όταν δεν έχετε άλλη</string>
     <string name="keep_recovery_key">Φυλάξτε αυτό το κλειδί σε ασφαλές μέρος. Εμφανίζεται μόνο μία φορά.</string>

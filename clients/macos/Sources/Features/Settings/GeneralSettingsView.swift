@@ -24,6 +24,15 @@ struct GeneralSettingsView: View {
             : "Closing the window quits Kodosi. Your terminals stop, and start again when Kodosi opens."
     }
 
+    private var awakeFooter: LocalizedStringKey {
+        switch deps.power.keepsAwake {
+        case .always?: "This Mac does not go to sleep by itself while Kodosi runs."
+        case .never?: "This Mac can go to sleep while an agent works. The agent then pauses until the Mac wakes."
+        case .agents?, nil:
+            "This Mac does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake."
+        }
+    }
+
     private var canvasFooter: LocalizedStringKey {
         deps.settings.opensCanvas
             ? "The canvas opens when the agent shows something on it. A change of a file or the browser on it opens it too, unless you closed it."
@@ -91,6 +100,17 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.horizontal, 14).frame(minHeight: 52)
                 .accessibilityIdentifier("settings.keepRunning")
+            }
+            if let keepsAwake = deps.power.keepsAwake {
+                ListGroup(footer: awakeFooter) {
+                    ListRow(String(localized: "Stay awake"), symbol: "sun.max", tint: TileTint.orange) {
+                        SegmentedPill(selection: Binding(get: { keepsAwake }, set: { deps.power.keepAwake($0) }), options: [
+                            SegmentOption(value: KeepAwake.agents, title: String(localized: "While agents work")),
+                            SegmentOption(value: KeepAwake.always, title: String(localized: "Always")),
+                            SegmentOption(value: KeepAwake.never, title: String(localized: "Never")),
+                        ], compact: true, identifier: "settings.keepAwake")
+                    }
+                }
             }
             ListGroup(footer: canvasFooter) {
                 Toggle(isOn: $settings.opensCanvas) {

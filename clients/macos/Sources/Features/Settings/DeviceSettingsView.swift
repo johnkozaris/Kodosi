@@ -8,6 +8,7 @@ struct DeviceSettingsView: View {
     @State private var code = ""
     @FocusState private var codeFocused: Bool
     @State private var revoke: MyDeviceEntry?
+    @State private var sleeping: MyDeviceEntry?
     @State private var signingOut = false
     @State private var deletingAccount = false
     @State private var replacingRecoveryKey = false
@@ -56,6 +57,10 @@ struct DeviceSettingsView: View {
                                     symbol: device.recoveryKey ? "key.fill" : DeviceGlyph.symbol(for: device.label),
                                     tint: device.deviceId == deps.account.selfDeviceId ? TileTint.orange : TileTint.graphite)
                             {
+                                if deps.account.computers.contains(device) {
+                                    Button("Sleep…") { sleeping = device }.buttonStyle(.kodosi(.ghost, size: .small))
+                                        .accessibilityIdentifier("settings.devices.sleep.\(device.deviceId)")
+                                }
                                 if deps.account.canRemove(device) {
                                     Button("Remove…") { revoke = device }.buttonStyle(.kodosi(.ghost, size: .small))
                                         .accessibilityIdentifier("settings.devices.remove.\(device.deviceId)")
@@ -159,6 +164,10 @@ struct DeviceSettingsView: View {
         .confirmationDialog("Remove \(revoke?.title ?? "")?", item: $revoke, titleVisibility: .visible) { device in
             Button("Remove", role: .destructive) { deps.account.revokeDevice(device) }
         } message: { device in Text(device.removalMessage(hasRecoveryKey: deps.account.hasRecoveryKey)) }
+        .confirmationDialog("Put \(sleeping?.title ?? "") to sleep?", item: $sleeping, titleVisibility: .visible) { device in
+            Button("Sleep") { deps.power.sleep(device) }
+                .accessibilityIdentifier("settings.devices.confirmSleep")
+        } message: { _ in Text("Its terminals pause until it wakes.") }
         .confirmationDialog(Text("Approve \(confirmingLabel ?? "")?"), isPresented: Binding(get: { confirmingLabel != nil }, set: { _ in }),
                             titleVisibility: .visible)
         {

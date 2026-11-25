@@ -45,6 +45,8 @@ mod look;
 #[cfg(feature = "host")]
 mod messages;
 mod pipes;
+#[cfg(feature = "host")]
+mod power;
 mod project_seen;
 #[cfg(feature = "host")]
 mod restore;
@@ -240,7 +242,7 @@ impl RuntimeHandle {
         command.validate()?;
         if !command.runs_on_other_computers() {
             return Err(Error::Refused(text!(
-                "This computer takes only the choices, the start of a new terminal and the sharing of its terminals from your other devices."
+                "Your other devices cannot do this on this computer."
             )));
         }
         let (events, mut receiver) = self.observe().await?;
@@ -756,6 +758,15 @@ enum Completion {
         command: Command,
         result: Result<crate::protocol::RepositoryList>,
     },
+    #[cfg(feature = "host")]
+    SleepChecked {
+        command: Command,
+        result: std::io::Result<()>,
+    },
+    #[cfg(feature = "host")]
+    Slept {
+        result: std::io::Result<()>,
+    },
     Asked {
         command: Command,
         result: Result<Value>,
@@ -1178,6 +1189,8 @@ struct Runtime {
     #[cfg(feature = "host")]
     look: look::HostLook,
     #[cfg(feature = "host")]
+    power: power::Power,
+    #[cfg(feature = "host")]
     mentions: messages::Mentions,
     #[cfg(feature = "host")]
     agent_changes: changes::AgentChanges,
@@ -1353,6 +1366,8 @@ pub async fn start(config: Config) -> Result<RuntimeHandle> {
         restore,
         #[cfg(feature = "host")]
         look: look::HostLook::load(&config.data_root),
+        #[cfg(feature = "host")]
+        power: power::Power::load(&config.data_root),
         #[cfg(feature = "host")]
         mentions: messages::Mentions::default(),
         #[cfg(feature = "host")]
@@ -1640,6 +1655,8 @@ impl Runtime {
         }
         #[cfg(feature = "host")]
         self.share_marks();
+        #[cfg(feature = "host")]
+        self.follow_agents(&entries);
         let listing = self.listing(entries);
         self.send_list(|catalog, now| catalog.changed(listing, now));
         self.call_started();
@@ -1877,6 +1894,8 @@ impl Runtime {
         }
         events.push(self.listing(self.entries()).event());
         events.push(self.event(self.dosi.snapshot())?);
+        #[cfg(feature = "host")]
+        events.push(self.event(self.power_event())?);
         for value in self.cached_events.values() {
             events.push(self.event(value.clone())?);
         }
@@ -2188,6 +2207,8 @@ impl Runtime {
         self.restore.saved().await;
         #[cfg(feature = "host")]
         self.look.saved().await;
+        #[cfg(feature = "host")]
+        self.power.saved().await;
         self.project_seen.saved().await;
         self.network.shutdown().await;
     }

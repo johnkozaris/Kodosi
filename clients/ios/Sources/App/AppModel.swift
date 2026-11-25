@@ -19,6 +19,7 @@ final class AppModel {
     let lock = AppLock()
     let commands: CommandSink
     let account: AccountStore
+    let power: PowerStore
     let terminals: TerminalStore
     let projects: ProjectStore
     let people: PeopleStore
@@ -51,6 +52,7 @@ final class AppModel {
         let runtime = RuntimeHandle(inbox: inbox)
         self.runtime = runtime
         account = AccountStore(commands: commands, browser: "app")
+        power = PowerStore(commands: commands)
         terminals = TerminalStore(commands: commands, notices: notices, runtime: runtime)
         projects = ProjectStore(commands: commands)
         people = PeopleStore(commands: commands)
@@ -301,6 +303,7 @@ final class AppModel {
         case "auth": try receiveAuth(event)
         case "devices": try account.receiveDevices(event)
         case "connection" where event.type == "connection.state": try account.receiveConnection(event)
+        case "power": try power.receive(event)
         case "sessions", "session", "term", "document": try receiveTerminals(event)
         case "friends": try people.receive(event)
         case "project", "projects": try projects.receive(event)

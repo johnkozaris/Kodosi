@@ -132,13 +132,14 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         ),
         ("devices.result", "devices.link.cancelSelf") => "The request is cancelled.".to_owned(),
         ("devices.result", _) => devices(&latest("devices.list"), &latest("devices.hosts")),
+        ("power.result", "power.sleep") => "The computer goes to sleep.".to_owned(),
         ("friends.result" | "project.result", _) if unapproved(context) => account(context),
         ("friends.result", "friends.invite") => text(event, "text"),
         ("friends.result", _) => friends(&latest("friends.snapshot")),
         ("project.result", "project.show") => {
             "The Kodosi app shows the project when it is open.".to_owned()
         }
-        ("project.result", _) => "Done.".to_owned(),
+        ("project.result", _) | ("power.result", "power.keepAwake") => "Done.".to_owned(),
         ("session.result", _) => session_result(event, context),
         ("provider.result", "provider.agents") => agents(&event["result"]),
         ("provider.result", "provider.agentModels") => agent_models(&event["result"]),
@@ -150,6 +151,15 @@ pub(super) fn result(event: &Value, context: &Context) -> String {
         }
         _ => serde_json::to_string_pretty(event).unwrap_or_default(),
     }
+}
+
+pub(super) fn keeps_awake(state: &Value) -> String {
+    match state["keepAwake"].as_str() {
+        Some("always") => "This computer stays awake while Kodosi runs.",
+        Some("never") => "This computer can go to sleep while an agent works.",
+        _ => "This computer stays awake while an agent works.",
+    }
+    .to_owned()
 }
 
 fn unapproved(context: &Context) -> bool {

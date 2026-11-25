@@ -505,6 +505,11 @@ void Workspace::apply(const QJsonObject& event, std::uint64_t accountEpoch)
         emit m_devices.changed();
         return;
     }
+    if (type == QStringLiteral("power.state")) {
+        m_devices.m_keepAwake = event.value(QStringLiteral("keepAwake")).toString();
+        emit m_devices.changed();
+        return;
+    }
     if (type == QStringLiteral("devices.link.selfResolved")) {
         m_devices.m_approvalCode.clear();
         m_devices.m_approvalQr.clear();

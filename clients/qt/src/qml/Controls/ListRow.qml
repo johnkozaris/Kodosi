@@ -7,6 +7,8 @@ Item {
 
     property string title: ""
     property string subtitle: ""
+    // A subtitle that the person must read to the end, such as the one thing to do.
+    property bool wholeSubtitle: false
     property string iconName: ""
     property color tint: KodosiTheme.accent
     property alias leading: leadingSlot.data
@@ -60,7 +62,8 @@ Item {
                 text: root.subtitle
                 color: KodosiTheme.inkMuted
                 font.pixelSize: KodosiTheme.fontCaption
-                elide: Text.ElideMiddle
+                elide: root.wholeSubtitle ? Text.ElideNone : Text.ElideMiddle
+                wrapMode: root.wholeSubtitle ? Text.WordWrap : Text.NoWrap
             }
         }
         RowLayout {

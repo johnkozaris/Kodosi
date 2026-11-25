@@ -1384,6 +1384,10 @@
         <translation>Questo computer</translation>
     </message>
     <message>
+        <source>Sleep…</source>
+        <translation>Sospendi…</translation>
+    </message>
+    <message>
         <source>Remove…</source>
         <translation>Rimuovi…</translation>
     </message>
@@ -1534,6 +1538,18 @@
     <message>
         <source>Your other devices lose access until you approve them again from this computer. Friends must trust you again, and you make your projects again. When your account has devices, this computer waits a day. If you have another device or a recovery key, cancel and use it: you keep your friends and projects.</source>
         <translation>Gli altri tuoi dispositivi perdono l&apos;accesso finché non li approvi di nuovo da questo computer. Gli amici devono fidarsi di nuovo di te e dovrai ricreare i tuoi progetti. Se il tuo account ha dispositivi, questo computer aspetta un giorno. Se hai un altro dispositivo o una chiave di recupero, annulla e usalo: così mantieni amici e progetti.</translation>
+    </message>
+    <message>
+        <source>Put %1 to sleep?</source>
+        <translation>Sospendere %1?</translation>
+    </message>
+    <message>
+        <source>Sleep</source>
+        <translation>Sospendi</translation>
+    </message>
+    <message>
+        <source>Its terminals pause until it wakes.</source>
+        <translation>I suoi terminali restano in pausa finché non si riattiva.</translation>
     </message>
     <message>
         <source>Remove %1?</source>
@@ -2482,6 +2498,34 @@
     <message>
         <source>Your terminals keep running. Open Kodosi again to see them.</source>
         <translation>I tuoi terminali continuano a funzionare. Riapri Kodosi per vederli.</translation>
+    </message>
+    <message>
+        <source>Stay awake</source>
+        <translation>Resta attivo</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while Kodosi runs.</source>
+        <translation>Questo computer non va in sospensione da solo finché Kodosi è in esecuzione.</translation>
+    </message>
+    <message>
+        <source>This computer can go to sleep while an agent works. The agent then pauses until the computer wakes.</source>
+        <translation>Questo computer può andare in sospensione mentre un agente lavora. L&apos;agente resta in pausa finché il computer non si riattiva.</translation>
+    </message>
+    <message>
+        <source>This computer does not go to sleep by itself while an agent works, or for a few minutes after. An agent that waits for you does not keep it awake.</source>
+        <translation>Questo computer non va in sospensione da solo mentre un agente lavora, né per qualche minuto dopo. Un agente che ti aspetta non lo tiene attivo.</translation>
+    </message>
+    <message>
+        <source>While agents work</source>
+        <translation>Mentre gli agenti lavorano</translation>
+    </message>
+    <message>
+        <source>Always</source>
+        <translation>Sempre</translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation>Mai</translation>
     </message>
     <message>
         <source>Notifications</source>

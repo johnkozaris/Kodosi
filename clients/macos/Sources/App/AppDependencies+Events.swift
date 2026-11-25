@@ -56,6 +56,7 @@ extension AppDependencies {
         case "friends": try receiveFriends(event)
         case "devices": try account.receiveDevices(event)
         case "connection": try account.receiveConnection(event)
+        case "power": try power.receive(event)
         case "project", "projects": try receiveProject(event)
         case "dosi": try receiveDosi(event)
         case "sharing": try approvals.receive(event)

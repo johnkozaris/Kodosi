@@ -15,6 +15,7 @@ final class AppDependencies {
     let workbench: WorkbenchState
     let launcher: LauncherState
     let account: AccountStore
+    let power: PowerStore
     let people: PeopleStore
     let dosi: DosiStore
     let canvas: CanvasStore
@@ -109,6 +110,7 @@ final class AppDependencies {
         self.canvas = canvas
         workbench = WorkbenchState(defaults: defaults, canvas: canvas)
         account = AccountStore(commands: commands, browser: "system")
+        power = PowerStore(commands: commands)
         people = PeopleStore(commands: commands)
         dosi = DosiStore(commands: commands)
         projects = ProjectStore(commands: commands)

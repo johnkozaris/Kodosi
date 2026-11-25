@@ -212,6 +212,9 @@
     <string name="not_a_new_device_code">Das ist nicht der Code eines neuen Geräts.</string>
     <string name="code_scanner_unavailable">Der Code-Scanner ist nicht verfügbar.</string>
     <string name="remove_device_message">Es wird getrennt. Gib es erneut frei, um es zu nutzen. Kodosi macht bereits ausgeführte Befehle nicht rückgängig.</string>
+    <string name="sleep_computer">Ruhezustand</string>
+    <string name="sleep_computer_title">%1$s in den Ruhezustand versetzen?</string>
+    <string name="sleep_computer_message">Seine Terminals pausieren, bis er wieder aufwacht.</string>
     <string name="create_recovery_key">Wiederherstellungsschlüssel erstellen</string>
     <string name="recovery_message">Gibt ein neues Gerät frei, wenn du kein anderes hast</string>
     <string name="keep_recovery_key">Bewahre diesen Schlüssel sicher auf. Er wird nur einmal angezeigt.</string>
