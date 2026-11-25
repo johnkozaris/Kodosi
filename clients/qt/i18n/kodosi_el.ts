@@ -579,6 +579,10 @@
         <translation>Αρχεία</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>Οθόνη</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Κλείσιμο</translation>
     </message>
@@ -751,6 +755,61 @@
     <message>
         <source>Try again</source>
         <translation>Δοκιμάστε ξανά</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>Κύρια οθόνη</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>Οθόνη %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>Παράθυρο</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Οθόνη</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>Εμφάνιση άλλης οθόνης ή παραθύρου</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>Εμφάνιση ολόκληρης της οθόνης</translation>
+    </message>
+    <message>
+        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
+        <translation>Για να ελέγχετε το %1 από εδώ, ενεργοποιήστε εκεί το Kodosi Screen στις Ρυθμίσεις συστήματος, στην ενότητα Απόρρητο και ασφάλεια, Προσβασιμότητα.</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>Μόνο προβολή</translation>
+    </message>
+    <message>
+        <source>Kodosi Screen cannot record %1</source>
+        <translation>Το Kodosi Screen δεν μπορεί να καταγράψει το %1</translation>
+    </message>
+    <message>
+        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
+        <translation>Στο %1, ενεργοποιήστε το Kodosi Screen στις Ρυθμίσεις συστήματος, στην ενότητα Απόρρητο και ασφάλεια, Εγγραφή οθόνης και ήχου συστήματος.</translation>
+    </message>
+    <message>
+        <source>The screen did not open</source>
+        <translation>Η οθόνη δεν άνοιξε</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Δοκιμάστε ξανά</translation>
+    </message>
+    <message>
+        <source>Waiting for the screen</source>
+        <translation>Αναμονή για την οθόνη</translation>
     </message>
 </context>
 <context>
@@ -4341,6 +4400,10 @@
         <translation>Άνοιγμα browser</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>Άνοιγμα οθόνης</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Προσθήκη αρχείου…</translation>
     </message>
@@ -4987,6 +5050,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>την οθόνη αυτού του υπολογιστή</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>τον κοινόχρηστο browser</translation>

@@ -579,6 +579,10 @@
         <translation>Archivos</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>Pantalla</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Cerrar</translation>
     </message>
@@ -751,6 +755,61 @@
     <message>
         <source>Try again</source>
         <translation>Reintentar</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>Pantalla principal</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>Pantalla %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>Ventana</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Pantalla</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>Mostrar otra pantalla o ventana</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>Mostrar toda la pantalla</translation>
+    </message>
+    <message>
+        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
+        <translation>Para controlar %1 desde aquí, activa allí Kodosi Screen en Ajustes del Sistema, en Privacidad y seguridad, Accesibilidad.</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>Solo ver</translation>
+    </message>
+    <message>
+        <source>Kodosi Screen cannot record %1</source>
+        <translation>Kodosi Screen no puede grabar %1</translation>
+    </message>
+    <message>
+        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
+        <translation>En %1, activa Kodosi Screen en Ajustes del Sistema, en Privacidad y seguridad, Grabación de pantalla y del audio del sistema.</translation>
+    </message>
+    <message>
+        <source>The screen did not open</source>
+        <translation>La pantalla no se ha abierto</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Reintentar</translation>
+    </message>
+    <message>
+        <source>Waiting for the screen</source>
+        <translation>Esperando la pantalla</translation>
     </message>
 </context>
 <context>
@@ -4341,6 +4400,10 @@
         <translation>Abrir navegador</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>Abrir pantalla</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Añadir un archivo…</translation>
     </message>
@@ -4987,6 +5050,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>la pantalla de este ordenador</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>el navegador compartido</translation>

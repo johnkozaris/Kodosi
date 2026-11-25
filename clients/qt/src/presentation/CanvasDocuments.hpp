@@ -63,7 +63,9 @@ signals:
     void opened(const QString& pipe);
     void received(const QString& pipe, const QString& frame);
     void lost(const QString& pipe, const QString& reason);
-    void closed(const QString& pipe);
+    // The pipe never opens again: its terminal is gone, a newer view took it, or it did not open,
+    // for `reason`.
+    void closed(const QString& pipe, const QString& reason);
 
 private:
     struct Pipe {

@@ -142,6 +142,16 @@ KMenu {
         }
     }
     KMenuItem {
+        text: qsTr("Open Screen")
+        iconName: "display"
+        visible: !root.agentOnly && root.session.isOwner === true && root.session.kind === "remote"
+        objectName: root.identifier + ".screen"
+        onTriggered: {
+            Models.Canvas.openScreen(root.sessionId);
+            root.canvasRequested("screen");
+        }
+    }
+    KMenuItem {
         text: qsTr("Add a file…")
         iconName: "files"
         visible: !root.agentOnly && root.session.canControl === true

@@ -1,4 +1,5 @@
 #include "SessionFixture.hpp"
+#include "canvas/ScreenVideo.hpp"
 #include "presentation/CanvasDocuments.hpp"
 #include "presentation/CanvasModel.hpp"
 #include "runtime/RuntimeBridge.hpp"
@@ -10,22 +11,49 @@
 #include <QSignalSpy>
 #include <QtTest/QTest>
 
+#include <utility>
+
 namespace {
 class Commands final : public kodosi::CommandDispatcher, public kodosi::PipeRouter {
 public:
     QList<QJsonObject> values;
     QStringList routes;
+    QHash<QString, std::pair<QObject*, Read>> readers;
     Result send(QByteArrayView bytes) override
     {
         values.append(QJsonDocument::fromJson(bytes.toByteArray()).object());
         return {};
     }
-    void route(const QString& pipe, QObject&, Read) override
+    void route(const QString& pipe, QObject& reader, Read read) override
     {
         routes.append(pipe);
+        readers.insert(pipe, { &reader, std::move(read) });
     }
     void unroute(const QString& pipe) override { routes.removeAll(pipe); }
     QJsonObject request() const { return values.last().value(QStringLiteral("request")).toObject(); }
+    // Hands a pipe's event to its reader on the reader's thread, as the runtime bridge does.
+    void deliver(const QString& pipe, const QJsonObject& event) const
+    {
+        const auto [reader, read] = readers.value(pipe);
+        QMetaObject::invokeMethod(reader, [read, bytes = QJsonDocument(event).toJson(QJsonDocument::Compact)] { read(bytes, false); });
+    }
+    // The newest message of the given type that the app sent down a video pipe.
+    QJsonObject told(const QString& type) const
+    {
+        QJsonObject newest;
+        QString letters;
+        for (const auto& value : values) {
+            if (value.value(QStringLiteral("type")).toString() != QStringLiteral("document.send"))
+                continue;
+            letters += value.value(QStringLiteral("data")).toString();
+            if (value.value(QStringLiteral("more")).toBool())
+                continue;
+            const auto message = QJsonDocument::fromJson(QByteArray::fromBase64(std::exchange(letters, {}).toLatin1()).mid(1)).object();
+            if (message.value(QStringLiteral("type")).toString() == type)
+                newest = message;
+        }
+        return newest;
+    }
 };
 
 QJsonObject item(const QString& name, int changed)
@@ -216,6 +244,43 @@ private slots:
         documents.apply(frame("after"));
         QCOMPARE(received.size(), 1);
         QCOMPARE(received.first().at(1).toString(), QString::fromLatin1(QByteArray("after").toBase64()));
+    }
+
+    void aZoomKeepsThePointUnderThePointerAndAsksTheScreenForThatPartOfItsSource()
+    {
+        Commands commands;
+        kodosi::SessionCatalogModel sessions;
+        kodosi::CanvasDocuments documents(commands, commands, sessions);
+        kodosi::ScreenVideo video;
+        video.setSize(QSizeF(800, 500));
+        video.setDocuments(&documents);
+        video.setSessionId(test::id(1));
+        video.setActive(true);
+        const auto pipe = commands.routes.last();
+        const QJsonObject state { { QStringLiteral("source"), QJsonObject { { QStringLiteral("kind"), QStringLiteral("display") }, { QStringLiteral("id"), 1 } } },
+            { QStringLiteral("width"), 1600 }, { QStringLiteral("height"), 1000 },
+            { QStringLiteral("access"), QJsonObject { { QStringLiteral("screen"), true }, { QStringLiteral("input"), true } } } };
+        commands.deliver(pipe, { { QStringLiteral("type"), QStringLiteral("document.opened") }, { QStringLiteral("pipe"), pipe } });
+        commands.deliver(pipe, { { QStringLiteral("type"), QStringLiteral("document.frame") }, { QStringLiteral("pipe"), pipe },
+            { QStringLiteral("sequence"), 0 }, { QStringLiteral("more"), false },
+            { QStringLiteral("data"), QString::fromLatin1((QByteArray(1, 0) + QJsonDocument(state).toJson()).toBase64()) } });
+        QTRY_VERIFY(!video.source().isEmpty());
+        const auto pointed = [&] {
+            video.pointer(QStringLiteral("move"), 600, 120, Qt::NoButton, 0, 0);
+            const auto input = commands.told(QStringLiteral("input")).value(QStringLiteral("input")).toObject();
+            return QPointF(input.value(QStringLiteral("x")).toDouble(), input.value(QStringLiteral("y")).toDouble());
+        };
+
+        const auto before = pointed();
+        video.zoom(2, 600, 120);
+
+        QCOMPARE(pointed(), before);
+        const auto look = commands.told(QStringLiteral("look"));
+        const auto region = look.value(QStringLiteral("region")).toObject();
+        QCOMPARE(look.value(QStringLiteral("source")).toObject(), state.value(QStringLiteral("source")).toObject());
+        QCOMPARE(QRectF(region.value(QStringLiteral("x")).toDouble(), region.value(QStringLiteral("y")).toDouble(),
+                     region.value(QStringLiteral("width")).toDouble(), region.value(QStringLiteral("height")).toDouble()),
+            QRectF(600, 120, 800, 500));
     }
 
     void aLargeFrameGoesInPartsOfWholeLetterGroups()

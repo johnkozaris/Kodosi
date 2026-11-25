@@ -195,6 +195,10 @@ qt_add_library(kodosi-terminal-kernel STATIC
 qt_add_library(kodosi-canvas-web STATIC
     canvas/BrowserVideo.cpp
     canvas/BrowserVideo.hpp
+    canvas/ScreenVideo.cpp
+    canvas/ScreenVideo.hpp
+    canvas/StreamVideo.cpp
+    canvas/StreamVideo.hpp
     canvas/CanvasImages.cpp
     canvas/CanvasImages.hpp
     canvas/CanvasWeb.cpp
@@ -418,6 +422,7 @@ qt_add_qml_module(kodosi-ui
         qml/Workbench/CanvasFile.qml
         qml/Workbench/CanvasPage.qml
         qml/Workbench/CanvasPanel.qml
+        qml/Workbench/CanvasScreen.qml
         qml/Workbench/DocumentViews.qml
         qml/Workbench/CanvasStage.qml
         qml/Workbench/ClipboardReadDialog.qml

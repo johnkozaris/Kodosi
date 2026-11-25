@@ -34,7 +34,7 @@ class CanvasModel final : public QObject {
     Q_PROPERTY(QString browserProblem READ browserProblem NOTIFY browserChanged FINAL)
 
 public:
-    struct BrowserKey {
+    struct ViewerKey {
         QString code;
         QString named;
         int windows = 0;
@@ -77,8 +77,13 @@ public:
     Q_INVOKABLE [[nodiscard]] bool showsShelf(const QString& sessionId) const;
     Q_INVOKABLE void showShelf(const QString& sessionId, bool shown);
     Q_INVOKABLE void openBrowser(const QString& sessionId);
-    Q_INVOKABLE [[nodiscard]] bool opensBrowser(const QString& sessionId) const;
-    [[nodiscard]] bool takeChoice(const QString& sessionId);
+    // Puts the computer's screen on the canvas, which only its owner's devices do.
+    Q_INVOKABLE void openScreen(const QString& sessionId);
+    // The browser or the screen that this device asked for is on its way to the canvas.
+    Q_INVOKABLE [[nodiscard]] bool opens(const QString& sessionId) const;
+    // Whether the person picked this session's browser or screen, as `section` names it, since its
+    // view last watched.
+    [[nodiscard]] bool takeChoice(const QString& sessionId, const QString& section);
     Q_INVOKABLE [[nodiscard]] bool isNew(const QString& sessionId, const QString& key) const;
     Q_INVOKABLE void saw(const QString& sessionId, const QString& key);
     QList<News> news(const QString& sessionId);
@@ -110,13 +115,13 @@ public:
     [[nodiscard]] static std::optional<QPointF> browserPoint(
         QPointF point, QSizeF view, QSizeF browser, bool clamped = false);
     [[nodiscard]] static std::optional<QPointF> pointInView(QPointF point, QSizeF view, QSizeF browser);
-    [[nodiscard]] static std::optional<BrowserKey> browserKey(int key);
+    [[nodiscard]] static std::optional<ViewerKey> viewerKey(int key);
     [[nodiscard]] static QString about(const QString& place, const QString& words);
 
 signals:
     void changed();
     void browserChanged();
-    void browserChosen(const QString& sessionId);
+    void videoChosen(const QString& sessionId, const QString& section);
     void loaded(const QString& sessionId, const QString& key);
     void failed(const QString& sessionId, const QString& key, const QString& message);
     void copyReady(const QString& name, const QByteArray& content);
@@ -188,8 +193,10 @@ private:
     // Sessions whose canvas the user explicitly closed, cleared on reopen or a new agent show.
     QSet<QString> m_shut;
     quint64 m_started = 0;
-    QSet<QString> m_opening;
-    QSet<QString> m_chosen;
+    // Sessions awaiting a browser or a screen that this device asked for, so it is picked on arrival.
+    QHash<QString, QString> m_opening;
+    // The browser or screen that the person picked in each session, which its view claims.
+    QHash<QString, QString> m_chosen;
     QSet<QString> m_shelves;
     QHash<QString, Stored> m_stored;
     QStringList m_storedOrder;
@@ -221,7 +228,9 @@ private:
     [[nodiscard]] int publish(const QString& sessionId, const QString& key);
     void observe();
     void display(const QString& sessionId, const QString& section);
-    void choose(const QString& sessionId);
+    void choose(const QString& sessionId, const QString& section);
+    void expect(const QString& sessionId, const QString& section);
+    [[nodiscard]] bool showsScreen(const QString& sessionId) const;
     void settle(const QString& sessionId);
     void touch();
     bool upload(const QString& sessionId, const QUrl& file, bool forPage);

@@ -578,6 +578,10 @@
         <translation>파일</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>화면</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>닫기</translation>
     </message>
@@ -750,6 +754,61 @@
     <message>
         <source>Try again</source>
         <translation>다시 시도</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>주 디스플레이</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>디스플레이 %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>윈도우</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>화면</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>다른 디스플레이나 윈도우 보기</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>화면 전체 보기</translation>
+    </message>
+    <message>
+        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
+        <translation>여기에서 %1을(를) 제어하려면 그 컴퓨터의 시스템 설정 &gt; 개인정보 보호 및 보안 &gt; 손쉬운 사용에서 Kodosi Screen을 켜세요.</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>보기 전용</translation>
+    </message>
+    <message>
+        <source>Kodosi Screen cannot record %1</source>
+        <translation>Kodosi Screen이 %1 화면을 녹화할 수 없어요</translation>
+    </message>
+    <message>
+        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
+        <translation>%1에서 시스템 설정 &gt; 개인정보 보호 및 보안 &gt; 화면 및 시스템 오디오 녹음에서 Kodosi Screen을 켜세요.</translation>
+    </message>
+    <message>
+        <source>The screen did not open</source>
+        <translation>화면을 열지 못했어요</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>다시 시도</translation>
+    </message>
+    <message>
+        <source>Waiting for the screen</source>
+        <translation>화면 기다리는 중</translation>
     </message>
 </context>
 <context>
@@ -4310,6 +4369,10 @@
         <translation>브라우저 열기</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>화면 열기</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>파일 추가…</translation>
     </message>
@@ -4947,6 +5010,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>이 컴퓨터의 화면</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>공유 브라우저</translation>

@@ -579,6 +579,10 @@
         <translation>Fichiers</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>Écran</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>Fermer</translation>
     </message>
@@ -751,6 +755,61 @@
     <message>
         <source>Try again</source>
         <translation>Réessayer</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>Écran principal</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>Écran %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>Fenêtre</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>Écran</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>Afficher un autre écran ou une autre fenêtre</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>Afficher tout l’écran</translation>
+    </message>
+    <message>
+        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
+        <translation>Pour contrôler %1 d’ici, activez Kodosi Screen sur place dans Réglages Système, sous Confidentialité et sécurité, Accessibilité.</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>Affichage seul</translation>
+    </message>
+    <message>
+        <source>Kodosi Screen cannot record %1</source>
+        <translation>Kodosi Screen ne peut pas enregistrer %1</translation>
+    </message>
+    <message>
+        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
+        <translation>Sur %1, activez Kodosi Screen dans Réglages Système, sous Confidentialité et sécurité, Enregistrement de l’écran et des sons du système.</translation>
+    </message>
+    <message>
+        <source>The screen did not open</source>
+        <translation>L’écran ne s’est pas ouvert</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>Réessayer</translation>
+    </message>
+    <message>
+        <source>Waiting for the screen</source>
+        <translation>En attente de l’écran</translation>
     </message>
 </context>
 <context>
@@ -4341,6 +4400,10 @@
         <translation>Ouvrir le navigateur</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>Ouvrir l’écran</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>Ajouter un fichier…</translation>
     </message>
@@ -4987,6 +5050,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>l’écran de cet ordinateur</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>le navigateur partagé</translation>

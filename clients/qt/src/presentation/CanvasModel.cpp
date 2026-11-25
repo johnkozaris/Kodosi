@@ -26,6 +26,7 @@ constexpr qsizetype mostWords = 600;
 constexpr int mostPublished = 16;
 constexpr int mostRounds = 4;
 const auto browserItem = QStringLiteral("browser");
+const auto screenItem = QStringLiteral("screen");
 const auto pageScheme = QStringLiteral("kodosi-canvas");
 
 quint64 number(const QVariant& value)
@@ -102,6 +103,10 @@ QList<CanvasModel::Shown> CanvasModel::shown(const QString& sessionId) const
     const auto browser = session->canvas.value(QStringLiteral("browser")).toMap();
     if (!browser.isEmpty())
         result.append({ browserItem, number(browser.value(QStringLiteral("changed"))) });
+    // The screen does not change as a file or the browser does: it shows itself when an agent or a
+    // person shows it.
+    if (session->canvas.value(screenItem).toBool())
+        result.append({ screenItem, 0 });
     return result;
 }
 
@@ -156,9 +161,10 @@ void CanvasModel::observe()
             m_sequences.insert(id, sequence);
             moved = true;
         }
-        if (m_opening.contains(id) && std::ranges::any_of(entries, [](const Shown& entry) { return entry.key == browserItem; })) {
+        if (const auto section = m_opening.value(id);
+            !section.isEmpty() && std::ranges::any_of(entries, [&](const Shown& entry) { return entry.key == section; })) {
             m_opening.remove(id);
-            m_picks.insert(id, browserItem);
+            m_picks.insert(id, section);
             moved = true;
         }
         const auto pick = m_picks.value(id);
@@ -174,8 +180,8 @@ void CanvasModel::observe()
     m_picks.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_lastFiles.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_closed.removeIf([&](const auto& entry) { return gone(entry.key()); });
-    m_opening.removeIf(gone);
-    m_chosen.removeIf(gone);
+    m_opening.removeIf([&](const auto& entry) { return gone(entry.key()); });
+    m_chosen.removeIf([&](const auto& entry) { return gone(entry.key()); });
     m_shelves.removeIf(gone);
     m_shut.removeIf(gone);
     m_readings.removeIf([&](const auto& entry) { return gone(entry.value().sessionId); });
@@ -191,19 +197,28 @@ void CanvasModel::observe()
 
 QString CanvasModel::sectionOf(const QString& key)
 {
-    return key == browserItem ? browserItem : QStringLiteral("files");
+    return key == browserItem || key == screenItem ? key : QStringLiteral("files");
 }
 
 QStringList CanvasModel::present(const QString& sessionId) const
 {
     const auto entries = shown(sessionId);
-    const auto browsing = [](const Shown& entry) { return entry.key == browserItem; };
+    const auto is = [](const QString& key) { return [key](const Shown& entry) { return entry.key == key; }; };
     QStringList result;
-    if (!std::ranges::all_of(entries, browsing))
+    if (!std::ranges::all_of(entries, [](const Shown& entry) { return sectionOf(entry.key) != QStringLiteral("files"); }))
         result.append(QStringLiteral("files"));
-    if (std::ranges::any_of(entries, browsing))
+    if (std::ranges::any_of(entries, is(browserItem)))
         result.append(browserItem);
+    if (std::ranges::any_of(entries, is(screenItem)))
+        result.append(screenItem);
     return result;
+}
+
+// Only its owner's devices see a computer's screen.
+bool CanvasModel::showsScreen(const QString& sessionId) const
+{
+    const auto session = m_sessions.session(sessionId);
+    return session && session->isOwner && session->kind == QStringLiteral("remote");
 }
 
 quint64 CanvasModel::changedOf(const QString& sessionId, const QString& section) const
@@ -230,7 +245,7 @@ QString CanvasModel::current(const QString& sessionId) const
 
 void CanvasModel::pick(const QString& sessionId, const QString& key)
 {
-    const bool file = !key.isEmpty() && key != browserItem;
+    const bool file = !key.isEmpty() && sectionOf(key) == QStringLiteral("files");
     if (m_picks.value(sessionId) == key && !(file && m_shelves.contains(sessionId)))
         return;
     m_picks.insert(sessionId, key);
@@ -261,8 +276,9 @@ QStringList CanvasModel::closedSections(const QString& sessionId) const
     const auto open = sections(sessionId);
     const auto there = present(sessionId);
     QStringList result;
-    for (const auto& section : { QStringLiteral("files"), browserItem }) {
-        if (!open.contains(section) && (section == browserItem || there.contains(section)))
+    for (const auto& section : { QStringLiteral("files"), browserItem, screenItem }) {
+        if (!open.contains(section)
+            && (section == browserItem || there.contains(section) || (section == screenItem && showsScreen(sessionId))))
             result.append(section);
     }
     return result;
@@ -274,33 +290,37 @@ void CanvasModel::close(const QString& sessionId, const QString& section)
     m_closed[sessionId].insert(section, changedOf(sessionId, section));
     if (const auto pick = m_picks.value(sessionId); !pick.isEmpty() && sectionOf(pick) == section)
         m_picks.remove(sessionId);
-    if (section != browserItem)
+    if (section == QStringLiteral("files"))
         m_shelves.remove(sessionId);
-    else
+    else if (m_chosen.value(sessionId) == section)
         m_chosen.remove(sessionId);
     touch();
 }
 
 void CanvasModel::show(const QString& sessionId, const QString& section)
 {
-    if (section == browserItem)
-        choose(sessionId);
+    if (section != QStringLiteral("files"))
+        choose(sessionId, section);
     else
         m_chosen.remove(sessionId);
     display(sessionId, section);
 }
 
-// The browser view may attach after the user selects it (e.g. while the browser is starting or
-// before the canvas opens), so record the selection until BrowserVideo sends its next watch.
-void CanvasModel::choose(const QString& sessionId)
+// The browser or screen view may attach after the user selects it (e.g. while the browser is
+// starting or before the canvas opens), so record the selection until that view sends its next
+// watch.
+void CanvasModel::choose(const QString& sessionId, const QString& section)
 {
-    m_chosen.insert(sessionId);
-    emit browserChosen(sessionId);
+    m_chosen.insert(sessionId, section);
+    emit videoChosen(sessionId, section);
 }
 
-bool CanvasModel::takeChoice(const QString& sessionId)
+bool CanvasModel::takeChoice(const QString& sessionId, const QString& section)
 {
-    return m_chosen.remove(sessionId);
+    if (m_chosen.value(sessionId) != section)
+        return false;
+    m_chosen.remove(sessionId);
+    return true;
 }
 
 void CanvasModel::display(const QString& sessionId, const QString& section)
@@ -308,13 +328,13 @@ void CanvasModel::display(const QString& sessionId, const QString& section)
     settle(sessionId);
     m_shut.remove(sessionId);
     m_closed[sessionId].remove(section);
-    if (section == browserItem) {
-        m_picks.insert(sessionId, browserItem);
+    if (section != QStringLiteral("files")) {
+        m_picks.insert(sessionId, section);
     } else {
         const auto entries = shown(sessionId);
         const auto last = m_lastFiles.value(sessionId);
         auto files = entries;
-        files.removeIf([](const Shown& entry) { return entry.key == browserItem; });
+        files.removeIf([](const Shown& entry) { return sectionOf(entry.key) != QStringLiteral("files"); });
         const auto newest = std::ranges::max_element(files, {}, &Shown::changed);
         if (std::ranges::any_of(files, [&](const Shown& entry) { return entry.key == last; }))
             m_picks.insert(sessionId, last);
@@ -362,15 +382,32 @@ void CanvasModel::openBrowser(const QString& sessionId)
         show(sessionId, browserItem);
         return;
     }
-    m_shut.remove(sessionId);
-    m_closed[sessionId].remove(browserItem);
-    m_opening.insert(sessionId);
-    choose(sessionId);
-    touch();
+    expect(sessionId, browserItem);
     wake(sessionId);
 }
 
-bool CanvasModel::opensBrowser(const QString& sessionId) const
+void CanvasModel::openScreen(const QString& sessionId)
+{
+    if (present(sessionId).contains(screenItem)) {
+        show(sessionId, screenItem);
+        return;
+    }
+    expect(sessionId, screenItem);
+    if (const auto error = ask(Asked::Act, sessionId, { { QStringLiteral("type"), QStringLiteral("showScreen") } });
+        !error.isEmpty())
+        emit problem(error);
+}
+
+void CanvasModel::expect(const QString& sessionId, const QString& section)
+{
+    m_shut.remove(sessionId);
+    m_closed[sessionId].remove(section);
+    m_opening.insert(sessionId, section);
+    choose(sessionId, section);
+    touch();
+}
+
+bool CanvasModel::opens(const QString& sessionId) const
 {
     return m_opening.contains(sessionId);
 }
@@ -477,6 +514,8 @@ void CanvasModel::trash(const QString& sessionId, const QString& key)
 
 QString CanvasModel::question(const QString& sessionId, const QString& key, const QString& words) const
 {
+    if (key == screenItem)
+        return about(tr("the screen of this computer"), words);
     if (key != browserItem)
         return about(key, words);
     const auto session = m_sessions.session(sessionId);
@@ -905,15 +944,15 @@ std::optional<QPointF> CanvasModel::pointInView(QPointF point, QSizeF view, QSiz
     return QPointF(origin.x() + point.x() * fit, origin.y() + point.y() * fit);
 }
 
-std::optional<CanvasModel::BrowserKey> CanvasModel::browserKey(int key)
+std::optional<CanvasModel::ViewerKey> CanvasModel::viewerKey(int key)
 {
     if (key >= Qt::Key_A && key <= Qt::Key_Z)
-        return BrowserKey { QStringLiteral("Key") + QChar(u'A' + (key - Qt::Key_A)), {}, 65 + key - Qt::Key_A };
+        return ViewerKey { QStringLiteral("Key") + QChar(u'A' + (key - Qt::Key_A)), {}, 65 + key - Qt::Key_A };
     if (key >= Qt::Key_0 && key <= Qt::Key_9)
-        return BrowserKey { QStringLiteral("Digit") + QChar(u'0' + (key - Qt::Key_0)), {}, 48 + key - Qt::Key_0 };
+        return ViewerKey { QStringLiteral("Digit") + QChar(u'0' + (key - Qt::Key_0)), {}, 48 + key - Qt::Key_0 };
     if (key >= Qt::Key_F1 && key <= Qt::Key_F12) {
         const auto name = QStringLiteral("F%1").arg(key - Qt::Key_F1 + 1);
-        return BrowserKey { name, name, 112 + key - Qt::Key_F1 };
+        return ViewerKey { name, name, 112 + key - Qt::Key_F1 };
     }
     struct Entry {
         int key;
@@ -951,7 +990,7 @@ std::optional<CanvasModel::BrowserKey> CanvasModel::browserKey(int key)
     const auto found = std::ranges::find(entries, key, &Entry::key);
     if (found == entries.end())
         return std::nullopt;
-    return BrowserKey { QString::fromUtf16(found->code), found->named ? QString::fromUtf16(found->named) : QString {},
+    return ViewerKey { QString::fromUtf16(found->code), found->named ? QString::fromUtf16(found->named) : QString {},
         found->windows };
 }
 

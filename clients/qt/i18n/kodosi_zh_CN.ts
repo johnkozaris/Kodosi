@@ -578,6 +578,10 @@
         <translation>文件</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>屏幕</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
@@ -750,6 +754,61 @@
     <message>
         <source>Try again</source>
         <translation>重试</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>主显示器</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>显示器 %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>窗口</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>屏幕</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>显示其他显示器或窗口</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>显示整个屏幕</translation>
+    </message>
+    <message>
+        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
+        <translation>要从这里控制 %1，请在那台电脑上打开 Kodosi Screen：系统设置 &gt;“隐私与安全性”&gt;“辅助功能”。</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>仅查看</translation>
+    </message>
+    <message>
+        <source>Kodosi Screen cannot record %1</source>
+        <translation>Kodosi Screen 无法录制 %1</translation>
+    </message>
+    <message>
+        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
+        <translation>请在 %1 上打开 Kodosi Screen：系统设置 &gt;“隐私与安全性”&gt;“录屏与系统录音”。</translation>
+    </message>
+    <message>
+        <source>The screen did not open</source>
+        <translation>未能打开屏幕</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>重试</translation>
+    </message>
+    <message>
+        <source>Waiting for the screen</source>
+        <translation>正在等待屏幕</translation>
     </message>
 </context>
 <context>
@@ -4310,6 +4369,10 @@
         <translation>打开浏览器</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>打开屏幕</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>添加文件…</translation>
     </message>
@@ -4947,6 +5010,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>这台电脑的屏幕</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>共享浏览器</translation>

@@ -578,6 +578,10 @@
         <translation>ファイル</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>画面</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>閉じる</translation>
     </message>
@@ -750,6 +754,61 @@
     <message>
         <source>Try again</source>
         <translation>再試行</translation>
+    </message>
+</context>
+<context>
+    <name>CanvasScreen</name>
+    <message>
+        <source>Main display</source>
+        <translation>メインディスプレイ</translation>
+    </message>
+    <message>
+        <source>Display %1</source>
+        <translation>ディスプレイ %1</translation>
+    </message>
+    <message>
+        <source>Window</source>
+        <translation>ウインドウ</translation>
+    </message>
+    <message>
+        <source>Screen</source>
+        <translation>画面</translation>
+    </message>
+    <message>
+        <source>Show another display or window</source>
+        <translation>別のディスプレイやウインドウを表示</translation>
+    </message>
+    <message>
+        <source>Show the whole screen</source>
+        <translation>画面全体を表示</translation>
+    </message>
+    <message>
+        <source>To control %1 from here, turn on Kodosi Screen there in System Settings, under Privacy &amp; Security, Accessibility.</source>
+        <translation>ここから %1 を操作するには、そのコンピュータのシステム設定の「プライバシーとセキュリティ」&gt;「アクセシビリティ」で Kodosi Screen をオンにしてください。</translation>
+    </message>
+    <message>
+        <source>View only</source>
+        <translation>表示のみ</translation>
+    </message>
+    <message>
+        <source>Kodosi Screen cannot record %1</source>
+        <translation>Kodosi Screen は %1 を収録できません</translation>
+    </message>
+    <message>
+        <source>On %1, turn on Kodosi Screen in System Settings, under Privacy &amp; Security, Screen &amp; System Audio Recording.</source>
+        <translation>%1 で、システム設定の「プライバシーとセキュリティ」&gt;「画面収録とシステムオーディオ録音」にある Kodosi Screen をオンにしてください。</translation>
+    </message>
+    <message>
+        <source>The screen did not open</source>
+        <translation>画面を開けませんでした</translation>
+    </message>
+    <message>
+        <source>Try again</source>
+        <translation>再試行</translation>
+    </message>
+    <message>
+        <source>Waiting for the screen</source>
+        <translation>画面を待っています</translation>
     </message>
 </context>
 <context>
@@ -4310,6 +4369,10 @@
         <translation>ブラウザを開く</translation>
     </message>
     <message>
+        <source>Open Screen</source>
+        <translation>画面を開く</translation>
+    </message>
+    <message>
         <source>Add a file…</source>
         <translation>ファイルを追加…</translation>
     </message>
@@ -4947,6 +5010,10 @@
 </context>
 <context>
     <name>kodosi::CanvasModel</name>
+    <message>
+        <source>the screen of this computer</source>
+        <translation>このコンピュータの画面</translation>
+    </message>
     <message>
         <source>the shared browser</source>
         <translation>共有ブラウザ</translation>

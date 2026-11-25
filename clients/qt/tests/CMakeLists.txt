@@ -19,6 +19,7 @@ set_tests_properties(kodosi-runtime-tests PROPERTIES
 
 kodosi_test(kodosi-workspace-tests tst_workspace.cpp)
 kodosi_test(kodosi-canvas-model-tests tst_canvas_model.cpp)
+target_link_libraries(kodosi-canvas-model-tests PRIVATE kodosi-canvas-web)
 kodosi_test(kodosi-terminal-chat-tests tst_terminal_chat.cpp)
 kodosi_test(kodosi-provider-models-tests tst_provider_models.cpp)
 kodosi_test(kodosi-desktop-file-integration-tests tst_desktop_file_integration.cpp)
