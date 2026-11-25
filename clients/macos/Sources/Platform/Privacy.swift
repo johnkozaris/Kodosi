@@ -69,8 +69,30 @@ enum Privacy {
     }
 }
 
+/// An app that macOS gives its own permissions: Kodosi, or Kodosi Screen inside it, which records
+/// and controls this Mac for its owner's other devices.
+enum PrivacyApp {
+    case kodosi
+    case screen
+
+    var url: URL {
+        switch self {
+        case .kodosi: Bundle.main.bundleURL
+        case .screen: Bundle.main.bundleURL.appending(path: "Contents/Helpers/Kodosi Screen.app")
+        }
+    }
+
+    var icon: NSImage {
+        switch self {
+        case .kodosi: NSApp.applicationIconImage
+        case .screen: NSWorkspace.shared.icon(forFile: url.path(percentEncoded: false))
+        }
+    }
+}
+
 /// Floating helper offering a draggable app icon because macOS does not pre-populate Full Disk
-/// Access (and only adds App Management after blocking an attempt).
+/// Access (and only adds App Management after blocking an attempt). Kodosi Screen asks for its
+/// own permissions when the sharing of the screen starts.
 final class PrivacyGuide {
     static let shared = PrivacyGuide()
 
@@ -81,11 +103,13 @@ final class PrivacyGuide {
         panel != nil
     }
 
-    func show(_ pane: Privacy.Pane, theme: AppTheme) {
-        Privacy.ask(for: pane)
+    func show(_ pane: Privacy.Pane, for app: PrivacyApp = .kodosi, theme: AppTheme) {
+        if app == .kodosi {
+            Privacy.ask(for: pane)
+        }
         Privacy.open(pane)
         let panel = panel ?? GuidePanel()
-        let card = PrivacyCard(pane: pane) { [weak self] in self?.close() }
+        let card = PrivacyCard(pane: pane, app: app) { [weak self] in self?.close() }
             .environment(\.theme, theme)
             .environment(\.colorScheme, theme.isDark ? .dark : .light)
         panel.contentView = NSHostingView(rootView: card)
@@ -135,21 +159,24 @@ private final class GuidePanel: NSPanel {
 private struct PrivacyCard: View {
     @Environment(\.theme) private var theme
     let pane: Privacy.Pane
+    let app: PrivacyApp
     let close: () -> Void
 
     private var lines: (title: String, then: String) {
-        switch pane {
-        case .fullDiskAccess:
+        switch (pane, app) {
+        case (.fullDiskAccess, _):
             (String(localized: "Drag Kodosi into the list"), String(localized: "Then turn it on, and let macOS open Kodosi again."))
-        case .appManagement, .accessibility, .screenRecording:
+        case (_, .kodosi):
             (String(localized: "Turn on Kodosi in the list"), String(localized: "If it is not there, drag this icon into the list."))
+        case (_, .screen):
+            (String(localized: "Turn on Kodosi Screen in the list"), String(localized: "If it is not there, drag this icon into the list."))
         }
     }
 
     var body: some View {
         HStack(spacing: 14) {
-            AppIconDrag().frame(width: 48, height: 48)
-                .help(String(localized: "Drag Kodosi into the list"))
+            AppIconDrag(app: app).frame(width: 48, height: 48)
+                .help(app == .screen ? String(localized: "Drag Kodosi Screen into the list") : String(localized: "Drag Kodosi into the list"))
             VStack(alignment: .leading, spacing: 3) {
                 Text(lines.title).appTextStyle(.headline).foregroundStyle(theme.colors.ink)
                 Text(lines.then).appTextStyle(.footnote)
@@ -175,13 +202,27 @@ private struct PrivacyCard: View {
 }
 
 private struct AppIconDrag: NSViewRepresentable {
+    let app: PrivacyApp
+
     func makeNSView(context _: Context) -> AppIconSource {
-        AppIconSource()
+        AppIconSource(app: app)
     }
 
     func updateNSView(_: AppIconSource, context _: Context) {}
 
     final class AppIconSource: NSView, NSDraggingSource {
+        private let app: PrivacyApp
+
+        init(app: PrivacyApp) {
+            self.app = app
+            super.init(frame: .zero)
+        }
+
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            nil
+        }
+
         override var mouseDownCanMoveWindow: Bool {
             false
         }
@@ -191,14 +232,14 @@ private struct AppIconDrag: NSViewRepresentable {
         }
 
         override func draw(_: NSRect) {
-            NSApp.applicationIconImage.draw(in: bounds)
+            app.icon.draw(in: bounds)
         }
 
         override func mouseDown(with _: NSEvent) {}
 
         override func mouseDragged(with event: NSEvent) {
-            let item = NSDraggingItem(pasteboardWriter: Bundle.main.bundleURL as NSURL)
-            item.setDraggingFrame(bounds, contents: NSApp.applicationIconImage)
+            let item = NSDraggingItem(pasteboardWriter: app.url as NSURL)
+            item.setDraggingFrame(bounds, contents: app.icon)
             beginDraggingSession(with: [item], event: event, source: self)
         }
 

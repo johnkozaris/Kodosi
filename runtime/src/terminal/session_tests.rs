@@ -805,10 +805,8 @@ async fn only_a_device_of_the_owner_puts_this_computers_screen_on_the_canvas_or_
             .expect("viewer");
     }
     let not_the_owner = text!("Only the devices of this computer's owner watch its screen.");
-    let off = text!(
-        "Screen sharing is off on this computer. The person at it can turn it on in Kodosi's settings there."
-    );
-    for (connection_id, refusal) in [(friend_view, &not_the_owner), (owner_view, &off)] {
+    let unavailable = text!("This computer cannot share its screen.");
+    for (connection_id, refusal) in [(friend_view, &not_the_owner), (owner_view, &unavailable)] {
         let (reply, shown) = oneshot::channel();
         session
             .host_requests

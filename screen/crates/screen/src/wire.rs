@@ -37,9 +37,11 @@ pub(crate) enum ToScreen {
     Show {
         source: Source,
     },
-    /// The part of the source that the viewer shows, or `None` for all of it, so that the
-    /// capture gives it the most sharpness.
+    /// The part of `source` that the viewer shows, or `None` for all of it, so that the
+    /// capture gives it the most sharpness. A look at another source than the shown one came
+    /// before the source changed, and the screen leaves it.
     Look {
+        source: Source,
         region: Option<Region>,
     },
 }

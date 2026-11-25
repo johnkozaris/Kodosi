@@ -111,7 +111,7 @@ struct CanvasScreen: View {
         let session = model.terminals.session(sessionId)
         let current = session.flatMap(store.current)
         let shelf = current?.section == .files && store.showsShelf(sessionId)
-        let shows = session.map(store.showsSomething) == true || store.opensBrowser(sessionId)
+        let shows = session.map(store.showsSomething) == true || store.isOpening(sessionId)
         NavigationStack {
             VStack(spacing: 0) {
                 if let session, current?.section == .files {
@@ -137,7 +137,7 @@ struct CanvasScreen: View {
                         CanvasItemView(session: session, shown: current, store: store, frames: frames, pages: model.terminals.documentPages,
                                        typing: typing && !model.lock.locked, ask: ask(current, in: session))
                             .id(current.key)
-                    } else if store.opensBrowser(sessionId) {
+                    } else if store.isOpening(sessionId) {
                         Spinner(size: 22)
                     } else if session?.canvas == nil {
                         EmptyState(title: "The canvas shows nothing.") {
@@ -168,10 +168,10 @@ struct CanvasScreen: View {
                         } close: { section in
                             store.close(section, in: session)
                         } open: { section in
-                            if section == .browser {
-                                openBrowser(of: session)
-                            } else {
-                                store.show(section, in: session)
+                            switch section {
+                            case .browser: openBrowser(of: session)
+                            case .screen: openScreen(of: session)
+                            case .files: store.show(section, in: session)
                             }
                         } add: {
                             addingFile = true
@@ -182,7 +182,7 @@ struct CanvasScreen: View {
                     }
                     .sharedBackgroundVisibility(.hidden)
                 }
-                if let session, let current, session.canControl, case .browser = current {
+                if let session, let current, session.canControl, current.section != .files {
                     ToolbarItem(placement: .primaryAction) {
                         IconButton(title: "Keyboard", symbol: typing ? "keyboard.chevron.compact.down" : "keyboard",
                                    identifier: "canvas.keyboard", size: 32, active: typing) { typing.toggle() }
@@ -273,6 +273,14 @@ struct CanvasScreen: View {
         Task {
             do {
                 try await store.openBrowser(of: session)
+            } catch { model.notices.show(error) }
+        }
+    }
+
+    private func openScreen(of session: RuntimeSession) {
+        Task {
+            do {
+                try await store.openScreen(of: session)
             } catch { model.notices.show(error) }
         }
     }

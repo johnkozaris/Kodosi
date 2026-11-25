@@ -11,7 +11,7 @@ public final class RuntimeHandle: Sendable {
     private let terminalSubscriptions = TerminalSubscriptionRegistry()
 
     private let inbox: RuntimeEventInbox
-    public let browserPipes = BrowserPipes()
+    public let videoPipes = VideoPipes()
 
     public init(inbox: RuntimeEventInbox) {
         self.inbox = inbox
@@ -272,7 +272,7 @@ public final class RuntimeHandle: Sendable {
         autoreleasepool {
             guard len <= KODOSI_MAX_FRAME_BYTES, let json, let runtime = resolve(ud) else { return }
             let event = Data(bytes: json, count: Int(len))
-            if !runtime.browserPipes.take(event) {
+            if !runtime.videoPipes.take(event) {
                 runtime.inbox.push(event)
             }
         }

@@ -242,6 +242,13 @@ private struct TerminalActions: View {
                     canvasPlace.show(session, .browser)
                 }
                 .closesFlyout($flyout)
+                if session.showsScreen {
+                    PanelMenuRow(Text("Open Screen"), icon: .symbol(CanvasSymbol.screen), identifier: "\(stageId).screen") {
+                        deps.openScreen(of: session)
+                        canvasPlace.show(session, .screen)
+                    }
+                    .closesFlyout($flyout)
+                }
                 PanelMenuRow(Text("Add a File…"), icon: .symbol(CanvasSymbol.addFile), identifier: "\(stageId).addFile") {
                     if deps.addFile(to: session) {
                         canvasPlace.show(session, .files)

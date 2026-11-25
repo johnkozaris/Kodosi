@@ -228,6 +228,21 @@ und **Browser**, jeweils mit einem kupferfarbenen Punkt bei neuen Inhalten:
   Schließen des Terminals werden das Canvas geleert und die Browser-Anmeldungen geteilter Terminals
   verworfen.
 
+### Der Bildschirm eines Mac
+
+- Um einen Mac von deinem Telefon oder einem anderen Computer aus zu sehen und zu steuern, schalte
+  auf diesem Mac unter **Einstellungen › Allgemein** die Option **Meine anderen Geräte diesen Mac
+  sehen und steuern lassen** ein. macOS fragt dich dann, ob Kodosi Screen, ein Teil von Kodosi, den
+  Bildschirm aufnehmen und steuern darf. Nur Kodosi Screen bekommt diese Berechtigungen, die
+  Programme in deinen Terminals also nicht.
+- Wähle im Aktionen-Menü eines Terminals auf diesem Mac **Bildschirm öffnen**, oder lass seinen
+  Agenten `kodosi show screen` ausführen. Wähle über dem Bildschirm ein anderes Display oder ein
+  einzelnes Fenster, zoome mit zwei Fingern hinein, und zeige, klicke und tippe, als säßest du am
+  Mac.
+- Nur deine eigenen Geräte sehen den Bildschirm, auch in einem Terminal, das du mit Freunden
+  teilst. Solange jemand zusieht, zeigt die Menüleiste des Mac, wer es ist, mit einer Taste, die
+  das Teilen beendet, bis jemand am Mac es wieder einschaltet.
+
 ## 5. Dosi fragen
 
 Dosi ist dein Agent zum Koordinieren deiner anderen Agents. Klicke unten in der Seitenleiste auf
@@ -356,7 +371,7 @@ der App sofort sichtbar.
 | `kodosi terminal wait <terminal> --until done,failed` | Wartet, bis das Terminal einen der angegebenen Zustände erreicht. |
 | `kodosi terminal show <terminal>` | Holt das Terminal in der App in den Vordergrund. |
 | `kodosi dosi say "What needs me?"` | Sendet eine Nachricht an Dosi. `kodosi dosi show` gibt die Unterhaltung aus und `kodosi dosi stop` bricht eine laufende Antwort ab. |
-| `kodosi show <file>` | Öffnet eine Datei auf dem Canvas dieses Terminals, das sich für die Personen öffnet, die das Terminal ansehen. Mit `kodosi show <address>` öffnest du eine URL im geteilten Browser, mit `kodosi show browser` bringst du den Browser so wie er ist nach vorn, mit `kodosi canvas` listest du die Canvas-Einträge auf und mit `kodosi canvas remove <file>` entfernst du einen davon. |
+| `kodosi show <file>` | Öffnet eine Datei auf dem Canvas dieses Terminals, das sich für die Personen öffnet, die das Terminal ansehen. Mit `kodosi show <address>` öffnest du eine URL im geteilten Browser, mit `kodosi show browser` bringst du den Browser so wie er ist nach vorn, mit `kodosi show screen` oder `kodosi show window <words>` zeigst du den Bildschirm des Computers den Geräten der Person, der er gehört, mit `kodosi canvas` listest du die Canvas-Einträge auf und mit `kodosi canvas remove <file>` entfernst du einen davon. |
 | `kodosi browser open <address>` | Öffnet eine URL im geteilten Browser dieses Terminals (alle anderen agent-browser-Befehle funktionieren ebenfalls). |
 | `kodosi skill` | Gibt den Agent-Skill für die Zusammenarbeit in Kodosi aus; `kodosi skill canvas` gibt den Canvas-Skill aus. |
 | `kodosi dosi skill` | Gibt den Skill aus, mit dem ein anderer Agent als Dosi auftreten kann. |

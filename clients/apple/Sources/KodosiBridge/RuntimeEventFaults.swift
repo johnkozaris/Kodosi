@@ -21,8 +21,8 @@ public struct RuntimeEventFaults {
             level: Int32(KODOSI_LOG_WARNING), type: .default)
     }
 
-    static func browserBehind(_ drop: RuntimeEventInbox.Drop) {
-        log(dropped(drop, by: "the shared browser fell behind its frames") + ", so its pipes start again",
+    static func videoBehind(_ drop: RuntimeEventInbox.Drop) {
+        log(dropped(drop, by: "the video pipes fell behind their frames") + ", so its pipes start again",
             level: Int32(KODOSI_LOG_WARNING), type: .default)
     }
 

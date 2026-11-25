@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// The keys in the bars above the canvas's browser and screen.
+enum CanvasBar {
+    #if os(iOS)
+        static let key: CGFloat = 40
+    #else
+        static let key: CGFloat = 26
+    #endif
+}
+
 struct SharedBrowserKey: View {
     @Environment(\.theme) private var theme
     let height: CGFloat
@@ -26,10 +35,11 @@ struct SharedBrowserKey: View {
     }
 }
 
-struct BrowserProblemKey: View {
+struct ProblemKey: View {
     @Environment(\.theme) private var theme
     let problem: String
     let size: CGFloat
+    let identifier: String
 
     var body: some View {
         ExplainedKey(words: problem) {
@@ -39,13 +49,13 @@ struct BrowserProblemKey: View {
                 .touchTarget(Rectangle())
         }
         .accessibilityLabel(Text(problem))
-        .accessibilityIdentifier("canvas.browser.problem")
+        .accessibilityIdentifier(identifier)
     }
 }
 
 /// Shows explanation text in a popover on tap as well as a tooltip, since touch devices have no
 /// hover tooltips.
-private struct ExplainedKey<Face: View>: View {
+struct ExplainedKey<Face: View>: View {
     @Environment(\.theme) private var theme
     let words: String
     @ContentBuilder let face: Face

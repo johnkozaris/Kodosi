@@ -229,6 +229,20 @@ Dès que le canvas contient un élément, l'en-tête du terminal ajoute les bout
 - Toute personne ayant accès à un terminal voit son canvas et partage son navigateur. Fermer le
   terminal vide son canvas et supprime les connexions du navigateur du terminal partagé.
 
+### L'écran d'un Mac
+
+- Pour voir et contrôler un Mac depuis votre téléphone ou un autre ordinateur, activez **Permettre
+  à mes autres appareils de voir et contrôler ce Mac** dans **Réglages › Général** sur ce Mac. macOS
+  vous demande alors de laisser Kodosi Screen, une partie de Kodosi, enregistrer et contrôler
+  l'écran. Seul Kodosi Screen obtient ces autorisations, donc les programmes de vos terminaux ne
+  les obtiennent pas.
+- Choisissez **Ouvrir l’écran** dans le menu d'actions d'un terminal de ce Mac, ou laissez son agent
+  exécuter `kodosi show screen`. Choisissez un autre écran ou une seule fenêtre au-dessus de
+  l'écran, pincez pour zoomer, puis pointez, cliquez et tapez comme si vous étiez devant le Mac.
+- Seuls vos propres appareils voient l'écran, même dans un terminal que vous partagez avec des
+  amis. Tant que quelqu'un regarde, la barre des menus du Mac indique qui, avec un bouton qui
+  arrête le partage jusqu'à ce que quelqu'un devant le Mac le réactive.
+
 ## 5. Demander à Dosi
 
 Dosi est l'agent chargé de coordonner vos autres agents. Cliquez sur le visage de Dosi en bas de la
@@ -356,7 +370,7 @@ immédiatement dans l'app.
 | `kodosi terminal wait <terminal> --until done,failed` | Attend que le terminal passe dans l'un des états indiqués. |
 | `kodosi terminal show <terminal>` | Affiche le terminal au premier plan dans l'app. |
 | `kodosi dosi say "What needs me?"` | Envoie un message à Dosi. Utilisez `kodosi dosi show` pour afficher la conversation et `kodosi dosi stop` pour annuler un tour. |
-| `kodosi show <file>` | Ouvre un fichier sur le canvas de ce terminal, qui s'ouvre pour les personnes qui regardent le terminal. Utilisez `kodosi show <address>` pour ouvrir une URL dans son navigateur partagé, `kodosi show browser` pour afficher le navigateur tel quel, `kodosi canvas` pour lister les éléments du canvas et `kodosi canvas remove <file>` pour en retirer un. |
+| `kodosi show <file>` | Ouvre un fichier sur le canvas de ce terminal, qui s'ouvre pour les personnes qui regardent le terminal. Utilisez `kodosi show <address>` pour ouvrir une URL dans son navigateur partagé, `kodosi show browser` pour afficher le navigateur tel quel, `kodosi show screen` ou `kodosi show window <words>` pour montrer l'écran de l'ordinateur aux appareils de son propriétaire, `kodosi canvas` pour lister les éléments du canvas et `kodosi canvas remove <file>` pour en retirer un. |
 | `kodosi browser open <address>` | Ouvre une URL dans le navigateur partagé de ce terminal (toutes les autres commandes d'agent-browser fonctionnent aussi). |
 | `kodosi skill` | Affiche le skill permettant à un agent de collaborer dans Kodosi ; `kodosi skill canvas` affiche le skill du canvas. |
 | `kodosi dosi skill` | Affiche le skill permettant à un autre agent d'agir comme Dosi. |

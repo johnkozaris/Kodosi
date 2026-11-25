@@ -53,6 +53,17 @@ Mal einen geteilten Browser öffnest, lädt Kodosi ihn von `updates.kodosi.com` 
 täglich auf Updates. Downloads werden nur akzeptiert, wenn der Update-Feed eine gültige Signatur
 des Kodosi-Updateschlüssels trägt und der SHA-256-Wert der Datei mit dem Feed übereinstimmt.
 
+### Der Bildschirm eines Mac
+
+Wenn du in den **Einstellungen › Allgemein** eines Mac die Bildschirmfreigabe einschaltest, kann
+jedes deiner bestätigten Geräte den ganzen Bildschirm dieses Mac sehen und steuern, nicht nur seine
+Terminals, und zwar im Canvas seiner Terminals. Freunde sehen ihn nie, auch nicht in einem Terminal,
+das du mit ihnen teilst, und Video und Eingaben werden Ende-zu-Ende verschlüsselt übertragen wie die
+Terminals selbst. Kodosi Screen, ein Helfer in der App, hat die Berechtigungen für Bildschirmaufnahme
+und Bedienungshilfen, die das braucht, damit die Programme in deinen Terminals sie nicht bekommen.
+Solange jemand zusieht, zeigt die Menüleiste des Mac, wer es ist. Wenn du die Freigabe ausschaltest
+oder dort auf **Teilen beenden** klickst, endet jede Ansicht.
+
 ## Direkte Verbindungen
 
 Wenn sich zwei deiner eigenen Geräte direkt erreichen können, im selben lokalen Netzwerk oder per

@@ -54,6 +54,18 @@ aggiornamenti. Un download viene accettato solo se il feed degli aggiornamenti r
 della chiave di aggiornamento di Kodosi e se l'hash SHA-256 del file corrisponde a quello indicato
 nel feed.
 
+### Lo schermo di un Mac
+
+Attivando la condivisione dello schermo in **Impostazioni › Generale** di un Mac, ognuno dei tuoi
+dispositivi approvati può vedere e controllare l'intero schermo di quel Mac, non solo i suoi
+terminali, dal canvas dei suoi terminali. Gli amici non lo vedono mai, nemmeno in un terminale che
+condividi con loro, e video e input viaggiano cifrati end-to-end come i terminali stessi. Kodosi
+Screen, un aiutante dentro l'app, ha le autorizzazioni di registrazione dello schermo e di
+accessibilità necessarie, così i programmi nei tuoi terminali non le ottengono. Mentre qualcuno
+guarda, la barra dei menu del Mac dice chi; disattivare la condivisione, o premere lì **Interrompi la
+condivisione**,
+chiude ogni visualizzazione.
+
 ## Connessioni dirette
 
 Quando due dei tuoi dispositivi possono raggiungersi direttamente, sulla stessa LAN o tramite

@@ -30,6 +30,10 @@ shown, and you can switch the agent's model from either view.
 The canvas opens beside its terminal and can expand to take over the main stage while keeping the
 terminal live in a small corner tile.
 
+On a terminal of another of your Macs, the canvas can show that Mac's screen: pick a display or a
+window, pinch to zoom, and point, click, and type there. The Mac's pointer shape becomes your own
+while it is over the screen. App shortcuts stay with Kodosi, as in a terminal.
+
 Each project puts its chat alongside its work: terminals, tasks, and linked repositories.
 
 Dosi lives at the bottom of the sidebar, which widens to hold the conversation. If Dosi asks a
@@ -42,6 +46,9 @@ other keystrokes go directly to the program running in the terminal.
 
 Programs running inside Kodosi inherit the macOS permissions granted to Kodosi, just like any
 other terminal app. Settings displays permission status and triggers macOS permission prompts.
+Sharing this Mac's screen with your other devices is off until you turn it on in Settings, and
+Kodosi Screen, a helper inside the app, holds the permissions that it takes, so terminals do not
+gain them.
 
 The app can preview an agent's saved provider conversations read-only without modifying them, and
 resume any conversation in a new terminal via the provider's CLI.

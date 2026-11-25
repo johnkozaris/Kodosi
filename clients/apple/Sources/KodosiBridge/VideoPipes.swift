@@ -1,9 +1,9 @@
 import Foundation
 import Synchronization
 
-/// Routes shared-browser pipe events to a dedicated inbox and background task so video frames
-/// never block behind main-actor events or main-thread work.
-public final class BrowserPipes: Sendable {
+/// Routes the events of video pipes (the shared browser's and the screen's) to a dedicated inbox
+/// and background task so video frames never block behind main-actor events or main-thread work.
+public final class VideoPipes: Sendable {
     private struct Claim {
         let mark: Data
         weak var link: DocumentLink?
@@ -23,7 +23,7 @@ public final class BrowserPipes: Sendable {
         inbox.close()
     }
 
-    /// Claims and enqueues events for active browser pipes. Raw byte matching is safe without JSON
+    /// Claims and enqueues events for active video pipes. Raw byte matching is safe without JSON
     /// parsing because only pipe events carry `"pipe":"..."` and base64 payloads contain no quotes.
     public func take(_ event: Data) -> Bool {
         let marks = state.withLock { $0.claims.isEmpty ? [] : $0.claims.values.map(\.mark) }
@@ -49,7 +49,7 @@ public final class BrowserPipes: Sendable {
 
     private func read() {
         let inbox = inbox
-        Task.detached(name: "Browser frames", priority: .userInitiated) { [weak self] in
+        Task.detached(name: "Video frames", priority: .userInitiated) { [weak self] in
             var faults = RuntimeEventFaults()
             while let item = await inbox.nextItem() {
                 guard let self else { return }
@@ -60,7 +60,7 @@ public final class BrowserPipes: Sendable {
                 case let .unreadable(error):
                     faults.unreadable(nil, error)
                 case let .behind(drop):
-                    RuntimeEventFaults.browserBehind(drop)
+                    RuntimeEventFaults.videoBehind(drop)
                     for link in state.withLock({ $0.claims.values.compactMap(\.link) }) {
                         link.renewAfterLoss()
                     }

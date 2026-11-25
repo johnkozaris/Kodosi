@@ -54,6 +54,17 @@ compartido en un ordenador, Kodosi lo descarga desde `updates.kodosi.com` y busc
 diario. Las descargas solo se aceptan si el feed de actualizaciones lleva una firma válida de la
 clave de actualizaciones de Kodosi y el SHA-256 del archivo coincide con el del feed.
 
+### La pantalla de un Mac
+
+Si activas compartir la pantalla en **Ajustes › General** de un Mac, cada uno de tus dispositivos
+aprobados puede ver y controlar toda la pantalla de ese Mac, no solo sus terminales, desde el
+lienzo de sus terminales. Tus amigos nunca la ven, ni siquiera en un terminal que compartes con
+ellos, y el vídeo y la entrada viajan cifrados de extremo a extremo como los propios terminales.
+Kodosi Screen, un ayudante dentro de la app, tiene los permisos de grabación de pantalla y de
+accesibilidad que esto necesita, así que los programas de tus terminales no los obtienen. Mientras
+alguien mira, la barra de menús del Mac dice quién; desactivar la función, o pulsar **Dejar de
+compartir** allí, termina todas las vistas.
+
 ## Conexiones directas
 
 Cuando dos de tus propios dispositivos pueden comunicarse directamente entre sí, en la misma red

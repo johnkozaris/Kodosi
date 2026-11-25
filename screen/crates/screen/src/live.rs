@@ -310,7 +310,10 @@ impl Live {
                     self.show(Some(source));
                 }
             }
-            ToScreen::Look { region } => {
+            ToScreen::Look { source, region } => {
+                if self.source != Some(source) {
+                    return;
+                }
                 let look = region.and_then(|region| self.within(region));
                 if let Some(seat) = self.seats.get_mut(viewer) {
                     seat.look = look;
@@ -818,6 +821,42 @@ mod tests {
             })
             .await;
         assert_eq!(input, click);
+    }
+
+    #[tokio::test]
+    async fn a_look_at_a_source_that_is_no_longer_shown_leaves_the_capture_as_it_is() {
+        let mut computer = Computer::start().await;
+        computer
+            .watch("phone", view(390, 844, 3.0), vec![HEVC], true)
+            .await;
+        computer.capture().await;
+        let part = Region {
+            x: 100.0,
+            y: 100.0,
+            width: 400.0,
+            height: 300.0,
+        };
+        for (source, region) in [
+            (Source::Display { id: 2 }, region(200.0, 100.0)),
+            (Source::Display { id: 1 }, part),
+        ] {
+            computer
+                .say(
+                    "phone",
+                    ToScreen::Look {
+                        source,
+                        region: Some(region),
+                    },
+                )
+                .await;
+        }
+        let region = computer
+            .next(|said| match said {
+                ToHelper::Capture { region, .. } => Some(region),
+                _ => None,
+            })
+            .await;
+        assert_eq!(region, Some(part));
     }
 
     fn region(width: f64, height: f64) -> Region {

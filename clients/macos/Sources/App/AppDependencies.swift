@@ -104,7 +104,7 @@ final class AppDependencies {
         self.inbox = inbox
         let runtime = RuntimeHandle(inbox: inbox)
         runtimeHandle = runtime
-        let canvas = CanvasStore(commands: commands, browserPipes: runtime.browserPipes)
+        let canvas = CanvasStore(commands: commands, videoPipes: runtime.videoPipes)
         self.canvas = canvas
         workbench = WorkbenchState(defaults: defaults, canvas: canvas)
         account = AccountStore(commands: commands, browser: "system")

@@ -3,12 +3,11 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 #if os(iOS)
-    private let control: CGFloat = 40
     private let closeKey: CGFloat = 22
 #else
-    private let control: CGFloat = 26
     private let closeKey: CGFloat = 16
 #endif
+private let control = CanvasBar.key
 
 public struct CanvasBrowserView: View {
     @Environment(\.theme) private var theme
@@ -242,7 +241,7 @@ public struct CanvasBrowserView: View {
                 SharedBrowserKey(height: control - 6)
             }
             if let failure = feed.failure ?? browser.problem {
-                BrowserProblemKey(problem: failure, size: control - 6)
+                ProblemKey(problem: failure, size: control - 6, identifier: "canvas.browser.problem")
             }
             Spacer(minLength: 0)
         }

@@ -90,7 +90,9 @@ impl ScreenHost {
 
     /// Refuses unless the person at the computer allowed the sharing.
     pub(crate) fn check(&self) -> Result<(), Text> {
-        if *self.0.allowed.borrow() {
+        if !self.available() {
+            Err(text!("This computer cannot share its screen."))
+        } else if *self.0.allowed.borrow() {
             Ok(())
         } else {
             Err(off())

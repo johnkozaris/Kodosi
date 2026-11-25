@@ -133,6 +133,7 @@ struct TerminalMenu: View {
     var capped = false
     let interrupt: () -> Void
     let openBrowser: () -> Void
+    let openScreen: () -> Void
     let addFile: () -> Void
 
     var body: some View {
@@ -144,6 +145,10 @@ struct TerminalMenu: View {
                 Section("Canvas") {
                     Button("Open Browser", systemImage: "globe", action: openBrowser)
                         .accessibilityIdentifier("terminal.menu.browser")
+                    if session.showsScreen {
+                        Button("Open Screen", systemImage: CanvasSymbol.screen, action: openScreen)
+                            .accessibilityIdentifier("terminal.menu.screen")
+                    }
                     Button("Add a File…", systemImage: CanvasSymbol.addFile, action: addFile)
                         .accessibilityIdentifier("terminal.menu.addFile")
                 }

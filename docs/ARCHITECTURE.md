@@ -165,8 +165,8 @@ terminal's encrypted channel, syncing an initial snapshot followed by incrementa
 
 ## Canvas
 
-The host manages each terminal's canvas: files shown by the agent plus its shared browser. The
-canvas manifest syncs with terminal state to local clients and over the encrypted terminal channel
+The host manages each terminal's canvas: files shown by the agent, its shared browser, and on a Mac
+that shares it, the computer's screen. The canvas manifest syncs with terminal state to local clients and over the encrypted terminal channel
 to remote devices. Reading and adding files travel over the same encrypted channel.
 
 ### Live documents
@@ -212,13 +212,32 @@ controls its window via `agent-browser` over a host-managed local port scoped st
 terminal's tabs. Private terminals share one persistent browser profile; shared terminals each get
 an isolated, ephemeral profile tied to the terminal's lifetime.
 
+### Screens
+
+[screen/](../screen/) is a standalone library with no Kodosi imports. On a Mac, Kodosi Screen, a
+helper app inside Kodosi's bundle, captures the screen and plays viewers' input. It runs under its
+own identity so that macOS grants Screen Recording and Accessibility to it alone, and the programs
+in terminals, which inherit Kodosi's permissions, do not get them. The host starts it through
+Launch Services only while the person at the computer allows the sharing, which only the
+computer's own app changes. While anyone watches, the helper's menu bar item says who, and its Stop
+turns the sharing off on every canvas.
+
+One capture serves every viewer of a computer. It shows a display or one window, sized to the view
+that the person opened or used last, with as many pixels as that view shows and no more than the
+source has. A zoomed view asks for only the part it shows, so the part stays sharp. The pointer
+travels apart from the video, as a position and a shape sent once, so viewers draw it, or use it as
+their own cursor, without waiting for frames.
+
+A computer's screen belongs to its owner: only the owner's devices list it on a canvas, and the
+host refuses anyone else's pipe to it, also in a terminal shared with friends.
+
 ### Video streams
 
 [stream/](../stream/) is a standalone library for live video with no Kodosi imports: the protocol
 between a stream and its viewers, the flow control that decides which viewer takes which frame, and
 the encoders, chosen at run time from what the computer has (VideoToolbox with Metal conversion on
-macOS, OpenH264 elsewhere). The browser engine encodes with it, and the host's window runs its
-flow control.
+macOS, OpenH264 elsewhere). The browser engine and Kodosi Screen encode with it, and the host runs
+its flow control.
 
 Each viewer declares the codecs it decodes and which of them in hardware. A stream uses HEVC only
 while its source encodes it and every viewer decodes it in hardware, since decoding HEVC in

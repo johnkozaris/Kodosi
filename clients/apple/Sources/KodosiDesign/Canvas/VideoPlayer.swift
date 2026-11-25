@@ -1,13 +1,14 @@
 import CoreMedia
 import CoreVideo
+import KodosiBridge
 import Metal
 import QuartzCore
 import Synchronization
 import VideoToolbox
 
-/// Decodes the browser's samples with VideoToolbox and draws each picture with Metal as soon as it
+/// Decodes a feed's samples with VideoToolbox and draws each picture with Metal as soon as it
 /// arrives, a frame sooner than `AVSampleBufferDisplayLayer` shows it. Samples come on the
-/// `BrowserPipes` task and layout on the main thread, so drawing runs on its own queue and always
+/// `VideoPipes` task and layout on the main thread, so drawing runs on its own queue and always
 /// takes the newest picture.
 final class VideoPlayer: @unchecked Sendable {
     /// CAMetalLayer hands out drawables on any thread; the views change its other properties on the
@@ -16,7 +17,7 @@ final class VideoPlayer: @unchecked Sendable {
     /// Only the feed's pipe task decodes.
     private var decoder = VideoDecoder()
     private let pictures = Mutex(Pictures())
-    private let drawing = DispatchQueue(label: "com.kodosi.browser-video", qos: .userInteractive)
+    private let drawing = DispatchQueue(label: "com.kodosi.video", qos: .userInteractive)
 
     init(layer: CAMetalLayer) {
         self.layer = layer
@@ -31,11 +32,23 @@ final class VideoPlayer: @unchecked Sendable {
     }
 
     /// Returns `false` when the picture did not decode, so the feed asks for a keyframe.
-    func enqueue(_ sample: CMSampleBuffer) -> Bool {
-        guard let picture = decoder.decode(sample) else { return false }
-        pictures.withLock { $0.newest = picture }
+    func enqueue(_ sample: VideoSample) -> Bool {
+        guard let decoded = decoder.decode(sample.buffer) else { return false }
+        pictures.withLock { $0.newest = Picture(buffer: decoded.buffer, region: sample.region) }
         redraw()
         return true
+    }
+
+    /// Places each picture where its part of the source shows; `nil` fits each picture whole into
+    /// the layer.
+    func place(_ placement: VideoPlacement?) {
+        let moved = pictures.withLock { pictures in
+            defer { pictures.placement = placement }
+            return pictures.placement != placement
+        }
+        if moved {
+            redraw()
+        }
     }
 
     /// Sizes the drawable to the layer's pixels and draws the last picture again.
@@ -55,8 +68,9 @@ final class VideoPlayer: @unchecked Sendable {
         }
         guard !waiting else { return }
         drawing.async { [self] in
-            guard let picture = pictures.withLock({ $0.take() }), let gpu = VideoGPU.shared else { return }
-            gpu.draw(picture.buffer, on: layer)
+            let (picture, placement) = pictures.withLock { ($0.take(), $0.placement) }
+            guard let picture, let gpu = VideoGPU.shared else { return }
+            gpu.draw(picture, placement, on: layer)
         }
     }
 }
@@ -64,6 +78,7 @@ final class VideoPlayer: @unchecked Sendable {
 private struct Pictures {
     var newest: Picture?
     var shown: Picture?
+    var placement: VideoPlacement?
     var drawing = false
 
     /// The newest picture, or the one on screen again when nothing newer came.
@@ -77,9 +92,11 @@ private struct Pictures {
     }
 }
 
-/// A decoded 420v picture, which nothing writes to once VideoToolbox filled it.
+/// A decoded 420v picture, which nothing writes to once VideoToolbox filled it, and the part of
+/// the source that it shows when only a part.
 private struct Picture: @unchecked Sendable {
     let buffer: CVPixelBuffer
+    let region: CGRect?
 }
 
 /// One VideoToolbox session for the stream's current format, which the keyframe of a new codec
@@ -99,7 +116,7 @@ private struct VideoDecoder: ~Copyable {
             session, sampleBuffer: sample, flags: [], infoFlagsOut: nil,
         ) { status, _, image, _, _ in
             if status == noErr, let image {
-                decoded.picture.withLock { $0 = Picture(buffer: image) }
+                decoded.picture.withLock { $0 = Picture(buffer: image, region: nil) }
             }
         }
         guard status == noErr else {
@@ -163,9 +180,11 @@ private final class VideoGPU: @unchecked Sendable {
         float2 at;
     };
 
-    vertex Corner place(uint corner [[vertex_id]]) {
+    // `rect` is the picture's left, top, right and bottom in clip space, which may reach past the
+    // drawable while a view is zoomed.
+    vertex Corner place(uint corner [[vertex_id]], constant float4 &rect [[buffer(0)]]) {
         float2 at = float2(corner & 1, corner >> 1);
-        return { float4(at.x * 2 - 1, 1 - at.y * 2, 0, 1), at };
+        return { float4(mix(rect.x, rect.z, at.x), mix(rect.y, rect.w, at.y), 0, 1), at };
     }
 
     // BT.709 limited range, as every Kodosi encoder writes it.
@@ -200,10 +219,11 @@ private final class VideoGPU: @unchecked Sendable {
         self.textures = textures
     }
 
-    /// Aspect-fits the picture into the layer's drawable and presents it at once.
-    func draw(_ picture: CVPixelBuffer, on layer: CAMetalLayer) {
-        guard let luma = texture(picture, plane: 0, format: .r8Unorm),
-              let chroma = texture(picture, plane: 1, format: .rg8Unorm),
+    /// Draws the picture where `placement` puts its part of the source, or aspect-fits it into the
+    /// layer's drawable without one, and presents it at once.
+    func draw(_ picture: Picture, _ placement: VideoPlacement?, on layer: CAMetalLayer) {
+        guard let luma = texture(picture.buffer, plane: 0, format: .r8Unorm),
+              let chroma = texture(picture.buffer, plane: 1, format: .rg8Unorm),
               let drawable = layer.nextDrawable(), let commands = queue.makeCommandBuffer()
         else { return }
         let pass = MTLRenderPassDescriptor()
@@ -213,12 +233,10 @@ private final class VideoGPU: @unchecked Sendable {
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = commands.makeRenderCommandEncoder(descriptor: pass) else { return }
         let target = CGSize(width: drawable.texture.width, height: drawable.texture.height)
-        let size = CGSize(width: CVPixelBufferGetWidth(picture), height: CVPixelBufferGetHeight(picture))
-        let fit = min(target.width / size.width, target.height / size.height)
-        encoder.setViewport(MTLViewport(
-            originX: (target.width - size.width * fit) / 2, originY: (target.height - size.height * fit) / 2,
-            width: size.width * fit, height: size.height * fit, znear: 0, zfar: 1,
-        ))
+        let rect = Self.rect(of: picture, placement, in: target)
+        var corners = SIMD4<Float>(Float(rect.minX / target.width * 2 - 1), Float(1 - rect.minY / target.height * 2),
+                                   Float(rect.maxX / target.width * 2 - 1), Float(1 - rect.maxY / target.height * 2))
+        encoder.setVertexBytes(&corners, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
         encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentTexture(CVMetalTextureGetTexture(luma.texture), index: 0)
         encoder.setFragmentTexture(CVMetalTextureGetTexture(chroma.texture), index: 1)
@@ -228,6 +246,16 @@ private final class VideoGPU: @unchecked Sendable {
         // The textures must outlive the GPU's reads of the picture.
         commands.addCompletedHandler { _ in withExtendedLifetime((luma, chroma)) {} }
         commands.commit()
+    }
+
+    private static func rect(of picture: Picture, _ placement: VideoPlacement?, in target: CGSize) -> CGRect {
+        if let placement {
+            return placement.viewRect(picture.region ?? CGRect(origin: .zero, size: placement.source), in: target)
+        }
+        let size = CGSize(width: CVPixelBufferGetWidth(picture.buffer), height: CVPixelBufferGetHeight(picture.buffer))
+        let fit = min(target.width / size.width, target.height / size.height)
+        return CGRect(x: (target.width - size.width * fit) / 2, y: (target.height - size.height * fit) / 2,
+                      width: size.width * fit, height: size.height * fit)
     }
 
     private func texture(_ picture: CVPixelBuffer, plane: Int, format: MTLPixelFormat) -> PlaneTexture? {

@@ -3900,7 +3900,11 @@ impl Runtime {
                     entry.program_pending = metadata.pending.map(|pending| *pending);
                     entry.program_status = metadata.status;
                     entry.context = metadata.context;
-                    entry.canvas = metadata.canvas.map(|canvas| *canvas);
+                    let owner = entry.is_owner;
+                    entry.canvas = metadata.canvas.map(|canvas| crate::canvas::Canvas {
+                        screen: canvas.screen && owner,
+                        ..*canvas
+                    });
                     entry.face = metadata.face;
                     entry.helpers = metadata.helpers;
                     entry.look = metadata.look;

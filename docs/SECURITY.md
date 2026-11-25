@@ -49,6 +49,16 @@ Kodosi downloads it from `updates.kodosi.com` and checks daily for updates. Down
 accepted if the update feed carries a valid signature from Kodosi's update key and the file's
 SHA-256 matches the feed.
 
+### A Mac's screen
+
+Turning on screen sharing in a Mac's **Settings › General** lets each of your approved devices see
+and control that Mac's whole screen, not only its terminals, from the canvas of its terminals.
+Friends never see it, even in a terminal that you share with them, and the video and input travel
+end to end encrypted like the terminals themselves. Kodosi Screen, a helper inside the app, holds
+the Screen Recording and Accessibility permissions that this takes, so the programs in your
+terminals do not gain them. While someone watches, the Mac's menu bar says who; turning the sharing
+off, or **Stop sharing** there, ends every view.
+
 ## Direct connections
 
 When two of your own devices can reach each other directly, on the same LAN or through NAT

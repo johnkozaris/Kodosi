@@ -1,6 +1,6 @@
 ---
 name: kodosi-canvas
-description: "Display images, files, websites, or running apps on the canvas beside this Kodosi terminal, and drive the shared browser there. Use when the user asks to see or preview something, when a table, plan with options, comparison, or diagram reads better visually than in a terminal, or when you need a browser to open, test, interact with, or screenshot a web page."
+description: "Display images, files, websites, or running apps on the canvas beside this Kodosi terminal, and drive the shared browser there. Use when the user asks to see or preview something, when a table, plan with options, comparison, or diagram reads better visually than in a terminal, when you need a browser to open, test, interact with, or screenshot a web page, or when the user wants to see or use this computer's screen or an app window from another device."
 ---
 
 # Kodosi canvas
@@ -19,6 +19,12 @@ type, and edit alongside you.
   `kodosi show http://localhost:5173`) in the canvas's shared browser.
 - `kodosi show browser`: brings up the shared browser as-is without reloading the page. Use this
   after finishing browser work when you want the user to look.
+- `kodosi show screen`: shows this computer's screen on the canvas to its owner's other devices,
+  where they watch and control it. `kodosi show window <words>` shows the window whose app or title
+  holds the words (such as `kodosi show window Simulator`), or the whole screen when none does.
+  Use it when the user wants to see or use something outside the terminal, such as an app, a
+  simulator, or a system dialog. It works once the person at the computer turns on screen sharing
+  in Kodosi's settings there, and friends who share the terminal never see the screen.
 - After calling `show`, summarize what you opened in one line. Never ask the user to open a file
   or URL themselves.
 - Supported canvas formats: HTML, Markdown, and plain text (Markdown and text use Kodosi's

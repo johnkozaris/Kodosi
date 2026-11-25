@@ -55,6 +55,17 @@ quotidiennement la disponibilité de mises à jour. Un téléchargement n'est ac
 mise à jour porte une signature valide de la clé de mise à jour de Kodosi et si le condensat
 SHA-256 du fichier correspond à celui indiqué par le flux.
 
+### L'écran d'un Mac
+
+Activer le partage d'écran dans les **Réglages › Général** d'un Mac permet à chacun de vos appareils
+approuvés de voir et de contrôler tout l'écran de ce Mac, pas seulement ses terminaux, depuis le
+canvas de ses terminaux. Vos amis ne le voient jamais, même dans un terminal que vous partagez avec
+eux, et la vidéo et les saisies circulent chiffrées de bout en bout comme les terminaux eux-mêmes.
+Kodosi Screen, un assistant intégré à l'app, détient les autorisations d'enregistrement de l'écran
+et d'accessibilité nécessaires, afin que les programmes de vos terminaux ne les obtiennent pas.
+Tant que quelqu'un regarde, la barre des menus du Mac indique qui ; désactiver le partage, ou
+cliquer sur **Arrêter le partage** à cet endroit, met fin à chaque affichage.
+
 ## Connexions directes
 
 Lorsque deux de vos propres appareils peuvent se joindre directement, sur le même réseau local ou

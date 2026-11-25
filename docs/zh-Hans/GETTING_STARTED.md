@@ -116,6 +116,12 @@ Claude Code、Copilot CLI 和 Antigravity CLI 即使由你手动启动也了解�
 - 若想在私有终端中复用你现有浏览器的登录状态，请在 **设置 › 浏览器** 中点击对应浏览器旁的 **复制**。点击 **移除** 可清除已复制的内容，点击 **全部移除** 则会清除所有私有终端中的登录信息与网站数据。在 macOS 上，如果系统限制访问某个浏览器的数据（例如 Safari），请点击该浏览器旁的 **允许…** 以授予“完全磁盘访问权限”。
 - 凡是有权访问该终端的人，都能查看它的画布并使用其共享浏览器。终端关闭后，画布内容会被清空，共享终端浏览器中的登录状态也会被丢弃。
 
+### Mac 的屏幕
+
+- 要从手机或另一台电脑查看并控制一台 Mac，请在那台 Mac 的 **设置 › 常规** 中打开 **允许我的其他设备查看和控制这台 Mac**。随后 macOS 会请你允许 Kodosi 的一部分 Kodosi Screen 录制并控制屏幕。只有 Kodosi Screen 拥有这些权限，终端中的程序不会获得它们。
+- 在那台 Mac 上某个终端的操作菜单中选择 **打开屏幕**，或让它的 Agent 运行 `kodosi show screen`。你可以在屏幕上方选择其他显示器或单个窗口，用双指捏合放大，像坐在 Mac 前一样指点、点击和输入。
+- 只有你自己的设备能看到屏幕，即使在与朋友共享的终端中也是如此。有人观看时，Mac 的菜单栏会显示是谁，并提供一个停止共享的按钮；停止后，直到 Mac 前的人再次打开之前，共享都保持关闭。
+
 ## 5. 问问 Dosi
 
 Dosi 是帮你统筹其他 Agent 的 Agent。点击侧边栏底部的 Dosi 头像（或按 ⌘J）即可打开。Dosi 基于 Claude Code 或 Codex 运行，你可以在 **设置 › Dosi** 中配置它所用的 Agent、账号、模型和推理强度。
@@ -191,7 +197,7 @@ Dosi 头像旁的状态栏会提示它是在工作中、已回复还是在等待
 | `kodosi terminal wait <terminal> --until done,failed` | 阻塞等待，直到终端进入指定的任意状态。 |
 | `kodosi terminal show <terminal>` | 在应用中聚焦并显示该终端。 |
 | `kodosi dosi say "What needs me?"` | 向 Dosi 发送消息。使用 `kodosi dosi show` 可输出对话内容，`kodosi dosi stop` 可取消当前轮次。 |
-| `kodosi show <file>` | 在当前终端的画布上打开文件，画布会为正在查看该终端的人打开。使用 `kodosi show <address>` 可在共享浏览器中打开网址，`kodosi show browser` 按当前状态唤出浏览器，`kodosi canvas` 列出画布内容，`kodosi canvas remove <file>` 移除指定文件。 |
+| `kodosi show <file>` | 在当前终端的画布上打开文件，画布会为正在查看该终端的人打开。使用 `kodosi show <address>` 可在共享浏览器中打开网址，`kodosi show browser` 按当前状态唤出浏览器，`kodosi show screen` 或 `kodosi show window <words>` 向电脑主人的设备显示它的屏幕，`kodosi canvas` 列出画布内容，`kodosi canvas remove <file>` 移除指定文件。 |
 | `kodosi browser open <address>` | 在当前终端的共享浏览器中打开网址（同样支持其他所有 agent-browser 命令）。 |
 | `kodosi skill` | 输出供 Agent 在 Kodosi 中协作使用的 skill；`kodosi skill canvas` 输出画布相关的 skill。 |
 | `kodosi dosi skill` | 输出让其他 Agent 充当 Dosi 的 skill。 |
