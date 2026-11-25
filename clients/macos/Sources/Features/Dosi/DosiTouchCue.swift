@@ -63,7 +63,7 @@ private struct DosiTouchCard: View {
     var body: some View {
         HStack(spacing: 8) {
             DosiFace(mood: tool.status == .running ? .working : .resting, size: 20, still: true)
-            Text(DosiWords.said(tool)).font(scaled: 11.5, design: .monospaced).foregroundStyle(theme.colors.ink)
+            Text(DosiWords.said(tool)).font(scaled: 11, design: .monospaced).foregroundStyle(theme.colors.ink)
                 .lineLimit(1).truncationMode(.middle).frame(maxWidth: 220, alignment: .leading).fixedSize()
                 .contentTransition(.interpolate)
         }

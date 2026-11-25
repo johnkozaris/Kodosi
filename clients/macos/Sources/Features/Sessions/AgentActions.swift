@@ -256,7 +256,7 @@ private struct FlyoutRow<Accessory: View>: View {
                 Image(systemName: icon).font(scaled: 12.5, weight: .semibold)
                     .foregroundStyle(caution ? theme.colors.caution : lit ? theme.colors.ink : theme.colors.inkMuted)
                     .frame(width: 18)
-                title.font(scaled: 12.5, weight: .medium).foregroundStyle(theme.colors.ink).lineLimit(1)
+                title.font(scaled: 13, weight: .medium).foregroundStyle(theme.colors.ink).lineLimit(1)
                 Spacer(minLength: 12)
                 if waits {
                     Image(systemName: "clock").font(scaled: 10, weight: .semibold).foregroundStyle(theme.colors.inkFaint)

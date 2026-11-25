@@ -47,7 +47,7 @@ struct PanelMenuRow<Trailing: View>: View {
                     }
                 }
                 .frame(width: 18)
-                title.font(scaled: 12.5, weight: .medium).foregroundStyle(titleColor).lineLimit(1)
+                title.font(scaled: 13, weight: .medium).foregroundStyle(titleColor).lineLimit(1)
                 Spacer(minLength: 8)
                 trailing()
             }

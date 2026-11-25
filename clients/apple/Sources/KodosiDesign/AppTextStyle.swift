@@ -45,7 +45,7 @@ public enum AppTextStyle: Sendable {
             case .headline: 15
             case .callout: 14
             case .subhead, .body: 13
-            case .mono: 12.5
+            case .mono: 12
             case .footnote: 12
             case .caption, .monoCaption: 11
             case .caption2: 10
